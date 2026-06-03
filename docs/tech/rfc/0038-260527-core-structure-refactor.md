@@ -990,7 +990,22 @@ to the current constraints, not just new writes. A record that fails validation 
 predates a newly added bound, say, or carries a now-invalid enum variant) is dropped
 from the migration rather than aborting it: the entry is skipped and not written back,
 so the table converges to only valid records. Drops are logged through the migration's
-instrumentation.
+instrumentation. The same drop-and-log treatment applies to a row that fails to
+`DecodeOrc` or whose `Migrate` step returns an error — startup migration runs unattended
+at boot, and aborting on a single bad row would take down the cluster.
+
+ImEx import (§4.4) deliberately does the opposite. A payload that fails `Decode`
+(corrupt bytes, unknown legacy semver), fails a `Migrate` step (incompatible legacy
+shape, bridge mismatch), or fails `Validate` at the write seam returns the error to the
+caller. Import is synchronous and interactive — the request originated outside the
+system, the caller is waiting on the HTTP response, and a silently dropped import would
+manifest as data loss on the next page refresh. The importer's `Import(ctx, tx, c, v,
+raw) (string, error)` (§4.4.3) propagates every error path; the registry surfaces it
+back to the transport layer, which returns it to the client.
+
+The two runners thus apply the same `Validate` method at the same write seam, but
+respond to failure in opposite directions: startup migration drops because no one is
+listening, import errors because someone is.
 
 ## 4.6 - Oracle Generator Changes
 
@@ -1120,12 +1135,22 @@ The `resolved` domain, numeric bounds, and enum-variant checks are declared in `
 schemas and generated, not hand-written per service — keeping the schema the single
 source of truth (RFC 0027).
 
-## 5.7 - Migration Validates and Drops Invalid Records
+## 5.7 - Startup Migration Drops Invalid Records; Import Returns the Error
 
-Migration re-runs `Validate` on every entry it writes back and drops any record that
-fails, rather than aborting the migration (§4.5.3). A constraint added to a schema is
-thus retroactively enforced against stored data, and records that cannot satisfy it are
-purged. This is deliberately lossy for invalid records; drops are logged.
+Startup-batch migration re-runs `Validate` on every entry it writes back and drops any
+record that fails, rather than aborting the migration (§4.5.3). A constraint added to a
+schema is thus retroactively enforced against stored data, and records that cannot
+satisfy it are purged. This is deliberately lossy for invalid records; drops are logged.
+**This drop-on-failure behavior applies only to the Gorp startup-batch runner**, which
+runs unattended at boot — aborting on a single bad row would take down the cluster and
+there is no caller to return the error to.
+
+ImEx import (§4.4) is interactive and does the opposite: any `Decode`, `Migrate`, or
+`Validate` failure propagates back through `Importer.Import` to the registry, the
+transport, and the HTTP client. Imports are synchronous requests with a waiting caller;
+a silently dropped import would manifest as data loss the next time the user opens the
+workspace. The same `Validate` method runs at the same seam — only the failure response
+differs.
 
 ## 5.8 - `Validate` Is a Required `gorp.Entry` Method
 
