@@ -480,12 +480,7 @@ var _ = Describe("Python Types Plugin", func() {
 					vals  float64[] = [1.5, 2.5]
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			resp, err := typesPlugin.Generate(&plugin.Request{Resolutions: table})
-			Expect(err).To(BeNil())
-
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`empty: list[float] = Field(default_factory=list)`))
 			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
