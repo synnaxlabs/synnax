@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 )
 
 var _ = Describe("Nodes", func() {
@@ -70,4 +71,29 @@ var _ = Describe("Nodes", func() {
 			}).To(Panic())
 		})
 	})
+})
+
+var _ = Describe("IsEntryNode", func() {
+	reads := func(key uint32) types.Channels {
+		return types.Channels{Read: map[uint32]string{key: "ch"}}
+	}
+	edgeInto := func(nodeKey string) ir.Edge {
+		return ir.Edge{Target: ir.Handle{Node: nodeKey, Param: ir.DefaultInputParam}}
+	}
+	DescribeTable(
+		"Classification",
+		func(node ir.Node, edges ir.Edges, expected bool) {
+			Expect(node.IsEntryNode(edges)).To(Equal(expected))
+		},
+		Entry("no incoming edges and no channel reads",
+			ir.Node{Key: "n"}, ir.Edges{}, true),
+		Entry("an incoming edge",
+			ir.Node{Key: "n"}, ir.Edges{edgeInto("n")}, false),
+		Entry("a channel read",
+			ir.Node{Key: "n", Channels: reads(1)}, ir.Edges{}, false),
+		Entry("both an incoming edge and a channel read",
+			ir.Node{Key: "n", Channels: reads(1)}, ir.Edges{edgeInto("n")}, false),
+		Entry("an edge that targets a different node",
+			ir.Node{Key: "n"}, ir.Edges{edgeInto("other")}, true),
+	)
 })
