@@ -9,12 +9,17 @@
 
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement, type ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { type ControlPosition, ReactFlowProvider } from "@xyflow/react";
+import { type FC, type ReactElement, type ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import { type Primitive } from "@/schematic/node/common/primitive";
+import { spec as circleSpec } from "@/schematic/node/general/circle/external";
+import { spec as polygonSpec } from "@/schematic/node/general/polygon/external";
+import { Theming } from "@/theming";
 
 const NODE_KEY = "n1";
 
@@ -27,6 +32,30 @@ const Wrap = ({ children }: { children: ReactNode }): ReactElement => (
     </div>
   </Haul.Provider>
 );
+
+interface SpyResizeControlProps {
+  position: ControlPosition;
+  keepAspectRatio?: boolean;
+  onResize?: (event: unknown, params: { width: number; height: number }) => void;
+}
+
+const { resizeControls } = vi.hoisted(() => ({
+  resizeControls: new Map<string, SpyResizeControlProps>(),
+}));
+
+// NodeResizeControl renders for real; the spy only records keepAspectRatio and
+// onResize so tests can invoke the resize callback the DOM does not expose.
+vi.mock("@xyflow/react", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  const Real = actual.NodeResizeControl as FC<SpyResizeControlProps>;
+  return {
+    ...actual,
+    NodeResizeControl: (props: SpyResizeControlProps): ReactElement => {
+      resizeControls.set(props.position, props);
+      return <Real {...props} />;
+    },
+  };
+});
 
 const slot = (container: HTMLElement, loc: location.Location): HTMLElement | null =>
   container.querySelector(`.pluto-grid__item.pluto--location-${loc}`);
@@ -142,5 +171,111 @@ describe("Label.Label as GridItem", () => {
         label: { label: "X", orientation: "right" },
       });
     });
+  });
+});
+
+interface ResizeTestConfig extends Label.LabeledConfig {
+  radius: number;
+}
+
+const Dummy: FC<Primitive.SVGBasedProps> = () => <div data-testid="dummy-symbol" />;
+
+const ResizeWrap = ({ children }: { children: ReactNode }): ReactElement => (
+  <ReactFlowProvider>
+    <Theming.Provider>
+      <Haul.Provider>
+        <div data-id={NODE_KEY}>{children}</div>
+      </Haul.Provider>
+    </Theming.Provider>
+  </ReactFlowProvider>
+);
+
+describe("Label.createLabeled resize wiring", () => {
+  beforeEach(() => resizeControls.clear());
+
+  it("should not render resize controls without an onResize override", () => {
+    const Node = Label.createLabeled<ResizeTestConfig>(Dummy);
+    render(
+      <ResizeWrap>
+        <Node
+          nodeKey={NODE_KEY}
+          selected
+          onConfigChange={vi.fn()}
+          config={{ radius: 10 }}
+        />
+      </ResizeWrap>,
+    );
+    expect(resizeControls.size).toBe(0);
+  });
+
+  it("should map a resize to a config patch through the onResize override", () => {
+    const onConfigChange = vi.fn();
+    const Node = Label.createLabeled<ResizeTestConfig>(Dummy, {
+      onResize: ({ width }) => ({ radius: width / 2 }),
+    });
+    render(
+      <ResizeWrap>
+        <Node
+          nodeKey={NODE_KEY}
+          selected
+          onConfigChange={onConfigChange}
+          config={{ radius: 10 }}
+        />
+      </ResizeWrap>,
+    );
+    resizeControls.get("right")?.onResize?.(null, { width: 40, height: 40 });
+    expect(onConfigChange).toHaveBeenCalledWith({ radius: 20 });
+  });
+
+  it("should forward a grid override such as keepAspectRatio to the controls", () => {
+    const Node = Label.createLabeled<ResizeTestConfig>(Dummy, {
+      grid: { keepAspectRatio: true },
+      onResize: ({ width }) => ({ radius: width }),
+    });
+    render(
+      <ResizeWrap>
+        <Node
+          nodeKey={NODE_KEY}
+          selected
+          onConfigChange={vi.fn()}
+          config={{ radius: 10 }}
+        />
+      </ResizeWrap>,
+    );
+    ["top", "right", "top-left", "bottom-right"].forEach((position) =>
+      expect(resizeControls.get(position)?.keepAspectRatio).toBe(true),
+    );
+  });
+
+  it("should resize a real circle by setting radius to half the width", () => {
+    const onConfigChange = vi.fn();
+    render(
+      <ResizeWrap>
+        <circleSpec.Node
+          nodeKey={NODE_KEY}
+          selected
+          onConfigChange={onConfigChange}
+          config={{ variant: "circle", radius: 20 }}
+        />
+      </ResizeWrap>,
+    );
+    resizeControls.get("right")?.onResize?.(null, { width: 50, height: 50 });
+    expect(onConfigChange).toHaveBeenCalledWith({ radius: 25 });
+  });
+
+  it("should resize a real polygon by setting sideLength to half the width", () => {
+    const onConfigChange = vi.fn();
+    render(
+      <ResizeWrap>
+        <polygonSpec.Node
+          nodeKey={NODE_KEY}
+          selected
+          onConfigChange={onConfigChange}
+          config={{ variant: "polygon", numSides: 6, sideLength: 20 }}
+        />
+      </ResizeWrap>,
+    );
+    resizeControls.get("right")?.onResize?.(null, { width: 30, height: 30 });
+    expect(onConfigChange).toHaveBeenCalledWith({ sideLength: 15 });
   });
 });

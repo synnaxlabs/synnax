@@ -10,15 +10,47 @@
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import {
+  type ControlPosition,
+  ReactFlowProvider,
+  ResizeControlVariant,
+} from "@xyflow/react";
+import {
+  type FC,
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
   useState,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
 import { Grid } from "@/schematic/node/common/grid";
+
+interface SpyResizeControlProps {
+  position: ControlPosition;
+  variant?: ResizeControlVariant;
+  keepAspectRatio?: boolean;
+  onResize?: (event: unknown, params: { width: number; height: number }) => void;
+}
+
+const { resizeControls } = vi.hoisted(() => ({
+  resizeControls: new Map<string, SpyResizeControlProps>(),
+}));
+
+// NodeResizeControl renders for real, so its positions, variants, and gating are
+// asserted on the DOM; the spy only records keepAspectRatio and onResize, which the
+// DOM does not reflect.
+vi.mock("@xyflow/react", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  const Real = actual.NodeResizeControl as FC<SpyResizeControlProps>;
+  return {
+    ...actual,
+    NodeResizeControl: (props: SpyResizeControlProps): ReactElement => {
+      resizeControls.set(props.position, props);
+      return <Real {...props} />;
+    },
+  };
+});
 
 const NODE_KEY = "node-1";
 
@@ -511,5 +543,116 @@ describe("Grid drag-and-drop", () => {
       screenY: 10,
     });
     expect(onMoveX).not.toHaveBeenCalled();
+  });
+});
+
+describe("Grid resize controls", () => {
+  const EDGES = ["top", "right", "bottom", "left"];
+  const CORNERS = ["top-left", "top-right", "bottom-left", "bottom-right"];
+
+  const ResizableHost = ({
+    editable = true,
+    onResize,
+    keepAspectRatio,
+  }: Partial<Grid.GridProps>): ReactElement => (
+    <ReactFlowProvider>
+      <Haul.Provider>
+        <div data-id={NODE_KEY}>
+          <Grid.Grid
+            editable={editable}
+            nodeKey={NODE_KEY}
+            onResize={onResize}
+            keepAspectRatio={keepAspectRatio}
+          >
+            <div>body</div>
+          </Grid.Grid>
+        </div>
+      </Haul.Provider>
+    </ReactFlowProvider>
+  );
+
+  const controlEls = (c: HTMLElement) =>
+    c.querySelectorAll<HTMLElement>(".react-flow__resize-control");
+  const hasControl = (c: HTMLElement, ...classes: string[]) =>
+    Array.from(controlEls(c)).some((el) =>
+      classes.every((cl) => el.classList.contains(cl)),
+    );
+
+  beforeEach(() => resizeControls.clear());
+
+  describe("render gating", () => {
+    it("should render no controls when the node is not editable", () => {
+      const { container } = render(
+        <ResizableHost editable={false} onResize={vi.fn()} />,
+      );
+      expect(controlEls(container)).toHaveLength(0);
+    });
+
+    it("should render no controls when no onResize handler is provided", () => {
+      const { container } = render(<ResizableHost />);
+      expect(controlEls(container)).toHaveLength(0);
+    });
+
+    it("should render eight controls when editable and resizable", () => {
+      const { container } = render(<ResizableHost onResize={vi.fn()} />);
+      expect(controlEls(container)).toHaveLength(8);
+    });
+  });
+
+  describe("control rendering", () => {
+    it("should render each edge as a line-variant control at its position", () => {
+      const { container } = render(<ResizableHost onResize={vi.fn()} />);
+      EDGES.forEach((edge) =>
+        expect(hasControl(container, edge, ResizeControlVariant.Line)).toBe(true),
+      );
+    });
+
+    it("should render each corner as a handle-variant control at its position", () => {
+      const { container } = render(<ResizableHost onResize={vi.fn()} />);
+      CORNERS.forEach((corner) => {
+        const [vertical, horizontal] = corner.split("-");
+        expect(
+          hasControl(container, vertical, horizontal, ResizeControlVariant.Handle),
+        ).toBe(true);
+      });
+    });
+  });
+
+  describe("aspect ratio", () => {
+    it("should lock the corners but not the edges by default", () => {
+      render(<ResizableHost onResize={vi.fn()} />);
+      CORNERS.forEach((corner) =>
+        expect(resizeControls.get(corner)?.keepAspectRatio).toBe(true),
+      );
+      EDGES.forEach((edge) =>
+        expect(resizeControls.get(edge)?.keepAspectRatio).toBeFalsy(),
+      );
+    });
+
+    it("should lock every control when keepAspectRatio is set", () => {
+      render(<ResizableHost keepAspectRatio onResize={vi.fn()} />);
+      [...EDGES, ...CORNERS].forEach((position) =>
+        expect(resizeControls.get(position)?.keepAspectRatio).toBe(true),
+      );
+    });
+  });
+
+  describe("dimension forwarding", () => {
+    it("should round fractional dimensions before forwarding them", () => {
+      const onResize = vi.fn();
+      render(<ResizableHost onResize={onResize} />);
+      resizeControls.get("right")?.onResize?.(null, { width: 120.6, height: 80.4 });
+      expect(onResize).toHaveBeenCalledTimes(1);
+      expect(onResize).toHaveBeenCalledWith({ width: 121, height: 80 });
+    });
+
+    it("should forward rounded dimensions from a corner control", () => {
+      const onResize = vi.fn();
+      render(<ResizableHost onResize={onResize} />);
+      resizeControls
+        .get("bottom-right")
+        ?.onResize?.(null, { width: 50.5, height: 50.49 });
+      expect(onResize).toHaveBeenCalledWith({ width: 51, height: 50 });
+    });
   });
 });
