@@ -7,35 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@synnaxlabs/client";
 import { type Channel } from "@synnaxlabs/pluto";
 
-import {
-  type MultiXAxisRecord,
-  X_AXIS_KEYS,
-  type XAxisKey,
-  type YAxisKey,
-} from "@/lineplot/axis";
 import { type State, typedLineKeyToString } from "@/lineplot/slice";
 import { type Range } from "@/range";
 
 export const buildLines = (
   vis: State,
-  sug: MultiXAxisRecord<Range.Range>,
+  sug: Record<lineplot.XAxisKey, Range.Range[]>,
 ): Array<Channel.LineProps & { key: string }> =>
   Object.entries(sug).flatMap(([xAxis, ranges]) =>
     ranges.flatMap((range) =>
       Object.entries(vis.channels)
-        .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
+        .filter(([axis]) => !lineplot.X_AXIS_KEYS.includes(axis as lineplot.XAxisKey))
         .flatMap(([yAxis, yChannels]) => {
-          const xChannel = vis.channels[xAxis as XAxisKey];
+          const xChannel = vis.channels[xAxis as lineplot.XAxisKey];
           const variantArg =
             range.variant === "dynamic"
               ? { variant: "dynamic", timeSpan: range.span }
               : { variant: "static", timeRange: range.timeRange };
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
-              xAxis: xAxis as XAxisKey,
-              yAxis: yAxis as YAxisKey,
+              xAxis: xAxis as lineplot.XAxisKey,
+              yAxis: yAxis as lineplot.YAxisKey,
               range: range.key,
               channels: { x: xChannel, y: channel },
             });

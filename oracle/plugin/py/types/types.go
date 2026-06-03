@@ -801,9 +801,40 @@ func collectValidation(
 				variantRef := enumVariantToPython(ev, table, data)
 				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
 			}
+		case resolution.ValueKindArray:
+			// Lists are mutable, so they must use default_factory, never default=.
+			if len(defaultVal.Elements) == 0 {
+				constraints = append(constraints, "default_factory=list")
+			} else {
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyArrayLiteral(defaultVal.Elements)))
+			}
 		}
 	}
 	return constraints
+}
+
+// pyArrayLiteral renders an array default's elements as a Python list literal.
+func pyArrayLiteral(elements []resolution.ExpressionValue) string {
+	parts := make([]string, 0, len(elements))
+	for _, el := range elements {
+		switch el.Kind {
+		case resolution.ValueKindString:
+			parts = append(parts, fmt.Sprintf("%q", el.StringValue))
+		case resolution.ValueKindInt:
+			parts = append(parts, fmt.Sprintf("%d", el.IntValue))
+		case resolution.ValueKindFloat:
+			parts = append(parts, fmt.Sprintf("%f", el.FloatValue))
+		case resolution.ValueKindBool:
+			if el.BoolValue {
+				parts = append(parts, "True")
+			} else {
+				parts = append(parts, "False")
+			}
+		case resolution.ValueKindIdent:
+			parts = append(parts, el.IdentValue)
+		}
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {

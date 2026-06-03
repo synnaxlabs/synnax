@@ -32,7 +32,6 @@ describe("lineplot queries", () => {
       });
       const plot = await client.lineplots.create(workspace.key, {
         name: "retrieve_test",
-        data: {},
       });
 
       const { result } = renderHook(() => LinePlot.useRetrieve({ key: plot.key }), {
@@ -52,7 +51,6 @@ describe("lineplot queries", () => {
       });
       const plot = await client.lineplots.create(workspace.key, {
         name: "cached_plot",
-        data: {},
       });
 
       const { result: result1 } = renderHook(
@@ -85,7 +83,6 @@ describe("lineplot queries", () => {
           key,
           workspace: workspace.key,
           name: "created_plot",
-          data: {},
         });
       });
 
@@ -113,7 +110,6 @@ describe("lineplot queries", () => {
           key,
           workspace: workspace.key,
           name: "stored_plot",
-          data: {},
         });
       });
 
@@ -134,7 +130,6 @@ describe("lineplot queries", () => {
       });
       const plot = await client.lineplots.create(workspace.key, {
         name: "original_name",
-        data: {},
       });
 
       const { result } = renderHook(
@@ -167,7 +162,6 @@ describe("lineplot queries", () => {
       });
       const plot = await client.lineplots.create(workspace.key, {
         name: "cache_original",
-        data: {},
       });
 
       const { result } = renderHook(
@@ -200,7 +194,6 @@ describe("lineplot queries", () => {
       });
       const plot = await client.lineplots.create(workspace.key, {
         name: "delete_single",
-        data: {},
       });
 
       const { result } = renderHook(() => LinePlot.useDelete(), { wrapper });
@@ -221,11 +214,9 @@ describe("lineplot queries", () => {
       });
       const plot1 = await client.lineplots.create(workspace.key, {
         name: "delete_multi_1",
-        data: {},
       });
       const plot2 = await client.lineplots.create(workspace.key, {
         name: "delete_multi_2",
-        data: {},
       });
 
       const { result } = renderHook(() => LinePlot.useDelete(), { wrapper });

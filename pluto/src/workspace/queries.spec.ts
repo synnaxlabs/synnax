@@ -417,10 +417,7 @@ describe("queries", () => {
         name: "My Log",
         data: {},
       });
-      await client.lineplots.create(ws.key, {
-        name: "My Plot",
-        data: {},
-      });
+      await client.lineplots.create(ws.key, { name: "My Plot" });
 
       const { result } = renderHook(
         () =>
@@ -447,10 +444,7 @@ describe("queries", () => {
         ...schematic.ZERO_NEW,
         name: "Source Schematic",
       });
-      const lp = await client.lineplots.create(ws.key, {
-        name: "A Plot",
-        data: {},
-      });
+      const lp = await client.lineplots.create(ws.key, { name: "A Plot" });
       const t1 = await client.tables.create(ws.key, { name: "A Table" });
       const l1 = await client.logs.create(ws.key, {
         name: "A Log",
@@ -488,10 +482,7 @@ describe("queries", () => {
         ...schematic.ZERO_NEW,
         name: "Other Schematic",
       });
-      const lp = await client.lineplots.create(ws.key, {
-        name: "Plot",
-        data: {},
-      });
+      const lp = await client.lineplots.create(ws.key, { name: "Plot" });
       const t1 = await client.tables.create(ws.key, { name: "Table" });
       const l1 = await client.logs.create(ws.key, {
         name: "Log",
@@ -669,14 +660,8 @@ describe("queries", () => {
         ...schematic.ZERO_NEW,
         name: "WS2 Schematic",
       });
-      const lp1 = await client.lineplots.create(ws1.key, {
-        name: "WS1 Plot",
-        data: {},
-      });
-      await client.lineplots.create(ws2.key, {
-        name: "WS2 Plot",
-        data: {},
-      });
+      const lp1 = await client.lineplots.create(ws1.key, { name: "WS1 Plot" });
+      await client.lineplots.create(ws2.key, { name: "WS2 Plot" });
 
       const { result } = renderHook(
         () =>

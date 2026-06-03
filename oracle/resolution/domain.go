@@ -70,4 +70,6 @@ type ExpressionValue struct {
 	FloatValue  float64
 	Kind        ValueKind
 	BoolValue   bool
+	// Elements holds the ordered element values when Kind is ValueKindArray.
+	Elements []ExpressionValue
 }
