@@ -76,18 +76,15 @@ export const Fallback = ({
         if (!cancelled) setResolved(r);
       })
       .catch((cause: unknown) => {
-        // Keep the raw stack on display rather than crashing the error UI, but surface
-        // the failure: silently swallowing here masks broken source-map deploys
-        // (missing maps, gzip middleware issues, etc.).
-        console.warn("Fallback: source-map resolution failed", cause);
+        console.warn("Fallback: unexpected source-map resolution failure", cause);
       });
     return () => {
       cancelled = true;
     };
   }, [error, componentStack]);
 
-  const displayStack = resolved?.stack ?? error.stack ?? null;
-  const displayComponentStack = resolved?.componentStack ?? componentStack ?? null;
+  const displayStack = resolved?.stack || error.stack || null;
+  const displayComponentStack = resolved?.componentStack || componentStack || null;
 
   const getCopyText = useCallback(() => {
     const sections: string[] = [];

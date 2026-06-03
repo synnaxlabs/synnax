@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveStack } from "@/errors/resolveStack";
 
@@ -16,8 +16,15 @@ const { fromError } = vi.hoisted(() => ({ fromError: vi.fn() }));
 vi.mock("stacktrace-js", () => ({ default: { fromError } }));
 
 describe("resolveStack", () => {
+  let warnSpy: ReturnType<typeof vi.spyOn>;
+
   beforeEach(() => {
     fromError.mockReset();
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
   });
 
   it("resolves both error and component stacks into formatted source-mapped frames", async () => {
@@ -73,11 +80,58 @@ describe("resolveStack", () => {
     expect(result.componentStack).toBeNull();
   });
 
-  it("rejects when stacktrace-js throws so the caller can surface the failure", async () => {
+  it("falls back to raw stacks and warns when stacktrace-js throws for both legs", async () => {
     fromError.mockRejectedValue(new Error("parse failed"));
-    await expect(resolveStack(new Error("boom"), "anything")).rejects.toThrow(
-      "parse failed",
-    );
+    const error = new Error("boom");
+    error.stack = "RAW_ERROR_STACK";
+    const result = await resolveStack(error, "RAW_COMPONENT_STACK");
+    expect(result.stack).toBe("RAW_ERROR_STACK");
+    expect(result.componentStack).toBe("RAW_COMPONENT_STACK");
+    expect(warnSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves the resolved component stack when only the error leg fails", async () => {
+    const error = new Error("boom");
+    error.stack = "ERROR_STACK";
+    fromError.mockImplementation(async (err: Error) => {
+      if (err.stack === "ERROR_STACK") throw new Error("error leg failed");
+      if (err.stack === "COMPONENT_STACK")
+        return [
+          {
+            functionName: "Comp",
+            fileName: "console/src/foo.tsx",
+            lineNumber: 5,
+            columnNumber: 2,
+          },
+        ];
+      throw new Error(`unexpected stack: ${err.stack}`);
+    });
+    const result = await resolveStack(error, "COMPONENT_STACK");
+    expect(result.stack).toBe("ERROR_STACK");
+    expect(result.componentStack).toBe("  at Comp (console/src/foo.tsx:5:2)");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves the resolved error stack when only the component leg fails", async () => {
+    const error = new Error("boom");
+    error.stack = "ERROR_STACK";
+    fromError.mockImplementation(async (err: Error) => {
+      if (err.stack === "ERROR_STACK")
+        return [
+          {
+            functionName: "decode",
+            fileName: "client/ts/src/channel/payload.ts",
+            lineNumber: 42,
+            columnNumber: 8,
+          },
+        ];
+      if (err.stack === "COMPONENT_STACK") throw new Error("component leg failed");
+      throw new Error(`unexpected stack: ${err.stack}`);
+    });
+    const result = await resolveStack(error, "COMPONENT_STACK");
+    expect(result.stack).toBe("  at decode (client/ts/src/channel/payload.ts:42:8)");
+    expect(result.componentStack).toBe("COMPONENT_STACK");
+    expect(warnSpy).toHaveBeenCalledTimes(1);
   });
 
   it("formats frames missing function names as <anonymous>", async () => {

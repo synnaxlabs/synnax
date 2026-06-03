@@ -18,19 +18,27 @@ export interface ResolvedStack {
  * Resolves the source-map-mapped form of an Error's stack and (optionally) its React
  * component stack into clean, human-readable text.
  *
- * Throws if stacktrace-js cannot resolve either stack (e.g. source maps unavailable,
- * parser cannot recognize the stack format). Callers are expected to handle the
- * rejection and fall back to the raw strings — surfacing the underlying failure is the
- * caller's responsibility, since "resolution failed silently" would mask real
- * deployment problems (missing maps, broken middleware, etc.).
+ * Each leg is resolved independently: if stacktrace-js cannot resolve a leg (e.g. source
+ * maps unavailable, parser cannot recognize the stack format), that leg degrades to its
+ * raw input and a warning is surfaced via console.warn, while the other leg's resolved
+ * output is preserved. Silently swallowing would mask real deployment problems (missing
+ * maps, broken middleware, etc.), so failures are always logged.
  */
 export const resolveStack = async (
   error: Error,
   componentStack: string | null,
 ): Promise<ResolvedStack> => {
   const [stack, resolvedComponentStack] = await Promise.all([
-    resolveFromStack(error),
-    componentStack != null ? resolveFromComponentStack(componentStack) : null,
+    resolveFromStack(error).catch((cause: unknown) => {
+      console.warn("resolveStack: failed to resolve error stack", cause);
+      return error.stack ?? "";
+    }),
+    componentStack != null
+      ? resolveFromComponentStack(componentStack).catch((cause: unknown) => {
+          console.warn("resolveStack: failed to resolve component stack", cause);
+          return componentStack;
+        })
+      : null,
   ]);
   return { stack, componentStack: resolvedComponentStack };
 };

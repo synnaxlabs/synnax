@@ -328,7 +328,7 @@ describe("Fallback", () => {
         expect(warnSpy).toHaveBeenCalledTimes(1);
       });
       const [message, cause] = warnSpy.mock.calls[0];
-      expect(message).toBe("Fallback: source-map resolution failed");
+      expect(message).toBe("resolveStack: failed to resolve error stack");
       expect(cause).toBeInstanceOf(Error);
       expect((cause as Error).message).toBe("no maps in test env");
     });
