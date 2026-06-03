@@ -23,7 +23,7 @@ import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSelect } from "@/lineplot/selectors";
+import { useSelect, useSelectAxis } from "@/lineplot/selectors";
 import { type AxisState, setAxis, shouldDisplayAxis } from "@/lineplot/slice";
 
 export interface AxesProps {
@@ -91,7 +91,7 @@ export const LinePlotAxisControls = ({
   layoutKey,
 }: LinePlotAxisControlsProps): ReactElement => {
   const dispatch = useDispatch();
-  const axis = useSelect(layoutKey).axes.axes[axisKey];
+  const axis = useSelectAxis(layoutKey, axisKey);
 
   const handleChange = (axis: AxisState): void => {
     dispatch(setAxis({ key: layoutKey, axisKey, axis }));

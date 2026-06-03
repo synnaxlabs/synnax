@@ -191,14 +191,22 @@ func (s *Server) Logger() *zap.Logger {
 	return s.cfg.L.Zap()
 }
 
-// getDocument retrieves a document from the server's cache by URI.
-// Returns the document and true if found, or nil and false if not found.
-// This method is thread-safe.
+// getDocument returns an immutable snapshot of the document with the given URI,
+// and true if found, or nil and false if not found. The returned *Document is a
+// copy taken under the read lock, so callers may read its fields (IR, Content,
+// Diagnostics, ...) without further locking: analysis replaces these fields on
+// the live document under the write lock, and a reader holding the snapshot is
+// unaffected. Callers must not mutate the returned document — writes do not
+// reach the live document and would be lost.
 func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	doc, ok := s.documents[uri]
-	return doc, ok
+	if !ok {
+		return nil, false
+	}
+	snapshot := *doc
+	return &snapshot, true
 }
 
 // Initialize handles the initialize request

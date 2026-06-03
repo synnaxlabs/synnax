@@ -1,4 +1,4 @@
-# 37 - Action-Based Undo and Redo
+# 40 - Action-Based Undo and Redo
 
 **Feature Name**: Action-Based Undo and Redo <br /> **Status**: Implemented <br />
 **Start Date**: 2026-05-08 <br /> **Authors**: Emiliano Bonilla <br />

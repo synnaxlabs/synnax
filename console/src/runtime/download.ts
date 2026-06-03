@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Status } from "@synnaxlabs/pluto";
+import { errors } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 
@@ -84,7 +85,7 @@ export const downloadStream = async ({
         await stream.cancel();
         return;
       }
-      throw error;
+      throw errors.fromUnknown(error);
     }
   // Case 2: we use Tauri's stream writer, where at least we don't have to load
   // everything into memory.
