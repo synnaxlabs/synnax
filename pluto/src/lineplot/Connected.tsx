@@ -217,7 +217,6 @@ const YAxis = ({
       location={location}
       axisKey={axisKey}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
-      onAutoBoundsChange={(bounds) => onAxisChange({ key: axisKey, bounds })}
       onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
     >
       {lines
@@ -261,7 +260,6 @@ const XAxis = ({
       axisKey={axisKey}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       showGrid={showGrid ?? index === 0}
-      onAutoBoundsChange={(bounds) => onAxisChange({ key: axisKey, bounds })}
       onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
     >
       {yAxes.map((ya, j) => (
@@ -458,17 +456,8 @@ export const LinePlot = ({
     (a: AxisChange) => {
       if (!isAxisKey(a.key)) return;
       const existing = axes[a.key];
-      if (existing == null) return;
-      const next: lineplot.Axis = {
-        ...existing,
-        key: a.key,
-        ...(a.bounds != null
-          ? {
-              bounds: { lower: Number(a.bounds.lower), upper: Number(a.bounds.upper) },
-            }
-          : {}),
-        ...(a.label != null ? { label: a.label } : {}),
-      };
+      if (existing == null || a.label == null) return;
+      const next: lineplot.Axis = { ...existing, key: a.key, label: a.label };
       dispatch({ key, actions: [lineplot.setAxis({ axis: next })] });
     },
     [dispatch, key, axes],
