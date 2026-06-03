@@ -21,7 +21,7 @@ INDEX_NAME = "button_idx"
 # list guards every option the user can pick.
 EDGE_VARIANTS = [
     "Pipe",
-    "Electric Signal",
+    "Electrical",
     "Secondary",
     "Jacketed",
     "Hydraulic",
@@ -269,10 +269,6 @@ class EditProps(ConsoleCase):
             schematic.select_edge(source, "right", target, "left")
             schematic.set_edge_variant(variant)
 
-            applied = schematic.get_edge_variant()
-            assert applied == variant, (
-                f"Edge variant did not apply! Actual: {applied}, Expected: {variant}"
-            )
             # A variant whose key is missing from the registry throws during render
             # and the error boundary tears down the graph view, dropping the node
             # and edge elements. Their continued presence proves no crash occurred.
@@ -283,6 +279,11 @@ class EditProps(ConsoleCase):
             assert schematic.get_symbol_count() == 2, (
                 f"Schematic crashed after switching edge to {variant}: "
                 "symbols no longer rendered"
+            )
+
+            applied = schematic.get_edge_variant()
+            assert applied == variant, (
+                f"Edge variant did not apply! Actual: {applied}, Expected: {variant}"
             )
 
         source.delete()
