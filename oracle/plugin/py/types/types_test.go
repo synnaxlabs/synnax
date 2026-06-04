@@ -541,6 +541,81 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")`))
 		})
 
+		It("Should render every scalar value kind inside an object-literal default", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Cfg struct {
+					s string
+					i int32
+					f float64
+					t bool
+					ff bool
+				}
+
+				Item struct {
+					cfg Cfg = {
+						s  "hi",
+						i  42,
+						f  1.5,
+						t  true,
+						ff false
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "item", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`s="hi"`))
+			Expect(content).To(ContainSubstring(`i=42`))
+			Expect(content).To(ContainSubstring(`f=1.500000`))
+			Expect(content).To(ContainSubstring(`t=True`))
+			Expect(content).To(ContainSubstring(`ff=False`))
+		})
+
+		It("Should fall back to an empty string for non-scalar nested values in a Python struct default", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Level enum {
+					high = "high"
+				}
+
+				Cfg struct {
+					level Level
+				}
+
+				Item struct {
+					cfg Cfg = { level Level.high }
+				}
+			`
+			resp := MustGenerate(ctx, source, "item", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`level=""`))
+		})
+
+		It("Should omit a struct default whose type lives in another namespace", func(ctx SpecContext) {
+			loader.Add("schemas/external", `
+				@py output "out_ext"
+
+				TimestampConfig struct {
+					format string
+				}
+			`)
+			source := `
+				import "schemas/external"
+
+				@py output "out"
+
+				Item struct {
+					timestamp external.TimestampConfig = { format "preciseDate" }
+				}
+			`
+			resp := MustGenerate(ctx, source, "item", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).ToNot(ContainSubstring(`default_factory=lambda: TimestampConfig`))
+			Expect(content).ToNot(ContainSubstring(`default_factory=lambda: external.TimestampConfig`))
+		})
+
 		It("Should generate class inheritance for basic struct extension", func(ctx SpecContext) {
 			source := `
 				@py output "out"

@@ -171,6 +171,48 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default({ format: "preciseDate", tz: "local" })`)
 	})
 
+	It("Should render every scalar value kind inside an object-literal default", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Level enum {
+				high = "high"
+			}
+
+			Inner struct {
+				label string
+			}
+
+			Cfg struct {
+				s     string
+				i     int32
+				f     float64
+				b     bool
+				inner Inner
+				level Level
+			}
+
+			Item struct {
+				cfg Cfg = {
+					s     "hi",
+					i     42,
+					f     1.5,
+					b     true,
+					inner { label "deep" },
+					level Level.high
+				}
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`s: "hi"`))
+		Expect(content).To(ContainSubstring(`i: 42`))
+		Expect(content).To(ContainSubstring(`f: 1.500000`))
+		Expect(content).To(ContainSubstring(`b: true`))
+		Expect(content).To(ContainSubstring(`inner: { label: "deep" }`))
+		Expect(content).To(ContainSubstring(`level: Level.high`))
+	})
+
 	It("Should emit id.create() default for string keys with create ident", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
