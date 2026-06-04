@@ -79,7 +79,13 @@ unified `[]Argument` view.
 # 2 - Non-Goals
 
 - **User-facing Arc syntax.** `name(...)`, `name{...}`, and `wire -> name{...}` parse,
-  analyze, and run identically. The grammar is untouched.
+  analyze, and run identically; the grammar is untouched. This is a deliberate scope
+  limit, not a punt: the goal here is parity at the type level, and holding the surface
+  fixed keeps the change non-breaking for customers and bounds the test churn to the
+  refactor itself rather than a grammar migration layered on top of an already large
+  diff. Which bracket should mean what in the long term is the natural next decision,
+  explored but deliberately not taken in
+  [Section 8.2](#82---higher-order-functions-and-the-syntax-question).
 - **The trigger-as-argument feature.** `{message: incoming_ch} -> status.set(...)` is
   out of scope. This RFC only lands the structural foundation it will sit on. A
   follow-on RFC will specify the grammar and analyzer for the override.
@@ -780,7 +786,9 @@ construct `ir.Node` / `ir.Function` payloads with a `config:` literal.
 # 8 - Future Work
 
 This RFC lands the structural foundation. Two features become substantially easier to
-implement on top of it. A separate RFC will specify each.
+implement on top of it, and a separate RFC will specify each (Sections 8.0 and 8.1).
+Section 8.2 addresses where higher-order functions fit, and Section 8.3 records the
+long-term topics this refactor deliberately leaves untouched, and why.
 
 ## 8.0 - Trigger-as-Argument Syntax
 
@@ -878,6 +886,95 @@ code site instead of two, one analyzer pass instead of two.
 This is a concrete second beneficiary of the refactor, separate from
 trigger-as-argument: the same structural simplification that opens the door to
 wire-bound args also opens the door to optional args with default values.
+
+## 8.2 - Higher-Order Functions and the Syntax Question
+
+Higher-order functions are unaffected by this refactor, since the goal is the parity
+tenet, not the choice of syntax. Unifying `Config` and `Inputs` is a statement at the
+type level (a function has one parameter list); it deliberately takes no position on
+which surface bracket spells which kind of binding. Collapsing the two brackets
+forecloses nothing about higher-order functions: that decision is left fully open, and
+the unified model makes it cleaner to revisit, not harder.
+
+One direction the unified model leaves room for is to standardize `()` for a function's
+ordinary inputs and `{}` for an upstream-trigger binding, so that `{}` reads as
+"trigger." Under that convention the two forms below are equivalent:
+
+```arc
+a -> f(b) -> output
+{a} -> f(b) -> output
+f{a}(b) -> output
+```
+
+A function takes its inputs through `()` and may accept any input type, higher-order
+functions included; the `{}` form supplies the wire-bound trigger. A reusable
+supervisor, written once and reused across signals with a different classifier each
+time, shows the shape:
+
+```go
+// `value` is the trigger (wire-fed); `severity` (a function) and `limit`
+// are ordinary inputs, fixed when the graph is built.
+func limit_status{value f32}(severity fn(f32) string, limit f32) string {
+    if value <= limit { return "ok" }
+    return severity(value - limit)
+}
+
+// Plain f32 -> string classifiers (Pressure)
+func pressure_severity(excess f32) string {
+    if excess > 65.0 { return "emergency" }
+    if excess > 60.0  { return "severe" }
+    if excess > 55.0  { return "caution" }
+    return "elevated"
+}
+line_psi -> limit_status(pressure_severity, 50) -> line_status
+tank_psi -> limit_status(pressure_severity, 50) -> tank_status
+
+// Plain f32 -> string classifiers (Temperature)
+func temp_severity(excess f32) string {
+    if excess > 445 { return "emergency" }
+    if excess > 430 { return "severe" }
+    if excess > 415 { return "warning" }
+    return "elevated"
+}
+chamber_temp_1 -> limit_status(temp_severity, 400) -> chamber_status_1
+chamber_temp_2 -> limit_status(temp_severity, 400) -> chamber_status_2
+chamber_temp_N -> limit_status(temp_severity, 400) -> chamber_status_N
+
+```
+
+These are illustrative, not a commitment: this RFC ships the parity foundation, and a
+separate RFC picks the surface syntax.
+
+## 8.3 - Topics Deliberately Not Considered
+
+A topic belongs in the future work above only if the Config/Input unification **opens,
+closes, or constrains a door** for it. The topics below do not: the refactor leaves each
+exactly as it found it, so each is the concern of a different RFC, if any. They are
+listed here only to answer why a function-call refactor does not reach them, not for any
+lack of merit:
+
+- **Removing stateful variables.** An execution-model concern (persistence of values
+  across reactive firings), orthogonal to how a call's parameters are bound. A
+  non-trigger param is "held" across firings today and stays held after the refactor;
+  the mechanism is untouched.
+- **For-loops and other statement-level control flow.** This lives in the grammar above
+  the call expression, where the parameter-binding collapse never reaches.
+- **Global variables.** A scoping and lifetime question, independent of function
+  signatures.
+- **Error handling and propagation.** Whether a function can fail, and how that failure
+  surfaces (a panic, a `Result`-style return, propagation up the flow graph), is an
+  execution-and-return concern. It is decided after arguments are bound, so the shape of
+  the parameter list never reaches it.
+- **Generic, type-parameterized functions.** Abstracting a function over the types of
+  its params is a type-system feature. The unification changes how many lists a
+  signature carries, not how the types within it are resolved; type-variable inference
+  is neither simplified nor obstructed by the collapse.
+
+## Claude scratch pad
+
+```arc
+
+```
 
 # 9 - Change Footprint
 
