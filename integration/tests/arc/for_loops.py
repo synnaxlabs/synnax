@@ -439,11 +439,11 @@ class ForLoops(ArcCase):
             self.wait_for_eq(case.out_ch, case.expected)
 
         self.log("[loop_write] Verifying channel write inside loop body")
-        self.wait_for_near("loop_counter", 5.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("loop_counter", 5.0, tolerance=0.01)
 
         self.log("[sum_all] Waiting for series sum == 11.4")
-        self.wait_for_near("series_sum_all", 11.4, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("series_sum_all", 11.4, tolerance=0.01)
 
         self.log("[find_peak] Waiting for peak_idx == 3, peak_val == 9.8")
-        self.wait_for_eq("series_peak_idx", 3, is_virtual=True)
-        self.wait_for_near("series_peak_val", 9.8, tolerance=0.01, is_virtual=True)
+        self.wait_for_eq("series_peak_idx", 3)
+        self.wait_for_near("series_peak_val", 9.8, tolerance=0.01)

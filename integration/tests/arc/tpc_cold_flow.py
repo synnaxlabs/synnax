@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from examples.simulators import TPCSimDAQ
+
+import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
 
@@ -92,7 +93,7 @@ sequence main {
         1 -> tpc_vent_trigger
         0 -> tpc_mpv_trigger
         2 -> tpc_stage
-        press_pt_1 > 200 => ox_press
+        press_pt_1 > 120 => ox_press
     }
 
     stage ox_press {
@@ -114,7 +115,7 @@ sequence main {
         1 -> tpc_vent_trigger
         0 -> tpc_mpv_trigger
         4 -> tpc_stage
-        fuel_pt_1 > 50 => hold
+        fuel_pt_1 > 25 => hold
     }
 
     stage hold {
@@ -122,7 +123,7 @@ sequence main {
         1 -> tpc_vent_trigger
         0 -> tpc_mpv_trigger
         5 -> tpc_stage
-        wait{2s} => fire
+        wait{1s} => fire
     }
 
     stage fire {
@@ -130,7 +131,7 @@ sequence main {
         1 -> tpc_vent_trigger
         1 -> tpc_mpv_trigger
         6 -> tpc_stage
-        wait{1s} => shutdown
+        wait{500ms} => shutdown
     }
 
     stage shutdown {
@@ -182,11 +183,11 @@ class TPCColdFlow(ArcCase):
     Sequence Stages:
     - idle: Waits for start_tpc_cmd == 1 to begin
     - precheck: Closes vents, verifies initial state
-    - press_charge: Charges press tank via gas booster (until press_pt_1 > 200)
+    - press_charge: Charges press tank via gas booster (until press_pt_1 > 120)
     - ox_press: Pressurizes OX tank (until ox_pt_1 > 50)
-    - fuel_press: Pressurizes FUEL tank (until fuel_pt_1 > 50)
-    - hold: Maintains pressure for 2 seconds
-    - fire: Opens MPVs for 1 second (simulated firing)
+    - fuel_press: Pressurizes FUEL tank (until fuel_pt_1 > 25)
+    - hold: Maintains pressure for 1 second
+    - fire: Opens MPVs for 0.5 seconds (simulated firing)
     - shutdown: Vents tanks (until ox_pt_1 < 5 and fuel_pt_1 < 5)
     - safe: Sequence complete, waits for start_tpc_cmd == 0 to return to idle
 

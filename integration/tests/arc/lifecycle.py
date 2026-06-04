@@ -156,19 +156,19 @@ class Lifecycle(ArcCase, ConsoleCase):
     def verify_sequence_execution(self) -> None:
         # --- 0a. Verify global constant as flow source in press stage ---
         self.log("Verifying SOME_CONST_1 (42.0) => const_output during press stage")
-        self.wait_for_near("const_output", 42.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("const_output", 42.0, tolerance=0.01)
 
         # --- 0b. Verify transitive channel write through function calls ---
         # nested_write_1() calls nested_write_2() which calls nested_write_3()
         # which writes to arc_lifecycle_virt. This validates that channel
         # accumulation propagates through function calls.
         self.log("Verifying transitive channel write (function call propagation)")
-        self.wait_for_gt("arc_lifecycle_virt", 20, is_virtual=True)
+        self.wait_for_gt("arc_lifecycle_virt", 20)
 
         # --- 1. Verify select true branch: stable_for emits after pressure
         # stays above 25 PSI for 500ms, then select routes to warning status ---
         self.log("Waiting for 'Pressure stable above 25 PSI' (select true branch)")
-        self.wait_for_eq("lifecycle_log", "pressurizing", is_virtual=True)
+        self.wait_for_eq("lifecycle_log", "pressurizing")
         if not self.wait_for_notification("Pressure stable above 25 PSI"):
             self.fail("Notification 'Pressure stable above 25 PSI' not found")
 
@@ -178,11 +178,11 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("Checking for 'Pressure below 25 PSI' (select false branch)")
         if not self.wait_for_notification("Pressure below 25 PSI"):
             self.fail("Notification 'Pressure below 25 PSI' not found")
-        self.wait_for_eq("lifecycle_log", "venting", is_virtual=True)
+        self.wait_for_eq("lifecycle_log", "venting")
 
         # --- 2a. Verify global constant changed in vent stage ---
         self.log("Verifying SOME_CONST_2 *2 (-99.0) => const_output during vent stage")
-        self.wait_for_near("const_output", -99.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("const_output", -99.0, tolerance=0.01)
 
         # --- 3. Regression: stale virtual channel must not trigger re-entry ---
         # Trigger signal_ctrl via bb_signal_start_cmd, then stop it. The yield
@@ -191,21 +191,21 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.log("Phase 3: Testing stale virtual channel regression (signal_ctrl)")
         self.writer.write("bb_signal_start_cmd", 1)
 
-        self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
+        self.wait_for_eq("signal_stage_log", "start")
         self.log("signal_ctrl entered start stage")
 
         self.writer.write("bb_signal_stop_cmd", 1)
 
-        self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
+        self.wait_for_eq("signal_stage_log", "yield")
         self.log("signal_ctrl entered yield stage")
 
         # Wait then confirm no spurious re-entry from the stale start signal.
         sy.sleep(0.501)  #  > 2 * time.wait{250ms}
-        self.wait_for_eq("signal_stage_log", "yield", is_virtual=True)
+        self.wait_for_eq("signal_stage_log", "yield")
 
         # Confirm a fresh start signal correctly re-enters start.
         self.writer.write("bb_signal_start_cmd", 1)
-        self.wait_for_eq("signal_stage_log", "start", is_virtual=True)
+        self.wait_for_eq("signal_stage_log", "start")
 
         # --- 4. Rename while running (triggers redeployment warning) ---
         self.log(f"Renaming Arc from '{self.arc_name}' to '{self.new_name}'")

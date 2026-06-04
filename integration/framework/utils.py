@@ -67,6 +67,20 @@ def create_virtual_channel(
     )
 
 
+def create_virtual_channels(
+    client: sy.Synnax,
+    specs: list[tuple[str, sy.DataType]],
+) -> list[sy.Channel]:
+    """Create (or retrieve) many virtual channels in a single round-trip."""
+    return client.channels.create(
+        [
+            sy.Channel(name=name, data_type=data_type, virtual=True)
+            for name, data_type in specs
+        ],
+        retrieve_if_name_exists=True,
+    )
+
+
 def create_indexed_channel(
     client: sy.Synnax,
     name: str,

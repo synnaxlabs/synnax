@@ -94,18 +94,14 @@ class StagelessWorkflow(ArcCase):
             "Waiting for auto-activated cascade (sw_a = 1); no start command "
             "was written — the anonymous sequence must self-start."
         )
-        self.wait_for_eq("sw_a", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True)
+        self.wait_for_eq("sw_a", 1, timeout=5 * sy.TimeSpan.SECOND)
         self.log(
             "sw_a=1 observed without any trigger; verifying sw_b and sw_c "
             "cascaded on same cycle (all three writes must be visible within "
             "100ms of sw_a)..."
         )
-        self.wait_for_eq(
-            "sw_b", 1, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
-        )
-        self.wait_for_eq(
-            "sw_c", 1, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
-        )
+        self.wait_for_eq("sw_b", 1, timeout=100 * sy.TimeSpan.MILLISECOND)
+        self.wait_for_eq("sw_c", 1, timeout=100 * sy.TimeSpan.MILLISECOND)
         self.log("First cascade observed on a single tick")
 
         self.log(
@@ -132,12 +128,8 @@ class StagelessWorkflow(ArcCase):
         self.log("Driving sw_pressure=75 (above gate threshold)")
         self.writer.write("sw_pressure", 75.0)
         self.log("Waiting for second cascade (sw_a = 0)...")
-        self.wait_for_eq("sw_a", 0, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True)
+        self.wait_for_eq("sw_a", 0, timeout=5 * sy.TimeSpan.SECOND)
         self.log("sw_a=0 observed; verifying sw_b and sw_c cascaded on same cycle...")
-        self.wait_for_eq(
-            "sw_b", 0, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
-        )
-        self.wait_for_eq(
-            "sw_c", 0, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
-        )
+        self.wait_for_eq("sw_b", 0, timeout=100 * sy.TimeSpan.MILLISECOND)
+        self.wait_for_eq("sw_c", 0, timeout=100 * sy.TimeSpan.MILLISECOND)
         self.log("Second cascade fired on a single tick after gate opened")

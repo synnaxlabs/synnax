@@ -26,8 +26,9 @@ collect_task_status; standalone callers can use the context manager form.
 import logging
 import threading
 
-import synnax as sy
 from pydantic import ValidationError
+
+import synnax as sy
 from synnax.status import SET_CHANNEL
 
 logger = logging.getLogger("synnax.task_status")

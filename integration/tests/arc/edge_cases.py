@@ -510,37 +510,37 @@ class EdgeCases(ArcCase):
         self.log("=== Channel propagation edge cases ===")
 
         self.log("[SameChannel] last write wins -> 2.0")
-        self.wait_for_near("edge_same_ch", 2.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_same_ch", 2.0, tolerance=0.01)
 
         self.log("[Diamond] diamond_leaf -> 42.0")
-        self.wait_for_near("edge_diamond", 42.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_diamond", 42.0, tolerance=0.01)
 
         self.log("[MultiCallee] write_a -> 10.0, write_b -> 20.0")
-        self.wait_for_near("edge_multi_a", 10.0, tolerance=0.01, is_virtual=True)
-        self.wait_for_near("edge_multi_b", 20.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_multi_a", 10.0, tolerance=0.01)
+        self.wait_for_near("edge_multi_b", 20.0, tolerance=0.01)
 
         self.log("[Chain] chain_leaf -> 99.0")
-        self.wait_for_near("edge_chain", 99.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chain", 99.0, tolerance=0.01)
 
         self.log("[FwdRef] fwd_callee -> 55.0")
-        self.wait_for_near("edge_fwd", 55.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_fwd", 55.0, tolerance=0.01)
 
         self.log("[ChanParam] chan_write -> 77.0")
-        self.wait_for_near("edge_chan_basic", 77.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_basic", 77.0, tolerance=0.01)
 
         self.log("[ChanChain] chan_chain_leaf -> 88.0")
-        self.wait_for_near("edge_chan_chain", 88.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_chain", 88.0, tolerance=0.01)
 
         self.log("[ChanDiffArgs] chan_set -> 33.0 for both")
-        self.wait_for_near("edge_chan_arg_a", 33.0, tolerance=0.01, is_virtual=True)
-        self.wait_for_near("edge_chan_arg_b", 33.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_arg_a", 33.0, tolerance=0.01)
+        self.wait_for_near("edge_chan_arg_b", 33.0, tolerance=0.01)
 
         self.log("[ChanMultiParam] chan_multi_write -> 11.0, 22.0")
-        self.wait_for_near("edge_chan_mp_a", 11.0, tolerance=0.01, is_virtual=True)
-        self.wait_for_near("edge_chan_mp_b", 22.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_mp_a", 11.0, tolerance=0.01)
+        self.wait_for_near("edge_chan_mp_b", 22.0, tolerance=0.01)
 
         self.log("[ChanFwdRef] chan_fwd_callee -> 66.0")
-        self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01, is_virtual=True)
+        self.wait_for_near("edge_chan_fwd", 66.0, tolerance=0.01)
 
     def _assert_configure_error(
         self,

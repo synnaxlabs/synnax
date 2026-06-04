@@ -212,8 +212,8 @@ class ShortCircuit(ArcCase):
     def _verify_on_pause_loop(self) -> None:
         self.log("Phase 1: Verifying on/pause loop")
         for i in range(1, 4):
-            self.wait_for_eq("ss_count_on", i, is_virtual=False)
-            self.wait_for_eq("ss_count_pause", i, is_virtual=False)
+            self.wait_for_eq("ss_count_on", i)
+            self.wait_for_eq("ss_count_pause", i)
             self._write_sensors()
         self.log("Phase 1 complete")
 
@@ -224,8 +224,8 @@ class ShortCircuit(ArcCase):
         sy.sleep(1)
         self._ss_temp_a = 400.0
         self._write_sensors()
-        self.wait_for_eq("ss_stage_str", "off", is_virtual=True, timeout=10.0)
-        self.wait_for_eq("ss_sim_stage", 3, is_virtual=True, timeout=5.0)
+        self.wait_for_eq("ss_stage_str", "off", timeout=10.0)
+        self.wait_for_eq("ss_sim_stage", 3, timeout=5.0)
         self.log("Phase 2 complete: first transition won, later statements skipped")
 
     def _assert_loop_writes(

@@ -162,7 +162,7 @@ class StlStatus(ArcCase):
         self.log("Firing set trigger: every case upserts its predefined row")
         self.writer.write(TRIG_SET, 1)
         for c in CASES:
-            self.wait_for_eq(c.key_channel, c.key, is_virtual=True)
+            self.wait_for_eq(c.key_channel, c.key)
             rows = self._rows(c.name)
             if len(rows) != 1:
                 self.fail(f"{c.name}: expected 1 row after set, got {len(rows)}")
@@ -176,7 +176,7 @@ class StlStatus(ArcCase):
     def _verify_warn_on_duplicate(self) -> None:
         self.log("Firing set duplicate: warn and set only the first status")
         self.writer.write(TRIG_DUP_FUNC, 1)
-        self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0], is_virtual=True)
+        self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0])
         if not self.wait_for_notification(f'multiple statuses named "{DUP_NAME}"'):
             self.fail("duplicate set did not surface a multi-match warning")
         rows = {s.key: s for s in self._rows(DUP_NAME)}

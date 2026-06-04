@@ -19,8 +19,9 @@ Tests Arc features not covered by arc_press_sequence:
 - Calculated channels (temp_error)
 """
 
-import synnax as sy
 from examples.simulators import ThermalSimDAQ
+
+import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc import ArcCase
 
@@ -63,7 +64,7 @@ sequence monitor {
     stage cooling {
         0 -> heater_cmd
         temp_sensor > 80 => abort
-        temp_sensor < 40 => heating
+        temp_sensor < 50 => heating
     }
 }
 
