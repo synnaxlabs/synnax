@@ -114,7 +114,6 @@ export const Polygon = ({
         <Primitive.Path
           d={path}
           fill={color.cssString(backgroundColor ?? theme.colors.gray.l1)}
-          stroke="var(--pluto-symbol-display)"
           strokeWidth={strokeWidth ?? 2}
         />
       </Primitive.SVG>
