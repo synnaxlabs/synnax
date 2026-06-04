@@ -9,7 +9,12 @@
 
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type ControlPosition, ReactFlowProvider } from "@xyflow/react";
+import {
+  NodeResizeControl,
+  ReactFlowProvider,
+  type ResizeControlProps,
+  type ResizeDragEvent,
+} from "@xyflow/react";
 import { type FC, type ReactElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -20,6 +25,7 @@ import { type Primitive } from "@/schematic/node/common/primitive";
 import { spec as circleSpec } from "@/schematic/node/general/circle/external";
 import { spec as polygonSpec } from "@/schematic/node/general/polygon/external";
 import { Theming } from "@/theming";
+import { Context as DiagramContext, ZERO_CONTEXT_VALUE } from "@/vis/diagram/Context";
 
 const NODE_KEY = "n1";
 
@@ -33,29 +39,27 @@ const Wrap = ({ children }: { children: ReactNode }): ReactElement => (
   </Haul.Provider>
 );
 
-interface SpyResizeControlProps {
-  position: ControlPosition;
+interface RecordedControl {
   keepAspectRatio?: boolean;
-  onResize?: (event: unknown, params: { width: number; height: number }) => void;
+  triggerResize: (width: number, height: number) => void;
 }
 
-const { resizeControls } = vi.hoisted(() => ({
-  resizeControls: new Map<string, SpyResizeControlProps>(),
-}));
+const resizeControls = new Map<string, RecordedControl>();
 
-// NodeResizeControl renders for real; the spy only records keepAspectRatio and
-// onResize so tests can invoke the resize callback the DOM does not expose.
-vi.mock("@xyflow/react", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  const Real = actual.NodeResizeControl as FC<SpyResizeControlProps>;
-  return {
-    ...actual,
-    NodeResizeControl: (props: SpyResizeControlProps): ReactElement => {
-      resizeControls.set(props.position, props);
-      return <Real {...props} />;
-    },
-  };
-});
+const RESIZE_EVENT = {} as ResizeDragEvent;
+
+// Renders the real NodeResizeControl and records a trigger so tests can drive a
+// resize the DOM cannot perform.
+const SpyResizeControl: FC<ResizeControlProps> = (props) => {
+  resizeControls.set(props.position ?? "", {
+    keepAspectRatio: props.keepAspectRatio,
+    triggerResize: (width, height) =>
+      props.onResize?.(RESIZE_EVENT, { x: 0, y: 0, width, height, direction: [] }),
+  });
+  return <NodeResizeControl {...props} />;
+};
+
+const diagramCtx = { ...ZERO_CONTEXT_VALUE, resizeControl: SpyResizeControl };
 
 const slot = (container: HTMLElement, loc: location.Location): HTMLElement | null =>
   container.querySelector(`.pluto-grid__item.pluto--location-${loc}`);
@@ -184,7 +188,9 @@ const ResizeWrap = ({ children }: { children: ReactNode }): ReactElement => (
   <ReactFlowProvider>
     <Theming.Provider>
       <Haul.Provider>
-        <div data-id={NODE_KEY}>{children}</div>
+        <DiagramContext value={diagramCtx}>
+          <div data-id={NODE_KEY}>{children}</div>
+        </DiagramContext>
       </Haul.Provider>
     </Theming.Provider>
   </ReactFlowProvider>
@@ -223,7 +229,7 @@ describe("Label.createLabeled resize wiring", () => {
         />
       </ResizeWrap>,
     );
-    resizeControls.get("right")?.onResize?.(null, { width: 40, height: 40 });
+    resizeControls.get("right")?.triggerResize(40, 40);
     expect(onConfigChange).toHaveBeenCalledWith({ radius: 20 });
   });
 
@@ -259,7 +265,7 @@ describe("Label.createLabeled resize wiring", () => {
         />
       </ResizeWrap>,
     );
-    resizeControls.get("right")?.onResize?.(null, { width: 50, height: 50 });
+    resizeControls.get("right")?.triggerResize(50, 50);
     expect(onConfigChange).toHaveBeenCalledWith({ radius: 25 });
   });
 
@@ -275,7 +281,7 @@ describe("Label.createLabeled resize wiring", () => {
         />
       </ResizeWrap>,
     );
-    resizeControls.get("right")?.onResize?.(null, { width: 30, height: 30 });
+    resizeControls.get("right")?.triggerResize(30, 30);
     expect(onConfigChange).toHaveBeenCalledWith({ sideLength: 15 });
   });
 });

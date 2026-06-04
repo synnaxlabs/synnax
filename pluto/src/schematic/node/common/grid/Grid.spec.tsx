@@ -10,9 +10,11 @@
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import {
-  type ControlPosition,
+  NodeResizeControl,
   ReactFlowProvider,
+  type ResizeControlProps,
   ResizeControlVariant,
+  type ResizeDragEvent,
 } from "@xyflow/react";
 import {
   type FC,
@@ -25,32 +27,29 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
 import { Grid } from "@/schematic/node/common/grid";
+import { Context as DiagramContext, ZERO_CONTEXT_VALUE } from "@/vis/diagram/Context";
 
-interface SpyResizeControlProps {
-  position: ControlPosition;
-  variant?: ResizeControlVariant;
+interface RecordedControl {
   keepAspectRatio?: boolean;
-  onResize?: (event: unknown, params: { width: number; height: number }) => void;
+  triggerResize: (width: number, height: number) => void;
 }
 
-const { resizeControls } = vi.hoisted(() => ({
-  resizeControls: new Map<string, SpyResizeControlProps>(),
-}));
+const resizeControls = new Map<string, RecordedControl>();
 
-// NodeResizeControl renders for real, so its positions, variants, and gating are
-// asserted on the DOM; the spy only records keepAspectRatio and onResize, which the
-// DOM does not reflect.
-vi.mock("@xyflow/react", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  const Real = actual.NodeResizeControl as FC<SpyResizeControlProps>;
-  return {
-    ...actual,
-    NodeResizeControl: (props: SpyResizeControlProps): ReactElement => {
-      resizeControls.set(props.position, props);
-      return <Real {...props} />;
-    },
-  };
-});
+const RESIZE_EVENT = {} as ResizeDragEvent;
+
+// Renders the real NodeResizeControl so positions, variants, and gating are asserted
+// on the DOM, and records a trigger so tests can drive a resize jsdom cannot perform.
+const SpyResizeControl: FC<ResizeControlProps> = (props) => {
+  resizeControls.set(props.position ?? "", {
+    keepAspectRatio: props.keepAspectRatio,
+    triggerResize: (width, height) =>
+      props.onResize?.(RESIZE_EVENT, { x: 0, y: 0, width, height, direction: [] }),
+  });
+  return <NodeResizeControl {...props} />;
+};
+
+const diagramCtx = { ...ZERO_CONTEXT_VALUE, resizeControl: SpyResizeControl };
 
 const NODE_KEY = "node-1";
 
@@ -557,16 +556,18 @@ describe("Grid resize controls", () => {
   }: Partial<Grid.GridProps>): ReactElement => (
     <ReactFlowProvider>
       <Haul.Provider>
-        <div data-id={NODE_KEY}>
-          <Grid.Grid
-            editable={editable}
-            nodeKey={NODE_KEY}
-            onResize={onResize}
-            keepAspectRatio={keepAspectRatio}
-          >
-            <div>body</div>
-          </Grid.Grid>
-        </div>
+        <DiagramContext value={diagramCtx}>
+          <div data-id={NODE_KEY}>
+            <Grid.Grid
+              editable={editable}
+              nodeKey={NODE_KEY}
+              onResize={onResize}
+              keepAspectRatio={keepAspectRatio}
+            >
+              <div>body</div>
+            </Grid.Grid>
+          </div>
+        </DiagramContext>
       </Haul.Provider>
     </ReactFlowProvider>
   );
@@ -641,7 +642,7 @@ describe("Grid resize controls", () => {
     it("should round fractional dimensions before forwarding them", () => {
       const onResize = vi.fn();
       render(<ResizableHost onResize={onResize} />);
-      resizeControls.get("right")?.onResize?.(null, { width: 120.6, height: 80.4 });
+      resizeControls.get("right")?.triggerResize(120.6, 80.4);
       expect(onResize).toHaveBeenCalledTimes(1);
       expect(onResize).toHaveBeenCalledWith({ width: 121, height: 80 });
     });
@@ -649,9 +650,7 @@ describe("Grid resize controls", () => {
     it("should forward rounded dimensions from a corner control", () => {
       const onResize = vi.fn();
       render(<ResizableHost onResize={onResize} />);
-      resizeControls
-        .get("bottom-right")
-        ?.onResize?.(null, { width: 50.5, height: 50.49 });
+      resizeControls.get("bottom-right")?.triggerResize(50.5, 50.49);
       expect(onResize).toHaveBeenCalledWith({ width: 51, height: 50 });
     });
   });

@@ -13,7 +13,6 @@ import { type dimensions, location } from "@synnaxlabs/x";
 import {
   type ControlLinePosition,
   type ControlPosition,
-  NodeResizeControl,
   ResizeControlVariant,
 } from "@xyflow/react";
 import {
@@ -40,6 +39,7 @@ import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { triggerReflow } from "@/util/reflow";
+import { useContext as useDiagramContext } from "@/vis/diagram/Context";
 import { selectNode } from "@/vis/diagram/util";
 
 type DraggableElement = ReactElement<{
@@ -231,6 +231,7 @@ export const Grid: FC<GridProps> = ({
   nodeKey,
   orientation = "left",
 }) => {
+  const { resizeControl: ResizeControl } = useDiagramContext();
   const prevEditable = useRef(editable);
   if (editable !== prevEditable.current) {
     reflowPane(nodeKey);
@@ -273,7 +274,7 @@ export const Grid: FC<GridProps> = ({
       {editable &&
         onResize != null &&
         RESIZE_CONTROLS.map(({ position, variant, keepAspectRatio: corner }) => (
-          <NodeResizeControl
+          <ResizeControl
             key={position}
             position={position}
             variant={variant}

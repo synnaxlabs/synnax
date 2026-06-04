@@ -20,6 +20,7 @@ import {
   type IsValidConnection,
   type NodeChange as RFNodeChange,
   type NodeProps as RFNodeProps,
+  NodeResizeControl,
   type ProOptions,
   ReactFlow,
   type ReactFlowInstance,
@@ -452,6 +453,7 @@ export const create = ({
         fitViewOptions,
         viewportMode,
         onViewportModeChange,
+        resizeControl: NodeResizeControl,
       }),
       [
         editable,

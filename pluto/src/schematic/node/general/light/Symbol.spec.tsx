@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { render } from "@testing-library/react";
-import { type ControlPosition, ReactFlowProvider } from "@xyflow/react";
+import {
+  NodeResizeControl,
+  ReactFlowProvider,
+  type ResizeControlProps,
+  type ResizeDragEvent,
+} from "@xyflow/react";
 import { type FC, type ReactElement, type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -16,38 +21,38 @@ import { Aether } from "@/aether";
 import { Haul } from "@/haul";
 import { Symbol as LightSymbol } from "@/schematic/node/general/light/Symbol";
 import { Theming } from "@/theming";
+import { Context as DiagramContext, ZERO_CONTEXT_VALUE } from "@/vis/diagram/Context";
 
 const NODE_KEY = "light-1";
 
-interface SpyResizeControlProps {
-  position: ControlPosition;
-  onResize?: (event: unknown, params: { width: number; height: number }) => void;
+interface RecordedControl {
+  triggerResize: (width: number, height: number) => void;
 }
 
-const { resizeControls } = vi.hoisted(() => ({
-  resizeControls: new Map<string, SpyResizeControlProps>(),
-}));
+const resizeControls = new Map<string, RecordedControl>();
 
-// NodeResizeControl renders for real; the spy only records onResize so the test
-// can drive the resize callback the DOM does not expose.
-vi.mock("@xyflow/react", async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  const Real = actual.NodeResizeControl as FC<SpyResizeControlProps>;
-  return {
-    ...actual,
-    NodeResizeControl: (props: SpyResizeControlProps): ReactElement => {
-      resizeControls.set(props.position, props);
-      return <Real {...props} />;
-    },
-  };
-});
+const RESIZE_EVENT = {} as ResizeDragEvent;
+
+// Renders the real NodeResizeControl and records a trigger so the test can drive a
+// resize the DOM cannot perform.
+const SpyResizeControl: FC<ResizeControlProps> = (props) => {
+  resizeControls.set(props.position ?? "", {
+    triggerResize: (width, height) =>
+      props.onResize?.(RESIZE_EVENT, { x: 0, y: 0, width, height, direction: [] }),
+  });
+  return <NodeResizeControl {...props} />;
+};
+
+const diagramCtx = { ...ZERO_CONTEXT_VALUE, resizeControl: SpyResizeControl };
 
 const Wrap = ({ children }: { children: ReactNode }): ReactElement => (
   <ReactFlowProvider>
     <Theming.Provider>
       <Haul.Provider>
         <Aether.Provider workerEnabled={false}>
-          <div data-id={NODE_KEY}>{children}</div>
+          <DiagramContext value={diagramCtx}>
+            <div data-id={NODE_KEY}>{children}</div>
+          </DiagramContext>
         </Aether.Provider>
       </Haul.Provider>
     </Theming.Provider>
@@ -71,7 +76,7 @@ describe("Light resize", () => {
     );
     // 256 = WIDTH_PER_SCALE (51.2) * 5; the differing height is ignored because the
     // symbol scales uniformly off width.
-    resizeControls.get("right")?.onResize?.(null, { width: 256, height: 999 });
+    resizeControls.get("right")?.triggerResize(256, 999);
     expect(onConfigChange).toHaveBeenCalledWith({ scale: 5 });
   });
 });
