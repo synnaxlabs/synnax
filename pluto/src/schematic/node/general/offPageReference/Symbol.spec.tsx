@@ -27,74 +27,68 @@ const getOutline = (container: HTMLElement): HTMLElement => {
 
 describe("OffPageReference", () => {
   describe("color CSS variables", () => {
-    it("should set --off-page-color from the color prop", () => {
+    it("should wire --off-page-color to the display var and set the source color", () => {
       const { container } = render(
         <ThemeWrapper>
           <OffPageReference color="#3774d0" />
         </ThemeWrapper>,
       );
-      const outline = getOutline(container);
-      expect(outline.style.getPropertyValue("--off-page-color")).toBe(
-        color.cssString("#3774d0"),
+      expect(getOutline(container).style.getPropertyValue("--off-page-color")).toBe(
+        "var(--pluto-symbol-display)",
+      );
+      const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
+      expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe(
+        color.rgbString("#3774d0"),
       );
     });
 
-    it("should pick light text for a dark background", () => {
+    it("should wire --off-page-text-color to the contrast var", () => {
       const { container } = render(
         <ThemeWrapper>
-          <OffPageReference color="#000000" />
+          <OffPageReference color="#3774d0" />
         </ThemeWrapper>,
       );
-      const outline = getOutline(container);
-      const textColor = outline.style.getPropertyValue("--off-page-text-color");
-      // Black background should produce a light (high-luminance) text color
-      // The theme will pick textInverted (light) over text (dark)
-      expect(textColor).not.toBe("");
-      expect(textColor).not.toBe(color.cssString("#000000"));
+      // Text contrast is resolved in CSS from the display color, not in JS.
+      expect(getOutline(container).style.getPropertyValue("--off-page-text-color")).toBe(
+        "var(--pluto-symbol-contrast)",
+      );
     });
 
-    it("should pick dark text for a light background", () => {
-      const { container } = render(
-        <ThemeWrapper>
-          <OffPageReference color="#FFFFFF" />
-        </ThemeWrapper>,
-      );
-      const outline = getOutline(container);
-      const textColor = outline.style.getPropertyValue("--off-page-text-color");
-      // White background should produce a dark text color
-      expect(textColor).not.toBe("");
-      expect(textColor).not.toBe(color.cssString("#FFFFFF"));
-    });
-
-    it("should produce different text colors for dark vs light backgrounds", () => {
-      const { container: darkContainer } = render(
-        <ThemeWrapper>
-          <OffPageReference color="#000000" />
-        </ThemeWrapper>,
-      );
-      const { container: lightContainer } = render(
-        <ThemeWrapper>
-          <OffPageReference color="#FFFFFF" />
-        </ThemeWrapper>,
-      );
-      const darkTextColor = getOutline(darkContainer).style.getPropertyValue(
-        "--off-page-text-color",
-      );
-      const lightTextColor = getOutline(lightContainer).style.getPropertyValue(
-        "--off-page-text-color",
-      );
-      expect(darkTextColor).not.toBe(lightTextColor);
-    });
-
-    it("should use a default color when color prop is not provided", () => {
+    it("should leave the source color unset for a default reference", () => {
       const { container } = render(
         <ThemeWrapper>
           <OffPageReference />
         </ThemeWrapper>,
       );
-      const outline = getOutline(container);
-      expect(outline.style.getPropertyValue("--off-page-color")).not.toBe("");
-      expect(outline.style.getPropertyValue("--off-page-text-color")).not.toBe("");
+      // Unset color means the display var falls back to the theme default.
+      const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
+      expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("");
+      expect(getOutline(container).style.getPropertyValue("--off-page-color")).toBe(
+        "var(--pluto-symbol-display)",
+      );
+    });
+  });
+
+  describe("linked fill state", () => {
+    it("should add the linked class when linked", () => {
+      const { container } = render(
+        <ThemeWrapper>
+          <OffPageReference linked />
+        </ThemeWrapper>,
+      );
+      expect(container.querySelector(".pluto-arrow")?.getAttribute("class")).toContain(
+        "pluto--linked",
+      );
+    });
+
+    it("should not add the linked class when not linked", () => {
+      const { container } = render(
+        <ThemeWrapper>
+          <OffPageReference />
+        </ThemeWrapper>,
+      );
+      const cls = container.querySelector(".pluto-arrow")?.getAttribute("class") ?? "";
+      expect(cls.includes("pluto--linked")).toBe(false);
     });
   });
 });

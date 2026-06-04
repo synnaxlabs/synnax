@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -139,19 +140,25 @@ describe("Primitive.SVG", () => {
       expect(svg.getAttribute("stroke")).toBeNull();
     });
 
-    it("should set fill, stroke, and the symbol-color CSS variables for a color", () => {
+    it("should set the symbol-color variable and marker class for a color", () => {
       const { container } = render(
         <Primitive.SVG dimensions={{ width: 10, height: 10 }} color="#ff0000" />,
       );
       const svg = container.querySelector("svg") as SVGSVGElement;
-      expect(svg.getAttribute("fill")).toMatch(/^rgba?\(/);
-      expect(svg.getAttribute("stroke")).toMatch(/^rgba?\(/);
+      // Fill and stroke are driven by CSS off --pluto-symbol-color, not attributes.
       expect(svg.style.getPropertyValue("--pluto-symbol-color")).toMatch(
         /255\s*,\s*0\s*,\s*0/,
       );
-      // The contrast color should also be set; it is non-empty regardless of
-      // which contrast end the picker chose.
-      expect(svg.style.getPropertyValue("--pluto-symbol-color-contrast")).not.toBe("");
+      expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
+    });
+
+    it("should treat the ZERO sentinel as unset so it falls back to the theme", () => {
+      const { container } = render(
+        <Primitive.SVG dimensions={{ width: 10, height: 10 }} color={color.ZERO} />,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("");
+      expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
     });
   });
 
