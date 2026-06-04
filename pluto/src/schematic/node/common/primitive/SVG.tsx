@@ -12,7 +12,6 @@ import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
-import { Theming } from "@/theming";
 
 export interface SVGProps
   extends
@@ -38,19 +37,15 @@ export const SVG = ({
 }: SVGProps): ReactElement => {
   const dir = direction.construct(orientation);
   dims = dir === "y" ? dimensions.swap(dims) : dims;
-  const theme = Theming.use();
   let pStyle = {
     ...style,
     aspectRatio: `${dims.width} / ${dims.height}`,
     width: dimensions.scale(dims, scale * BASE_SCALE).width,
   };
-  if (colorVal != null)
+  if (colorVal != null && !color.isZero(colorVal))
     pStyle = {
       ...pStyle,
       [CSS.var("symbol-color")]: color.rgbString(colorVal),
-      [CSS.var("symbol-color-contrast")]: color.rgbString(
-        color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
-      ),
     };
 
   return (
