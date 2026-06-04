@@ -10,8 +10,9 @@
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
+from console.case import ConsoleCase
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 from x import random_name
 
 ARC_LIFECYCLE_SOURCE = """
@@ -102,7 +103,7 @@ sequence signal_ctrl {
 """
 
 
-class Lifecycle(ArcConsoleCase):
+class Lifecycle(ArcCase, ConsoleCase):
     """Test Arc lifecycle operations: rename, delete, status, stable_for, select.
 
     Covers the following rc.md checklist items:
@@ -132,6 +133,7 @@ class Lifecycle(ArcConsoleCase):
         "signal_stage_log",
     ]
     sim_daq_class = PressSimDAQ
+    collect_notifications = True
 
     def setup(self) -> None:
         self.new_name = f"ArcRenamed_{random_name()}"
@@ -167,22 +169,20 @@ class Lifecycle(ArcConsoleCase):
         # stays above 25 PSI for 500ms, then select routes to warning status ---
         self.log("Waiting for 'Pressure stable above 25 PSI' (select true branch)")
         self.wait_for_eq("lifecycle_log", "pressurizing", is_virtual=True)
-        if not self.console.notifications.wait_for("Pressure stable above 25 PSI"):
+        if not self.wait_for_notification("Pressure stable above 25 PSI"):
             self.fail("Notification 'Pressure stable above 25 PSI' not found")
 
         # --- 2. Verify select false branch: initial pressure=0 causes
         # check_high_pressure to return 0, stable for 500ms, then select routes
         # to false.
         self.log("Checking for 'Pressure below 25 PSI' (select false branch)")
-        if not self.console.notifications.wait_for("Pressure below 25 PSI"):
+        if not self.wait_for_notification("Pressure below 25 PSI"):
             self.fail("Notification 'Pressure below 25 PSI' not found")
         self.wait_for_eq("lifecycle_log", "venting", is_virtual=True)
 
         # --- 2a. Verify global constant changed in vent stage ---
         self.log("Verifying SOME_CONST_2 *2 (-99.0) => const_output during vent stage")
         self.wait_for_near("const_output", -99.0, tolerance=0.01, is_virtual=True)
-
-        self.console.notifications.close_all()
 
         # --- 3. Regression: stale virtual channel must not trigger re-entry ---
         # Trigger signal_ctrl via bb_signal_start_cmd, then stop it. The yield
@@ -210,7 +210,7 @@ class Lifecycle(ArcConsoleCase):
         # --- 4. Rename while running (triggers redeployment warning) ---
         self.log(f"Renaming Arc from '{self.arc_name}' to '{self.new_name}'")
         old_name = self.arc_name
-        self.rename_arc(self.arc_name, self.new_name)
+        self.console.arc.rename(old_name=self.arc_name, new_name=self.new_name)
         self.arc_name = self.new_name
 
         self.log("Verifying new name in toolbar")
@@ -228,8 +228,8 @@ class Lifecycle(ArcConsoleCase):
         self.console.arc.select_rack(self.rack.name)
         self.console.arc.configure()
 
-        self.log("Re-starting with new name")
-        self.start_arc(self.new_name)
+        # Re-deploy auto-starts the task (auto_start is set in the task config
+        # by load_arc), so the Arc is already running with the new name here.
 
         # --- 6. Stop, then delete and verify tab removal ---
         self.log("Stopping Arc")
@@ -242,7 +242,7 @@ class Lifecycle(ArcConsoleCase):
 
         self.log(f"Deleting Arc: {self.new_name}")
         self.console.arc.delete(self.new_name)
-        self.remove_arc(self.new_name)
+        self.remove_arc(old_name)
 
         self.log("Verifying tab removed from mosaic")
         tab = self.console.layout.get_tab(self.new_name)

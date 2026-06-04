@@ -57,6 +57,7 @@ class ArcCase(SimDaqCase, TestCase):
     end_cmd_channel: str = ""
     subscribe_channels: list[str]
     rack: sy.Rack | None
+    arc_name: str
     _arcs: list[ArcTaskHandle]
 
     # Opt-in: when True, setup records per-task status updates for the duration
@@ -136,6 +137,12 @@ class ArcCase(SimDaqCase, TestCase):
                 return handle.task.key
         raise KeyError(f"no tracked arc named {name!r}")
 
+    def remove_arc(self, name: str) -> None:
+        """Stop tracking the arc named name so teardown does not delete it.
+        Use after deleting an arc through another path (e.g. the Console UI).
+        """
+        self._arcs = [handle for handle in self._arcs if handle.name != name]
+
     def wait_for_task_status(
         self, task_key: int, text: str, timeout: float = 5.0
     ) -> bool:
@@ -162,7 +169,7 @@ class ArcCase(SimDaqCase, TestCase):
 
     def run(self) -> None:
         self._retrieve_rack()
-        self.load_arc(
+        self.arc_name = self.load_arc(
             self.arc_source,
             self.arc_name_prefix,
             trigger=self.start_cmd_channel,
