@@ -44,7 +44,6 @@ import { SpringLoadedRelief } from "@/schematic/node/valves/SpringLoadedRelief";
 import { ThreeWay } from "@/schematic/node/valves/ThreeWay";
 import { ThreeWayBall } from "@/schematic/node/valves/ThreeWayBall";
 import { Valve } from "@/schematic/node/valves/Valve";
-import { type Theming } from "@/theming";
 
 const angled = createToggle({
   variant: "angledValve",
@@ -176,7 +175,7 @@ const solenoidSpec: Spec<"solenoidValve", SolenoidConfig> = {
   Form: Form.ToggleForm,
   Node: Toggle.createToggle<SolenoidConfig>(Solenoid),
   Preview: Solenoid,
-  defaultConfig: (_t: Theming.Theme): SolenoidConfig => ({
+  defaultConfig: (): SolenoidConfig => ({
     variant: "solenoidValve",
     color: color.ZERO,
     label: Label.defaultConfig("Solenoid Valve"),

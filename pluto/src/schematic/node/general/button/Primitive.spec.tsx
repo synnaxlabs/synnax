@@ -20,17 +20,15 @@ const getButton = (container: HTMLElement): HTMLElement => {
 };
 
 describe("button symbol", () => {
-  it("should drive its background, border, and text off the symbol display vars", () => {
+  it("should carry the symbol-colored + symbol-button classes and set the source color", () => {
+    // The bg/border/text vars are mapped to the display/contrast vars in button.css;
+    // jsdom cannot compute them, so we assert the marker classes and the source var.
     const { container } = render(<Button color="#ff0000" />);
     const btn = getButton(container);
-    expect(btn.getAttribute("class")).toContain("pluto-symbol-colored");
+    const cls = btn.getAttribute("class") ?? "";
+    expect(cls).toContain("pluto-symbol-colored");
+    expect(cls).toContain("pluto-symbol-button");
     expect(btn.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
-    expect(btn.style.getPropertyValue("--pluto-bg")).toBe(
-      "var(--pluto-symbol-display)",
-    );
-    expect(btn.style.getPropertyValue("--pluto-btn-text-color")).toBe(
-      "var(--pluto-symbol-contrast)",
-    );
   });
 
   it("should not engage the base button's concrete-color JS path", () => {

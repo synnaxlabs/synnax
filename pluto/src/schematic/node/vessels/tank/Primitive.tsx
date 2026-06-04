@@ -10,7 +10,7 @@
 import "@/schematic/node/vessels/tank/tank.css";
 
 import { color, type dimensions } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
@@ -52,20 +52,23 @@ export const Tank = ({
   const rightOffset = 100 - leftOffset;
   const topOffset = Border.pixelToPercent(1, height);
   const bottomOffset = 100 - topOffset;
+  const cssBorderRadius = boxBorderRadius ?? Border.cssRadius(detailedRadius);
+  const backgroundCSS = color.cssString(backgroundColor);
+  const style = useMemo<CSSProperties>(
+    () => ({
+      width,
+      height,
+      borderRadius: cssBorderRadius,
+      [CSS.var("symbol-color")]: Primitive.symbolColorVar(colorVal),
+      backgroundColor: backgroundCSS,
+      borderWidth: strokeWidth,
+    }),
+    [width, height, cssBorderRadius, colorVal, backgroundCSS, strokeWidth],
+  );
   return (
     <Primitive.Div
       className={CSS(className, CSS.B("tank"), CSS.B("symbol-colored"))}
-      style={{
-        ...dimensions,
-        borderRadius: boxBorderRadius ?? Border.cssRadius(detailedRadius),
-        [CSS.var("symbol-color")]:
-          colorVal != null && !color.isZero(colorVal)
-            ? `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`
-            : undefined,
-        borderColor: "var(--pluto-symbol-display)",
-        backgroundColor: color.cssString(backgroundColor),
-        borderWidth: strokeWidth,
-      }}
+      style={style}
     >
       <Handle.Boundary refreshDeps={refreshDeps} orientation="left">
         <Handle.Handle

@@ -9,8 +9,13 @@
 
 import "@/schematic/node/general/value/value.css";
 
-import { color, type dimensions, type text } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type dimensions, type text } from "@synnaxlabs/x";
+import {
+  type CSSProperties,
+  type PropsWithChildren,
+  type ReactElement,
+  useMemo,
+} from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -33,43 +38,40 @@ export const Value = ({
   unitsLevel = "small",
   children,
   inlineSize = 80,
-}: RenderProps): ReactElement => (
-  <Primitive.Div
-    className={CSS(CSS.B("value"), CSS.B("symbol-colored"), className)}
-    style={{
-      [CSS.var("symbol-color")]:
-        colorVal != null && !color.isZero(colorVal)
-          ? `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`
-          : undefined,
-      borderColor: "var(--pluto-symbol-display)",
+}: RenderProps): ReactElement => {
+  const style = useMemo<CSSProperties>(
+    () => ({
+      [CSS.var("symbol-color")]: Primitive.symbolColorVar(colorVal),
       height: dimensions?.height,
-    }}
-  >
-    <div
-      className={CSS.BE("value", "content")}
-      style={{
-        flexGrow: 1,
-        minWidth: dimensions?.width,
-        inlineSize,
-        maxWidth: dimensions?.width,
-      }}
+    }),
+    [colorVal, dimensions?.height],
+  );
+  return (
+    <Primitive.Div
+      className={CSS(CSS.B("value"), CSS.B("symbol-colored"), className)}
+      style={style}
     >
-      {children}
-    </div>
-    <Handle.Rectangle
-      orientation={orientation}
-      left={0}
-      top={-2}
-      right={100}
-      bottom={102}
-    />
-    <div
-      className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
-      style={{ background: "var(--pluto-symbol-display)" }}
-    >
-      <Text.Text level={unitsLevel} color="var(--pluto-symbol-contrast)">
-        {units}
-      </Text.Text>
-    </div>
-  </Primitive.Div>
-);
+      <div
+        className={CSS.BE("value", "content")}
+        style={{
+          flexGrow: 1,
+          minWidth: dimensions?.width,
+          inlineSize,
+          maxWidth: dimensions?.width,
+        }}
+      >
+        {children}
+      </div>
+      <Handle.Rectangle
+        orientation={orientation}
+        left={0}
+        top={-2}
+        right={100}
+        bottom={102}
+      />
+      <div className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
+        <Text.Text level={unitsLevel}>{units}</Text.Text>
+      </div>
+    </Primitive.Div>
+  );
+};

@@ -16,11 +16,10 @@ import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import { Symbol } from "@/schematic/node/general/gauge/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/gauge/config";
 
-export const defaultConfig = (_t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,

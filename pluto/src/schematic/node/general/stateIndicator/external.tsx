@@ -17,11 +17,10 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitiv
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/stateIndicator/config";
 
-export const defaultConfig = (_t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: color.ZERO,

@@ -15,11 +15,10 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Config, VARIANT } from "@/schematic/node/vessels/crossJunction/config";
 import { CrossJunction } from "@/schematic/node/vessels/crossJunction/Primitive";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/vessels/crossJunction/config";
 
-export const defaultConfig = (_t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   color: color.ZERO,
   label: Label.defaultConfig(""),

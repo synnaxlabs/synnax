@@ -16,11 +16,10 @@ import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/offPageReference/config";
 
-export const defaultConfig = (_t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   color: color.ZERO,
   orientation: "right",

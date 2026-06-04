@@ -9,8 +9,8 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
-import { color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { direction } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -53,6 +53,10 @@ export const OffPageReference = ({
   if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
+  const style = useMemo<CSSProperties>(
+    () => ({ [CSS.var("symbol-color")]: Primitive.symbolColorVar(colorVal) }),
+    [colorVal],
+  );
 
   return (
     <Primitive.Div
@@ -64,23 +68,10 @@ export const OffPageReference = ({
         className,
       )}
       orientation={orientation}
-      style={{
-        [CSS.var("symbol-color")]:
-          colorVal != null && !color.isZero(colorVal)
-            ? `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`
-            : undefined,
-      }}
+      style={style}
     >
       <div className="wrapper">
-        <div
-          className="outline"
-          style={
-            {
-              "--off-page-color": "var(--pluto-symbol-display)",
-              "--off-page-text-color": "var(--pluto-symbol-contrast)",
-            } as CSSProperties
-          }
-        >
+        <div className="outline">
           <div className="bg">
             <Text.MaybeEditable
               value={label}

@@ -31,7 +31,6 @@ const HydraulicSymbol = ({ position, direction }: SymbolProps): ReactElement => 
   return (
     <path
       d={`M0,0 L0,-${SYMBOL_SIZE} L${SYMBOL_SIZE},-${SYMBOL_SIZE}`}
-      stroke="var(--pluto-symbol-display)"
       fill="none"
       strokeWidth={2}
       transform={`translate(${pos.x},${pos.y}) rotate(270)`}

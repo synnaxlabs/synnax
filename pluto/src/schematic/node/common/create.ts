@@ -16,7 +16,6 @@ import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
 
 export interface SymbolArgs<V extends string> {
   /// variant is the unique discriminant identifying the symbol in the registry.
@@ -48,7 +47,7 @@ export const createStatic = <V extends string>({
     scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
-  const defaultConfig = (_t: Theming.Theme): Config => ({
+  const defaultConfig = (): Config => ({
     variant,
     color: color.ZERO,
     label: Label.defaultConfig(label),
@@ -90,7 +89,7 @@ export const createToggle = <V extends string>({
     scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
-  const defaultConfig = (_t: Theming.Theme): Config => ({
+  const defaultConfig = (): Config => ({
     variant,
     color: color.ZERO,
     label: Label.defaultConfig(label),
@@ -128,7 +127,7 @@ export const createDummyToggle = <V extends string>({
     scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
-  const defaultConfig = (_t: Theming.Theme): Config => ({
+  const defaultConfig = (): Config => ({
     variant,
     color: color.ZERO,
     label: Label.defaultConfig(label),

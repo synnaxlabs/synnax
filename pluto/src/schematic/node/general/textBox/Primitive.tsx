@@ -9,8 +9,8 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
-import { color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { direction } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -34,20 +34,20 @@ export const TextBox = ({
   value,
   onChange,
 }: RenderProps): ReactElement => {
-  const divStyle: CSSProperties = {
-    textAlign: align as CSSProperties["textAlign"],
-    [CSS.var("symbol-color")]:
-      colorVal != null && !color.isZero(colorVal)
-        ? `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`
-        : undefined,
-  };
-  if (direction.construct(orientation) === "y")
-    divStyle.height = autoFit ? "fit-content" : width;
-  else divStyle.width = autoFit ? "fit-content" : width;
+  const isVertical = direction.construct(orientation) === "y";
+  const size = autoFit ? "fit-content" : width;
+  const style = useMemo<CSSProperties>(
+    () => ({
+      textAlign: align as CSSProperties["textAlign"],
+      [CSS.var("symbol-color")]: Primitive.symbolColorVar(colorVal),
+      ...(isVertical ? { height: size } : { width: size }),
+    }),
+    [align, colorVal, isVertical, size],
+  );
 
   return (
     <Primitive.Div
-      style={divStyle}
+      style={style}
       orientation={orientation}
       className={CSS(
         CSS.B("text-box"),
@@ -65,7 +65,6 @@ export const TextBox = ({
       />
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
-        color="var(--pluto-symbol-display)"
         level={level}
         value={value ?? ""}
         onChange={onChange}

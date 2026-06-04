@@ -10,7 +10,7 @@
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -43,18 +43,18 @@ export const StateIndicator = ({
         )
       : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
+  const style = useMemo<CSSProperties>(
+    () => ({
+      [CSS.var("symbol-color")]: Primitive.symbolColorVar(colorVal),
+      backgroundColor,
+      minWidth: inlineSize,
+    }),
+    [colorVal, backgroundColor, inlineSize],
+  );
   return (
     <Primitive.Div
       className={CSS(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
-      style={{
-        [CSS.var("symbol-color")]:
-          colorVal != null && !color.isZero(colorVal)
-            ? `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`
-            : undefined,
-        borderColor: "var(--pluto-symbol-display)",
-        backgroundColor,
-        minWidth: inlineSize,
-      }}
+      style={style}
     >
       <Handle.Rectangle
         orientation={orientation}

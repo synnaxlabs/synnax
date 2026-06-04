@@ -19,40 +19,23 @@ const ThemeWrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Theming.Provider>{children}</Theming.Provider>
 );
 
-const getOutline = (container: HTMLElement): HTMLElement => {
-  const el = container.querySelector<HTMLElement>(".outline");
-  if (el == null) throw new Error("expected .outline element to exist");
-  return el;
-};
-
 describe("OffPageReference", () => {
   describe("color CSS variables", () => {
-    it("should wire --off-page-color to the display var and set the source color", () => {
+    it("should set the source color var and carry the symbol-colored class", () => {
+      // The --off-page-color/--off-page-text-color vars are mapped to the display/
+      // contrast vars in offPageReference.css; jsdom cannot compute them, so we assert
+      // the source var (the only dynamic value) and the marker class.
       const { container } = render(
         <ThemeWrapper>
           <OffPageReference color="#3774d0" />
         </ThemeWrapper>,
       );
-      expect(getOutline(container).style.getPropertyValue("--off-page-color")).toBe(
-        "var(--pluto-symbol-display)",
-      );
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
+      expect(arrow?.getAttribute("class")).toContain("pluto-symbol-colored");
       // The source var carries the alpha channel so transparency survives the transform.
       expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe(
         `${color.rgbString("#3774d0")}, ${color.aValue("#3774d0")}`,
       );
-    });
-
-    it("should wire --off-page-text-color to the contrast var", () => {
-      const { container } = render(
-        <ThemeWrapper>
-          <OffPageReference color="#3774d0" />
-        </ThemeWrapper>,
-      );
-      // Text contrast is resolved in CSS from the display color, not in JS.
-      expect(
-        getOutline(container).style.getPropertyValue("--off-page-text-color"),
-      ).toBe("var(--pluto-symbol-contrast)");
     });
 
     it("should leave the source color unset for a default reference", () => {
@@ -61,12 +44,8 @@ describe("OffPageReference", () => {
           <OffPageReference />
         </ThemeWrapper>,
       );
-      // Unset color means the display var falls back to the theme default.
       const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
       expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("");
-      expect(getOutline(container).style.getPropertyValue("--off-page-color")).toBe(
-        "var(--pluto-symbol-display)",
-      );
     });
 
     it("should treat the ZERO default config color as unset", () => {

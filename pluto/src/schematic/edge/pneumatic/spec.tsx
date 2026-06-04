@@ -38,7 +38,6 @@ const PneumaticSymbol = ({ position, direction }: SymbolProps): ReactElement => 
     <>
       <path
         d={`M0,0 L0,-${SYMBOL_SIZE}`}
-        stroke="var(--pluto-symbol-display)"
         fill="none"
         strokeWidth={2}
         transform={`translate(${pos.x},${pos.y}) rotate(${rotate})`}
@@ -46,7 +45,6 @@ const PneumaticSymbol = ({ position, direction }: SymbolProps): ReactElement => 
       />
       <path
         d={`M0,0 L0,-${SYMBOL_SIZE}`}
-        stroke="var(--pluto-symbol-display)"
         fill="none"
         strokeWidth={2}
         transform={`translate(${pointTwo.x},${pointTwo.y}) rotate(${rotate})`}

@@ -47,7 +47,6 @@
 
     & svg {
         overflow: visible;
-        stroke: var(--pluto-symbol-display);
     }
 
     &:not(.pluto-symbol--custom) svg {

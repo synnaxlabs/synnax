@@ -118,6 +118,10 @@
     --pluto-symbol-contrast: oklch(
         from var(--pluto-symbol-display) clamp(0, (0.6 - l) * 100, 1) 0 0deg / 100%
     );
+
+    /* SVG stroke is inherited, so descendants (node shapes, edge decorations, the
+       gauge arc) pick up the display color without restating it per shape. */
+    stroke: var(--pluto-symbol-display);
 }
 
 html {

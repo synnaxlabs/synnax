@@ -16,11 +16,10 @@ import { Light } from "@/schematic/node/general/light/Primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/light/config";
 
-export const defaultConfig = (_t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
   scale: 1,

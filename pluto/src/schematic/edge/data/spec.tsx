@@ -29,7 +29,6 @@ const DataSymbol = ({ position }: SymbolProps): ReactElement => (
     cy={position.y}
     r={3}
     fill="var(--pluto-gray-l0)"
-    stroke="var(--pluto-symbol-display)"
     strokeWidth={2}
   />
 );
