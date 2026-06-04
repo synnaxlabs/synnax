@@ -105,8 +105,6 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
     return [
       store.policies.onSet(update),
       store.policies.onDelete(update),
-      store.roles.onSet(update),
-      store.roles.onDelete(update),
       store.relationships.onSet((rel) => {
         if (affectsPermissions(rel)) update();
       }),
