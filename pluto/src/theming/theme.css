@@ -51,7 +51,7 @@
     --pluto-symbol-l-min: 0;
 
     /* cap lightness so pale colors darken enough to read on the light bg */
-    --pluto-symbol-l-max: 0.6;
+    --pluto-symbol-l-max: 0.8;
 
     /* low cutoff: only near-pure greys snap; muddy darks already read as near-black */
     --pluto-symbol-c-thresh: 0.05;
@@ -73,7 +73,7 @@
     --pluto-symbol-l-extreme: 1;
 
     /* floor lightness so dark colors lift enough to read on the dark bg */
-    --pluto-symbol-l-min: 0.55;
+    --pluto-symbol-l-min: 0.4;
 
     /* no ceiling: light colors already read fine on the dark bg */
     --pluto-symbol-l-max: 1;
