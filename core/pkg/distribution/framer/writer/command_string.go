@@ -28,8 +28,9 @@ const _Command_name = "CommandOpenCommandWriteCommandCommitCommandSetAuthority"
 var _Command_index = [...]uint8{0, 11, 23, 36, 55}
 
 func (i Command) String() string {
-	if i >= Command(len(_Command_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Command_index)-1 {
 		return "Command(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Command_name[_Command_index[i]:_Command_index[i+1]]
+	return _Command_name[_Command_index[idx]:_Command_index[idx+1]]
 }
