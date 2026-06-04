@@ -25,7 +25,7 @@ import {
   Table as PTable,
   Workspace as Base,
 } from "@synnaxlabs/pluto";
-import { array, deep, strings } from "@synnaxlabs/x";
+import { array, strings } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";
