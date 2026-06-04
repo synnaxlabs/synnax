@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_STAGELESS_WORKFLOW_SOURCE = """
 authority 200
@@ -27,7 +27,7 @@ sequence {
 """
 
 
-class StagelessWorkflow(ArcConsoleCase):
+class StagelessWorkflow(ArcCase):
     """A bare anonymous top-level sequence exercising the full stageless
     feature set AND the auto-activation rule for anonymous top-level
     scopes.
@@ -60,7 +60,7 @@ class StagelessWorkflow(ArcConsoleCase):
 
     arc_source = ARC_STAGELESS_WORKFLOW_SOURCE
     arc_name_prefix = "ArcStagelessWorkflow"
-    # start_cmd_channel is required by ArcConsoleCase but unused here:
+    # start_cmd_channel is required by ArcCase but unused here:
     # the sequence is anonymous and auto-activates, so no trigger fires.
     start_cmd_channel = "sw_start_cmd"
     subscribe_channels = [
@@ -82,7 +82,7 @@ class StagelessWorkflow(ArcConsoleCase):
         # trigger=None so no start-cmd write fires. Any observed output
         # comes from the unified cascade rule auto-activating the
         # anonymous top-level sequence on its first scheduler cycle.
-        self.arc_name = self.load_arc(
+        self.load_arc(
             self.arc_source,
             self.arc_name_prefix,
             trigger=None,
@@ -94,18 +94,14 @@ class StagelessWorkflow(ArcConsoleCase):
             "Waiting for auto-activated cascade (sw_a = 1); no start command "
             "was written — the anonymous sequence must self-start."
         )
-        self.wait_for_eq("sw_a", 1, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True)
+        self.wait_for_eq("sw_a", 1, timeout=5 * sy.TimeSpan.SECOND)
         self.log(
             "sw_a=1 observed without any trigger; verifying sw_b and sw_c "
             "cascaded on same cycle (all three writes must be visible within "
             "100ms of sw_a)..."
         )
-        self.wait_for_eq(
-            "sw_b", 1, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
-        )
-        self.wait_for_eq(
-            "sw_c", 1, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
-        )
+        self.wait_for_eq("sw_b", 1, timeout=100 * sy.TimeSpan.MILLISECOND)
+        self.wait_for_eq("sw_c", 1, timeout=100 * sy.TimeSpan.MILLISECOND)
         self.log("First cascade observed on a single tick")
 
         self.log(
@@ -113,7 +109,7 @@ class StagelessWorkflow(ArcConsoleCase):
             "wait{500ms} to elapse without advancing"
         )
         self.writer.write("sw_pressure", 10.0)
-        sy.sleep(1.5)
+        sy.sleep(1)
         a_value = self.read_tlm("sw_a")
         if a_value is None:
             self.fail(
@@ -132,12 +128,8 @@ class StagelessWorkflow(ArcConsoleCase):
         self.log("Driving sw_pressure=75 (above gate threshold)")
         self.writer.write("sw_pressure", 75.0)
         self.log("Waiting for second cascade (sw_a = 0)...")
-        self.wait_for_eq("sw_a", 0, timeout=5 * sy.TimeSpan.SECOND, is_virtual=True)
+        self.wait_for_eq("sw_a", 0, timeout=5 * sy.TimeSpan.SECOND)
         self.log("sw_a=0 observed; verifying sw_b and sw_c cascaded on same cycle...")
-        self.wait_for_eq(
-            "sw_b", 0, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
-        )
-        self.wait_for_eq(
-            "sw_c", 0, timeout=100 * sy.TimeSpan.MILLISECOND, is_virtual=True
-        )
+        self.wait_for_eq("sw_b", 0, timeout=100 * sy.TimeSpan.MILLISECOND)
+        self.wait_for_eq("sw_c", 0, timeout=100 * sy.TimeSpan.MILLISECOND)
         self.log("Second cascade fired on a single tick after gate opened")
