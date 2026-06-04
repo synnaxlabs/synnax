@@ -536,10 +536,7 @@ func Equal(t Type, v Type) bool {
 		if !paramsEqual(t.Inputs, v.Inputs) {
 			return false
 		}
-		if !paramsEqual(t.Outputs, v.Outputs) {
-			return false
-		}
-		return paramsEqual(t.Config, v.Config)
+		return paramsEqual(t.Outputs, v.Outputs)
 	}
 	if t.Unit == nil && v.Unit == nil {
 		return true
