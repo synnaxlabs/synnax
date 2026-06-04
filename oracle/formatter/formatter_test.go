@@ -174,6 +174,13 @@ var _ = Describe("Format", func() {
 			once := format(source)
 			Expect(format(once)).To(Equal(once))
 		})
+
+		It("should format an object-literal value inside a multi-expression domain block", func() {
+			source := "Entry struct {\n  timestamp Config {\n    @validate {\n      min 0\n      default { format \"preciseDate\", tz \"local\" }\n    }\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("min 0"))
+			Expect(result).To(ContainSubstring("default { format \"preciseDate\", tz \"local\" }"))
+		})
 	})
 
 	Describe("Type Definitions", func() {
