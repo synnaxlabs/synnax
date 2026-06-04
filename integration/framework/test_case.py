@@ -22,6 +22,7 @@ from typing import Any, Literal, overload
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import STATUS, SYMBOLS, SynnaxConnection
+from framework.notifications import StatusNotifications
 from framework.streamer import Streamer
 from framework.telemetry import TelemetryWriter
 from framework.utils import create_indexed_channel, create_time_index
@@ -61,6 +62,10 @@ class TestCase(ABC):
     WEBSOCKET_RETRY_DELAY: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND
     DEFAULT_TIMEOUT_LIMIT: sy.CrudeTimeSpan | None = None
     DEFAULT_MANUAL_TIMEOUT: sy.CrudeTimeSpan | None = None
+
+    # Opt-in: when True, the base lifecycle records cluster status notifications
+    # for the duration of the test so wait_for_notification can match them.
+    collect_notifications: bool = False
 
     log_client: LogClient
 
@@ -103,6 +108,7 @@ class TestCase(ABC):
 
         self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
         self._telemetry_writer: TelemetryWriter | None = None
+        self._notifications: StatusNotifications | None = None
         self.streamer = Streamer(
             client=self.client,
             read_timeout=self.read_timeout,
@@ -449,6 +455,18 @@ class TestCase(ABC):
             is_virtual,
         )
 
+    def wait_for_notification(self, text: str, timeout: float = 5.0) -> bool:
+        """Return True if a status notification containing text has surfaced.
+
+        Requires collect_notifications = True so the base lifecycle records
+        status updates for the duration of the test.
+        """
+        if self._notifications is None:
+            raise RuntimeError(
+                "wait_for_notification requires collect_notifications = True"
+            )
+        return self._notifications.wait_for(text, timeout)
+
     @property
     def name(self) -> str:
         """Get the name of the test case."""
@@ -566,6 +584,10 @@ class TestCase(ABC):
             self.STATUS = STATUS.INITIALIZING
             self.setup()
 
+            if self.collect_notifications:
+                self._notifications = StatusNotifications(self.client)
+                self._notifications.open()
+
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
@@ -591,6 +613,8 @@ class TestCase(ABC):
                 self.teardown()
             except Exception as teardown_error:
                 self.log(f"Teardown error: {teardown_error}")
+            if self._notifications is not None:
+                self._notifications.close()
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()
