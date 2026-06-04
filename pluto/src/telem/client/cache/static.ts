@@ -160,15 +160,20 @@ export class Static {
     const {
       instrumentation: { L },
     } = this.props;
-    const allBounds = this.data.map((s) => s.data.alignmentBounds);
-    const invalid = allBounds.some((b, i) =>
-      allBounds.some((b2, j) => {
-        if (i === j) return false;
-        const ok = bounds.overlapsWith(b, b2);
-        return ok;
-      }),
-    );
-    if (invalid) {
+    // writeOne keeps this.data ordered and non-overlapping via
+    // bounds.buildInsertionPlan. In a set of intervals sorted by lower bound, any
+    // overlap necessarily involves an adjacent pair, so comparing neighbors is O(n)
+    // and equivalent to the full O(n^2) scan. This runs on every streaming write and
+    // the cache can hold hundreds of entries, so the quadratic version becomes a
+    // super-linear cost that bogs the worker down as the cache grows.
+    for (let i = 1; i < this.data.length; i++) {
+      if (
+        !bounds.overlapsWith(
+          this.data[i - 1].data.alignmentBounds,
+          this.data[i].data.alignmentBounds,
+        )
+      )
+        continue;
       L.debug("Cache is in an invalid state - bounds overlap!", () => ({
         write: write.series.map((s) => s.digest),
         cacheContents: this.data.map((s) => s.data.digest),
