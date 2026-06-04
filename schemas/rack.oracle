@@ -91,9 +91,8 @@ Rack struct {
 New struct extends Rack {
     -task_counter
     -embedded
-    key uint32 {
-        @doc value        "is an optional key for the rack. If 0, one will be automatically assigned."
-        @validate default 0
+    key uint32 = 0 {
+        @doc value "is an optional key for the rack. If 0, one will be automatically assigned."
     }
 
     @doc value    "contains parameters for creating a new rack."

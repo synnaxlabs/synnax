@@ -646,10 +646,8 @@ func processField(
 	}
 
 	baseType := typeToPython(field.Type, table, data)
-	var fieldConstraints []string
-	if validateDomain, ok := field.Domains["validate"]; ok {
-		fieldConstraints = collectValidation(validateDomain, field.Type, table, data)
-	}
+	validateDomain := field.Domains["validate"]
+	fieldConstraints := collectValidation(validateDomain, field.Default, field.Type, table, data)
 
 	if bounds, ok := sizedIntBounds(field.Type, table); ok {
 		hasGe := lo.ContainsBy(fieldConstraints, func(c string) bool {
@@ -728,12 +726,13 @@ func buildDefault(
 
 func collectValidation(
 	domain resolution.Domain,
+	defaultVal *resolution.ExpressionValue,
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
 ) []string {
 	rules := validation.Parse(domain)
-	if validation.IsEmpty(rules) {
+	if validation.IsEmpty(rules) && defaultVal == nil {
 		return nil
 	}
 	var constraints []string
@@ -763,48 +762,79 @@ func collectValidation(
 			}
 		}
 	}
-	if rules.Default != nil {
-		switch rules.Default.Kind {
+	if defaultVal != nil {
+		switch defaultVal.Kind {
 		case resolution.ValueKindBool:
-			if rules.Default.BoolValue {
+			if defaultVal.BoolValue {
 				constraints = append(constraints, "default=True")
 			} else {
 				constraints = append(constraints, "default=False")
 			}
 		case resolution.ValueKindInt:
 			// Type-aware: uuid with default 0 → UUID(int=0)
-			if isUUIDType(typeRef, table) && rules.Default.IntValue == 0 {
+			if isUUIDType(typeRef, table) && defaultVal.IntValue == 0 {
 				data.imports.addUUID("UUID")
 				constraints = append(constraints, "default=UUID(int=0)")
 			} else if wrapper := resolveDistinctWrapper(typeRef, table, data); wrapper != "" {
 				// Wrap int defaults in the distinct type constructor (e.g., TimeSpan(0))
-				constraints = append(constraints, fmt.Sprintf("default=%s(%d)", wrapper, rules.Default.IntValue))
+				constraints = append(constraints, fmt.Sprintf("default=%s(%d)", wrapper, defaultVal.IntValue))
 			} else {
-				constraints = append(constraints, fmt.Sprintf("default=%d", rules.Default.IntValue))
+				constraints = append(constraints, fmt.Sprintf("default=%d", defaultVal.IntValue))
 			}
 		case resolution.ValueKindFloat:
-			constraints = append(constraints, fmt.Sprintf("default=%f", rules.Default.FloatValue))
+			constraints = append(constraints, fmt.Sprintf("default=%f", defaultVal.FloatValue))
 		case resolution.ValueKindString:
-			constraints = append(constraints, fmt.Sprintf("default=%q", rules.Default.StringValue))
+			constraints = append(constraints, fmt.Sprintf("default=%q", defaultVal.StringValue))
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if rules.Default.IdentValue == "now" && isTimeStampType(typeRef, table) {
+			if defaultVal.IdentValue == "now" && isTimeStampType(typeRef, table) {
 				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
 			}
 			// Handle "create" for auto-generating string keys
 			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`
 			primitive := key.ResolvePrimitive(typeRef, table)
-			if rules.Default.IdentValue == "create" && (isString || primitive == "string") {
+			if defaultVal.IdentValue == "create" && (isString || primitive == "string") {
 				data.imports.addUUID("uuid4")
 				constraints = append(constraints, "default_factory=lambda: str(uuid4())")
 			}
-			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
+			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
 				variantRef := enumVariantToPython(ev, table, data)
 				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
+			}
+		case resolution.ValueKindArray:
+			// Lists are mutable, so they must use default_factory, never default=.
+			if len(defaultVal.Elements) == 0 {
+				constraints = append(constraints, "default_factory=list")
+			} else {
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyArrayLiteral(defaultVal.Elements)))
 			}
 		}
 	}
 	return constraints
+}
+
+// pyArrayLiteral renders an array default's elements as a Python list literal.
+func pyArrayLiteral(elements []resolution.ExpressionValue) string {
+	parts := make([]string, 0, len(elements))
+	for _, el := range elements {
+		switch el.Kind {
+		case resolution.ValueKindString:
+			parts = append(parts, fmt.Sprintf("%q", el.StringValue))
+		case resolution.ValueKindInt:
+			parts = append(parts, fmt.Sprintf("%d", el.IntValue))
+		case resolution.ValueKindFloat:
+			parts = append(parts, fmt.Sprintf("%f", el.FloatValue))
+		case resolution.ValueKindBool:
+			if el.BoolValue {
+				parts = append(parts, "True")
+			} else {
+				parts = append(parts, "False")
+			}
+		case resolution.ValueKindIdent:
+			parts = append(parts, el.IdentValue)
+		}
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {

@@ -75,24 +75,6 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	})
 }
 
-type SetDataRequest struct {
-	Data schematic.Schematic `json:"data" msgpack:"data"`
-	Key  schematic.Key       `json:"key" msgpack:"key"`
-}
-
-func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
-	})
-}
-
 // DispatchRequest carries an action sequence to apply to a single schematic.
 // DispatchKey is a client-generated identifier for the batch, registered as
 // outstanding on the originator before the request is sent. The server echoes

@@ -10,6 +10,7 @@
 package lsp_test
 
 import (
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -401,5 +402,45 @@ var _ = Describe("External Change Notifications", func() {
 		})
 		observer.Notify(ctx, struct{}{})
 		Eventually(func() []protocol.Diagnostic { return client.Diagnostics() }).Should(BeEmpty())
+	})
+
+	It("Should not race feature queries against a concurrent republish", func(ctx SpecContext) {
+		resolver.Add(symbol.Symbol{
+			Name: "my_channel",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.F32()),
+		})
+		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
+
+		const workers = 8
+		var wg sync.WaitGroup
+		done := make(chan struct{})
+		wg.Add(workers)
+		for range workers {
+			go func() {
+				defer wg.Done()
+				params := &protocol.PrepareRenameParams{
+					TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+						TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+						Position:     protocol.Position{Line: 1, Character: 6},
+					},
+				}
+				for {
+					select {
+					case <-done:
+						return
+					default:
+						// Errors are irrelevant here; the assertion is the race
+						// detector observing no concurrent access to the IR.
+						_, _ = server.PrepareRename(ctx, params)
+					}
+				}
+			}()
+		}
+		for range 50 {
+			observer.Notify(ctx, struct{}{})
+		}
+		close(done)
+		wg.Wait()
 	})
 })

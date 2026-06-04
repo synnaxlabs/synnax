@@ -207,7 +207,9 @@ jobs:
       BAZEL_BUILD_FLAGS:
         --enable_platform_specific_config ${{ inputs.debug && '-c dbg' || '--config=opt'
         }} --announce_rc --verbose_failures
-      BAZEL_REMOTE_CACHE_FLAGS: --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_URL }}
+      BAZEL_REMOTE_CACHE_FLAGS:
+        --remote_cache=${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
+        --remote_cache_compression=true
     strategy:
       fail-fast: false
       matrix:

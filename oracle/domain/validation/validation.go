@@ -19,7 +19,6 @@ type Rules struct {
 	MaxLength      *int64
 	Min            *Number
 	Max            *Number
-	Default        *resolution.ExpressionValue
 	Pattern        *string
 	PatternMessage *string
 	Required       bool
@@ -62,8 +61,6 @@ func Parse(domain resolution.Domain) *Rules {
 				Float: v.FloatValue,
 				IsInt: v.Kind == resolution.ValueKindInt,
 			}
-		case "default":
-			rules.Default = &v
 		case "pattern":
 			rules.Pattern = &v.StringValue
 			if len(expr.Values) > 1 {
@@ -80,5 +77,5 @@ func IsEmpty(r *Rules) bool {
 		return true
 	}
 	return !r.Required && r.MinLength == nil && r.MaxLength == nil &&
-		r.Min == nil && r.Max == nil && r.Default == nil && r.Pattern == nil
+		r.Min == nil && r.Max == nil && r.Pattern == nil
 }

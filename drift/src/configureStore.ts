@@ -16,6 +16,7 @@ import {
   type Tuple,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { errors } from "@synnaxlabs/x";
 
 import { configureMiddleware, type Middlewares } from "@/middleware";
 import { type Runtime } from "@/runtime";
@@ -148,7 +149,7 @@ const receivePreloadedStateAndListen = async <
         });
         await runtime.emit({ sendState: true }, MAIN_WINDOW);
       } catch (e) {
-        reject(e instanceof Error ? e : new Error(String(e)));
+        reject(errors.fromUnknown(e));
       }
     };
     // We're safe to void here because we're catching and rejecting the error in

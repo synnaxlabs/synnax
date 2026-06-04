@@ -92,7 +92,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				name string @validate { default "untitled" }
+				name string = "untitled"
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -100,12 +100,26 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default("untitled")`)
 	})
 
+	It("Should emit supplementary-plane characters as surrogate pairs, not \\U", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				name string = "a😀b"
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring("\\uD83D\\uDE00"))
+		Expect(content).ToNot(ContainSubstring("\\U"))
+	})
+
 	It("Should emit int default", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
 			Item struct {
-				count int32 @validate { default 5 }
+				count int32 = 5
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -118,7 +132,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				ratio float64 @validate { default 1.5 }
+				ratio float64 = 1.5
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -131,7 +145,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				active bool @validate { default true }
+				active bool = true
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
@@ -144,12 +158,40 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				key string @validate { default create }
+				key string = create
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(`.default(() => id.create())`)
+	})
+
+	It("Should rely on nullishToEmpty for an empty array default, not a misplaced element default", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				vals float64[] = []
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`vals: array.nullishToEmpty(z.number()),`))
+		Expect(content).ToNot(ContainSubstring(`z.number().default`))
+	})
+
+	It("Should apply a populated array default to the wrapped array, not the element", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				vals float64[] = [1.5, 2.5]
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`vals: array.nullishToEmpty(z.number()).default([1.500000, 2.500000]),`))
+		Expect(content).ToNot(ContainSubstring(`z.number().default`))
 	})
 
 	It("Should emit min/max length for string fields", func(ctx SpecContext) {

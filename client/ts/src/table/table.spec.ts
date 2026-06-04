@@ -42,31 +42,6 @@ describe("Table", () => {
     });
   });
 
-  describe("setData", () => {
-    test("set data replaces body fields while preserving key and name", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const t = await client.tables.create(ws.key, {
-        name: "Table",
-      });
-      await client.tables.setData(t.key, {
-        rows: [{ size: 40, cells: ["a", "b"] }],
-        columns: [{ size: 80 }, { size: 100 }],
-        cells: {
-          a: { key: "a", variant: "text", props: { value: "hello" } },
-          b: { key: "b", variant: "value", props: { units: "psi" } },
-        },
-      });
-      const res = await client.tables.retrieve({ key: t.key });
-      expect(res.name).toEqual("Table");
-      expect(res.rows).toHaveLength(1);
-      expect(res.rows[0].cells).toEqual(["a", "b"]);
-      expect(res.columns).toHaveLength(2);
-      expect(res.cells.a.variant).toEqual("text");
-      expect((res.cells.a.props as Record<string, unknown>).value).toEqual("hello");
-      expect(res.cells.b.variant).toEqual("value");
-    });
-  });
-
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
@@ -124,7 +99,7 @@ describe("Table", () => {
   describe("dispatch", () => {
     const seed = async () => {
       const ws = await client.workspaces.create({ name: "Dispatch", layout: {} });
-      return client.tables.create(ws.key, {
+      return await client.tables.create(ws.key, {
         name: "Dispatch",
         rows: [{ size: 30, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],

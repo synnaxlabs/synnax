@@ -452,8 +452,8 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "out"
 
 				Config struct {
-					enabled bool @validate default false
-					retries int32 @validate default 3
+					enabled bool = false
+					retries int32 = 3
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -471,6 +471,21 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`retries: int = Field(default=3, ge=-2147483648, le=2147483647)`))
 		})
 
+		It("Should emit array defaults via default_factory", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					empty float64[] = []
+					vals  float64[] = [1.5, 2.5]
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`empty: list[float] = Field(default_factory=list)`))
+			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
+		})
+
 		It("Should wrap int defaults in distinct type constructor", func(ctx SpecContext) {
 			source := `
 				@py output "out"
@@ -478,7 +493,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Duration int64
 
 				Config struct {
-					timeout Duration @validate default 0
+					timeout Duration = 0
 				}
 			`
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -500,7 +515,7 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "client/py/synnax/channel"
 
 				Operation struct {
-					duration telem.TimeSpan @validate default 0
+					duration telem.TimeSpan = 0
 				}
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
@@ -1313,7 +1328,7 @@ ChannelStatus = status.Status<nil>
 					@py output "out"
 
 					Config struct {
-						mode string @validate default "normal"
+						mode string = "normal"
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -1400,7 +1415,7 @@ ChannelStatus = status.Status<nil>
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -1423,7 +1438,7 @@ ChannelStatus = status.Status<nil>
 					@py output "client/py/synnax/channel"
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)

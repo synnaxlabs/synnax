@@ -103,7 +103,12 @@ describe("migrations", () => {
             source: "n1",
             target: "n2",
             data: {
-              segments: [{ direction: "x", length: 10 }],
+              segments: [
+                { direction: "x", length: 10 },
+                { direction: "y", length: -50 },
+                { direction: "x", length: 30 },
+                { direction: "y", length: 10 },
+              ],
               color: "#00ff00",
               variant: "pipe",
             },
@@ -112,10 +117,67 @@ describe("migrations", () => {
       };
       const migrated = migrateState(populated);
       expect(migrated.pendingUpload?.configs.e1).toMatchObject({
-        segments: [{ direction: "x", length: 10 }],
+        segments: [
+          { direction: "y", length: -50 },
+          { direction: "x", length: 30 },
+        ],
         color: color.construct("#00ff00"),
         variant: "pipe",
       });
+    });
+
+    it("should strip legacy stumps from full-path edge segments", () => {
+      // Real OX Pre-Valve -> OX MPV edge from a 0.55 schematic: the stored full path
+      // includes both stumps, which would double on render and fold a pigtail.
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            sourceHandle: "2",
+            targetHandle: "2",
+            data: {
+              segments: [
+                { direction: "x", length: 10 },
+                { direction: "y", length: -281.7166395035551 },
+                { direction: "x", length: 140.06190790464655 },
+                { direction: "y", length: 10 },
+              ],
+              color: "#004ad6",
+              variant: "jacketed",
+            },
+          },
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.pendingUpload?.configs.e1).toMatchObject({
+        segments: [
+          { direction: "y", length: -281.7166395035551 },
+          { direction: "x", length: 140.06190790464655 },
+        ],
+        variant: "jacketed",
+      });
+    });
+
+    it("should clear degenerate short edges so they auto-route", () => {
+      // A single segment shorter than two stumps (real 0.55 edge, 11.88px) has no
+      // strippable middle; subtracting a full stump from each end would flip it into a
+      // self-crossing spur, so it must be cleared to an empty (auto-routed) edge.
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            data: { segments: [{ direction: "y", length: 11.88 }], variant: "pipe" },
+          },
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.pendingUpload?.configs.e1).toMatchObject({ segments: [] });
     });
 
     it("should add an empty selected array when migrating to v6", () => {

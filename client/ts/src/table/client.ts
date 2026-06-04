@@ -11,18 +11,13 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, dispatchReqZ } from "@/table/actions.gen";
+import { type Action, dispatchReqZ, rename as renameAction } from "@/table/actions.gen";
 import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
-
-const setDataBodyZ = tableZ.omit({ key: true, name: true });
-export type SetDataBody = z.input<typeof setDataBodyZ>;
-const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -66,11 +61,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await this.client.send("/table/rename", { key, name }, renameReqZ, emptyResZ);
-  }
-
-  async setData(key: Key, data: SetDataBody): Promise<void> {
-    await this.client.send("/table/set-data", { key, data }, setDataReqZ, emptyResZ);
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {

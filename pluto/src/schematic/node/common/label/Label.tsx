@@ -63,6 +63,7 @@ const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps
     <Text.Editable
       {...rest}
       style={style}
+      alignSelf={align}
       className={CSS(CSS.BE("symbol", "label"), CSS.dir(dir))}
       level={level}
       value={label}

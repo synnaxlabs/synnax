@@ -1526,7 +1526,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
@@ -1551,12 +1551,27 @@ var _ = Describe("C++ Types Plugin", func() {
 					@pb
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, cppPlugin)
 				ExpectContent(resp, "types.gen.h").
 					ToContain(`::x::control::Concurrency concurrency = ::x::control::Concurrency::Exclusive`)
+			})
+
+			It("Should generate brace-init defaults for arrays", func(ctx SpecContext) {
+				source := `
+					@cpp output "out"
+
+					Config struct {
+						empty float64[] = []
+						vals  float64[] = [1.5, 2.5]
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				content := MustContentOf(resp, "types.gen.h")
+				Expect(content).To(ContainSubstring(`empty = {}`))
+				Expect(content).To(ContainSubstring(`vals = {1.500000, 2.500000}`))
 			})
 		})
 	})
