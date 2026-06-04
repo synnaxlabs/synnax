@@ -33,3 +33,4 @@ jobs:
     with:
       directory: oracle
       coverage_flag: oracle
+      install_antlr4: true

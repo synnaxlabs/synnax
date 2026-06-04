@@ -35,3 +35,4 @@ jobs:
     with:
       directory: arc/go
       coverage_flag: arc-go
+      install_antlr4: true

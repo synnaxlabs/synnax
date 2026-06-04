@@ -72,16 +72,20 @@ func (w Writer) Rename(
 		}).Exec(ctx, w.tx)
 }
 
+// SetData replaces the body of the line plot with the given key with the
+// provided value. Key and Name are preserved from the existing entry; every
+// other field on data overwrites the stored entry verbatim.
 func (w Writer) SetData(
 	ctx context.Context,
 	key Key,
-	data map[string]any,
+	data LinePlot,
 ) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, LinePlot](key)).
 		Change(func(_ gorp.Context, p LinePlot) LinePlot {
-			p.Data = data
-			return p
+			data.Key = p.Key
+			data.Name = p.Name
+			return data
 		}).Exec(ctx, w.tx)
 }
 

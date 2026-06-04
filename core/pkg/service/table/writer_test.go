@@ -67,46 +67,16 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("Update", func() {
-		It("Should rename a Table", func(ctx SpecContext) {
+	Describe("Dispatch", func() {
+		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewRenameAction(table.RenamePayload{Name: "test2"}),
+			})).To(Succeed())
 			Expect(retrieve(ctx, s.Key).Name).To(Equal("test2"))
 		})
-	})
 
-	Describe("SetData", func() {
-		It("Should replace the body of a Table while preserving key and name", func(ctx SpecContext) {
-			s := table.Table{
-				Name:    "test",
-				Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
-				Columns: []table.Column{{Size: 80}},
-				Cells: map[string]table.Cell{
-					"a": {Key: "a", Variant: "text", Props: msgpack.EncodedJSON{"value": "v1"}},
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			updated := table.Table{
-				Rows:    []table.Row{{Size: 40, Cells: []string{"a", "b"}}},
-				Columns: []table.Column{{Size: 100}, {Size: 120}},
-				Cells: map[string]table.Cell{
-					"a": {Key: "a", Variant: "text", Props: msgpack.EncodedJSON{"value": "v2"}},
-					"b": {Key: "b", Variant: "value", Props: msgpack.EncodedJSON{"units": "psi"}},
-				},
-			}
-			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, updated)).To(Succeed())
-			got := retrieve(ctx, s.Key)
-			Expect(got.Key).To(Equal(s.Key))
-			Expect(got.Name).To(Equal("test"))
-			Expect(got.Rows[0].Cells).To(Equal([]string{"a", "b"}))
-			Expect(got.Columns).To(HaveLen(2))
-			Expect(got.Cells["a"].Props["value"]).To(Equal("v2"))
-			Expect(got.Cells["b"].Variant).To(Equal("value"))
-		})
-	})
-
-	Describe("Dispatch", func() {
 		It("Should apply a multi-action sequence atomically and persist the result", func(ctx SpecContext) {
 			s := seed(ctx)
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{

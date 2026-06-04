@@ -64,6 +64,12 @@ type OracleParserListener interface {
 	// EnterFieldDef is called when entering the fieldDef production.
 	EnterFieldDef(c *FieldDefContext)
 
+	// EnterFieldDefault is called when entering the fieldDefault production.
+	EnterFieldDefault(c *FieldDefaultContext)
+
+	// EnterArrayDefault is called when entering the arrayDefault production.
+	EnterArrayDefault(c *ArrayDefaultContext)
+
 	// EnterInlineDomain is called when entering the inlineDomain production.
 	EnterInlineDomain(c *InlineDomainContext)
 
@@ -171,6 +177,12 @@ type OracleParserListener interface {
 
 	// ExitFieldDef is called when exiting the fieldDef production.
 	ExitFieldDef(c *FieldDefContext)
+
+	// ExitFieldDefault is called when exiting the fieldDefault production.
+	ExitFieldDefault(c *FieldDefaultContext)
+
+	// ExitArrayDefault is called when exiting the arrayDefault production.
+	ExitArrayDefault(c *ArrayDefaultContext)
 
 	// ExitInlineDomain is called when exiting the inlineDomain production.
 	ExitInlineDomain(c *InlineDomainContext)

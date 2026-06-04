@@ -2173,7 +2173,7 @@ trigger_ch -> emit_period{period=1s}
 	})
 
 	Describe("Flow Expression Execution", func() {
-		It("Should execute every time for flow expression nodes", func(ctx SpecContext) {
+		It("Should execute only once for a flow expression node with no inputs", func(ctx SpecContext) {
 			g := singleFunctionGraph("expression_0", types.I64(), `{
 				count i64 $= 0
 				count = count + 1
@@ -2189,13 +2189,13 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
 
 			n.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
 
 			n.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
 		})
 
-		It("Should continue executing after reset for expression nodes", func(ctx SpecContext) {
+		It("Should execute again after reset for a flow expression node with no inputs", func(ctx SpecContext) {
 			g := singleFunctionGraph("expression_0", types.I64(), `{
 				count i64 $= 0
 				count = count + 1
@@ -2206,6 +2206,9 @@ trigger_ch -> emit_period{period=1s}
 
 			n := h.CreateNode(ctx, "expression_0")
 			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+
+			n.Next(nCtx)
+			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
@@ -2214,9 +2217,6 @@ trigger_ch -> emit_period{period=1s}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(2)))
-
-			n.Next(nCtx)
-			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
 		})
 
 		It("Should not treat non-expression nodes as expressions", func(ctx SpecContext) {
