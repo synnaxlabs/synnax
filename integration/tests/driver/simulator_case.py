@@ -101,13 +101,16 @@ class SimulatorCase(TestCase):
         return None
 
     def teardown(self) -> None:
-        """Cleanup after test."""
-        super().teardown()
-        for sim in self.sims.values():
-            if sim is not None:
-                sim.stop()
-        self.sims = {}
-        self.sim = None
+        """Stop simulator(s) first, then run the remaining teardown."""
+        try:
+            for sim in self.sims.values():
+                if sim is not None:
+                    with self._try_to("stop simulator"):
+                        sim.stop()
+            self.sims = {}
+            self.sim = None
+        finally:
+            super().teardown()
 
     def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
         """Get or create the hardware device for a given simulator class."""

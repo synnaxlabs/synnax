@@ -16,7 +16,8 @@ warnings.filterwarnings("ignore", message=".*timed out while closing connection.
 import sys
 import traceback
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any, Literal, overload
 
 import synnax as sy
@@ -279,6 +280,16 @@ class TestCase(ABC):
         Main test logic.
         """
         raise NotImplementedError("Subclasses must implement the run() method")
+
+    @contextmanager
+    def _try_to(self, action: str) -> Iterator[None]:
+        """Attempt action, logging and swallowing any failure.
+        Keeps one teardown step from aborting the rest.
+        """
+        try:
+            yield
+        except Exception as e:
+            self.log(f"Failed to {action}: {e}")
 
     def teardown(self) -> None:
         """Cleanup after test execution. Override for custom cleanup logic."""

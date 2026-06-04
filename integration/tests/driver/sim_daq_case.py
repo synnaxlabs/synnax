@@ -61,7 +61,15 @@ class SimDaqCase(TestCase):
             self.sim_daq = None
 
     def teardown(self) -> None:
-        """Stop the simulator during teardown."""
-        super().teardown()
-        if hasattr(self, "sim_daq") and self.sim_daq is not None:
-            self.sim_daq.stop()
+        """Stop the simulator, then run the remaining teardown.
+
+        Stopping is done first and unconditionally so a failure in a later
+        teardown step cannot leave the simulator's writer open. A leaked writer
+        keeps control authority over shared channels and fails every later
+        simulator-backed test.
+        """
+        try:
+            if self.sim_daq is not None:
+                self.sim_daq.stop()
+        finally:
+            super().teardown()

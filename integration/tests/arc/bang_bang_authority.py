@@ -129,10 +129,8 @@ class BangBangAuthority(ArcCase):
         finally:
             for w in (self._press_writer, self._vent_writer):
                 if w is not None:
-                    try:
+                    with self._try_to("close control writer"):
                         w.close()
-                    except Exception:
-                        pass
             self._press_writer = None
             self._vent_writer = None
 
@@ -207,10 +205,8 @@ class BangBangAuthority(ArcCase):
     def teardown(self) -> None:
         for w in (self._press_writer, self._vent_writer):
             if w is not None:
-                try:
+                with self._try_to("close control writer"):
                     w.close()
-                except Exception:
-                    pass
         self._press_writer = None
         self._vent_writer = None
         super().teardown()

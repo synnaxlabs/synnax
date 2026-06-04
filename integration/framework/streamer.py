@@ -112,6 +112,8 @@ class Streamer:
         timer = sy.Timer()
         with self._cond:
             while True:
+                if self._should_stop:
+                    return False
                 value = self._frame.get(key)
                 if value is not None and predicate(value):
                     return True

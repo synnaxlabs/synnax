@@ -177,33 +177,28 @@ class ArcCase(SimDaqCase, TestCase):
         self.verify_sequence_execution()
 
     def teardown(self) -> None:
-        """Delete all tracked arcs and their tasks. Runs even on failure.
+        """Delete all tracked arcs and their tasks, then stop the simulator.
 
-        The task is deleted explicitly rather than relying on the arc-to-task
-        cascade, since a rejected configuration never links the two.
+        Cleanup runs even on failure, and SimDaqCase.teardown always runs so the
+        simulator is stopped even when a cleanup step raises. Tasks are deleted
+        explicitly rather than relying on the arc-to-task cascade, since a
+        rejected configuration never links the two.
         """
-        for handle in reversed(self._arcs):
-            if handle.task.key != 0:
-                try:
-                    self.client.tasks.delete(handle.task.key)
-                except Exception as e:
-                    self.log(f"Failed to delete task {handle.name}: {e}")
-            try:
-                self.client.arcs.delete(handle.arc_key)
-            except Exception as e:
-                self.fail(f"Failed to delete {handle.name}: {e}")
-
-        if self.end_cmd_channel and self.sim_daq is not None:
-            self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
-            try:
-                self.writer.write(self.end_cmd_channel, 1)
-            except Exception as e:
-                self.fail(f"Failed to signal simulator stop: {e}")
-
-        if self._task_status is not None:
-            self._task_status.close()
-
-        super().teardown()
+        try:
+            for handle in reversed(self._arcs):
+                if handle.task.key != 0:
+                    with self._try_to(f"delete task {handle.name}"):
+                        self.client.tasks.delete(handle.task.key)
+                with self._try_to(f"delete arc {handle.name}"):
+                    self.client.arcs.delete(handle.arc_key)
+            if self.end_cmd_channel and self.sim_daq is not None:
+                self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
+                with self._try_to("signal simulator stop"):
+                    self.writer.write(self.end_cmd_channel, 1)
+            if self._task_status is not None:
+                self._task_status.close()
+        finally:
+            super().teardown()
 
     @abstractmethod
     def verify_sequence_execution(self) -> None:
