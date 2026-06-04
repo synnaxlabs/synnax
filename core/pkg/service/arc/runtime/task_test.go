@@ -687,6 +687,132 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("Entry Node Startup", func() {
+		It("Should fire a constant entry node at startup with no reads or intervals", func(ctx SpecContext) {
+			outputCh := createVirtualCh(ctx, "startup_const", telem.Uint8T)
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				42 -> %s
+			`, outputCh.Name)}
+
+			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{outputCh.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(ctx, newTextFactory(ctx, prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+			Expect(telem.ValueAt[uint8](fr.Frame.Get(outputCh.Key()).Series[0], 0)).
+				To(Equal(uint8(42)))
+			Consistently(responses, 100*time.Millisecond).ShouldNot(Receive())
+		})
+
+		It("Should fire entry nodes at startup while a channel-read path waits for input", func(ctx SpecContext) {
+			triggerCh := createVirtualCh(ctx, "startup_trigger", telem.Uint8T)
+			constOut := createVirtualCh(ctx, "startup_const_out", telem.Uint8T)
+			exprOut := createVirtualCh(ctx, "startup_expr_out", telem.Uint8T)
+			triggerOut := createVirtualCh(ctx, "startup_trigger_out", telem.Uint8T)
+
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				func pass() {
+					%s = %s
+				}
+				42 -> %s
+				40 + 2 -> %s
+				%s -> pass{}
+			`, triggerOut.Name, triggerCh.Name, constOut.Name, exprOut.Name, triggerCh.Name)}
+
+			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{
+				constOut.Key(), exprOut.Key(), triggerOut.Key(),
+			}, 10)
+			defer closeStreamer()
+
+			t := newTask(ctx, newTextFactory(ctx, prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			var gotConst, gotExpr bool
+			for !gotConst || !gotExpr {
+				var fr framer.StreamerResponse
+				Eventually(responses).Should(Receive(&fr))
+				if s := fr.Frame.Get(constOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(42)))
+					gotConst = true
+				}
+				if s := fr.Frame.Get(exprOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(42)))
+					gotExpr = true
+				}
+				Expect(fr.Frame.Get(triggerOut.Key()).Len()).To(BeZero())
+			}
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{triggerCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](7)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			var gotTrigger bool
+			for !gotTrigger {
+				var fr framer.StreamerResponse
+				Eventually(responses).Should(Receive(&fr))
+				if s := fr.Frame.Get(triggerOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(7)))
+					gotTrigger = true
+				}
+			}
+		})
+
+		It("Should fire constant and expression entry nodes once when paired with an interval", func(ctx SpecContext) {
+			constOut := createVirtualCh(ctx, "once_const_out", telem.Uint8T)
+			exprOut := createVirtualCh(ctx, "once_expr_out", telem.Uint8T)
+			tickOut := createVirtualCh(ctx, "once_tick", telem.Uint8T)
+
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				func tick() {
+					%s = 1
+				}
+				42 -> %s
+				40 + 2 -> %s
+				interval{period=20ms} -> tick{}
+			`, tickOut.Name, constOut.Name, exprOut.Name)}
+
+			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{
+				constOut.Key(), exprOut.Key(), tickOut.Key(),
+			}, 20)
+			defer closeStreamer()
+
+			t := newTask(ctx, newTextFactory(ctx, prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			var (
+				fr         framer.StreamerResponse
+				constCount int
+				exprCount  int
+				tickCount  int
+			)
+			for tickCount < 3 {
+				Eventually(responses).Should(Receive(&fr))
+				if s := fr.Frame.Get(constOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(42)))
+					constCount++
+				}
+				if s := fr.Frame.Get(exprOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(42)))
+					exprCount++
+				}
+				if fr.Frame.Get(tickOut.Key()).Len() > 0 {
+					tickCount++
+				}
+			}
+			Expect(constCount).To(Equal(1))
+			Expect(exprCount).To(Equal(1))
+		})
+	})
+
 	Describe("Control Authority", func() {
 		It("Should apply static authority from authority block", func(ctx SpecContext) {
 			ch := createVirtualCh(ctx, "auth_static", telem.Uint8T)
