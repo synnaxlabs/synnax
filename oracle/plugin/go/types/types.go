@@ -556,7 +556,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if $enum.IsIntEnum}}
 type {{$enum.Name}} uint8
 
-{{/* The leading template comment keeps go generate from treating this template line as a directive while it scans this source file; it renders to nothing, so the generated enum file still gets a real column-0 //go:generate. */}}//go:generate stringer -type={{$enum.Name}}
+{{"//"}}go:generate stringer -type={{$enum.Name}}
 
 const (
 {{- range $i, $v := $enum.Values}}

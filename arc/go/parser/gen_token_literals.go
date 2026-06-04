@@ -13,6 +13,7 @@ package main
 
 import (
 	"fmt"
+	"go/format"
 	"os"
 	"regexp"
 	"strings"
@@ -39,7 +40,12 @@ const (
 		_, _ = fmt.Fprintf(&b, "\tLiteral%s = %q\n", goName, literal)
 	}
 	b.WriteString(")\n")
-	if err := os.WriteFile("token_literals.go", []byte(b.String()), 0644); err != nil {
+	formatted, err := format.Source([]byte(b.String()))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to format output: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile("token_literals.go", formatted, 0644); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to write output: %v\n", err)
 		os.Exit(1)
 	}
