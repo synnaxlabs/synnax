@@ -236,20 +236,20 @@ class ShortCircuit(ArcCase):
             deltas_s = [(times[i + 1] - times[i]) / 1e9 for i in range(len(times) - 1)]
             self.log(f"{ch} deltas (s): {[f'{d:.3f}' for d in deltas_s]}")
             for d in deltas_s:
-                assert (
-                    0.950 <= d <= 1.050
-                ), f"{ch}: delta {d:.3f}s out of [0.950, 1.050]"
+                assert 0.950 <= d <= 1.050, (
+                    f"{ch}: delta {d:.3f}s out of [0.950, 1.050]"
+                )
 
         stages = [str(v) for v in collected["ss_stage_str"]]
         assert len(stages) >= 6, f"Expected at least 6 stage entries, got {len(stages)}"
-        assert (
-            stages[-1] == "off"
-        ), f"Expected last stage to be 'off', got '{stages[-1]}'"
-        assert (
-            stages[-2] == "on"
-        ), f"Expected second-to-last stage to be 'on', got '{stages[-2]}'"
+        assert stages[-1] == "off", (
+            f"Expected last stage to be 'off', got '{stages[-1]}'"
+        )
+        assert stages[-2] == "on", (
+            f"Expected second-to-last stage to be 'on', got '{stages[-2]}'"
+        )
         for i in range(0, len(stages) - 2, 2):
             assert stages[i] == "on", f"Expected 'on' at index {i}, got '{stages[i]}'"
-            assert (
-                stages[i + 1] == "pause"
-            ), f"Expected 'pause' at index {i + 1}, got '{stages[i + 1]}'"
+            assert stages[i + 1] == "pause", (
+                f"Expected 'pause' at index {i + 1}, got '{stages[i + 1]}'"
+            )

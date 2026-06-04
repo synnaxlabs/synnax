@@ -134,7 +134,7 @@ class ArcCase(SimDaqCase, TestCase):
         """Return the task key for a tracked Arc loaded via load_arc."""
         for handle in self._arcs:
             if handle.name == name:
-                return handle.task.key
+                return int(handle.task.key)
         raise KeyError(f"no tracked arc named {name!r}")
 
     def remove_arc(self, name: str) -> None:
