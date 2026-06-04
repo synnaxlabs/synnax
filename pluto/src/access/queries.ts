@@ -9,7 +9,7 @@
 
 import {
   access,
-  type ontology,
+  ontology,
   type Synnax,
   UnexpectedError,
   user,
@@ -79,6 +79,14 @@ export const isGranted = ({
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
 
+// affectsPermissions reports whether a relationship change can alter a subject's
+// effective permissions. Only role links matter: role -> policy (which policies a
+// role carries) and role -> subject (a role assignment). All other ontology
+// relationships, e.g. workspace or channel parentage, cannot change permissions and
+// must not trigger a re-evaluation, otherwise every resource mutation would refetch.
+const affectsPermissions = (rel: ontology.Relationship): boolean =>
+  rel.type === ontology.PARENT_OF_RELATIONSHIP_TYPE && rel.from.type === "role";
+
 const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
   PermissionsQuery,
   boolean,
@@ -94,6 +102,22 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
     if (subject == null) return false;
     const policies = await policy.retrieveForSubject({ client, subject, store });
     return access.allowRequest({ subject, objects, action }, policies);
+  },
+  mountListeners: ({ store, client, query, onChange }) => {
+    const update = () => onChange(isGranted({ store, client, query }));
+    return [
+      store.policies.onSet(update),
+      store.policies.onDelete(update),
+      store.roles.onSet(update),
+      store.roles.onDelete(update),
+      store.relationships.onSet((rel) => {
+        if (affectsPermissions(rel)) update();
+      }),
+      store.relationships.onDelete((key) => {
+        const parsed = ontology.relationshipZ.safeParse(key);
+        if (parsed.success && affectsPermissions(parsed.data)) update();
+      }),
+    ];
   },
 });
 

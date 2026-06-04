@@ -103,6 +103,46 @@ describe("Access Queries", () => {
       expect(policies[0].name).toBe(policyName);
     });
 
+    it("should re-evaluate the grant when a policy is removed, without a remount", async () => {
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        firstName: "test",
+        lastName: "test",
+      });
+      const p = await client.access.policies.create({
+        name: id.create(),
+        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const r = await client.access.roles.create({
+        name: id.create(),
+        description: "test",
+      });
+      await client.ontology.addChildren(
+        access.role.ontologyID(r.key),
+        access.policy.ontologyID(p.key),
+      );
+      await client.access.roles.assign({ user: u.key, role: r.key });
+      const subject = user.ontologyID(u.key);
+      const { result } = renderHook(
+        () =>
+          Access.useGranted({
+            subject,
+            objects: ranger.TYPE_ONTOLOGY_ID,
+            action: "retrieve",
+          }),
+        { wrapper: await createAsyncSynnaxWrapper({ client }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+      await client.access.policies.delete(p.key);
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+
     it("should handle multiple objects correctly", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
