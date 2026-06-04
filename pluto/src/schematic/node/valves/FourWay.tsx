@@ -23,8 +23,7 @@ export const FourWay = ({
   scale,
   color: colorVal,
   ...rest
-}: Props): ReactElement => {
-  return (
+}: Props): ReactElement => (
     <Toggle.Button
       {...rest}
       orientation={orientation}
@@ -64,4 +63,3 @@ export const FourWay = ({
       </Primitive.SVG>
     </Toggle.Button>
   );
-};

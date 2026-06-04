@@ -23,8 +23,7 @@ export const BurstDisc = ({
   orientation = "left",
   scale,
   ...rest
-}: Props): ReactElement => {
-  return (
+}: Props): ReactElement => (
     <Primitive.Div {...rest} className={CSS(CSS.B("symbol"), className)}>
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -50,4 +49,3 @@ export const BurstDisc = ({
       </Primitive.SVG>
     </Primitive.Div>
   );
-};

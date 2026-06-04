@@ -22,8 +22,7 @@ export const CheckWithArrow = ({
   color: colorVal,
   scale,
   ...rest
-}: Props): ReactElement => {
-  return (
+}: Props): ReactElement => (
     <Primitive.Div
       orientation={orientation}
       className={CSS(CSS.B("check-valve-with-arrow"), className)}
@@ -51,4 +50,3 @@ export const CheckWithArrow = ({
       </Primitive.SVG>
     </Primitive.Div>
   );
-};

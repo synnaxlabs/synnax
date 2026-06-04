@@ -24,8 +24,7 @@ export const SpringLoadedRelief = ({
   scale,
   enabled = false,
   ...rest
-}: Props): ReactElement => {
-  return (
+}: Props): ReactElement => (
     <Toggle.Button
       {...rest}
       orientation={orientation}
@@ -77,4 +76,3 @@ export const SpringLoadedRelief = ({
       </Primitive.SVG>
     </Toggle.Button>
   );
-};

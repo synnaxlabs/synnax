@@ -21,8 +21,7 @@ export const IsoCheck = ({
   color: colorVal,
   scale,
   ...rest
-}: Props): ReactElement => {
-  return (
+}: Props): ReactElement => (
     <Primitive.Div {...rest} orientation={orientation}>
       <Handle.Linear orientation={orientation} left={8.3333} right={96.4286} />
       <Primitive.SVG
@@ -39,4 +38,3 @@ export const IsoCheck = ({
       </Primitive.SVG>
     </Primitive.Div>
   );
-};
