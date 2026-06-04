@@ -21,5 +21,11 @@
             border: calc(var(--pluto-border-width) * 2) dashed var(--pluto-primary-z-40) !important;
             border-radius: var(--pluto-border-radius);
         }
+
+        /* React Flow focuses the pane on Escape; suppress the default focus ring. */
+        .react-flow__pane:focus,
+        .react-flow__pane:focus-visible {
+            outline: none;
+        }
     }
 }
