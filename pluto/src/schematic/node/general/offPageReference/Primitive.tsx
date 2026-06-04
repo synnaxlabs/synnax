@@ -16,6 +16,7 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/offPageReference/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 export const offPageReferenceTooltip = (
@@ -54,7 +55,7 @@ export const OffPageReference = ({
 
   const swap = direction.construct(orientation) === "y";
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.var("symbol-color")]: Primitive.symbolColorVar(colorVal) }),
+    () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
     [colorVal],
   );
 

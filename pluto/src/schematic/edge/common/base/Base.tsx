@@ -12,6 +12,7 @@ import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
   color: color.Crude;
@@ -32,9 +33,7 @@ export const Base = ({
       return { ...baseStyle, stroke };
     return {
       ...baseStyle,
-      [CSS.var("symbol-color")]: color.isZero(stroke)
-        ? undefined
-        : `${color.rgbString(stroke)}, ${color.aValue(stroke)}`,
+      [CSS.var("symbol-color")]: symbolColorVar(stroke),
       stroke: "var(--pluto-symbol-display)",
     };
   }, [stroke, baseStyle]);

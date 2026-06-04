@@ -21,6 +21,7 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/value/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
@@ -41,7 +42,7 @@ export const Value = ({
 }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
-      [CSS.var("symbol-color")]: Primitive.symbolColorVar(colorVal),
+      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
       height: dimensions?.height,
     }),
     [colorVal, dimensions?.height],

@@ -17,6 +17,7 @@ import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/tank/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
@@ -59,7 +60,7 @@ export const Tank = ({
       width,
       height,
       borderRadius: cssBorderRadius,
-      [CSS.var("symbol-color")]: Primitive.symbolColorVar(colorVal),
+      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
       backgroundColor: backgroundCSS,
       borderWidth: strokeWidth,
     }),

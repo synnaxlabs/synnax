@@ -17,7 +17,7 @@ import {
 
 import { CSS } from "@/css";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
-import { symbolColorVar } from "@/schematic/node/common/primitive/symbolColor";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface SVGProps
   extends

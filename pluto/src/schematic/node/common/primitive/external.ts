@@ -13,4 +13,3 @@ export * from "@/schematic/node/common/primitive/Div";
 export * from "@/schematic/node/common/primitive/orientable";
 export * from "@/schematic/node/common/primitive/path";
 export * from "@/schematic/node/common/primitive/SVG";
-export * from "@/schematic/node/common/primitive/symbolColor";

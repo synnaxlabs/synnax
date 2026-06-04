@@ -21,6 +21,7 @@ import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface ButtonProps extends Omit<Config, "variant"> {
   className?: string;
@@ -41,7 +42,7 @@ export const Button = ({
   onClickDelay: delay,
 }: ButtonProps): ReactElement => {
   const style = useMemo<CSSProperties>(
-    () => ({ [CSS.var("symbol-color")]: Primitive.symbolColorVar(color) }),
+    () => ({ [CSS.var("symbol-color")]: symbolColorVar(color) }),
     [color],
   );
   return (

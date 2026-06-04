@@ -10,8 +10,8 @@
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/gauge/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 interface RenderProps extends Omit<Config, "variant"> {
@@ -58,7 +58,7 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
   const style = useMemo<CSSProperties>(
     () => ({
       ...CONTAINER_STYLE,
-      [CSS.var("symbol-color")]: Primitive.symbolColorVar(c),
+      [CSS.var("symbol-color")]: symbolColorVar(c),
     }),
     [c],
   );
