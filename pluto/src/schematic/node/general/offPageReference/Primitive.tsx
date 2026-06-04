@@ -66,7 +66,9 @@ export const OffPageReference = ({
       orientation={orientation}
       style={{
         [CSS.var("symbol-color")]:
-          colorVal != null ? color.rgbString(colorVal) : undefined,
+          colorVal != null && !color.isZero(colorVal)
+            ? color.rgbString(colorVal)
+            : undefined,
       }}
     >
       <div className="wrapper">

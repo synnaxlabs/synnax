@@ -34,40 +34,42 @@ export const Value = ({
   children,
   inlineSize = 80,
 }: RenderProps): ReactElement => (
-    <Primitive.Div
-      className={CSS(CSS.B("value"), CSS.B("symbol-colored"), className)}
+  <Primitive.Div
+    className={CSS(CSS.B("value"), CSS.B("symbol-colored"), className)}
+    style={{
+      [CSS.var("symbol-color")]:
+        colorVal != null && !color.isZero(colorVal)
+          ? color.rgbString(colorVal)
+          : undefined,
+      borderColor: "var(--pluto-symbol-display)",
+      height: dimensions?.height,
+    }}
+  >
+    <div
+      className={CSS.BE("value", "content")}
       style={{
-        [CSS.var("symbol-color")]:
-          colorVal != null ? color.rgbString(colorVal) : undefined,
-        borderColor: "var(--pluto-symbol-display)",
-        height: dimensions?.height,
+        flexGrow: 1,
+        minWidth: dimensions?.width,
+        inlineSize,
+        maxWidth: dimensions?.width,
       }}
     >
-      <div
-        className={CSS.BE("value", "content")}
-        style={{
-          flexGrow: 1,
-          minWidth: dimensions?.width,
-          inlineSize,
-          maxWidth: dimensions?.width,
-        }}
-      >
-        {children}
-      </div>
-      <Handle.Rectangle
-        orientation={orientation}
-        left={0}
-        top={-2}
-        right={100}
-        bottom={102}
-      />
-      <div
-        className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
-        style={{ background: "var(--pluto-symbol-display)" }}
-      >
-        <Text.Text level={unitsLevel} color="var(--pluto-symbol-contrast)">
-          {units}
-        </Text.Text>
-      </div>
-    </Primitive.Div>
-  );
+      {children}
+    </div>
+    <Handle.Rectangle
+      orientation={orientation}
+      left={0}
+      top={-2}
+      right={100}
+      bottom={102}
+    />
+    <div
+      className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
+      style={{ background: "var(--pluto-symbol-display)" }}
+    >
+      <Text.Text level={unitsLevel} color="var(--pluto-symbol-contrast)">
+        {units}
+      </Text.Text>
+    </div>
+  </Primitive.Div>
+);

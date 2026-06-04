@@ -49,9 +49,9 @@ describe("OffPageReference", () => {
         </ThemeWrapper>,
       );
       // Text contrast is resolved in CSS from the display color, not in JS.
-      expect(getOutline(container).style.getPropertyValue("--off-page-text-color")).toBe(
-        "var(--pluto-symbol-contrast)",
-      );
+      expect(
+        getOutline(container).style.getPropertyValue("--off-page-text-color"),
+      ).toBe("var(--pluto-symbol-contrast)");
     });
 
     it("should leave the source color unset for a default reference", () => {
@@ -66,6 +66,16 @@ describe("OffPageReference", () => {
       expect(getOutline(container).style.getPropertyValue("--off-page-color")).toBe(
         "var(--pluto-symbol-display)",
       );
+    });
+
+    it("should treat the ZERO default config color as unset", () => {
+      const { container } = render(
+        <ThemeWrapper>
+          <OffPageReference color={color.ZERO} />
+        </ThemeWrapper>,
+      );
+      const arrow = container.querySelector<HTMLElement>(".pluto-arrow");
+      expect(arrow?.style.getPropertyValue("--pluto-symbol-color")).toBe("");
     });
   });
 

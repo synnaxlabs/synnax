@@ -59,7 +59,9 @@ export const Tank = ({
         ...dimensions,
         borderRadius: boxBorderRadius ?? Border.cssRadius(detailedRadius),
         [CSS.var("symbol-color")]:
-          colorVal != null ? color.rgbString(colorVal) : undefined,
+          colorVal != null && !color.isZero(colorVal)
+            ? color.rgbString(colorVal)
+            : undefined,
         borderColor: "var(--pluto-symbol-display)",
         backgroundColor: color.cssString(backgroundColor),
         borderWidth: strokeWidth,

@@ -37,7 +37,9 @@ export const TextBox = ({
   const divStyle: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
     [CSS.var("symbol-color")]:
-      colorVal != null ? color.rgbString(colorVal) : undefined,
+      colorVal != null && !color.isZero(colorVal)
+        ? color.rgbString(colorVal)
+        : undefined,
   };
   if (direction.construct(orientation) === "y")
     divStyle.height = autoFit ? "fit-content" : width;

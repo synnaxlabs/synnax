@@ -48,7 +48,9 @@ export const StateIndicator = ({
       className={CSS(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
       style={{
         [CSS.var("symbol-color")]:
-          colorVal != null ? color.rgbString(colorVal) : undefined,
+          colorVal != null && !color.isZero(colorVal)
+            ? color.rgbString(colorVal)
+            : undefined,
         borderColor: "var(--pluto-symbol-display)",
         backgroundColor,
         minWidth: inlineSize,
