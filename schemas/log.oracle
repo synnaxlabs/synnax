@@ -67,7 +67,7 @@ Log struct {
     name                   string         {
         @doc value "is a human-readable name for the log."
     }
-    channels               ChannelEntry[] = empty {
+    channels               ChannelEntry[] {
         @doc value "are the channels displayed in this log, in order."
     }
     remote_created         bool = false {

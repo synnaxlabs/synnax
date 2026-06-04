@@ -59,7 +59,7 @@ export const logZ = z.object({
   /** name is a human-readable name for the log. */
   name: z.string(),
   /** channels are the channels displayed in this log, in order. */
-  channels: array.nullishToEmpty(channelEntryZ).default(() => []),
+  channels: array.nullishToEmpty(channelEntryZ),
   /** remoteCreated indicates whether the log was created on a remote client. */
   remoteCreated: z.boolean().default(false),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */

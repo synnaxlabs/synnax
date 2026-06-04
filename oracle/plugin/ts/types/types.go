@@ -788,15 +788,6 @@ func isArrayTypeRef(r resolution.TypeRef) bool {
 	return r.Name == "Array"
 }
 
-// hasEmptyCollectionDefault reports whether a field carries the sentinel
-// `= empty`, used on collection-typed fields (arrays, maps, record blobs) to
-// request an empty-collection default in the generated zod.
-func hasEmptyCollectionDefault(field resolution.Field) bool {
-	return field.Default != nil &&
-		field.Default.Kind == resolution.ValueKindIdent &&
-		field.Default.IdentValue == "empty"
-}
-
 func hasPreserveCase(field resolution.Field) bool {
 	tsDomain, ok := field.Domains["ts"]
 	if !ok {
@@ -1163,12 +1154,9 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			addXImport(data, xImport{name: "array", submodule: "array"})
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
-			if hasEmptyCollectionDefault(field) {
-				fd.ZodType += ".default(() => [])"
-				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
-			} else if field.Default != nil && field.Default.Kind == resolution.ValueKindArray && len(field.Default.Elements) > 0 {
-				// nullishToEmpty already defaults a missing array to []; only a
-				// non-empty declared default needs an explicit .default().
+			// nullishToEmpty already defaults a missing array to []; only a
+			// non-empty declared default needs an explicit .default().
+			if field.Default != nil && field.Default.Kind == resolution.ValueKindArray && len(field.Default.Elements) > 0 {
 				fd.ZodType = fmt.Sprintf("%s.default(%s)", fd.ZodType, tsArrayLiteral(field.Default.Elements))
 				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 			}
@@ -1680,13 +1668,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
-	// `default empty` is a collection-level sentinel that is realized after the
-	// array/map/record wrap, not on the element zod. Treat it as no element default
-	// here so the element schema type isn't wrapped in ZodDefault.
-	isEmptyCollectionDefault := defaultVal != nil &&
-		defaultVal.Kind == resolution.ValueKindIdent &&
-		defaultVal.IdentValue == "empty"
-	hasDefault := defaultVal != nil && !isEmptyCollectionDefault
+	hasDefault := defaultVal != nil
 	effectiveType := typeRef.Name
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil && typeRef.TypeParam.Constraint != nil {
 		effectiveType = typeRef.TypeParam.Constraint.Name
@@ -1728,7 +1710,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 			}
 		}
 	}
-	if defaultVal != nil && !isEmptyCollectionDefault {
+	if defaultVal != nil {
 		switch defaultVal.Kind {
 		case resolution.ValueKindString:
 			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(defaultVal.StringValue))
