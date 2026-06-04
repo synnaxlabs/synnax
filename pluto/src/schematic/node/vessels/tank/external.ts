@@ -24,7 +24,7 @@ export * from "@/schematic/node/vessels/tank/config";
 export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   orientation: "left",
-  color: t.colors.gray.l11,
+  color: color.ZERO,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
   label: Label.defaultConfig("Tank"),
   dimensions: { width: 125, height: 200 },
