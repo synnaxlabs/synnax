@@ -22,19 +22,19 @@ export const IsoCheck = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-    <Primitive.Div {...rest} orientation={orientation}>
-      <Handle.Linear orientation={orientation} left={8.3333} right={96.4286} />
-      <Primitive.SVG
-        dimensions={DIMENSIONS}
-        color={colorVal}
-        orientation={orientation}
-        scale={scale}
-      >
-        <Primitive.Circle cx="7" cy="7" r="4" fill="var(--pluto-symbol-display)" />
-        <Primitive.Path
-          d="M7 39.5V11.5941C7 9.42886 9.22384 7.97669 11.2063 8.84738L76.7937 37.6526C78.7762 38.5233 81 37.0711 81 34.9059V6"
-          strokeLinecap="round"
-        />
-      </Primitive.SVG>
-    </Primitive.Div>
-  );
+  <Primitive.Div {...rest} orientation={orientation}>
+    <Handle.Linear orientation={orientation} left={8.3333} right={96.4286} />
+    <Primitive.SVG
+      dimensions={DIMENSIONS}
+      color={colorVal}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Primitive.Circle cx="7" cy="7" r="4" fill="var(--pluto-symbol-display)" />
+      <Primitive.Path
+        d="M7 39.5V11.5941C7 9.42886 9.22384 7.97669 11.2063 8.84738L76.7937 37.6526C78.7762 38.5233 81 37.0711 81 34.9059V6"
+        strokeLinecap="round"
+      />
+    </Primitive.SVG>
+  </Primitive.Div>
+);

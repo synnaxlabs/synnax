@@ -22,9 +22,7 @@ export const ColorField: Form.FieldT<color.Crude> = (props): ReactElement => {
         // The swatch shows the source color; an unset (ZERO) color resolves to the
         // theme default so it reads as a filled swatch rather than transparent.
         <Color.Swatch
-          value={
-            value == null || color.isZero(value) ? theme.colors.gray.l11 : value
-          }
+          value={value == null || color.isZero(value) ? theme.colors.gray.l11 : value}
           onChange={onChange}
           {...rest}
           bordered

@@ -36,7 +36,9 @@ describe("edge Base", () => {
     const { container } = renderEdge(
       <Base.Base path="M0 0 L10 10" color={color.ZERO} />,
     );
-    expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe("");
+    expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+      "",
+    );
   });
 
   it("should stroke a CSS variable string directly and skip the transform", () => {

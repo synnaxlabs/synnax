@@ -40,20 +40,24 @@ const HydraulicSymbol = ({ position, direction }: SymbolProps): ReactElement => 
   );
 };
 
-export const spec = Segmented.createSpec(VARIANT, NAME, ({ points, color: colorVal }) => (
-  <g
-    className={CSS.B("symbol-colored")}
-    style={{
-      [CSS.var("symbol-color")]: color.isZero(colorVal)
-        ? undefined
-        : color.rgbString(colorVal),
-    }}
-  >
-    <Base.Base path={Path.rounded(points)} color={colorVal} />
-    {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
-      ({ position, direction }, i) => (
-        <HydraulicSymbol key={i} position={position} direction={direction} />
-      ),
-    )}
-  </g>
-));
+export const spec = Segmented.createSpec(
+  VARIANT,
+  NAME,
+  ({ points, color: colorVal }) => (
+    <g
+      className={CSS.B("symbol-colored")}
+      style={{
+        [CSS.var("symbol-color")]: color.isZero(colorVal)
+          ? undefined
+          : color.rgbString(colorVal),
+      }}
+    >
+      <Base.Base path={Path.rounded(points)} color={colorVal} />
+      {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
+        ({ position, direction }, i) => (
+          <HydraulicSymbol key={i} position={position} direction={direction} />
+        ),
+      )}
+    </g>
+  ),
+);

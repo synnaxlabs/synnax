@@ -91,23 +91,26 @@
 .pluto-symbol-colored {
     --pluto-symbol-display: oklch(
         from rgb(var(--pluto-symbol-color, var(--pluto-gray-l11-rgb)))
-        calc(
-            clamp(var(--pluto-symbol-l-min, 0), l, var(--pluto-symbol-l-max, 1)) *
-                (
-                    1 - clamp(
-                            0,
-                            (var(--pluto-symbol-c-thresh, 0.045) - c) /
-                                var(--pluto-symbol-c-thresh, 0.045),
-                            1
-                        )
-                ) + var(--pluto-symbol-l-extreme, 0) * clamp(
+            calc(
+                clamp(var(--pluto-symbol-l-min, 0), l, var(--pluto-symbol-l-max, 1)) *
+                    (
+                        1 -
+                            clamp(
+                                0,
+                                (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                                    var(--pluto-symbol-c-thresh, 0.045),
+                                1
+                            )
+                    ) +
+                    var(--pluto-symbol-l-extreme, 0) *
+                    clamp(
                         0,
                         (var(--pluto-symbol-c-thresh, 0.045) - c) /
                             var(--pluto-symbol-c-thresh, 0.045),
                         1
                     )
-        )
-        c h
+            )
+            c h
     );
 
     /* black or white, whichever is legible on top of the display color */
