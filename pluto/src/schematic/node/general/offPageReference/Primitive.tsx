@@ -35,6 +35,7 @@ interface RenderProps extends Omit<
   label?: string;
   className?: string;
   title?: string;
+  linked?: boolean;
   onLabelChange?: (label: string) => void;
 }
 
@@ -45,6 +46,7 @@ export const OffPageReference = ({
   label = "text",
   color: colorVal,
   level = "p",
+  linked = false,
   onLabelChange,
 }: RenderProps): ReactElement => {
   const element = document.querySelector(`[data-id="${id}"]`);
@@ -57,6 +59,7 @@ export const OffPageReference = ({
       className={CSS(
         CSS.B("arrow"),
         CSS.B("symbol-colored"),
+        linked && CSS.M("linked"),
         CSS.loc(orientation),
         className,
       )}
