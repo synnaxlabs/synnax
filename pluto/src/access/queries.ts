@@ -79,11 +79,8 @@ export const isGranted = ({
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
 
-// affectsPermissions reports whether a relationship change can alter a subject's
-// effective permissions. Only role links matter: role -> policy (which policies a
-// role carries) and role -> subject (a role assignment). All other ontology
-// relationships, e.g. workspace or channel parentage, cannot change permissions and
-// must not trigger a re-evaluation, otherwise every resource mutation would refetch.
+// affectsPermissions reports whether a relationship change can alter permissions:
+// only role links can (role -> policy, role -> subject). Others must not re-trigger.
 const affectsPermissions = (rel: ontology.Relationship): boolean =>
   rel.type === ontology.PARENT_OF_RELATIONSHIP_TYPE && rel.from.type === "role";
 

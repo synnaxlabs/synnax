@@ -16,6 +16,7 @@ import {
   type ontology,
   ranger,
   user,
+  workspace,
 } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -141,6 +142,46 @@ describe("Access Queries", () => {
       await waitFor(() => {
         expect(result.current).toBe(false);
       });
+    });
+
+    it("should ignore relationship changes that cannot affect permissions", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: id.create(),
+        objects: [ranger.TYPE_ONTOLOGY_ID, workspace.TYPE_ONTOLOGY_ID, ...baseObjects],
+        actions: ["retrieve", "create"],
+      });
+      let renders = 0;
+      const { result } = renderHook(
+        () => {
+          renders++;
+          const granted = Access.useGranted({
+            objects: ranger.TYPE_ONTOLOGY_ID,
+            action: "retrieve",
+          });
+          return { granted, store: Flux.useStore<Pluto.FluxStore>() };
+        },
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current.granted).toBe(true);
+      });
+      const rendersWhenSettled = renders;
+      // A workspace's group -> workspace link is not a role link, so the gate must
+      // drop it: no re-evaluation, no re-render.
+      const ws = await userClient.workspaces.create({
+        name: id.create(),
+        layout: {},
+      });
+      // Wait until the link reaches the store (event delivered)...
+      await waitFor(() => {
+        const rels = result.current.store.relationships.get(
+          (rel) => rel.to.type === "workspace" && rel.to.key === ws.key,
+        );
+        expect(rels.length).toBeGreaterThan(0);
+      });
+      // ...then confirm it caused no re-evaluation.
+      expect(renders).toBe(rendersWhenSettled);
+      expect(result.current.granted).toBe(true);
     });
 
     it("should handle multiple objects correctly", async () => {
