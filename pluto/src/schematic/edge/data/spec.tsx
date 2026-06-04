@@ -43,7 +43,7 @@ export const spec = Segmented.createSpec(
       style={{
         [CSS.var("symbol-color")]: color.isZero(colorVal)
           ? undefined
-          : color.rgbString(colorVal),
+          : `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`,
       }}
     >
       <Base.Base path={Path.rounded(points)} color={colorVal} />

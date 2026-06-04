@@ -160,6 +160,19 @@ describe("Primitive.SVG", () => {
       expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("");
       expect(svg.getAttribute("class")).toContain("pluto-symbol-colored");
     });
+
+    it("should carry the alpha channel so transparency survives the transform", () => {
+      // rgba(255, 0, 0, 0.5) -> the var must include the alpha so the OKLCH
+      // transform preserves it instead of rendering fully opaque.
+      const { container } = render(
+        <Primitive.SVG
+          dimensions={{ width: 10, height: 10 }}
+          color={[255, 0, 0, 0.5]}
+        />,
+      );
+      const svg = container.querySelector("svg") as SVGSVGElement;
+      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 0.5");
+    });
   });
 
   describe("class and structure", () => {

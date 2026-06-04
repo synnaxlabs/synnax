@@ -34,7 +34,7 @@ export const Base = ({
       ...baseStyle,
       [CSS.var("symbol-color")]: color.isZero(stroke)
         ? undefined
-        : color.rgbString(stroke),
+        : `${color.rgbString(stroke)}, ${color.aValue(stroke)}`,
       stroke: "var(--pluto-symbol-display)",
     };
   }, [stroke, baseStyle]);

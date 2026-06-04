@@ -45,7 +45,8 @@ export const SVG = ({
   if (colorVal != null && !color.isZero(colorVal))
     pStyle = {
       ...pStyle,
-      [CSS.var("symbol-color")]: color.rgbString(colorVal),
+      [CSS.var("symbol-color")]:
+        `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`,
     };
 
   return (

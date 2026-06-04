@@ -113,9 +113,10 @@
             c h
     );
 
-    /* black or white, whichever is legible on top of the display color */
+    /* black or white, whichever is legible on top of the display color. Pinned
+       fully opaque so transparent symbols still get legible text and pills. */
     --pluto-symbol-contrast: oklch(
-        from var(--pluto-symbol-display) clamp(0, (0.6 - l) * 100, 1) 0 0deg
+        from var(--pluto-symbol-display) clamp(0, (0.6 - l) * 100, 1) 0 0deg / 100%
     );
 }
 

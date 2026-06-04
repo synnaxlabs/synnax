@@ -49,7 +49,7 @@ export const StateIndicator = ({
       style={{
         [CSS.var("symbol-color")]:
           colorVal != null && !color.isZero(colorVal)
-            ? color.rgbString(colorVal)
+            ? `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`
             : undefined,
         borderColor: "var(--pluto-symbol-display)",
         backgroundColor,

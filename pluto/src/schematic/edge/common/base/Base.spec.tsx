@@ -41,6 +41,15 @@ describe("edge Base", () => {
     );
   });
 
+  it("should carry the alpha channel so a translucent edge stays translucent", () => {
+    const { container } = renderEdge(
+      <Base.Base path="M0 0 L10 10" color={[255, 0, 0, 0.5]} />,
+    );
+    expect(queryPath(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
+      "255, 0, 0, 0.5",
+    );
+  });
+
   it("should stroke a CSS variable string directly and skip the transform", () => {
     const { container } = renderEdge(
       <Base.Base path="M0 0 L10 10" color="var(--pluto-error-z)" />,

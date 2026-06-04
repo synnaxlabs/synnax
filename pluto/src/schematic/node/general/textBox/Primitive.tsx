@@ -38,7 +38,7 @@ export const TextBox = ({
     textAlign: align as CSSProperties["textAlign"],
     [CSS.var("symbol-color")]:
       colorVal != null && !color.isZero(colorVal)
-        ? color.rgbString(colorVal)
+        ? `${color.rgbString(colorVal)}, ${color.aValue(colorVal)}`
         : undefined,
   };
   if (direction.construct(orientation) === "y")

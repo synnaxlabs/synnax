@@ -61,7 +61,9 @@ export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
       style={{
         ...CONTAINER_STYLE,
         [CSS.var("symbol-color")]:
-          c != null && !color.isZero(c) ? color.rgbString(c) : undefined,
+          c != null && !color.isZero(c)
+            ? `${color.rgbString(c)}, ${color.aValue(c)}`
+            : undefined,
       }}
     >
       <svg width="67" height="67" style={SVG_STYLE}>
