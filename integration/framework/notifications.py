@@ -32,6 +32,7 @@ logger = logging.getLogger("synnax.notifications")
 OPEN_TIMEOUT = 5.0
 CLOSE_TIMEOUT = 3.0
 DEFAULT_WAIT_TIMEOUT = 5.0
+READ_TIMEOUT = 250 * sy.TimeSpan.MILLISECOND
 
 
 class StatusNotifications:
@@ -100,7 +101,7 @@ class StatusNotifications:
             with self._client.open_streamer([SET_CHANNEL]) as streamer:
                 self._ready.set()
                 while not self._stop.is_set():
-                    frame = streamer.read(timeout=sy.TimeSpan.SECOND)
+                    frame = streamer.read(timeout=READ_TIMEOUT)
                     if frame is None or SET_CHANNEL not in frame:
                         continue
                     for raw in frame[SET_CHANNEL]:

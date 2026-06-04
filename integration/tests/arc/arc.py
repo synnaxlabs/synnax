@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 import synnax as sy
+from framework.task_status import TaskStatus
 from framework.test_case import TestCase
 from framework.utils import create_virtual_channel
 from tests.driver.sim_daq_case import SimDaqCase
@@ -58,6 +59,12 @@ class ArcCase(SimDaqCase, TestCase):
     rack: sy.Rack | None
     _arcs: list[ArcTaskHandle]
 
+    # Opt-in: when True, setup records per-task status updates for the duration
+    # of the test so wait_for_task_status / task_is_running can read them. This
+    # belongs on a generic Task case once one exists.
+    collect_task_status: bool = False
+    _task_status: TaskStatus | None
+
     def setup(self) -> None:
         required = [
             "arc_source",
@@ -72,10 +79,14 @@ class ArcCase(SimDaqCase, TestCase):
                 )
         self.rack = None
         self._arcs = []
+        self._task_status = None
         self.set_manual_timeout(180)
         create_virtual_channel(self.client, self.start_cmd_channel, sy.DataType.UINT8)
         self.subscribe(self.subscribe_channels)
         super().setup()
+        if self.collect_task_status:
+            self._task_status = TaskStatus(self.client)
+            self._task_status.open()
 
     def _retrieve_rack(self) -> None:
         rack_key = self.params.get("rack_key")
@@ -109,14 +120,45 @@ class ArcCase(SimDaqCase, TestCase):
             type=ARC_TASK_TYPE,
             config={"arc_key": str(arc.key), "auto_start": start},
         )
+        self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
         self.client.tasks.configure(task, timeout=CONFIGURE_TIMEOUT_SECONDS)
         self.client.ontology.add_children(arc.ontology_id, task.ontology_id)
         if start:
             self.log(f"Arc is running: {name}")
         if trigger:
             self.writer.write(trigger, 1)
-        self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
         return name
+
+    def task_key(self, name: str) -> int:
+        """Return the task key for a tracked Arc loaded via load_arc."""
+        for handle in self._arcs:
+            if handle.name == name:
+                return handle.task.key
+        raise KeyError(f"no tracked arc named {name!r}")
+
+    def wait_for_task_status(
+        self, task_key: int, text: str, timeout: float = 5.0
+    ) -> bool:
+        """Return True if a status for task_key containing text has surfaced.
+
+        Requires collect_task_status = True so the base lifecycle records task
+        status updates for the duration of the test.
+        """
+        if self._task_status is None:
+            raise RuntimeError(
+                "wait_for_task_status requires collect_task_status = True"
+            )
+        return self._task_status.wait_for(task_key, text, timeout)
+
+    def task_is_running(self, task_key: int) -> bool:
+        """Return True if the latest status reports task_key as running.
+
+        Requires collect_task_status = True so the base lifecycle records task
+        status updates for the duration of the test.
+        """
+        if self._task_status is None:
+            raise RuntimeError("task_is_running requires collect_task_status = True")
+        return self._task_status.is_running(task_key)
 
     def run(self) -> None:
         self._retrieve_rack()
@@ -128,8 +170,17 @@ class ArcCase(SimDaqCase, TestCase):
         self.verify_sequence_execution()
 
     def teardown(self) -> None:
-        """Delete all tracked arcs (cascades to their tasks). Runs even on failure."""
+        """Delete all tracked arcs and their tasks. Runs even on failure.
+
+        The task is deleted explicitly rather than relying on the arc-to-task
+        cascade, since a rejected configuration never links the two.
+        """
         for handle in reversed(self._arcs):
+            if handle.task.key != 0:
+                try:
+                    self.client.tasks.delete(handle.task.key)
+                except Exception as e:
+                    self.log(f"Failed to delete task {handle.name}: {e}")
             try:
                 self.client.arcs.delete(handle.arc_key)
             except Exception as e:
@@ -141,6 +192,9 @@ class ArcCase(SimDaqCase, TestCase):
                 self.writer.write(self.end_cmd_channel, 1)
             except Exception as e:
                 self.fail(f"Failed to signal simulator stop: {e}")
+
+        if self._task_status is not None:
+            self._task_status.close()
 
         super().teardown()
 
