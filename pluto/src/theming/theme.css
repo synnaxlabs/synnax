@@ -85,6 +85,37 @@
         lch(0 0 0 / 0.188) 0px 1px 1px;
 }
 
+/* Theme-correct display color: achromatic colors snap to the theme's hard extreme,
+   chromatic colors keep their hue and clamp lightness into a gentle band (blended by
+   chroma). Any element that sets --pluto-symbol-color carries this class to derive it. */
+.pluto-symbol-colored {
+    --pluto-symbol-display: oklch(
+        from rgb(var(--pluto-symbol-color, var(--pluto-gray-l11-rgb)))
+        calc(
+            clamp(var(--pluto-symbol-l-min, 0), l, var(--pluto-symbol-l-max, 1)) *
+                (
+                    1 - clamp(
+                            0,
+                            (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                                var(--pluto-symbol-c-thresh, 0.045),
+                            1
+                        )
+                ) + var(--pluto-symbol-l-extreme, 0) * clamp(
+                        0,
+                        (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                            var(--pluto-symbol-c-thresh, 0.045),
+                        1
+                    )
+        )
+        c h
+    );
+
+    /* black or white, whichever is legible on top of the display color */
+    --pluto-symbol-contrast: oklch(
+        from var(--pluto-symbol-display) clamp(0, (0.6 - l) * 100, 1) 0 0deg
+    );
+}
+
 html {
     font-size: var(--pluto-base-size);
 }

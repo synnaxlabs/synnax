@@ -110,11 +110,11 @@ export const Polygon = ({
   );
   return (
     <Primitive.Div className={CSS(className, CSS.B("polygon"))}>
-      <Primitive.SVG dimensions={{ width: size, height: size }}>
+      <Primitive.SVG dimensions={{ width: size, height: size }} color={colorVal}>
         <Primitive.Path
           d={path}
           fill={color.cssString(backgroundColor ?? theme.colors.gray.l1)}
-          stroke={color.cssString(colorVal ?? theme.colors.gray.l9)}
+          stroke="var(--pluto-symbol-display)"
           strokeWidth={strokeWidth ?? 2}
         />
       </Primitive.SVG>

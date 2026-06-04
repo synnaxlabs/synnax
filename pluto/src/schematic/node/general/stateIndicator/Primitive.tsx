@@ -34,7 +34,6 @@ export const StateIndicator = ({
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
   const stateColor = matched?.color;
-  const borderColor = colorVal != null ? color.cssString(colorVal) : undefined;
   const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
   const theme = Theming.use();
   const textColor =
@@ -46,8 +45,14 @@ export const StateIndicator = ({
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
   return (
     <Primitive.Div
-      className={CSS(CSS.B("state-indicator"), className)}
-      style={{ borderColor, backgroundColor, minWidth: inlineSize }}
+      className={CSS(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
+      style={{
+        [CSS.var("symbol-color")]:
+          colorVal != null ? color.rgbString(colorVal) : undefined,
+        borderColor: "var(--pluto-symbol-display)",
+        backgroundColor,
+        minWidth: inlineSize,
+      }}
     >
       <Handle.Rectangle
         orientation={orientation}

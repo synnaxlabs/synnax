@@ -17,7 +17,6 @@ import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/tank/config";
-import { Theming } from "@/theming";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
@@ -37,7 +36,6 @@ export const Tank = ({
 }: RenderProps): ReactElement => {
   const detailedRadius = Border.parseRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
-  const t = Theming.use();
   const { width, height } = dimensions;
   const refreshDeps = useMemo(
     () => [dimensions, borderRadius, detailedRadius],
@@ -56,11 +54,13 @@ export const Tank = ({
   const bottomOffset = 100 - topOffset;
   return (
     <Primitive.Div
-      className={CSS(className, CSS.B("tank"))}
+      className={CSS(className, CSS.B("tank"), CSS.B("symbol-colored"))}
       style={{
         ...dimensions,
         borderRadius: boxBorderRadius ?? Border.cssRadius(detailedRadius),
-        borderColor: color.cssString(colorVal ?? t.colors.gray.l11),
+        [CSS.var("symbol-color")]:
+          colorVal != null ? color.rgbString(colorVal) : undefined,
+        borderColor: "var(--pluto-symbol-display)",
         backgroundColor: color.cssString(backgroundColor),
         borderWidth: strokeWidth,
       }}

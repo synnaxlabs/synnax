@@ -45,31 +45,7 @@
         }
     }
 
-    /* Achromatic colors (near black/white/grey) snap to the theme's hard extreme;
-       chromatic colors keep their hue and only clamp lightness into a gentle band.
-       Weight blends the two by chroma so there is no hard edge. */
     & svg {
-        --pluto-symbol-display: oklch(
-            from rgb(var(--pluto-symbol-color, var(--pluto-gray-l11-rgb)))
-            calc(
-                clamp(var(--pluto-symbol-l-min, 0), l, var(--pluto-symbol-l-max, 1)) *
-                    (
-                        1 - clamp(
-                                0,
-                                (var(--pluto-symbol-c-thresh, 0.045) - c) /
-                                    var(--pluto-symbol-c-thresh, 0.045),
-                                1
-                            )
-                    ) + var(--pluto-symbol-l-extreme, 0) * clamp(
-                            0,
-                            (var(--pluto-symbol-c-thresh, 0.045) - c) /
-                                var(--pluto-symbol-c-thresh, 0.045),
-                            1
-                        )
-            )
-            c h
-        );
-
         overflow: visible;
         stroke: var(--pluto-symbol-display);
     }
@@ -86,36 +62,36 @@
 .pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
-            fill: rgb(var(--pluto-symbol-color), 0.15) !important;
-            stroke: rgb(var(--pluto-symbol-color), 0.75) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 15%) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
         }
 
         &.pluto--enabled svg {
-            stroke: rgb(var(--pluto-symbol-color), 0.8) !important;
-            fill: rgb(var(--pluto-symbol-color), 0.85) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 80%) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 85%) !important;
         }
     }
 
     &:active {
         &:not(.pluto--enabled) svg {
-            fill: rgb(var(--pluto-symbol-color), 0.25) !important;
-            stroke: rgb(var(--pluto-symbol-color), 0.9) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
         }
 
         &.pluto--enabled svg {
-            stroke: rgb(var(--pluto-symbol-color), 0.7) !important;
-            fill: rgb(var(--pluto-symbol-color), 0.75) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 70%) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
         }
     }
 }
 
 .pluto--enabled svg {
-    stroke: rgb(var(--pluto-symbol-color)) !important;
-    fill: rgb(var(--pluto-symbol-color)) !important;
+    stroke: var(--pluto-symbol-display) !important;
+    fill: var(--pluto-symbol-display) !important;
 }
 
 .pluto--enabled svg .pluto--detail {
-    stroke: rgb(var(--pluto-symbol-color-contrast), 0.9) !important;
+    stroke: oklch(from var(--pluto-symbol-contrast) l c h / 90%) !important;
 }
 
 .pluto-symbol-primitive-toggle {
@@ -148,7 +124,7 @@
             height: 100%;
             width: 0%;
             z-index: 1;
-            background: rgba(var(--pluto-symbol-color), 0.2);
+            background: oklch(from var(--pluto-symbol-display) l c h / 20%);
             pointer-events: none;
         }
 

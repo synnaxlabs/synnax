@@ -17,7 +17,6 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/offPageReference/config";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
 
 export const offPageReferenceTooltip = (
   page?: string,
@@ -52,26 +51,28 @@ export const OffPageReference = ({
   if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
-  const theme = Theming.use();
-  const resolvedColor = colorVal ?? theme.colors.gray.l11;
-  const textColor = color.pickByContrast(
-    resolvedColor,
-    theme.colors.text,
-    theme.colors.textInverted,
-  );
 
   return (
     <Primitive.Div
-      className={CSS(CSS.B("arrow"), CSS.loc(orientation), className)}
+      className={CSS(
+        CSS.B("arrow"),
+        CSS.B("symbol-colored"),
+        CSS.loc(orientation),
+        className,
+      )}
       orientation={orientation}
+      style={{
+        [CSS.var("symbol-color")]:
+          colorVal != null ? color.rgbString(colorVal) : undefined,
+      }}
     >
       <div className="wrapper">
         <div
           className="outline"
           style={
             {
-              "--off-page-color": color.cssString(resolvedColor),
-              "--off-page-text-color": color.cssString(textColor),
+              "--off-page-color": "var(--pluto-symbol-display)",
+              "--off-page-text-color": "var(--pluto-symbol-contrast)",
             } as CSSProperties
           }
         >

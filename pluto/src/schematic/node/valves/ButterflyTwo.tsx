@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -39,7 +38,7 @@ export const ButterflyTwo = ({
       orientation={orientation}
       scale={scale}
     >
-      <Primitive.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
+      <Primitive.Circle cx="43.5" cy="21" r="10" fill="var(--pluto-symbol-display)" />
       <Primitive.Rect x="2" y="2" width="83" height="38" rx="1" />
       <Primitive.Path d="M2.29001 2.29004L84.7069 39.676" />
     </Primitive.SVG>

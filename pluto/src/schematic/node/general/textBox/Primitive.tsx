@@ -36,6 +36,8 @@ export const TextBox = ({
 }: RenderProps): ReactElement => {
   const divStyle: CSSProperties = {
     textAlign: align as CSSProperties["textAlign"],
+    [CSS.var("symbol-color")]:
+      colorVal != null ? color.rgbString(colorVal) : undefined,
   };
   if (direction.construct(orientation) === "y")
     divStyle.height = autoFit ? "fit-content" : width;
@@ -45,7 +47,12 @@ export const TextBox = ({
     <Primitive.Div
       style={divStyle}
       orientation={orientation}
-      className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
+      className={CSS(
+        CSS.B("text-box"),
+        CSS.B("symbol-colored"),
+        CSS.loc(orientation),
+        className,
+      )}
     >
       <Handle.Rectangle
         orientation={orientation}
@@ -56,7 +63,7 @@ export const TextBox = ({
       />
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
-        color={color.cssString(colorVal)}
+        color="var(--pluto-symbol-display)"
         level={level}
         value={value ?? ""}
         onChange={onChange}

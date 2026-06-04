@@ -17,7 +17,6 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/value/config";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
 
 interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
   className?: string;
@@ -34,20 +33,13 @@ export const Value = ({
   unitsLevel = "small",
   children,
   inlineSize = 80,
-}: RenderProps): ReactElement => {
-  const borderColor = color.cssString(colorVal);
-  const theme = Theming.use();
-  const textColor: string | undefined =
-    colorVal == null
-      ? "var(--pluto-gray-l0)"
-      : color.cssString(
-          color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
-        );
-  return (
+}: RenderProps): ReactElement => (
     <Primitive.Div
-      className={CSS(CSS.B("value"), className)}
+      className={CSS(CSS.B("value"), CSS.B("symbol-colored"), className)}
       style={{
-        borderColor,
+        [CSS.var("symbol-color")]:
+          colorVal != null ? color.rgbString(colorVal) : undefined,
+        borderColor: "var(--pluto-symbol-display)",
         height: dimensions?.height,
       }}
     >
@@ -71,12 +63,11 @@ export const Value = ({
       />
       <div
         className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
-        style={{ background: borderColor }}
+        style={{ background: "var(--pluto-symbol-display)" }}
       >
-        <Text.Text level={unitsLevel} color={textColor}>
+        <Text.Text level={unitsLevel} color="var(--pluto-symbol-contrast)">
           {units}
         </Text.Text>
       </div>
     </Primitive.Div>
   );
-};
