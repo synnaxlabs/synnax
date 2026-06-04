@@ -31,6 +31,15 @@ interface KeyedSeries extends SeriesPayload {
   key: number;
 }
 
+// ===== TEMPORARY sy-4326 decode instrumentation. Remove once root cause found. =====
+// Captures what the decoder produces without assuming a cause: it flags frames dropped
+// because their seqNum has no matching state (a codec-desync symptom) and dumps the full
+// decode context the first time a channel's alignment steps backward (the overlap we see
+// downstream). Bounded so it can't flood the console.
+const sy4326DecPrevEnd = new Map<number, bigint>();
+let sy4326DecDropped = 0;
+let sy4326DecDumped = false;
+
 const sortFramePayloadByKey = (framePayload: Payload): void => {
   const { keys, series } = framePayload;
   keys.forEach((key, index) => {
@@ -247,7 +256,15 @@ export class Codec {
     const seqNum = view.getUint32(index, true);
     index += SEQ_NUM_SIZE;
     const state = this.states.get(seqNum);
-    if (state == null) return returnFrame;
+    if (state == null) {
+      if (sy4326DecDropped < 20)
+        console.warn(
+          `[sy4326 decode] dropped frame: seqNum=${seqNum} not in states ` +
+            `(current=${this.seqNum}, ${this.states.size} states held)`,
+        );
+      sy4326DecDropped++;
+      return returnFrame;
+    }
 
     if (sizeFlag) {
       if (index + DATA_LENGTH_SIZE > view.byteLength) return returnFrame;
@@ -321,6 +338,49 @@ export class Codec {
         const frameKey = view.getUint32(index, true);
         index += KEY_SIZE;
         if (!decodeSeries(frameKey)) break;
+      }
+
+    // TEMP sy-4326: detect a backward alignment step (the overlap) and dump the full
+    // decode context the first time it happens.
+    if (!sy4326DecDumped)
+      for (let i = 0; i < returnFrame.keys.length; i++) {
+        const k = returnFrame.keys[i] as number;
+        const ser = returnFrame.series[i];
+        const align = BigInt(ser.alignment ?? 0n);
+        const sample = align & 0xffffffffn;
+        const density = ser.dataType.density.valueOf();
+        const len = density > 0 ? BigInt(ser.data.byteLength) / BigInt(density) : 0n;
+        const prevEnd = sy4326DecPrevEnd.get(k);
+        if (prevEnd != null && sample < prevEnd) {
+          sy4326DecDumped = true;
+          console.warn(
+            `[sy4326 decode] BACKWARD step ch=${k}: prevEnd=${prevEnd} ` +
+              `sample=${sample} gap=${sample - prevEnd}`,
+          );
+          console.warn(
+            "[sy4326 decode] context:",
+            JSON.stringify({
+              seqNum,
+              currentSeqNum: this.seqNum,
+              statesHeld: this.states.size,
+              channelFlag,
+              equalAlignmentsFlag,
+              zeroAlignmentsFlag,
+              sizeFlag,
+              stateKeyCount: state.keys.length,
+              decoded: returnFrame.keys.map((kk, j) => {
+                const a = BigInt(returnFrame.series[j].alignment ?? 0n);
+                return {
+                  key: kk,
+                  dom: Number(a >> 32n),
+                  sample: Number(a & 0xffffffffn),
+                };
+              }),
+            }),
+          );
+          break;
+        }
+        sy4326DecPrevEnd.set(k, sample + len);
       }
     return returnFrame;
   }

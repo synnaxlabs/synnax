@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 type Frame = framer.Frame
@@ -192,10 +193,55 @@ func (s *Service) Stream(ctx context.Context, stream StreamerStream) error {
 	if err != nil {
 		return err
 	}
+	// TEMP sy-4326: log per-channel alignment continuity for frames leaving the core,
+	// the last point before they are encoded onto the wire. If overlaps (BACK gaps)
+	// appear here, the bug is server-side; if frames are contiguous here but overlapping
+	// on the client, it is the codec/transport. Bounded per-channel and overall so it
+	// cannot flood the server log.
+	sy4326PrevEnd := make(map[channel.Key]int64)
+	sy4326PrevDom := make(map[channel.Key]uint32)
+	sy4326Count := make(map[channel.Key]int)
+	sy4326Total := 0
 	var (
 		receiver = &freightfluence.Receiver[StreamerRequest]{Receiver: stream}
-		sender   = &freightfluence.Sender[StreamerResponse]{
+		sender   = &freightfluence.TransformSender[StreamerResponse, StreamerResponse]{
 			Sender: freighter.SenderNopCloser[StreamerResponse]{StreamSender: stream},
+			Transform: func(
+				_ context.Context,
+				res StreamerResponse,
+			) (StreamerResponse, bool, error) {
+				for key, ser := range res.Frame.Entries() {
+					dom := ser.Alignment.DomainIndex()
+					sample := int64(ser.Alignment.SampleIndex())
+					if pe, ok := sy4326PrevEnd[key]; ok {
+						gap := sample - pe
+						domChanged := sy4326PrevDom[key] != dom
+						if (gap > 1 || gap < -1 || domChanged) &&
+							sy4326Count[key] < 6 && sy4326Total < 60 {
+							sy4326Count[key]++
+							sy4326Total++
+							dir := "FWD"
+							if gap < 0 {
+								dir = "BACK"
+							}
+							s.L.Warn("[sy4326 api] streamer frame leaving core",
+								zap.Uint32("channel", uint32(key)),
+								zap.String("dir", dir),
+								zap.Int64("gap", gap),
+								zap.Bool("domainChanged", domChanged),
+								zap.Uint32("prevDom", sy4326PrevDom[key]),
+								zap.Uint32("dom", dom),
+								zap.Int64("prevEnd", pe),
+								zap.Int64("sample", sample),
+								zap.Int64("len", ser.Len()),
+							)
+						}
+					}
+					sy4326PrevEnd[key] = sample + ser.Len()
+					sy4326PrevDom[key] = dom
+				}
+				return res, true, nil
+			},
 		}
 		pipe = plumber.New()
 	)

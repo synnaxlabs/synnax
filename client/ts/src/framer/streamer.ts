@@ -31,6 +31,40 @@ const reqZ = z.object({
  */
 export interface StreamerRequest extends z.infer<typeof reqZ> {}
 
+// ===== TEMPORARY sy-4326: verify frames arrive overlapping straight off the socket =====
+// This is the most upstream point on the client — immediately after the codec decodes
+// the server's bytes, before any telem/cache layer. If frames are already overlapping
+// here (BACK gap), the server is emitting the overlap; the client is not creating it.
+const sy4326PrevEnd = new Map<number, number>();
+const sy4326PrevDom = new Map<number, number>();
+const sy4326PerKey = new Map<number, number>();
+let sy4326Total = 0;
+const sy4326Socket = (frame: Frame): void => {
+  for (const key of frame.keys)
+    for (const s of frame.get(key).series) {
+      const dom = Number(s.alignment >> 32n);
+      const sample = Number(s.alignment & 0xffffffffn);
+      const prevEnd = sy4326PrevEnd.get(key);
+      const prevDom = sy4326PrevDom.get(key);
+      if (prevEnd != null) {
+        const gap = sample - prevEnd;
+        const domChanged = prevDom !== dom;
+        const per = sy4326PerKey.get(key) ?? 0;
+        if ((Math.abs(gap) > 1 || domChanged) && per < 4 && sy4326Total < 40) {
+          sy4326PerKey.set(key, per + 1);
+          sy4326Total++;
+          console.warn(
+            `[sy4326 socket] ch=${key} ${gap >= 0 ? "FWD" : "BACK"} gap=${gap}` +
+              `${domChanged ? ` DOMAIN ${prevDom}->${dom}` : ""} ` +
+              `prevEnd=${prevEnd} sample=${sample} dom=${dom} len=${s.length}`,
+          );
+        }
+      }
+      sy4326PrevEnd.set(key, sample + s.length);
+      sy4326PrevDom.set(key, dom);
+    }
+};
+
 const resZ = z.object({ frame: frameZ });
 
 /**
@@ -177,7 +211,9 @@ class BaseStreamer implements Streamer {
   }
 
   async read(): Promise<Frame> {
-    return this.adapter.adapt(new Frame((await this.stream.receive()).frame));
+    const frame = this.adapter.adapt(new Frame((await this.stream.receive()).frame));
+    sy4326Socket(frame);
+    return frame;
   }
 
   async update(channels: channel.Params): Promise<void> {

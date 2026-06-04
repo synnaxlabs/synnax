@@ -36,6 +36,33 @@ import {
 } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";
 
+// ===== TEMPORARY sy-4326 render-side instrumentation. Remove once root cause found. =====
+// Dumps the fragment list a telem source is feeding the renderer, ONCE, when the
+// fragment count is abnormally high (the spaghetti state is persistent, so this is a
+// reliable one-shot snapshot, not timing-sensitive). Shows overlap (fragments sharing a
+// sample range), X-vs-Y divergence (compare two dumps), and re-read storms (reads > 1).
+// Bounded to 6 dumps total so it can't flood.
+let sy4326DumpTotal = 0;
+const sy4326DumpSeries = (tag: string, reads: number, data: MultiSeries): boolean => {
+  if (sy4326DumpTotal >= 6 || data.series.length <= 12) return false;
+  sy4326DumpTotal++;
+  console.warn(
+    `[sy4326 render] ${tag} reads=${reads} fragments=${data.series.length}`,
+    JSON.stringify(
+      data.series.map((s) => {
+        const start = Number(s.alignment & 0xffffffffn);
+        return {
+          dom: Number(s.alignment >> 32n),
+          start,
+          end: start + s.length,
+          len: s.length,
+        };
+      }),
+    ),
+  );
+  return true;
+};
+
 export const streamChannelValuePropsZ = z.object({
   channel: z.number().or(z.string()),
 });
@@ -161,6 +188,8 @@ export class ChannelData
   private valid: boolean = false;
   private channel: SelectedChannelProperties | null = null;
   private readonly onStatusChange?: status.Adder;
+  private sy4326Reads = 0; // TEMP sy-4326
+  private sy4326Dumped = false; // TEMP sy-4326
 
   constructor(
     client: client.ReadClient & client.ChannelClient,
@@ -184,6 +213,11 @@ export class ChannelData
     // and return an empty array.
     if (timeRange.span.isZero || channel === 0) return [bounds.ZERO, this.data];
     if (!this.valid) void this.read();
+    this.sy4326Dumped ||= sy4326DumpSeries(
+      `ChannelData ch=${String(channel)} idx=${this.props.useIndexOfChannel}`,
+      this.sy4326Reads,
+      this.data,
+    );
     const { channel: ch, data } = this;
     if (ch == null) return [bounds.ZERO, this.data];
     let b = data.bounds;
@@ -195,6 +229,7 @@ export class ChannelData
   private async read(): Promise<void> {
     try {
       this.valid = true;
+      this.sy4326Reads++; // TEMP sy-4326
       const { timeRange, channel, useIndexOfChannel } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
@@ -234,6 +269,8 @@ export class StreamChannelData
   private channel: SelectedChannelProperties | null = null;
   private stopStreaming?: destructor.Destructor;
   private valid: boolean = false;
+  private sy4326Reads = 0; // TEMP sy-4326
+  private sy4326Dumped = false; // TEMP sy-4326
   schema = streamChannelDataPropsZ;
 
   constructor(
@@ -252,6 +289,11 @@ export class StreamChannelData
     const { channel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, this.data];
     if (!this.valid) void this.read();
+    this.sy4326Dumped ||= sy4326DumpSeries(
+      `StreamChannelData ch=${String(channel)} idx=${this.props.useIndexOfChannel}`,
+      this.sy4326Reads,
+      this.data,
+    );
     const { data, channel: ch } = this;
     const now = this.now();
     if (ch != null && ch.dataType.isVariable) return [bounds.ZERO, this.data];
@@ -267,6 +309,7 @@ export class StreamChannelData
   private async read(): Promise<void> {
     try {
       this.valid = true;
+      this.sy4326Reads++; // TEMP sy-4326
       const { channel, useIndexOfChannel, timeSpan } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
