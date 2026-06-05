@@ -11,7 +11,7 @@ from typing import NamedTuple
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 TRIG_SET = "trig_status_set"
 TRIG_DUP_FUNC = "trig_dup_func"
@@ -102,7 +102,7 @@ CASES: list[Case] = [
 KEY_CHANNELS = [c.key_channel for c in CASES]
 
 
-class StlStatus(ArcConsoleCase):
+class StlStatus(ArcCase):
     """Test status.set over predefined rows, by name and by key.
 
     A single set trigger upserts every row at once. set must return the
@@ -113,6 +113,7 @@ class StlStatus(ArcConsoleCase):
     arc_name_prefix = "ArcStlStatus"
     start_cmd_channel = "start_stl_status_cmd"
     subscribe_channels = KEY_CHANNELS + [DUP_FUNC_KEY]
+    collect_notifications = True
 
     def setup(self) -> None:
         create_virtual_channel(self.client, TRIG_SET, sy.DataType.UINT8)
@@ -161,7 +162,7 @@ class StlStatus(ArcConsoleCase):
         self.log("Firing set trigger: every case upserts its predefined row")
         self.writer.write(TRIG_SET, 1)
         for c in CASES:
-            self.wait_for_eq(c.key_channel, c.key, is_virtual=True)
+            self.wait_for_eq(c.key_channel, c.key)
             rows = self._rows(c.name)
             if len(rows) != 1:
                 self.fail(f"{c.name}: expected 1 row after set, got {len(rows)}")
@@ -175,10 +176,8 @@ class StlStatus(ArcConsoleCase):
     def _verify_warn_on_duplicate(self) -> None:
         self.log("Firing set duplicate: warn and set only the first status")
         self.writer.write(TRIG_DUP_FUNC, 1)
-        self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0], is_virtual=True)
-        if not self.console.notifications.wait_for(
-            f'multiple statuses named "{DUP_NAME}"'
-        ):
+        self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0])
+        if not self.wait_for_notification(f'multiple statuses named "{DUP_NAME}"'):
             self.fail("duplicate set did not surface a multi-match warning")
         rows = {s.key: s for s in self._rows(DUP_NAME)}
         first = rows[DUP_KEYS[0]]
