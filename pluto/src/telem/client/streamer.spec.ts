@@ -181,9 +181,84 @@ describe("Streamer", () => {
       expect(openCalls).toBe(1);
       // The orphaned second streamer's run loop should never have started.
       expect(ms2.iteratorVi).not.toHaveBeenCalled();
+      // The single streamer should have been updated with the second subscriber's key —
+      // otherwise key 2 would be silently dropped.
+      expect(ms1.updateVi).toHaveBeenCalled();
+      expect(ms1.keys.slice().sort()).toEqual([1, 2]);
 
       disconnect1();
       disconnect2();
+    });
+  });
+
+  describe("closed guard", () => {
+    it("should not open a streamer if close() is called before the debounce fires", async () => {
+      let openCalls = 0;
+      const opener: framer.StreamOpener = async () => {
+        openCalls++;
+        return new MockStreamer([1]);
+      };
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: opener,
+      });
+
+      await streamer.stream(() => {}, [1]);
+      // Close before the 100ms debounce window elapses.
+      await streamer.close();
+      // Advance well past the debounce — the queued updateStreamer must observe
+      // this.closed inside the mutex and bail out.
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(openCalls).toBe(0);
+    });
+
+    it("should close a freshly-opened streamer when close() runs during a slow openStreamer", async () => {
+      const ms1 = new MockStreamer([1], async () => {
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        return { done: true, value: undefined };
+      });
+      let openCalls = 0;
+      const slowOpener: framer.StreamOpener = async () => {
+        openCalls++;
+        await sleep.sleep(TimeSpan.milliseconds(300));
+        return ms1;
+      };
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: slowOpener,
+      });
+
+      await streamer.stream(() => {}, [1]);
+      // Advance into the openStreamer suspension window.
+      await vi.advanceTimersByTimeAsync(150);
+      // close() must wait for the in-flight updateStreamer to finish so that it can
+      // observe the newly-assigned streamer and tear it down.
+      const closePromise = streamer.close();
+      await vi.advanceTimersByTimeAsync(500);
+      await closePromise;
+
+      expect(openCalls).toBe(1);
+      expect(ms1.closeVi).toHaveBeenCalled();
+    });
+
+    it("should be a no-op when stream() is called after close()", async () => {
+      let openCalls = 0;
+      const opener: framer.StreamOpener = async () => {
+        openCalls++;
+        return new MockStreamer([1]);
+      };
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: opener,
+      });
+
+      await streamer.close();
+      const disconnect = await streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(500);
+
+      expect(openCalls).toBe(0);
+      disconnect();
     });
   });
 });

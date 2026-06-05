@@ -120,9 +120,9 @@ export class Streamer {
   }
 
   private async updateStreamer(): Promise<void> {
-    if (this.closed) return;
     const { instrumentation: ins } = this.props;
     await this.mu.runExclusive(async () => {
+      if (this.closed) return;
       try {
         // Assemble the set of keys we need to stream.
         const keys = new Set<channel.Key>();
@@ -188,12 +188,14 @@ export class Streamer {
 
   async close(): Promise<void> {
     const { instrumentation: ins } = this.props;
-    try {
-      this.streamer?.close();
-      if (this.streamerRunLoop != null) await this.streamerRunLoop;
-    } catch (e) {
-      ins.L.error("failed to close streamer", { error: e });
-    }
-    this.closed = true;
+    await this.mu.runExclusive(async () => {
+      try {
+        this.streamer?.close();
+        if (this.streamerRunLoop != null) await this.streamerRunLoop;
+      } catch (e) {
+        ins.L.error("failed to close streamer", { error: e });
+      }
+      this.closed = true;
+    });
   }
 }
