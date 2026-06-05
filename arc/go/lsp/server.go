@@ -113,6 +113,7 @@ type Server struct {
 	republishMu              sync.Mutex
 	cancelRepublish          context.CancelFunc
 	externalChangeDisconnect observe.Disconnect
+	republishWG              sync.WaitGroup
 }
 
 var _ protocol.Server = (*Server)(nil)
@@ -178,7 +179,7 @@ func (s *Server) SetClient(client lsp.Client) {
 			ctx, cancel := context.WithTimeout(ctx, s.cfg.RepublishTimeout)
 			s.cancelRepublish = cancel
 			s.republishMu.Unlock()
-			go s.republishAllDiagnostics(ctx)
+			s.republishWG.Go(func() { s.republishAllDiagnostics(ctx) })
 		})
 	}
 }
@@ -224,7 +225,7 @@ func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error
 	return nil
 }
 
-// Shutdown handles the shutdown request
+// Shutdown handles the shutdown request.
 func (s *Server) Shutdown(_ context.Context) error {
 	s.cfg.L.Info("Shutting down server")
 	if s.externalChangeDisconnect != nil {
@@ -235,6 +236,7 @@ func (s *Server) Shutdown(_ context.Context) error {
 		s.cancelRepublish()
 	}
 	s.republishMu.Unlock()
+	s.republishWG.Wait()
 	s.mu.RLock()
 	docs := make([]*Document, 0, len(s.documents))
 	for _, doc := range s.documents {

@@ -342,6 +342,9 @@ var _ = Describe("External Change Notifications", func() {
 			},
 			OnExternalChange: observer,
 		})
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(server.Shutdown(ctx)).To(Succeed())
+		})
 	})
 
 	It("Should republish diagnostics when external state changes", func(ctx SpecContext) {
