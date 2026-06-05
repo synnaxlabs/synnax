@@ -9,16 +9,14 @@
 
 // Package function implements semantic analysis for Arc function declarations.
 //
-// Functions in Arc have three parameter categories:
-//   - Config: Compile-time configuration (in curly braces)
-//   - Inputs: Runtime parameters (in parentheses)
-//   - Outputs: Return values (after the parameter list)
+// A function has a list of inputs and a list of outputs. One input may be the
+// trigger: the param an upstream wire feeds in flow context. The analyzer collects
+// the declared params into Inputs and records the trigger.
 //
 // The analyzer validates:
 //   - Function names are unique
-//   - Parameter names are unique within their category
-//   - Input types are valid
-//   - Output types are valid
+//   - Parameter names are unique
+//   - Input and output types are valid
 //   - Optional parameters come after required parameters
 //   - Functions with return types return on all code paths
 //   - Named outputs are assigned in the function body
