@@ -2,4 +2,10 @@
 ; functions in synnax.h. Only these symbols are exported from the DLL; gRPC and
 ; protobuf internals stay hidden to avoid collisions.
 EXPORTS
-    synnax_version
+    synnax_client_open
+    synnax_client_close
+    synnax_client_version
+    synnax_writer_open
+    synnax_writer_write
+    synnax_writer_commit
+    synnax_writer_close

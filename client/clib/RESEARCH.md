@@ -1,10 +1,8 @@
 # Synnax LabVIEW Client: Research Report
 
-**Status:** Research spike. No implementation code yet.
-**Target:** Windows 64-bit (first).
-**Scope:** Basic streaming (read live) and writing only. No channel creation, ranges,
-tasks, or string/JSON series in the MVP.
-**Date:** 2026-06-05.
+**Status:** Research spike. No implementation code yet. **Target:** Windows 64-bit
+(first). **Scope:** Basic streaming (read live) and writing only. No channel creation,
+ranges, tasks, or string/JSON series in the MVP. **Date:** 2026-06-05.
 
 ## Summary
 
@@ -12,18 +10,18 @@ Synnax ships client libraries for Python, TypeScript, and C++, but not for LabVI
 report answers the two questions blocking the start of a LabVIEW client and lays out a
 phased, verifiable build roadmap.
 
-**Question 1 (installation / licensing): Can the free trial build PPLs?**
-Yes, during the trial window. The LabVIEW free trial is full LabVIEW Professional (minus
-Nigel AI), good for 7 days and extendable to 45. Professional includes the Application
-Builder, which is what builds Packed Project Libraries (`.lvlibp`). Production
+**Question 1 (installation / licensing): Can the free trial build PPLs?** Yes, during
+the trial window. The LabVIEW free trial is full LabVIEW Professional (minus Nigel AI),
+good for 7 days and extendable to 45. Professional includes the Application Builder,
+which is what builds Packed Project Libraries (`.lvlibp`). Production
 building/distribution needs a paid Professional license.
 
-**Question 2 (build strategy): How do we wrap the C++ client?**
-Keep the existing C++ client and put a thin `extern "C"` C-ABI shim in front of it,
-compiled with the client and all heavy dependencies into one self-contained x64 DLL.
-LabVIEW cannot call a C++ DLL directly, but it can call a flat C DLL through its Call
-Library Function Node. The shim hides all C++ behind opaque handles. LabVIEW then wraps
-each C function in a VI, and those VIs are packaged into the PPL.
+**Question 2 (build strategy): How do we wrap the C++ client?** Keep the existing C++
+client and put a thin `extern "C"` C-ABI shim in front of it, compiled with the client
+and all heavy dependencies into one self-contained x64 DLL. LabVIEW cannot call a C++
+DLL directly, but it can call a flat C DLL through its Call Library Function Node. The
+shim hides all C++ behind opaque handles. LabVIEW then wraps each C function in a VI,
+and those VIs are packaged into the PPL.
 
 The single biggest unknown is whether protobuf, gRPC, and OpenSSL link cleanly into one
 Windows DLL. A Phase 0 hello-world DLL and a Phase 1 connect milestone are designed to
@@ -98,18 +96,18 @@ reasons:
    layout that a non-C++ caller can construct or read. They cannot cross a C ABI.
 
 The Synnax C++ client's **entire public API is C++-only**. A full sweep of `client/cpp`,
-`freighter/cpp`, and `x/cpp` found **no `extern "C"` and no C ABI anywhere**. Every entry
-point uses classes, templates, `std::*` containers, and `std::pair<T, Error>` returns.
-For example:
+`freighter/cpp`, and `x/cpp` found **no `extern "C"` and no C ABI anywhere**. Every
+entry point uses classes, templates, `std::*` containers, and `std::pair<T, Error>`
+returns. For example:
 
 - `synnax::Synnax(const synnax::Config&)` where `Config` holds `std::string` fields.
 - `Client::open_writer(const WriterConfig&) -> std::pair<Writer, x::errors::Error>`.
 - `Streamer::read() -> std::pair<x::telem::Frame, x::errors::Error>` where `Frame` is
   move-only and holds `unique_ptr`/`shared_ptr` internals.
 
-So we do **not** rewrite the client in C, and we do **not** modify the C++ client. We add
-a new, thin C wrapper that exposes flat C functions and hides every C++ detail behind
-opaque handles.
+So we do **not** rewrite the client in C, and we do **not** modify the C++ client. We
+add a new, thin C wrapper that exposes flat C functions and hides every C++ detail
+behind opaque handles.
 
 ### Recommended architecture
 
@@ -128,9 +126,9 @@ gRPC + protobuf + OpenSSL + glog          [all linked statically INSIDE the DLL]
 Synnax Core  (gRPC)
 ```
 
-The DLL must be **x64** to match 64-bit LabVIEW. A CLFN can only load a DLL whose bitness
-matches the LabVIEW IDE; a 32-bit DLL in 64-bit LabVIEW fails with "The library selected
-is not valid for the current platform."
+The DLL must be **x64** to match 64-bit LabVIEW. A CLFN can only load a DLL whose
+bitness matches the LabVIEW IDE; a 32-bit DLL in 64-bit LabVIEW fails with "The library
+selected is not valid for the current platform."
 
 The repo's `.bazelrc` already enforces `/MT` (static C runtime) on Windows and
 `--dynamic_mode=off`. Both are exactly what a single fat DLL with no external runtime
@@ -155,8 +153,8 @@ FFI consumers (Python ctypes, MATLAB, C#). The `.cpp` includes the real C++ clie
 
 **Universal conventions:**
 
-- **Opaque handles.** Forward-declared structs hide all C++ internals:
-  `SynnaxClient*`, `SynnaxWriter*`, `SynnaxStreamer*`, `SynnaxFrame*`.
+- **Opaque handles.** Forward-declared structs hide all C++ internals: `SynnaxClient*`,
+  `SynnaxWriter*`, `SynnaxStreamer*`, `SynnaxFrame*`.
 - **Errors.** Every fallible function returns `int32_t` (0 = ok) and fills a
   caller-allocated error struct with fixed buffers (no cross-boundary string to free):
   ```c
@@ -166,12 +164,13 @@ FFI consumers (Python ctypes, MATLAB, C#). The `.cpp` includes the real C++ clie
       char    message[512];  /* human-readable */
   } SynnaxError;
   ```
-  This maps directly onto the C++ `std::pair<T, x::errors::Error>` pattern: split into an
-  `int32_t` return, an out-param handle, and the error struct.
+  This maps directly onto the C++ `std::pair<T, x::errors::Error>` pattern: split into
+  an `int32_t` return, an out-param handle, and the error struct.
 - **Exception firewall (non-negotiable).** Every `extern "C"` body is wrapped in
   `try { ... } catch (...) { fill error; return code; }`. The C++ client throws in
-  several paths (for example `Frame::at` on a missing channel, and Series bounds checks).
-  An exception unwinding across the C ABI is undefined behavior and would crash LabVIEW.
+  several paths (for example `Frame::at` on a missing channel, and Series bounds
+  checks). An exception unwinding across the C ABI is undefined behavior and would crash
+  LabVIEW.
 - **Memory ownership.** Every library-allocated handle has a matching `*_free` in the
   DLL. LabVIEW never frees library memory, because the DLL carries its own static C
   runtime.
@@ -249,14 +248,14 @@ void    synnax_frame_free(SynnaxFrame* f);
    `SynnaxFrame*`. LabVIEW then calls `synnax_frame_series_info` to learn each column's
    type and length, pre-allocates a matching array, calls `synnax_frame_copy_column` to
    copy out (the shim casts, commonly to float64 for a single generic VI), and finally
-   `synnax_frame_free`. This "ask the size, then ask the data" idiom is the only sane way
-   to return a variable-shape, variable-typed frame to a language that needs fixed
+   `synnax_frame_free`. This "ask the size, then ask the data" idiom is the only sane
+   way to return a variable-shape, variable-typed frame to a language that needs fixed
    arrays.
 
 **Blocking read and threading.** `Streamer::read()` blocks until data or stream failure.
-The shim stays simple and synchronous. On the LabVIEW side, run `synnax_streamer_read` in
-a dedicated loop and call `synnax_streamer_close` from another loop to unblock it (the
-C++ `Streamer` supports a concurrent close). We deliberately avoid C-to-LabVIEW
+The shim stays simple and synchronous. On the LabVIEW side, run `synnax_streamer_read`
+in a dedicated loop and call `synnax_streamer_close` from another loop to unblock it
+(the C++ `Streamer` supports a concurrent close). We deliberately avoid C-to-LabVIEW
 callbacks, which are fragile; a dedicated read loop is the robust pattern.
 
 ### Bazel build (in-repo `cc_shared_library`)
@@ -296,10 +295,10 @@ bazel build //client/clib:synnax_clib --config=windows -c opt
 slow; opt is what ships.
 
 **Symbol export mechanism.** Use a `.def` allowlist as the primary mechanism, plus a
-`__declspec(dllexport)` macro as a backup. The repo already fights gRPC symbol collisions
-with `-fvisibility=hidden` (there is an explicit note in `.bazelrc` about a clash with
-LabJack's bundled gRPC), so by default nothing is exported. A hand-maintained `.def`
-listing exactly the `synnax_*` functions exports our C API and nothing from
+`__declspec(dllexport)` macro as a backup. The repo already fights gRPC symbol
+collisions with `-fvisibility=hidden` (there is an explicit note in `.bazelrc` about a
+clash with LabJack's bundled gRPC), so by default nothing is exported. A hand-maintained
+`.def` listing exactly the `synnax_*` functions exports our C API and nothing from
 gRPC/protobuf, which both avoids symbol bloat and is independent of whether `dllexport`
 survives `alwayslink`. Do **not** use `WINDOWS_EXPORT_ALL_SYMBOLS`: exporting all of
 gRPC/protobuf is the collision risk we are avoiding. Verify the result with
@@ -322,14 +321,14 @@ exists.
 Each milestone is independently verifiable. Do them in order; the early phases exist to
 retire risk cheaply.
 
-| Phase | Goal | Pass/fail check |
-| --- | --- | --- |
-| **0** | Hello-world DLL LabVIEW can load. `client/clib/` exports one trivial function (`synnax_version`), no Synnax deps. | `dumpbin /exports` shows the symbol; a LabVIEW CLFN loads and calls it at x64. De-risks the whole Bazel + `.def` + CLFN toolchain. |
-| **1** | Link the full client and connect. Add `//client/cpp:synnax`; implement `synnax_client_open/close` with `connectivity->check()` and the exception firewall. | Good credentials return 0; a bad host or bad credentials return nonzero with a populated `SynnaxError`. Proves the big risk: static-linking gRPC/protobuf/OpenSSL into a Windows DLL. |
-| **2** | Write one frame. Implement the writer functions. Channel is pre-created via Console or Python. | Write a float64 column plus its timestamp index, then confirm the samples in the Console. |
-| **3** | Stream one frame. Implement the streamer and frame accessors. | Write from Python or the Phase 2 path; confirm `read` returns a frame whose `copy_column` yields the written values. |
-| **4** | Robustness. Concurrent close unblocks a blocked read; firewall coverage on every function; error-code enum; null-arg guards; error-buffer truncation safety. | Stress the read/close interplay and null inputs without crashing LabVIEW. |
-| **5** | Package into a PPL. One VI per C function (CLFN configured: C calling convention; arrays as "Array Data Pointer"; strings as "C String Pointer"; handles as pointer-sized integer). Compose connect/write/stream demo VIs; build the `.lvlibp`. | A clean LabVIEW machine with only the PPL and the DLL on disk can connect, write, and stream end to end with no source VIs present. |
+| Phase | Goal                                                                                                                                                                                                                                            | Pass/fail check                                                                                                                                                                       |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0** | Hello-world DLL LabVIEW can load. `client/clib/` exports one trivial function (`synnax_version`), no Synnax deps.                                                                                                                               | `dumpbin /exports` shows the symbol; a LabVIEW CLFN loads and calls it at x64. De-risks the whole Bazel + `.def` + CLFN toolchain.                                                    |
+| **1** | Link the full client and connect. Add `//client/cpp:synnax`; implement `synnax_client_open/close` with `connectivity->check()` and the exception firewall.                                                                                      | Good credentials return 0; a bad host or bad credentials return nonzero with a populated `SynnaxError`. Proves the big risk: static-linking gRPC/protobuf/OpenSSL into a Windows DLL. |
+| **2** | Write one frame. Implement the writer functions. Channel is pre-created via Console or Python.                                                                                                                                                  | Write a float64 column plus its timestamp index, then confirm the samples in the Console.                                                                                             |
+| **3** | Stream one frame. Implement the streamer and frame accessors.                                                                                                                                                                                   | Write from Python or the Phase 2 path; confirm `read` returns a frame whose `copy_column` yields the written values.                                                                  |
+| **4** | Robustness. Concurrent close unblocks a blocked read; firewall coverage on every function; error-code enum; null-arg guards; error-buffer truncation safety.                                                                                    | Stress the read/close interplay and null inputs without crashing LabVIEW.                                                                                                             |
+| **5** | Package into a PPL. One VI per C function (CLFN configured: C calling convention; arrays as "Array Data Pointer"; strings as "C String Pointer"; handles as pointer-sized integer). Compose connect/write/stream demo VIs; build the `.lvlibp`. | A clean LabVIEW machine with only the PPL and the DLL on disk can connect, write, and stream end to end with no source VIs present.                                                   |
 
 ---
 
@@ -338,8 +337,8 @@ retire risk cheaply.
 1. **Static-linking protobuf, gRPC, and OpenSSL into one Windows DLL.** Highest-impact
    unknown. Risks include protobuf's global descriptor pool rejecting duplicate
    registration, `/MT` static-CRT consistency across every object in the DLL, and
-   OpenSSL's dependence on `user32.lib`. Proven in Phase 1. Validate this before building
-   out the full API.
+   OpenSSL's dependence on `user32.lib`. Proven in Phase 1. Validate this before
+   building out the full API.
 2. **`cc_shared_library` is new to the repo.** The strict Windows warnings-as-errors
    config (`/WX`) may surface fresh warnings in the shim translation unit; expect to add
    a couple of `per_file_copt` relaxations scoped to `client/clib/`.

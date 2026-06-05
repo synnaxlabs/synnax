@@ -7,25 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// This is the pure-C public header for the Synnax C-ABI library (synnax_clib).
-// It is consumed by flat-C FFI callers such as LabVIEW's Call Library Function
-// Node. It must remain valid C: no C++ types, namespaces, or STL.
+// Pure-C public umbrella header for the Synnax C-ABI library (synnax_clib), consumed
+// by flat-C FFI callers such as LabVIEW's Call Library Function Node. Importing this
+// header pulls in the full surface (client + framer). The API is deliberately flat
+// because the CLFN cannot build C structs that contain pointers.
 
 #pragma once
 
-#include <stddef.h>
 #include <stdint.h>
 
 #include "client/clib/export.h"
+#include "client/clib/framer/framer.h"
+#include "client/clib/types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-/// @brief writes the null-terminated library version into buf (at most buf_size
-/// bytes) and returns the full length excluding the null; a return >= buf_size
-/// means the value was truncated. buf may be NULL when buf_size is 0.
-SYNNAX_EXPORT int32_t synnax_version(char *buf, size_t buf_size);
+/// @brief connects to a Synnax Core and verifies connectivity. secure=0 connects in
+/// plaintext; secure!=0 uses TLS with ca_cert_file. NULL host/username/password fall
+/// back to localhost/synnax/seldon and port 0 falls back to 9090. On success writes
+/// the handle to *out_client and returns 0; on failure fills err and returns nonzero.
+SYNNAX_EXPORT int32_t synnax_client_open(
+    const char *host,
+    uint16_t port,
+    const char *username,
+    const char *password,
+    int32_t secure,
+    // Deviates from TS/Python: C++ client lacks system-trust TLS, so TLS needs a CA.
+    const char *ca_cert_file,
+    SynnaxClient **out_client,
+    SynnaxError *err
+);
+
+/// @brief closes and frees a client. Safe on NULL.
+SYNNAX_EXPORT void synnax_client_close(SynnaxClient *client);
+
+/// @brief returns the static Synnax client library version string (the analog of the
+/// other clients' clientVersion / __version__). The caller must not free it.
+SYNNAX_EXPORT const char *synnax_client_version(void);
 
 #ifdef __cplusplus
 }
