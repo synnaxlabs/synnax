@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { alamos } from "@synnaxlabs/alamos";
 import { type channel, Frame, type framer } from "@synnaxlabs/client";
 import { type MultiSeries, Series, sleep, TimeSpan } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -242,6 +243,30 @@ describe("Streamer", () => {
       expect(ms1.closeVi).toHaveBeenCalled();
     });
 
+    it("should close the underlying streamer when the last listener disconnects", async () => {
+      const ms1 = new MockStreamer([1], async () => {
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        return { done: true, value: undefined };
+      });
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: createStreamOpener([ms1]),
+        streamUpdateDelay: TimeSpan.milliseconds(50),
+      });
+
+      const disconnect = await streamer.stream(() => {}, [1]);
+      // Advance past debounce + the single nextFn cycle so the run loop ends.
+      await vi.advanceTimersByTimeAsync(200);
+      expect(ms1.closeVi).not.toHaveBeenCalled();
+
+      disconnect();
+      // streamUpdateDelay (50ms) + debounce (100ms) + slack so the no-keys branch in
+      // updateStreamer fires and tears down the streamer.
+      await vi.advanceTimersByTimeAsync(300);
+
+      expect(ms1.closeVi).toHaveBeenCalled();
+    });
+
     it("should be a no-op when stream() is called after close()", async () => {
       let openCalls = 0;
       const opener: framer.StreamOpener = async () => {
@@ -258,6 +283,127 @@ describe("Streamer", () => {
       await vi.advanceTimersByTimeAsync(500);
 
       expect(openCalls).toBe(0);
+      disconnect();
+    });
+  });
+
+  describe("update path", () => {
+    it("should not call update again when the merged key set is unchanged", async () => {
+      const ms1 = new MockStreamer([1], async () => {
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        return { done: true, value: undefined };
+      });
+      const ins = new alamos.Instrumentation({
+        key: "test",
+        logger: new alamos.Logger(),
+      });
+      const debugSpy = vi.spyOn(ins.L, "debug").mockImplementation(() => {});
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: createStreamOpener([ms1]),
+        instrumentation: ins,
+      });
+
+      const d1 = await streamer.stream(() => {}, [1]);
+      // Initial open path also issues a single update([1]).
+      await vi.advanceTimersByTimeAsync(200);
+      expect(ms1.updateVi).toHaveBeenCalledTimes(1);
+
+      // Second subscriber on the same key — the merged set is still [1], so the
+      // valuesEqual branch must short-circuit and log "streamer keys unchanged".
+      const d2 = await streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+
+      expect(ms1.updateVi).toHaveBeenCalledTimes(1);
+      expect(debugSpy).toHaveBeenCalledWith("streamer keys unchanged", {
+        keys: [1],
+      });
+
+      d1();
+      d2();
+    });
+
+    it("should log an error when streamer.update rejects", async () => {
+      const ms1 = new MockStreamer([1], async () => {
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        return { done: true, value: undefined };
+      });
+      const updateErr = new Error("update boom");
+      ms1.update = vi.fn(async () => {
+        throw updateErr;
+      });
+      const ins = new alamos.Instrumentation({
+        key: "test",
+        logger: new alamos.Logger(),
+      });
+      const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
+      // updateStreamer is fired-and-forgotten via void; absorb the resulting
+      // unhandled rejection so it doesn't fail the test.
+      const rejections: unknown[] = [];
+      const onRejection = (reason: unknown) => rejections.push(reason);
+      process.on("unhandledRejection", onRejection);
+
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: createStreamOpener([ms1]),
+        instrumentation: ins,
+      });
+
+      try {
+        await streamer.stream(() => {}, [1]);
+        await vi.advanceTimersByTimeAsync(300);
+      } finally {
+        process.off("unhandledRejection", onRejection);
+      }
+
+      expect(errorSpy).toHaveBeenCalledWith("failed to update streamer", {
+        error: updateErr,
+      });
+      expect(rejections.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("close path", () => {
+    it("should log an error when streamer.close throws and still mark the streamer closed", async () => {
+      const ms1 = new MockStreamer([1], async () => {
+        await sleep.sleep(TimeSpan.milliseconds(10));
+        return { done: true, value: undefined };
+      });
+      const closeErr = new Error("close boom");
+      ms1.closeVi.mockImplementation(() => {
+        throw closeErr;
+      });
+      const ins = new alamos.Instrumentation({
+        key: "test",
+        logger: new alamos.Logger(),
+      });
+      const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
+
+      let openCalls = 0;
+      const opener: framer.StreamOpener = async () => {
+        openCalls++;
+        return ms1;
+      };
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: opener,
+        instrumentation: ins,
+      });
+
+      await streamer.stream(() => {}, [1]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(openCalls).toBe(1);
+
+      await streamer.close();
+
+      expect(errorSpy).toHaveBeenCalledWith("failed to close streamer", {
+        error: closeErr,
+      });
+      // close() should still flip this.closed even when the underlying
+      // streamer.close throws — subsequent stream() calls must be no-ops.
+      const disconnect = await streamer.stream(() => {}, [2]);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(openCalls).toBe(1);
       disconnect();
     });
   });
