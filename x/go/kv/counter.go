@@ -12,8 +12,8 @@ package kv
 import (
 	"context"
 	"encoding/binary"
+	"sync/atomic"
 
-	atomicx "github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -22,9 +22,9 @@ import (
 // key-value store. AtomicInt64Counter is safe for concurrent use. To create a new
 // AtomicInt64Counter, call OpenCounter.
 type AtomicInt64Counter struct {
-	db  Writer
-	key []byte
-	atomicx.Int64Counter
+	db    Writer
+	key   []byte
+	value atomic.Int64
 }
 
 // OpenCounter opens or creates a persisted counter at the given key. If
@@ -34,7 +34,7 @@ func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Co
 	c := &AtomicInt64Counter{db: db, key: key}
 	b, closer, err := db.Get(ctx, key)
 	if err == nil {
-		c.Int64Counter.Add(int64(binary.LittleEndian.Uint64(b)))
+		c.value.Store(int64(binary.LittleEndian.Uint64(b)))
 		err = closer.Close()
 	} else if errors.Is(err, query.ErrNotFound) {
 		err = nil
@@ -42,10 +42,13 @@ func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Co
 	return c, err
 }
 
+// Value returns the current counter value.
+func (c *AtomicInt64Counter) Value() int64 { return c.value.Load() }
+
 // Add increments the counter by the given delta. Returns the new counter value
 // as well as any errors encountered while flushing the counter to storage.
 func (c *AtomicInt64Counter) Add(ctx context.Context, delta int64) (int64, error) {
-	next := c.Int64Counter.Add(delta)
+	next := c.value.Add(delta)
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], uint64(next))
 	return next, c.db.Set(ctx, c.key, buf[:])
@@ -53,7 +56,7 @@ func (c *AtomicInt64Counter) Add(ctx context.Context, delta int64) (int64, error
 
 // Set sets the counter to the given value.
 func (c *AtomicInt64Counter) Set(ctx context.Context, value int64) error {
-	c.Int64Counter.Set(value)
+	c.value.Store(value)
 	var buf [8]byte
 	binary.LittleEndian.PutUint64(buf[:], uint64(value))
 	return c.db.Set(ctx, c.key, buf[:])
