@@ -77,6 +77,7 @@ class WorkspaceClient:
     """Workspace management for Console UI automation."""
 
     ITEM_PREFIX = "workspace:"
+    SELECTOR_DIALOG = ".pluto-dialog__dialog"
 
     def __init__(
         self,
@@ -817,6 +818,145 @@ class WorkspaceClient:
         delete_btn.click(timeout=5000)
         self.wait_for_workspace_removed(name)
         self.layout.close_left_toolbar()
+
+    def open_selector(self) -> Locator:
+        """Open the workspace selector dropdown in the top navigation bar.
+
+        Returns:
+            Locator for the open dropdown dialog.
+        """
+        self.layout.close_left_toolbar()
+        trigger = (
+            self.layout.page.locator("button.pluto-dialog__trigger")
+            .filter(has=self.layout.page.locator(".pluto-icon--workspace"))
+            .first
+        )
+        trigger.click(timeout=5000)
+        dialog = self.layout.page.locator(self.SELECTOR_DIALOG).first
+        dialog.wait_for(state="visible", timeout=5000)
+        return dialog
+
+    def close_selector(self) -> None:
+        """Close the workspace selector dropdown if it is open."""
+        dialog = self.layout.page.locator(self.SELECTOR_DIALOG).first
+        if not dialog.is_visible():
+            return
+        self.layout.press_escape()
+        try:
+            dialog.wait_for(state="hidden", timeout=3000)
+        except PlaywrightTimeoutError:
+            pass
+
+    def _search_selector(self, name: str) -> None:
+        """Type a query into the open selector search box.
+
+        The dropdown list seeds from cached workspaces, so a freshly created
+        workspace only appears in the list once the search box triggers a
+        server refetch. Callers must have the dropdown open.
+        """
+        search = self.layout.page.locator(f"{self.SELECTOR_DIALOG} input").first
+        search.wait_for(state="visible", timeout=5000)
+        search.fill(name)
+
+    def get_selector_item(self, name: str) -> Locator:
+        """Get a workspace item from the open selector dropdown list.
+
+        Matches the name exactly so a fuzzy search match or a rename to a
+        superstring does not leave the locator pointing at the wrong item.
+
+        Args:
+            name: Name of the workspace.
+
+        Returns:
+            Locator for the workspace list item in the dropdown.
+        """
+        pattern = re.compile(rf"^\s*{re.escape(name)}\s*$")
+        return (
+            self.layout.page.locator(f"{self.SELECTOR_DIALOG} .pluto-list__item")
+            .filter(has_text=pattern)
+            .first
+        )
+
+    def _open_selector_item(self, name: str) -> Locator:
+        """Open the dropdown, search for a workspace, and return its list item.
+
+        Waits for the search-driven list re-render to settle before returning,
+        so a context menu opened on the item is not dismissed by a late list
+        update (the menu anchors to the item element).
+        """
+        self.open_selector()
+        self._search_selector(name)
+        item = self.get_selector_item(name)
+        item.wait_for(state="visible", timeout=5000)
+        self.layout.page.wait_for_timeout(750)
+        return item
+
+    def selector_menu_options(self, name: str, options: list[str]) -> dict[str, bool]:
+        """Open the selector context menu for a workspace and report option state.
+
+        Args:
+            name: Name of the workspace to right-click in the dropdown.
+            options: Menu option labels to check.
+
+        Returns:
+            Mapping of each option label to whether it is visible and enabled.
+        """
+        item = self._open_selector_item(name)
+        self.ctx_menu.open_on(item)
+        menu = self.layout.page.locator(".pluto-menu-context:visible").first
+        result: dict[str, bool] = {}
+        for option in options:
+            opt = menu.get_by_text(option, exact=True).first
+            try:
+                opt.wait_for(state="visible", timeout=2000)
+                result[option] = True
+            except PlaywrightTimeoutError:
+                result[option] = False
+        self.ctx_menu.close()
+        self.close_selector()
+        return result
+
+    def rename_from_selector(self, *, old_name: str, new_name: str) -> None:
+        """Rename a workspace via the selector dropdown context menu.
+
+        Args:
+            old_name: Current name of the workspace.
+            new_name: New name for the workspace.
+        """
+        item = self._open_selector_item(old_name)
+        self.ctx_menu.action(item, "Rename")
+        self.layout.select_all_and_type(new_name)
+        self.layout.press_enter()
+        self.close_selector()
+
+    def delete_from_selector(self, name: str) -> None:
+        """Delete a workspace via the selector dropdown context menu.
+
+        Args:
+            name: Name of the workspace to delete.
+        """
+        item = self._open_selector_item(name)
+        self.ctx_menu.action(item, "Delete")
+        delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
+        delete_btn.wait_for(state="visible", timeout=5000)
+        delete_btn.click(timeout=5000)
+        delete_btn.wait_for(state="hidden", timeout=5000)
+        self.close_selector()
+
+    def copy_link_from_selector(self, name: str) -> str:
+        """Copy a workspace link via the selector dropdown context menu.
+
+        Args:
+            name: Name of the workspace.
+
+        Returns:
+            The copied link from the clipboard.
+        """
+        item = self._open_selector_item(name)
+        self.ctx_menu.action(item, "Copy link")
+        link = self.layout.read_clipboard()
+        self.close_selector()
+        return link
 
     def ensure_selected(self, name: str) -> None:
         """Create a workspace if it doesn't exist and select it.

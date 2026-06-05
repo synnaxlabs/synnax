@@ -16,31 +16,66 @@ import {
   Component,
   Dialog,
   Flex,
+  type Flux,
   Icon,
   Input,
   List,
+  Menu,
   Select,
+  state,
   Synnax,
   Text,
   Workspace,
 } from "@synnaxlabs/pluto";
+import { location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { type RootState } from "@/store";
+import { ContextMenu } from "@/workspace/ContextMenu";
 import { CREATE_LAYOUT } from "@/workspace/Create";
-import { useSelectActive } from "@/workspace/selectors";
-import { setActive } from "@/workspace/slice";
+import { selectActiveName, useSelectActive } from "@/workspace/selectors";
+import { maybeRename, setActive } from "@/workspace/slice";
+
+const useRename = () => {
+  const store = useStore<RootState>();
+  return Workspace.useRename({
+    beforeUpdate: useCallback(
+      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Workspace.RenameParams>) => {
+        const { key, name } = data;
+        const oldName = selectActiveName(store.getState());
+        store.dispatch(maybeRename({ key, name }));
+        rollbacks.push(() => {
+          if (oldName != null) store.dispatch(maybeRename({ key, name: oldName }));
+        });
+        return data;
+      },
+      [store],
+    ),
+  });
+};
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<workspace.Key>): ReactElement | null => {
     const { itemKey } = props;
     const ws = List.useItem<workspace.Key, workspace.Workspace>(itemKey);
+    const onRename = useRename();
+    const hasUpdatePermission = Access.useUpdateGranted(workspace.ontologyID(itemKey));
     if (ws == null) return null;
     return (
       <Select.ListItem {...props}>
-        <Text.Text>{ws.name}</Text.Text>
+        <Text.MaybeEditable
+          id={`text-${ws.key}`}
+          value={ws.name}
+          onChange={
+            hasUpdatePermission
+              ? (name) => onRename.update({ key: ws.key, name })
+              : undefined
+          }
+          allowDoubleClick={false}
+        />
       </Select.ListItem>
     );
   },
@@ -73,18 +108,38 @@ export const Selector = (): ReactElement | null => {
     },
     [dispatch, getItem],
   );
+  const handleVisibleChange = useCallback(
+    (next: state.SetArg<boolean>) => {
+      const visible = state.executeSetter(next, dialogVisible);
+      setDialogVisible(visible);
+      // The list seeds from cached workspaces, so refetch on open to surface workspaces
+      // created since the cache was last populated.
+      if (!visible) return;
+      setSearch("");
+      retrieve({});
+    },
+    [dialogVisible, retrieve],
+  );
   const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_ID);
+  const menuProps = Menu.useContextMenu();
+  const contextMenu = useCallback(
+    (props: Menu.ContextMenuMenuProps) => <ContextMenu {...props} getItem={getItem} />,
+    [getItem],
+  );
+  const handleFetchMore = useCallback(() => {
+    retrieve({});
+  }, [retrieve]);
   if (!hasRetrievePermission) return null;
   return (
-    <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
+    <Dialog.Frame visible={dialogVisible} onVisibleChange={handleVisibleChange}>
       <Select.Frame
         data={data}
         value={active?.key}
         onChange={handleChange}
         getItem={getItem}
         subscribe={subscribe}
-        onFetchMore={() => retrieve({})}
+        onFetchMore={handleFetchMore}
         allowNone
       >
         <Dialog.Trigger
@@ -141,7 +196,7 @@ export const Selector = (): ReactElement | null => {
                 }}
                 gap="small"
                 tooltip="Create a new workspace"
-                tooltipLocation={{ y: "bottom" }}
+                tooltipLocation={location.BOTTOM_CENTER}
                 borderColor={6}
               >
                 <Icon.Add />
@@ -149,7 +204,8 @@ export const Selector = (): ReactElement | null => {
               </Button.Button>
             )}
           </Flex.Box>
-          <List.Items bordered borderColor={6} grow>
+          <Menu.ContextMenu menu={contextMenu} {...menuProps} />
+          <List.Items bordered borderColor={6} grow onContextMenu={menuProps.open}>
             {listItem}
           </List.Items>
         </Dialog.Dialog>

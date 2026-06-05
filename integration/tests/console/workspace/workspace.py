@@ -18,7 +18,7 @@ from console.log import Log
 from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
-from framework.utils import get_fixture_path
+from framework.utils import assert_link_format, get_fixture_path
 from x import get_synnax_version
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
@@ -65,6 +65,9 @@ class Workspace(ConsoleCase):
         # Export/Import
         self.test_export_workspace()
         self.test_import_workspace()
+
+        # Selector dropdown context menu (SY-846)
+        self.test_selector_context_menu()
 
     def test_version_visible_in_navbar(self) -> None:
         """Test that the correct version is displayed in the navbar."""
@@ -280,3 +283,45 @@ class Workspace(ConsoleCase):
         self._cleanup_workspaces.remove("WorkspaceB")
         self.console.workspace.delete("WorkspaceA")
         self._cleanup_workspaces.remove("WorkspaceA")
+
+    def test_selector_context_menu(self) -> None:
+        """Test the workspace selector dropdown context menu (SY-846)."""
+        self.log("Testing workspace selector context menu")
+
+        self.console.workspace.create("SelectorWS")
+        self._cleanup_workspaces.append("SelectorWS")
+        self.console.workspace.create("SelectorDeleteWS")
+        self._cleanup_workspaces.append("SelectorDeleteWS")
+
+        self.log("Verifying selector context menu exposes the expected actions")
+        options = self.console.workspace.selector_menu_options(
+            "SelectorWS", ["Rename", "Delete", "Export", "Copy link"]
+        )
+        for label, present in options.items():
+            assert present, f"Selector context menu should expose '{label}'"
+
+        self.log("Testing copy link from selector context menu")
+        link = self.console.workspace.copy_link_from_selector("SelectorWS")
+        assert_link_format(link, "workspace")
+
+        self.log("Testing rename from selector context menu")
+        self.console.workspace.select("SelectorWS")
+        self.console.workspace.rename_from_selector(
+            old_name="SelectorWS", new_name="SelectorRenamed"
+        )
+        self._cleanup_workspaces.remove("SelectorWS")
+        self._cleanup_workspaces.append("SelectorRenamed")
+        trigger = self.page.get_by_role("button").filter(has_text="SelectorRenamed")
+        trigger.wait_for(state="visible", timeout=5000)
+        assert trigger.is_visible(), (
+            "Selector trigger should show the renamed active workspace"
+        )
+        assert self.console.workspace.exists("SelectorRenamed"), (
+            "Renamed workspace should be persisted"
+        )
+
+        self.log("Testing delete from selector context menu")
+        self.console.workspace.delete_from_selector("SelectorDeleteWS")
+        self._cleanup_workspaces.remove("SelectorDeleteWS")
+        self.console.workspace.wait_for_workspace_removed("SelectorDeleteWS")
+        self.console.layout.close_left_toolbar()
