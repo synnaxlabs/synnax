@@ -470,14 +470,14 @@ core/pkg/service/<resource>/
     │   ├── type Resource = vN.Resource
     │   └── const LatestVersion = vN.Version
     ├── decode.go                    # version dispatch — the only entry imex calls
-    │   └── func Decode(imex.Codec, imex.Version, []byte) (Resource, error)
+    │   └── func Decode(imex.Envelope) (Resource, error)
     │
     ├── legacy/                      # REQUIRED for resources with a versioned data payload
     │   │                            #   (schematic, table, line plot, log) — see §4.3.2.
     │   │                            #   Occupies the LOW end of the unified integer namespace:
     │   │                            #   legacy versions are [0, MaxVersion]; modern versions
     │   │                            #   are [MaxVersion+1, LatestVersion]. No overlap, no gap.
-    │   ├── legacy.go                # const MaxVersion + Decode(c, v, raw) → first-modern Resource
+    │   ├── legacy.go                # const MaxVersion + Decode(env) → first-modern Resource
     │   └── vN/                      # frozen legacy versions (v0..vMaxVersion); same shape as
     │                                # modern vN/ (types.gen.go, codec.gen.go, migrate.go)
     │
@@ -525,10 +525,10 @@ methods (`Create`, `Update`, `Rename`, `Delete`, …) run the per-record `Valida
 direct `gorp.NewCreate` against the resource table is a layering violation.
 
 **`imex.go` is small by design.** All version dispatch and decoding lives in
-`types/decode.go`. The importer just calls `types.Decode(codec, version, raw)` and feeds
-the result through `writer.Create`, so import gets the same validation, ontology wiring,
-and signal publishing as any other create path. The exporter is the mirror — fetch via
-`Retrieve`, hand back as `imex.Exported`.
+`types/decode.go`. The importer just calls `types.Decode(env)` and feeds the result
+through `writer.Create`, so import gets the same validation, ontology wiring, and signal
+publishing as any other create path. The exporter is the mirror — fetch via `Retrieve`,
+hand back as `imex.Exported`.
 
 **`types/decode.go` is the only decoder.** The `Decode` switch is the canonical version
 dispatch; the imex peek (§4.4) passes the parsed `imex.Version` straight into it.
