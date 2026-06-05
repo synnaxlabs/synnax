@@ -824,14 +824,15 @@ metadata store for hardware control where missing records have safety implicatio
 failed boot is recoverable in minutes, a silently dropped record may not be recoverable
 at all.
 
-**The Migrate→Validate contract.** Every per-step `Migrate(v(N-1).Resource) → vN.Resource`
-must return a value that satisfies `vN.Resource.Validate()` for every input that
-satisfied `v(N-1).Resource.Validate()` at its own version's constraints. The boot-abort
-policy makes this a hard contract: a developer who tightens a constraint at `vN` — adds
-a `min`/`max`, narrows an enum, requires a previously-optional field — without updating
-the `vN-1 → vN` `Migrate` to reconcile out-of-range values produces a cluster that
-boots green in tests (synthetic v(N-1) payloads happen to be in-range) and red against
-real data (stored v(N-1) values that pass the old, looser check fail the new one).
+**The Migrate→Validate contract.** Every per-step
+`Migrate(v(N-1).Resource) → vN.Resource` must return a value that satisfies
+`vN.Resource.Validate()` for every input that satisfied `v(N-1).Resource.Validate()` at
+its own version's constraints. The boot-abort policy makes this a hard contract: a
+developer who tightens a constraint at `vN` — adds a `min`/`max`, narrows an enum,
+requires a previously-optional field — without updating the `vN-1 → vN` `Migrate` to
+reconcile out-of-range values produces a cluster that boots green in tests (synthetic
+v(N-1) payloads happen to be in-range) and red against real data (stored v(N-1) values
+that pass the old, looser check fail the new one).
 
 When a tightened constraint cannot be satisfied verbatim, `Migrate` must coerce: clamp
 to the new bound, map a retired enum variant onto a defined one, fall back to a
@@ -873,12 +874,13 @@ until the first time a developer needs method-receiver syntax.
 **Tightened-constraint freezes require a hand-written `Migrate` body.** When the schema
 diff between `vN` and `v(N+1)` includes a tighter `validate` constraint (new or lowered
 `min`/`max`, narrowed enum, newly-required field) Oracle emits a `migrate.go` skeleton
-that copies fields verbatim but marks the affected fields with a `TODO: reconcile with
-new constraint` directive and a compile-time `_ = panic("migrate must coerce <field>")`
-on each. The developer replaces those with explicit coercion (clamp, remap, default) or
-an error return; the panic ensures the freeze cannot be merged with a constraint-tightening
-left as a pass-through. This closes the Migrate→Validate contract (§4.5.3) at
-generation time rather than relying on a live-data boot failure to surface the bug.
+that copies fields verbatim but marks the affected fields with a
+`TODO: reconcile with new constraint` directive and a compile-time
+`_ = panic("migrate must coerce <field>")` on each. The developer replaces those with
+explicit coercion (clamp, remap, default) or an error return; the panic ensures the
+freeze cannot be merged with a constraint-tightening left as a pass-through. This closes
+the Migrate→Validate contract (§4.5.3) at generation time rather than relying on a
+live-data boot failure to surface the bug.
 
 ### 4.6.1 - `resolved` Domain
 
