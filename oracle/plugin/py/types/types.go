@@ -829,8 +829,8 @@ func structDefaultToPython(
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	typ, ok := typeRef.Resolve(table)
-	if !ok || typ.Namespace != data.Namespace {
+	typ := typeRef.MustResolve(table)
+	if typ.Namespace != data.Namespace {
 		return ""
 	}
 	className := getPyName(typ)
