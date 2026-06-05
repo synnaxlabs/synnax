@@ -1,0 +1,5 @@
+; synnax_clib Windows export allowlist. Keep in sync with the SYNNAX_EXPORT
+; functions in synnax.h. Only these symbols are exported from the DLL; gRPC and
+; protobuf internals stay hidden to avoid collisions.
+EXPORTS
+    synnax_version

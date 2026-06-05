@@ -1,0 +1,31 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "clib",
+    srcs = ["synnax.cpp"],
+    hdrs = [
+        "export.h",
+        "synnax.h",
+    ],
+    local_defines = ["SYNNAX_BUILDING_DLL=1"],
+    visibility = ["//visibility:public"],
+    alwayslink = True,
+)
+
+cc_shared_library(
+    name = "synnax_clib",
+    visibility = ["//visibility:public"],
+    win_def_file = "synnax.def",
+    deps = [":clib"],
+)
+
+cc_test(
+    name = "clib_test",
+    srcs = ["synnax_test.cpp"],
+    deps = [
+        ":clib",
+        "@googletest//:gtest_main",
+    ],
+)
