@@ -500,16 +500,16 @@ core/pkg/service/<resource>/
         │   ├── func Migrate(v(N-1).Resource) (Resource, error)
         │   └── func MigrateFromLegacy(legacy.vMaxVersion.Resource) (Resource, error)
         │                            # — FIRST MODERN ONLY; absent on every other vN.
-        └── helpers.go               # CURRENT ONLY — hand-written method receivers on Resource
-                                     # Oracle moves this file forward at each version bump (§4.6.0)
+        └── helpers.go               #  hand-written method receivers on Resource
+                                     # Oracle copies this file forward at each version bump (§4.6.0)
 ```
 
 A few file-level rules fall out of this layout:
 
 **`resource.go` is intentionally tiny.** Its only job is to be the import surface for
 the current version — external packages reach `resource.Resource` here. The sibling
-`types/` package is also public and is what other packages import when they need to
-call `types.Decode` or migration functions.
+`types/` package is also public and is what other packages import when they need to call
+`types.Decode` or migration functions.
 
 **`service.go` is the only place that enumerates collaborators.** `ServiceConfig` lists
 every cross-service dependency (`ontology`, `signals`, `group`, `search`, …).
@@ -540,10 +540,10 @@ the destination version's `vN/migrate.go`, including the step that lands on curr
 adjacent types follows a three-step decision:
 
 1. **Can it be a free function on the top-level service package?** If the call site
-   reads naturally as `channel.Storage(c)` instead of `c.Storage()`, write it as a
-   free function in `service/channel/` (or wherever the resource lives). Free
-   functions never version, never move, and never require Oracle to touch them.
-   This is the default and absorbs most of the surface area.
+   reads naturally as `channel.Storage(c)` instead of `c.Storage()`, write it as a free
+   function in `service/channel/` (or wherever the resource lives). Free functions never
+   version, never move, and never require Oracle to touch them. This is the default and
+   absorbs most of the surface area.
 2. **Does it need method-receiver syntax?** Methods that satisfy a Go interface
    (`fmt.Stringer.String`, `json.Marshaler.MarshalJSON`, `gorp.Entry.Validate`), methods
    called via interface dispatch elsewhere in the codebase, or methods whose call site
@@ -551,30 +551,24 @@ adjacent types follows a three-step decision:
    go in `types/v<current>/helpers.go`. They are pinned to that file because Go method
    receivers must be defined in the package the underlying type lives in, and the
    current type lives in `v<current>`.
-3. **Is it generatable from schema?** Equals, Storage projections, composite-key
-   construction, predicate methods like `IsCalculated` — these should be declared
-   in the `.oracle` schema and generated into `types.gen.go` so they exist on every
-   frozen version uniformly. `helpers.go` is the escape hatch for things Oracle
-   genuinely cannot express (e.g., `UnmarshalJSON` shims for legacy wire formats);
-   its size is a soft signal that the schema could absorb more.
 
-**Historical `vN/` directories never carry hand-written files.** Once `vN` is no
-longer current, its `helpers.go` has already been moved forward to `v(N+1)/` by
-Oracle's freeze pass (§4.6.0). If Oracle finds a hand-written file in a historical
-`vN/` on regeneration, that is an error. This makes "historical versions carry no
-behavior" a structural invariant: there is no slot for it.
+**Historical `vN/` directories never carry hand-written files.** Once `vN` is no longer
+current, its `helpers.go` has already been moved forward to `v(N+1)/` by Oracle's freeze
+pass (§4.6.0). If Oracle finds a hand-written file in a historical `vN/` on
+regeneration, that is an error. This makes "historical versions carry no behavior" a
+structural invariant: there is no slot for it.
 
-**`legacy/` is required for resources with a versioned data payload.** Some resources
-— `schematic`, `table`, and (soon) `line plot` and `log` — are defined as a stable
-**envelope** (`Key`, `Name`, `WorkspaceKey`, …, plus a `Data` field) wrapped around
-a separately-versioned **data type**. Bumps are driven by changes to the data
-shape, not the envelope. These resources accumulated a pre-integer-versioned history
-under bespoke semver dispatch (`"0.0.0".."5.0.0"`); this RFC absorbs that history
-into the **same** integer namespace as the modern versions. The split is by range,
-not by namespace: legacy versions occupy `[0, MaxVersion]` and modern versions
-occupy `[MaxVersion+1, LatestVersion]`, with no overlap and no gap. A wire value
-of `5` unambiguously means legacy v5 when `legacy.MaxVersion = 5`; a wire value of
-`6` unambiguously means modern v6.
+**`legacy/` is required for resources with a versioned data payload.** Some resources —
+`schematic`, `table`, and (soon) `line plot` and `log` — are defined as a stable
+**envelope** (`Key`, `Name`, `WorkspaceKey`, …, plus a `Data` field) wrapped around a
+separately-versioned **data type**. Bumps are driven by changes to the data shape, not
+the envelope. These resources accumulated a pre-integer-versioned history under bespoke
+semver dispatch (`"0.0.0".."5.0.0"`); this RFC absorbs that history into the **same**
+integer namespace as the modern versions. The split is by range, not by namespace:
+legacy versions occupy `[0, MaxVersion]` and modern versions occupy `[MaxVersion+1,
+LatestVersion]`, with no overlap and no gap. A wire value of `5` unambiguously means
+legacy v5 when `legacy.MaxVersion = 5`; a wire value of `6` unambiguously means modern
+v6.
 
 Inside the package, `types/legacy/vN/` mirrors the modern `types/vN/` layout exactly —
 same `types.gen.go`, `codec.gen.go`, and per-step `migrate.go`. The only structural
@@ -591,8 +585,8 @@ optional for these resources; removing it would orphan every record persisted un
 wire version `≤ MaxVersion`.
 
 Resources without a versioned data payload (range, channel, device, rack, user,
-workspace, …) never get a `legacy/`; they start at `v0` of the whole resource type
-and the namespace begins at `0` with no legacy split.
+workspace, …) never get a `legacy/`; they start at `v0` of the whole resource type and
+the namespace begins at `0` with no legacy split.
 
 Tests are co-located but unlisted above — `<resource>_test.go`,
 `<resource>_suite_test.go`, `codec_gen_test.go`, `retrieve_test.go`, `writer_test.go`,
@@ -619,14 +613,6 @@ hand-written `helpers.go` for method-receiver behavior on `Resource` (§4.3.0);
 historical versions are forbidden from carrying one. This replaces the scattered homes
 those methods have today (`helpers.go`, `ontology.go`, `codec.gen.go` under
 `migrations/`) and the single bottom-of-package migration file.
-
-Ontology integration is **not** per-version. `OntologyID`, `KeyFromOntologyID`, the
-ontology `Schema`, and the `ontology.Service` implementation live in the package's
-top-level `ontology.go` and operate on the current type only — there is no concept of
-"the v3 ontology ID of a record", because the live record's ontology ID is whatever the
-current version says it is. Historical versions only need the methods that gorp calls
-during migration (key extraction, write-time validation), which is exactly what the
-`gorp.Entry` interface requires.
 
 `types/decode.go` holds only the dispatch (`Decode`): match a version, then walk the
 `vN/migrate.go` chain up to current — every step lives in its destination version's
