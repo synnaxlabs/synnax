@@ -11,10 +11,9 @@ package protocol
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/segmentio/encoding/json"
 	"github.com/synnaxlabs/x/errors"
-
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/pkg/xcontext"
 )

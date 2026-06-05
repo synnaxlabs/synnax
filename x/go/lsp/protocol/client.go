@@ -12,13 +12,12 @@ package protocol
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 
-	"github.com/segmentio/encoding/json"
 	"github.com/synnaxlabs/x/errors"
-	"go.uber.org/zap"
-
 	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/pkg/xcontext"
+	"go.uber.org/zap"
 )
 
 // ClientDispatcher returns a Client that dispatches LSP requests across the
