@@ -1,4 +1,4 @@
-# 38 - Core Structure Refactor
+# 41 - Core Structure Refactor
 
 **Feature Name**: Core Structure Refactor <br /> **Status**: Draft <br /> **Start
 Date**: 2026-05-27 <br /> **Authors**: Patrick Dotson <br />
@@ -86,9 +86,9 @@ justifies the layer choice. RFC 0005 §3.4 establishes the load-bearing principl
 _"resources should not be defined in the ontology, but in the services that interact
 with it"_ — which argues for the substrate alongside services, not beneath topology.
 
-These packages can't simply move today because of one dependency edge: `distribution/
-channel` and `distribution/node` import `ontology`/`group`/`search` to register for
-discovery. The placement is forced by where registration lives, not chosen.
+These packages can't simply move today because of one dependency edge:
+`distribution/ channel` and `distribution/node` import `ontology`/`group`/`search` to
+register for discovery. The placement is forced by where registration lives, not chosen.
 
 ## 2.1 - Duplicate Types and Caller-Resolved Fields
 
@@ -119,9 +119,9 @@ adoption is partial and the historical reality is messier:
 - `table`: same shape, fewer legacy versions.
 - `log`: typed `migrations/{v0,v1}` with hand-written Zyn schemas, no `v55`, no
   `legacy/`.
-- `lineplot`, `workspace`, `view`: no migrations at all; `view` has no codec (`@go
-  marshal` absent from its schema); `workspace` defines `OntologyID` both as a method
-  and a free function.
+- `lineplot`, `workspace`, `view`: no migrations at all; `view` has no codec
+  (`@go marshal` absent from its schema); `workspace` defines `OntologyID` both as a
+  method and a free function.
 
 The entity's own methods are scattered too: `GorpKey` in `helpers.go`, `OntologyID` in
 `ontology.go`, `EncodeOrc`/`DecodeOrc` in the Oracle-generated `codec.gen.go`. Two
@@ -494,11 +494,12 @@ per RFC 0033 §3.6, each `vN/` still imports nothing from the parent.
 ### 4.3.1 - Each Version Is Self-Contained
 
 Every `types/vN/` carries what that version needs to stand on its own: the frozen struct
-+ `gorp.Entry` methods in `types.gen.go` (`GorpKey`, `SetOptions`, `Validate` — see
-§5.5), the frozen codec in `codec.gen.go`, and — for `N ≥ 1` — `migrate.go` lifting
-`v(N-1).Resource → vN.Resource`. Current additionally hosts `helpers.go`. This replaces
-the scattered homes those methods have today (`helpers.go`, `ontology.go`,
-`codec.gen.go` under `migrations/`) and the single bottom-of-package migration file.
+
+- `gorp.Entry` methods in `types.gen.go` (`GorpKey`, `SetOptions`, `Validate` — see
+  §5.5), the frozen codec in `codec.gen.go`, and — for `N ≥ 1` — `migrate.go` lifting
+  `v(N-1).Resource → vN.Resource`. Current additionally hosts `helpers.go`. This
+  replaces the scattered homes those methods have today (`helpers.go`, `ontology.go`,
+  `codec.gen.go` under `migrations/`) and the single bottom-of-package migration file.
 
 `types/decode.go` holds only the dispatch (`Decode`): match a version, walk the
 `vN/migrate.go` chain to current. Because each version owns its key extractor and
@@ -520,11 +521,11 @@ resource has a single contiguous integer namespace. Two patterns:
   in its own directory.
 
 The dispatch rule is `v ≤ legacy.MaxVersion → legacy.Decode`, otherwise switch on the
-modern range. The two ranges chain at exactly one point: `MigrateFromLegacy(
-legacy.vMaxVersion.Resource) → v(MaxVersion+1).Resource`, the **bridge**, which lives on
-the first modern version's `migrate.go`. The first modern version therefore has no
-ordinary `Migrate` (no modern predecessor to step from), and `MigrateFromLegacy` exists
-on no other version.
+modern range. The two ranges chain at exactly one point:
+`MigrateFromLegacy( legacy.vMaxVersion.Resource) → v(MaxVersion+1).Resource`, the
+**bridge**, which lives on the first modern version's `migrate.go`. The first modern
+version therefore has no ordinary `Migrate` (no modern predecessor to step from), and
+`MigrateFromLegacy` exists on no other version.
 
 Historical semver strings (`"5.0.0"`) are accepted at the wire boundary by
 `imex.Version.UnmarshalJSON`, which normalizes them to the same integer. Past the
@@ -556,12 +557,12 @@ if !ok { return "", errorUnknownType(env.Type) }
 return imp.Import(ctx, tx, env)
 ```
 
-Services never see, set, or pick a codec; the version guard (`v > LatestVersion →
-ErrUnsupportedVersion`) is the first branch of the service's `Decode`, so a too-new
-payload is rejected before its body is touched. `imex.Version` is an integer whose
-`UnmarshalJSON` accepts both JSON numbers (`5`) and historical semver strings
-(`"5.0.0"`), normalizing to the same integer — semver lives only at the wire boundary.
-The full type is defined in §4.4.2.
+Services never see, set, or pick a codec; the version guard
+(`v > LatestVersion → ErrUnsupportedVersion`) is the first branch of the service's
+`Decode`, so a too-new payload is rejected before its body is touched. `imex.Version` is
+an integer whose `UnmarshalJSON` accepts both JSON numbers (`5`) and historical semver
+strings (`"5.0.0"`), normalizing to the same integer — semver lives only at the wire
+boundary. The full type is defined in §4.4.2.
 
 ### 4.4.1 - Relationship to Gorp Migration
 
@@ -835,11 +836,12 @@ contain only generated files; a hand-written file in one is an error.
 
 A version bump is a single freeze pass:
 
-1. **Emit `v(N+1)/`** with fresh `types.gen.go`, `codec.gen.go`, and `migrate.go` (`vN →
-   v(N+1)`). The previous current `vN/` becomes historical, generated files unchanged.
+1. **Emit `v(N+1)/`** with fresh `types.gen.go`, `codec.gen.go`, and `migrate.go`
+   (`vN → v(N+1)`). The previous current `vN/` becomes historical, generated files
+   unchanged.
 2. **Move `helpers.go` forward** — `types/vN/helpers.go` → `types/v(N+1)/helpers.go`,
-   with field-rename AST rewrites from the migration map. Unresolvable references (removed
-   fields, signature changes) surface as compile errors for the developer.
+   with field-rename AST rewrites from the migration map. Unresolvable references
+   (removed fields, signature changes) surface as compile errors for the developer.
 3. **Re-point `types/types.go`** to alias `v(N+1)`.
 4. **Update `types/decode.go`** to chain through the newly-frozen `vN`.
 
@@ -850,6 +852,7 @@ until the first time a developer needs method-receiver syntax.
 ### 4.6.1 - `resolved` Domain
 
 A new field domain marks a field as resolved. Oracle:
+
 1. excludes it from `EncodeOrc`/`DecodeOrc` (storage exclusion, 4.2.1);
 2. keeps it in API/proto serialization;
 3. generates a batched resolver the API layer calls, gated by the corresponding
