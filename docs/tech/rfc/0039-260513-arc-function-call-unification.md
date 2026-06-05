@@ -975,3 +975,65 @@ question; no decision taken here.
 part of the major release this refactor ships with, skipping the next sequential number.
 The exact target version is fixed once the release is named; this RFC uses `vN` as a
 placeholder throughout.
+
+# Appendix A - Running Notes
+
+An append-only log of decisions, observations, and deferred ideas surfaced while
+implementing this RFC. Add new entries at the bottom; do not edit or reorder existing
+ones. Strict append-only keeps this section free of merge conflicts across the stacked
+phase branches and leaves the numbered sections above untouched. When a note hardens
+into a real design decision, promote it into the relevant section above (or §8 Future
+Work) and leave the note here as a record. Entry heading:
+`### <phase or date> - <short title>`.
+
+### Phase 3 - Brace/parens surface convention may invert
+
+Today a user-defined function's brace block holds the non-trigger inputs and the parens
+block holds the trigger (its first param is the wire-fed one):
+
+```go
+func my_func{inputs}(trigger) { ... }
+```
+
+A future direction worth weighing is inverting this, so `{}` denotes the flow/trigger
+surface and `()` the inputs. That would match how `{}` already reads for sequences and
+stages, leaving `()` intuitively for inputs:
+
+```go
+// Function definition
+func my_func{trigger}(inputs) { ... }
+func {trigger} my_func(inputs) { ... }
+func {trigger} -> my_func(inputs) { ... }
+
+// Usage in flow context:
+my_channel -> my_func(inputs) -> output
+{ch1, ch2} -> my_func(inputs) -> output
+```
+
+This is surface syntax only. The unified Inputs list and explicit `Trigger` binding from
+this RFC are unaffected either way, which is exactly why the foundation was kept
+policy-free (see §8.0). Deferred; no decision yet.
+
+### Phase 3 - Grammar still uses "config" terminology
+
+Phase 1 removed the `Config` field from the type/IR model (Oracle schema). The ANTLR
+grammar, a separate generator, still names its productions `config`: the parser exposes
+`ConfigBlock()`, `ConfigValues()`, `NamedConfigValues()`, `AnonymousConfigValues()`,
+`ConfigList()`, and `AllConfig()`, which the analyzer calls to read the `{...}` form. §2
+currently lists the grammar as a Non-Goal, so these names survive this RFC.
+
+Since `config` is being deprecated, the grammar terminology should follow. This is a
+standalone effort, not a sub-part of the analyzer collapse: the analyzer is indifferent
+to what the parser methods are named. It is a wide mechanical sweep (edit the `.g4`,
+regenerate the parser, update every caller across arc/go and other grammar consumers).
+
+Do it last, after Phase 9, when the tree is green. A mechanical rename on a compiling
+tree can lean on the compiler and tests to catch every missed caller; done mid-stack on
+the broken-by-design tree there is no such safety net. This is strictly better than
+doing it earlier, not just acceptable: the rename is independent of the type/analyzer
+collapse, so nothing in Phases 1 to 9 is blocked by the `config` names surviving, and
+nothing in the rename is blocked by the refactor. Promote §2 from Non-Goal to goal when
+it lands.
+
+Open question for that phase: what the rules rename to (e.g. `braceBlock` / `parenBlock`
+by surface form). Not just find-and-replace.
