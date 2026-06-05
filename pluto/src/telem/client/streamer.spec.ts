@@ -9,7 +9,7 @@
 
 import { type channel, Frame, type framer } from "@synnaxlabs/client";
 import { type MultiSeries, Series, sleep, TimeSpan } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
 import { MockRetriever } from "@/telem/client/reader.spec";
@@ -79,6 +79,13 @@ const createStreamOpener =
   };
 
 describe("Streamer", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe("construction", () => {
     it("should correctly construct a new streamer that operates", async () => {
       const streamer = new Streamer({
@@ -114,9 +121,12 @@ describe("Streamer", () => {
 
       const responses: Map<channel.Key, MultiSeries>[] = [];
       const disconnect = await streamer.stream((d) => responses.push(d), [1]);
-      await expect.poll(() => responses.length > 5).toBe(true);
+      // Advance past the 100ms debounce plus enough 5ms read cycles to get well over 5
+      // responses.
+      await vi.advanceTimersByTimeAsync(200);
       disconnect();
 
+      expect(responses.length).toBeGreaterThan(5);
       // We should only ever get data for that particular channel.
       expect(responses.filter((r) => r.get(1)?.series.length === 0)).toHaveLength(
         responses.length - 1,
@@ -128,6 +138,52 @@ describe("Streamer", () => {
       // buffer we're allocating and subsequent calls just tell the handler to re-read
       // the buffer.
       expect(responses.filter((r) => r.get(1)?.series.length === 1)).toHaveLength(1);
+    });
+  });
+
+  describe("updateStreamer race", () => {
+    it("should not open two concurrent streamers when stream() is called twice during a slow openStreamer", async () => {
+      const ms1 = new MockStreamer([1], async () => {
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        return { done: true, value: undefined };
+      });
+      const ms2 = new MockStreamer([1, 2], async () => {
+        await sleep.sleep(TimeSpan.milliseconds(20));
+        return { done: true, value: undefined };
+      });
+      const queue = [ms1, ms2];
+      let openCalls = 0;
+      const slowOpener: framer.StreamOpener = async () => {
+        openCalls++;
+        // Long enough that the next debounced updateStreamer fire happens while this
+        // call is still suspended.
+        await sleep.sleep(TimeSpan.milliseconds(300));
+        const next = queue.shift();
+        if (next == null) throw new Error("no streamers left");
+        return next;
+      };
+
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: slowOpener,
+      });
+
+      // First subscription schedules debouncedUpdateStreamer at T+100ms.
+      const disconnect1 = await streamer.stream(() => {}, [1]);
+      // Advance to T=150 so updateStreamer #1 is mid-openStreamer (sleep ends at
+      // T=400).
+      await vi.advanceTimersByTimeAsync(150);
+      const disconnect2Promise = streamer.stream(() => {}, [2]);
+      // Advance enough for any racing opens (300ms each) and run loops to complete.
+      await vi.advanceTimersByTimeAsync(700);
+      const disconnect2 = await disconnect2Promise;
+
+      expect(openCalls).toBe(1);
+      // The orphaned second streamer's run loop should never have started.
+      expect(ms2.iteratorVi).not.toHaveBeenCalled();
+
+      disconnect1();
+      disconnect2();
     });
   });
 });

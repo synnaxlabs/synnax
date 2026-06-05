@@ -122,46 +122,48 @@ export class Streamer {
   private async updateStreamer(): Promise<void> {
     if (this.closed) return;
     const { instrumentation: ins } = this.props;
-    try {
-      // Assemble the set of keys we need to stream.
-      const keys = new Set<channel.Key>();
-      this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
+    await this.mu.runExclusive(async () => {
+      try {
+        // Assemble the set of keys we need to stream.
+        const keys = new Set<channel.Key>();
+        this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
 
-      // If we have no keys to stream, close the streamer to save network chatter.
-      if (keys.size === 0) {
-        ins.L.info("no keys to stream, closing streamer");
-        this.streamer?.close();
-        if (this.streamerRunLoop != null) await this.streamerRunLoop;
-        this.streamer = null;
-        ins.L.info("streamer closed successfully");
-        return;
+        // If we have no keys to stream, close the streamer to save network chatter.
+        if (keys.size === 0) {
+          ins.L.info("no keys to stream, closing streamer");
+          this.streamer?.close();
+          if (this.streamerRunLoop != null) await this.streamerRunLoop;
+          this.streamer = null;
+          ins.L.info("streamer closed successfully");
+          return;
+        }
+
+        const arrKeys = Array.from(keys);
+        const valuesEqual =
+          compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL;
+        if (valuesEqual) {
+          ins.L.debug("streamer keys unchanged", { keys: arrKeys });
+          return;
+        }
+
+        // Update or create the streamer.
+        if (this.streamer == null) {
+          ins.L.info("creating new streamer", { keys: arrKeys });
+          this.streamer = await this.props.openStreamer({
+            channels: arrKeys,
+            throttleRate: THROTTLE_RATE,
+          });
+          this.streamerRunLoop = this.runStreamer(this.streamer);
+        }
+
+        ins.L.debug("updating streamer", { prev: this.streamer.keys, next: arrKeys });
+
+        await this.streamer.update(arrKeys);
+      } catch (e) {
+        ins.L.error("failed to update streamer", { error: e });
+        throw errors.fromUnknown(e);
       }
-
-      const arrKeys = Array.from(keys);
-      const valuesEqual =
-        compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL;
-      if (valuesEqual) {
-        ins.L.debug("streamer keys unchanged", { keys: arrKeys });
-        return;
-      }
-
-      // Update or create the streamer.
-      if (this.streamer == null) {
-        ins.L.info("creating new streamer", { keys: arrKeys });
-        this.streamer = await this.props.openStreamer({
-          channels: arrKeys,
-          throttleRate: THROTTLE_RATE,
-        });
-        this.streamerRunLoop = this.runStreamer(this.streamer);
-      }
-
-      ins.L.debug("updating streamer", { prev: this.streamer.keys, next: arrKeys });
-
-      await this.streamer.update(arrKeys);
-    } catch (e) {
-      ins.L.error("failed to update streamer", { error: e });
-      throw errors.fromUnknown(e);
-    }
+    });
   }
 
   private async runStreamer(streamer: framer.Streamer): Promise<void> {
