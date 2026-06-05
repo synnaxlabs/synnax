@@ -10,6 +10,8 @@
 package lsp
 
 import (
+	"slices"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -55,8 +57,8 @@ func findConfigBrace(tokens []antlr.Token) *configBraceResult {
 	}
 	braceDepth := 0
 	configBraceIndex := -1
-	for i := len(tokens) - 1; i >= 0; i-- {
-		tokenType := tokens[i].GetTokenType()
+	for i, token := range slices.Backward(tokens) {
+		tokenType := token.GetTokenType()
 		switch tokenType {
 		case parser.ArcLexerRBRACE:
 			braceDepth++
@@ -355,8 +357,8 @@ func isTypeAnnotationContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 // (FUNC IDENTIFIER LBRACE ... RBRACE LPAREN).
 func isFuncParamParentheses(tokens []antlr.Token) bool {
 	depth := 0
-	for i := len(tokens) - 1; i >= 0; i-- {
-		switch tokens[i].GetTokenType() {
+	for i, token := range slices.Backward(tokens) {
+		switch token.GetTokenType() {
 		case parser.ArcLexerRPAREN:
 			depth++
 		case parser.ArcLexerLPAREN:
@@ -432,8 +434,8 @@ func isExpressionContext(tokens []antlr.Token, lastToken antlr.Token) bool {
 // statement-start, not expression.
 func isExpressionLevelComma(tokens []antlr.Token) bool {
 	parenDepth, bracketDepth, braceDepth := 0, 0, 0
-	for i := len(tokens) - 1; i >= 0; i-- {
-		switch tokens[i].GetTokenType() {
+	for _, token := range slices.Backward(tokens) {
+		switch token.GetTokenType() {
 		case parser.ArcLexerRPAREN:
 			parenDepth++
 		case parser.ArcLexerLPAREN:
@@ -514,8 +516,8 @@ func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos pr
 // isAuthorityEntryContext checks if the cursor is inside an authority(...) block.
 func isAuthorityEntryContext(tokens []antlr.Token) bool {
 	parenDepth := 0
-	for i := len(tokens) - 1; i >= 0; i-- {
-		tokenType := tokens[i].GetTokenType()
+	for i, token := range slices.Backward(tokens) {
+		tokenType := token.GetTokenType()
 		switch tokenType {
 		case parser.ArcLexerRPAREN:
 			parenDepth++
@@ -538,8 +540,8 @@ func extractAuthorityExistingChannels(content string, pos protocol.Position) []s
 	// Find the opening paren of the authority block.
 	parenDepth := 0
 	parenIdx := -1
-	for i := len(tokensBeforeCursor) - 1; i >= 0; i-- {
-		tokenType := tokensBeforeCursor[i].GetTokenType()
+	for i, t := range slices.Backward(tokensBeforeCursor) {
+		tokenType := t.GetTokenType()
 		switch tokenType {
 		case parser.ArcLexerRPAREN:
 			parenDepth++
