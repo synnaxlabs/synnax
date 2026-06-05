@@ -151,10 +151,13 @@ class NotificationsClient:
             return False
 
         close_btn = notification.locator(".pluto-notification__silence")
-        if close_btn.count() > 0:
-            close_btn.dispatch_event("click")
+        if close_btn.count() == 0:
+            return False
+        try:
+            close_btn.dispatch_event("click", timeout=2000)
             return True
-        return False
+        except PlaywrightTimeoutError:
+            return False
 
     def wait_for(self, text: str) -> bool:
         """Wait for a notification containing specific text to appear.

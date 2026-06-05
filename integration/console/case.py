@@ -120,7 +120,9 @@ class ConsoleCase(TestCase):
         # in ways that mask the failure we want to capture.
         self._stop_tracing()
 
-        if self._cleanup_pages:
+        # setup() may fail before _cleanup_pages is assigned; tolerate that here
+        # so teardown still closes the browser instead of raising.
+        if getattr(self, "_cleanup_pages", None):
             try:
                 self.console.workspace.delete_pages(self._cleanup_pages)
             except PlaywrightTimeoutError:
