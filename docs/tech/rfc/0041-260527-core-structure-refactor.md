@@ -341,7 +341,6 @@ core/pkg/service/<resource>/
 │   ├── func OntologyIDsFromResources([]Resource) []ontology.ID
 │   ├── func KeyFromOntologyID(ontology.ID) (Key, error)
 │   ├── func KeysFromOntologyIDs([]ontology.ID) ([]Key, error)
-│   ├── func (Resource) OntologyID() ontology.ID ##TODO: this is a Resource method and belongs in the types folder
 │   ├── func (s *Service) Type() ontology.ResourceType
 │   ├── func (s *Service) Schema() zyn.Schema
 │   ├── func (s *Service) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error)
@@ -435,7 +434,9 @@ core/pkg/service/<resource>/
         │   └── func MigrateFromLegacy(legacy.vMaxVersion.Resource) (Resource, error)
         │                            # — FIRST MODERN ONLY; absent on every other vN.
         └── helpers.go               #  hand-written method receivers on Resource
-                                     # Oracle copies this file forward at each version bump (§4.6.0)
+                                     #  (e.g. func (Resource) OntologyID() ontology.ID;
+                                     #   ontology.go's free OntologyID(Key) wraps it).
+                                     #  Oracle copies this file forward at each version bump (§4.6.0)
 ```
 
 A few file-level rules fall out of this layout:
@@ -610,6 +611,10 @@ func Decode[T any](e Envelope) (T, error) {
 
 // Encode is the symmetric inverse. data is reduced to a codec-independent
 // map[string]any, then version and type are merged in as flat top-level entries.
+// Invariant: every imex-registered Resource carries a top-level `name string` field
+// (used by the wire shape and by the export UI as the human-facing label). Encode
+// enforces this — a Resource without `name` is a programmer bug surfaced at
+// registration-time exporter tests, not at runtime.
 func Encode[T any](data T, version Version, typ ontology.ResourceType) (Envelope, error) {
     body, err := StructToMap(data)
     if err != nil { return Envelope{}, err }
@@ -924,7 +929,13 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   Cesium lifecycle; move the channel metadata table, name validation,
   ontology/group/search/CDC, and calc inference to `service/channel`; re-source
   `framer`'s storage-shape reads from the storage layer; add `service/node`. Behavioral;
-  migrate existing records.
+  migrate existing records. The split introduces a two-phase create (Cesium storage
+  first, KV metadata second). The interim contract is **storage-first with orphan
+  tolerance**: a metadata-write failure leaves the Cesium channel orphaned, and a
+  startup sweep reconciles Cesium against the KV metadata table and reclaims storage
+  with no metadata record. This matches the existing weakness in
+  `lease_proxy.go::deleteGateway` and unblocks the phase without a full distributed
+  transaction. A stronger atomicity contract is left to a follow-up — see §7.
 - **Phase 2 — `types/vN/` layout (§4.3, §4.6.0).** Oracle emits the new layout; migrate
   `schematic`/`table`/`log`/`lineplot`/`workspace`/`view` onto it; fold legacy blobs
   into the numbered chain.
@@ -935,8 +946,9 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   `Include<Field>` flags).
 - **Phase 5 — Validation chokepoint (§4.5, §4.6.2).** Add a `Validate` method to every
   entity type, call it at the Gorp write seam, and extend the Oracle `validate` domain
-  (numeric bounds, enum variants). Migration write-back then validates stored data and
-  drops invalid records.
+  (numeric bounds, enum variants). Migration write-back validates stored data through
+  the same seam; any failure aborts boot with a structured error per §4.5.3 / §5.4 — no
+  drop, no quarantine.
 
 # 7 - Open Questions
 
@@ -944,7 +956,11 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   source (label service vs. status service vs. ontology parent) and how a
   self-referential `parent *Range` is expressed.
 - **Cross-layer create atomicity.** Channel create now spans layers: distribution
-  creates the Cesium storage, then service writes the metadata record. If the metadata
-  write fails, the Cesium channel is orphaned. Define the ordering and cleanup contract
-  — the storage layer already lacks a transactional guarantee with the KV tx (see
-  `lease_proxy.go` `deleteGateway`).
+  creates the Cesium storage, then service writes the metadata record. Phase 1b ships
+  with an interim **storage-first, orphan-tolerant** contract (see §6, Phase 1b):
+  metadata-write failure leaves Cesium storage orphaned and a startup sweep reclaims it
+  against the KV metadata table. Open: whether to harden this with a true two-phase
+  protocol (Cesium prepare → KV commit → Cesium commit) or accept the orphan-plus-GC
+  model permanently. The storage layer also lacks a transactional guarantee with the KV
+  tx today (see `lease_proxy.go` `deleteGateway`), so any harder contract requires
+  cross-layer plumbing that is out of scope for this RFC.
