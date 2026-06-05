@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 # trigger_1 (fired by the harness) drives the module-scope bodies and the named
 # sibling sequence. trigger_2 activates the select sibling chain. trigger_3 and
@@ -422,7 +422,7 @@ FLOAT_INPUTS = ["race_cond", "reentry_cond"]
 CREATE_CHANNELS = OUTPUTS + INPUTS
 
 
-class InlineBodies(ArcConsoleCase):
+class InlineBodies(ArcCase):
     """Anonymous inline ``stage``/``sequence`` bodies used as routing targets,
     exercised across module scope, nested bodies, sequence-scope sibling
     transitions, and ``select`` routing-table branches.
@@ -508,93 +508,93 @@ class InlineBodies(ArcConsoleCase):
     def _verify_flat_bodies(self) -> None:
         self.log("Verifying module-scope flat bodies")
         for value, out in enumerate(FLAT_STAGE_OUTS, start=1):
-            self.wait_for_eq(out, value, is_virtual=True)
+            self.wait_for_eq(out, value)
         for value, out in enumerate(FLAT_SEQUENCE_OUTS, start=1):
-            self.wait_for_eq(out, value, is_virtual=True)
+            self.wait_for_eq(out, value)
 
     def _verify_nested_bodies(self) -> None:
         self.log("Verifying module-scope nested bodies")
         for value, out in enumerate(NESTED_STAGE_OUTS, start=1):
-            self.wait_for_eq(out, value, is_virtual=True)
+            self.wait_for_eq(out, value)
         for value, out in enumerate(NESTED_SEQUENCE_OUTS, start=1):
-            self.wait_for_eq(out, value, is_virtual=True)
+            self.wait_for_eq(out, value)
 
     def _verify_deep_nesting(self) -> None:
         self.log("Verifying deep same-kind nested bodies")
         for out in DEEP_NESTED_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_mixed_nesting(self) -> None:
         self.log("Verifying mixed-kind nested bodies")
         for out in MIXED_NESTED_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_alt_nesting(self) -> None:
         self.log("Verifying alternating-kind nested bodies")
         for out in ALT_NESTED_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_select_multiwrite(self) -> None:
         self.log("Verifying multi-write select branch bodies")
         for value, out in enumerate(SELECT_MULTI_STAGE_OUTS, start=1):
-            self.wait_for_eq(out, value, is_virtual=True)
+            self.wait_for_eq(out, value)
         for value, out in enumerate(SELECT_MULTI_SEQUENCE_OUTS, start=1):
-            self.wait_for_eq(out, value, is_virtual=True)
+            self.wait_for_eq(out, value)
 
     def _verify_select_single_branch(self) -> None:
         self.log("Verifying single-branch (true-only) selects")
         for out in SELECT_SINGLE_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_nested_selects(self) -> None:
         self.log("Verifying triple-nested selects")
         for out in NESTED_SELECT_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_cross_nested(self) -> None:
         self.log("Verifying cross-nested flow/routing bodies")
         for out in CROSS_NESTED_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_sibling_sequence(self) -> None:
         self.log("Verifying sibling-transition sequence")
         for out in SIBLING_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_select_branches(self) -> None:
         self.log("Verifying module-scope select branch selection")
         self.writer.write("select_stage_flag", 1)
         self.writer.write("select_seq_flag", 1)
-        self.wait_for_eq("select_stage_true_out", 1, is_virtual=True)
-        self.wait_for_eq("select_seq_true_out", 1, is_virtual=True)
+        self.wait_for_eq("select_stage_true_out", 1)
+        self.wait_for_eq("select_seq_true_out", 1)
         self.writer.write("select_stage_flag", 0)
         self.writer.write("select_seq_flag", 0)
-        self.wait_for_eq("select_stage_false_out", 1, is_virtual=True)
-        self.wait_for_eq("select_seq_false_out", 1, is_virtual=True)
+        self.wait_for_eq("select_stage_false_out", 1)
+        self.wait_for_eq("select_seq_false_out", 1)
 
     def _verify_false_only_selects(self) -> None:
         self.log("Verifying false-only select branches")
         for out in SELECT_FALSE_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_select_sibling_chain(self) -> None:
         self.log("Activating select sibling chain via trigger_2")
         self.writer.write("trigger_2", 1)
         for out in SELECT_SIBLING_OUTS:
-            self.wait_for_eq(out, 1, is_virtual=True)
+            self.wait_for_eq(out, 1)
 
     def _verify_gated_selects(self) -> None:
         self.log("Activating gated stage select via trigger_3")
         self.writer.write("trigger_3", 1)
-        self.wait_for_eq("select_gated_stage_out", 1, is_virtual=True)
+        self.wait_for_eq("select_gated_stage_out", 1)
         self.log("Activating gated sequence select via trigger_4")
         self.writer.write("trigger_4", 1)
-        self.wait_for_eq("select_gated_seq_out", 1, is_virtual=True)
+        self.wait_for_eq("select_gated_seq_out", 1)
 
     def _verify_blocking_wait_race(self) -> None:
         self.log("Activating blocking/wait race via trigger_5")
         self.writer.write("trigger_5", 1)
-        self.wait_for_eq("race_first_out", 1, is_virtual=True)
+        self.wait_for_eq("race_first_out", 1)
 
         self.log("Holding race_cond high; first stage must keep blocking")
         self.writer.write("race_cond", 100.0)
@@ -609,16 +609,12 @@ class InlineBodies(ArcConsoleCase):
 
         self.log("Dropping race_cond low; condition exit should win the race")
         self.writer.write("race_cond", 10.0)
-        self.wait_for_eq(
-            "race_first_out", 0, timeout=2 * sy.TimeSpan.SECOND, is_virtual=True
-        )
+        self.wait_for_eq("race_first_out", 0, timeout=2 * sy.TimeSpan.SECOND)
 
         self.log("Second stage entered; only the wait{2s} backstop can exit it")
-        self.wait_for_eq("race_second_out", 1, is_virtual=True)
+        self.wait_for_eq("race_second_out", 1)
         t_entry = sy.TimeStamp.now()
-        self.wait_for_eq(
-            "race_second_out", 0, timeout=4 * sy.TimeSpan.SECOND, is_virtual=True
-        )
+        self.wait_for_eq("race_second_out", 0, timeout=4 * sy.TimeSpan.SECOND)
         elapsed = t_entry.span(sy.TimeStamp.now()).seconds
         self.log(f"Wait backstop fired after {elapsed:.2f}s")
         if elapsed < 1.5:
@@ -631,16 +627,16 @@ class InlineBodies(ArcConsoleCase):
     def _verify_reentry_deactivation(self) -> None:
         self.log("Activating re-entry/deactivation cycle via trigger_6")
         self.writer.write("trigger_6", 1)
-        self.wait_for_eq("reentry_fire_out", 1, is_virtual=True)
+        self.wait_for_eq("reentry_fire_out", 1)
 
         self.log("Dropping reentry_cond low; fire -> exit")
         self.writer.write("reentry_cond", 10.0)
-        self.wait_for_eq("reentry_fire_out", 0, is_virtual=True)
-        self.wait_for_eq("reentry_exit_out", 1, is_virtual=True)
+        self.wait_for_eq("reentry_fire_out", 0)
+        self.wait_for_eq("reentry_exit_out", 1)
 
         self.log("Driving reentry_cond high; exit -> fire re-runs the sub-sequence")
         self.writer.write("reentry_cond", 150.0)
-        self.wait_for_eq("reentry_fire_out", 1, is_virtual=True)
+        self.wait_for_eq("reentry_fire_out", 1)
 
         self.log("Exit stage must be deactivated; its write must not re-apply")
         self.writer.write("reentry_exit_out", 0)
