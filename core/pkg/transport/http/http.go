@@ -40,6 +40,8 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/toml"
+	"github.com/synnaxlabs/x/encoding/yaml"
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
@@ -196,7 +198,7 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		ViewDelete:   http.NewUnaryServer[view.DeleteRequest, types.Nil](router, "/api/v1/view/delete"),
 
 		// IMPORT/EXPORT
-		ImExImport: http.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/import", http.WithRequestDecoders(json.Codec)),
-		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/export", http.WithResponseEncoders(json.Codec)),
+		ImExImport: http.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/import", http.WithRequestDecoders(json.Codec, yaml.Codec, toml.Codec)),
+		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/export", http.WithResponseEncoders(json.Codec, yaml.Codec, toml.Codec)),
 	})
 }

@@ -25,6 +25,7 @@ import (
 	"context"
 	"encoding/json"
 	"maps"
+	"math"
 	"strconv"
 	"strings"
 
@@ -32,12 +33,13 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
+	"gopkg.in/yaml.v3"
 )
 
 // Version is the per-schema integer version stamped on every envelope. On the wire it
-// is decoded by Envelope.UnmarshalJSON (which accepts both numeric values and legacy
-// "N.0.0" semver strings via versionFromAny); standalone JSON unmarshal of a Version
-// only accepts the numeric form.
+// is decoded by the envelope's format-specific unmarshalers (which accept numeric values
+// and legacy "N.0.0" semver strings via versionFromAny); standalone JSON unmarshal of a
+// Version only accepts the numeric form.
 type Version uint64
 
 // NewErrUnsupportedVersion constructs a validation error for the named resource type,
@@ -74,32 +76,27 @@ type Envelope struct {
 	Data map[string]any
 }
 
-// MarshalJSON emits the flat wire format by merging the promoted fields onto a copy of
-// Data. Promoted fields always win over any same-named entry already present in Data,
-// so the handler-stamped export version wins over a stale value the schema may have
-// carried.
-func (e Envelope) MarshalJSON() ([]byte, error) {
+// flatten returns the flat wire representation of the envelope: a copy of Data with the
+// promoted fields merged on top. Promoted fields always win over any same-named entry
+// already present in Data, so the handler-stamped export version wins over a stale value
+// the schema may have carried. It is the shared core every format-specific marshaler
+// renders.
+func (e Envelope) flatten() map[string]any {
 	fields := make(map[string]any, len(e.Data)+3)
 	maps.Copy(fields, e.Data)
 	fields["version"] = e.Version
 	fields["type"] = e.Type
 	fields["name"] = e.Name
-	return json.Marshal(fields)
+	return fields
 }
 
-// UnmarshalJSON reads a flat JSON object, extracts the promoted fields, and puts the
-// remaining keys into Data. It does this with a single pass: the decoder runs in
-// UseNumber mode so JSON numbers come through as json.Number (preserving full int64
-// precision regardless of magnitude), strings as string, bools as bool, and so on. The
-// promoted fields are plucked out and type-asserted; the leftover map becomes Data
-// directly — no per-key re-parse.
-func (e *Envelope) UnmarshalJSON(b []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.UseNumber()
-	var m map[string]any
-	if err := dec.Decode(&m); err != nil {
-		return err
-	}
+// unflatten populates the envelope from a decoded flat map: it plucks the promoted
+// version, type, and name fields into their typed fields and leaves the remaining keys
+// as Data. The Go types of the map values depend on the codec that produced it
+// (json.Number under JSON's UseNumber decode, native int/int64 under YAML and TOML), so
+// versionFromAny accepts every numeric form. It is the shared core every format-specific
+// unmarshaler delegates to.
+func (e *Envelope) unflatten(m map[string]any) error {
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
 		if err != nil {
@@ -130,9 +127,52 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// versionFromAny converts a generic Go value (as produced by a UseNumber-mode decode
-// into map[string]any) to a Version. Accepts json.Number (the JSON number form,
-// preserving full integer precision) and legacy "N.0.0" semver strings.
+// MarshalJSON emits the flat wire format described on flatten.
+func (e Envelope) MarshalJSON() ([]byte, error) { return json.Marshal(e.flatten()) }
+
+// UnmarshalJSON reads a flat JSON object into the envelope. The decoder runs in UseNumber
+// mode so JSON numbers come through as json.Number, preserving full int64 precision
+// regardless of magnitude.
+func (e *Envelope) UnmarshalJSON(b []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
+	var m map[string]any
+	if err := dec.Decode(&m); err != nil {
+		return err
+	}
+	return e.unflatten(m)
+}
+
+// MarshalYAML emits the flat wire format as YAML by handing the flattened map to the
+// yaml encoder; see flatten.
+func (e Envelope) MarshalYAML() (any, error) { return e.flatten(), nil }
+
+// UnmarshalYAML reads a flat YAML mapping into the envelope. yaml.v3 decodes string-keyed
+// mappings into map[string]any and numbers into native int/float, which unflatten and
+// versionFromAny consume directly.
+func (e *Envelope) UnmarshalYAML(node *yaml.Node) error {
+	var m map[string]any
+	if err := node.Decode(&m); err != nil {
+		return err
+	}
+	return e.unflatten(m)
+}
+
+// TOMLValue returns the flat wire representation for the TOML codec to encode. go-toml/v2
+// exposes no marshal-side interface of its own, so the TOML codec discovers this method
+// through its own Marshaler interface; see flatten.
+func (e Envelope) TOMLValue() (any, error) { return e.flatten(), nil }
+
+// FromTOMLValue populates the envelope from the TOML codec's decoded table. go-toml/v2's
+// native unmarshal hook surfaces only raw bytes, so the TOML codec decodes into a map and
+// hands it here through its own Unmarshaler interface; see unflatten.
+func (e *Envelope) FromTOMLValue(m map[string]any) error { return e.unflatten(m) }
+
+// versionFromAny converts a generic Go value (as produced by decoding into
+// map[string]any) to a Version. The concrete numeric type varies by codec: JSON's
+// UseNumber decode yields json.Number (preserving full integer precision), while YAML and
+// TOML yield native int/int64. It also accepts uint64, an integral float64, and legacy
+// "N.0.0" semver strings.
 func versionFromAny(v any) (Version, error) {
 	switch x := v.(type) {
 	case json.Number:
@@ -141,6 +181,17 @@ func versionFromAny(v any) (Version, error) {
 			return 0, errors.Wrapf(err, "invalid version number %q", x.String())
 		}
 		return Version(n), nil
+	case int:
+		return versionFromInt64(int64(x))
+	case int64:
+		return versionFromInt64(x)
+	case uint64:
+		return Version(x), nil
+	case float64:
+		if x < 0 || x != math.Trunc(x) {
+			return 0, errors.Newf("version must be a non-negative integer, got %v", x)
+		}
+		return Version(x), nil
 	case string:
 		n, err := legacyToNumeric(x)
 		if err != nil {
@@ -150,6 +201,14 @@ func versionFromAny(v any) (Version, error) {
 	default:
 		return 0, errors.Newf("version must be a number or semver string, got %T", v)
 	}
+}
+
+// versionFromInt64 converts a signed integer version to a Version, rejecting negatives.
+func versionFromInt64(n int64) (Version, error) {
+	if n < 0 {
+		return 0, errors.Newf("version must be non-negative, got %d", n)
+	}
+	return Version(n), nil
 }
 
 // legacyToNumeric converts a legacy semver string of the form "N.0.0" into the integer

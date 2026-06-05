@@ -20,8 +20,8 @@ const Version imex.Version = 0
 // integer keys. Key, Name, Type, and Version are envelope-level fields and are not part
 // of Data.
 type Data struct {
-	Channels      []int `json:"channels"`
-	RemoteCreated bool  `json:"remote_created"`
+	Channels      []int `json:"channels" yaml:"channels" toml:"channels"`
+	RemoteCreated bool  `json:"remote_created" yaml:"remote_created" toml:"remote_created"`
 }
 
 // Schema validates the wire shape of a v0 log payload.

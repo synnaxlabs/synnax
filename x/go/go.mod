@@ -13,6 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.29.0
 	github.com/onsi/gomega v1.41.0
+	github.com/pelletier/go-toml/v2 v2.3.1
 	github.com/samber/lo v1.53.0
 	github.com/segmentio/encoding v0.5.4
 	github.com/synnaxlabs/alamos v0.0.0
@@ -28,6 +29,7 @@ require (
 	golang.org/x/sys v0.44.0
 	golang.org/x/tools v0.45.0
 	google.golang.org/protobuf v1.36.11
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

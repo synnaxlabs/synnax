@@ -16,24 +16,26 @@ import (
 
 const Version imex.Version = 1
 
-// ChannelEntry is a channel reference with display configuration.
+// ChannelEntry is a channel reference with display configuration. The yaml and toml tags
+// mirror the json tags so the entry serializes identically across every portable format;
+// the tags_test.go drift test enforces that the three stay in sync.
 type ChannelEntry struct {
-	Channel   int    `json:"channel"`
-	Color     string `json:"color"`
-	Notation  string `json:"notation"`
-	Precision int    `json:"precision"`
-	Alias     string `json:"alias"`
+	Channel   int    `json:"channel" yaml:"channel" toml:"channel"`
+	Color     string `json:"color" yaml:"color" toml:"color"`
+	Notation  string `json:"notation" yaml:"notation" toml:"notation"`
+	Precision int    `json:"precision" yaml:"precision" toml:"precision"`
+	Alias     string `json:"alias" yaml:"alias" toml:"alias"`
 }
 
 // Data is the frozen type for log data at version 1. Channels are stored as config
 // entries with display options. Key, Name, Type, and Version are envelope-level fields
 // and are not part of Data.
 type Data struct {
-	Channels             []ChannelEntry `json:"channels"`
-	RemoteCreated        bool           `json:"remote_created"`
-	TimestampPrecision   int            `json:"timestamp_precision"`
-	ShowChannelNames     bool           `json:"show_channel_names"`
-	ShowReceiptTimestamp bool           `json:"show_receipt_timestamp"`
+	Channels             []ChannelEntry `json:"channels" yaml:"channels" toml:"channels"`
+	RemoteCreated        bool           `json:"remote_created" yaml:"remote_created" toml:"remote_created"`
+	TimestampPrecision   int            `json:"timestamp_precision" yaml:"timestamp_precision" toml:"timestamp_precision"`
+	ShowChannelNames     bool           `json:"show_channel_names" yaml:"show_channel_names" toml:"show_channel_names"`
+	ShowReceiptTimestamp bool           `json:"show_receipt_timestamp" yaml:"show_receipt_timestamp" toml:"show_receipt_timestamp"`
 }
 
 // ToMap projects Data into the encoding-neutral map[string]any form used by the imex
