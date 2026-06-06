@@ -346,14 +346,14 @@ var _ = Describe("Index", func() {
 
 				var wg sync.WaitGroup
 				wg.Go(func() {
-					for i := int32(0); i < 100; i++ {
+					for i := range int32(100) {
 						_ = gorp.NewCreate[int32, indexedEntry]().
 							Entry(&indexedEntry{ID: i, Name: "shared"}).
 							Exec(ctx, idxDB)
 					}
 				})
 				wg.Go(func() {
-					for i := 0; i < 200; i++ {
+					for range 200 {
 						_, _ = nameIdx.Get(nil, "shared")
 					}
 				})

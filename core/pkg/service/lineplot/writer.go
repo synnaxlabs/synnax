@@ -14,14 +14,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	table *gorp.Table[Key, LinePlot]
+	tx         gorp.Tx
+	otg        ontology.Writer
+	table      *gorp.Table[Key, LinePlot]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 func (w Writer) Create(
@@ -87,6 +89,29 @@ func (w Writer) SetData(
 			data.Name = p.Name
 			return data
 		}).Exec(ctx, w.tx)
+}
+
+// Dispatch applies a sequence of actions atomically to the line plot with the
+// given key. After a successful update the actions are notified to the
+// service-level observer so subscribers (cluster signals) can broadcast them.
+// dispatchKey is a client-generated identifier carried verbatim onto the
+// broadcast so the originating client can match its own echo against the set
+// of outstanding local replays and skip a redundant reduce when no foreign
+// action interleaved.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
+		ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
+			return Reduce(p, actions...)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
+	return nil
 }
 
 func (w Writer) Delete(

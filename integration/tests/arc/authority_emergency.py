@@ -10,7 +10,7 @@
 from examples.simulators import PressSimDAQ
 
 import synnax as sy
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_EMERGENCY_SOURCE = """
 authority 100
@@ -36,7 +36,7 @@ sequence main {
 """
 
 
-class AuthorityEmergency(ArcConsoleCase):
+class AuthorityEmergency(ArcCase):
     """Test that Arc can escalate authority with set_authority{value=255}
     to reclaim control from a higher-authority external writer during an
     emergency condition."""

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
@@ -39,8 +38,8 @@ export const Breather = ({
       orientation={orientation}
       scale={scale}
     >
-      <Primitive.Circle cx="91" cy="49.5" r="6" fill={color.cssString(colorVal)} />
-      <Primitive.Circle cx="8" cy="7.5" r="6" fill={color.cssString(colorVal)} />
+      <Primitive.Circle cx="91" cy="49.5" r="6" fill="var(--pluto-symbol-display)" />
+      <Primitive.Circle cx="8" cy="7.5" r="6" fill="var(--pluto-symbol-display)" />
       <Primitive.Path d="M49.5 28.5L12.3545 9.70349C10.359 8.69372 8 10.1438 8 12.3803V44.6197C8 46.8562 10.359 48.3063 12.3545 47.2965L49.5 28.5ZM49.5 28.5L86.6455 9.70349C88.641 8.69372 91 10.1438 91 12.3803V44.6197C91 46.8562 88.641 48.3063 86.6455 47.2965L49.5 28.5Z" />
     </Primitive.SVG>
   </Toggle.Button>

@@ -14,6 +14,7 @@ import {
   createTestClientWithPolicy,
   framer,
   type ontology,
+  project,
   ranger,
   user,
 } from "@synnaxlabs/client";
@@ -101,6 +102,85 @@ describe("Access Queries", () => {
       const policies = storeResult.current.policies.get((p) => p.name === policyName);
       expect(policies.length).toBe(1);
       expect(policies[0].name).toBe(policyName);
+    });
+
+    it("should re-evaluate the grant when a policy is removed, without a remount", async () => {
+      const u = await client.users.create({
+        username: id.create(),
+        password: "test",
+        firstName: "test",
+        lastName: "test",
+      });
+      const p = await client.access.policies.create({
+        name: id.create(),
+        objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
+        actions: ["retrieve"],
+      });
+      const r = await client.access.roles.create({
+        name: id.create(),
+        description: "test",
+      });
+      await client.ontology.addChildren(
+        access.role.ontologyID(r.key),
+        access.policy.ontologyID(p.key),
+      );
+      await client.access.roles.assign({ user: u.key, role: r.key });
+      const subject = user.ontologyID(u.key);
+      const { result } = renderHook(
+        () =>
+          Access.useGranted({
+            subject,
+            objects: ranger.TYPE_ONTOLOGY_ID,
+            action: "retrieve",
+          }),
+        { wrapper: await createAsyncSynnaxWrapper({ client }) },
+      );
+      await waitFor(() => {
+        expect(result.current).toBe(true);
+      });
+      await client.access.policies.delete(p.key);
+      await waitFor(() => {
+        expect(result.current).toBe(false);
+      });
+    });
+
+    it("should ignore relationship changes that cannot affect permissions", async () => {
+      const userClient = await createTestClientWithPolicy(client, {
+        name: id.create(),
+        objects: [ranger.TYPE_ONTOLOGY_ID, project.TYPE_ONTOLOGY_ID, ...baseObjects],
+        actions: ["retrieve", "create"],
+      });
+      let renders = 0;
+      const { result } = renderHook(
+        () => {
+          renders++;
+          const granted = Access.useGranted({
+            objects: ranger.TYPE_ONTOLOGY_ID,
+            action: "retrieve",
+          });
+          return { granted, store: Flux.useStore<Pluto.FluxStore>() };
+        },
+        { wrapper: await createAsyncSynnaxWrapper({ client: userClient }) },
+      );
+      await waitFor(() => {
+        expect(result.current.granted).toBe(true);
+      });
+      const rendersWhenSettled = renders;
+      // A project's group -> project link is not a role link, so the gate must
+      // drop it: no re-evaluation, no re-render.
+      const ws = await userClient.projects.create({
+        name: id.create(),
+      });
+      // Wait until the link reaches the store (event delivered)...
+      await waitFor(() => {
+        const rels = result.current.store.relationships.get(
+          (rel) => rel.to.type === "project" && rel.to.key === ws.key,
+        );
+        expect(rels.length).toBeGreaterThan(0);
+      });
+      // ...then confirm it caused no re-evaluation.
+      expect(renders).toBe(rendersWhenSettled);
+      expect(result.current.granted).toBe(true);
     });
 
     it("should handle multiple objects correctly", async () => {

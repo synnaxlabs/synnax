@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, dispatchReqZ } from "@/lineplot/actions.gen";
 import {
   type Axis,
   type AxisKey,
@@ -24,11 +25,14 @@ import {
 import { project } from "@/project";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
+export const SET_CHANNEL_NAME = "sy_lineplot_set";
+
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 export type SetDataBody = Omit<LinePlot, "key" | "name">;
 const setDataBodyZ = linePlotZ.omit({ key: true, name: true });
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
+
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -59,12 +63,12 @@ const zeroAxis = (key: AxisKey): Axis => ({
   labelDirection: "x",
   labelLevel: "small",
   bounds: { lower: 0, upper: 0 },
-  autoBounds: { lower: false, upper: false },
-  tickSpacing: 0,
+  autoBounds: { lower: true, upper: true },
+  tickSpacing: 75,
 });
 const ZERO_NEW: Omit<New, "name" | "key"> = {
   title: { level: "p", visible: false },
-  legend: { visible: false, position: { x: 0, y: 0 } },
+  legend: { visible: true, position: { x: 0, y: 0 } },
   channels: { x1: 0, x2: 0, y1: [], y2: [], y3: [], y4: [] },
   ranges: { x1: [], x2: [] },
   axes: {
@@ -111,6 +115,15 @@ export class Client {
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
     await this.client.send("/lineplot/set-data", { key, data }, setDataReqZ, emptyResZ);
+  }
+
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/lineplot/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
+      emptyResZ,
+    );
   }
 
   async retrieve(args: RetrieveSingleParams): Promise<LinePlot>;

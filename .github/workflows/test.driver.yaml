@@ -53,7 +53,7 @@ on:
   workflow_dispatch:
 
 env:
-  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
 
 jobs:
   server:
@@ -138,7 +138,7 @@ jobs:
       - name: Test Driver
         run: |
           bazel test --config=asan-leak --test_output=all //driver/... \
-            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} \
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true \
             --test_env=LSAN_OPTIONS="suppressions=${{ github.workspace }}/scripts/sanitizers/lsan_suppressions.txt" \
             --spawn_strategy=local \
             --jobs=1 --test_tag_filters=-hardware

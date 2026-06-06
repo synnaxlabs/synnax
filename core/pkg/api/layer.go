@@ -116,7 +116,6 @@ type Transport struct {
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[schematic.DeleteRequest, types.Nil]
-	SchematicSetData  freighter.UnaryServer[schematic.SetDataRequest, types.Nil]
 	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
 	// SCHEMATIC SYMBOL
@@ -135,8 +134,6 @@ type Transport struct {
 	TableCreate   freighter.UnaryServer[table.CreateRequest, table.CreateResponse]
 	TableRetrieve freighter.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]
 	TableDelete   freighter.UnaryServer[table.DeleteRequest, types.Nil]
-	TableRename   freighter.UnaryServer[table.RenameRequest, types.Nil]
-	TableSetData  freighter.UnaryServer[table.SetDataRequest, types.Nil]
 	TableDispatch freighter.UnaryServer[table.DispatchRequest, types.Nil]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]
@@ -144,6 +141,7 @@ type Transport struct {
 	LinePlotDelete   freighter.UnaryServer[lineplot.DeleteRequest, types.Nil]
 	LinePlotRename   freighter.UnaryServer[lineplot.RenameRequest, types.Nil]
 	LinePlotSetData  freighter.UnaryServer[lineplot.SetDataRequest, types.Nil]
+	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, types.Nil]
 	// LABEL
 	LabelCreate   freighter.UnaryServer[label.CreateRequest, label.CreateResponse]
 	LabelRetrieve freighter.UnaryServer[label.RetrieveRequest, label.RetrieveResponse]
@@ -310,7 +308,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
-		t.SchematicSetData,
 		t.SchematicDispatch,
 		t.SchematicCopy,
 
@@ -325,6 +322,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.LinePlotCreate,
 		t.LinePlotRename,
 		t.LinePlotSetData,
+		t.LinePlotDispatch,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
 
@@ -339,8 +337,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.TableCreate,
 		t.TableRetrieve,
 		t.TableDelete,
-		t.TableRename,
-		t.TableSetData,
 		t.TableDispatch,
 
 		// LABEL
@@ -466,7 +462,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicCreate.BindHandler(l.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(l.Schematic.Delete)
-	t.SchematicSetData.BindHandler(l.Schematic.SetData)
 	t.SchematicDispatch.BindHandler(l.Schematic.Dispatch)
 	t.SchematicCopy.BindHandler(l.Schematic.Copy)
 
@@ -481,6 +476,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotCreate.BindHandler(l.LinePlot.Create)
 	t.LinePlotRename.BindHandler(l.LinePlot.Rename)
 	t.LinePlotSetData.BindHandler(l.LinePlot.SetData)
+	t.LinePlotDispatch.BindHandler(l.LinePlot.Dispatch)
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(l.LinePlot.Delete)
 
@@ -495,8 +491,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.TableCreate.BindHandler(l.Table.Create)
 	t.TableRetrieve.BindHandler(l.Table.Retrieve)
 	t.TableDelete.BindHandler(l.Table.Delete)
-	t.TableRename.BindHandler(l.Table.Rename)
-	t.TableSetData.BindHandler(l.Table.SetData)
 	t.TableDispatch.BindHandler(l.Table.Dispatch)
 
 	// LABEL

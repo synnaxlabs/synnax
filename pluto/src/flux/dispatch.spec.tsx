@@ -201,6 +201,24 @@ describe("Flux.createDispatch", () => {
       expect(doc?.nodes[1].position).toEqual({ x: 2, y: 2 });
     });
 
+    it("returns true without sending when given an empty actions array", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      let ok = false;
+      await act(async () => {
+        ok = await result.current.dispatch.dispatchAsync({ key, actions: [] });
+      });
+      expect(ok).toBe(true);
+      expect(send).not.toHaveBeenCalled();
+      expect(result.current.undo.canUndo).toBe(false);
+    });
+
     it("returns false from dispatchAsync when the doc is not cached", async () => {
       const send = vi.fn<SendFn>(async () => {});
       const Wrapper = await createAsyncSynnaxWrapper({ client });

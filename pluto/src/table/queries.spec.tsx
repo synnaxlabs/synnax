@@ -284,7 +284,7 @@ describe("table queries", () => {
   describe("useDispatch", () => {
     const seedTable = async () => {
       const ws = await client.projects.create({ name: `dispatch_ws_${uuid.create()}` });
-      return client.tables.create(ws.key, {
+      return await client.tables.create(ws.key, {
         name: "dispatch_test",
         rows: [{ size: 36, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],
@@ -528,7 +528,7 @@ describe("table queries", () => {
   describe("selectors", () => {
     const seedTable = async () => {
       const ws = await client.projects.create({ name: `selector_ws_${uuid.create()}` });
-      return client.tables.create(ws.key, {
+      return await client.tables.create(ws.key, {
         name: "selector_test",
         rows: [
           { size: 30, cells: ["a", "b"] },
