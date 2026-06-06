@@ -161,11 +161,7 @@ export class Static {
       instrumentation: { L },
     } = this.props;
     // writeOne keeps this.data ordered and non-overlapping via
-    // bounds.buildInsertionPlan. In a set of intervals sorted by lower bound, any
-    // overlap necessarily involves an adjacent pair, so comparing neighbors is O(n)
-    // and equivalent to the full O(n^2) scan. This runs on every streaming write and
-    // the cache can hold hundreds of entries, so the quadratic version becomes a
-    // super-linear cost that bogs the worker down as the cache grows.
+    // bounds.buildInsertionPlan, so we just compare neighbors.
     for (let i = 1; i < this.data.length; i++) {
       if (
         !bounds.overlapsWith(

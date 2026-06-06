@@ -259,7 +259,7 @@ var _ = Describe("Codec", func() {
 			decoded := MustSucceed(cdc.Decode(MustSucceed(cdc.Encode(ctx, fr))))
 
 			var ch1 []telem.Series
-			for k, s := range decoded.Frame.Entries() {
+			for k, s := range decoded.Entries() {
 				if k == 1 {
 					ch1 = append(ch1, s)
 				}
