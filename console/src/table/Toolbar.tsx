@@ -149,9 +149,11 @@ const CellForm = ({ tableKey, cellKey }: CellFormProps): ReactElement | null => 
 
   const handleVariantChange = useCallback(
     (variant: Base.Cell.Variant) => {
-      if (cell == null) return;
-      const actions = buildVariantSwapActions([[cellKey, cell]], variant, theme);
-      if (actions.length > 0) dispatch({ key: tableKey, actions });
+      if (cell != null)
+        dispatch({
+          key: tableKey,
+          actions: buildVariantSwapActions([[cellKey, cell]], variant, theme),
+        });
     },
     [cell, cellKey, dispatch, tableKey, theme],
   );
@@ -270,7 +272,6 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
           }),
         );
       }
-      if (actions.length === 0) return;
       dispatch({ key: tableKey, actions });
     },
     [cellsByKey, dispatch, tableKey],
@@ -286,8 +287,10 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
 
   const handleVariantChange = useCallback(
     (variant: Base.Cell.Variant) => {
-      const actions = buildVariantSwapActions(cellsByKey, variant, theme);
-      if (actions.length > 0) dispatch({ key: tableKey, actions });
+      dispatch({
+        key: tableKey,
+        actions: buildVariantSwapActions(cellsByKey, variant, theme),
+      });
     },
     [cellsByKey, dispatch, tableKey, theme],
   );

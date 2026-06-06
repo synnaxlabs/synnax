@@ -9,7 +9,7 @@
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 # Identity casts (e.g., i32→i32) emit as no-ops in cast.go and are omitted. Among
 # integer sources, i32 / u32 cover the signed-int and unsigned-int extend / convert
@@ -221,7 +221,7 @@ ALL_CHANNELS = [name for name, _ in INPUT_CHANNELS] + [
 ]
 
 
-class Conversion(ArcConsoleCase):
+class Conversion(ArcCase):
     """End-to-end coverage of numeric typecasts plus numeric→str.
 
     Two compilation paths are covered.
@@ -266,62 +266,62 @@ class Conversion(ArcConsoleCase):
     def _test_32(self) -> None:
         self.log("=== i32 = 42, u32 = 42 ===")
         self.writer.write({"in_i32": 42, "in_u32": 42})
-        self.wait_for_eq("out_i32_to_i8", 42, is_virtual=True)
-        self.wait_for_eq("out_i32_to_i16", 42, is_virtual=True)
-        self.wait_for_eq("out_i32_to_i64", 42, is_virtual=True)
-        self.wait_for_eq("out_i32_to_u8", 42, is_virtual=True)
-        self.wait_for_eq("out_i32_to_u16", 42, is_virtual=True)
-        self.wait_for_eq("out_i32_to_u32", 42, is_virtual=True)
-        self.wait_for_eq("out_i32_to_u64", 42, is_virtual=True)
-        self.wait_for_near("out_i32_to_f32", 42.0, tolerance=1e-5, is_virtual=True)
-        self.wait_for_near("out_i32_to_f64", 42.0, tolerance=1e-9, is_virtual=True)
-        self.wait_for_eq("out_i32_to_str", "42", is_virtual=True)
-        self.wait_for_eq("out_u32_to_i8", 42, is_virtual=True)
-        self.wait_for_eq("out_u32_to_i16", 42, is_virtual=True)
-        self.wait_for_eq("out_u32_to_i32", 42, is_virtual=True)
-        self.wait_for_eq("out_u32_to_i64", 42, is_virtual=True)
-        self.wait_for_eq("out_u32_to_u8", 42, is_virtual=True)
-        self.wait_for_eq("out_u32_to_u16", 42, is_virtual=True)
-        self.wait_for_eq("out_u32_to_u64", 42, is_virtual=True)
-        self.wait_for_near("out_u32_to_f32", 42.0, tolerance=1e-5, is_virtual=True)
-        self.wait_for_near("out_u32_to_f64", 42.0, tolerance=1e-9, is_virtual=True)
-        self.wait_for_eq("out_u32_to_str", "42", is_virtual=True)
+        self.wait_for_eq("out_i32_to_i8", 42)
+        self.wait_for_eq("out_i32_to_i16", 42)
+        self.wait_for_eq("out_i32_to_i64", 42)
+        self.wait_for_eq("out_i32_to_u8", 42)
+        self.wait_for_eq("out_i32_to_u16", 42)
+        self.wait_for_eq("out_i32_to_u32", 42)
+        self.wait_for_eq("out_i32_to_u64", 42)
+        self.wait_for_near("out_i32_to_f32", 42.0, tolerance=1e-5)
+        self.wait_for_near("out_i32_to_f64", 42.0, tolerance=1e-9)
+        self.wait_for_eq("out_i32_to_str", "42")
+        self.wait_for_eq("out_u32_to_i8", 42)
+        self.wait_for_eq("out_u32_to_i16", 42)
+        self.wait_for_eq("out_u32_to_i32", 42)
+        self.wait_for_eq("out_u32_to_i64", 42)
+        self.wait_for_eq("out_u32_to_u8", 42)
+        self.wait_for_eq("out_u32_to_u16", 42)
+        self.wait_for_eq("out_u32_to_u64", 42)
+        self.wait_for_near("out_u32_to_f32", 42.0, tolerance=1e-5)
+        self.wait_for_near("out_u32_to_f64", 42.0, tolerance=1e-9)
+        self.wait_for_eq("out_u32_to_str", "42")
 
     def _test_i64_overflow(self) -> None:
         # i32(2^31) sign-flips to -2^31, u32(2^31) stays in range, str is decimal.
         self.log("=== i64 = 2^31 (narrowing wrap) ===")
         self.writer.write("in_i64", 2**31)
-        self.wait_for_eq("out_i64_to_i32", -(2**31), is_virtual=True)
-        self.wait_for_eq("out_i64_to_u32", 2**31, is_virtual=True)
-        self.wait_for_eq("out_i64_to_str", "2147483648", is_virtual=True)
+        self.wait_for_eq("out_i64_to_i32", -(2**31))
+        self.wait_for_eq("out_i64_to_u32", 2**31)
+        self.wait_for_eq("out_i64_to_str", "2147483648")
 
     def _test_f32(self) -> None:
         self.log("=== f32 = 3.5, f32_neg = -7.0 ===")
         self.writer.write({"in_f32": 3.5, "in_f32_neg": -7.0})
-        self.wait_for_eq("out_f32_to_i8", 3, is_virtual=True)
-        self.wait_for_eq("out_f32_to_i64", 3, is_virtual=True)
-        self.wait_for_eq("out_f32_to_u8", 3, is_virtual=True)
-        self.wait_for_eq("out_f32_to_u64", 3, is_virtual=True)
-        self.wait_for_near("out_f32_to_f64", 3.5, tolerance=1e-5, is_virtual=True)
-        self.wait_for_eq("out_f32_to_str", "3.5", is_virtual=True)
-        self.wait_for_eq("out_f32_neg_to_i8", -7, is_virtual=True)
-        self.wait_for_eq("out_f32_neg_to_i64", -7, is_virtual=True)
-        self.wait_for_near("out_f32_neg_to_f64", -7.0, tolerance=1e-5, is_virtual=True)
-        self.wait_for_eq("out_f32_neg_to_str", "-7", is_virtual=True)
+        self.wait_for_eq("out_f32_to_i8", 3)
+        self.wait_for_eq("out_f32_to_i64", 3)
+        self.wait_for_eq("out_f32_to_u8", 3)
+        self.wait_for_eq("out_f32_to_u64", 3)
+        self.wait_for_near("out_f32_to_f64", 3.5, tolerance=1e-5)
+        self.wait_for_eq("out_f32_to_str", "3.5")
+        self.wait_for_eq("out_f32_neg_to_i8", -7)
+        self.wait_for_eq("out_f32_neg_to_i64", -7)
+        self.wait_for_near("out_f32_neg_to_f64", -7.0, tolerance=1e-5)
+        self.wait_for_eq("out_f32_neg_to_str", "-7")
 
     def _test_f64(self) -> None:
         self.log("=== f64 = 3.5, f64_neg = -7.0 ===")
         self.writer.write({"in_f64": 3.5, "in_f64_neg": -7.0})
-        self.wait_for_eq("out_f64_to_i8", 3, is_virtual=True)
-        self.wait_for_eq("out_f64_to_i64", 3, is_virtual=True)
-        self.wait_for_eq("out_f64_to_u8", 3, is_virtual=True)
-        self.wait_for_eq("out_f64_to_u64", 3, is_virtual=True)
-        self.wait_for_near("out_f64_to_f32", 3.5, tolerance=1e-5, is_virtual=True)
-        self.wait_for_eq("out_f64_to_str", "3.5", is_virtual=True)
-        self.wait_for_eq("out_f64_neg_to_i8", -7, is_virtual=True)
-        self.wait_for_eq("out_f64_neg_to_i64", -7, is_virtual=True)
-        self.wait_for_near("out_f64_neg_to_f32", -7.0, tolerance=1e-5, is_virtual=True)
-        self.wait_for_eq("out_f64_neg_to_str", "-7", is_virtual=True)
+        self.wait_for_eq("out_f64_to_i8", 3)
+        self.wait_for_eq("out_f64_to_i64", 3)
+        self.wait_for_eq("out_f64_to_u8", 3)
+        self.wait_for_eq("out_f64_to_u64", 3)
+        self.wait_for_near("out_f64_to_f32", 3.5, tolerance=1e-5)
+        self.wait_for_eq("out_f64_to_str", "3.5")
+        self.wait_for_eq("out_f64_neg_to_i8", -7)
+        self.wait_for_eq("out_f64_neg_to_i64", -7)
+        self.wait_for_near("out_f64_neg_to_f32", -7.0, tolerance=1e-5)
+        self.wait_for_eq("out_f64_neg_to_str", "-7")
 
     def _test_flow_context(self) -> None:
         # Pre-write the source channels so they hold values when flow_trigger
@@ -340,28 +340,28 @@ class Conversion(ArcConsoleCase):
         )
 
         # str(): const cast inside concat
-        self.wait_for_eq("flow_concat_const_int", "value=42 items", is_virtual=True)
-        self.wait_for_eq("flow_concat_const_float", "value=3.5 psi", is_virtual=True)
+        self.wait_for_eq("flow_concat_const_int", "value=42 items")
+        self.wait_for_eq("flow_concat_const_float", "value=3.5 psi")
 
         # str(): channel cast inside concat
-        self.wait_for_eq("flow_concat_i32", "v=42!", is_virtual=True)
-        self.wait_for_eq("flow_concat_u32", "v=42!", is_virtual=True)
-        self.wait_for_eq("flow_concat_i64", "v=2147483648!", is_virtual=True)
-        self.wait_for_eq("flow_concat_u64", "v=42!", is_virtual=True)
-        self.wait_for_eq("flow_concat_f32", "v=3.5!", is_virtual=True)
-        self.wait_for_eq("flow_concat_f64", "v=3.5!", is_virtual=True)
+        self.wait_for_eq("flow_concat_i32", "v=42!")
+        self.wait_for_eq("flow_concat_u32", "v=42!")
+        self.wait_for_eq("flow_concat_i64", "v=2147483648!")
+        self.wait_for_eq("flow_concat_u64", "v=42!")
+        self.wait_for_eq("flow_concat_f32", "v=3.5!")
+        self.wait_for_eq("flow_concat_f64", "v=3.5!")
 
         # str(): special float values via division by zero. Go's
         # strconv.FormatFloat emits "+Inf" / "-Inf" / "NaN".
-        self.wait_for_eq("flow_str_pos_inf", "+Inf", is_virtual=True)
-        self.wait_for_eq("flow_str_neg_inf", "-Inf", is_virtual=True)
-        self.wait_for_eq("flow_str_nan", "NaN", is_virtual=True)
+        self.wait_for_eq("flow_str_pos_inf", "+Inf")
+        self.wait_for_eq("flow_str_neg_inf", "-Inf")
+        self.wait_for_eq("flow_str_nan", "NaN")
 
         # Numeric: one representative per opcode family + one composed in a
         # binary op. i32(in_i64) at 2^31 sign-flips to -2^31.
-        self.wait_for_eq("flow_num_i32_to_i64", 42, is_virtual=True)
-        self.wait_for_eq("flow_num_i64_to_i32", -(2**31), is_virtual=True)
-        self.wait_for_near("flow_num_i32_to_f64", 42.0, tolerance=1e-9, is_virtual=True)
-        self.wait_for_eq("flow_num_f64_to_i32", 3, is_virtual=True)
-        self.wait_for_near("flow_num_f64_to_f32", 3.5, tolerance=1e-5, is_virtual=True)
-        self.wait_for_eq("flow_num_arith", 103, is_virtual=True)
+        self.wait_for_eq("flow_num_i32_to_i64", 42)
+        self.wait_for_eq("flow_num_i64_to_i32", -(2**31))
+        self.wait_for_near("flow_num_i32_to_f64", 42.0, tolerance=1e-9)
+        self.wait_for_eq("flow_num_f64_to_i32", 3)
+        self.wait_for_near("flow_num_f64_to_f32", 3.5, tolerance=1e-5)
+        self.wait_for_eq("flow_num_arith", 103)

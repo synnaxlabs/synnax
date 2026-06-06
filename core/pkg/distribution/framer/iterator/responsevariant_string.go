@@ -26,9 +26,9 @@ const _ResponseVariant_name = "ResponseVariantAckResponseVariantData"
 var _ResponseVariant_index = [...]uint8{0, 18, 37}
 
 func (i ResponseVariant) String() string {
-	i -= 1
-	if i >= ResponseVariant(len(_ResponseVariant_index)-1) {
-		return "ResponseVariant(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	idx := int(i) - 1
+	if i < 1 || idx >= len(_ResponseVariant_index)-1 {
+		return "ResponseVariant(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _ResponseVariant_name[_ResponseVariant_index[i]:_ResponseVariant_index[i+1]]
+	return _ResponseVariant_name[_ResponseVariant_index[idx]:_ResponseVariant_index[idx+1]]
 }

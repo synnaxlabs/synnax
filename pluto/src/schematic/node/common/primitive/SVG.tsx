@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, dimensions, direction } from "@synnaxlabs/x";
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { dimensions, direction } from "@synnaxlabs/x";
+import {
+  type ComponentPropsWithoutRef,
+  type CSSProperties,
+  type ReactElement,
+  useMemo,
+} from "react";
 
 import { CSS } from "@/css";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
-import { Theming } from "@/theming";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface SVGProps
   extends
@@ -27,40 +32,35 @@ export interface SVGProps
 export const BASE_SCALE = 0.8;
 
 export const SVG = ({
-  dimensions: dims,
+  dimensions: dimsProp,
   orientation = "left",
   children,
   className,
   color: colorVal,
-  style = {},
+  style,
   scale = 1,
   ...rest
 }: SVGProps): ReactElement => {
   const dir = direction.construct(orientation);
-  dims = dir === "y" ? dimensions.swap(dims) : dims;
-  const colorStr = color.cssString(colorVal);
-  const theme = Theming.use();
-  let pStyle = {
-    ...style,
-    aspectRatio: `${dims.width} / ${dims.height}`,
-    width: dimensions.scale(dims, scale * BASE_SCALE).width,
-  };
-  if (colorVal != null)
-    pStyle = {
-      ...pStyle,
-      [CSS.var("symbol-color")]: color.rgbString(colorVal),
-      [CSS.var("symbol-color-contrast")]: color.rgbString(
-        color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
-      ),
-    };
+  const dims = useMemo(
+    () => (dir === "y" ? dimensions.swap(dimsProp) : dimsProp),
+    [dir, dimsProp],
+  );
+  const pStyle = useMemo<CSSProperties>(
+    () => ({
+      ...style,
+      aspectRatio: `${dims.width} / ${dims.height}`,
+      width: dimensions.scale(dims, scale * BASE_SCALE).width,
+      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+    }),
+    [style, dims, scale, colorVal],
+  );
 
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox={dimensions.svgViewBox(dims)}
-      className={CSS(CSS.loc(orientation), className)}
-      fill={colorStr}
-      stroke={colorStr}
+      className={CSS(CSS.B("symbol-colored"), CSS.loc(orientation), className)}
       {...rest}
       style={pStyle}
     >

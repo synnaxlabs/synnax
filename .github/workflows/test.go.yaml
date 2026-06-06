@@ -25,6 +25,13 @@ on:
         required: false
         type: boolean
         default: false
+      install_antlr4:
+        description:
+          Whether to install antlr4 before running `go generate`. Required for modules
+          with `//go:generate antlr4 ...` directives (arc, oracle).
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -59,6 +66,20 @@ jobs:
       - name: Check formatting
         if: matrix.fmt
         run: scripts/check_gofmt.sh ${{ inputs.directory }}
+
+      - name: Install stringer
+        if: matrix.fmt
+        run: go install golang.org/x/tools/cmd/stringer@v0.45.0
+
+      - name: Install antlr4
+        if: matrix.fmt && inputs.install_antlr4
+        run: |
+          scripts/install_antlr4.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify `go generate` is up to date
+        if: matrix.fmt
+        run: scripts/check_go_generate.sh ${{ inputs.directory }}
 
       - name: Prepare asset placeholders
         if: inputs.prepare_assets

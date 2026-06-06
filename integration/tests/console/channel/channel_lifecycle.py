@@ -76,15 +76,16 @@ class ChannelLifecycle(ConsoleCase):
         )
 
     def teardown(self) -> None:
-        self.console.channels.delete(
-            [
-                self.calc_x6,
-                self.calc_x2,
-                self.calc_editable,
-                self.shared_data,
-                self.shared_index,
-            ]
-        )
+        with self._try_to("delete channels"):
+            self.console.channels.delete(
+                [
+                    self.calc_x6,
+                    self.calc_x2,
+                    self.calc_editable,
+                    self.shared_data,
+                    self.shared_index,
+                ]
+            )
         super().teardown()
 
     def run(self) -> None:

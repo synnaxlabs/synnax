@@ -447,9 +447,9 @@ fi
 # Main mode: parse args, enumerate files, dispatch, aggregate.
 # ---------------------------------------------------------------------------
 
-declare -a EXPLICIT_FILES
-declare -a SEARCH_DIRS
-declare -a PATTERNS
+EXPLICIT_FILES=()
+SEARCH_DIRS=()
+PATTERNS=()
 
 if [ $# -gt 0 ]; then
     for arg in "$@"; do

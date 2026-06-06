@@ -33,9 +33,9 @@ const _Command_name = "CommandNextCommandPrevCommandSeekFirstCommandSeekLastComm
 var _Command_index = [...]uint8{0, 11, 22, 38, 53, 66, 79, 91, 103, 119}
 
 func (i Command) String() string {
-	i -= 1
-	if i >= Command(len(_Command_index)-1) {
-		return "Command(" + strconv.FormatInt(int64(i+1), 10) + ")"
+	idx := int(i) - 1
+	if i < 1 || idx >= len(_Command_index)-1 {
+		return "Command(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Command_name[_Command_index[i]:_Command_index[i+1]]
+	return _Command_name[_Command_index[idx]:_Command_index[idx+1]]
 }

@@ -293,6 +293,110 @@ LinePlot struct {
         @doc value "holds annotation rules drawn over the plot."
     }
 
+    action Rename {
+        name string
+
+        @doc value "renames the line plot."
+    }
+
+    action SetTitle {
+        title Title
+
+        @doc value "replaces the plot title configuration."
+    }
+
+    action SetLegend {
+        legend Legend
+
+        @doc value "replaces the plot legend configuration."
+    }
+
+    action AddChannel {
+        axis_key YAxisKey
+        channel  channel.Key
+
+        @doc value """
+            appends the channel to the channels array bound to the y-axis
+            named by axis_key. No-op when the channel is already present.
+        """
+    }
+
+    action RemoveChannel {
+        axis_key YAxisKey
+        channel  channel.Key
+
+        @doc value """
+            removes the channel from the y-axis named by axis_key. No-op
+            when the channel is not present.
+        """
+    }
+
+    action SetXChannel {
+        axis_key XAxisKey
+        channel  channel.Key
+
+        @doc value """
+            replaces the single channel bound to the x-axis named by
+            axis_key.
+        """
+    }
+
+    action AddRange {
+        axis_key XAxisKey
+        range    string
+
+        @doc value """
+            appends the range key to the ranges array bound to the x-axis
+            named by axis_key. No-op when the range is already present.
+        """
+    }
+
+    action RemoveRange {
+        axis_key XAxisKey
+        range    string
+
+        @doc value """
+            removes the range key from the x-axis named by axis_key. No-op
+            when the range is not present.
+        """
+    }
+
+    action SetAxis {
+        axis Axis
+
+        @doc value """
+            replaces the configuration for the axis identified by axis.key.
+            Callers send the full Axis struct; the existing entry is
+            overwritten verbatim.
+        """
+    }
+
+    action SetLine {
+        line Line
+
+        @doc value """
+            inserts the line if no line with line.key exists, otherwise
+            replaces the existing entry in place. Used both when a new
+            line is derived from a channel and range combination and when
+            the user edits an existing line's styling.
+        """
+    }
+
+    action SetRule {
+        rule Rule
+
+        @doc value """
+            inserts the rule if no rule with rule.key exists, otherwise
+            replaces the existing entry in place.
+        """
+    }
+
+    action RemoveRule {
+        key string
+
+        @doc value "removes the rule with the given key, if present."
+    }
+
     @doc value     """
         is a time-series visualization component for plotting telemetry data.
         Line plots support multiple channels, real-time streaming, and
