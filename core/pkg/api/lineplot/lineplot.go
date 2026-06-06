@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -104,6 +105,27 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
+	})
+}
+
+// DispatchRequest carries an action sequence to apply to a single line plot.
+// DispatchKey identifies the originating client's batch so cluster broadcasts
+// can be deduplicated against the local optimistic update.
+type DispatchRequest = actions.DispatchRequest[lineplot.Key, lineplot.Action]
+
+// Dispatch applies the action sequence to the target line plot atomically.
+// Subscribers to the line plot action signals receive the sequence after the
+// transaction commits.
+func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 	})
 }
 
