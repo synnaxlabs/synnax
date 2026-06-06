@@ -47,6 +47,7 @@ class New(BaseModel):
     """Contains parameters for creating a new view.
 
     Attributes:
+        key: Is the unique identifier for this view.
         name: Is a human-readable name for the view.
         type: Is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
         query: Is a type-agnostic JSON object containing view-specific configuration

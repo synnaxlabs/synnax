@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func findField(fields []resolution.Field, name string) resolution.Field {
@@ -923,6 +924,57 @@ var _ = Describe("Analyzer", func() {
 			name := findField(fields, "name")
 			Expect(name.Type.Name).To(Equal("string"))
 			Expect(domainExprNames(name.Domains["validate"])).To(ContainElements("min_length", "required"))
+		})
+
+		It("Should inherit the parent's domains on a bare typeless override", func(ctx SpecContext) {
+			source := `
+				Key uint32
+
+				Parent struct {
+					key Key {
+						@doc value "is the unique identifier for the resource."
+					}
+				}
+
+				Child struct extends Parent {
+					key?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			form := child.Form.(resolution.StructForm)
+			key := findField(form.Fields, "key")
+			Expect(key.Domains).To(HaveKey("doc"))
+			doc := MustBeOk(key.Domains["doc"].Expressions.Find("value"))
+			Expect(doc.Values[0].StringValue).To(Equal("is the unique identifier for the resource."))
+		})
+
+		It("Should let a typeless override's own domain win over the inherited one", func(ctx SpecContext) {
+			source := `
+				Key uint32
+
+				Parent struct {
+					key Key {
+						@doc value "is the unique identifier for the resource."
+					}
+				}
+
+				Child struct extends Parent {
+					key? {
+						@doc value "is an optional key; one is assigned if omitted."
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			form := child.Form.(resolution.StructForm)
+			key := findField(form.Fields, "key")
+			doc := MustBeOk(key.Domains["doc"].Expressions.Find("value"))
+			Expect(doc.Values[0].StringValue).To(Equal("is an optional key; one is assigned if omitted."))
 		})
 
 		It("Should remove an inherited domain with -@domain", func(ctx SpecContext) {

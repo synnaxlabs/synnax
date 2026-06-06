@@ -48,6 +48,7 @@ class Role(BaseModel):
     """Contains parameters for creating a new role.
 
     Attributes:
+        key: Is the unique identifier for this role.
         name: Is a human-readable name for the role (e.g., 'Administrator',
             'Engineer').
         description: Is an optional description explaining what permissions the role

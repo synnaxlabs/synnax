@@ -50,6 +50,7 @@ struct Label {
 
 /// @brief New contains parameters for creating a new label.
 struct New : public Label {
+    /// @brief key is the unique identifier for this label.
     Key key;
 
     static New parse(x::json::Parser parser);

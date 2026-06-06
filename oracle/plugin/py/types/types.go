@@ -370,6 +370,14 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 	return "Any"
 }
 
+// hashableKey reports whether field is a @key field that can serve as the basis
+// for __hash__. An optional key (e.g. on a creation payload, where the key is
+// assigned by the server) is normally absent, so hashing by it is meaningless;
+// only a required key yields a __hash__.
+func hashableKey(field resolution.Field) bool {
+	return key.HasKey(field) && !field.IsOptional && !field.IsHardOptional
+}
+
 func processStruct(
 	entry resolution.Type,
 	table *resolution.Table,
@@ -449,7 +457,7 @@ func processStruct(
 				sd.Fields = make([]fieldData, 0, len(flat))
 				for _, field := range flat {
 					sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, form.OmittedFields))
-					if key.HasKey(field) {
+					if hashableKey(field) {
 						sd.KeyField = field.Name
 					}
 				}
@@ -512,13 +520,13 @@ func processStruct(
 					if childField, ok := childFieldsByName[pf.Name]; ok {
 						fd := processField(childField, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
-						if key.HasKey(childField) {
+						if hashableKey(childField) {
 							sd.KeyField = childField.Name
 						}
 					} else {
 						fd := processField(pf, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
-						if key.HasKey(pf) {
+						if hashableKey(pf) {
 							sd.KeyField = pf.Name
 						}
 					}
@@ -531,7 +539,7 @@ func processStruct(
 					}
 					fd := processField(field, table, data, keyFields, form.OmittedFields)
 					sd.Fields = append(sd.Fields, fd)
-					if key.HasKey(field) {
+					if hashableKey(field) {
 						sd.KeyField = field.Name
 					}
 				}
@@ -547,14 +555,14 @@ func processStruct(
 				redefinedFields.Add(field.Name)
 				fd := processField(field, table, data, keyFields, form.OmittedFields)
 				sd.Fields = append(sd.Fields, fd)
-				// Check if this field has @key annotation for __hash__ generation
-				if key.HasKey(field) {
+				// Only a required @key field yields a __hash__.
+				if hashableKey(field) {
 					sd.KeyField = field.Name
 				}
 			}
 			// Also check parent fields for @key if not redefined
 			for _, pf := range parentFields {
-				if !redefinedFields.Contains(pf.Name) && key.HasKey(pf) {
+				if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
 					sd.KeyField = pf.Name
 				}
 			}
@@ -593,8 +601,8 @@ func processStruct(
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
 		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
-		// Check if this field has @key annotation for __hash__ generation
-		if key.HasKey(field) {
+		// Only a required @key field yields a __hash__.
+		if hashableKey(field) {
 			sd.KeyField = field.Name
 		}
 	}

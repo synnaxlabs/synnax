@@ -199,12 +199,14 @@ func analyze(c *analysisCtx) {
 }
 
 // desugarPartialOverrides rewrites each struct's typeless override fields into
-// complete fields, resolving the inherited type, optionality, and (when omitted)
-// default from the parent. After this pass a typeless override (key?) is
-// indistinguishable from a full restatement (key Key?), so the code generators
-// make the same embed-vs-flatten decision and emit identical output. Domain
-// removal (-@domain) is intentionally left for the generators to handle, since it
-// has no full-restatement equivalent and cannot be expressed through embedding.
+// complete fields, resolving the inherited type, optionality, (when omitted)
+// default, and domains from the parent. The field's own domains win on a name
+// conflict, matching mergeOverrideField. After this pass a typeless override
+// (key?) is indistinguishable from a full restatement (key Key?), so the code
+// generators make the same embed-vs-flatten decision and emit identical output.
+// Domain removal (-@domain) is intentionally left for the generators to handle,
+// since it has no full-restatement equivalent and cannot be expressed through
+// embedding.
 func desugarPartialOverrides(c *analysisCtx) {
 	for i := range c.table.Types {
 		typ := c.table.Types[i]
@@ -238,6 +240,18 @@ func desugarPartialOverrides(c *analysisCtx) {
 			}
 			if f.Default == nil {
 				f.Default = pf.Default
+			}
+			if len(pf.Domains) > 0 {
+				domains := make(map[string]resolution.Domain, len(pf.Domains)+len(f.Domains))
+				maps.Copy(domains, pf.Domains)
+				for k, v := range f.Domains {
+					if existing, ok := domains[k]; ok {
+						domains[k] = v.Merge(existing)
+					} else {
+						domains[k] = v
+					}
+				}
+				f.Domains = domains
 			}
 			changed = true
 		}

@@ -113,6 +113,8 @@ class New(BaseModel):
     and will be assigned default values by Synnax.
 
     Attributes:
+        key: Is the unique identifier for this channel, automatically assigned
+            by Synnax.
         name: Is the human-readable channel name.
         leaseholder: Is an optional leaseholder node. If not provided, Synnax will assign one.
         data_type: Is the data type of samples stored in this channel (e.g., Float64,

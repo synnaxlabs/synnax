@@ -987,6 +987,55 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		Context("key hashing", func() {
+			It("Should generate __hash__ for a required @key field", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Key uint32
+
+					Channel struct {
+						key Key @key {
+							@doc value "is the unique identifier for the channel."
+						}
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Channel(BaseModel):`,
+						`def __hash__(self) -> int:`,
+						`return hash(self.key)`,
+					)
+			})
+
+			It("Should not generate __hash__ when an override makes the key optional", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Key uint32
+
+					Channel struct {
+						key Key @key {
+							@doc value "is the unique identifier for the channel."
+						}
+						name string
+					}
+
+					New struct extends Channel {
+						key?
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				newClass := content[strings.Index(content, "class New"):]
+				Expect(newClass).To(ContainSubstring(`key: Key | None`))
+				Expect(newClass).To(ContainSubstring(`key: Is the unique identifier for the channel.`))
+				Expect(newClass).NotTo(ContainSubstring(`def __hash__`))
+			})
+		})
+
 		Context("documentation", func() {
 			It("Should generate docstrings and comments from doc domain", func(ctx SpecContext) {
 				source := `
