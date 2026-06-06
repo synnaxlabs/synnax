@@ -44,6 +44,17 @@
 }
 
 .pluto-theme-synnax-light {
+    /* achromatic (grey/black/white) symbols snap to pure black, legible on the light bg */
+    --pluto-symbol-l-extreme: 0;
+
+    /* no floor: dark colors already read fine on the light bg */
+    --pluto-symbol-l-min: 0;
+
+    /* cap lightness so pale colors darken enough to read on the light bg */
+    --pluto-symbol-l-max: 0.8;
+
+    /* low cutoff: only near-pure greys snap; muddy darks already read as near-black */
+    --pluto-symbol-c-thresh: 0.05;
     --pluto-shadow-v1:
         0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
         0px 16px 24px -8px rgba(0, 0, 0, 0.12);
@@ -58,9 +69,59 @@
 }
 
 .pluto-theme-synnax-dark {
+    /* achromatic (grey/black/white) symbols snap to pure white, legible on the dark bg */
+    --pluto-symbol-l-extreme: 1;
+
+    /* floor lightness so dark colors lift enough to read on the dark bg */
+    --pluto-symbol-l-min: 0.4;
+
+    /* no ceiling: light colors already read fine on the dark bg */
+    --pluto-symbol-l-max: 1;
+
+    /* higher than light so muddy darks (invisible on the dark bg) also snap to white */
+    --pluto-symbol-c-thresh: 0.09;
     --pluto-shadow-v1:
         lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
         lch(0 0 0 / 0.188) 0px 1px 1px;
+}
+
+/* Theme-correct display color: achromatic colors snap to the theme's hard extreme,
+   chromatic colors keep their hue and clamp lightness into a gentle band (blended by
+   chroma). Any element that sets --pluto-symbol-color carries this class to derive it. */
+.pluto-symbol-colored {
+    --pluto-symbol-display: oklch(
+        from rgb(var(--pluto-symbol-color, var(--pluto-gray-l11-rgb)))
+            calc(
+                clamp(var(--pluto-symbol-l-min, 0), l, var(--pluto-symbol-l-max, 1)) *
+                    (
+                        1 -
+                            clamp(
+                                0,
+                                (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                                    var(--pluto-symbol-c-thresh, 0.045),
+                                1
+                            )
+                    ) +
+                    var(--pluto-symbol-l-extreme, 0) *
+                    clamp(
+                        0,
+                        (var(--pluto-symbol-c-thresh, 0.045) - c) /
+                            var(--pluto-symbol-c-thresh, 0.045),
+                        1
+                    )
+            )
+            c h
+    );
+
+    /* black or white, whichever is legible on top of the display color. Pinned
+       fully opaque so transparent symbols still get legible text and pills. */
+    --pluto-symbol-contrast: oklch(
+        from var(--pluto-symbol-display) clamp(0, (0.6 - l) * 100, 1) 0 0deg / 100%
+    );
+
+    /* SVG stroke is inherited, so descendants (node shapes, edge decorations, the
+       gauge arc) pick up the display color without restating it per shape. */
+    stroke: var(--pluto-symbol-display);
 }
 
 html {

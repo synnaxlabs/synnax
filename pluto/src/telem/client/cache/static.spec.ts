@@ -272,4 +272,27 @@ describe("StaticReadCache", () => {
       ).toHaveLength(0);
     });
   });
+  describe("integrity", () => {
+    it("should accept many sequential non-overlapping writes without error", () => {
+      const c = new Static({});
+      const n = 300;
+      for (let i = 0; i < n; i++) {
+        const start = TimeStamp.seconds(i * 10);
+        c.write(
+          new MultiSeries([
+            new Series({
+              data: new Float32Array([i]),
+              dataType: DataType.FLOAT32,
+              timeRange: start.range(start.add(TimeSpan.seconds(1))),
+              alignment: BigInt(i * 10),
+            }),
+          ]),
+        );
+      }
+      const { series } = c.dirtyRead(
+        TimeStamp.seconds(0).spanRange(TimeSpan.seconds(n * 10)),
+      );
+      expect(series.length).toEqual(n);
+    });
+  });
 });

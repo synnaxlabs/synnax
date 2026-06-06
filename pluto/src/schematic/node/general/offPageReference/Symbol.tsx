@@ -34,6 +34,7 @@ export const Symbol = ({
     level={level}
     orientation={orientation}
     color={color}
+    linked={page != null && page.length > 0}
     title={offPageReferenceTooltip(page, dblClickNav)}
   />
 );
