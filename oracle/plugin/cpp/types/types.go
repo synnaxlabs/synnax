@@ -774,22 +774,15 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	cppFieldName = keywords.Escape(cppFieldName)
 
 	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
-	if field.Default != nil && field.Default.Kind == resolution.ValueKindIdent {
-		if ev, ok := validation.ResolveEnumVariant(field.Default.IdentValue, field.Type, data.table); ok {
-			variantName := toPascalCase(ev.Variant.Name)
-			enumName := ev.Type.Name
-			if ev.Type.Namespace != data.rawNs {
-				targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
-				if targetOutputPath != "" {
-					ns := deriveNamespace(targetOutputPath)
-					enumName = fmt.Sprintf("::%s::%s", ns, enumName)
-				}
+	if field.Default != nil {
+		switch field.Default.Kind {
+		case resolution.ValueKindIdent:
+			if ev, ok := validation.ResolveEnumVariant(field.Default.IdentValue, field.Type, data.table); ok {
+				defaultValue = p.cppEnumVariantRef(ev, data)
 			}
-			defaultValue = fmt.Sprintf("%s::%s", enumName, variantName)
+		case resolution.ValueKindArray, resolution.ValueKindStruct:
+			defaultValue = p.cppDefaultLiteral(field.Type, *field.Default, data)
 		}
-	}
-	if field.Default != nil && field.Default.Kind == resolution.ValueKindArray {
-		defaultValue = cppArrayLiteral(field.Default.Elements)
 	}
 
 	return fieldData{
@@ -801,25 +794,91 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	}
 }
 
-// cppArrayLiteral renders an array default's elements as a C++ brace-init list,
-// e.g. {} or {1.000000, 2.000000}.
-func cppArrayLiteral(elements []resolution.ExpressionValue) string {
-	parts := make([]string, 0, len(elements))
-	for _, el := range elements {
-		switch el.Kind {
-		case resolution.ValueKindString:
-			parts = append(parts, fmt.Sprintf("%q", el.StringValue))
-		case resolution.ValueKindInt:
-			parts = append(parts, fmt.Sprintf("%d", el.IntValue))
-		case resolution.ValueKindFloat:
-			parts = append(parts, fmt.Sprintf("%f", el.FloatValue))
-		case resolution.ValueKindBool:
-			parts = append(parts, fmt.Sprintf("%t", el.BoolValue))
-		case resolution.ValueKindIdent:
-			parts = append(parts, el.IdentValue)
+// cppDefaultLiteral renders a default value as a C++ brace-init literal. typeRef
+// is the declared type of the value, used to resolve enum variants, array
+// element types, and nested struct field types. Arrays and structs recurse.
+func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, data *templateData) string {
+	switch val.Kind {
+	case resolution.ValueKindString:
+		return fmt.Sprintf("%q", val.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", val.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", val.FloatValue)
+	case resolution.ValueKindBool:
+		return fmt.Sprintf("%t", val.BoolValue)
+	case resolution.ValueKindIdent:
+		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, data.table); ok {
+			return p.cppEnumVariantRef(ev, data)
 		}
+		return val.IdentValue
+	case resolution.ValueKindArray:
+		elem := cppArrayElementType(typeRef)
+		parts := make([]string, 0, len(val.Elements))
+		for _, el := range val.Elements {
+			parts = append(parts, p.cppDefaultLiteral(elem, el, data))
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
+	case resolution.ValueKindStruct:
+		return p.cppStructLiteral(typeRef, val, data)
+	}
+	return ""
+}
+
+// cppStructLiteral renders a struct default as a C++ designated-initializer list,
+// emitting the provided fields in the struct's declaration order (required for
+// designated initializers in C++).
+func (p *Plugin) cppStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, data *templateData) string {
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return "{}"
+	}
+	provided := make(map[string]resolution.ExpressionValue, len(val.Fields))
+	for _, fv := range val.Fields {
+		provided[fv.Name] = fv.Value
+	}
+	parts := make([]string, 0, len(val.Fields))
+	for _, f := range resolution.UnifiedFields(resolved, data.table) {
+		v, has := provided[f.Name]
+		if !has {
+			continue
+		}
+		parts = append(parts, fmt.Sprintf(".%s = %s", cppFieldName(f), p.cppDefaultLiteral(f.Type, v, data)))
 	}
 	return "{" + strings.Join(parts, ", ") + "}"
+}
+
+// cppEnumVariantRef renders a fully-qualified C++ reference to an enum variant.
+func (p *Plugin) cppEnumVariantRef(ev validation.EnumVariant, data *templateData) string {
+	variantName := toPascalCase(ev.Variant.Name)
+	enumName := ev.Type.Name
+	if ev.Type.Namespace != data.rawNs {
+		targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
+		if targetOutputPath != "" {
+			ns := deriveNamespace(targetOutputPath)
+			enumName = fmt.Sprintf("::%s::%s", ns, enumName)
+		}
+	}
+	return fmt.Sprintf("%s::%s", enumName, variantName)
+}
+
+// cppFieldName returns the C++ field name for a resolved field, mirroring the
+// naming applied when the field is declared.
+func cppFieldName(field resolution.Field) string {
+	name := domain.GetFieldName(field, "cpp")
+	if name == field.Name {
+		name = toSnakeCase(field.Name)
+	}
+	return keywords.Escape(name)
+}
+
+// cppArrayElementType returns the element type of an array type reference, or the
+// reference itself when it is not an array.
+func cppArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0]
+	}
+	return typeRef
 }
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {

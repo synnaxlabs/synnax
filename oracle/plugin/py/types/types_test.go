@@ -128,6 +128,47 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		It("Should generate a typeless override identically to a full restatement", func(ctx SpecContext) {
+			gen := func(childBody string) string {
+				source := `
+					@py output "out"
+
+					Parent struct {
+						name  string
+						count int32 = 5
+						tag   string
+					}
+
+					Child struct extends Parent {
+						` + childBody + `
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				return string(resp.Files[0].Content)
+			}
+			// A typeless override desugars to the equivalent full restatement, so
+			// the generated model is byte-identical.
+			Expect(gen("count = 10")).To(Equal(gen("count int32 = 10")))
+			Expect(gen("tag?")).To(Equal(gen("tag string?")))
+		})
+
+		It("Should flatten a model that removes an inherited domain", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					name string @validate { min_length 1 }
+				}
+
+				Child struct extends Parent {
+					name -@validate
+				}
+			`
+			resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain(`class Child(BaseModel):`, `name: str`)
+		})
+
 		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@py output "out"
@@ -484,6 +525,24 @@ var _ = Describe("Python Types Plugin", func() {
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`empty: list[float] = Field(default_factory=list)`))
 			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
+		})
+
+		It("Should emit struct defaults via default_factory", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Point struct {
+					x int32
+					y int32
+				}
+
+				Config struct {
+					p Point = { x = 1, y = 2 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`default_factory=lambda: Point(x=1, y=2)`))
 		})
 
 		It("Should wrap int defaults in distinct type constructor", func(ctx SpecContext) {
@@ -943,6 +1002,55 @@ var _ = Describe("Python Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`class Child(Parent):`))
 				Expect(content).To(ContainSubstring(`e: str`))
+			})
+		})
+
+		Context("key hashing", func() {
+			It("Should generate __hash__ for a required @key field", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Key uint32
+
+					Channel struct {
+						key Key @key {
+							@doc value "is the unique identifier for the channel."
+						}
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Channel(BaseModel):`,
+						`def __hash__(self) -> int:`,
+						`return hash(self.key)`,
+					)
+			})
+
+			It("Should not generate __hash__ when an override makes the key optional", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Key uint32
+
+					Channel struct {
+						key Key @key {
+							@doc value "is the unique identifier for the channel."
+						}
+						name string
+					}
+
+					New struct extends Channel {
+						key?
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				newClass := content[strings.Index(content, "class New"):]
+				Expect(newClass).To(ContainSubstring(`key: Key | None`))
+				Expect(newClass).To(ContainSubstring(`key: Is the unique identifier for the channel.`))
+				Expect(newClass).NotTo(ContainSubstring(`def __hash__`))
 			})
 		})
 

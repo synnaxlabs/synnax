@@ -17,7 +17,26 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
+
+func findField(fields []resolution.Field, name string) resolution.Field {
+	for _, f := range fields {
+		if f.Name == name {
+			return f
+		}
+	}
+	Fail("field not found: " + name)
+	return resolution.Field{}
+}
+
+func domainExprNames(d resolution.Domain) []string {
+	names := make([]string, len(d.Expressions))
+	for i, e := range d.Expressions {
+		names[i] = e.Name
+	}
+	return names
+}
 
 var _ = Describe("Analyzer", func() {
 	var (
@@ -841,6 +860,237 @@ var _ = Describe("Analyzer", func() {
 			}
 			Expect(nameField).NotTo(BeNil())
 			Expect(nameField.IsOptional).To(BeTrue())
+		})
+
+		It("Should inherit type and optionality when an override omits its type", func(ctx SpecContext) {
+			source := `
+				Parent struct {
+					name string?
+					age  int32 = 18
+				}
+
+				Child struct extends Parent {
+					age = 21
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			fields := resolution.UnifiedFields(child, table)
+			age := findField(fields, "age")
+			Expect(age.Type.Name).To(Equal("int32"))
+			Expect(age.Default).NotTo(BeNil())
+			Expect(age.Default.IntValue).To(Equal(int64(21)))
+		})
+
+		It("Should inherit the parent default when an override omits it", func(ctx SpecContext) {
+			source := `
+				Parent struct {
+					count int32 = 5
+				}
+
+				Child struct extends Parent {
+					count @validate required
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			fields := resolution.UnifiedFields(child, table)
+			count := findField(fields, "count")
+			Expect(count.Type.Name).To(Equal("int32"))
+			Expect(count.Default).NotTo(BeNil())
+			Expect(count.Default.IntValue).To(Equal(int64(5)))
+			Expect(count.Domains).To(HaveKey("validate"))
+		})
+
+		It("Should merge a domain added by a partial override with inherited domains", func(ctx SpecContext) {
+			source := `
+				Parent struct {
+					name string @validate { min_length 1 }
+				}
+
+				Child struct extends Parent {
+					name @validate required
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			fields := resolution.UnifiedFields(child, table)
+			name := findField(fields, "name")
+			Expect(name.Type.Name).To(Equal("string"))
+			Expect(domainExprNames(name.Domains["validate"])).To(ContainElements("min_length", "required"))
+		})
+
+		It("Should inherit the parent's domains on a bare typeless override", func(ctx SpecContext) {
+			source := `
+				Key uint32
+
+				Parent struct {
+					key Key {
+						@doc value "is the unique identifier for the resource."
+					}
+				}
+
+				Child struct extends Parent {
+					key?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			form := child.Form.(resolution.StructForm)
+			key := findField(form.Fields, "key")
+			Expect(key.Domains).To(HaveKey("doc"))
+			doc := MustBeOk(key.Domains["doc"].Expressions.Find("value"))
+			Expect(doc.Values[0].StringValue).To(Equal("is the unique identifier for the resource."))
+		})
+
+		It("Should let a typeless override's own domain win over the inherited one", func(ctx SpecContext) {
+			source := `
+				Key uint32
+
+				Parent struct {
+					key Key {
+						@doc value "is the unique identifier for the resource."
+					}
+				}
+
+				Child struct extends Parent {
+					key? {
+						@doc value "is an optional key; one is assigned if omitted."
+					}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			form := child.Form.(resolution.StructForm)
+			key := findField(form.Fields, "key")
+			doc := MustBeOk(key.Domains["doc"].Expressions.Find("value"))
+			Expect(doc.Values[0].StringValue).To(Equal("is an optional key; one is assigned if omitted."))
+		})
+
+		It("Should remove an inherited domain with -@domain", func(ctx SpecContext) {
+			source := `
+				Parent struct {
+					name string @validate required
+				}
+
+				Child struct extends Parent {
+					name -@validate
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			fields := resolution.UnifiedFields(child, table)
+			name := findField(fields, "name")
+			Expect(name.Type.Name).To(Equal("string"))
+			Expect(name.Domains).NotTo(HaveKey("validate"))
+		})
+
+		It("Should make a required parent field optional with a typeless ? marker", func(ctx SpecContext) {
+			source := `
+				Key uint32
+
+				Parent struct {
+					key   Key
+					items string[]
+				}
+
+				Child struct extends Parent {
+					key?
+					items?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			fields := resolution.UnifiedFields(child, table)
+
+			key := findField(fields, "key")
+			Expect(key.Type.Name).To(Equal("test.Key"))
+			Expect(key.IsOptional).To(BeTrue())
+			Expect(key.IsHardOptional).To(BeFalse())
+
+			items := findField(fields, "items")
+			Expect(items.Type.Name).To(Equal("Array"))
+			Expect(items.IsOptional).To(BeTrue())
+		})
+
+		It("Should make a parent field hard-optional with a typeless ?? marker", func(ctx SpecContext) {
+			source := `
+				Parent struct {
+					note string
+				}
+
+				Child struct extends Parent {
+					note??
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			note := findField(resolution.UnifiedFields(child, table), "note")
+			Expect(note.Type.Name).To(Equal("string"))
+			Expect(note.IsHardOptional).To(BeTrue())
+			Expect(note.IsOptional).To(BeFalse())
+		})
+
+		It("Should make an optional parent field required by restating its type", func(ctx SpecContext) {
+			source := `
+				Parent struct {
+					name string?
+				}
+
+				Child struct extends Parent {
+					name string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			child := table.MustGet("test.Child")
+			fields := resolution.UnifiedFields(child, table)
+			name := findField(fields, "name")
+			Expect(name.IsOptional).To(BeFalse())
+			Expect(name.IsHardOptional).To(BeFalse())
+		})
+
+		It("Should reject a typeless field that overrides no parent field", func(ctx SpecContext) {
+			source := `
+				Parent struct {
+					name string
+				}
+
+				Child struct extends Parent {
+					age = 21
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("declares no type"))
+		})
+
+		It("Should reject a typeless field in a struct that extends nothing", func(ctx SpecContext) {
+			source := `
+				Plain struct {
+					name = "x"
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("declares no type"))
 		})
 
 		It("Should extend generic struct with type arguments", func(ctx SpecContext) {
@@ -1731,6 +1981,57 @@ var _ = Describe("Analyzer", func() {
 			Expect(def.Elements).To(HaveLen(2))
 			Expect(def.Elements[0]).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 1.5}))
 			Expect(def.Elements[1]).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
+		})
+
+		structDefaultOf := func(ctx SpecContext, source string) *resolution.ExpressionValue {
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("test.Outer").Form.(resolution.StructForm)
+			return form.Fields[0].Default
+		}
+
+		It("Should collect an empty struct default", func(ctx SpecContext) {
+			def := structDefaultOf(ctx,
+				"Point struct {\n\tx int32\n\ty int32\n}\n"+
+					"Outer struct {\n\tp Point = {}\n}\n")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(def.Fields).To(BeEmpty())
+		})
+
+		It("Should collect a populated struct default with field values", func(ctx SpecContext) {
+			def := structDefaultOf(ctx,
+				"Point struct {\n\tx int32\n\ty int32\n}\n"+
+					"Outer struct {\n\tp Point = { x = 1, y = 2 }\n}\n")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(def.Fields).To(HaveLen(2))
+			Expect(def.Fields[0]).To(Equal(resolution.StructFieldValue{
+				Name:  "x",
+				Value: resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 1},
+			}))
+			Expect(def.Fields[1]).To(Equal(resolution.StructFieldValue{
+				Name:  "y",
+				Value: resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 2},
+			}))
+		})
+
+		It("Should collect nested struct and array values", func(ctx SpecContext) {
+			def := structDefaultOf(ctx,
+				"Inner struct {\n\ttags string[]\n}\n"+
+					"Mid struct {\n\tinner Inner\n}\n"+
+					"Outer struct {\n\tm Mid = { inner = { tags = [\"a\", \"b\"] } }\n}\n")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(def.Fields).To(HaveLen(1))
+			inner := def.Fields[0].Value
+			Expect(inner.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(inner.Fields).To(HaveLen(1))
+			tags := inner.Fields[0].Value
+			Expect(tags.Kind).To(Equal(resolution.ValueKindArray))
+			Expect(tags.Elements).To(HaveLen(2))
+			Expect(tags.Elements[0].StringValue).To(Equal("a"))
+			Expect(tags.Elements[1].StringValue).To(Equal("b"))
 		})
 	})
 })
