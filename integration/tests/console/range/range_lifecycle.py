@@ -45,15 +45,17 @@ class RangeLifecycle(ConsoleCase):
             self.staged_range_name,
         ]
 
-        self.console.ranges.open_explorer()
-        for range_name in ranges_to_delete:
-            if range_name and self.console.ranges.exists_in_explorer(range_name):
-                self.console.ranges.delete_from_explorer(range_name)
+        with self._try_to("delete ranges"):
+            self.console.ranges.open_explorer()
+            for range_name in ranges_to_delete:
+                if range_name and self.console.ranges.exists_in_explorer(range_name):
+                    self.console.ranges.delete_from_explorer(range_name)
 
-        if self.console.labels.exists(self.test_label_name):
-            self.console.labels.delete(self.test_label_name)
-        if self.console.labels.exists(self.second_label_name):
-            self.console.labels.delete(self.second_label_name)
+        with self._try_to("delete labels"):
+            if self.console.labels.exists(self.test_label_name):
+                self.console.labels.delete(self.test_label_name)
+            if self.console.labels.exists(self.second_label_name):
+                self.console.labels.delete(self.second_label_name)
 
         super().teardown()
 

@@ -16,12 +16,14 @@ warnings.filterwarnings("ignore", message=".*timed out while closing connection.
 import sys
 import traceback
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any, Literal, overload
 
 import synnax as sy
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
 from framework.models import STATUS, SYMBOLS, SynnaxConnection
+from framework.notifications import StatusNotifications
 from framework.streamer import Streamer
 from framework.telemetry import TelemetryWriter
 from framework.utils import create_indexed_channel, create_time_index
@@ -57,10 +59,18 @@ class TestCase(ABC):
 
     # Configuration constants
     DEFAULT_READ_TIMEOUT: sy.CrudeTimeSpan = 1 * sy.TimeSpan.SECOND
-    DEFAULT_LOOP_RATE: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
+    # Paces should_stop and every `while self.should_continue` control loop.
+    STOP_POLL_RATE: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
+    # Background heartbeat cadence; nothing asserts on it, so it runs lazily.
+    TELEMETRY_RATE: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND
+    STATUS_SETTLE_DELAY: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
     WEBSOCKET_RETRY_DELAY: sy.CrudeTimeSpan = 500 * sy.TimeSpan.MILLISECOND
     DEFAULT_TIMEOUT_LIMIT: sy.CrudeTimeSpan | None = None
     DEFAULT_MANUAL_TIMEOUT: sy.CrudeTimeSpan | None = None
+
+    # Opt-in: when True, the base lifecycle records cluster status notifications
+    # for the duration of the test so wait_for_notification can match them.
+    collect_notifications: bool = False
 
     log_client: LogClient
 
@@ -101,8 +111,9 @@ class TestCase(ABC):
             ],
         )
 
-        self.loop = sy.Loop(self.DEFAULT_LOOP_RATE)
+        self.loop = sy.Loop(self.STOP_POLL_RATE)
         self._telemetry_writer: TelemetryWriter | None = None
+        self._notifications: StatusNotifications | None = None
         self.streamer = Streamer(
             client=self.client,
             read_timeout=self.read_timeout,
@@ -160,7 +171,7 @@ class TestCase(ABC):
             channels=list(self.tlm.keys()),
             update=self._update_tlm,
             should_stop=lambda: self._should_stop,
-            rate=self.DEFAULT_LOOP_RATE,
+            rate=self.TELEMETRY_RATE,
             name=self.name,
             on_error=self._handle_writer_error,
         )
@@ -214,8 +225,8 @@ class TestCase(ABC):
             self.log(f"KILLED ({status_symbol})")
 
         self.log(f"Uptime: {self.uptime:.1f} s")
-        # Sleep for 2 loops to ensure the status is updated
-        sy.sleep(self.DEFAULT_LOOP_RATE * 2)
+        # Brief grace so the live state channel reflects the final status.
+        sy.sleep(self.STATUS_SETTLE_DELAY)
 
     def _shutdown(self) -> None:
         """Gracefully shutdown test case and stop all threads."""
@@ -270,6 +281,16 @@ class TestCase(ABC):
         """
         raise NotImplementedError("Subclasses must implement the run() method")
 
+    @contextmanager
+    def _try_to(self, action: str) -> Iterator[None]:
+        """Attempt action, logging and swallowing any failure.
+        Keeps one teardown step from aborting the rest.
+        """
+        try:
+            yield
+        except Exception as e:
+            self.log(f"Failed to {action}: {e}")
+
     def teardown(self) -> None:
         """Cleanup after test execution. Override for custom cleanup logic."""
         pass
@@ -323,38 +344,33 @@ class TestCase(ABC):
         condition: Callable[[SampleValue], bool],
         condition_desc: str,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
-        is_virtual: bool = False,
     ) -> None:
-        """Base method for waiting on a channel value condition.
+        """Wait until channel_name's value satisfies condition, or fail.
 
-        The condition is always checked at least once before the timeout is evaluated,
-        so timeout=0 can be used for immediate assertions without waiting.
-
-        :param channel_name: Name of the channel to read.
-        :param condition: Function that takes a value and returns True when met.
-        :param condition_desc: Human-readable description (e.g., "== 1", "> 27").
-        :param timeout: Maximum time to wait. Use 0 for immediate check.
-        :param is_virtual: If True, read from subscribed telemetry (read_tlm).
-            If False, read from database (get_value).
+        Subscribed channels block on the streamer; unsubscribed channels fall
+        back to polling the database.
         """
-        timer = sy.Timer()
         timeout_span = sy.TimeSpan.from_seconds(timeout)
 
-        while self.should_continue:
-            actual_value = (
-                self.read_tlm(channel_name)
-                if is_virtual
-                else self.get_value(channel_name)
+        if self.streamer.is_subscribed(channel_name):
+            if self.streamer.wait_for(channel_name, condition, timeout):
+                return
+            actual_value = self.read_tlm(channel_name)
+            self.fail(
+                f"Timeout waiting for {channel_name} {condition_desc}!\n"
+                f"Actual: {actual_value}\n"
+                f"Timeout: {timeout_span}"
             )
+            return
+
+        timer = sy.Timer()
+        while self.should_continue:
+            actual_value = self.get_value(channel_name)
             if actual_value is not None and condition(actual_value):
                 return
-            # This last to ensure the check runs at least once.
             if timer.elapsed() > timeout_span:
                 break
-
-        actual_value = (
-            self.read_tlm(channel_name) if is_virtual else self.get_value(channel_name)
-        )
+        actual_value = self.get_value(channel_name)
         if actual_value is not None and condition(actual_value):
             return
         self.fail(
@@ -368,11 +384,10 @@ class TestCase(ABC):
         channel_name: str,
         expected: SampleValue,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
-        is_virtual: bool = False,
     ) -> None:
         """Wait for channel value == expected."""
         self._wait_for_condition(
-            channel_name, lambda v: v == expected, f"== {expected}", timeout, is_virtual
+            channel_name, lambda v: v == expected, f"== {expected}", timeout
         )
 
     def wait_for_gt(
@@ -380,11 +395,10 @@ class TestCase(ABC):
         channel_name: str,
         threshold: float | int,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
-        is_virtual: bool = False,
     ) -> None:
         """Wait for channel value > threshold."""
         self._wait_for_condition(
-            channel_name, lambda v: v > threshold, f"> {threshold}", timeout, is_virtual
+            channel_name, lambda v: v > threshold, f"> {threshold}", timeout
         )
 
     def wait_for_ge(
@@ -392,7 +406,6 @@ class TestCase(ABC):
         channel_name: str,
         threshold: float | int,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
-        is_virtual: bool = False,
     ) -> None:
         """Wait for channel value >= threshold."""
         self._wait_for_condition(
@@ -400,7 +413,6 @@ class TestCase(ABC):
             lambda v: v >= threshold,
             f">= {threshold}",
             timeout,
-            is_virtual,
         )
 
     def wait_for_lt(
@@ -408,11 +420,10 @@ class TestCase(ABC):
         channel_name: str,
         threshold: float | int,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
-        is_virtual: bool = False,
     ) -> None:
         """Wait for channel value < threshold."""
         self._wait_for_condition(
-            channel_name, lambda v: v < threshold, f"< {threshold}", timeout, is_virtual
+            channel_name, lambda v: v < threshold, f"< {threshold}", timeout
         )
 
     def wait_for_le(
@@ -420,7 +431,6 @@ class TestCase(ABC):
         channel_name: str,
         threshold: float | int,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
-        is_virtual: bool = False,
     ) -> None:
         """Wait for channel value <= threshold."""
         self._wait_for_condition(
@@ -428,7 +438,6 @@ class TestCase(ABC):
             lambda v: v <= threshold,
             f"<= {threshold}",
             timeout,
-            is_virtual,
         )
 
     def wait_for_near(
@@ -438,7 +447,6 @@ class TestCase(ABC):
         *,
         tolerance: float,
         timeout: sy.CrudeTimeSpan = 5 * sy.TimeSpan.SECOND,
-        is_virtual: bool = False,
     ) -> None:
         """Wait for channel value to be within tolerance of target."""
         self._wait_for_condition(
@@ -446,8 +454,19 @@ class TestCase(ABC):
             lambda v: abs(v - target) < tolerance,
             f"≈ {target} (±{tolerance})",
             timeout,
-            is_virtual,
         )
+
+    def wait_for_notification(self, text: str, timeout: float = 5.0) -> bool:
+        """Return True if a status notification containing text has surfaced.
+
+        Requires collect_notifications = True so the base lifecycle records
+        status updates for the duration of the test.
+        """
+        if self._notifications is None:
+            raise RuntimeError(
+                "wait_for_notification requires collect_notifications = True"
+            )
+        return self._notifications.wait_for(text, timeout)
 
     @property
     def name(self) -> str:
@@ -566,6 +585,10 @@ class TestCase(ABC):
             self.STATUS = STATUS.INITIALIZING
             self.setup()
 
+            if self.collect_notifications:
+                self._notifications = StatusNotifications(self.client)
+                self._notifications.open()
+
             self._start_client_threads()
 
             self.STATUS = STATUS.RUNNING
@@ -591,6 +614,8 @@ class TestCase(ABC):
                 self.teardown()
             except Exception as teardown_error:
                 self.log(f"Teardown error: {teardown_error}")
+            if self._notifications is not None:
+                self._notifications.close()
             self._check_expectation()
             self._stop_client()
             self._wait_for_client_completion()

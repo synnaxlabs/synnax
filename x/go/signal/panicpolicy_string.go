@@ -27,8 +27,9 @@ const _panicPolicy_name = "propagatePanicrecoverNoErrrecoverErr"
 var _panicPolicy_index = [...]uint8{0, 14, 26, 36}
 
 func (i panicPolicy) String() string {
-	if i >= panicPolicy(len(_panicPolicy_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_panicPolicy_index)-1 {
 		return "panicPolicy(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _panicPolicy_name[_panicPolicy_index[i]:_panicPolicy_index[i+1]]
+	return _panicPolicy_name[_panicPolicy_index[idx]:_panicPolicy_index[idx+1]]
 }
