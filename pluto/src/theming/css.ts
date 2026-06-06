@@ -58,6 +58,7 @@ export const toCSSVars = (
     "gray-l10": color.hex(theme.colors.gray.l10),
     ...createHexOpacityVariants("gray-l10", theme.colors.gray.l10, OPACITIES),
     "gray-l11": color.hex(theme.colors.gray.l11),
+    "gray-l11-rgb": color.rgbString(theme.colors.gray.l11),
     ...createHexOpacityVariants("gray-l11", theme.colors.gray.l11, OPACITIES),
     "logo-color": color.cssString(theme.colors.logo),
     "error-m2": color.hex(theme.colors.error.m2),

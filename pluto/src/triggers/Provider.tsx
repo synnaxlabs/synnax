@@ -60,6 +60,12 @@ const ZERO_REF_STATE: RefState = {
 
 const EXCLUDE_TRIGGERS = ["CapsLock"];
 
+// Native text-editing shortcuts (select-all, copy, paste, cut) the browser owns inside
+// any text field. We drop them while a text-entry element is focused so app-level
+// handlers can't hijack them. Undo/redo is excluded — Synnax's controlled inputs often
+// lack working native undo, so app-level undo is usually what the user wants.
+const NATIVE_TEXT_EDIT_KEYS: Key[] = ["A", "C", "V", "X"];
+
 export interface ProviderProps extends PropsWithChildren {
   preventDefaultOn?: Trigger[];
   preventDefaultOptions?: MatchOptions;
@@ -79,12 +85,11 @@ const isInputOrContentEditable = (e: KeyboardEvent): boolean => {
 
 const shouldTriggerOnKeyDown = (key: Key, e: KeyboardEvent): boolean => {
   if (EXCLUDE_TRIGGERS.includes(key)) return false;
-  if (isInputOrContentEditable(e)) {
-    // If there is an alphanumeric key and the user is not holding down ctrl or meta,
-    // we don't want to trigger the key.
-    if (isAlphanumericKey(key) && !e.ctrlKey && !e.metaKey) return false;
-    return true;
-  }
+  if (!isInputOrContentEditable(e)) return true;
+  // Bare alphanumerics in a text field are text entry, not triggers.
+  if (isAlphanumericKey(key) && !e.ctrlKey && !e.metaKey) return false;
+  // Let the browser own native text-editing shortcuts within the field.
+  if ((e.ctrlKey || e.metaKey) && NATIVE_TEXT_EDIT_KEYS.includes(key)) return false;
   return true;
 };
 
