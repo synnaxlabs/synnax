@@ -12,7 +12,7 @@ import { memo, type ReactElement, useMemo } from "react";
 
 import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
+import { type LineSpec, useContext, useGridEntry } from "@/lineplot/Frame";
 import { Text } from "@/text";
 import { Legend as Base } from "@/vis/legend";
 import { Entries, type EntryData } from "@/vis/legend/Entries";

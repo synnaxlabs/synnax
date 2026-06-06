@@ -175,7 +175,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   }, [dispatch, layoutKey]);
 
   const menuProps = Menu.useContextMenu();
-  const linePlotRef = useRef<PLinePlot.CoreRef | null>(null);
+  const linePlotRef = useRef<PLinePlot.FrameRef | null>(null);
   const [hasAnnotations, setHasAnnotations] = useState(false);
 
   const ContextMenuContent = (): ReactElement => {

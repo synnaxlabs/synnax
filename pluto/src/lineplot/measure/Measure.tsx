@@ -13,7 +13,7 @@ import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useViewport } from "@/lineplot/LinePlot";
+import { useViewport } from "@/lineplot/Frame";
 import { measure } from "@/lineplot/measure/aether";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";

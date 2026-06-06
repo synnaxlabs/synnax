@@ -25,7 +25,7 @@ import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { lineplot } from "@/lineplot/aether";
 import { baseAxisStateZ, withinSizeThreshold } from "@/lineplot/aether/axis";
-import { useGridEntry } from "@/lineplot/LinePlot";
+import { useGridEntry } from "@/lineplot/Frame";
 import { useMemoDeepEqual } from "@/memo";
 import { Text } from "@/text";
 import { text as aetherText } from "@/text/aether";

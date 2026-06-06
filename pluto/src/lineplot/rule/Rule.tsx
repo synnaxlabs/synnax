@@ -20,7 +20,7 @@ import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { useContext } from "@/lineplot/LinePlot";
+import { useContext } from "@/lineplot/Frame";
 import { rule } from "@/lineplot/rule/aether";
 import { state } from "@/state";
 import { Text } from "@/text";

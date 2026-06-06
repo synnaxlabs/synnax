@@ -42,7 +42,7 @@ type Source = ReturnType<typeof telem.channelData>;
 const factory = (x: Source, y: Source) => (): ReactElement => (
   <Pluto.Provider workerURL={WorkerURL} {...providerProps}>
     <Canvas.Canvas style={{ width: "100%", height: 500 }}>
-      <LinePlot.Core
+      <LinePlot.Frame
         style={{ width: "calc(100% - 3rem)", height: 500 }}
         clearOverScan={xy.ZERO}
       >
@@ -58,7 +58,7 @@ const factory = (x: Source, y: Source) => (): ReactElement => (
             />
           </LinePlot.YAxis>
         </LinePlot.XAxis>
-      </LinePlot.Core>
+      </LinePlot.Frame>
     </Canvas.Canvas>
   </Pluto.Provider>
 );
