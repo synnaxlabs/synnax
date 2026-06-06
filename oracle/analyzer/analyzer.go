@@ -807,11 +807,45 @@ func collectFieldDefault(fd parser.IFieldDefaultContext) resolution.ExpressionVa
 	if ev := fd.ExpressionValue(); ev != nil {
 		return collectValue(ev)
 	}
-	out := resolution.ExpressionValue{Kind: resolution.ValueKindArray}
 	if arr := fd.ArrayDefault(); arr != nil {
-		for _, el := range arr.AllExpressionValue() {
-			out.Elements = append(out.Elements, collectValue(el))
-		}
+		return collectArrayDefault(arr)
+	}
+	if st := fd.StructDefault(); st != nil {
+		return collectStructDefault(st)
+	}
+	return resolution.ExpressionValue{}
+}
+
+// collectDefaultValue collects a default value in a nested position (an array
+// element or a struct field), recursing into arrays and structs.
+func collectDefaultValue(dv parser.IDefaultValueContext) resolution.ExpressionValue {
+	if ev := dv.ExpressionValue(); ev != nil {
+		return collectValue(ev)
+	}
+	if arr := dv.ArrayDefault(); arr != nil {
+		return collectArrayDefault(arr)
+	}
+	if st := dv.StructDefault(); st != nil {
+		return collectStructDefault(st)
+	}
+	return resolution.ExpressionValue{}
+}
+
+func collectArrayDefault(arr parser.IArrayDefaultContext) resolution.ExpressionValue {
+	out := resolution.ExpressionValue{Kind: resolution.ValueKindArray}
+	for _, el := range arr.AllDefaultValue() {
+		out.Elements = append(out.Elements, collectDefaultValue(el))
+	}
+	return out
+}
+
+func collectStructDefault(st parser.IStructDefaultContext) resolution.ExpressionValue {
+	out := resolution.ExpressionValue{Kind: resolution.ValueKindStruct}
+	for _, f := range st.AllStructFieldDefault() {
+		out.Fields = append(out.Fields, resolution.StructFieldValue{
+			Name:  f.IDENT().GetText(),
+			Value: collectDefaultValue(f.DefaultValue()),
+		})
 	}
 	return out
 }

@@ -165,15 +165,34 @@ fieldDef
     : IDENT (typeRef | typeModifiers)? (EQUALS fieldDefault)? (inlineDomain | domainOmit)* fieldBody?
     ;
 
-// A field default is either a scalar/ident literal or an array literal.
-// Examples: = 0, = "v", = volts, = [], = [1, 2, 3]
+// A field default is a scalar/ident literal, an array literal, or a struct
+// literal.
+// Examples: = 0, = "v", = volts, = [], = [1, 2, 3], = { x = 0, y = 1 }
 fieldDefault
     : expressionValue
     | arrayDefault
+    | structDefault
+    ;
+
+// A default value in a nested position (array element or struct field). Arrays
+// and structs nest recursively through this rule.
+defaultValue
+    : expressionValue
+    | arrayDefault
+    | structDefault
     ;
 
 arrayDefault
-    : LBRACKET nl* (expressionValue (COMMA nl* expressionValue)* nl*)? RBRACKET
+    : LBRACKET nl* (defaultValue (COMMA nl* defaultValue)* nl*)? RBRACKET
+    ;
+
+// A struct literal binds field names to values: { field = value, field = value }
+structDefault
+    : LBRACE nl* (structFieldDefault (COMMA nl* structFieldDefault)* nl*)? RBRACE
+    ;
+
+structFieldDefault
+    : IDENT EQUALS defaultValue
     ;
 
 // Inline domain on a field (after type, on same line)

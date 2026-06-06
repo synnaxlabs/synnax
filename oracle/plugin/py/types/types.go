@@ -833,35 +833,76 @@ func collectValidation(
 			if len(defaultVal.Elements) == 0 {
 				constraints = append(constraints, "default_factory=list")
 			} else {
-				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyArrayLiteral(defaultVal.Elements)))
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
 			}
+		case resolution.ValueKindStruct:
+			// Models are mutable, so they must use default_factory, never default=.
+			constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
 		}
 	}
 	return constraints
 }
 
-// pyArrayLiteral renders an array default's elements as a Python list literal.
-func pyArrayLiteral(elements []resolution.ExpressionValue) string {
-	parts := make([]string, 0, len(elements))
-	for _, el := range elements {
-		switch el.Kind {
-		case resolution.ValueKindString:
-			parts = append(parts, fmt.Sprintf("%q", el.StringValue))
-		case resolution.ValueKindInt:
-			parts = append(parts, fmt.Sprintf("%d", el.IntValue))
-		case resolution.ValueKindFloat:
-			parts = append(parts, fmt.Sprintf("%f", el.FloatValue))
-		case resolution.ValueKindBool:
-			if el.BoolValue {
-				parts = append(parts, "True")
-			} else {
-				parts = append(parts, "False")
-			}
-		case resolution.ValueKindIdent:
-			parts = append(parts, el.IdentValue)
+// pyDefaultLiteral renders a default value as a Python literal. typeRef is the
+// declared type of the value, used to resolve enum variants, array element
+// types, and nested struct field types. Arrays and structs recurse.
+func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	switch val.Kind {
+	case resolution.ValueKindString:
+		return fmt.Sprintf("%q", val.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", val.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", val.FloatValue)
+	case resolution.ValueKindBool:
+		if val.BoolValue {
+			return "True"
+		}
+		return "False"
+	case resolution.ValueKindIdent:
+		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, table); ok {
+			return enumVariantToPython(ev, table, data)
+		}
+		return val.IdentValue
+	case resolution.ValueKindArray:
+		elem := pyArrayElementType(typeRef)
+		parts := make([]string, 0, len(val.Elements))
+		for _, el := range val.Elements {
+			parts = append(parts, pyDefaultLiteral(elem, el, table, data))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	case resolution.ValueKindStruct:
+		return pyStructLiteral(typeRef, val, table, data)
+	}
+	return ""
+}
+
+// pyStructLiteral renders a struct default as a Python model constructor call,
+// resolving each field's value against its declared type in the struct named by
+// typeRef.
+func pyStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	className := ""
+	fieldsByName := map[string]resolution.Field{}
+	if resolved, ok := typeRef.Resolve(table); ok {
+		className = getPyName(resolved)
+		for _, f := range resolution.UnifiedFields(resolved, table) {
+			fieldsByName[f.Name] = f
 		}
 	}
-	return "[" + strings.Join(parts, ", ") + "]"
+	parts := make([]string, 0, len(val.Fields))
+	for _, fv := range val.Fields {
+		parts = append(parts, fmt.Sprintf("%s=%s", keywords.Escape(fv.Name), pyDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data)))
+	}
+	return className + "(" + strings.Join(parts, ", ") + ")"
+}
+
+// pyArrayElementType returns the element type of an array type reference, or the
+// reference itself when it is not an array.
+func pyArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0]
+	}
+	return typeRef
 }
 
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
