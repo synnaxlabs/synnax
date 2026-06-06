@@ -22,7 +22,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { id, primitive, status } from "@synnaxlabs/x";
+import { id, primitive, status, uuid } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -36,6 +36,7 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
+import { Workspace } from "@/workspace";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
@@ -70,21 +71,16 @@ const handleSelect: Ontology.HandleSelect = ({
       );
       break;
     }
-    default:
-      placeLayout(
-        LinePlot.create({
-          pendingUpload: {
-            channels: {
-              x1: 0,
-              x2: 0,
-              y1: nonVirtualSelection,
-              y2: [],
-              y3: [],
-              y4: [],
-            },
-          },
-        }),
-      );
+    default: {
+      const workspace = Workspace.selectActiveKey(state) ?? uuid.ZERO;
+      handleError(async () => {
+        const { key, name } = await client.lineplots.create(workspace, {
+          name: "Line Plot",
+          channels: { x1: 0, x2: 0, y1: nonVirtualSelection, y2: [], y3: [], y4: [] },
+        });
+        placeLayout(LinePlot.create({ key, name }, { remote: true }));
+      }, "Failed to create plot");
+    }
   }
 };
 
