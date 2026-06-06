@@ -58,7 +58,7 @@ Title struct {
     level   text.Level = text.LevelP {
         @doc value "is the typography level of the title text."
     }
-    visible bool       {
+    visible bool = false {
         @doc value "is whether the title is shown above the plot."
     }
 
@@ -66,10 +66,10 @@ Title struct {
 }
 
 Legend struct {
-    visible  bool             {
+    visible  bool = true {
         @doc value "is whether the legend is shown."
     }
-    position spatial.StickyXY {
+    position spatial.StickyXY = { x = 0, y = 0 } {
         @doc value "is the anchor position of the legend within the plot container."
     }
 
@@ -77,10 +77,10 @@ Legend struct {
 }
 
 Channels struct {
-    x1 channel.Key   {
+    x1 channel.Key = 0 {
         @doc value "is the channel rendered on the x1 axis."
     }
-    x2 channel.Key   {
+    x2 channel.Key = 0 {
         @doc value "is the channel rendered on the x2 axis."
     }
     y1 channel.Key[] {
@@ -120,10 +120,10 @@ Ranges struct {
 }
 
 AutoBounds struct {
-    lower bool {
+    lower bool = true {
         @doc value "is whether the lower bound is computed from data."
     }
-    upper bool {
+    upper bool = true {
         @doc value "is whether the upper bound is computed from data."
     }
 
@@ -139,7 +139,7 @@ Axis struct {
     key             AxisKey           {
         @doc value "identifies which of the six axes this configuration applies to."
     }
-    label           string            {
+    label           string = "" {
         @doc value "is the human-readable label rendered along the axis."
     }
     label_direction spatial.Direction = spatial.DirectionX {
@@ -148,17 +148,17 @@ Axis struct {
     label_level     text.Level = text.LevelSmall {
         @doc value "is the typography level of the label."
     }
-    bounds          spatial.Bounds    {
+    bounds          spatial.Bounds = { lower = 0, upper = 0 } {
         @doc value """
             is the value-space window of the axis. When the matching entry in
             auto_bounds is true the field is overwritten locally on every
             render; otherwise it is the user-set fixed bound.
         """
     }
-    auto_bounds     AutoBounds        {
+    auto_bounds     AutoBounds = {} {
         @doc value "controls per-edge automatic bound derivation."
     }
-    tick_spacing    float64           {
+    tick_spacing    float64 = 75 {
         @doc value "is the target pixel distance between adjacent tick marks."
     }
     type            TickType??        {
@@ -172,22 +172,22 @@ Axis struct {
 }
 
 Axes struct {
-    x1 Axis {
+    x1 Axis = { key = AxisKeyX1 } {
         @doc value "is the x1 axis configuration."
     }
-    x2 Axis {
+    x2 Axis = { key = AxisKeyX2 } {
         @doc value "is the x2 axis configuration."
     }
-    y1 Axis {
+    y1 Axis = { key = AxisKeyY1 } {
         @doc value "is the y1 axis configuration."
     }
-    y2 Axis {
+    y2 Axis = { key = AxisKeyY2 } {
         @doc value "is the y2 axis configuration."
     }
-    y3 Axis {
+    y3 Axis = { key = AxisKeyY3 } {
         @doc value "is the y3 axis configuration."
     }
-    y4 Axis {
+    y4 Axis = { key = AxisKeyY4 } {
         @doc value "is the y4 axis configuration."
     }
 
@@ -410,48 +410,11 @@ LinePlot struct {
 
 New struct extends LinePlot {
     key?
-    title?    {
-        @doc value """
-            is the plot title configuration. Defaults to the zero-value
-            title; the client seeds rendering defaults locally.
-        """
-    }
-    legend?   {
-        @doc value """
-            is the plot legend configuration. Defaults to the zero-value
-            legend; the client seeds rendering defaults locally.
-        """
-    }
-    channels? {
-        @doc value """
-            binds channel keys to each axis. Defaults to no channels assigned
-            on any axis.
-        """
-    }
-    ranges?   {
-        @doc value """
-            binds range keys to each x-axis. Defaults to no ranges assigned
-            on either x-axis.
-        """
-    }
-    axes?     {
-        @doc value """
-            bundles per-axis configuration. Defaults to the zero-value axes;
-            the client seeds rendering defaults locally.
-        """
-    }
-    lines?    {
-        @doc value """
-            holds per-line styling and downsampling configuration. Defaults
-            to an empty list.
-        """
-    }
-    rules?    {
-        @doc value """
-            holds annotation rules drawn over the plot. Defaults to an empty
-            list.
-        """
-    }
+    title    = {}
+    legend   = {}
+    channels = {}
+    ranges   = {}
+    axes     = {}
 
     @doc value    "contains parameters for creating a new line plot."
     @ts use_input
