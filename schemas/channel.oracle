@@ -251,40 +251,40 @@ APIChannel struct {
 
 NewChannel struct extends APIChannel {
     key?
-    leaseholder uint12?              {
+    leaseholder  uint12? {
         @doc value """
             is an optional leaseholder node. If not provided, Synnax will assign one.
         """
     }
-    index?      {
+    index?       {
         @doc value """
             is the channel used to index this channel's values, associating
             each value with a timestamp.
         """
     }
-    is_index?   {
+    is_index?    {
         @doc value """
             should be set to true to create an index channel. Index channels
             must have int64 values (TIMESTAMP data type) written in ascending
             order.
         """
     }
-    internal    bool?                {
+    internal     bool?   {
         @doc value """
             should be set to true to create a system channel hidden from normal
             user queries.
         """
     }
-    virtual     bool?                {
+    virtual      bool?   {
         @doc value """
             should be set to true to create a streaming-only channel that does
             not persist data.
         """
     }
-    expression? = "" {
+    expression?  = "" {
         @doc value "is an Arc expression for creating a calculated channel."
     }
-    concurrency control.Concurrency? {
+    concurrency? {
         @doc value """
             sets the policy for concurrent writes. Only virtual channels can
             have shared concurrency.
