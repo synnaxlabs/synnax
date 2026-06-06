@@ -465,7 +465,7 @@ var _ = Describe("Codec", func() {
 				s.Alignment = cesium.LeadingAlignment(1, sample)
 				fr := frame.NewUnary(dataCh.Key(), s)
 				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
-				for k, ds := range decoded.Frame.Entries() {
+				for k, ds := range decoded.Entries() {
 					if k != dataCh.Key() {
 						continue
 					}
