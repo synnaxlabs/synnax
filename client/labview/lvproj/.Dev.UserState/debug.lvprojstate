@@ -1,0 +1,5 @@
+<Configuration>
+  <Target name="My Computer">
+    <EnableDebuggingForAllVIs>0</EnableDebuggingForAllVIs>
+  </Target>
+</Configuration>
