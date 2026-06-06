@@ -9,15 +9,15 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
-import { color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { direction } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/offPageReference/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
 
 export const offPageReferenceTooltip = (
   page?: string,
@@ -36,6 +36,7 @@ interface RenderProps extends Omit<
   label?: string;
   className?: string;
   title?: string;
+  linked?: boolean;
   onLabelChange?: (label: string) => void;
 }
 
@@ -46,35 +47,32 @@ export const OffPageReference = ({
   label = "text",
   color: colorVal,
   level = "p",
+  linked = false,
   onLabelChange,
 }: RenderProps): ReactElement => {
   const element = document.querySelector(`[data-id="${id}"]`);
   if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
-  const theme = Theming.use();
-  const resolvedColor = colorVal ?? theme.colors.gray.l11;
-  const textColor = color.pickByContrast(
-    resolvedColor,
-    theme.colors.text,
-    theme.colors.textInverted,
+  const style = useMemo<CSSProperties>(
+    () => ({ [CSS.var("symbol-color")]: symbolColorVar(colorVal) }),
+    [colorVal],
   );
 
   return (
     <Primitive.Div
-      className={CSS(CSS.B("arrow"), CSS.loc(orientation), className)}
+      className={CSS(
+        CSS.B("arrow"),
+        CSS.B("symbol-colored"),
+        linked && CSS.M("linked"),
+        CSS.loc(orientation),
+        className,
+      )}
       orientation={orientation}
+      style={style}
     >
       <div className="wrapper">
-        <div
-          className="outline"
-          style={
-            {
-              "--off-page-color": color.cssString(resolvedColor),
-              "--off-page-text-color": color.cssString(textColor),
-            } as CSSProperties
-          }
-        >
+        <div className="outline">
           <div className="bg">
             <Text.MaybeEditable
               value={label}
