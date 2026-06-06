@@ -1134,7 +1134,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data)
 			fd.ZodType = result.ZodType
 			if result.HasDefault {
-				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+				fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 			}
 		}
 	} else {
@@ -1158,13 +1158,13 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 				result := p.applyValidation(fallbackPart, validateDomain, elemDefault, field.Type, field.Name, table, data)
 				fd.ZodType = paramPart + " ?? " + result.ZodType
 				if result.HasDefault {
-					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+					fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 				}
 			} else {
 				result := p.applyValidation(fd.ZodType, validateDomain, elemDefault, field.Type, field.Name, table, data)
 				fd.ZodType = result.ZodType
 				if result.HasDefault {
-					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+					fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 				}
 			}
 		}
@@ -1702,6 +1702,19 @@ func primitiveToZod(primitive string, data *templateData) string {
 type validationResult struct {
 	ZodType    string
 	HasDefault bool
+	// IsPrefault is true when the default was emitted as .prefault() rather than
+	// .default(). Struct defaults use .prefault() so the literal is re-parsed,
+	// filling each field's own default when a caller supplies a partial value.
+	IsPrefault bool
+}
+
+// defaultSchemaWrapper wraps a zod schema type for a defaulted field, picking
+// ZodPrefault for struct defaults (.prefault) and ZodDefault otherwise.
+func defaultSchemaWrapper(r validationResult, inner string) string {
+	if r.IsPrefault {
+		return fmt.Sprintf("z.ZodPrefault<%s>", inner)
+	}
+	return fmt.Sprintf("z.ZodDefault<%s>", inner)
 }
 
 func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defaultVal *resolution.ExpressionValue, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData) validationResult {
@@ -1710,6 +1723,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
 	hasDefault := defaultVal != nil
+	isPrefault := false
 	effectiveType := typeRef.Name
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil && typeRef.TypeParam.Constraint != nil {
 		effectiveType = typeRef.TypeParam.Constraint.Name
@@ -1793,10 +1807,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		case resolution.ValueKindArray:
 			zodType = fmt.Sprintf("%s.default(%s)", zodType, p.tsDefaultLiteral(typeRef, *defaultVal, table, data))
 		case resolution.ValueKindStruct:
-			zodType = fmt.Sprintf("%s.default(%s)", zodType, p.tsDefaultLiteral(typeRef, *defaultVal, table, data))
+			// .prefault re-parses the literal, so a partial value a caller supplies
+			// is merged with each field's own default rather than rejected.
+			zodType = fmt.Sprintf("%s.prefault(%s)", zodType, p.tsDefaultLiteral(typeRef, *defaultVal, table, data))
+			isPrefault = true
 		}
 	}
-	return validationResult{ZodType: zodType, HasDefault: hasDefault}
+	return validationResult{ZodType: zodType, HasDefault: hasDefault, IsPrefault: isPrefault}
 }
 
 // tsStringLiteral renders a Go string as a double-quoted TypeScript string

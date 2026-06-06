@@ -215,7 +215,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`p: pointZ.default({ x: 1, y: 2, level: "high" }),`))
+		Expect(content).To(ContainSubstring(`p: pointZ.prefault({ x: 1, y: 2, level: "high" }),`))
 	})
 
 	It("Should emit nested struct and array values in a struct default", func(ctx SpecContext) {
@@ -236,10 +236,10 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`m: midZ.default({ inner: { tags: ["a", "b"] } }),`))
+		Expect(content).To(ContainSubstring(`m: midZ.prefault({ inner: { tags: ["a", "b"] } }),`))
 	})
 
-	It("Should emit .default() for a struct override in an extending input struct, not .partial()", func(ctx SpecContext) {
+	It("Should emit .prefault() for a struct override in an extending input struct, not .partial()", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -260,7 +260,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`titleZ.default({ level: 1, visible: false })`))
+		Expect(content).To(ContainSubstring(`titleZ.prefault({ level: 1, visible: false })`))
 		Expect(content).ToNot(ContainSubstring(`.partial({ title: true })`))
 	})
 
@@ -309,7 +309,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		content := MustContentOf(resp, "types.gen.ts")
-		Expect(content).To(ContainSubstring(`axesZ.default({ x1: { key: "x1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 }, y1: { key: "y1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 } })`))
+		Expect(content).To(ContainSubstring(`axesZ.prefault({ x1: { key: "x1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 }, y1: { key: "y1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 } })`))
 	})
 
 	It("Should emit min/max length for string fields", func(ctx SpecContext) {
