@@ -33,7 +33,7 @@ on:
   workflow_dispatch:
 
 env:
-  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_URL }}
+  BAZEL_REMOTE_CACHE: ${{ vars.BAZEL_REMOTE_CACHE_GRPC_URL }}
 
 jobs:
   test:
@@ -85,12 +85,12 @@ jobs:
         if: matrix.os == 'ubuntu-build-bot'
         run: |
           bazel test --config=asan-leak --test_output=all //x/cpp/... \
-            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true
         shell: bash
 
       - name: Test (Windows)
         if: matrix.os == 'windows-build-bot'
         run: |
           bazel --output_user_root=C:/tmp test --test_output=all //x/cpp/... \
-            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }}
+            --remote_cache=${{ env.BAZEL_REMOTE_CACHE }} --remote_cache_compression=true
         shell: bash

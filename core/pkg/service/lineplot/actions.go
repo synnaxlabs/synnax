@@ -44,7 +44,7 @@ func (p AddChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	if !p.AxisKey.IsValid() {
 		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[LinePlot] - add_channel: unknown y-axis %q",
+			"unknown y-axis %q",
 			p.AxisKey,
 		)
 	}
@@ -63,7 +63,7 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	if !p.AxisKey.IsValid() {
 		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[LinePlot] - remove_channel: unknown y-axis %q",
+			"unknown y-axis %q",
 			p.AxisKey,
 		)
 	}
@@ -82,7 +82,7 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	default:
 		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[LinePlot] - set_xchannel: unknown x-axis %q",
+			"unknown x-axis %q",
 			p.AxisKey,
 		)
 	}
@@ -97,7 +97,7 @@ func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	if !p.AxisKey.IsValid() {
 		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[LinePlot] - add_range: unknown x-axis %q",
+			"unknown x-axis %q",
 			p.AxisKey,
 		)
 	}
@@ -115,7 +115,7 @@ func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	if !p.AxisKey.IsValid() {
 		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[LinePlot] - remove_range: unknown x-axis %q",
+			"unknown x-axis %q",
 			p.AxisKey,
 		)
 	}
@@ -142,7 +142,7 @@ func (p SetAxisPayload) Handle(state LinePlot) (LinePlot, error) {
 	default:
 		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
-			"[LinePlot] - set_axis: unknown axis_key %q",
+			"unknown axis_key %q",
 			p.Axis.Key,
 		)
 	}

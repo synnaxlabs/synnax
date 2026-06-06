@@ -295,6 +295,35 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])).To(Equal([]float64{160.0, 180.0}))
 		})
+
+		It("Should re-fire a chained constant on every upstream trigger with monotonically increasing timestamps", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"log":  {types.U8(), 200},
+			})
+			h := newRuntimeHarness(ctx, `trig -> 1 -> log`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			const fires = 4
+			timestamps := make([]telem.TimeStamp, 0, fires)
+			for i := range fires {
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				h.Tick(ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+				h.channelState.ClearReads()
+				out, _ := h.Flush()
+				Expect(out.Get(200).Series).ToNot(BeEmpty(),
+					"log should be written on every upstream trigger (fire %d)", i)
+				timestamps = append(timestamps,
+					telem.ValueAt[telem.TimeStamp](h.OutputTime("const_0", 0), 0))
+			}
+			for i := 1; i < len(timestamps); i++ {
+				Expect(timestamps[i]).To(BeNumerically(">", timestamps[i-1]),
+					"constant timestamp at fire %d should be strictly greater than fire %d", i, i-1)
+			}
+		})
 	})
 
 	Describe("Routing to Sequences", func() {

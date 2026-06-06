@@ -33,6 +33,7 @@ class Streamer:
         self._set_failed = set_failed
         self._channels: set[str] = set()
         self._frame: dict[str, int | float | str] = {}
+        self._cond = threading.Condition()
         self._thread: threading.Thread = threading.Thread()
         self._should_stop = False
 
@@ -100,12 +101,38 @@ class Streamer:
         except Exception:
             return default
 
+    def wait_for(
+        self,
+        key: str,
+        predicate: Callable[[int | float | str], bool],
+        timeout: sy.CrudeTimeSpan,
+    ) -> bool:
+        """Block until key's latest value satisfies predicate, or timeout."""
+        deadline = sy.TimeSpan.from_seconds(timeout).seconds
+        timer = sy.Timer()
+        with self._cond:
+            while True:
+                if self._should_stop:
+                    return False
+                value = self._frame.get(key)
+                if value is not None and predicate(value):
+                    return True
+                remaining = deadline - timer.elapsed().seconds
+                if remaining <= 0:
+                    return False
+                self._cond.wait(remaining)
+
+    def is_subscribed(self, key: str) -> bool:
+        return key in self._channels
+
     def start(self) -> None:
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
     def stop(self) -> None:
         self._should_stop = True
+        with self._cond:
+            self._cond.notify_all()
 
     def join(self, timeout: float = 5) -> None:
         if self._thread.is_alive():
@@ -131,8 +158,10 @@ class Streamer:
                 try:
                     frame = streamer.read(self._read_timeout)
                     if frame is not None:
-                        for key, value in frame.items():
-                            self._frame[key] = value[-1]
+                        with self._cond:
+                            for key, value in frame.items():
+                                self._frame[key] = value[-1]
+                            self._cond.notify_all()
                 except Exception as e:
                     if is_websocket_error(e):
                         sy.sleep(self.WEBSOCKET_RETRY_DELAY)
