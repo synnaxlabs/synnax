@@ -337,8 +337,8 @@ describe("Streamer", () => {
         logger: new alamos.Logger(),
       });
       const errorSpy = vi.spyOn(ins.L, "error").mockImplementation(() => {});
-      // updateStreamer is fired-and-forgotten via void; absorb the resulting
-      // unhandled rejection so it doesn't fail the test.
+      // updateStreamer is fired-and-forgotten via the debounce, so a rethrow would
+      // surface as an unhandled rejection. The error must be logged and swallowed.
       const rejections: unknown[] = [];
       const onRejection = (reason: unknown) => rejections.push(reason);
       process.on("unhandledRejection", onRejection);
@@ -359,7 +359,76 @@ describe("Streamer", () => {
       expect(errorSpy).toHaveBeenCalledWith("failed to update streamer", {
         error: updateErr,
       });
-      expect(rejections.length).toBeGreaterThan(0);
+      expect(rejections).toHaveLength(0);
+    });
+  });
+
+  describe("liveness", () => {
+    it("should not block new subscriptions while a streamer teardown is stuck draining", async () => {
+      let reads = 0;
+      const stuck = new MockStreamer([1], async () => {
+        reads++;
+        if (reads === 1) {
+          await sleep.sleep(TimeSpan.milliseconds(5));
+          return {
+            done: false,
+            value: new Frame({ 1: new Series(new Float32Array([1])) }),
+          };
+        }
+        // Simulate a streamer whose read never returns (e.g. a HardenedStreamer stuck
+        // reconnecting): the run loop can never drain, so the teardown await hangs.
+        return await new Promise<IteratorResult<framer.Frame>>(() => {});
+      });
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: createStreamOpener([stuck, new MockStreamer([2])]),
+        streamUpdateDelay: TimeSpan.milliseconds(50),
+      });
+
+      const disconnect1 = await streamer.stream(() => {}, [1]);
+      // Open the streamer and let the run loop read once, then block on the second read.
+      await vi.advanceTimersByTimeAsync(200);
+
+      // Last listener leaves: the no-keys teardown closes the streamer and awaits the
+      // stuck run loop, holding the connection lock indefinitely.
+      disconnect1();
+      await vi.advanceTimersByTimeAsync(200);
+
+      // A fresh subscription must still resolve even though the connection lock is held
+      // by the stuck teardown. Under a single shared lock this await would hang forever.
+      const disconnect2 = await streamer.stream(() => {}, [2]);
+      expect(disconnect2).toBeTypeOf("function");
+
+      disconnect2();
+    });
+
+    it("should not block a new subscription while a streamer is mid-open", async () => {
+      let opens = 0;
+      const slowOpener: framer.StreamOpener = async () => {
+        opens++;
+        await sleep.sleep(TimeSpan.milliseconds(300));
+        return new MockStreamer([1], async () => {
+          await sleep.sleep(TimeSpan.milliseconds(10));
+          return { done: true, value: undefined };
+        });
+      };
+      const streamer = new Streamer({
+        cache: new Cache({ channelRetriever: new MockRetriever() }),
+        openStreamer: slowOpener,
+      });
+
+      await streamer.stream(() => {}, [1]);
+      // Advance into the open's suspension window so updateStreamer holds the connection
+      // lock across the network round-trip.
+      await vi.advanceTimersByTimeAsync(150);
+      expect(opens).toBe(1);
+
+      // The open is still suspended (its 300ms sleep hasn't elapsed). A concurrent
+      // subscription must not wait on it. Under a single shared lock this would hang.
+      const disconnect = await streamer.stream(() => {}, [2]);
+      expect(disconnect).toBeTypeOf("function");
+
+      disconnect();
     });
   });
 

@@ -50,9 +50,15 @@ export class Streamer {
     streamUpdateDelay: TimeSpan;
   };
 
+  // mu guards the listeners map and is held only for fast, synchronous work so that
+  // subscribing never blocks on network I/O.
   private readonly mu: Mutex = new Mutex();
+  // connMu serializes streamer open/update/close against each other so two concurrent
+  // updateStreamer calls can't open duplicate streamers. It is held across network I/O
+  // but is never acquired on the stream() path.
+  private readonly connMu: Mutex = new Mutex();
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
-  private readonly debouncedUpdateStreamer: () => void;
+  private readonly debouncedUpdateStreamer: ReturnType<typeof debounce>;
   private streamerRunLoop: Promise<void> | null = null;
   private streamer: framer.Streamer | null = null;
   private closed = false;
@@ -121,26 +127,34 @@ export class Streamer {
 
   private async updateStreamer(): Promise<void> {
     const { instrumentation: ins } = this.props;
-    await this.mu.runExclusive(async () => {
+    await this.connMu.runExclusive(async () => {
       if (this.closed) return;
-      try {
-        // Assemble the set of keys we need to stream.
-        const keys = new Set<channel.Key>();
-        this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
 
+      // forEach is synchronous, so it cannot interleave with stream() /
+      // removeStreamHandler mutating the map. Snapshotting here without holding mu is
+      // safe, and any keys added after this point schedule their own updateStreamer.
+      const keys = new Set<channel.Key>();
+      this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
+
+      try {
         // If we have no keys to stream, close the streamer to save network chatter.
+        // Clear state before closing so a throwing close() can't leave a dangling,
+        // forever-reconnecting streamer behind.
         if (keys.size === 0) {
-          ins.L.info("no keys to stream, closing streamer");
-          this.streamer?.close();
-          if (this.streamerRunLoop != null) await this.streamerRunLoop;
+          const prev = this.streamer;
+          const prevLoop = this.streamerRunLoop;
           this.streamer = null;
-          ins.L.info("streamer closed successfully");
+          this.streamerRunLoop = null;
+          prev?.close();
+          if (prevLoop != null) await prevLoop;
+          ins.L.info("streamer closed, no keys to stream");
           return;
         }
 
         const arrKeys = Array.from(keys);
         const valuesEqual =
-          compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL;
+          compare.unorderedPrimitiveArrays(arrKeys, this.streamer?.keys ?? []) ===
+          compare.EQUAL;
         if (valuesEqual) {
           ins.L.debug("streamer keys unchanged", { keys: arrKeys });
           return;
@@ -160,8 +174,10 @@ export class Streamer {
 
         await this.streamer.update(arrKeys);
       } catch (e) {
+        // updateStreamer is invoked fire-and-forget via the debounce, so there is no
+        // caller to receive a thrown error. Log and swallow to avoid an unhandled
+        // rejection.
         ins.L.error("failed to update streamer", { error: e });
-        throw errors.fromUnknown(e);
       }
     });
   }
@@ -188,14 +204,19 @@ export class Streamer {
 
   async close(): Promise<void> {
     const { instrumentation: ins } = this.props;
-    await this.mu.runExclusive(async () => {
+    this.debouncedUpdateStreamer.cancel();
+    await this.connMu.runExclusive(async () => {
+      this.closed = true;
+      const prev = this.streamer;
+      const prevLoop = this.streamerRunLoop;
+      this.streamer = null;
+      this.streamerRunLoop = null;
       try {
-        this.streamer?.close();
-        if (this.streamerRunLoop != null) await this.streamerRunLoop;
+        prev?.close();
+        if (prevLoop != null) await prevLoop;
       } catch (e) {
         ins.L.error("failed to close streamer", { error: e });
       }
-      this.closed = true;
     });
   }
 }
