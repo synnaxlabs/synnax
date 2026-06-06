@@ -9,15 +9,20 @@
 
 import "@/schematic/node/general/value/value.css";
 
-import { color, type dimensions, type text } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type dimensions, type text } from "@synnaxlabs/x";
+import {
+  type CSSProperties,
+  type PropsWithChildren,
+  type ReactElement,
+  useMemo,
+} from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/value/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
-import { Theming } from "@/theming";
 
 interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
   className?: string;
@@ -35,21 +40,17 @@ export const Value = ({
   children,
   inlineSize = 80,
 }: RenderProps): ReactElement => {
-  const borderColor = color.cssString(colorVal);
-  const theme = Theming.use();
-  const textColor: string | undefined =
-    colorVal == null
-      ? "var(--pluto-gray-l0)"
-      : color.cssString(
-          color.pickByContrast(colorVal, theme.colors.gray.l0, theme.colors.gray.l11),
-        );
+  const style = useMemo<CSSProperties>(
+    () => ({
+      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      height: dimensions?.height,
+    }),
+    [colorVal, dimensions?.height],
+  );
   return (
     <Primitive.Div
-      className={CSS(CSS.B("value"), className)}
-      style={{
-        borderColor,
-        height: dimensions?.height,
-      }}
+      className={CSS(CSS.B("value"), CSS.B("symbol-colored"), className)}
+      style={style}
     >
       <div
         className={CSS.BE("value", "content")}
@@ -69,13 +70,8 @@ export const Value = ({
         right={100}
         bottom={102}
       />
-      <div
-        className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}
-        style={{ background: borderColor }}
-      >
-        <Text.Text level={unitsLevel} color={textColor}>
-          {units}
-        </Text.Text>
+      <div className={CSS(CSS.BE("value", "units"), CSS.M(unitsLevel))}>
+        <Text.Text level={unitsLevel}>{units}</Text.Text>
       </div>
     </Primitive.Div>
   );

@@ -160,15 +160,16 @@ export class Static {
     const {
       instrumentation: { L },
     } = this.props;
-    const allBounds = this.data.map((s) => s.data.alignmentBounds);
-    const invalid = allBounds.some((b, i) =>
-      allBounds.some((b2, j) => {
-        if (i === j) return false;
-        const ok = bounds.overlapsWith(b, b2);
-        return ok;
-      }),
-    );
-    if (invalid) {
+    // writeOne keeps this.data ordered and non-overlapping via
+    // bounds.buildInsertionPlan, so we just compare neighbors.
+    for (let i = 1; i < this.data.length; i++) {
+      if (
+        !bounds.overlapsWith(
+          this.data[i - 1].data.alignmentBounds,
+          this.data[i].data.alignmentBounds,
+        )
+      )
+        continue;
       L.debug("Cache is in an invalid state - bounds overlap!", () => ({
         write: write.series.map((s) => s.digest),
         cacheContents: this.data.map((s) => s.data.digest),
