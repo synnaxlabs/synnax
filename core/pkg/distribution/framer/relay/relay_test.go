@@ -324,7 +324,7 @@ var _ = Describe("Relay", func() {
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:        keys,
-				SendOpenAck: lo.ToPtr(true),
+				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
@@ -353,7 +353,7 @@ var _ = Describe("Relay", func() {
 
 		It("Should deliver the open ack when the streamer is opened with no keys", func(ctx SpecContext) {
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
-				SendOpenAck: lo.ToPtr(true),
+				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
@@ -379,7 +379,7 @@ var _ = Describe("Relay", func() {
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:        keys,
-				SendOpenAck: lo.ToPtr(true),
+				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()
@@ -400,7 +400,7 @@ var _ = Describe("Relay", func() {
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:        keys,
-				SendOpenAck: lo.ToPtr(true),
+				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
 			req, res := confluence.Attach(reader, 10)
@@ -424,7 +424,7 @@ var _ = Describe("Relay", func() {
 			for i := range streamerCount {
 				readers[i] = MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 					Keys:        keys,
-					SendOpenAck: lo.ToPtr(true),
+					SendOpenAck: new(true),
 				}))
 				inlets[i], outlets[i] = confluence.Attach(readers[i], 10)
 				readers[i].Flow(sCtx, confluence.CloseOutputInletsOnExit())
@@ -463,7 +463,7 @@ var _ = Describe("Relay", func() {
 			keys := channel.KeysFromChannels(chs)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
-				SendOpenAck: lo.ToPtr(true),
+				SendOpenAck: new(true),
 			}))
 			sCtx, cancel := signal.Isolated()
 			defer cancel()

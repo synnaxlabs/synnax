@@ -217,7 +217,7 @@ var _ = Describe("Codec", func() {
 			m := map[string]any{"key": "value"}
 			b := MustSucceed(vmsgpack.Marshal(m))
 			dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-			dec.SetMapDecoder(func(dec *vmsgpack.Decoder) (interface{}, error) {
+			dec.SetMapDecoder(func(dec *vmsgpack.Decoder) (any, error) {
 				return dec.DecodeUntypedMap()
 			})
 			var result msgpack.EncodedJSON
@@ -277,7 +277,7 @@ var _ = Describe("Codec", func() {
 			m := map[int]string{1: "a"}
 			b := MustSucceed(vmsgpack.Marshal(m))
 			dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-			dec.SetMapDecoder(func(dec *vmsgpack.Decoder) (interface{}, error) {
+			dec.SetMapDecoder(func(dec *vmsgpack.Decoder) (any, error) {
 				return dec.DecodeUntypedMap()
 			})
 			var result msgpack.EncodedJSON

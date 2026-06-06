@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -170,12 +171,7 @@ func hasNonPrimitiveDependency(typ resolution.Type, table *resolution.Table) boo
 		}
 		// For Array and Map, check if their type arguments have dependencies
 		if ref.Name == "Array" || ref.Name == "Map" {
-			for _, arg := range ref.TypeArgs {
-				if checkRef(arg) {
-					return true
-				}
-			}
-			return false
+			return slices.ContainsFunc(ref.TypeArgs, checkRef)
 		}
 		// Any other named type is a schema dependency
 		return true
@@ -1041,12 +1037,7 @@ func isForwardReference(t resolution.TypeRef, data *templateData, table *resolut
 			return false
 		}
 		if resolution.IsPrimitive(ref.Name) || ref.Name == "Array" || ref.Name == "Map" {
-			for _, arg := range ref.TypeArgs {
-				if checkRef(arg) {
-					return true
-				}
-			}
-			return false
+			return slices.ContainsFunc(ref.TypeArgs, checkRef)
 		}
 		resolved, ok := table.Get(ref.Name)
 		if !ok {
@@ -1061,12 +1052,7 @@ func isForwardReference(t resolution.TypeRef, data *templateData, table *resolut
 				return true
 			}
 		}
-		for _, arg := range ref.TypeArgs {
-			if checkRef(arg) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(ref.TypeArgs, checkRef)
 	}
 
 	return checkRef(t)

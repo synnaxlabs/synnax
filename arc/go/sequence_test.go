@@ -56,7 +56,7 @@ var _ = Describe("Sequence", func() {
 	// long enough for the on-channel-read → entry → step cascade to settle.
 	trigger := func(h *runtimeHarness, ctx SpecContext, key uint32) {
 		h.Ingest(key, telem.NewSeriesV[uint8](1))
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 		}
