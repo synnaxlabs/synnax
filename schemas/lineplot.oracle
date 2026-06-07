@@ -415,7 +415,7 @@ New struct extends LinePlot {
     channels = {}
     ranges   = {}
     axes     = {}
-
+ 
     @doc value    "contains parameters for creating a new line plot."
     @ts use_input
     @go omit
