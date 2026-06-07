@@ -15,7 +15,6 @@ import {
   type direction,
   type location,
   type optional,
-  primitive,
   type TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
@@ -30,10 +29,11 @@ import {
   useState,
 } from "react";
 
+import { Channel } from "@/channel";
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { useAsyncEffect, useDebouncedCallback, usePrevious } from "@/hooks";
+import { useDebouncedCallback, usePrevious } from "@/hooks";
 import {
   type AxisProps as CoreAxisProps,
   XAxis as CoreXAxis,
@@ -63,7 +63,6 @@ import { Rule } from "@/lineplot/rule";
 import { Title } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as CoreViewport } from "@/lineplot/Viewport";
-import { Synnax } from "@/synnax";
 import { telem } from "@/telem/aether";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
@@ -240,7 +239,23 @@ const YAxis = ({
   );
 };
 
+// resolveTickType picks the x-axis tick style from the plotted channel: a
+// timestamp channel (or no channel yet) renders time ticks, anything else
+// renders linear ticks. A non-null stored type is an explicit user override.
+const resolveTickType = (
+  override: lineplot.TickType | undefined,
+  channelKey: channel.Key,
+  info: channel.Channel | undefined,
+): lineplot.TickType =>
+  override ??
+  (channelKey === 0 || info == null
+    ? "time"
+    : info.dataType.equals(DataType.TIMESTAMP)
+      ? "time"
+      : "linear");
+
 interface XAxisProps extends AxisChildrenProps {
+  pKey: lineplot.Key;
   axis: AxisRenderProps<lineplot.XAxisKey>;
   index: number;
   yAxes: AxisRenderProps<lineplot.YAxisKey>[];
@@ -251,6 +266,7 @@ interface XAxisProps extends AxisChildrenProps {
 }
 
 const XAxis = ({
+  pKey,
   axis: { location, key: axisKey, showGrid, ...axis },
   index,
   yAxes,
@@ -265,10 +281,14 @@ const XAxis = ({
 }: XAxisProps): ReactElement => {
   const dropProps = useAxisDrop(axisKey, "x", onXChannelDrop);
   const dragging = Haul.useDraggingState();
+  const channelKey = useSelectChannels({ key: pKey })[axisKey];
+  const { data: channelInfo } = Channel.useRetrieve({ key: channelKey });
+  const type = resolveTickType(axis.type, channelKey, channelInfo);
   return (
     <CoreXAxis
       {...axis}
       {...dropProps}
+      type={type}
       location={location}
       axisKey={axisKey}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
@@ -360,7 +380,6 @@ export const LinePlot = ({
   ...rest
 }: LinePlotProps): ReactElement => {
   useEnsureRetrieved({ key });
-  const client = Synnax.use();
   const { dispatch } = useDispatch();
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
@@ -386,19 +405,6 @@ export const LinePlot = ({
   const rules = useSelectRules({ key });
   const axes = useSelectAxes({ key });
   const storedLines = useSelectLines({ key });
-
-  useAsyncEffect(async () => {
-    if (!editable || client == null) return;
-    const ax = axes.x1;
-    const ch = channels.x1;
-    let newType: lineplot.TickType = "time";
-    if (primitive.isNonZero(ch)) {
-      const retrieved = await client.channels.retrieve(ch);
-      if (!retrieved.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
-    }
-    if (ax.type === newType) return;
-    dispatch({ key, actions: [lineplot.setAxis({ key: "x1", type: newType })] });
-  }, [channels.x1, axes.x1.type, client, editable]);
 
   const handleLineChange = useCallback(
     (d: optional.Optional<LineSpec, "legendGroup">) => {
@@ -541,6 +547,7 @@ export const LinePlot = ({
       {xAxes.map((axis, i) => (
         <XAxis
           key={axis.key}
+          pKey={key}
           axis={axis}
           index={i}
           yAxes={yAxes}
