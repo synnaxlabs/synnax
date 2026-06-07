@@ -225,21 +225,32 @@ var _ = Describe("Writer", func() {
 				Expect(res.Title.Visible).To(BeTrue())
 			})
 
-			It("Should apply SetLegend", func(ctx SpecContext) {
+			It("Should apply SetLegendPosition", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-					lineplot.NewSetLegendAction(lineplot.SetLegendPayload{
-						Legend: lineplot.Legend{
-							Visible:  true,
-							Position: spatial.StickyXY{X: 10, Y: 20},
-						},
+					lineplot.NewSetLegendPositionAction(lineplot.SetLegendPositionPayload{
+						Position: spatial.StickyXY{X: 10, Y: 20},
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
 				Expect(res.Legend.Position.X).To(Equal(10.0))
+			})
+
+			It("Should apply SetLegendVisible", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetLegendVisibleAction(lineplot.SetLegendVisiblePayload{
+						Visible: false,
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Legend.Visible).To(BeFalse())
 			})
 
 			It("Should append a channel to a y-axis via AddChannel", func(ctx SpecContext) {
@@ -362,15 +373,16 @@ var _ = Describe("Writer", func() {
 				})).Error().To(MatchError(validate.ErrValidation))
 			})
 
-			It("Should merge the given fields into an axis via SetAxis", func(ctx SpecContext) {
+			It("Should set axis fields via the fine-grained actions", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				priorDirection := plot.Axes.Y1.LabelDirection
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-					lineplot.NewSetAxisAction(lineplot.SetAxisPayload{
-						Key:         lineplot.AxisKeyY1,
-						Label:       new("pressure"),
-						TickSpacing: new(50.0),
+					lineplot.NewSetAxisLabelAction(lineplot.SetAxisLabelPayload{
+						Key: lineplot.AxisKeyY1, Label: "pressure",
+					}),
+					lineplot.NewSetAxisTickSpacingAction(lineplot.SetAxisTickSpacingPayload{
+						Key: lineplot.AxisKeyY1, TickSpacing: 50.0,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
@@ -381,13 +393,25 @@ var _ = Describe("Writer", func() {
 				Expect(res.Axes.Y1.LabelDirection).To(Equal(priorDirection))
 			})
 
-			It("Should insert, merge, and clear line fields via SetLine", func(ctx SpecContext) {
+			It("Should reject a fine-grained axis action with an unknown key", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-					lineplot.NewSetLineAction(lineplot.SetLinePayload{
-						Key:   "l1",
-						Color: new(color.MustFromHex("#ff0000")),
+					lineplot.NewSetAxisLabelAction(lineplot.SetAxisLabelPayload{
+						Key: lineplot.AxisKey("nope"), Label: "x",
+					}),
+				})).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should set and clear line fields via the fine-grained actions", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d0", []lineplot.Action{
+					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
+						AxisKey: lineplot.YAxisKeyY1, Channel: 1,
+					}),
+					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
+						AxisKey: lineplot.XAxisKeyX1, Range: "r1",
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
@@ -395,21 +419,58 @@ var _ = Describe("Writer", func() {
 					To(Succeed())
 				Expect(res.Lines).To(HaveLen(1))
 				Expect(res.Lines[0].StrokeWidth).To(Equal(2.0))
+				key := res.Lines[0].Key
 
-				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d2", []lineplot.Action{
-					lineplot.NewSetLineAction(lineplot.SetLinePayload{Key: "l1", StrokeWidth: new(5.0)}),
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetLineStrokeWidthAction(lineplot.SetLineStrokeWidthPayload{
+						Key: key, StrokeWidth: 5.0,
+					}),
+					lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
+						Key: key, Color: new(color.MustFromHex("#ff0000")),
+					}),
 				})).To(Succeed())
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
 				Expect(res.Lines[0].StrokeWidth).To(Equal(5.0))
 				Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#ff0000"))))
 
-				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d3", []lineplot.Action{
-					lineplot.NewSetLineAction(lineplot.SetLinePayload{Key: "l1", ClearColor: true}),
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d2", []lineplot.Action{
+					lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{Key: key}),
 				})).To(Succeed())
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
 				Expect(res.Lines[0].Color).To(BeNil())
+			})
+
+			It("Should replace a line's full configuration via SetLine", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d0", []lineplot.Action{
+					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
+						AxisKey: lineplot.YAxisKeyY1, Channel: 1,
+					}),
+					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
+						AxisKey: lineplot.XAxisKeyX1, Range: "r1",
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				key := res.Lines[0].Key
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetLineAction(lineplot.SetLinePayload{Line: lineplot.Line{
+						Key:            key,
+						StrokeWidth:    4,
+						Downsample:     2,
+						DownsampleMode: lineplot.DownsampleModeAverage,
+						Color:          new(color.MustFromHex("#0000ff")),
+					}}),
+				})).To(Succeed())
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Lines).To(HaveLen(1))
+				Expect(res.Lines[0].StrokeWidth).To(Equal(4.0))
+				Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#0000ff"))))
 			})
 
 			It("Should insert, update, and remove rules", func(ctx SpecContext) {

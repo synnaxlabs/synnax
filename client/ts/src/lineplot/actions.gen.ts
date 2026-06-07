@@ -19,8 +19,8 @@ import {
   axisKeyZ,
   downsampleModeZ,
   keyZ,
-  legendZ,
   type LinePlot,
+  lineZ,
   ruleZ,
   tickTypeZ,
   titleZ,
@@ -42,12 +42,19 @@ export const setTitlePayloadZ = z.object({
 
 export type SetTitlePayload = z.infer<typeof setTitlePayloadZ>;
 
-/** SetLegend replaces the plot legend configuration. */
-export const setLegendPayloadZ = z.object({
-  legend: legendZ,
+/** SetLegendVisible sets whether the plot legend is shown. */
+export const setLegendVisiblePayloadZ = z.object({
+  visible: z.boolean(),
 });
 
-export type SetLegendPayload = z.infer<typeof setLegendPayloadZ>;
+export type SetLegendVisiblePayload = z.infer<typeof setLegendVisiblePayloadZ>;
+
+/** SetLegendPosition sets the anchor position of the plot legend within the container. */
+export const setLegendPositionPayloadZ = z.object({
+  position: spatial.stickyXYZ,
+});
+
+export type SetLegendPositionPayload = z.infer<typeof setLegendPositionPayloadZ>;
 
 /**
  * AddChannel appends the channel to the channels array bound to the y-axis
@@ -104,41 +111,120 @@ export const removeRangePayloadZ = z.object({
 
 export type RemoveRangePayload = z.infer<typeof removeRangePayloadZ>;
 
-/**
- * SetAxis merges the given fields into the axis identified by key. Fields left
- * unset leave the existing value unchanged. Set clear_type to reset the
- * tick type to its null default.
- */
-export const setAxisPayloadZ = z.object({
+/** SetAxisLabel sets the label rendered along the axis identified by key. */
+export const setAxisLabelPayloadZ = z.object({
   key: axisKeyZ,
-  label: z.string().optional(),
-  labelDirection: spatial.directionZ.optional(),
-  labelLevel: text.levelZ.optional(),
-  bounds: spatial.boundsZ().optional(),
-  autoBounds: autoBoundsZ.optional(),
-  tickSpacing: z.number().optional(),
-  type: tickTypeZ.optional(),
-  clearType: z.boolean().optional(),
+  label: z.string(),
 });
 
-export type SetAxisPayload = z.infer<typeof setAxisPayloadZ>;
+export type SetAxisLabelPayload = z.infer<typeof setAxisLabelPayloadZ>;
+
+/** SetAxisLabelDirection sets the orientation in which the axis label is laid out. */
+export const setAxisLabelDirectionPayloadZ = z.object({
+  key: axisKeyZ,
+  labelDirection: spatial.directionZ,
+});
+
+export type SetAxisLabelDirectionPayload = z.infer<
+  typeof setAxisLabelDirectionPayloadZ
+>;
+
+/** SetAxisLabelLevel sets the typography level of the axis label. */
+export const setAxisLabelLevelPayloadZ = z.object({
+  key: axisKeyZ,
+  labelLevel: text.levelZ,
+});
+
+export type SetAxisLabelLevelPayload = z.infer<typeof setAxisLabelLevelPayloadZ>;
 
 /**
- * SetLine merges the given fields into the line identified by key, inserting
- * it (with schema defaults for any unset field) when no line with the
- * key exists yet. Fields left unset leave the existing value unchanged.
- * Set clear_label or clear_color to reset that field to its null
- * default (so it resolves from the channel name or palette at render).
+ * SetAxisBounds sets the axis value-space window together with its per-edge auto
+ * derivation flags. The two travel together: fixing a bound disables
+ * auto derivation for that edge, so callers set both at once.
  */
-export const setLinePayloadZ = z.object({
+export const setAxisBoundsPayloadZ = z.object({
+  key: axisKeyZ,
+  bounds: spatial.boundsZ(),
+  autoBounds: autoBoundsZ,
+});
+
+export type SetAxisBoundsPayload = z.infer<typeof setAxisBoundsPayloadZ>;
+
+/** SetAxisTickSpacing sets the target pixel distance between adjacent tick marks. */
+export const setAxisTickSpacingPayloadZ = z.object({
+  key: axisKeyZ,
+  tickSpacing: z.number(),
+});
+
+export type SetAxisTickSpacingPayload = z.infer<typeof setAxisTickSpacingPayloadZ>;
+
+/**
+ * SetAxisType sets the axis tick label style. Null resets it to the default,
+ * which the Console derives (linear, or time for a timestamp-bound
+ * x-axis) at render time.
+ */
+export const setAxisTypePayloadZ = z.object({
+  key: axisKeyZ,
+  type: tickTypeZ.optional(),
+});
+
+export type SetAxisTypePayload = z.infer<typeof setAxisTypePayloadZ>;
+
+/**
+ * SetLineLabel sets the label of the line identified by key. Null resets it to
+ * derive from the channel name at render time.
+ */
+export const setLineLabelPayloadZ = z.object({
   key: z.string(),
   label: z.string().optional(),
+});
+
+export type SetLineLabelPayload = z.infer<typeof setLineLabelPayloadZ>;
+
+/**
+ * SetLineColor sets the color of the line identified by key. Null resets it to a
+ * palette color assigned at render time.
+ */
+export const setLineColorPayloadZ = z.object({
+  key: z.string(),
   color: color.colorZ.optional(),
-  strokeWidth: z.number().optional(),
-  downsample: z.uint32().optional(),
-  downsampleMode: downsampleModeZ.optional(),
-  clearLabel: z.boolean().optional(),
-  clearColor: z.boolean().optional(),
+});
+
+export type SetLineColorPayload = z.infer<typeof setLineColorPayloadZ>;
+
+/** SetLineStrokeWidth sets the stroke width, in pixels, of the line identified by key. */
+export const setLineStrokeWidthPayloadZ = z.object({
+  key: z.string(),
+  strokeWidth: z.number(),
+});
+
+export type SetLineStrokeWidthPayload = z.infer<typeof setLineStrokeWidthPayloadZ>;
+
+/** SetLineDownsample sets the downsample factor of the line identified by key. */
+export const setLineDownsamplePayloadZ = z.object({
+  key: z.string(),
+  downsample: z.uint32(),
+});
+
+export type SetLineDownsamplePayload = z.infer<typeof setLineDownsamplePayloadZ>;
+
+/** SetLineDownsampleMode sets how the downsample factor is applied for the line identified by key. */
+export const setLineDownsampleModePayloadZ = z.object({
+  key: z.string(),
+  downsampleMode: downsampleModeZ,
+});
+
+export type SetLineDownsampleModePayload = z.infer<
+  typeof setLineDownsampleModePayloadZ
+>;
+
+/**
+ * SetLine replaces the line with line.key in place, inserting it when no such
+ * line exists. The fine-grained setLine* actions cover per-field edits;
+ * this full-object form restores a line dropped by reconciliation.
+ */
+export const setLinePayloadZ = z.object({
+  line: lineZ,
 });
 
 export type SetLinePayload = z.infer<typeof setLinePayloadZ>;
@@ -163,13 +249,51 @@ export type RemoveRulePayload = z.infer<typeof removeRulePayloadZ>;
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_title"), setTitle: setTitlePayloadZ }),
-  z.object({ type: z.literal("set_legend"), setLegend: setLegendPayloadZ }),
+  z.object({
+    type: z.literal("set_legend_visible"),
+    setLegendVisible: setLegendVisiblePayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_legend_position"),
+    setLegendPosition: setLegendPositionPayloadZ,
+  }),
   z.object({ type: z.literal("add_channel"), addChannel: addChannelPayloadZ }),
   z.object({ type: z.literal("remove_channel"), removeChannel: removeChannelPayloadZ }),
   z.object({ type: z.literal("set_x_channel"), setXChannel: setXChannelPayloadZ }),
   z.object({ type: z.literal("add_range"), addRange: addRangePayloadZ }),
   z.object({ type: z.literal("remove_range"), removeRange: removeRangePayloadZ }),
-  z.object({ type: z.literal("set_axis"), setAxis: setAxisPayloadZ }),
+  z.object({ type: z.literal("set_axis_label"), setAxisLabel: setAxisLabelPayloadZ }),
+  z.object({
+    type: z.literal("set_axis_label_direction"),
+    setAxisLabelDirection: setAxisLabelDirectionPayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_axis_label_level"),
+    setAxisLabelLevel: setAxisLabelLevelPayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_axis_bounds"),
+    setAxisBounds: setAxisBoundsPayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_axis_tick_spacing"),
+    setAxisTickSpacing: setAxisTickSpacingPayloadZ,
+  }),
+  z.object({ type: z.literal("set_axis_type"), setAxisType: setAxisTypePayloadZ }),
+  z.object({ type: z.literal("set_line_label"), setLineLabel: setLineLabelPayloadZ }),
+  z.object({ type: z.literal("set_line_color"), setLineColor: setLineColorPayloadZ }),
+  z.object({
+    type: z.literal("set_line_stroke_width"),
+    setLineStrokeWidth: setLineStrokeWidthPayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_line_downsample"),
+    setLineDownsample: setLineDownsamplePayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_line_downsample_mode"),
+    setLineDownsampleMode: setLineDownsampleModePayloadZ,
+  }),
   z.object({ type: z.literal("set_line"), setLine: setLinePayloadZ }),
   z.object({ type: z.literal("set_rule"), setRule: setRulePayloadZ }),
   z.object({ type: z.literal("remove_rule"), removeRule: removeRulePayloadZ }),
@@ -187,9 +311,14 @@ export const setTitle = (payload: SetTitlePayload): Action => ({
   setTitle: payload,
 });
 
-export const setLegend = (payload: SetLegendPayload): Action => ({
-  type: "set_legend",
-  setLegend: payload,
+export const setLegendVisible = (payload: SetLegendVisiblePayload): Action => ({
+  type: "set_legend_visible",
+  setLegendVisible: payload,
+});
+
+export const setLegendPosition = (payload: SetLegendPositionPayload): Action => ({
+  type: "set_legend_position",
+  setLegendPosition: payload,
 });
 
 export const addChannel = (payload: AddChannelPayload): Action => ({
@@ -217,9 +346,63 @@ export const removeRange = (payload: RemoveRangePayload): Action => ({
   removeRange: payload,
 });
 
-export const setAxis = (payload: SetAxisPayload): Action => ({
-  type: "set_axis",
-  setAxis: payload,
+export const setAxisLabel = (payload: SetAxisLabelPayload): Action => ({
+  type: "set_axis_label",
+  setAxisLabel: payload,
+});
+
+export const setAxisLabelDirection = (
+  payload: SetAxisLabelDirectionPayload,
+): Action => ({
+  type: "set_axis_label_direction",
+  setAxisLabelDirection: payload,
+});
+
+export const setAxisLabelLevel = (payload: SetAxisLabelLevelPayload): Action => ({
+  type: "set_axis_label_level",
+  setAxisLabelLevel: payload,
+});
+
+export const setAxisBounds = (payload: SetAxisBoundsPayload): Action => ({
+  type: "set_axis_bounds",
+  setAxisBounds: payload,
+});
+
+export const setAxisTickSpacing = (payload: SetAxisTickSpacingPayload): Action => ({
+  type: "set_axis_tick_spacing",
+  setAxisTickSpacing: payload,
+});
+
+export const setAxisType = (payload: SetAxisTypePayload): Action => ({
+  type: "set_axis_type",
+  setAxisType: payload,
+});
+
+export const setLineLabel = (payload: SetLineLabelPayload): Action => ({
+  type: "set_line_label",
+  setLineLabel: payload,
+});
+
+export const setLineColor = (payload: SetLineColorPayload): Action => ({
+  type: "set_line_color",
+  setLineColor: payload,
+});
+
+export const setLineStrokeWidth = (payload: SetLineStrokeWidthPayload): Action => ({
+  type: "set_line_stroke_width",
+  setLineStrokeWidth: payload,
+});
+
+export const setLineDownsample = (payload: SetLineDownsamplePayload): Action => ({
+  type: "set_line_downsample",
+  setLineDownsample: payload,
+});
+
+export const setLineDownsampleMode = (
+  payload: SetLineDownsampleModePayload,
+): Action => ({
+  type: "set_line_downsample_mode",
+  setLineDownsampleMode: payload,
 });
 
 export const setLine = (payload: SetLinePayload): Action => ({
@@ -244,7 +427,14 @@ export type ReduceAllResult = actions.ReduceAllResult<LinePlot, Action>;
 export interface Handlers {
   rename: (state: Draft<LinePlot>, payload: RenamePayload) => HandlerResult;
   setTitle: (state: Draft<LinePlot>, payload: SetTitlePayload) => HandlerResult;
-  setLegend: (state: Draft<LinePlot>, payload: SetLegendPayload) => HandlerResult;
+  setLegendVisible: (
+    state: Draft<LinePlot>,
+    payload: SetLegendVisiblePayload,
+  ) => HandlerResult;
+  setLegendPosition: (
+    state: Draft<LinePlot>,
+    payload: SetLegendPositionPayload,
+  ) => HandlerResult;
   addChannel: (state: Draft<LinePlot>, payload: AddChannelPayload) => HandlerResult;
   removeChannel: (
     state: Draft<LinePlot>,
@@ -253,7 +443,38 @@ export interface Handlers {
   setXChannel: (state: Draft<LinePlot>, payload: SetXChannelPayload) => HandlerResult;
   addRange: (state: Draft<LinePlot>, payload: AddRangePayload) => HandlerResult;
   removeRange: (state: Draft<LinePlot>, payload: RemoveRangePayload) => HandlerResult;
-  setAxis: (state: Draft<LinePlot>, payload: SetAxisPayload) => HandlerResult;
+  setAxisLabel: (state: Draft<LinePlot>, payload: SetAxisLabelPayload) => HandlerResult;
+  setAxisLabelDirection: (
+    state: Draft<LinePlot>,
+    payload: SetAxisLabelDirectionPayload,
+  ) => HandlerResult;
+  setAxisLabelLevel: (
+    state: Draft<LinePlot>,
+    payload: SetAxisLabelLevelPayload,
+  ) => HandlerResult;
+  setAxisBounds: (
+    state: Draft<LinePlot>,
+    payload: SetAxisBoundsPayload,
+  ) => HandlerResult;
+  setAxisTickSpacing: (
+    state: Draft<LinePlot>,
+    payload: SetAxisTickSpacingPayload,
+  ) => HandlerResult;
+  setAxisType: (state: Draft<LinePlot>, payload: SetAxisTypePayload) => HandlerResult;
+  setLineLabel: (state: Draft<LinePlot>, payload: SetLineLabelPayload) => HandlerResult;
+  setLineColor: (state: Draft<LinePlot>, payload: SetLineColorPayload) => HandlerResult;
+  setLineStrokeWidth: (
+    state: Draft<LinePlot>,
+    payload: SetLineStrokeWidthPayload,
+  ) => HandlerResult;
+  setLineDownsample: (
+    state: Draft<LinePlot>,
+    payload: SetLineDownsamplePayload,
+  ) => HandlerResult;
+  setLineDownsampleMode: (
+    state: Draft<LinePlot>,
+    payload: SetLineDownsampleModePayload,
+  ) => HandlerResult;
   setLine: (state: Draft<LinePlot>, payload: SetLinePayload) => HandlerResult;
   setRule: (state: Draft<LinePlot>, payload: SetRulePayload) => HandlerResult;
   removeRule: (state: Draft<LinePlot>, payload: RemoveRulePayload) => HandlerResult;
@@ -266,8 +487,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.rename(state, action.rename);
       case "set_title":
         return handlers.setTitle(state, action.setTitle);
-      case "set_legend":
-        return handlers.setLegend(state, action.setLegend);
+      case "set_legend_visible":
+        return handlers.setLegendVisible(state, action.setLegendVisible);
+      case "set_legend_position":
+        return handlers.setLegendPosition(state, action.setLegendPosition);
       case "add_channel":
         return handlers.addChannel(state, action.addChannel);
       case "remove_channel":
@@ -278,8 +501,28 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.addRange(state, action.addRange);
       case "remove_range":
         return handlers.removeRange(state, action.removeRange);
-      case "set_axis":
-        return handlers.setAxis(state, action.setAxis);
+      case "set_axis_label":
+        return handlers.setAxisLabel(state, action.setAxisLabel);
+      case "set_axis_label_direction":
+        return handlers.setAxisLabelDirection(state, action.setAxisLabelDirection);
+      case "set_axis_label_level":
+        return handlers.setAxisLabelLevel(state, action.setAxisLabelLevel);
+      case "set_axis_bounds":
+        return handlers.setAxisBounds(state, action.setAxisBounds);
+      case "set_axis_tick_spacing":
+        return handlers.setAxisTickSpacing(state, action.setAxisTickSpacing);
+      case "set_axis_type":
+        return handlers.setAxisType(state, action.setAxisType);
+      case "set_line_label":
+        return handlers.setLineLabel(state, action.setLineLabel);
+      case "set_line_color":
+        return handlers.setLineColor(state, action.setLineColor);
+      case "set_line_stroke_width":
+        return handlers.setLineStrokeWidth(state, action.setLineStrokeWidth);
+      case "set_line_downsample":
+        return handlers.setLineDownsample(state, action.setLineDownsample);
+      case "set_line_downsample_mode":
+        return handlers.setLineDownsampleMode(state, action.setLineDownsampleMode);
       case "set_line":
         return handlers.setLine(state, action.setLine);
       case "set_rule":

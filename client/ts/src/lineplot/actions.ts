@@ -17,84 +17,25 @@ import {
   removeRange,
   removeRule,
   rename,
-  setAxis,
-  type SetAxisPayload,
-  setLegend,
+  setAxisBounds,
+  setAxisLabel,
+  setAxisLabelDirection,
+  setAxisLabelLevel,
+  setAxisTickSpacing,
+  setAxisType,
+  setLegendPosition,
+  setLegendVisible,
   setLine,
-  type SetLinePayload,
+  setLineColor,
+  setLineDownsample,
+  setLineDownsampleMode,
+  setLineLabel,
+  setLineStrokeWidth,
   setRule,
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
-import { reconcileLines, zeroLine } from "@/lineplot/line";
-import { type Axis, type Line } from "@/lineplot/types.gen";
-
-// applyLineUpdate merges the set fields of a SetLine payload into line, in place,
-// and returns the inverse payload that restores the previous values. A nullable
-// field whose previous value was unset is restored with its clear flag, since a
-// partial payload otherwise cannot express "set back to null".
-const applyLineUpdate = (line: Line, p: SetLinePayload): SetLinePayload => {
-  const inverse: SetLinePayload = { key: line.key };
-  if (p.clearLabel === true || p.label !== undefined) {
-    if (line.label === undefined) inverse.clearLabel = true;
-    else inverse.label = line.label;
-    line.label = p.clearLabel === true ? undefined : p.label;
-  }
-  if (p.clearColor === true || p.color !== undefined) {
-    if (line.color === undefined) inverse.clearColor = true;
-    else inverse.color = actions.snapshotDraft(line.color);
-    line.color = p.clearColor === true ? undefined : p.color;
-  }
-  if (p.strokeWidth !== undefined) {
-    inverse.strokeWidth = line.strokeWidth;
-    line.strokeWidth = p.strokeWidth;
-  }
-  if (p.downsample !== undefined) {
-    inverse.downsample = line.downsample;
-    line.downsample = p.downsample;
-  }
-  if (p.downsampleMode !== undefined) {
-    inverse.downsampleMode = line.downsampleMode;
-    line.downsampleMode = p.downsampleMode;
-  }
-  return inverse;
-};
-
-// applyAxisUpdate merges the set fields of a SetAxis payload into axis, in place,
-// and returns the inverse payload that restores the previous values.
-const applyAxisUpdate = (axis: Axis, p: SetAxisPayload): SetAxisPayload => {
-  const inverse: SetAxisPayload = { key: axis.key };
-  if (p.label !== undefined) {
-    inverse.label = axis.label;
-    axis.label = p.label;
-  }
-  if (p.labelDirection !== undefined) {
-    inverse.labelDirection = axis.labelDirection;
-    axis.labelDirection = p.labelDirection;
-  }
-  if (p.labelLevel !== undefined) {
-    inverse.labelLevel = axis.labelLevel;
-    axis.labelLevel = p.labelLevel;
-  }
-  if (p.bounds !== undefined) {
-    inverse.bounds = actions.snapshotDraft(axis.bounds);
-    axis.bounds = p.bounds;
-  }
-  if (p.autoBounds !== undefined) {
-    inverse.autoBounds = actions.snapshotDraft(axis.autoBounds);
-    axis.autoBounds = p.autoBounds;
-  }
-  if (p.tickSpacing !== undefined) {
-    inverse.tickSpacing = axis.tickSpacing;
-    axis.tickSpacing = p.tickSpacing;
-  }
-  if (p.clearType === true || p.type !== undefined) {
-    if (axis.type === undefined) inverse.clearType = true;
-    else inverse.type = axis.type;
-    axis.type = p.clearType === true ? undefined : p.type;
-  }
-  return inverse;
-};
+import { reconcileLines } from "@/lineplot/line";
 
 // Handlers report the narrowest resource each action touches as its target,
 // type-prefixed to keep the key spaces (numeric channels, "y1" axes, uuid
@@ -115,10 +56,22 @@ const handlers: Handlers = {
     return { inverse: [setTitle({ title: oldTitle })], targets: [state.key] };
   },
 
-  setLegend: (state, payload) => {
-    const oldLegend = actions.snapshotDraft(state.legend);
-    state.legend = payload.legend;
-    return { inverse: [setLegend({ legend: oldLegend })], targets: [state.key] };
+  setLegendVisible: (state, payload) => {
+    const oldVisible = state.legend.visible;
+    state.legend.visible = payload.visible;
+    return {
+      inverse: [setLegendVisible({ visible: oldVisible })],
+      targets: [state.key],
+    };
+  },
+
+  setLegendPosition: (state, payload) => {
+    const oldPosition = actions.snapshotDraft(state.legend.position);
+    state.legend.position = payload.position;
+    return {
+      inverse: [setLegendPosition({ position: oldPosition })],
+      targets: [state.key],
+    };
   },
 
   // addChannel appends the y-channel and reconciles the line set, materializing
@@ -154,7 +107,7 @@ const handlers: Handlers = {
     return {
       inverse: [
         addChannel({ axisKey: axis, channel: payload.channel }),
-        ...dropped.map((l) => setLine({ ...actions.snapshotDraft(l) })),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
       ],
       targets: [`channel:${payload.channel}`],
     };
@@ -178,7 +131,7 @@ const handlers: Handlers = {
     return {
       inverse: [
         setXChannel({ axisKey: axis, channel: oldChannel }),
-        ...dropped.map((l) => setLine({ ...actions.snapshotDraft(l) })),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
       ],
       targets: [`axis:${axis}`],
     };
@@ -216,32 +169,135 @@ const handlers: Handlers = {
     return {
       inverse: [
         addRange({ axisKey: axis, range: payload.range }),
-        ...dropped.map((l) => setLine({ ...actions.snapshotDraft(l) })),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
       ],
       targets: [`range:${payload.range}`],
     };
   },
 
-  // setAxis merges the given fields into the named axis.
-  setAxis: (state, payload) => {
-    const inverse = applyAxisUpdate(state.axes[payload.key], payload);
-    return { inverse: [setAxis(inverse)], targets: [`axis:${payload.key}`] };
+  // Each setAxis* action sets one field of the named axis in place.
+  setAxisLabel: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = [setAxisLabel({ key: payload.key, label: axis.label })];
+    axis.label = payload.label;
+    return { inverse, targets: [`axis:${payload.key}`] };
   },
 
-  // setLine merges the given fields into the line with payload.key. When the line
-  // does not exist it is inserted from schema defaults with the fields applied;
-  // such inserts are not independently undoable (they exist only to restore a
-  // line removed by another handler's inverse).
+  setAxisLabelDirection: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = [
+      setAxisLabelDirection({ key: payload.key, labelDirection: axis.labelDirection }),
+    ];
+    axis.labelDirection = payload.labelDirection;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  setAxisLabelLevel: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = [
+      setAxisLabelLevel({ key: payload.key, labelLevel: axis.labelLevel }),
+    ];
+    axis.labelLevel = payload.labelLevel;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  setAxisBounds: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = [
+      setAxisBounds({
+        key: payload.key,
+        bounds: actions.snapshotDraft(axis.bounds),
+        autoBounds: actions.snapshotDraft(axis.autoBounds),
+      }),
+    ];
+    axis.bounds = payload.bounds;
+    axis.autoBounds = payload.autoBounds;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  setAxisTickSpacing: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = [
+      setAxisTickSpacing({ key: payload.key, tickSpacing: axis.tickSpacing }),
+    ];
+    axis.tickSpacing = payload.tickSpacing;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  setAxisType: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = [setAxisType({ key: payload.key, type: axis.type })];
+    axis.type = payload.type;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  setLineLabel: (state, payload) => {
+    const line = state.lines.find((l) => l.key === payload.key);
+    if (line == null) return actions.NO_OP_RESULT;
+    const inverse = [setLineLabel({ key: payload.key, label: line.label })];
+    line.label = payload.label;
+    return { inverse, targets: [`line:${payload.key}`] };
+  },
+
+  setLineColor: (state, payload) => {
+    const line = state.lines.find((l) => l.key === payload.key);
+    if (line == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setLineColor({
+        key: payload.key,
+        color: line.color === undefined ? undefined : actions.snapshotDraft(line.color),
+      }),
+    ];
+    line.color = payload.color;
+    return { inverse, targets: [`line:${payload.key}`] };
+  },
+
+  setLineStrokeWidth: (state, payload) => {
+    const line = state.lines.find((l) => l.key === payload.key);
+    if (line == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setLineStrokeWidth({ key: payload.key, strokeWidth: line.strokeWidth }),
+    ];
+    line.strokeWidth = payload.strokeWidth;
+    return { inverse, targets: [`line:${payload.key}`] };
+  },
+
+  setLineDownsample: (state, payload) => {
+    const line = state.lines.find((l) => l.key === payload.key);
+    if (line == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setLineDownsample({ key: payload.key, downsample: line.downsample }),
+    ];
+    line.downsample = payload.downsample;
+    return { inverse, targets: [`line:${payload.key}`] };
+  },
+
+  setLineDownsampleMode: (state, payload) => {
+    const line = state.lines.find((l) => l.key === payload.key);
+    if (line == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setLineDownsampleMode({ key: payload.key, downsampleMode: line.downsampleMode }),
+    ];
+    line.downsampleMode = payload.downsampleMode;
+    return { inverse, targets: [`line:${payload.key}`] };
+  },
+
+  // setLine replaces a line's full configuration in place, or inserts it when its
+  // key is new. The fine-grained setLine* actions cover per-field toolbar edits;
+  // this full-object form restores a line dropped by reconciliation, so a fresh
+  // insert is not independently undoable (it only re-materializes a dropped line).
   setLine: (state, payload) => {
-    const idx = state.lines.findIndex((l) => l.key === payload.key);
+    const idx = state.lines.findIndex((l) => l.key === payload.line.key);
     if (idx === -1) {
-      const line = zeroLine(payload.key);
-      applyLineUpdate(line, payload);
-      state.lines.push(line);
+      state.lines.push(payload.line);
       return { inverse: [], targets: [] };
     }
-    const inverse = applyLineUpdate(state.lines[idx], payload);
-    return { inverse: [setLine(inverse)], targets: [`line:${payload.key}`] };
+    const oldLine = actions.snapshotDraft(state.lines[idx]);
+    state.lines[idx] = payload.line;
+    return {
+      inverse: [setLine({ line: oldLine })],
+      targets: [`line:${payload.line.key}`],
+    };
   },
 
   setRule: (state, payload) => {

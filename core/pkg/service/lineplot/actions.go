@@ -30,9 +30,15 @@ func (p SetTitlePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle replaces the plot legend configuration.
-func (p SetLegendPayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Legend = p.Legend
+// Handle sets whether the plot legend is shown.
+func (p SetLegendVisiblePayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Legend.Visible = p.Visible
+	return state, nil
+}
+
+// Handle sets the anchor position of the plot legend.
+func (p SetLegendPositionPayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Legend.Position = p.Position
 	return state, nil
 }
 
@@ -130,22 +136,73 @@ func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle merges the set fields of the payload into the axis named by key.
-func (p SetAxisPayload) Handle(state LinePlot) (LinePlot, error) {
+// Handle sets the label rendered along the axis named by key.
+func (p SetAxisLabelPayload) Handle(state LinePlot) (LinePlot, error) {
 	axis := axisPointer(&state.Axes, p.Key)
 	if axis == nil {
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown axis_key %q",
-			p.Key,
-		)
+		return LinePlot{}, unknownAxisKey(p.Key)
 	}
-	applyAxisUpdate(axis, p)
+	axis.Label = p.Label
 	return state, nil
 }
 
+// Handle sets the orientation in which the axis label is laid out.
+func (p SetAxisLabelDirectionPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.LabelDirection = p.LabelDirection
+	return state, nil
+}
+
+// Handle sets the typography level of the axis label.
+func (p SetAxisLabelLevelPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.LabelLevel = p.LabelLevel
+	return state, nil
+}
+
+// Handle sets the axis value-space window together with its per-edge auto flags.
+func (p SetAxisBoundsPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.Bounds = p.Bounds
+	axis.AutoBounds = p.AutoBounds
+	return state, nil
+}
+
+// Handle sets the target pixel distance between adjacent tick marks.
+func (p SetAxisTickSpacingPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.TickSpacing = p.TickSpacing
+	return state, nil
+}
+
+// Handle sets the axis tick label style. A nil type resets it to the default.
+func (p SetAxisTypePayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.Type = p.Type
+	return state, nil
+}
+
+func unknownAxisKey(k AxisKey) error {
+	return errors.Wrapf(validate.ErrValidation, "unknown axis_key %q", k)
+}
+
 // axisPointer returns a pointer to the axis configuration for the given key so
-// handlers can merge into it in place, or nil if the key is not a valid axis.
+// handlers can set into it in place, or nil if the key is not a valid axis.
 func axisPointer(a *Axes, k AxisKey) *Axis {
 	switch k {
 	case AxisKeyX1:
@@ -164,69 +221,67 @@ func axisPointer(a *Axes, k AxisKey) *Axis {
 	return nil
 }
 
-// applyAxisUpdate merges the set fields of a SetAxis payload into axis in place.
-func applyAxisUpdate(a *Axis, p SetAxisPayload) {
-	if p.Label != nil {
-		a.Label = *p.Label
+// Handle sets the label of the line identified by key. A nil label resets it.
+func (p SetLineLabelPayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.Label = p.Label
 	}
-	if p.LabelDirection != nil {
-		a.LabelDirection = *p.LabelDirection
-	}
-	if p.LabelLevel != nil {
-		a.LabelLevel = *p.LabelLevel
-	}
-	if p.Bounds != nil {
-		a.Bounds = *p.Bounds
-	}
-	if p.AutoBounds != nil {
-		a.AutoBounds = *p.AutoBounds
-	}
-	if p.TickSpacing != nil {
-		a.TickSpacing = *p.TickSpacing
-	}
-	if p.ClearType {
-		a.Type = nil
-	} else if p.Type != nil {
-		a.Type = p.Type
-	}
-}
-
-// Handle merges the set fields of the payload into the line with the same key,
-// inserting it from schema defaults when no such line exists yet.
-func (p SetLinePayload) Handle(state LinePlot) (LinePlot, error) {
-	for i := range state.Lines {
-		if state.Lines[i].Key == p.Key {
-			applyLineUpdate(&state.Lines[i], p)
-			return state, nil
-		}
-	}
-	line := zeroLine(p.Key)
-	applyLineUpdate(&line, p)
-	state.Lines = append(state.Lines, line)
 	return state, nil
 }
 
-// applyLineUpdate merges the set fields of a SetLine payload into line in place.
-func applyLineUpdate(l *Line, p SetLinePayload) {
-	if p.ClearLabel {
-		l.Label = nil
-	} else if p.Label != nil {
-		l.Label = p.Label
-	}
-	if p.ClearColor {
-		l.Color = nil
-	} else if p.Color != nil {
+// Handle sets the color of the line identified by key. A nil color resets it.
+func (p SetLineColorPayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
 		l.Color = p.Color
 	}
-	if p.StrokeWidth != nil {
-		l.StrokeWidth = *p.StrokeWidth
+	return state, nil
+}
+
+// Handle sets the stroke width, in pixels, of the line identified by key.
+func (p SetLineStrokeWidthPayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.StrokeWidth = p.StrokeWidth
 	}
-	if p.Downsample != nil {
-		l.Downsample = *p.Downsample
+	return state, nil
+}
+
+// Handle sets the downsample factor of the line identified by key.
+func (p SetLineDownsamplePayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.Downsample = p.Downsample
 	}
-	if p.DownsampleMode != nil {
-		l.DownsampleMode = *p.DownsampleMode
+	return state, nil
+}
+
+// Handle sets how the downsample factor is applied for the line by key.
+func (p SetLineDownsampleModePayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.DownsampleMode = p.DownsampleMode
 	}
+	return state, nil
+}
+
+// linePointer returns a pointer to the line with the given key so handlers can
+// set into it in place, or nil if no such line exists.
+func linePointer(state *LinePlot, key string) *Line {
+	for i := range state.Lines {
+		if state.Lines[i].Key == key {
+			return &state.Lines[i]
+		}
+	}
+	return nil
+}
+
+// Handle replaces the line with the same key in place, inserting it when no such
+// line exists yet. The fine-grained SetLine* actions cover per-field edits; this
+// full-object form restores a line dropped by reconciliation.
+func (p SetLinePayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Line.Key); l != nil {
+		*l = p.Line
+		return state, nil
+	}
+	state.Lines = append(state.Lines, p.Line)
+	return state, nil
 }
 
 // Handle inserts the rule if no rule with the same key exists, otherwise
