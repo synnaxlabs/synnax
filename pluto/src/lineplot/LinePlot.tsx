@@ -39,7 +39,7 @@ import {
   XAxis as CoreXAxis,
   YAxis as CoreYAxis,
 } from "@/lineplot/Axis";
-import { type DerivedLine, resolveLineColor } from "@/lineplot/derive";
+import { type DerivedLine } from "@/lineplot/derive";
 import { Frame, type FrameProps, type FrameRef, type LineSpec } from "@/lineplot/Frame";
 import { Legend, type LegendProps } from "@/lineplot/Legend";
 import { Line as CoreLine } from "@/lineplot/Line";
@@ -65,7 +65,6 @@ import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as CoreViewport } from "@/lineplot/Viewport";
 import { Synnax } from "@/synnax";
 import { telem } from "@/telem/aether";
-import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
 
@@ -361,7 +360,6 @@ export const LinePlot = ({
   ...rest
 }: LinePlotProps): ReactElement => {
   useEnsureRetrieved({ key });
-  const theme = Theming.use();
   const client = Synnax.use();
   const { dispatch } = useDispatch();
   const { undo } = useUndo({ key });
@@ -388,8 +386,6 @@ export const LinePlot = ({
   const rules = useSelectRules({ key });
   const axes = useSelectAxes({ key });
   const storedLines = useSelectLines({ key });
-
-  const palette = theme.colors.visualization.palettes.default;
 
   useAsyncEffect(async () => {
     if (!editable || client == null) return;
@@ -521,12 +517,12 @@ export const LinePlot = ({
 
   const resolvedLines = useMemo<ResolvedLine[]>(
     () =>
-      storedLines.map((line, i) => ({
+      storedLines.map((line) => ({
         line,
-        color: resolveLineColor(line.color, i, palette),
+        color: line.color,
         resolved: resolvedRanges?.get(line.range),
       })),
-    [storedLines, palette, resolvedRanges],
+    [storedLines, resolvedRanges],
   );
 
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);

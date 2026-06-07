@@ -10,10 +10,15 @@
 import { type lineplot } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 
-// DerivedLine is a stored line enriched with its decoded identity (axis, range,
-// and channel keys parsed from Line.key) for convenient consumption by the
-// chart and toolbar.
-export interface DerivedLine extends lineplot.Line, lineplot.LineKeyParts {}
+// RawDerivedLine is a stored line enriched with its decoded identity (axis,
+// range, and channel keys parsed from Line.key). Its color may be unset.
+export interface RawDerivedLine extends lineplot.Line, lineplot.LineKeyParts {}
+
+// DerivedLine is a RawDerivedLine with its render color resolved to a concrete
+// palette color, ready for the chart and toolbar to consume directly.
+export interface DerivedLine extends Omit<RawDerivedLine, "color"> {
+  color: color.Color;
+}
 
 // resolveLineColor returns the concrete color a line should render with: its
 // stored color when set, otherwise a palette color chosen by its position. The

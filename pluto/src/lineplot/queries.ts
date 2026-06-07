@@ -9,13 +9,18 @@
 
 import { lineplot, NotFoundError, ontology, type workspace } from "@synnaxlabs/client";
 import { array, uuid } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
-import { type DerivedLine } from "@/lineplot/derive";
+import {
+  type DerivedLine,
+  type RawDerivedLine,
+  resolveLineColor,
+} from "@/lineplot/derive";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
+import { Theming } from "@/theming";
 
 export const FLUX_STORE_KEY = "lineplots";
 const RESOURCE_NAME = "line plot";
@@ -156,14 +161,13 @@ export const useSelectAxis = Flux.createSelector<
   select: (store, { key, axisKey }) => requireLinePlot(store, key).axes[axisKey],
 });
 
-// useSelectLines returns the plot's lines enriched with their decoded identity.
-// Lines are materialized eagerly by the reducer, so this is the complete set of
-// plotted lines. transform is memoized on the stored lines reference, so it only
+// useSelectRawLines selects the plot's stored lines enriched with their decoded
+// identity. transform is memoized on the stored lines reference, so it only
 // re-derives when the lines actually change.
-export const useSelectLines = Flux.createSelector<
+const useSelectRawLines = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
-  DerivedLine[],
+  RawDerivedLine[],
   lineplot.Line[]
 >({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
@@ -171,23 +175,22 @@ export const useSelectLines = Flux.createSelector<
   transform: (lines) => lines.map((l) => ({ ...l, ...lineplot.parseLineKey(l.key) })),
 });
 
-export interface SelectLineArgs {
-  key: lineplot.Key;
-  lineKey: string;
-}
-
-export const useSelectLine = Flux.createSelector<
-  FluxSubStore,
-  SelectLineArgs,
-  DerivedLine | undefined,
-  lineplot.Line | undefined
->({
-  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
-  select: (store, { key, lineKey }) =>
-    store.lineplots.get(key)?.lines?.find((l) => l.key === lineKey),
-  transform: (line) =>
-    line == null ? undefined : { ...line, ...lineplot.parseLineKey(line.key) },
-});
+// useSelectLines returns the plot's lines, each enriched with its decoded
+// identity and its render color resolved from the active palette (a line with
+// no stored color is assigned one by its position). Lines are materialized
+// eagerly by the reducer, so this is the complete set of plotted lines.
+export const useSelectLines = (args: SelectKeyArgs): DerivedLine[] => {
+  const lines = useSelectRawLines(args);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return useMemo(
+    () =>
+      lines.map((line, i) => ({
+        ...line,
+        color: resolveLineColor(line.color, i, palette),
+      })),
+    [lines, palette],
+  );
+};
 
 export const useSelectLineKeys = Flux.createSelector<
   FluxSubStore,
@@ -196,7 +199,55 @@ export const useSelectLineKeys = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key }) => requireLinePlot(store, key).lines.map((l) => l.key),
+  // Keys only change when lines are added, removed, or reordered — not when a
+  // line's styling changes — so this stays referentially stable across edits.
+  equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
 });
+
+export interface SelectLineArgs {
+  key: lineplot.Key;
+  lineKey: string;
+}
+
+interface RawLine {
+  line: lineplot.Line;
+  index: number;
+}
+
+// useSelectRawLine selects a single line and its position by key. The equality
+// compares the stored line reference (kept stable across unrelated edits by
+// Immer) and the index, so it re-renders only when that line or its position
+// changes — not when other lines on the plot do.
+const useSelectRawLine = Flux.createSelector<
+  FluxSubStore,
+  SelectLineArgs,
+  RawLine | undefined
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, lineKey }) => {
+    const lines = store.lineplots.get(key)?.lines;
+    if (lines == null) return undefined;
+    const index = lines.findIndex((l) => l.key === lineKey);
+    return index === -1 ? undefined : { line: lines[index], index };
+  },
+  equal: (a, b) => a?.line === b?.line && a?.index === b?.index,
+});
+
+// useSelectLine returns a single line, enriched with its identity and its color
+// resolved by position the same way as useSelectLines, subscribing narrowly so
+// it re-renders only when that line, its position, or the palette changes.
+export const useSelectLine = (args: SelectLineArgs): DerivedLine | undefined => {
+  const raw = useSelectRawLine(args);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return useMemo(() => {
+    if (raw == null) return undefined;
+    return {
+      ...raw.line,
+      ...lineplot.parseLineKey(raw.line.key),
+      color: resolveLineColor(raw.line.color, raw.index, palette),
+    };
+  }, [raw, palette]);
+};
 
 export const useSelectRules = Flux.createSelector<
   FluxSubStore,

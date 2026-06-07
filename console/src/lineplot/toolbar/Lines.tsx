@@ -20,19 +20,17 @@ import {
   type telem,
 } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
 
 export interface LinesProps {
   layoutKey: string;
 }
 
 export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const lines = LinePlot.useSelectLines({ key: layoutKey });
-  const lineKeys = useMemo(() => lines.map((l) => l.key), [lines]);
+  const lineKeys = LinePlot.useSelectLineKeys({ key: layoutKey });
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
@@ -93,7 +91,6 @@ const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement =>
 const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => {
   const line = LinePlot.useSelectLine({ key: layoutKey, lineKey: itemKey });
   const { dispatch } = LinePlot.useDispatch();
-  const theme = Layout.useSelectTheme();
 
   const update = useCallback(
     (next: Omit<lineplot.SetLinePayload, "key">): void => {
@@ -106,8 +103,6 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
   );
 
   if (line == null) return null;
-  const palette = theme?.colors.visualization.palettes.default ?? [];
-  const resolvedColor = LinePlot.resolveLineColor(line.color, index, palette);
 
   const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
     update({ label: value });
@@ -159,7 +154,7 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
         value={line.downsampleMode}
         onChange={handleDownsampleModeChange}
       />
-      <Color.Swatch value={resolvedColor} onChange={handleColorChange} size="small" />
+      <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </List.Item>
   );
 };
