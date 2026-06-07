@@ -30,10 +30,13 @@ import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
-import { XAxis as CoreXAxis, YAxis as CoreYAxis } from "@/lineplot/Axis";
+import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps, type LineSpec } from "@/lineplot/Frame";
-import { Legend, type LegendProps } from "@/lineplot/Legend";
-import { Line as CoreLine } from "@/lineplot/Line";
+import {
+  Legend as BaseLegend,
+  type LegendProps as BaseLegendProps,
+} from "@/lineplot/Legend";
+import { Line as BaseLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
 import { type measure } from "@/lineplot/measure/aether";
 import {
@@ -57,10 +60,10 @@ import {
   useUndo,
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
-import { Rule } from "@/lineplot/rule";
-import { Title } from "@/lineplot/Title";
+import { Rule as BaseRule } from "@/lineplot/rule";
+import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
-import { Viewport as CoreViewport } from "@/lineplot/Viewport";
+import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
@@ -163,17 +166,13 @@ const useChannelDropper = (
   );
 };
 
-interface ConnectedLineProps {
+interface LineProps {
   pKey: lineplot.Key;
   lineKey: string;
   resolved?: ResolvedRange;
 }
 
-const ConnectedLine = ({
-  pKey,
-  lineKey,
-  resolved,
-}: ConnectedLineProps): ReactElement | null => {
+const Line = ({ pKey, lineKey, resolved }: LineProps): ReactElement | null => {
   const line = useSelectLine({ key: pKey, lineKey });
   const telemetry = useMemo(() => {
     if (line == null || resolved == null) return null;
@@ -206,7 +205,7 @@ const ConnectedLine = ({
   }, [resolved, line?.xChannel, line?.yChannel]);
   if (line == null || telemetry == null) return null;
   return (
-    <CoreLine
+    <BaseLine
       aetherKey={line.key}
       x={telemetry.x}
       y={telemetry.y}
@@ -220,15 +219,12 @@ const ConnectedLine = ({
   );
 };
 
-interface ConnectedTitleProps {
+interface TitleProps {
   pKey: lineplot.Key;
   editable?: boolean;
 }
 
-const ConnectedTitle = ({
-  pKey,
-  editable,
-}: ConnectedTitleProps): ReactElement | null => {
+const Title = ({ pKey, editable }: TitleProps): ReactElement | null => {
   const { visible, level } = useSelectTitle({ key: pKey });
   const name = useSelectName({ key: pKey });
   const { update: rename } = useRename({});
@@ -240,7 +236,7 @@ const ConnectedTitle = ({
   );
   if (!visible) return null;
   return (
-    <Title
+    <BaseTitle
       value={name}
       onChange={handleChange}
       disabled={editable !== true}
@@ -249,17 +245,13 @@ const ConnectedTitle = ({
   );
 };
 
-interface ConnectedLegendProps {
+interface LegendProps {
   pKey: lineplot.Key;
-  variant?: LegendProps["variant"];
+  variant?: BaseLegendProps["variant"];
   editable?: boolean;
 }
 
-const ConnectedLegend = ({
-  pKey,
-  variant,
-  editable,
-}: ConnectedLegendProps): ReactElement | null => {
+const Legend = ({ pKey, variant, editable }: LegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
   const legend = useSelectLegend({ key: pKey });
   const handlePositionChange = useCallback(
@@ -283,7 +275,7 @@ const ConnectedLegend = ({
   // The legend has no disabled prop; absent callbacks are how it disables drag
   // and entry editing, so gate at the prop rather than inside the handlers.
   return (
-    <Legend
+    <BaseLegend
       onLineChange={editable ? handleLineChange : undefined}
       position={legend.position}
       onPositionChange={editable ? handlePositionChange : undefined}
@@ -300,17 +292,13 @@ interface AxisChildrenProps {
   onSelectRule?: (key: string) => void;
 }
 
-interface ConnectedRuleProps {
+interface RuleProps {
   pKey: lineplot.Key;
   ruleKey: string;
   onSelectRule?: (key: string) => void;
 }
 
-const ConnectedRule = ({
-  pKey,
-  ruleKey,
-  onSelectRule,
-}: ConnectedRuleProps): ReactElement | null => {
+const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null => {
   const { dispatch } = useDispatch();
   const rule = useSelectRule({ key: pKey, ruleKey });
   const update = useCallback(
@@ -334,7 +322,7 @@ const ConnectedRule = ({
   );
   if (rule == null) return null;
   return (
-    <Rule.Rule
+    <BaseRule.Rule
       aetherKey={rule.key}
       position={rule.position}
       color={rule.color ?? color.ZERO}
@@ -361,12 +349,7 @@ const Rules = ({ pKey, axisKey, onSelectRule }: RulesProps): ReactElement => {
   return (
     <>
       {ruleKeys.map((ruleKey) => (
-        <ConnectedRule
-          key={ruleKey}
-          pKey={pKey}
-          ruleKey={ruleKey}
-          onSelectRule={onSelectRule}
-        />
+        <Rule key={ruleKey} pKey={pKey} ruleKey={ruleKey} onSelectRule={onSelectRule} />
       ))}
     </>
   );
@@ -404,7 +387,7 @@ const YAxis = ({
   const { axis, lineKeys } = useSelectYAxis({ key: pKey, axisKey });
   const { key: _axisKey, ...axisConfig } = axis;
   return (
-    <CoreYAxis
+    <BaseYAxis
       {...axisConfig}
       {...dropProps}
       location={AXIS_LOCATIONS[axisKey]}
@@ -419,7 +402,7 @@ const YAxis = ({
       }
     >
       {lineKeys.map((lineKey) => (
-        <ConnectedLine
+        <Line
           key={lineKey}
           pKey={pKey}
           lineKey={lineKey}
@@ -427,7 +410,7 @@ const YAxis = ({
         />
       ))}
       <Rules pKey={pKey} axisKey={axisKey} onSelectRule={onSelectRule} />
-    </CoreYAxis>
+    </BaseYAxis>
   );
 };
 
@@ -467,7 +450,7 @@ const XAxis = ({
     [dispatch, pKey, axisKey],
   );
   return (
-    <CoreXAxis
+    <BaseXAxis
       {...axisConfig}
       {...dropProps}
       location={AXIS_LOCATIONS[axisKey]}
@@ -489,7 +472,7 @@ const XAxis = ({
       ))}
       <Rules pKey={pKey} axisKey={axisKey} onSelectRule={onSelectRule} />
       <Range.Provider {...rangeProviderProps} />
-    </CoreXAxis>
+    </BaseXAxis>
   );
 };
 
@@ -522,7 +505,7 @@ export interface LinePlotProps extends FrameProps {
   enableTriggers?: boolean | (() => boolean);
   resolvedRanges?: Map<string, ResolvedRange>;
   activeRangeKey?: string;
-  legendVariant?: LegendProps["variant"];
+  legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
   measureMode?: measure.Mode;
@@ -572,9 +555,9 @@ export const LinePlot = ({
           rangeProviderProps={rangeProviderProps}
         />
       ))}
-      <ConnectedLegend pKey={key} variant={legendVariant} editable={editable} />
-      <ConnectedTitle pKey={key} editable={editable} />
-      <CoreViewport
+      <Legend pKey={key} variant={legendVariant} editable={editable} />
+      <Title pKey={key} editable={editable} />
+      <BaseViewport
         initial={initialViewport}
         onChange={onViewportChange}
         triggers={viewportTriggers}
@@ -585,7 +568,7 @@ export const LinePlot = ({
           <Measure.Measure mode={measureMode} onModeChange={onMeasureModeChange} />
         )}
         {children}
-      </CoreViewport>
+      </BaseViewport>
     </Frame>
   );
 };
