@@ -46,12 +46,13 @@ import {
   useDispatch,
   useEnsureRetrieved,
   useRedo,
+  useSelectAxisRuleKeys,
   useSelectChannels,
   useSelectLegend,
   useSelectLine,
   useSelectLineKeys,
   useSelectRanges,
-  useSelectRules,
+  useSelectRule,
   useSelectTitle,
   useSelectXAxis,
   useSelectYAxis,
@@ -229,35 +230,80 @@ const ConnectedLegend = ({
 interface AxisChildrenProps {
   pKey: lineplot.Key;
   resolvedRanges?: Map<string, ResolvedRange>;
-  rules: lineplot.Rule[];
-  onRuleChange: (rule: RuleChange) => void;
   onSelectRule?: (key: string) => void;
 }
 
-const renderRules = (
-  rules: lineplot.Rule[],
-  axisKey: lineplot.AxisKey,
-  onRuleChange: (rule: RuleChange) => void,
-  onSelectRule?: (key: string) => void,
-): ReactElement[] =>
-  rules
-    .filter((r) => r.axis === axisKey)
-    .map((r) => (
-      <Rule.Rule
-        key={r.key}
-        aetherKey={r.key}
-        position={r.position}
-        color={r.color ?? color.ZERO}
-        label={r.label}
-        lineWidth={r.lineWidth}
-        lineDash={r.lineDash}
-        units={r.units}
-        onLabelChange={(value) => onRuleChange({ key: r.key, label: value })}
-        onPositionChange={(value) => onRuleChange({ key: r.key, position: value })}
-        onUnitsChange={(value) => onRuleChange({ key: r.key, units: value })}
-        onClick={() => onSelectRule?.(r.key)}
-      />
-    ));
+interface ConnectedRuleProps {
+  pKey: lineplot.Key;
+  ruleKey: string;
+  onSelectRule?: (key: string) => void;
+}
+
+const ConnectedRule = ({
+  pKey,
+  ruleKey,
+  onSelectRule,
+}: ConnectedRuleProps): ReactElement | null => {
+  const { dispatch } = useDispatch();
+  const rule = useSelectRule({ key: pKey, ruleKey });
+  const update = useCallback(
+    (next: RuleChange) => {
+      if (rule == null) return;
+      dispatch({
+        key: pKey,
+        actions: [
+          lineplot.setRule({
+            rule: {
+              ...rule,
+              ...next,
+              color: next.color != null ? color.construct(next.color) : rule.color,
+              axis: next.axis ?? rule.axis,
+            },
+          }),
+        ],
+      });
+    },
+    [dispatch, pKey, rule],
+  );
+  if (rule == null) return null;
+  return (
+    <Rule.Rule
+      aetherKey={rule.key}
+      position={rule.position}
+      color={rule.color ?? color.ZERO}
+      label={rule.label}
+      lineWidth={rule.lineWidth}
+      lineDash={rule.lineDash}
+      units={rule.units}
+      onLabelChange={(value) => update({ key: rule.key, label: value })}
+      onPositionChange={(value) => update({ key: rule.key, position: value })}
+      onUnitsChange={(value) => update({ key: rule.key, units: value })}
+      onClick={() => onSelectRule?.(rule.key)}
+    />
+  );
+};
+
+interface RulesProps {
+  pKey: lineplot.Key;
+  axisKey: lineplot.AxisKey;
+  onSelectRule?: (key: string) => void;
+}
+
+const Rules = ({ pKey, axisKey, onSelectRule }: RulesProps): ReactElement => {
+  const ruleKeys = useSelectAxisRuleKeys({ key: pKey, axisKey });
+  return (
+    <>
+      {ruleKeys.map((ruleKey) => (
+        <ConnectedRule
+          key={ruleKey}
+          pKey={pKey}
+          ruleKey={ruleKey}
+          onSelectRule={onSelectRule}
+        />
+      ))}
+    </>
+  );
+};
 
 interface YAxisProps extends AxisChildrenProps {
   axisKey: lineplot.YAxisKey;
@@ -269,10 +315,8 @@ const YAxis = ({
   pKey,
   axisKey,
   resolvedRanges,
-  rules,
   onAxisChange,
   onChannelDrop,
-  onRuleChange,
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const dropProps = useAxisDrop(axisKey, "y", onChannelDrop);
@@ -297,7 +341,7 @@ const YAxis = ({
           resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
         />
       ))}
-      {renderRules(rules, axisKey, onRuleChange, onSelectRule)}
+      <Rules pKey={pKey} axisKey={axisKey} onSelectRule={onSelectRule} />
     </CoreYAxis>
   );
 };
@@ -316,11 +360,9 @@ const XAxis = ({
   axisKey,
   yAxes,
   resolvedRanges,
-  rules,
   onAxisChange,
   onXChannelDrop,
   onYChannelDrop,
-  onRuleChange,
   onSelectRule,
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
@@ -343,14 +385,12 @@ const XAxis = ({
           pKey={pKey}
           axisKey={yAxisKey}
           resolvedRanges={resolvedRanges}
-          rules={rules}
           onAxisChange={onAxisChange}
           onChannelDrop={onYChannelDrop}
-          onRuleChange={onRuleChange}
           onSelectRule={onSelectRule}
         />
       ))}
-      {renderRules(rules, axisKey, onRuleChange, onSelectRule)}
+      <Rules pKey={pKey} axisKey={axisKey} onSelectRule={onSelectRule} />
       <Range.Provider {...rangeProviderProps} />
     </CoreXAxis>
   );
@@ -443,7 +483,6 @@ export const LinePlot = ({
   });
   const channels = useSelectChannels({ key });
   const ranges = useSelectRanges({ key });
-  const rules = useSelectRules({ key });
   const lineKeys = useSelectLineKeys({ key });
 
   const handleLineChange = useCallback(
@@ -460,22 +499,6 @@ export const LinePlot = ({
       });
     },
     [dispatch, key],
-  );
-
-  const handleRuleChange = useCallback(
-    (rule: RuleChange) => {
-      const existing = rules.find((r) => r.key === rule.key);
-      if (existing == null) return;
-      const nextAxis = rule.axis ?? existing.axis;
-      const next: lineplot.Rule = {
-        ...existing,
-        ...rule,
-        color: rule.color != null ? color.construct(rule.color) : existing.color,
-        axis: nextAxis,
-      };
-      dispatch({ key, actions: [lineplot.setRule({ rule: next })] });
-    },
-    [dispatch, key, rules],
   );
 
   const handleAxisChange = useCallback(
@@ -548,11 +571,9 @@ export const LinePlot = ({
           axisKey={xAxisKey}
           yAxes={yAxisKeys}
           resolvedRanges={resolvedRanges}
-          rules={rules}
           onAxisChange={handleAxisChange}
           onXChannelDrop={editable ? handleXChannelDrop : undefined}
           onYChannelDrop={editable ? handleYChannelDrop : undefined}
-          onRuleChange={handleRuleChange}
           onSelectRule={onSelectRule}
           rangeProviderProps={rangeProviderProps}
         />

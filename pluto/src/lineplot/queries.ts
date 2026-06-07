@@ -333,6 +333,27 @@ export const useSelectRule = Flux.createSelector<
     store.lineplots.get(key)?.rules?.find((r) => r.key === ruleKey),
 });
 
+export interface SelectAxisRulesArgs {
+  key: lineplot.Key;
+  axisKey: lineplot.AxisKey;
+}
+
+// useSelectAxisRuleKeys returns the keys of the rules attached to the given axis.
+// Stable across edits to individual rules (only changes when rules are added or
+// removed) so an axis re-renders only when its rule membership changes.
+export const useSelectAxisRuleKeys = Flux.createSelector<
+  FluxSubStore,
+  SelectAxisRulesArgs,
+  string[]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, axisKey }) =>
+    requireLinePlot(store, key)
+      .rules.filter((r) => r.axis === axisKey)
+      .map((r) => r.key),
+  equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+});
+
 export type UseDeleteArgs = lineplot.Key | lineplot.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
