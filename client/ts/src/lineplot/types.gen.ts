@@ -121,14 +121,14 @@ export const lineZ = z.object({
    */
   color: color.colorZ.optional(),
   /** strokeWidth is the line stroke width in pixels. */
-  strokeWidth: z.number(),
+  strokeWidth: z.number().default(2),
   /**
    * downsample is the downsample factor applied before rendering. 1 means render
    * every sample; higher values render every Nth sample.
    */
-  downsample: z.uint32(),
+  downsample: z.uint32().default(1),
   /** downsampleMode selects how the downsample factor is applied. */
-  downsampleMode: downsampleModeZ,
+  downsampleMode: downsampleModeZ.default("decimate"),
 });
 export interface Line extends z.infer<typeof lineZ> {}
 

@@ -28,6 +28,7 @@ import {
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
+import { lineKey } from "@/lineplot/line";
 import { type Axis, type Line, type LinePlot, type Rule } from "@/lineplot/types.gen";
 
 const zeroAxis = (key: Axis["key"]): Axis => ({
@@ -251,6 +252,106 @@ describe("lineplot reducer", () => {
     it("should target the range so distinct ranges do not invalidate each other", () => {
       const { targets } = reduceAll(empty(), [addRange({ axisKey: "x1", range: r1 })]);
       expect(targets).toEqual([`range:${r1}`]);
+    });
+  });
+
+  describe("eager line creation", () => {
+    const r1 = "00000000-0000-0000-0000-000000000001";
+    const r2 = "00000000-0000-0000-0000-000000000002";
+
+    it("should materialize a line per range when a y-channel is added", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
+        ranges: { x1: [r1, r2], x2: [] },
+      });
+      const out = apply(state, addChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 5 }),
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r2, xChannel: 10, yChannel: 5 }),
+      ]);
+    });
+
+    it("should give created lines the Oracle default styling", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
+        ranges: { x1: [r1], x2: [] },
+      });
+      const out = apply(state, addChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.lines[0]).toMatchObject({
+        strokeWidth: 2,
+        downsample: 1,
+        downsampleMode: "decimate",
+      });
+    });
+
+    it("should create no lines when there are no ranges (partial selection)", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const out = apply(state, addChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.channels.y1).toEqual([5]);
+      expect(out.lines).toEqual([]);
+    });
+
+    it("should materialize a line per y-channel when a range is added", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5, 6], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const out = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 5 }),
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 6 }),
+      ]);
+    });
+
+    it("should remove a channel's lines when it is removed", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5, 6], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const withLines = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      expect(withLines.lines).toHaveLength(2);
+      const out = apply(withLines, removeChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 6 }),
+      ]);
+    });
+
+    it("should restore removed lines with their styling on undo", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const key = lineKey({
+        yAxis: "y1",
+        xAxis: "x1",
+        range: r1,
+        xChannel: 10,
+        yChannel: 5,
+      });
+      let s = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      s = apply(
+        s,
+        setLine({ line: { ...s.lines[0], color: color.construct("#ff0000") } }),
+      );
+      const restored = roundTrip(s, removeChannel({ axisKey: "y1", channel: 5 }));
+      expect(restored.lines).toHaveLength(1);
+      expect(restored.lines[0].key).toEqual(key);
+      expect(restored.lines[0].color).toEqual(color.construct("#ff0000"));
+    });
+
+    it("should rekey a y-axis's lines when the x-channel changes", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const withLines = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      const out = apply(withLines, setXChannel({ axisKey: "x1", channel: 20 }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 20, yChannel: 5 }),
+      ]);
     });
   });
 
