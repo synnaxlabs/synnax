@@ -214,16 +214,16 @@ Line struct {
             visualization palette at render time.
         """
     }
-    stroke_width    float64        {
+    stroke_width    float64 = 2 {
         @doc value "is the line stroke width in pixels."
     }
-    downsample      uint32         {
+    downsample      uint32 = 1 {
         @doc value """
             is the downsample factor applied before rendering. 1 means render
             every sample; higher values render every Nth sample.
         """
     }
-    downsample_mode DownsampleMode {
+    downsample_mode DownsampleMode = DownsampleModeDecimate {
         @doc value "selects how the downsample factor is applied."
     }
 
@@ -415,7 +415,7 @@ New struct extends LinePlot {
     channels = {}
     ranges   = {}
     axes     = {}
- 
+
     @doc value    "contains parameters for creating a new line plot."
     @ts use_input
     @go omit

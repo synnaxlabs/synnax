@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -53,6 +54,7 @@ func (p AddChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		return state, nil
 	}
 	*slice = append(*slice, p.Channel)
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -69,6 +71,7 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	}
 	slice := yAxisSlice(&state.Channels, p.AxisKey)
 	*slice = slices.DeleteFunc(*slice, func(c channel.Key) bool { return c == p.Channel })
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -86,6 +89,7 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 			p.AxisKey,
 		)
 	}
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -106,6 +110,7 @@ func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 		return state, nil
 	}
 	*slice = append(*slice, p.Range)
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -121,6 +126,7 @@ func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	}
 	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
 	*slice = slices.DeleteFunc(*slice, func(r string) bool { return r == p.Range })
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -213,4 +219,87 @@ func xAxisRangeSlice(r *Ranges, k XAxisKey) *[]string {
 		return &r.X2
 	}
 	panic(errors.Newf("lineplot: xAxisRangeSlice called with non-x-axis %q", k))
+}
+
+const lineKeySeparator = "---"
+
+// Default styling for a newly materialized line. These mirror the Oracle schema
+// defaults on Line. Oracle does not currently emit Go-side struct defaults, so
+// they are duplicated here and must be kept in sync with schemas/lineplot.oracle.
+const (
+	defaultLineStrokeWidth    = 2
+	defaultLineDownsample     = 1
+	defaultLineDownsampleMode = DownsampleModeDecimate
+)
+
+var (
+	xAxisKeys = []XAxisKey{XAxisKeyX1, XAxisKeyX2}
+	yAxisKeys = []YAxisKey{YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4}
+)
+
+// lineKey encodes the identity of a line into the stable string stored as
+// Line.Key. It must match the client's lineKey byte-for-byte so that lines
+// reduced on the server and on the client share identity.
+func lineKey(
+	yAxis YAxisKey,
+	xAxis XAxisKey,
+	rng string,
+	xChannel, yChannel channel.Key,
+) string {
+	return string(yAxis) + lineKeySeparator + string(xAxis) + lineKeySeparator + rng +
+		lineKeySeparator + xChannel.String() + lineKeySeparator + yChannel.String()
+}
+
+// zeroLine constructs a line at key with default styling. Label and color are
+// left nil so they resolve from the channel name and palette at render time.
+func zeroLine(key string) Line {
+	return Line{
+		Key:            key,
+		StrokeWidth:    defaultLineStrokeWidth,
+		Downsample:     defaultLineDownsample,
+		DownsampleMode: defaultLineDownsampleMode,
+	}
+}
+
+// xAxisChannel returns the single channel bound to the given x-axis.
+func xAxisChannel(c Channels, k XAxisKey) channel.Key {
+	if k == XAxisKeyX2 {
+		return c.X2
+	}
+	return c.X1
+}
+
+// reconcileLines rebuilds the complete set of lines implied by the channel and
+// range bindings: one line per (x-axis, range, y-axis, y-channel) combination.
+// Existing lines are preserved by key so user styling survives, missing ones are
+// created with default styling, and lines whose combination no longer exists are
+// dropped. It is the Go counterpart of the client's reconcileLines and must
+// produce identical keys.
+func reconcileLines(state LinePlot) []Line {
+	byKey := make(map[string]Line, len(state.Lines))
+	for _, l := range state.Lines {
+		byKey[l.Key] = l
+	}
+	kept := set.New[string]()
+	lines := make([]Line, 0, len(state.Lines))
+	for _, xAxis := range xAxisKeys {
+		xChannel := xAxisChannel(state.Channels, xAxis)
+		for _, rng := range *xAxisRangeSlice(&state.Ranges, xAxis) {
+			for _, yAxis := range yAxisKeys {
+				for _, yChannel := range *yAxisSlice(&state.Channels, yAxis) {
+					key := lineKey(yAxis, xAxis, rng, xChannel, yChannel)
+					if kept.Contains(key) {
+						continue
+					}
+					kept.Add(key)
+					if existing, ok := byKey[key]; ok {
+						lines = append(lines, existing)
+					} else {
+						lines = append(lines, zeroLine(key))
+					}
+				}
+			}
+		}
+	}
+	return lines
 }

@@ -24,6 +24,7 @@ import {
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
+import { reconcileLines } from "@/lineplot/line";
 
 // Handlers report the narrowest resource each action touches as its target,
 // type-prefixed to keep the key spaces (numeric channels, "y1" axes, uuid
@@ -50,58 +51,103 @@ const handlers: Handlers = {
     return { inverse: [setLegend({ legend: oldLegend })], targets: [state.key] };
   },
 
+  // addChannel appends the y-channel and reconciles the line set, materializing
+  // a line for every (x-axis, range) combination it now participates in.
+  // removeChannel is its inverse and tears those lines back down.
   addChannel: (state, payload) => {
     const axis = payload.axisKey;
     const slice = state.channels[axis];
     if (slice.includes(payload.channel)) return actions.NO_OP_RESULT;
     slice.push(payload.channel);
+    state.lines = reconcileLines(state.channels, state.ranges, state.lines).lines;
     return {
       inverse: [removeChannel({ axisKey: axis, channel: payload.channel })],
       targets: [`channel:${payload.channel}`],
     };
   },
 
+  // removeChannel drops the y-channel and reconciles the line set; every line it
+  // produced is dropped. Dropped lines are restored verbatim on undo so user
+  // styling survives a remove/add cycle.
   removeChannel: (state, payload) => {
     const axis = payload.axisKey;
     const slice = state.channels[axis];
     const idx = slice.indexOf(payload.channel);
     if (idx === -1) return actions.NO_OP_RESULT;
     slice.splice(idx, 1);
+    const { lines, dropped } = reconcileLines(
+      state.channels,
+      state.ranges,
+      state.lines,
+    );
+    state.lines = lines;
     return {
-      inverse: [addChannel({ axisKey: axis, channel: payload.channel })],
+      inverse: [
+        addChannel({ axisKey: axis, channel: payload.channel }),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+      ],
       targets: [`channel:${payload.channel}`],
     };
   },
 
+  // setXChannel swaps the single channel on an x-axis. Reconciliation rekeys
+  // every line on that axis: the old lines are dropped and fresh ones
+  // materialized. Undo restores both the previous channel and the previous
+  // line styling.
   setXChannel: (state, payload) => {
     const axis = payload.axisKey;
     const oldChannel = state.channels[axis];
+    if (oldChannel === payload.channel) return actions.NO_OP_RESULT;
     state.channels[axis] = payload.channel;
+    const { lines, dropped } = reconcileLines(
+      state.channels,
+      state.ranges,
+      state.lines,
+    );
+    state.lines = lines;
     return {
-      inverse: [setXChannel({ axisKey: axis, channel: oldChannel })],
+      inverse: [
+        setXChannel({ axisKey: axis, channel: oldChannel }),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+      ],
       targets: [`axis:${axis}`],
     };
   },
 
+  // addRange appends the range to an x-axis and reconciles the line set,
+  // materializing a line for every y-channel plotted against it. removeRange is
+  // its inverse.
   addRange: (state, payload) => {
     const axis = payload.axisKey;
     const slice = state.ranges[axis];
     if (slice.includes(payload.range)) return actions.NO_OP_RESULT;
     slice.push(payload.range);
+    state.lines = reconcileLines(state.channels, state.ranges, state.lines).lines;
     return {
       inverse: [removeRange({ axisKey: axis, range: payload.range })],
       targets: [`range:${payload.range}`],
     };
   },
 
+  // removeRange drops the range and reconciles the line set, dropping every line
+  // it produced and restoring their styling on undo.
   removeRange: (state, payload) => {
     const axis = payload.axisKey;
     const slice = state.ranges[axis];
     const idx = slice.indexOf(payload.range);
     if (idx === -1) return actions.NO_OP_RESULT;
     slice.splice(idx, 1);
+    const { lines, dropped } = reconcileLines(
+      state.channels,
+      state.ranges,
+      state.lines,
+    );
+    state.lines = lines;
     return {
-      inverse: [addRange({ axisKey: axis, range: payload.range })],
+      inverse: [
+        addRange({ axisKey: axis, range: payload.range }),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+      ],
       targets: [`range:${payload.range}`],
     };
   },
@@ -115,11 +161,10 @@ const handlers: Handlers = {
     };
   },
 
-  // setLine upserts: edits to an existing line are undoable, fresh inserts
-  // are not (there is no removeLine inverse to record). Empty targets keep
-  // create out of the undo stack so Cmd+Z never silently no-ops past it.
-  // Lines are typically derived from addChannel/addRange, so direct creation
-  // is the unusual path.
+  // setLine edits the styling of an existing line. Lines are materialized by
+  // addChannel/addRange/setXChannel, so the insert branch exists only to
+  // restore a line removed by those handlers' inverses; such inserts are not
+  // independently undoable (empty inverse and targets).
   setLine: (state, payload) => {
     const idx = state.lines.findIndex((l) => l.key === payload.line.key);
     if (idx === -1) {

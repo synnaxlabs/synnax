@@ -50,12 +50,110 @@ func (r *actionRecorder) snapshot() []scopedAction {
 	return out
 }
 
+func lineKeysOf(lines []lineplot.Line) []string {
+	keys := make([]string, len(lines))
+	for i, l := range lines {
+		keys[i] = l.Key
+	}
+	return keys
+}
+
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a LinePlot", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(plot.Key).ToNot(Equal(uuid.Nil))
+		})
+		It("Should populate lines from channel and range bindings supplied at creation", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{
+				Name:     "test",
+				Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
+				Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---10---5", "y1---x1---r1---10---6"))
+		})
+	})
+
+	Describe("eager line creation", func() {
+		It("Should materialize a line per range when a channel is added", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{
+				Name:     "test",
+				Channels: lineplot.Channels{X1: 10},
+				Ranges:   lineplot.Ranges{X1: []string{"r1", "r2"}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+				lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
+					AxisKey: lineplot.YAxisKeyY1, Channel: 5,
+				}),
+			})).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(lineKeysOf(res.Lines)).
+				To(ConsistOf("y1---x1---r1---10---5", "y1---x1---r2---10---5"))
+		})
+
+		It("Should give materialized lines the schema default styling", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{
+				Name:     "test",
+				Channels: lineplot.Channels{X1: 10},
+				Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+				lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
+					AxisKey: lineplot.YAxisKeyY1, Channel: 5,
+				}),
+			})).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(res.Lines).To(HaveLen(1))
+			Expect(res.Lines[0].StrokeWidth).To(Equal(float64(2)))
+			Expect(res.Lines[0].Downsample).To(Equal(uint32(1)))
+			Expect(res.Lines[0].DownsampleMode).To(Equal(lineplot.DownsampleModeDecimate))
+		})
+
+		It("Should remove a channel's lines when the channel is removed", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{
+				Name:     "test",
+				Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
+				Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+				lineplot.NewRemoveChannelAction(lineplot.RemoveChannelPayload{
+					AxisKey: lineplot.YAxisKeyY1, Channel: 5,
+				}),
+			})).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---10---6"))
+		})
+
+		It("Should rekey a y-axis's lines when the x-channel changes", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{
+				Name:     "test",
+				Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+				Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+				lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
+					AxisKey: lineplot.XAxisKeyX1, Channel: 20,
+				}),
+			})).To(Succeed())
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+				To(Succeed())
+			Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---20---5"))
 		})
 	})
 
