@@ -923,7 +923,7 @@ var _ = Describe("Analyzer", func() {
 			fields := resolution.UnifiedFields(child, table)
 			name := findField(fields, "name")
 			Expect(name.Type.Name).To(Equal("string"))
-			Expect(domainExprNames(name.Domains["validate"])).To(ContainElements("min_length", "required"))
+			Expect(domainExprNames(name.Domains["validate"])).To(Equal([]string{"min_length", "required"}))
 		})
 
 		It("Should inherit the parent's domains on a bare typeless override", func(ctx SpecContext) {
@@ -997,78 +997,34 @@ var _ = Describe("Analyzer", func() {
 			Expect(name.Domains).NotTo(HaveKey("validate"))
 		})
 
-		It("Should make a required parent field optional with a typeless ? marker", func(ctx SpecContext) {
-			source := `
-				Key uint32
+		DescribeTable("Should resolve optionality on a typeless override",
+			func(ctx SpecContext, parentField, childField, field, wantType string, wantOptional, wantHard bool) {
+				source := "Key uint32\n\nParent struct {\n  " + parentField +
+					"\n}\n\nChild struct extends Parent {\n  " + childField + "\n}\n"
+				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				f := findField(resolution.UnifiedFields(table.MustGet("test.Child"), table), field)
+				Expect(f.Type.Name).To(Equal(wantType))
+				Expect(f.IsOptional).To(Equal(wantOptional))
+				Expect(f.IsHardOptional).To(Equal(wantHard))
+			},
+			Entry("? makes a required field soft-optional",
+				"key Key", "key?", "key", "test.Key", true, false),
+			Entry("? makes a required array field soft-optional",
+				"items string[]", "items?", "items", "Array", true, false),
+			Entry("?? makes a field hard-optional",
+				"note string", "note??", "note", "string", false, true),
+			Entry("restating the type makes an optional field required",
+				"name string?", "name string", "name", "string", false, false),
+		)
 
-				Parent struct {
-					key   Key
-					items string[]
-				}
-
-				Child struct extends Parent {
-					key?
-					items?
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			child := table.MustGet("test.Child")
-			fields := resolution.UnifiedFields(child, table)
-
-			key := findField(fields, "key")
-			Expect(key.Type.Name).To(Equal("test.Key"))
-			Expect(key.IsOptional).To(BeTrue())
-			Expect(key.IsHardOptional).To(BeFalse())
-
-			items := findField(fields, "items")
-			Expect(items.Type.Name).To(Equal("Array"))
-			Expect(items.IsOptional).To(BeTrue())
-		})
-
-		It("Should make a parent field hard-optional with a typeless ?? marker", func(ctx SpecContext) {
-			source := `
-				Parent struct {
-					note string
-				}
-
-				Child struct extends Parent {
-					note??
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			child := table.MustGet("test.Child")
-			note := findField(resolution.UnifiedFields(child, table), "note")
-			Expect(note.Type.Name).To(Equal("string"))
-			Expect(note.IsHardOptional).To(BeTrue())
-			Expect(note.IsOptional).To(BeFalse())
-		})
-
-		It("Should make an optional parent field required by restating its type", func(ctx SpecContext) {
-			source := `
-				Parent struct {
-					name string?
-				}
-
-				Child struct extends Parent {
-					name string
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			child := table.MustGet("test.Child")
-			fields := resolution.UnifiedFields(child, table)
-			name := findField(fields, "name")
-			Expect(name.IsOptional).To(BeFalse())
-			Expect(name.IsHardOptional).To(BeFalse())
-		})
-
-		It("Should reject a typeless field that overrides no parent field", func(ctx SpecContext) {
-			source := `
+		DescribeTable("Should reject partial-override syntax that cannot resolve",
+			func(ctx SpecContext, source, wantErr string) {
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.Error()).To(ContainSubstring(wantErr))
+			},
+			Entry("a typeless field overriding no parent field", `
 				Parent struct {
 					name string
 				}
@@ -1076,22 +1032,31 @@ var _ = Describe("Analyzer", func() {
 				Child struct extends Parent {
 					age = 21
 				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.Error()).To(ContainSubstring("declares no type"))
-		})
-
-		It("Should reject a typeless field in a struct that extends nothing", func(ctx SpecContext) {
-			source := `
+			`, "declares no type"),
+			Entry("a typeless field in a struct that extends nothing", `
 				Plain struct {
 					name = "x"
 				}
-			`
-			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.Error()).To(ContainSubstring("declares no type"))
-		})
+			`, "declares no type"),
+			Entry("a -@domain removal overriding no parent field", `
+				Parent struct {
+					name string
+				}
+
+				Child struct extends Parent {
+					age int32 -@validate
+				}
+			`, "removes a domain with -@"),
+			Entry("a typeless field in an action", `
+				Counter struct {
+					key uuid
+
+					action SetValue {
+						value
+					}
+				}
+			`, "must declare a type"),
+		)
 
 		It("Should extend generic struct with type arguments", func(ctx SpecContext) {
 			source := `

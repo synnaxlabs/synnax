@@ -820,7 +820,7 @@ func sameDefault(a, b *resolution.ExpressionValue) bool {
 		}
 		return true
 	}
-	return true
+	return false
 }
 
 func isOnlyOptionalityChange(parent, child resolution.Field) bool {

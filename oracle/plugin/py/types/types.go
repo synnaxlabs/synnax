@@ -881,13 +881,14 @@ func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue
 // resolving each field's value against its declared type in the struct named by
 // typeRef.
 func pyStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
-	className := ""
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return "None"
+	}
+	className := getPyName(resolved)
 	fieldsByName := map[string]resolution.Field{}
-	if resolved, ok := typeRef.Resolve(table); ok {
-		className = getPyName(resolved)
-		for _, f := range resolution.UnifiedFields(resolved, table) {
-			fieldsByName[f.Name] = f
-		}
+	for _, f := range resolution.UnifiedFields(resolved, table) {
+		fieldsByName[f.Name] = f
 	}
 	parts := make([]string, 0, len(val.Fields))
 	for _, fv := range val.Fields {
