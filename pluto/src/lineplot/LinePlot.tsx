@@ -15,23 +15,23 @@ import {
   type location,
   type optional,
   type TimeRange,
-  TimeSpan,
+  type TimeSpan,
 } from "@synnaxlabs/x";
 import {
   type ReactElement,
   type ReactNode,
   type Ref,
+  type RefObject,
   useCallback,
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { useDebouncedCallback, usePrevious } from "@/hooks";
+import { usePrevious } from "@/hooks";
 import { XAxis as CoreXAxis, YAxis as CoreYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps, type FrameRef, type LineSpec } from "@/lineplot/Frame";
 import { Legend, type LegendProps } from "@/lineplot/Legend";
@@ -47,13 +47,15 @@ import {
   useSelectChannels,
   useSelectLegend,
   useSelectLine,
-  useSelectLineKeys,
+  useSelectLineCount,
   useSelectName,
   useSelectRanges,
   useSelectRule,
   useSelectTitle,
   useSelectXAxis,
+  useSelectXAxisKeys,
   useSelectYAxis,
+  useSelectYAxisKeys,
   useUndo,
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
@@ -84,6 +86,31 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
 };
 
 type RuleChange = Partial<lineplot.Rule> & { key: string };
+
+interface UseUndoRedoTriggersProps {
+  key: lineplot.Key;
+  enabled: boolean | (() => boolean);
+}
+
+const useUndoRedoTriggers = ({ key, enabled }: UseUndoRedoTriggersProps) => {
+  const { undo } = useUndo({ key });
+  const { redo } = useRedo({ key });
+  Triggers.use({
+    triggers: UNDO_REDO_TRIGGERS,
+    loose: true,
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        if (enabled === false) return;
+        if (typeof enabled === "function" && !enabled()) return;
+        const mode = Triggers.determineMode(UNDO_REDO_CONFIG, triggers);
+        if (mode === "undo") undo();
+        else if (mode === "redo") redo();
+      },
+      [enabled, undo, redo],
+    ),
+  });
+};
 
 const useAxisDrop = <K extends lineplot.AxisKey>(
   axisKey: K,
@@ -229,24 +256,13 @@ const ConnectedLegend = ({
 }: ConnectedLegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
   const legend = useSelectLegend({ key: pKey });
-  // Position is held locally for responsive dragging and debounced into the
-  // store so the document isn't written on every pointer move.
-  const [position, setPosition] = useState(legend.position);
-  const storePosition = useDebouncedCallback(
-    (next: typeof legend.position) =>
+  const handlePositionChange = useCallback(
+    (position: typeof legend.position) =>
       dispatch({
         key: pKey,
-        actions: [lineplot.setLegend({ legend: { ...legend, position: next } })],
+        actions: [lineplot.setLegend({ legend: { ...legend, position } })],
       }),
-    TimeSpan.milliseconds(100),
     [dispatch, pKey, legend],
-  );
-  const handlePositionChange = useCallback(
-    (next: typeof legend.position) => {
-      setPosition(next);
-      storePosition(next);
-    },
-    [storePosition],
   );
   const handleLineChange = useCallback(
     (d: optional.Optional<LineSpec, "legendGroup">) => {
@@ -269,7 +285,7 @@ const ConnectedLegend = ({
   return (
     <Legend
       onLineChange={editable ? handleLineChange : undefined}
-      position={position}
+      position={legend.position}
       onPositionChange={editable ? handlePositionChange : undefined}
       variant={variant}
     />
@@ -417,14 +433,12 @@ const YAxis = ({
 
 interface XAxisProps extends AxisChildrenProps {
   axisKey: lineplot.XAxisKey;
-  yAxes: lineplot.YAxisKey[];
   rangeProviderProps?: Range.ProviderProps;
 }
 
 const XAxis = ({
   pKey,
   axisKey,
-  yAxes,
   editable,
   activeRangeKey,
   resolvedRanges,
@@ -443,6 +457,7 @@ const XAxis = ({
   const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
   const { key: _axisKey, ...axisConfig } = useSelectXAxis({ key: pKey, axisKey });
+  const yAxes = useSelectYAxisKeys({ key: pKey });
   return (
     <CoreXAxis
       {...axisConfig}
@@ -475,15 +490,6 @@ const XAxis = ({
   );
 };
 
-const shouldDisplayAxis = (
-  key: lineplot.AxisKey,
-  channels: lineplot.Channels,
-): boolean => {
-  if (key === "x1" || key === "y1") return true;
-  if (key === "x2") return channels.x2 !== 0;
-  return channels[key].length > 0;
-};
-
 const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
   undo: [["Control", "Z"]],
   redo: [["Control", "Shift", "Z"]],
@@ -492,16 +498,31 @@ const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
 };
 const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
 
+interface UseViewportResetParams {
+  key: lineplot.Key;
+  hold?: boolean;
+}
+
+const useViewportReset = ({
+  key,
+  hold,
+}: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
+  const lineCount = useSelectLineCount({ key });
+  const prevLen = usePrevious(lineCount);
+  const prevHold = usePrevious(hold);
+  const viewportRef = useRef<Viewport.UseRefValue | null>(null);
+  useEffect(() => {
+    if ((prevLen === 0 && lineCount !== 0) || (prevHold === true && hold === false))
+      viewportRef.current?.reset();
+  }, [lineCount, hold]);
+  return viewportRef;
+};
+
 export interface LinePlotProps extends Omit<FrameProps, "ref"> {
   resourceKey: lineplot.Key;
-  /** Gates every document mutation. */
   editable?: boolean;
-  /** Gates the in-component undo/redo keyboard shortcuts; the consumer scopes
-   * this to the focused tab and the user's update permission. */
   enableTriggers?: boolean | (() => boolean);
-  /** Range key -> resolved static/dynamic window, supplied by the consumer. */
   resolvedRanges?: Map<string, ResolvedRange>;
-  /** Active range key prepended when dropping a channel onto an empty plot. */
   activeRangeKey?: string;
   legendVariant?: LegendProps["variant"];
   enableTooltip?: boolean;
@@ -538,46 +559,9 @@ export const LinePlot = ({
   ...rest
 }: LinePlotProps): ReactElement => {
   useEnsureRetrieved({ key });
-  const { undo } = useUndo({ key });
-  const { redo } = useRedo({ key });
-  Triggers.use({
-    triggers: UNDO_REDO_TRIGGERS,
-    loose: true,
-    callback: useCallback(
-      ({ triggers, stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        if (enableTriggers === false) return;
-        if (typeof enableTriggers === "function" && !enableTriggers()) return;
-        const mode = Triggers.determineMode(UNDO_REDO_CONFIG, triggers);
-        if (mode === "undo") undo();
-        else if (mode === "redo") redo();
-      },
-      [enableTriggers, undo, redo],
-    ),
-  });
-  const channels = useSelectChannels({ key });
-  const lineKeys = useSelectLineKeys({ key });
-
-  const xAxisKeys = useMemo(
-    () => lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
-    [channels],
-  );
-  const yAxisKeys = useMemo(
-    () => lineplot.Y_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
-    [channels],
-  );
-
-  const viewportRef = useRef<Viewport.UseRefValue | null>(null);
-  const prevLen = usePrevious(lineKeys.length);
-  const prevHold = usePrevious(rest.hold);
-  useEffect(() => {
-    if (
-      (prevLen === 0 && lineKeys.length !== 0) ||
-      (prevHold === true && rest.hold === false)
-    )
-      viewportRef.current?.reset();
-  }, [lineKeys.length, rest.hold]);
-
+  useUndoRedoTriggers({ key, enabled: enableTriggers });
+  const xAxisKeys = useSelectXAxisKeys({ key });
+  const viewportRef = useViewportReset({ key, hold: rest.hold });
   return (
     <Frame ref={ref} {...rest}>
       {xAxisKeys.map((xAxisKey) => (
@@ -585,7 +569,6 @@ export const LinePlot = ({
           key={xAxisKey}
           pKey={key}
           axisKey={xAxisKey}
-          yAxes={yAxisKeys}
           editable={editable}
           activeRangeKey={activeRangeKey}
           resolvedRanges={resolvedRanges}

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, NotFoundError, ontology, type workspace } from "@synnaxlabs/client";
-import { array, DataType, uuid } from "@synnaxlabs/x";
+import { array, compare, DataType, uuid } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -82,8 +82,7 @@ export const useRetrieveObservableName = ({
   return useRetrieveObservable({
     ...params,
     onChange: useCallback((result) => {
-      if (result.variant !== "success") return;
-      onChangeRef.current(result.data.name);
+      if (result.variant === "success") onChangeRef.current(result.data.name);
     }, []),
   });
 };
@@ -148,6 +147,39 @@ export const useSelectAxes = Flux.createSelector<
   select: (store, { key }) => requireLinePlot(store, key).axes,
 });
 
+const shouldDisplayAxis = (
+  key: lineplot.AxisKey,
+  channels: lineplot.Channels,
+): boolean => {
+  if (key === "x1" || key === "y1") return true;
+  if (key === "x2") return channels.x2 !== 0;
+  return channels[key].length > 0;
+};
+
+export const useSelectXAxisKeys = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.XAxisKey[],
+  lineplot.Channels
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).channels,
+  transform: (channels) =>
+    lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
+});
+
+export const useSelectYAxisKeys = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  lineplot.YAxisKey[],
+  lineplot.Channels
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).channels,
+  transform: (channels) =>
+    lineplot.Y_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
+});
+
 export interface SelectAxisArgs {
   key: lineplot.Key;
   axisKey: lineplot.AxisKey;
@@ -185,9 +217,9 @@ export const useSelectLines = (args: SelectKeyArgs): DerivedLine[] => {
   const palette = Theming.use().colors.visualization.palettes.default;
   return useMemo(
     () =>
-      lines.map((line, i) => ({
+      lines.map(({ color, ...line }, i) => ({
         ...line,
-        color: resolveLineColor(line.color, i, palette),
+        color: resolveLineColor(color, i, palette),
       })),
     [lines, palette],
   );
@@ -200,9 +232,16 @@ export const useSelectLineKeys = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key }) => requireLinePlot(store, key).lines.map((l) => l.key),
-  // Keys only change when lines are added, removed, or reordered — not when a
-  // line's styling changes — so this stays referentially stable across edits.
-  equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+  equal: compare.arraysEqual,
+});
+
+export const useSelectLineCount = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  number
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key }) => requireLinePlot(store, key).lines.length,
 });
 
 export interface SelectYAxisArgs {
