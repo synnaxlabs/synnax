@@ -201,13 +201,19 @@ const ConnectedTitle = ({
   const { update: rename } = useRename({});
   const handleChange = useCallback(
     (value: string) => {
-      if (editable !== true) return;
       rename({ key: pKey, name: value });
     },
-    [rename, pKey, editable],
+    [rename, pKey],
   );
   if (!visible) return null;
-  return <Title value={name} onChange={handleChange} level={level} />;
+  return (
+    <Title
+      value={name}
+      onChange={handleChange}
+      disabled={editable !== true}
+      level={level}
+    />
+  );
 };
 
 interface ConnectedLegendProps {
@@ -237,15 +243,13 @@ const ConnectedLegend = ({
   );
   const handlePositionChange = useCallback(
     (next: typeof legend.position) => {
-      if (editable !== true) return;
       setPosition(next);
       storePosition(next);
     },
-    [storePosition, editable],
+    [storePosition],
   );
   const handleLineChange = useCallback(
     (d: optional.Optional<LineSpec, "legendGroup">) => {
-      if (editable !== true) return;
       dispatch({
         key: pKey,
         actions: [
@@ -257,14 +261,16 @@ const ConnectedLegend = ({
         ],
       });
     },
-    [dispatch, pKey, editable],
+    [dispatch, pKey],
   );
   if (!legend.visible) return null;
+  // The legend has no disabled prop; absent callbacks are how it disables drag
+  // and entry editing, so gate at the prop rather than inside the handlers.
   return (
     <Legend
-      onLineChange={handleLineChange}
+      onLineChange={editable ? handleLineChange : undefined}
       position={position}
-      onPositionChange={handlePositionChange}
+      onPositionChange={editable ? handlePositionChange : undefined}
       variant={variant}
     />
   );
