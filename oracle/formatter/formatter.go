@@ -728,19 +728,6 @@ func (f *formatter) formatExpressionToString(ctx parser.IExpressionContext) stri
 	return sb.String()
 }
 
-func (f *formatter) formatFieldDefaultToString(ctx parser.IFieldDefaultContext) string {
-	if ev := ctx.ExpressionValue(); ev != nil {
-		return f.formatExpressionValueToString(ev)
-	}
-	if arr := ctx.ArrayDefault(); arr != nil {
-		return f.formatArrayDefaultToString(arr)
-	}
-	if st := ctx.StructDefault(); st != nil {
-		return f.formatStructDefaultToString(st)
-	}
-	return ""
-}
-
 func (f *formatter) formatDefaultValueToString(ctx parser.IDefaultValueContext) string {
 	if ev := ctx.ExpressionValue(); ev != nil {
 		return f.formatExpressionValueToString(ev)
