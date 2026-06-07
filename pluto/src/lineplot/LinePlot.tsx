@@ -32,11 +32,7 @@ import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useDebouncedCallback, usePrevious } from "@/hooks";
-import {
-  type AxisProps as CoreAxisProps,
-  XAxis as CoreXAxis,
-  YAxis as CoreYAxis,
-} from "@/lineplot/Axis";
+import { XAxis as CoreXAxis, YAxis as CoreYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps, type FrameRef, type LineSpec } from "@/lineplot/Frame";
 import { Legend, type LegendProps } from "@/lineplot/Legend";
 import { Line as CoreLine } from "@/lineplot/Line";
@@ -85,7 +81,6 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
   x2: "top",
 };
 
-type AxisChange = Partial<CoreAxisProps> & { key: lineplot.AxisKey };
 type RuleChange = Partial<lineplot.Rule> & { key: string };
 
 const useAxisDrop = <K extends lineplot.AxisKey>(
@@ -108,6 +103,30 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
       [axisKey, onDrop],
     ),
   });
+
+// useChannelDropper commits the actions produced by a channel drop. If the plot
+// has no ranges yet and an active range is provided, it first binds that range
+// to x1 so the dropped channel has something to plot against.
+const useChannelDropper = (
+  pKey: lineplot.Key,
+  activeRangeKey?: string,
+): ((actions: lineplot.Action[]) => void) => {
+  const { dispatch } = useDispatch();
+  const ranges = useSelectRanges({ key: pKey });
+  return useCallback(
+    (actions: lineplot.Action[]): void => {
+      if (
+        activeRangeKey != null &&
+        ranges.x1.length === 0 &&
+        ranges.x2.length === 0 &&
+        actions.length > 0
+      )
+        actions.unshift(lineplot.addRange({ axisKey: "x1", range: activeRangeKey }));
+      dispatch({ key: pKey, actions });
+    },
+    [dispatch, pKey, ranges, activeRangeKey],
+  );
+};
 
 interface ConnectedLineProps {
   pKey: lineplot.Key;
@@ -185,14 +204,12 @@ const ConnectedTitle = ({
 interface ConnectedLegendProps {
   pKey: lineplot.Key;
   variant?: LegendProps["variant"];
-  onLineChange?: LegendProps["onLineChange"];
   editable?: boolean;
 }
 
 const ConnectedLegend = ({
   pKey,
   variant,
-  onLineChange,
   editable,
 }: ConnectedLegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
@@ -216,10 +233,25 @@ const ConnectedLegend = ({
     },
     [storePosition],
   );
+  const handleLineChange = useCallback(
+    (d: optional.Optional<LineSpec, "legendGroup">) => {
+      dispatch({
+        key: pKey,
+        actions: [
+          lineplot.setLine({
+            key: d.key,
+            label: d.label,
+            color: color.construct(d.color),
+          }),
+        ],
+      });
+    },
+    [dispatch, pKey],
+  );
   if (!legend.visible) return null;
   return (
     <Legend
-      onLineChange={onLineChange}
+      onLineChange={editable ? handleLineChange : undefined}
       position={position}
       onPositionChange={editable ? handlePositionChange : undefined}
       variant={variant}
@@ -229,6 +261,8 @@ const ConnectedLegend = ({
 
 interface AxisChildrenProps {
   pKey: lineplot.Key;
+  editable?: boolean;
+  activeRangeKey?: string;
   resolvedRanges?: Map<string, ResolvedRange>;
   onSelectRule?: (key: string) => void;
 }
@@ -307,19 +341,31 @@ const Rules = ({ pKey, axisKey, onSelectRule }: RulesProps): ReactElement => {
 
 interface YAxisProps extends AxisChildrenProps {
   axisKey: lineplot.YAxisKey;
-  onAxisChange: (a: AxisChange) => void;
-  onChannelDrop?: (key: lineplot.YAxisKey, keys: channel.Key[]) => void;
 }
 
 const YAxis = ({
   pKey,
   axisKey,
+  editable,
+  activeRangeKey,
   resolvedRanges,
-  onAxisChange,
-  onChannelDrop,
   onSelectRule,
 }: YAxisProps): ReactElement => {
-  const dropProps = useAxisDrop(axisKey, "y", onChannelDrop);
+  const { dispatch } = useDispatch();
+  const channels = useSelectChannels({ key: pKey });
+  const commitDrop = useChannelDropper(pKey, activeRangeKey);
+  const handleDrop = useCallback(
+    (k: lineplot.YAxisKey, dropped: channel.Key[]): void => {
+      const existing = new Set(channels[k]);
+      const actions: lineplot.Action[] = [];
+      for (const c of dropped)
+        if (!existing.has(c))
+          actions.push(lineplot.addChannel({ axisKey: k, channel: c }));
+      commitDrop(actions);
+    },
+    [channels, commitDrop],
+  );
+  const dropProps = useAxisDrop(axisKey, "y", editable ? handleDrop : undefined);
   const dragging = Haul.useDraggingState();
   const { axis, lineKeys } = useSelectYAxis({ key: pKey, axisKey });
   const { key: _axisKey, ...axisConfig } = axis;
@@ -331,7 +377,12 @@ const YAxis = ({
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
-      onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
+      onLabelChange={(value) =>
+        dispatch({
+          key: pKey,
+          actions: [lineplot.setAxis({ key: axisKey, label: value })],
+        })
+      }
     >
       {lineKeys.map((lineKey) => (
         <ConnectedLine
@@ -349,9 +400,6 @@ const YAxis = ({
 interface XAxisProps extends AxisChildrenProps {
   axisKey: lineplot.XAxisKey;
   yAxes: lineplot.YAxisKey[];
-  onAxisChange: (a: AxisChange) => void;
-  onXChannelDrop?: (key: lineplot.XAxisKey, keys: channel.Key[]) => void;
-  onYChannelDrop?: (key: lineplot.YAxisKey, keys: channel.Key[]) => void;
   rangeProviderProps?: Range.ProviderProps;
 }
 
@@ -359,14 +407,20 @@ const XAxis = ({
   pKey,
   axisKey,
   yAxes,
+  editable,
+  activeRangeKey,
   resolvedRanges,
-  onAxisChange,
-  onXChannelDrop,
-  onYChannelDrop,
   onSelectRule,
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
-  const dropProps = useAxisDrop(axisKey, "x", onXChannelDrop);
+  const { dispatch } = useDispatch();
+  const commitDrop = useChannelDropper(pKey, activeRangeKey);
+  const handleDrop = useCallback(
+    (k: lineplot.XAxisKey, dropped: channel.Key[]): void =>
+      commitDrop([lineplot.setXChannel({ axisKey: k, channel: dropped[0] })]),
+    [commitDrop],
+  );
+  const dropProps = useAxisDrop(axisKey, "x", editable ? handleDrop : undefined);
   const dragging = Haul.useDraggingState();
   const { key: _axisKey, ...axisConfig } = useSelectXAxis({ key: pKey, axisKey });
   return (
@@ -377,16 +431,21 @@ const XAxis = ({
       axisKey={axisKey}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       showGrid={axisKey === "x1"}
-      onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
+      onLabelChange={(value) =>
+        dispatch({
+          key: pKey,
+          actions: [lineplot.setAxis({ key: axisKey, label: value })],
+        })
+      }
     >
       {yAxes.map((yAxisKey) => (
         <YAxis
           key={yAxisKey}
           pKey={pKey}
           axisKey={yAxisKey}
+          editable={editable}
+          activeRangeKey={activeRangeKey}
           resolvedRanges={resolvedRanges}
-          onAxisChange={onAxisChange}
-          onChannelDrop={onYChannelDrop}
           onSelectRule={onSelectRule}
         />
       ))}
@@ -463,7 +522,6 @@ export const LinePlot = ({
   ...rest
 }: LinePlotProps): ReactElement => {
   useEnsureRetrieved({ key });
-  const { dispatch } = useDispatch();
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
   Triggers.use({
@@ -482,65 +540,7 @@ export const LinePlot = ({
     ),
   });
   const channels = useSelectChannels({ key });
-  const ranges = useSelectRanges({ key });
   const lineKeys = useSelectLineKeys({ key });
-
-  const handleLineChange = useCallback(
-    (d: optional.Optional<LineSpec, "legendGroup">) => {
-      dispatch({
-        key,
-        actions: [
-          lineplot.setLine({
-            key: d.key,
-            label: d.label,
-            color: color.construct(d.color),
-          }),
-        ],
-      });
-    },
-    [dispatch, key],
-  );
-
-  const handleAxisChange = useCallback(
-    (a: AxisChange) => {
-      if (a.label == null) return;
-      dispatch({ key, actions: [lineplot.setAxis({ key: a.key, label: a.label })] });
-    },
-    [dispatch, key],
-  );
-
-  const dispatchChannelDrop = useCallback(
-    (actions: lineplot.Action[]): void => {
-      if (
-        activeRangeKey != null &&
-        ranges.x1.length === 0 &&
-        ranges.x2.length === 0 &&
-        actions.length > 0
-      )
-        actions.unshift(lineplot.addRange({ axisKey: "x1", range: activeRangeKey }));
-      dispatch({ key, actions });
-    },
-    [dispatch, key, ranges, activeRangeKey],
-  );
-
-  const handleXChannelDrop = useCallback(
-    (axisKey: lineplot.XAxisKey, dropped: channel.Key[]): void => {
-      dispatchChannelDrop([lineplot.setXChannel({ axisKey, channel: dropped[0] })]);
-    },
-    [dispatchChannelDrop],
-  );
-
-  const handleYChannelDrop = useCallback(
-    (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
-      const existing = new Set(channels[axisKey]);
-      const actions: lineplot.Action[] = [];
-      for (const c of dropped)
-        if (!existing.has(c))
-          actions.push(lineplot.addChannel({ axisKey, channel: c }));
-      dispatchChannelDrop(actions);
-    },
-    [channels, dispatchChannelDrop],
-  );
 
   const xAxisKeys = useMemo(
     () => lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
@@ -570,20 +570,14 @@ export const LinePlot = ({
           pKey={key}
           axisKey={xAxisKey}
           yAxes={yAxisKeys}
+          editable={editable}
+          activeRangeKey={activeRangeKey}
           resolvedRanges={resolvedRanges}
-          onAxisChange={handleAxisChange}
-          onXChannelDrop={editable ? handleXChannelDrop : undefined}
-          onYChannelDrop={editable ? handleYChannelDrop : undefined}
           onSelectRule={onSelectRule}
           rangeProviderProps={rangeProviderProps}
         />
       ))}
-      <ConnectedLegend
-        pKey={key}
-        variant={legendVariant}
-        onLineChange={editable ? handleLineChange : undefined}
-        editable={editable}
-      />
+      <ConnectedLegend pKey={key} variant={legendVariant} editable={editable} />
       <ConnectedTitle
         pKey={key}
         value={title ?? ""}
