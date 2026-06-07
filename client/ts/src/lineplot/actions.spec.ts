@@ -332,10 +332,7 @@ describe("lineplot reducer", () => {
         yChannel: 5,
       });
       let s = apply(state, addRange({ axisKey: "x1", range: r1 }));
-      s = apply(
-        s,
-        setLine({ line: { ...s.lines[0], color: color.construct("#ff0000") } }),
-      );
+      s = apply(s, setLine({ key: s.lines[0].key, color: color.construct("#ff0000") }));
       const restored = roundTrip(s, removeChannel({ axisKey: "y1", channel: 5 }));
       expect(restored.lines).toHaveLength(1);
       expect(restored.lines[0].key).toEqual(key);
@@ -356,50 +353,107 @@ describe("lineplot reducer", () => {
   });
 
   describe("setAxis", () => {
-    it("should replace the axis configuration at the target key", () => {
-      const next: Axis = { ...zeroAxis("y1"), label: "pressure", tickSpacing: 50 };
-      const out = apply(empty(), setAxis({ axis: next }));
+    it("should merge the given fields into the target axis", () => {
+      const out = apply(
+        empty(),
+        setAxis({ key: "y1", label: "pressure", tickSpacing: 50 }),
+      );
       expect(out.axes.y1.label).toEqual("pressure");
       expect(out.axes.y1.tickSpacing).toEqual(50);
     });
-    it("should round-trip the previous axis through its inverse", () => {
+    it("should leave unset fields unchanged", () => {
       const state = empty();
-      const swapped = { ...zeroAxis("x1"), label: "time" };
-      expect(roundTrip(state, setAxis({ axis: swapped })).axes.x1).toEqual(
+      const out = apply(state, setAxis({ key: "y1", label: "pressure" }));
+      expect(out.axes.y1.tickSpacing).toEqual(state.axes.y1.tickSpacing);
+    });
+    it("should round-trip a field change through its inverse", () => {
+      const state = empty();
+      expect(roundTrip(state, setAxis({ key: "x1", label: "time" })).axes.x1).toEqual(
+        state.axes.x1,
+      );
+    });
+    it("should clear the tick type and restore it on undo", () => {
+      const state = empty({
+        axes: { ...empty().axes, x1: { ...zeroAxis("x1"), type: "time" } },
+      });
+      const cleared = apply(state, setAxis({ key: "x1", clearType: true }));
+      expect(cleared.axes.x1.type).toBeUndefined();
+      expect(roundTrip(state, setAxis({ key: "x1", clearType: true })).axes.x1).toEqual(
         state.axes.x1,
       );
     });
     it("should target the edited axis so distinct axes are independent", () => {
-      const { targets } = reduceAll(empty(), [setAxis({ axis: zeroAxis("y3") })]);
+      const { targets } = reduceAll(empty(), [setAxis({ key: "y3", label: "x" })]);
       expect(targets).toEqual(["axis:y3"]);
     });
   });
 
   describe("setLine", () => {
-    it("should append the line when its key is new", () => {
-      const out = apply(empty(), setLine({ line: line("l1", "#ff0000") }));
-      expect(out.lines).toEqual([line("l1", "#ff0000")]);
+    it("should insert the line from defaults when its key is new", () => {
+      const out = apply(
+        empty(),
+        setLine({ key: "l1", color: color.construct("#ff0000") }),
+      );
+      expect(out.lines).toEqual([
+        {
+          key: "l1",
+          color: color.construct("#ff0000"),
+          strokeWidth: 2,
+          downsample: 1,
+          downsampleMode: "decimate",
+        },
+      ]);
     });
-    it("should replace the line in place when its key already exists", () => {
-      const state = empty({ lines: [line("l1", "#ff0000"), line("l2", "#00ff00")] });
-      const out = apply(state, setLine({ line: line("l1", "#0000ff") }));
-      expect(out.lines).toEqual([line("l1", "#0000ff"), line("l2", "#00ff00")]);
-    });
-    it("should round-trip the previous line through its inverse on update", () => {
+    it("should merge only the given fields into an existing line", () => {
       const state = empty({ lines: [line("l1", "#ff0000")] });
-      expect(roundTrip(state, setLine({ line: line("l1", "#0000ff") })).lines).toEqual(
+      const out = apply(state, setLine({ key: "l1", strokeWidth: 5 }));
+      expect(out.lines[0].color).toEqual(color.construct("#ff0000"));
+      expect(out.lines[0].strokeWidth).toEqual(5);
+    });
+    it("should round-trip a field change through its inverse on update", () => {
+      const state = empty({ lines: [line("l1", "#ff0000")] });
+      expect(
+        roundTrip(state, setLine({ key: "l1", color: color.construct("#0000ff") }))
+          .lines,
+      ).toEqual(state.lines);
+    });
+    it("should clear the color and restore it on undo", () => {
+      const state = empty({ lines: [line("l1", "#ff0000")] });
+      const cleared = apply(state, setLine({ key: "l1", clearColor: true }));
+      expect(cleared.lines[0].color).toBeUndefined();
+      expect(roundTrip(state, setLine({ key: "l1", clearColor: true })).lines).toEqual(
         state.lines,
       );
     });
+    it("should restore a previously-unset color on undo", () => {
+      const base: Line = {
+        key: "l1",
+        strokeWidth: 2,
+        downsample: 1,
+        downsampleMode: "decimate",
+      };
+      const state = empty({ lines: [base] });
+      const out = apply(
+        state,
+        setLine({ key: "l1", color: color.construct("#ff0000") }),
+      );
+      expect(out.lines[0].color).toEqual(color.construct("#ff0000"));
+      expect(
+        roundTrip(state, setLine({ key: "l1", color: color.construct("#ff0000") }))
+          .lines,
+      ).toEqual(state.lines);
+    });
     it("should report no target for a fresh line insert so it is not recorded as undoable", () => {
       const { targets } = reduceAll(empty(), [
-        setLine({ line: line("l1", "#ff0000") }),
+        setLine({ key: "l1", color: color.construct("#ff0000") }),
       ]);
       expect(targets).toEqual([]);
     });
     it("should target the line on update so distinct lines are independent", () => {
       const state = empty({ lines: [line("l1", "#ff0000")] });
-      const { targets } = reduceAll(state, [setLine({ line: line("l1", "#0000ff") })]);
+      const { targets } = reduceAll(state, [
+        setLine({ key: "l1", color: color.construct("#0000ff") }),
+      ]);
       expect(targets).toEqual(["line:l1"]);
     });
   });

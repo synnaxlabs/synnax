@@ -18,13 +18,83 @@ import {
   removeRule,
   rename,
   setAxis,
+  type SetAxisPayload,
   setLegend,
   setLine,
+  type SetLinePayload,
   setRule,
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
-import { reconcileLines } from "@/lineplot/line";
+import { reconcileLines, zeroLine } from "@/lineplot/line";
+import { type Axis, type Line } from "@/lineplot/types.gen";
+
+// applyLineUpdate merges the set fields of a SetLine payload into line, in place,
+// and returns the inverse payload that restores the previous values. A nullable
+// field whose previous value was unset is restored with its clear flag, since a
+// partial payload otherwise cannot express "set back to null".
+const applyLineUpdate = (line: Line, p: SetLinePayload): SetLinePayload => {
+  const inverse: SetLinePayload = { key: line.key };
+  if (p.clearLabel === true || p.label !== undefined) {
+    if (line.label === undefined) inverse.clearLabel = true;
+    else inverse.label = line.label;
+    line.label = p.clearLabel === true ? undefined : p.label;
+  }
+  if (p.clearColor === true || p.color !== undefined) {
+    if (line.color === undefined) inverse.clearColor = true;
+    else inverse.color = actions.snapshotDraft(line.color);
+    line.color = p.clearColor === true ? undefined : p.color;
+  }
+  if (p.strokeWidth !== undefined) {
+    inverse.strokeWidth = line.strokeWidth;
+    line.strokeWidth = p.strokeWidth;
+  }
+  if (p.downsample !== undefined) {
+    inverse.downsample = line.downsample;
+    line.downsample = p.downsample;
+  }
+  if (p.downsampleMode !== undefined) {
+    inverse.downsampleMode = line.downsampleMode;
+    line.downsampleMode = p.downsampleMode;
+  }
+  return inverse;
+};
+
+// applyAxisUpdate merges the set fields of a SetAxis payload into axis, in place,
+// and returns the inverse payload that restores the previous values.
+const applyAxisUpdate = (axis: Axis, p: SetAxisPayload): SetAxisPayload => {
+  const inverse: SetAxisPayload = { key: axis.key };
+  if (p.label !== undefined) {
+    inverse.label = axis.label;
+    axis.label = p.label;
+  }
+  if (p.labelDirection !== undefined) {
+    inverse.labelDirection = axis.labelDirection;
+    axis.labelDirection = p.labelDirection;
+  }
+  if (p.labelLevel !== undefined) {
+    inverse.labelLevel = axis.labelLevel;
+    axis.labelLevel = p.labelLevel;
+  }
+  if (p.bounds !== undefined) {
+    inverse.bounds = actions.snapshotDraft(axis.bounds);
+    axis.bounds = p.bounds;
+  }
+  if (p.autoBounds !== undefined) {
+    inverse.autoBounds = actions.snapshotDraft(axis.autoBounds);
+    axis.autoBounds = p.autoBounds;
+  }
+  if (p.tickSpacing !== undefined) {
+    inverse.tickSpacing = axis.tickSpacing;
+    axis.tickSpacing = p.tickSpacing;
+  }
+  if (p.clearType === true || p.type !== undefined) {
+    if (axis.type === undefined) inverse.clearType = true;
+    else inverse.type = axis.type;
+    axis.type = p.clearType === true ? undefined : p.type;
+  }
+  return inverse;
+};
 
 // Handlers report the narrowest resource each action touches as its target,
 // type-prefixed to keep the key spaces (numeric channels, "y1" axes, uuid
@@ -84,7 +154,7 @@ const handlers: Handlers = {
     return {
       inverse: [
         addChannel({ axisKey: axis, channel: payload.channel }),
-        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+        ...dropped.map((l) => setLine({ ...actions.snapshotDraft(l) })),
       ],
       targets: [`channel:${payload.channel}`],
     };
@@ -108,7 +178,7 @@ const handlers: Handlers = {
     return {
       inverse: [
         setXChannel({ axisKey: axis, channel: oldChannel }),
-        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+        ...dropped.map((l) => setLine({ ...actions.snapshotDraft(l) })),
       ],
       targets: [`axis:${axis}`],
     };
@@ -146,37 +216,32 @@ const handlers: Handlers = {
     return {
       inverse: [
         addRange({ axisKey: axis, range: payload.range }),
-        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+        ...dropped.map((l) => setLine({ ...actions.snapshotDraft(l) })),
       ],
       targets: [`range:${payload.range}`],
     };
   },
 
+  // setAxis merges the given fields into the named axis.
   setAxis: (state, payload) => {
-    const oldAxis = actions.snapshotDraft(state.axes[payload.axis.key]);
-    state.axes[payload.axis.key] = payload.axis;
-    return {
-      inverse: [setAxis({ axis: oldAxis })],
-      targets: [`axis:${payload.axis.key}`],
-    };
+    const inverse = applyAxisUpdate(state.axes[payload.key], payload);
+    return { inverse: [setAxis(inverse)], targets: [`axis:${payload.key}`] };
   },
 
-  // setLine edits the styling of an existing line. Lines are materialized by
-  // addChannel/addRange/setXChannel, so the insert branch exists only to
-  // restore a line removed by those handlers' inverses; such inserts are not
-  // independently undoable (empty inverse and targets).
+  // setLine merges the given fields into the line with payload.key. When the line
+  // does not exist it is inserted from schema defaults with the fields applied;
+  // such inserts are not independently undoable (they exist only to restore a
+  // line removed by another handler's inverse).
   setLine: (state, payload) => {
-    const idx = state.lines.findIndex((l) => l.key === payload.line.key);
+    const idx = state.lines.findIndex((l) => l.key === payload.key);
     if (idx === -1) {
-      state.lines.push(payload.line);
+      const line = zeroLine(payload.key);
+      applyLineUpdate(line, payload);
+      state.lines.push(line);
       return { inverse: [], targets: [] };
     }
-    const oldLine = actions.snapshotDraft(state.lines[idx]);
-    state.lines[idx] = payload.line;
-    return {
-      inverse: [setLine({ line: oldLine })],
-      targets: [`line:${payload.line.key}`],
-    };
+    const inverse = applyLineUpdate(state.lines[idx], payload);
+    return { inverse: [setLine(inverse)], targets: [`line:${payload.key}`] };
   },
 
   setRule: (state, payload) => {
