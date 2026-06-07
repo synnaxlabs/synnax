@@ -362,23 +362,39 @@ LinePlot struct {
     }
 
     action SetAxis {
-        axis Axis
+        key             AxisKey
+        label           string??
+        label_direction spatial.Direction??
+        label_level     text.Level??
+        bounds          spatial.Bounds??
+        auto_bounds     AutoBounds??
+        tick_spacing    float64??
+        type            TickType??
+        clear_type      bool?
 
         @doc value """
-            replaces the configuration for the axis identified by axis.key.
-            Callers send the full Axis struct; the existing entry is
-            overwritten verbatim.
+            merges the given fields into the axis identified by key. Fields left
+            unset leave the existing value unchanged. Set clear_type to reset the
+            tick type to its null default.
         """
     }
 
     action SetLine {
-        line Line
+        key             string
+        label           string??
+        color           color.Color??
+        stroke_width    float64??
+        downsample      uint32??
+        downsample_mode DownsampleMode??
+        clear_label     bool?
+        clear_color     bool?
 
         @doc value """
-            inserts the line if no line with line.key exists, otherwise
-            replaces the existing entry in place. Used both when a new
-            line is derived from a channel and range combination and when
-            the user edits an existing line's styling.
+            merges the given fields into the line identified by key, inserting
+            it (with schema defaults for any unset field) when no line with the
+            key exists yet. Fields left unset leave the existing value unchanged.
+            Set clear_label or clear_color to reset that field to its null
+            default (so it resolves from the channel name or palette at render).
         """
     }
 

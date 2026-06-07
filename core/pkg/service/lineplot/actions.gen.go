@@ -13,6 +13,9 @@ package lineplot
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/union"
 )
 
@@ -80,17 +83,35 @@ type RemoveRangePayload struct {
 	Range   string   `json:"range" msgpack:"range"`
 }
 
-// SetAxisPayload replaces the configuration for the axis identified by axis.key.
-// Callers send the full Axis struct; the existing entry is overwritten verbatim.
+// SetAxisPayload merges the given fields into the axis identified by key. Fields left
+// unset leave the existing value unchanged. Set clear_type to reset the tick type to
+// its null default.
 type SetAxisPayload struct {
-	Axis Axis `json:"axis" msgpack:"axis"`
+	Key            AxisKey            `json:"key" msgpack:"key"`
+	Label          *string            `json:"label,omitempty" msgpack:"label,omitempty"`
+	LabelDirection *spatial.Direction `json:"label_direction,omitempty" msgpack:"label_direction,omitempty"`
+	LabelLevel     *text.Level        `json:"label_level,omitempty" msgpack:"label_level,omitempty"`
+	Bounds         *spatial.Bounds    `json:"bounds,omitempty" msgpack:"bounds,omitempty"`
+	AutoBounds     *AutoBounds        `json:"auto_bounds,omitempty" msgpack:"auto_bounds,omitempty"`
+	TickSpacing    *float64           `json:"tick_spacing,omitempty" msgpack:"tick_spacing,omitempty"`
+	Type           *TickType          `json:"type,omitempty" msgpack:"type,omitempty"`
+	ClearType      bool               `json:"clear_type" msgpack:"clear_type"`
 }
 
-// SetLinePayload inserts the line if no line with line.key exists, otherwise replaces
-// the existing entry in place. Used both when a new line is derived from a channel and
-// range combination and when the user edits an existing line's styling.
+// SetLinePayload merges the given fields into the line identified by key, inserting it
+// (with schema defaults for any unset field) when no line with the key exists yet.
+// Fields left unset leave the existing value unchanged. Set clear_label or clear_color
+// to reset that field to its null default (so it resolves from the channel name or
+// palette at render).
 type SetLinePayload struct {
-	Line Line `json:"line" msgpack:"line"`
+	Key            string          `json:"key" msgpack:"key"`
+	Label          *string         `json:"label,omitempty" msgpack:"label,omitempty"`
+	Color          *color.Color    `json:"color,omitempty" msgpack:"color,omitempty"`
+	StrokeWidth    *float64        `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
+	Downsample     *uint32         `json:"downsample,omitempty" msgpack:"downsample,omitempty"`
+	DownsampleMode *DownsampleMode `json:"downsample_mode,omitempty" msgpack:"downsample_mode,omitempty"`
+	ClearLabel     bool            `json:"clear_label" msgpack:"clear_label"`
+	ClearColor     bool            `json:"clear_color" msgpack:"clear_color"`
 }
 
 // SetRulePayload inserts the rule if no rule with rule.key exists, otherwise replaces

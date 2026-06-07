@@ -130,42 +130,103 @@ func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle replaces the configuration for the axis named by axis.key.
+// Handle merges the set fields of the payload into the axis named by key.
 func (p SetAxisPayload) Handle(state LinePlot) (LinePlot, error) {
-	switch p.Axis.Key {
-	case AxisKeyX1:
-		state.Axes.X1 = p.Axis
-	case AxisKeyX2:
-		state.Axes.X2 = p.Axis
-	case AxisKeyY1:
-		state.Axes.Y1 = p.Axis
-	case AxisKeyY2:
-		state.Axes.Y2 = p.Axis
-	case AxisKeyY3:
-		state.Axes.Y3 = p.Axis
-	case AxisKeyY4:
-		state.Axes.Y4 = p.Axis
-	default:
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
 		return LinePlot{}, errors.Wrapf(
 			validate.ErrValidation,
 			"unknown axis_key %q",
-			p.Axis.Key,
+			p.Key,
 		)
 	}
+	applyAxisUpdate(axis, p)
 	return state, nil
 }
 
-// Handle inserts the line if no line with the same key exists, otherwise
-// replaces the existing entry in place.
+// axisPointer returns a pointer to the axis configuration for the given key so
+// handlers can merge into it in place, or nil if the key is not a valid axis.
+func axisPointer(a *Axes, k AxisKey) *Axis {
+	switch k {
+	case AxisKeyX1:
+		return &a.X1
+	case AxisKeyX2:
+		return &a.X2
+	case AxisKeyY1:
+		return &a.Y1
+	case AxisKeyY2:
+		return &a.Y2
+	case AxisKeyY3:
+		return &a.Y3
+	case AxisKeyY4:
+		return &a.Y4
+	}
+	return nil
+}
+
+// applyAxisUpdate merges the set fields of a SetAxis payload into axis in place.
+func applyAxisUpdate(a *Axis, p SetAxisPayload) {
+	if p.Label != nil {
+		a.Label = *p.Label
+	}
+	if p.LabelDirection != nil {
+		a.LabelDirection = *p.LabelDirection
+	}
+	if p.LabelLevel != nil {
+		a.LabelLevel = *p.LabelLevel
+	}
+	if p.Bounds != nil {
+		a.Bounds = *p.Bounds
+	}
+	if p.AutoBounds != nil {
+		a.AutoBounds = *p.AutoBounds
+	}
+	if p.TickSpacing != nil {
+		a.TickSpacing = *p.TickSpacing
+	}
+	if p.ClearType {
+		a.Type = nil
+	} else if p.Type != nil {
+		a.Type = p.Type
+	}
+}
+
+// Handle merges the set fields of the payload into the line with the same key,
+// inserting it from schema defaults when no such line exists yet.
 func (p SetLinePayload) Handle(state LinePlot) (LinePlot, error) {
 	for i := range state.Lines {
-		if state.Lines[i].Key == p.Line.Key {
-			state.Lines[i] = p.Line
+		if state.Lines[i].Key == p.Key {
+			applyLineUpdate(&state.Lines[i], p)
 			return state, nil
 		}
 	}
-	state.Lines = append(state.Lines, p.Line)
+	line := zeroLine(p.Key)
+	applyLineUpdate(&line, p)
+	state.Lines = append(state.Lines, line)
 	return state, nil
+}
+
+// applyLineUpdate merges the set fields of a SetLine payload into line in place.
+func applyLineUpdate(l *Line, p SetLinePayload) {
+	if p.ClearLabel {
+		l.Label = nil
+	} else if p.Label != nil {
+		l.Label = p.Label
+	}
+	if p.ClearColor {
+		l.Color = nil
+	} else if p.Color != nil {
+		l.Color = p.Color
+	}
+	if p.StrokeWidth != nil {
+		l.StrokeWidth = *p.StrokeWidth
+	}
+	if p.Downsample != nil {
+		l.Downsample = *p.Downsample
+	}
+	if p.DownsampleMode != nil {
+		l.DownsampleMode = *p.DownsampleMode
+	}
 }
 
 // Handle inserts the rule if no rule with the same key exists, otherwise
