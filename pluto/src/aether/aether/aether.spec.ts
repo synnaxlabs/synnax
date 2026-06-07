@@ -224,27 +224,6 @@ const createInstanceSetter = (key: string, parent: aether.Component | null = nul
     parent,
   });
 
-/** Publishes "late" only once `state.x > 0`, i.e. potentially for the first time after
- * mount — exercises the late-shadowing guard. */
-class LateSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
-  updatef = vi.fn();
-  schema = exampleProps;
-
-  afterUpdate(ctx: aether.Context): void {
-    this.updatef(ctx);
-    if (this.state.x > 0) ctx.set("late", this.state.x);
-  }
-}
-
-const createLateSetter = (key: string, parent: aether.Component | null = null) =>
-  new LateSetter({
-    path: [key],
-    type: "late",
-    sender: MockSender,
-    instrumentation: alamos.Instrumentation.NOOP,
-    parent,
-  });
-
 const shouldNotCallCreate = () => {
   throw new Error("should not call create");
 };
@@ -854,38 +833,6 @@ describe("Aether Worker", () => {
         create: shouldNotCallCreate,
       });
       expect(leaf.updatef).not.toHaveBeenCalled();
-    });
-
-    it("warns when a provider publishes a key for the first time after mount", () => {
-      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-      try {
-        const root = createLateSetter("root");
-        root._updateState({
-          path: ["root"],
-          state: { x: 0 },
-          type: "example",
-          create: shouldNotCallCreate,
-        });
-        // Give it a child so the late-shadow guard's hasChildren check is satisfied.
-        root._updateState({
-          path: ["root", "leaf"],
-          state: { x: 0 },
-          type: "example",
-          create: (c) => createLeaf("leaf", c),
-        });
-        expect(warn).not.toHaveBeenCalled();
-        // x -> 1 makes root publish "late" for the first time.
-        root._updateState({
-          path: ["root"],
-          state: { x: 1 },
-          type: "example",
-          create: shouldNotCallCreate,
-        });
-        expect(warn).toHaveBeenCalledTimes(1);
-        expect(warn.mock.calls[0][0]).toContain("late context shadowing");
-      } finally {
-        warn.mockRestore();
-      }
     });
   });
 

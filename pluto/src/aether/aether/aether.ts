@@ -217,9 +217,6 @@ export abstract class Leaf<
    * their resolved provider (or `null` if unresolved). Non-`null` only while
    * {@link afterUpdate} is running, so reads outside that window are not tracked. */
   private ctxReads: Map<string, Leaf<any, any, any> | null> | null = null;
-  /** Whether {@link afterUpdate} has run at least once. Used only to detect unsupported
-   * late context shadowing (publishing a key for the first time after mount). */
-  private hasRunAfterUpdate = false;
   readonly instrumentation: alamos.Instrumentation;
 
   /** Zod schema for the component's state. Must be defined by every subclass. */
@@ -320,62 +317,34 @@ export abstract class Leaf<
   private get ctx(): Context {
     return {
       get: (key: string) => {
-        const provider = this.resolveProvider(key);
-        this.recordRead(key, provider);
+        const provider = this.readCtx(key);
         if (provider == null)
           throw new NotFoundError(
             `Context value for ${key} not found on ${this.toString()}`,
           );
         return provider.childCtxValues.get(key);
       },
-      getOptional: (key: string) => {
-        const provider = this.resolveProvider(key);
-        this.recordRead(key, provider);
-        return provider?.childCtxValues.get(key);
-      },
-      has: (key: string) => {
-        const provider = this.resolveProvider(key);
-        this.recordRead(key, provider);
-        return provider != null;
-      },
+      getOptional: (key: string) => this.readCtx(key)?.childCtxValues.get(key),
+      has: (key: string) => this.readCtx(key) != null,
       wasSetPreviously: (key: string) => this.childCtxValues.has(key),
       set: (key: string, value: unknown, trigger: boolean = true) => {
-        if (this.hasRunAfterUpdate && !this.childCtxValues.has(key) && this.hasChildren)
-          console.warn(
-            `[aether] ${this.toString()} published context key "${key}" for the first ` +
-              `time after mount. Descendants that already resolved this key bound to a ` +
-              `higher provider and will not re-bind — late context shadowing is ` +
-              `unsupported. Publish all context keys on the first afterUpdate.`,
-          );
         this.childCtxValues.set(key, value);
         if (trigger) this.childCtxChangedKeys.add(key);
       },
     };
   }
 
-  /** Walks ancestors (excluding self) and returns the nearest one publishing `key`, or
-   * `null` if none. Self is excluded so that a component overriding a parent's key still
-   * reads the parent's value via {@link Context.get}. */
-  private resolveProvider(key: string): Leaf<any, any, any> | null {
+  /** Resolves `key` to the nearest ancestor publishing it (self excluded) and records
+   * the read against the in-progress {@link afterUpdate} so a subscription is formed.
+   * Returns the provider, or `null` if unresolved. Self is excluded so a component
+   * overriding a parent's key still reads the parent's value via {@link Context.get}.
+   * The read is not recorded outside an {@link afterUpdate} (e.g. during
+   * {@link afterDelete}), where {@link ctxReads} is `null`. */
+  private readCtx(key: string): Leaf<any, any, any> | null {
     let node = this._parent;
-    while (node != null) {
-      if (node.childCtxValues.has(key)) return node;
-      node = node._parent;
-    }
-    return null;
-  }
-
-  /** Records a context read for the in-progress {@link afterUpdate}. No-ops outside an
-   * {@link afterUpdate} (e.g. during {@link afterDelete}), so such reads form no
-   * subscription. */
-  private recordRead(key: string, provider: Leaf<any, any, any> | null): void {
-    this.ctxReads?.set(key, provider);
-  }
-
-  /** Whether this component has children. Overridden by {@link Composite}; a {@link Leaf}
-   * never does. */
-  protected get hasChildren(): boolean {
-    return false;
+    while (node != null && !node.childCtxValues.has(key)) node = node._parent;
+    this.ctxReads?.set(key, node);
+    return node;
   }
 
   toString(): string {
@@ -418,7 +387,6 @@ export abstract class Leaf<
     } finally {
       this.reconcileSubscriptions(this.ctxReads);
       this.ctxReads = prevReads;
-      this.hasRunAfterUpdate = true;
       endSpan();
     }
   }
@@ -607,10 +575,6 @@ export abstract class Composite<
   implements Component
 {
   private readonly _children: Map<string, ChildComponents> = new Map();
-
-  protected override get hasChildren(): boolean {
-    return this._children.size > 0;
-  }
 
   /** Snapshot of the children, in insertion order. */
   get children(): readonly ChildComponents[] {
