@@ -11,7 +11,6 @@ import { type channel, lineplot } from "@synnaxlabs/client";
 import {
   box,
   color,
-  DataType,
   type direction,
   type location,
   type optional,
@@ -29,7 +28,6 @@ import {
   useState,
 } from "react";
 
-import { Channel } from "@/channel";
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
@@ -48,7 +46,6 @@ import {
   useDispatch,
   useEnsureRetrieved,
   useRedo,
-  useSelectAxes,
   useSelectChannels,
   useSelectLegend,
   useSelectLine,
@@ -56,7 +53,8 @@ import {
   useSelectRanges,
   useSelectRules,
   useSelectTitle,
-  useSelectYAxisLineKeys,
+  useSelectXAxis,
+  useSelectYAxis,
   useUndo,
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
@@ -88,12 +86,6 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
 
 type AxisChange = Partial<CoreAxisProps> & { key: lineplot.AxisKey };
 type RuleChange = Partial<lineplot.Rule> & { key: string };
-
-interface AxisRenderProps<
-  K extends lineplot.AxisKey = lineplot.AxisKey,
-> extends CoreAxisProps {
-  key: K;
-}
 
 const useAxisDrop = <K extends lineplot.AxisKey>(
   axisKey: K,
@@ -207,14 +199,14 @@ const renderRules = (
     ));
 
 interface YAxisProps extends AxisChildrenProps {
-  axis: AxisRenderProps<lineplot.YAxisKey>;
+  axisKey: lineplot.YAxisKey;
   onAxisChange: (a: AxisChange) => void;
   onChannelDrop?: (key: lineplot.YAxisKey, keys: channel.Key[]) => void;
 }
 
 const YAxis = ({
   pKey,
-  axis: { location, key: axisKey, ...axis },
+  axisKey,
   resolvedRanges,
   rules,
   onAxisChange,
@@ -224,13 +216,15 @@ const YAxis = ({
 }: YAxisProps): ReactElement => {
   const dropProps = useAxisDrop(axisKey, "y", onChannelDrop);
   const dragging = Haul.useDraggingState();
-  const lineKeys = useSelectYAxisLineKeys({ key: pKey, axisKey });
+  const { axis, lineKeys } = useSelectYAxis({ key: pKey, axisKey });
+  const { key: _axisKey, ...axisConfig } = axis;
   return (
     <CoreYAxis
-      {...axis}
+      {...axisConfig}
       {...dropProps}
-      location={location}
+      location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
+      showGrid={axisKey === "y1"}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
     >
@@ -247,25 +241,9 @@ const YAxis = ({
   );
 };
 
-// resolveTickType picks the x-axis tick style from the plotted channel: a
-// timestamp channel (or no channel yet) renders time ticks, anything else
-// renders linear ticks. A non-null stored type is an explicit user override.
-const resolveTickType = (
-  override: lineplot.TickType | undefined,
-  channelKey: channel.Key,
-  info: channel.Channel | undefined,
-): lineplot.TickType =>
-  override ??
-  (channelKey === 0 || info == null
-    ? "time"
-    : info.dataType.equals(DataType.TIMESTAMP)
-      ? "time"
-      : "linear");
-
 interface XAxisProps extends AxisChildrenProps {
-  axis: AxisRenderProps<lineplot.XAxisKey>;
-  index: number;
-  yAxes: AxisRenderProps<lineplot.YAxisKey>[];
+  axisKey: lineplot.XAxisKey;
+  yAxes: lineplot.YAxisKey[];
   onAxisChange: (a: AxisChange) => void;
   onXChannelDrop?: (key: lineplot.XAxisKey, keys: channel.Key[]) => void;
   onYChannelDrop?: (key: lineplot.YAxisKey, keys: channel.Key[]) => void;
@@ -274,8 +252,7 @@ interface XAxisProps extends AxisChildrenProps {
 
 const XAxis = ({
   pKey,
-  axis: { location, key: axisKey, showGrid, ...axis },
-  index,
+  axisKey,
   yAxes,
   resolvedRanges,
   rules,
@@ -288,25 +265,22 @@ const XAxis = ({
 }: XAxisProps): ReactElement => {
   const dropProps = useAxisDrop(axisKey, "x", onXChannelDrop);
   const dragging = Haul.useDraggingState();
-  const channelKey = useSelectChannels({ key: pKey })[axisKey];
-  const { data: channelInfo } = Channel.useRetrieve({ key: channelKey });
-  const type = resolveTickType(axis.type, channelKey, channelInfo);
+  const { key: _axisKey, ...axisConfig } = useSelectXAxis({ key: pKey, axisKey });
   return (
     <CoreXAxis
-      {...axis}
+      {...axisConfig}
       {...dropProps}
-      type={type}
-      location={location}
+      location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
-      showGrid={showGrid ?? index === 0}
+      showGrid={axisKey === "x1"}
       onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
     >
-      {yAxes.map((ya, j) => (
+      {yAxes.map((yAxisKey) => (
         <YAxis
-          key={ya.key}
+          key={yAxisKey}
           pKey={pKey}
-          axis={{ ...ya, showGrid: showGrid ?? (index === 0 && j === 0) }}
+          axisKey={yAxisKey}
           resolvedRanges={resolvedRanges}
           rules={rules}
           onAxisChange={onAxisChange}
@@ -411,7 +385,6 @@ export const LinePlot = ({
   const channels = useSelectChannels({ key });
   const ranges = useSelectRanges({ key });
   const rules = useSelectRules({ key });
-  const axes = useSelectAxes({ key });
   const lineKeys = useSelectLineKeys({ key });
 
   const handleLineChange = useCallback(
@@ -505,28 +478,13 @@ export const LinePlot = ({
     [storeLegendPosition],
   );
 
-  const xAxes = useMemo<AxisRenderProps<lineplot.XAxisKey>[]>(
-    () =>
-      lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
-        (k): AxisRenderProps<lineplot.XAxisKey> => ({
-          ...axes[k],
-          location: AXIS_LOCATIONS[k],
-          key: k,
-        }),
-      ),
-    [axes, channels],
+  const xAxisKeys = useMemo(
+    () => lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
+    [channels],
   );
-
-  const yAxes = useMemo<AxisRenderProps<lineplot.YAxisKey>[]>(
-    () =>
-      lineplot.Y_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
-        (k): AxisRenderProps<lineplot.YAxisKey> => ({
-          ...axes[k],
-          location: AXIS_LOCATIONS[k],
-          key: k,
-        }),
-      ),
-    [axes, channels],
+  const yAxisKeys = useMemo(
+    () => lineplot.Y_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
+    [channels],
   );
 
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
@@ -542,13 +500,12 @@ export const LinePlot = ({
 
   return (
     <Frame ref={ref} {...rest}>
-      {xAxes.map((axis, i) => (
+      {xAxisKeys.map((xAxisKey) => (
         <XAxis
-          key={axis.key}
+          key={xAxisKey}
           pKey={key}
-          axis={axis}
-          index={i}
-          yAxes={yAxes}
+          axisKey={xAxisKey}
+          yAxes={yAxisKeys}
           resolvedRanges={resolvedRanges}
           rules={rules}
           onAxisChange={handleAxisChange}

@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, NotFoundError, ontology, type workspace } from "@synnaxlabs/client";
-import { array, uuid } from "@synnaxlabs/x";
+import { array, DataType, uuid } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
+import { Channel } from "@/channel";
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import {
@@ -224,6 +225,44 @@ export const useSelectYAxisLineKeys = Flux.createSelector<
       .map((l) => l.key),
   equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
 });
+
+export interface SelectXAxisArgs {
+  key: lineplot.Key;
+  axisKey: lineplot.XAxisKey;
+}
+
+// useSelectXAxis returns the x-axis configuration with its tick type resolved:
+// a null stored type is derived from the plotted channel's data type (timestamp
+// → time, otherwise linear), defaulting to time while the channel loads. A
+// non-null stored type is an explicit user override.
+export const useSelectXAxis = (args: SelectXAxisArgs): lineplot.Axis => {
+  const axis = useSelectAxis({ key: args.key, axisKey: args.axisKey });
+  const channelKey = useSelectChannels({ key: args.key })[args.axisKey];
+  const { data } = Channel.useRetrieve({ key: channelKey });
+  return useMemo(() => {
+    if (axis.type != null) return axis;
+    const type: lineplot.TickType =
+      channelKey === 0 || data == null
+        ? "time"
+        : data.dataType.equals(DataType.TIMESTAMP)
+          ? "time"
+          : "linear";
+    return { ...axis, type };
+  }, [axis, channelKey, data]);
+};
+
+export interface YAxisSelection {
+  axis: lineplot.Axis;
+  lineKeys: string[];
+}
+
+// useSelectYAxis returns the y-axis configuration together with the keys of the
+// lines plotted on it.
+export const useSelectYAxis = (args: SelectYAxisArgs): YAxisSelection => {
+  const axis = useSelectAxis({ key: args.key, axisKey: args.axisKey });
+  const lineKeys = useSelectYAxisLineKeys(args);
+  return useMemo(() => ({ axis, lineKeys }), [axis, lineKeys]);
+};
 
 export interface SelectLineArgs {
   key: lineplot.Key;
