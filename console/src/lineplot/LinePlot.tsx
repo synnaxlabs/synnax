@@ -165,10 +165,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     (h: boolean) => dispatch(setControlState({ key: layoutKey, state: { hold: h } })),
     [dispatch, layoutKey],
   );
-  const handleTitleChange = useCallback(
-    (value: string) => dispatch(Layout.rename({ key: layoutKey, name: value })),
-    [dispatch, layoutKey],
-  );
   const handleDoubleClick = useCallback(() => {
     dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
@@ -262,8 +258,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           enableTriggers={enableTriggers}
           resolvedRanges={resolvedRanges}
           activeRangeKey={activeRangeKey}
-          title={name}
-          onTitleChange={handleTitleChange}
           legendVariant={focused ? "fixed" : "floating"}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}

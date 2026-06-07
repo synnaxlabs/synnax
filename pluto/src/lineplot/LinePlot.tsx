@@ -42,11 +42,13 @@ import {
   useDispatch,
   useEnsureRetrieved,
   useRedo,
+  useRename,
   useSelectAxisRuleKeys,
   useSelectChannels,
   useSelectLegend,
   useSelectLine,
   useSelectLineKeys,
+  useSelectName,
   useSelectRanges,
   useSelectRule,
   useSelectTitle,
@@ -187,18 +189,25 @@ const ConnectedLine = ({
 
 interface ConnectedTitleProps {
   pKey: lineplot.Key;
-  value: string;
-  onChange?: (value: string) => void;
+  editable?: boolean;
 }
 
 const ConnectedTitle = ({
   pKey,
-  value,
-  onChange,
+  editable,
 }: ConnectedTitleProps): ReactElement | null => {
   const { visible, level } = useSelectTitle({ key: pKey });
+  const name = useSelectName({ key: pKey });
+  const { update: rename } = useRename({});
+  const handleChange = useCallback(
+    (value: string) => {
+      if (editable !== true) return;
+      rename({ key: pKey, name: value });
+    },
+    [rename, pKey, editable],
+  );
   if (!visible) return null;
-  return <Title value={value} onChange={onChange} level={level} />;
+  return <Title value={name} onChange={handleChange} level={level} />;
 };
 
 interface ConnectedLegendProps {
@@ -228,13 +237,15 @@ const ConnectedLegend = ({
   );
   const handlePositionChange = useCallback(
     (next: typeof legend.position) => {
+      if (editable !== true) return;
       setPosition(next);
       storePosition(next);
     },
-    [storePosition],
+    [storePosition, editable],
   );
   const handleLineChange = useCallback(
     (d: optional.Optional<LineSpec, "legendGroup">) => {
+      if (editable !== true) return;
       dispatch({
         key: pKey,
         actions: [
@@ -246,14 +257,14 @@ const ConnectedLegend = ({
         ],
       });
     },
-    [dispatch, pKey],
+    [dispatch, pKey, editable],
   );
   if (!legend.visible) return null;
   return (
     <Legend
-      onLineChange={editable ? handleLineChange : undefined}
+      onLineChange={handleLineChange}
       position={position}
-      onPositionChange={editable ? handlePositionChange : undefined}
+      onPositionChange={handlePositionChange}
       variant={variant}
     />
   );
@@ -356,6 +367,7 @@ const YAxis = ({
   const commitDrop = useChannelDropper(pKey, activeRangeKey);
   const handleDrop = useCallback(
     (k: lineplot.YAxisKey, dropped: channel.Key[]): void => {
+      if (editable !== true) return;
       const existing = new Set(channels[k]);
       const actions: lineplot.Action[] = [];
       for (const c of dropped)
@@ -363,9 +375,9 @@ const YAxis = ({
           actions.push(lineplot.addChannel({ axisKey: k, channel: c }));
       commitDrop(actions);
     },
-    [channels, commitDrop],
+    [channels, commitDrop, editable],
   );
-  const dropProps = useAxisDrop(axisKey, "y", editable ? handleDrop : undefined);
+  const dropProps = useAxisDrop(axisKey, "y", handleDrop);
   const dragging = Haul.useDraggingState();
   const { axis, lineKeys } = useSelectYAxis({ key: pKey, axisKey });
   const { key: _axisKey, ...axisConfig } = axis;
@@ -416,11 +428,13 @@ const XAxis = ({
   const { dispatch } = useDispatch();
   const commitDrop = useChannelDropper(pKey, activeRangeKey);
   const handleDrop = useCallback(
-    (k: lineplot.XAxisKey, dropped: channel.Key[]): void =>
-      commitDrop([lineplot.setXChannel({ axisKey: k, channel: dropped[0] })]),
-    [commitDrop],
+    (k: lineplot.XAxisKey, dropped: channel.Key[]): void => {
+      if (editable !== true) return;
+      commitDrop([lineplot.setXChannel({ axisKey: k, channel: dropped[0] })]);
+    },
+    [commitDrop, editable],
   );
-  const dropProps = useAxisDrop(axisKey, "x", editable ? handleDrop : undefined);
+  const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
   const { key: _axisKey, ...axisConfig } = useSelectXAxis({ key: pKey, axisKey });
   return (
@@ -483,8 +497,6 @@ export interface LinePlotProps extends Omit<FrameProps, "ref"> {
   resolvedRanges?: Map<string, ResolvedRange>;
   /** Active range key prepended when dropping a channel onto an empty plot. */
   activeRangeKey?: string;
-  title?: string;
-  onTitleChange?: (value: string) => void;
   legendVariant?: LegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
@@ -505,8 +517,6 @@ export const LinePlot = ({
   enableTriggers = true,
   resolvedRanges,
   activeRangeKey,
-  title,
-  onTitleChange,
   legendVariant,
   enableTooltip = true,
   enableMeasure = false,
@@ -578,11 +588,7 @@ export const LinePlot = ({
         />
       ))}
       <ConnectedLegend pKey={key} variant={legendVariant} editable={editable} />
-      <ConnectedTitle
-        pKey={key}
-        value={title ?? ""}
-        onChange={editable ? onTitleChange : undefined}
-      />
+      <ConnectedTitle pKey={key} editable={editable} />
       <CoreViewport
         initial={initialViewport}
         onChange={onViewportChange}
