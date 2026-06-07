@@ -996,10 +996,7 @@ var _ = Describe("Go Types Plugin", func() {
 						` + childBody + `
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-					Expect(diag.Ok()).To(BeTrue())
-					resp, err := goPlugin.Generate(&plugin.Request{Resolutions: table})
-					Expect(err).To(BeNil())
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
 					return string(resp.Files[0].Content)
 				}
 				// A typeless override desugars to the equivalent full restatement,
@@ -1020,11 +1017,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name -@validate
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
-				Expect(diag.Ok()).To(BeTrue())
-
-				resp, err := goPlugin.Generate(&plugin.Request{Resolutions: table})
-				Expect(err).To(BeNil())
+				resp := MustGenerate(ctx, source, "user", loader, goPlugin)
 
 				content := string(resp.Files[0].Content)
 				// A domain removal cannot embed, so Child flattens.
