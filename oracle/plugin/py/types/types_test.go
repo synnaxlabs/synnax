@@ -527,6 +527,24 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
 		})
 
+		It("Should emit struct defaults via default_factory", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Point struct {
+					x int32
+					y int32
+				}
+
+				Config struct {
+					p Point = { x = 1, y = 2 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`default_factory=lambda: Point(x=1, y=2)`))
+		})
+
 		It("Should wrap int defaults in distinct type constructor", func(ctx SpecContext) {
 			source := `
 				@py output "out"

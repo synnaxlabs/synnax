@@ -769,7 +769,58 @@ func isFieldUnchanged(parent, child resolution.Field) bool {
 	if hasPreserveCase(parent) != hasPreserveCase(child) {
 		return false
 	}
+	if !sameDefault(parent.Default, child.Default) {
+		return false
+	}
 	return sameBaseType(parent.Type, child.Type)
+}
+
+// sameDefault reports whether two field defaults are structurally equal. A child
+// override that introduces or changes a default relative to its parent is a
+// real change, so the field must be re-emitted rather than inherited verbatim.
+func sameDefault(a, b *resolution.ExpressionValue) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Kind != b.Kind {
+		return false
+	}
+	switch a.Kind {
+	case resolution.ValueKindString:
+		return a.StringValue == b.StringValue
+	case resolution.ValueKindInt:
+		return a.IntValue == b.IntValue
+	case resolution.ValueKindFloat:
+		return a.FloatValue == b.FloatValue
+	case resolution.ValueKindBool:
+		return a.BoolValue == b.BoolValue
+	case resolution.ValueKindIdent:
+		return a.IdentValue == b.IdentValue
+	case resolution.ValueKindArray:
+		if len(a.Elements) != len(b.Elements) {
+			return false
+		}
+		for i := range a.Elements {
+			if !sameDefault(&a.Elements[i], &b.Elements[i]) {
+				return false
+			}
+		}
+		return true
+	case resolution.ValueKindStruct:
+		if len(a.Fields) != len(b.Fields) {
+			return false
+		}
+		for i := range a.Fields {
+			if a.Fields[i].Name != b.Fields[i].Name {
+				return false
+			}
+			if !sameDefault(&a.Fields[i].Value, &b.Fields[i].Value) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func isOnlyOptionalityChange(parent, child resolution.Field) bool {
@@ -1083,7 +1134,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data)
 			fd.ZodType = result.ZodType
 			if result.HasDefault {
-				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+				fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 			}
 		}
 	} else {
@@ -1107,13 +1158,13 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 				result := p.applyValidation(fallbackPart, validateDomain, elemDefault, field.Type, field.Name, table, data)
 				fd.ZodType = paramPart + " ?? " + result.ZodType
 				if result.HasDefault {
-					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+					fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 				}
 			} else {
 				result := p.applyValidation(fd.ZodType, validateDomain, elemDefault, field.Type, field.Name, table, data)
 				fd.ZodType = result.ZodType
 				if result.HasDefault {
-					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+					fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 				}
 			}
 		}
@@ -1147,7 +1198,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			// nullishToEmpty already defaults a missing array to []; only a
 			// non-empty declared default needs an explicit .default().
 			if field.Default != nil && field.Default.Kind == resolution.ValueKindArray && len(field.Default.Elements) > 0 {
-				fd.ZodType = fmt.Sprintf("%s.default(%s)", fd.ZodType, tsArrayLiteral(field.Default.Elements))
+				fd.ZodType = fmt.Sprintf("%s.default(%s)", fd.ZodType, p.tsDefaultLiteral(field.Type, *field.Default, table, data))
 				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 			}
 		}
@@ -1651,6 +1702,19 @@ func primitiveToZod(primitive string, data *templateData) string {
 type validationResult struct {
 	ZodType    string
 	HasDefault bool
+	// IsPrefault is true when the default was emitted as .prefault() rather than
+	// .default(). Struct defaults use .prefault() so the literal is re-parsed,
+	// filling each field's own default when a caller supplies a partial value.
+	IsPrefault bool
+}
+
+// defaultSchemaWrapper wraps a zod schema type for a defaulted field, picking
+// ZodPrefault for struct defaults (.prefault) and ZodDefault otherwise.
+func defaultSchemaWrapper(r validationResult, inner string) string {
+	if r.IsPrefault {
+		return fmt.Sprintf("z.ZodPrefault<%s>", inner)
+	}
+	return fmt.Sprintf("z.ZodDefault<%s>", inner)
 }
 
 func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defaultVal *resolution.ExpressionValue, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData) validationResult {
@@ -1659,6 +1723,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
 	hasDefault := defaultVal != nil
+	isPrefault := false
 	effectiveType := typeRef.Name
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil && typeRef.TypeParam.Constraint != nil {
 		effectiveType = typeRef.TypeParam.Constraint.Name
@@ -1740,10 +1805,15 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))
 			}
 		case resolution.ValueKindArray:
-			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsArrayLiteral(defaultVal.Elements))
+			zodType = fmt.Sprintf("%s.default(%s)", zodType, p.tsDefaultLiteral(typeRef, *defaultVal, table, data))
+		case resolution.ValueKindStruct:
+			// .prefault re-parses the literal, so a partial value a caller supplies
+			// is merged with each field's own default rather than rejected.
+			zodType = fmt.Sprintf("%s.prefault(%s)", zodType, p.tsDefaultLiteral(typeRef, *defaultVal, table, data))
+			isPrefault = true
 		}
 	}
-	return validationResult{ZodType: zodType, HasDefault: hasDefault}
+	return validationResult{ZodType: zodType, HasDefault: hasDefault, IsPrefault: isPrefault}
 }
 
 // tsStringLiteral renders a Go string as a double-quoted TypeScript string
@@ -1781,25 +1851,71 @@ func tsStringLiteral(s string) string {
 	return b.String()
 }
 
-// tsArrayLiteral renders an array default's elements as a TypeScript array
-// literal, e.g. [] or [1.000000, 2.000000].
-func tsArrayLiteral(elements []resolution.ExpressionValue) string {
-	parts := make([]string, 0, len(elements))
-	for _, el := range elements {
-		switch el.Kind {
-		case resolution.ValueKindString:
-			parts = append(parts, tsStringLiteral(el.StringValue))
-		case resolution.ValueKindInt:
-			parts = append(parts, fmt.Sprintf("%d", el.IntValue))
-		case resolution.ValueKindFloat:
-			parts = append(parts, fmt.Sprintf("%f", el.FloatValue))
-		case resolution.ValueKindBool:
-			parts = append(parts, fmt.Sprintf("%t", el.BoolValue))
-		case resolution.ValueKindIdent:
-			parts = append(parts, el.IdentValue)
+// tsDefaultLiteral renders a default value as a TypeScript literal. typeRef is
+// the declared type of the value, used to resolve enum variants, array element
+// types, and nested struct field types. Arrays and structs recurse.
+func (p *Plugin) tsDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	switch val.Kind {
+	case resolution.ValueKindString:
+		return tsStringLiteral(val.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", val.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", val.FloatValue)
+	case resolution.ValueKindBool:
+		return fmt.Sprintf("%t", val.BoolValue)
+	case resolution.ValueKindIdent:
+		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, table); ok {
+			return p.enumVariantToTS(ev, data)
 		}
+		return val.IdentValue
+	case resolution.ValueKindArray:
+		elem := arrayElementType(typeRef)
+		parts := make([]string, 0, len(val.Elements))
+		for _, el := range val.Elements {
+			parts = append(parts, p.tsDefaultLiteral(elem, el, table, data))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	case resolution.ValueKindStruct:
+		return p.tsStructLiteral(typeRef, val, table, data)
 	}
-	return "[" + strings.Join(parts, ", ") + "]"
+	return ""
+}
+
+// tsStructLiteral renders a struct default as a TypeScript object literal,
+// resolving each field's value against its declared type in the struct named by
+// typeRef.
+func (p *Plugin) tsStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	fieldsByName := structFieldsByName(typeRef, table)
+	parts := make([]string, 0, len(val.Fields))
+	for _, fv := range val.Fields {
+		parts = append(parts, fmt.Sprintf("%s: %s", camelCase(fv.Name), p.tsDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data)))
+	}
+	return "{ " + strings.Join(parts, ", ") + " }"
+}
+
+// arrayElementType returns the element type of an array type reference, or the
+// reference itself when it is not an array.
+func arrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0]
+	}
+	return typeRef
+}
+
+// structFieldsByName resolves typeRef to a struct type and maps its unified
+// fields by unqualified name. It returns an empty map when typeRef does not
+// resolve to a struct.
+func structFieldsByName(typeRef resolution.TypeRef, table *resolution.Table) map[string]resolution.Field {
+	out := map[string]resolution.Field{}
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return out
+	}
+	for _, f := range resolution.UnifiedFields(resolved, table) {
+		out[f.Name] = f
+	}
+	return out
 }
 
 func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {

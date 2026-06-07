@@ -383,6 +383,34 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("vals float64[] = [1.5, 2.5]"))
 		})
 
+		It("should format an empty struct default", func() {
+			result := format("Point struct {\n  x int32\n}\nItem struct {\n  p Point = {}\n}\n")
+			Expect(result).To(ContainSubstring("p Point = {}"))
+		})
+
+		It("should format a populated struct default", func() {
+			result := format("Point struct {\n  x int32\n  y int32\n}\nItem struct {\n  p Point = { x = 1, y = 2 }\n}\n")
+			Expect(result).To(ContainSubstring("p Point = { x = 1, y = 2 }"))
+		})
+
+		It("should format a nested struct default", func() {
+			result := format("Inner struct {\n  tags string[]\n}\nMid struct {\n  inner Inner\n}\nItem struct {\n  m Mid = { inner = { tags = [\"a\"] } }\n}\n")
+			Expect(result).To(ContainSubstring("m Mid = { inner = { tags = [\"a\"] } }"))
+		})
+
+		It("should break a struct default across lines when it overflows the line", func() {
+			src := "Inner struct {\n  one int32\n  two int32\n  three int32\n}\n" +
+				"Outer struct {\n  a Inner\n  b Inner\n  c Inner\n}\n" +
+				"Item struct {\n  o Outer = { a = { one = 1, two = 2, three = 3 }, b = { one = 1, two = 2, three = 3 }, c = { one = 1, two = 2, three = 3 } }\n}\n"
+			result := format(src)
+			Expect(result).To(ContainSubstring("o Outer = {\n"))
+			Expect(result).To(ContainSubstring("        a = { one = 1, two = 2, three = 3 },\n"))
+			Expect(result).To(ContainSubstring("        c = { one = 1, two = 2, three = 3 }\n"))
+			Expect(result).To(ContainSubstring("    }\n"))
+			Expect(result).ToNot(ContainSubstring("three = 3 },\n    }"))
+			Expect(format(result)).To(Equal(result))
+		})
+
 		It("should format qualified ident expression values", func() {
 			result := format("User struct {\n  role string @relation target access.Role\n}\n")
 			Expect(result).To(ContainSubstring("target access.Role"))

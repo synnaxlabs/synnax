@@ -1947,5 +1947,56 @@ var _ = Describe("Analyzer", func() {
 			Expect(def.Elements[0]).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 1.5}))
 			Expect(def.Elements[1]).To(Equal(resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 2.5}))
 		})
+
+		structDefaultOf := func(ctx SpecContext, source string) *resolution.ExpressionValue {
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("test.Outer").Form.(resolution.StructForm)
+			return form.Fields[0].Default
+		}
+
+		It("Should collect an empty struct default", func(ctx SpecContext) {
+			def := structDefaultOf(ctx,
+				"Point struct {\n\tx int32\n\ty int32\n}\n"+
+					"Outer struct {\n\tp Point = {}\n}\n")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(def.Fields).To(BeEmpty())
+		})
+
+		It("Should collect a populated struct default with field values", func(ctx SpecContext) {
+			def := structDefaultOf(ctx,
+				"Point struct {\n\tx int32\n\ty int32\n}\n"+
+					"Outer struct {\n\tp Point = { x = 1, y = 2 }\n}\n")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(def.Fields).To(HaveLen(2))
+			Expect(def.Fields[0]).To(Equal(resolution.StructFieldValue{
+				Name:  "x",
+				Value: resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 1},
+			}))
+			Expect(def.Fields[1]).To(Equal(resolution.StructFieldValue{
+				Name:  "y",
+				Value: resolution.ExpressionValue{Kind: resolution.ValueKindInt, IntValue: 2},
+			}))
+		})
+
+		It("Should collect nested struct and array values", func(ctx SpecContext) {
+			def := structDefaultOf(ctx,
+				"Inner struct {\n\ttags string[]\n}\n"+
+					"Mid struct {\n\tinner Inner\n}\n"+
+					"Outer struct {\n\tm Mid = { inner = { tags = [\"a\", \"b\"] } }\n}\n")
+			Expect(def).NotTo(BeNil())
+			Expect(def.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(def.Fields).To(HaveLen(1))
+			inner := def.Fields[0].Value
+			Expect(inner.Kind).To(Equal(resolution.ValueKindStruct))
+			Expect(inner.Fields).To(HaveLen(1))
+			tags := inner.Fields[0].Value
+			Expect(tags.Kind).To(Equal(resolution.ValueKindArray))
+			Expect(tags.Elements).To(HaveLen(2))
+			Expect(tags.Elements[0].StringValue).To(Equal("a"))
+			Expect(tags.Elements[1].StringValue).To(Equal("b"))
+		})
 	})
 })
