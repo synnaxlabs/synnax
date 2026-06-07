@@ -107,6 +107,12 @@ func (s *BaseOracleParserListener) EnterFieldOmit(ctx *FieldOmitContext) {}
 // ExitFieldOmit is called when production fieldOmit is exited.
 func (s *BaseOracleParserListener) ExitFieldOmit(ctx *FieldOmitContext) {}
 
+// EnterDomainOmit is called when production domainOmit is entered.
+func (s *BaseOracleParserListener) EnterDomainOmit(ctx *DomainOmitContext) {}
+
+// ExitDomainOmit is called when production domainOmit is exited.
+func (s *BaseOracleParserListener) ExitDomainOmit(ctx *DomainOmitContext) {}
+
 // EnterActionDef is called when production actionDef is entered.
 func (s *BaseOracleParserListener) EnterActionDef(ctx *ActionDefContext) {}
 

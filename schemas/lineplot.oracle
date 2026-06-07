@@ -409,49 +409,44 @@ LinePlot struct {
 }
 
 New struct extends LinePlot {
-    key      Key?      {
-        @doc value """
-            is an optional key for the line plot. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    title    Title?    {
+    key?
+    title?    {
         @doc value """
             is the plot title configuration. Defaults to the zero-value
             title; the client seeds rendering defaults locally.
         """
     }
-    legend   Legend?   {
+    legend?   {
         @doc value """
             is the plot legend configuration. Defaults to the zero-value
             legend; the client seeds rendering defaults locally.
         """
     }
-    channels Channels? {
+    channels? {
         @doc value """
             binds channel keys to each axis. Defaults to no channels assigned
             on any axis.
         """
     }
-    ranges   Ranges?   {
+    ranges?   {
         @doc value """
             binds range keys to each x-axis. Defaults to no ranges assigned
             on either x-axis.
         """
     }
-    axes     Axes?     {
+    axes?     {
         @doc value """
             bundles per-axis configuration. Defaults to the zero-value axes;
             the client seeds rendering defaults locally.
         """
     }
-    lines    Line[]?   {
+    lines?    {
         @doc value """
             holds per-line styling and downsampling configuration. Defaults
             to an empty list.
         """
     }
-    rules    Rule[]?   {
+    rules?    {
         @doc value """
             holds annotation rules drawn over the plot. Defaults to an empty
             list.

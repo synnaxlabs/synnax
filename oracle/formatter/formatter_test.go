@@ -84,6 +84,47 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Partial Field Overrides", func() {
+		It("should preserve a standalone optionality marker on a typeless override", func() {
+			result := format("Child struct extends Parent {\n  key?\n  note??\n}\n")
+			Expect(result).To(ContainSubstring("key?"))
+			Expect(result).To(ContainSubstring("note??"))
+			Expect(result).NotTo(ContainSubstring("key ?"))
+		})
+
+		It("should preserve a typeless override that changes only the default", func() {
+			result := format("Child struct extends Parent {\n  count = 10\n}\n")
+			Expect(result).To(ContainSubstring("count = 10"))
+		})
+
+		It("should preserve a typeless override that adds a domain", func() {
+			result := format("Child struct extends Parent {\n  name @validate required\n}\n")
+			Expect(result).To(ContainSubstring("name @validate required"))
+		})
+
+		It("should preserve a domain removal inline and in a body", func() {
+			result := format("Child struct extends Parent {\n  name -@validate\n  key? {\n    -@doc\n  }\n}\n")
+			Expect(result).To(ContainSubstring("name -@validate"))
+			Expect(result).To(ContainSubstring("-@doc"))
+		})
+
+		It("should keep a typeless override with a brace body idempotent", func() {
+			source := "Child struct extends Parent {\n" +
+				"  key? {\n    @doc value \"an optional key\"\n  }\n" +
+				"  query {\n    @doc value \"inherits its type\"\n  }\n" +
+				"  snapshot?\n" +
+				"  expression? = \"\"\n" +
+				"}\n"
+			once := format(source)
+			twice := format(once)
+			Expect(twice).To(Equal(once))
+			Expect(once).To(ContainSubstring("key?"))
+			Expect(once).To(MatchRegexp(`query\s+\{`))
+			Expect(once).To(ContainSubstring("snapshot?\n"))
+			Expect(once).To(ContainSubstring("expression? = \"\""))
+		})
+	})
+
 	Describe("Enum Definitions", func() {
 		It("should format an empty enum", func() {
 			Expect(format("Status enum {}\n")).To(Equal("Status enum {}\n"))

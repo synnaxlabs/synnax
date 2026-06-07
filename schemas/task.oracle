@@ -143,12 +143,7 @@ New struct<
 > extends Task<Type, Config, StatusData> {
     -internal
     -snapshot
-    key    Key?                   {
-        @doc value """
-            is an optional key for the task. If not provided, one will be
-            automatically assigned.
-        """
-    }
+    key?
     status NewStatus<StatusData>? {
         @doc value "is an optional initial status for the task."
     }
