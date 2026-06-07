@@ -285,9 +285,10 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [
-            lineplotClient.setAxis({
+            lineplotClient.setAxisBounds({
               key: original.key,
               bounds: { lower: 0, upper: 100 },
+              autoBounds: { lower: false, upper: false },
             }),
           ],
         });
@@ -317,9 +318,10 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [
-            lineplotClient.setAxis({
+            lineplotClient.setAxisBounds({
               key: original.key,
               bounds: { lower: -5, upper: 25 },
+              autoBounds: { lower: false, upper: false },
             }),
           ],
         });
@@ -353,9 +355,10 @@ describe("lineplot queries", () => {
           await result.current.dispatch.dispatchAsync({
             key: seeded.key,
             actions: [
-              lineplotClient.setAxis({
+              lineplotClient.setAxisBounds({
                 key: original.key,
                 bounds: { lower: 0, upper },
+                autoBounds: { lower: false, upper: false },
               }),
             ],
           });
@@ -385,9 +388,10 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [
-            lineplotClient.setAxis({
+            lineplotClient.setAxisBounds({
               key: x1Orig.key,
               bounds: { lower: 0, upper: 50 },
+              autoBounds: { lower: false, upper: false },
             }),
           ],
         });
@@ -396,9 +400,10 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [
-            lineplotClient.setAxis({
+            lineplotClient.setAxisBounds({
               key: x2Orig.key,
               bounds: { lower: 0, upper: 70 },
+              autoBounds: { lower: false, upper: false },
             }),
           ],
         });
@@ -440,9 +445,14 @@ describe("lineplot queries", () => {
           key: seeded.key,
           actions: [
             lineplotClient.setLine({
-              key: "line-new",
-              label: "ghost",
-              color: color.construct("#ff0000"),
+              line: {
+                key: "line-new",
+                label: "ghost",
+                color: color.construct("#ff0000"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
             }),
           ],
         });
@@ -520,11 +530,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
-          actions: [
-            lineplotClient.setLegend({
-              legend: { ...original, visible: !original.visible },
-            }),
-          ],
+          actions: [lineplotClient.setLegendVisible({ visible: !original.visible })],
         });
       });
       await waitFor(() =>
@@ -578,7 +584,10 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [
-            lineplotClient.setAxis({ key: result.current.axis.key, label: "Pressure" }),
+            lineplotClient.setAxisLabel({
+              key: result.current.axis.key,
+              label: "Pressure",
+            }),
           ],
         });
       });
@@ -602,7 +611,15 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [
-            lineplotClient.setLine({ key: "ln-1", color: color.construct("#00aaff") }),
+            lineplotClient.setLine({
+              line: {
+                key: "ln-1",
+                color: color.construct("#00aaff"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
           ],
         });
       });

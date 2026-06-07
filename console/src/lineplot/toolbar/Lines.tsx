@@ -92,32 +92,30 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
   const line = LinePlot.useSelectLine({ key: layoutKey, lineKey: itemKey });
   const { dispatch } = LinePlot.useDispatch();
 
-  const update = useCallback(
-    (next: Omit<lineplot.SetLinePayload, "key">): void => {
-      dispatch({
-        key: layoutKey,
-        actions: [lineplot.setLine({ key: itemKey, ...next })],
-      });
+  const apply = useCallback(
+    (action: lineplot.Action): void => {
+      dispatch({ key: layoutKey, actions: [action] });
     },
-    [dispatch, layoutKey, itemKey],
+    [dispatch, layoutKey],
   );
 
   if (line == null) return null;
 
   const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
-    update({ label: value });
+    apply(lineplot.setLineLabel({ key: itemKey, label: value }));
 
   const handleWidthChange: Input.Control<number>["onChange"] = (value) =>
-    update({ strokeWidth: value });
+    apply(lineplot.setLineStrokeWidth({ key: itemKey, strokeWidth: value }));
 
   const handleDownsampleChange: Input.Control<number>["onChange"] = (value) =>
-    update({ downsample: value });
+    apply(lineplot.setLineDownsample({ key: itemKey, downsample: value }));
 
   const handleDownsampleModeChange: Select.ButtonsProps<telem.DownsampleMode>["onChange"] =
-    (value: telem.DownsampleMode) => update({ downsampleMode: value });
+    (value: telem.DownsampleMode) =>
+      apply(lineplot.setLineDownsampleMode({ key: itemKey, downsampleMode: value }));
 
   const handleColorChange: Input.Control<color.Color>["onChange"] = (value) =>
-    update({ color: value });
+    apply(lineplot.setLineColor({ key: itemKey, color: value }));
 
   return (
     <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">

@@ -19,8 +19,6 @@ import {
 } from "@synnaxlabs/x";
 import {
   type ReactElement,
-  type ReactNode,
-  type Ref,
   type RefObject,
   useCallback,
   useEffect,
@@ -33,7 +31,7 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
 import { XAxis as CoreXAxis, YAxis as CoreYAxis } from "@/lineplot/Axis";
-import { Frame, type FrameProps, type FrameRef, type LineSpec } from "@/lineplot/Frame";
+import { Frame, type FrameProps, type LineSpec } from "@/lineplot/Frame";
 import { Legend, type LegendProps } from "@/lineplot/Legend";
 import { Line as CoreLine } from "@/lineplot/Line";
 import { Measure } from "@/lineplot/measure";
@@ -86,6 +84,14 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
 };
 
 type RuleChange = Partial<lineplot.Rule> & { key: string };
+
+const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
+  undo: [["Control", "Z"]],
+  redo: [["Control", "Shift", "Z"]],
+  default: [],
+  defaultMode: "default",
+};
+const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
 
 interface UseUndoRedoTriggersProps {
   key: lineplot.Key;
@@ -258,22 +264,16 @@ const ConnectedLegend = ({
   const legend = useSelectLegend({ key: pKey });
   const handlePositionChange = useCallback(
     (position: typeof legend.position) =>
-      dispatch({
-        key: pKey,
-        actions: [lineplot.setLegend({ legend: { ...legend, position } })],
-      }),
-    [dispatch, pKey, legend],
+      dispatch({ key: pKey, actions: [lineplot.setLegendPosition({ position })] }),
+    [dispatch, pKey],
   );
   const handleLineChange = useCallback(
     (d: optional.Optional<LineSpec, "legendGroup">) => {
       dispatch({
         key: pKey,
         actions: [
-          lineplot.setLine({
-            key: d.key,
-            label: d.label,
-            color: color.construct(d.color),
-          }),
+          lineplot.setLineLabel({ key: d.key, label: d.label }),
+          lineplot.setLineColor({ key: d.key, color: color.construct(d.color) }),
         ],
       });
     },
@@ -414,7 +414,7 @@ const YAxis = ({
       onLabelChange={(value) =>
         dispatch({
           key: pKey,
-          actions: [lineplot.setAxis({ key: axisKey, label: value })],
+          actions: [lineplot.setAxisLabel({ key: axisKey, label: value })],
         })
       }
     >
@@ -456,8 +456,16 @@ const XAxis = ({
   );
   const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
-  const { key: _axisKey, ...axisConfig } = useSelectXAxis({ key: pKey, axisKey });
+  const { key: _, ...axisConfig } = useSelectXAxis({ key: pKey, axisKey });
   const yAxes = useSelectYAxisKeys({ key: pKey });
+  const handleLabelChange = useCallback(
+    (label: string) =>
+      dispatch({
+        key: pKey,
+        actions: [lineplot.setAxisLabel({ key: axisKey, label })],
+      }),
+    [dispatch, pKey, axisKey],
+  );
   return (
     <CoreXAxis
       {...axisConfig}
@@ -466,12 +474,7 @@ const XAxis = ({
       axisKey={axisKey}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       showGrid={axisKey === "x1"}
-      onLabelChange={(value) =>
-        dispatch({
-          key: pKey,
-          actions: [lineplot.setAxis({ key: axisKey, label: value })],
-        })
-      }
+      onLabelChange={handleLabelChange}
     >
       {yAxes.map((yAxisKey) => (
         <YAxis
@@ -490,14 +493,6 @@ const XAxis = ({
   );
 };
 
-const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
-  undo: [["Control", "Z"]],
-  redo: [["Control", "Shift", "Z"]],
-  default: [],
-  defaultMode: "default",
-};
-const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
-
 interface UseViewportResetParams {
   key: lineplot.Key;
   hold?: boolean;
@@ -508,17 +503,20 @@ const useViewportReset = ({
   hold,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
   const lineCount = useSelectLineCount({ key });
-  const prevLen = usePrevious(lineCount);
+  const prevLineCount = usePrevious(lineCount);
   const prevHold = usePrevious(hold);
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
   useEffect(() => {
-    if ((prevLen === 0 && lineCount !== 0) || (prevHold === true && hold === false))
+    if (
+      (prevLineCount === 0 && lineCount !== 0) ||
+      (prevHold === true && hold === false)
+    )
       viewportRef.current?.reset();
   }, [lineCount, hold]);
   return viewportRef;
 };
 
-export interface LinePlotProps extends Omit<FrameProps, "ref"> {
+export interface LinePlotProps extends FrameProps {
   resourceKey: lineplot.Key;
   editable?: boolean;
   enableTriggers?: boolean | (() => boolean);
@@ -534,8 +532,6 @@ export interface LinePlotProps extends Omit<FrameProps, "ref"> {
   viewportTriggers?: Viewport.UseProps["triggers"];
   rangeProviderProps?: Range.ProviderProps;
   onSelectRule?: (key: string) => void;
-  children?: ReactNode;
-  ref?: Ref<FrameRef>;
 }
 
 export const LinePlot = ({

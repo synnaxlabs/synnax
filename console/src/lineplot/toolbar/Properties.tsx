@@ -41,7 +41,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   const handleLegendVisibilityChange = (visible: boolean): void => {
     dispatch({
       key: layoutKey,
-      actions: [lineplot.setLegend({ legend: { ...legend, visible } })],
+      actions: [lineplot.setLegendVisible({ visible })],
     });
   };
 

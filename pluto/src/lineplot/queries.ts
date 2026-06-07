@@ -449,20 +449,46 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-// Drag streams (axis bound, rule position, line style, legend) coalesce
-// into one undo entry within the coalesce window. Per-target keys keep
-// gestures on different axes/rules/lines from merging with each other —
-// dragging axis x1 then axis x2 should be two undo steps, not one.
+// Drag streams (axis bounds, rule position, line style, legend) coalesce into
+// one undo entry within the coalesce window. Single-target actions key by their
+// axis/line/rule so gestures on different targets don't merge — dragging axis x1
+// then axis x2 is two undo steps. Edits to distinct fields of the same target
+// (e.g. an x1 label then its bounds) deliberately share a key, matching the
+// previous single-setAxis coalescing.
 const kindOfTransaction = (actions: lineplot.Action[]): string => {
   if (actions.length === 0) return "default";
-  if (actions.length === 1) {
-    const a = actions[0];
-    if (a.type === "set_axis") return `set_axis:${a.setAxis.key}`;
-    if (a.type === "set_rule") return `set_rule:${a.setRule.rule.key}`;
-    if (a.type === "set_line") return `set_line:${a.setLine.key}`;
-    return a.type;
+  if (actions.length > 1) return "transaction";
+  const a = actions[0];
+  switch (a.type) {
+    case "set_axis_label":
+      return `axis:${a.setAxisLabel.key}`;
+    case "set_axis_label_direction":
+      return `axis:${a.setAxisLabelDirection.key}`;
+    case "set_axis_label_level":
+      return `axis:${a.setAxisLabelLevel.key}`;
+    case "set_axis_bounds":
+      return `axis:${a.setAxisBounds.key}`;
+    case "set_axis_tick_spacing":
+      return `axis:${a.setAxisTickSpacing.key}`;
+    case "set_axis_type":
+      return `axis:${a.setAxisType.key}`;
+    case "set_line_label":
+      return `line:${a.setLineLabel.key}`;
+    case "set_line_color":
+      return `line:${a.setLineColor.key}`;
+    case "set_line_stroke_width":
+      return `line:${a.setLineStrokeWidth.key}`;
+    case "set_line_downsample":
+      return `line:${a.setLineDownsample.key}`;
+    case "set_line_downsample_mode":
+      return `line:${a.setLineDownsampleMode.key}`;
+    case "set_line":
+      return `line:${a.setLine.line.key}`;
+    case "set_rule":
+      return `rule:${a.setRule.rule.key}`;
+    default:
+      return a.type;
   }
-  return "transaction";
 };
 
 export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
