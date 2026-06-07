@@ -204,6 +204,27 @@ export const useSelectLineKeys = Flux.createSelector<
   equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
 });
 
+export interface SelectYAxisArgs {
+  key: lineplot.Key;
+  axisKey: lineplot.YAxisKey;
+}
+
+// useSelectYAxisLineKeys returns the keys of the lines plotted on the given
+// y-axis. Stable across styling edits (only changes when lines are added or
+// removed) so a y-axis re-renders only when its membership changes.
+export const useSelectYAxisLineKeys = Flux.createSelector<
+  FluxSubStore,
+  SelectYAxisArgs,
+  string[]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, axisKey }) =>
+    requireLinePlot(store, key)
+      .lines.filter((l) => lineplot.parseLineKey(l.key).yAxis === axisKey)
+      .map((l) => l.key),
+  equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
+});
+
 export interface SelectLineArgs {
   key: lineplot.Key;
   lineKey: string;

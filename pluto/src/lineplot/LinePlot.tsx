@@ -39,7 +39,6 @@ import {
   XAxis as CoreXAxis,
   YAxis as CoreYAxis,
 } from "@/lineplot/Axis";
-import { type DerivedLine } from "@/lineplot/derive";
 import { Frame, type FrameProps, type FrameRef, type LineSpec } from "@/lineplot/Frame";
 import { Legend, type LegendProps } from "@/lineplot/Legend";
 import { Line as CoreLine } from "@/lineplot/Line";
@@ -52,10 +51,12 @@ import {
   useSelectAxes,
   useSelectChannels,
   useSelectLegend,
-  useSelectLines,
+  useSelectLine,
+  useSelectLineKeys,
   useSelectRanges,
   useSelectRules,
   useSelectTitle,
+  useSelectYAxisLineKeys,
   useUndo,
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
@@ -88,12 +89,6 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
 type AxisChange = Partial<CoreAxisProps> & { key: lineplot.AxisKey };
 type RuleChange = Partial<lineplot.Rule> & { key: string };
 
-interface ResolvedLine {
-  line: DerivedLine;
-  color: color.Color;
-  resolved?: ResolvedRange;
-}
-
 interface AxisRenderProps<
   K extends lineplot.AxisKey = lineplot.AxisKey,
 > extends CoreAxisProps {
@@ -121,13 +116,20 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
     ),
   });
 
+interface ConnectedLineProps {
+  pKey: lineplot.Key;
+  lineKey: string;
+  resolved?: ResolvedRange;
+}
+
 const ConnectedLine = ({
-  line,
-  color,
+  pKey,
+  lineKey,
   resolved,
-}: ResolvedLine): ReactElement | null => {
+}: ConnectedLineProps): ReactElement | null => {
+  const line = useSelectLine({ key: pKey, lineKey });
   const telemetry = useMemo(() => {
-    if (resolved == null) return null;
+    if (line == null || resolved == null) return null;
     const { xChannel, yChannel } = line;
     const hasX = xChannel != null && xChannel !== 0;
     if (resolved.variant === "dynamic") {
@@ -154,14 +156,14 @@ const ConnectedLine = ({
       }),
       y: telem.channelData({ timeRange: resolved.timeRange, channel: yChannel }),
     };
-  }, [resolved, line.xChannel, line.yChannel]);
-  if (telemetry == null) return null;
+  }, [resolved, line?.xChannel, line?.yChannel]);
+  if (line == null || telemetry == null) return null;
   return (
     <CoreLine
       aetherKey={line.key}
       x={telemetry.x}
       y={telemetry.y}
-      color={color}
+      color={line.color}
       strokeWidth={line.strokeWidth}
       label={line.label}
       downsample={line.downsample}
@@ -172,7 +174,8 @@ const ConnectedLine = ({
 };
 
 interface AxisChildrenProps {
-  lines: ResolvedLine[];
+  pKey: lineplot.Key;
+  resolvedRanges?: Map<string, ResolvedRange>;
   rules: lineplot.Rule[];
   onRuleChange: (rule: RuleChange) => void;
   onSelectRule?: (key: string) => void;
@@ -210,8 +213,9 @@ interface YAxisProps extends AxisChildrenProps {
 }
 
 const YAxis = ({
+  pKey,
   axis: { location, key: axisKey, ...axis },
-  lines,
+  resolvedRanges,
   rules,
   onAxisChange,
   onChannelDrop,
@@ -220,6 +224,7 @@ const YAxis = ({
 }: YAxisProps): ReactElement => {
   const dropProps = useAxisDrop(axisKey, "y", onChannelDrop);
   const dragging = Haul.useDraggingState();
+  const lineKeys = useSelectYAxisLineKeys({ key: pKey, axisKey });
   return (
     <CoreYAxis
       {...axis}
@@ -229,11 +234,14 @@ const YAxis = ({
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       onLabelChange={(value) => onAxisChange({ key: axisKey, label: value })}
     >
-      {lines
-        .filter(({ line }) => line.yAxis === axisKey)
-        .map((l) => (
-          <ConnectedLine key={l.line.key} {...l} />
-        ))}
+      {lineKeys.map((lineKey) => (
+        <ConnectedLine
+          key={lineKey}
+          pKey={pKey}
+          lineKey={lineKey}
+          resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
+        />
+      ))}
       {renderRules(rules, axisKey, onRuleChange, onSelectRule)}
     </CoreYAxis>
   );
@@ -255,7 +263,6 @@ const resolveTickType = (
       : "linear");
 
 interface XAxisProps extends AxisChildrenProps {
-  pKey: lineplot.Key;
   axis: AxisRenderProps<lineplot.XAxisKey>;
   index: number;
   yAxes: AxisRenderProps<lineplot.YAxisKey>[];
@@ -270,7 +277,7 @@ const XAxis = ({
   axis: { location, key: axisKey, showGrid, ...axis },
   index,
   yAxes,
-  lines,
+  resolvedRanges,
   rules,
   onAxisChange,
   onXChannelDrop,
@@ -298,8 +305,9 @@ const XAxis = ({
       {yAxes.map((ya, j) => (
         <YAxis
           key={ya.key}
+          pKey={pKey}
           axis={{ ...ya, showGrid: showGrid ?? (index === 0 && j === 0) }}
-          lines={lines}
+          resolvedRanges={resolvedRanges}
           rules={rules}
           onAxisChange={onAxisChange}
           onChannelDrop={onYChannelDrop}
@@ -404,7 +412,7 @@ export const LinePlot = ({
   const ranges = useSelectRanges({ key });
   const rules = useSelectRules({ key });
   const axes = useSelectAxes({ key });
-  const storedLines = useSelectLines({ key });
+  const lineKeys = useSelectLineKeys({ key });
 
   const handleLineChange = useCallback(
     (d: optional.Optional<LineSpec, "legendGroup">) => {
@@ -521,26 +529,16 @@ export const LinePlot = ({
     [axes, channels],
   );
 
-  const resolvedLines = useMemo<ResolvedLine[]>(
-    () =>
-      storedLines.map((line) => ({
-        line,
-        color: line.color,
-        resolved: resolvedRanges?.get(line.range),
-      })),
-    [storedLines, resolvedRanges],
-  );
-
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
-  const prevLen = usePrevious(storedLines.length);
+  const prevLen = usePrevious(lineKeys.length);
   const prevHold = usePrevious(rest.hold);
   useEffect(() => {
     if (
-      (prevLen === 0 && storedLines.length !== 0) ||
+      (prevLen === 0 && lineKeys.length !== 0) ||
       (prevHold === true && rest.hold === false)
     )
       viewportRef.current?.reset();
-  }, [storedLines.length, rest.hold]);
+  }, [lineKeys.length, rest.hold]);
 
   return (
     <Frame ref={ref} {...rest}>
@@ -551,7 +549,7 @@ export const LinePlot = ({
           axis={axis}
           index={i}
           yAxes={yAxes}
-          lines={resolvedLines}
+          resolvedRanges={resolvedRanges}
           rules={rules}
           onAxisChange={handleAxisChange}
           onXChannelDrop={editable ? handleXChannelDrop : undefined}
