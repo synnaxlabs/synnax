@@ -110,6 +110,9 @@ const rng = (seed: number) => () => {
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 };
 
+const pick = <T>(rand: () => number, arr: T[]): T =>
+  arr[Math.floor(rand() * arr.length)];
+
 const pickSubset = (rand: () => number, max: number): Key[] =>
   KEYS.filter(() => rand() < 0.4).slice(0, max);
 
@@ -125,7 +128,7 @@ const genTree = (rand: () => number): Node[] => {
   const composites: Node[] = [root];
   const count = 5 + Math.floor(rand() * 16);
   for (let i = 1; i < count; i++) {
-    const parent = composites[Math.floor(rand() * composites.length)];
+    const parent = pick(rand, composites);
     const isLeaf = rand() < 0.5;
     const key = `n${i}`;
     const node: Node = {
@@ -182,7 +185,7 @@ const oracle = (
   return out;
 };
 
-const construct = (node: Node, parent: aether.Component): aether.Component => {
+const mk = (node: Node, parent: aether.Component | null): aether.Component => {
   const props = {
     path: [node.key],
     type: node.isLeaf ? "leaf" : "node",
@@ -206,30 +209,23 @@ describe("aether context propagation (property/oracle)", () => {
       const states = new Map<string, number>();
       const randX = () => Math.floor(rand() * 6);
 
-      // Build the tree by routing creates through the root, exactly as production does.
-      const root = new PropComposite({
-        path: ["n0"],
-        type: "node",
-        sender: MockSender,
-        instrumentation: NOOP,
-        parent: null,
-      });
-      states.set("n0", randX());
-      root._updateState({
-        path: ["n0"],
-        state: { x: states.get("n0") as number, id: "n0" },
-        type: "node",
-        create: shouldNotCallCreate,
-      });
-      for (const node of nodes.slice(1)) {
-        states.set(node.id, randX());
+      // Build and drive the tree by routing through the root, exactly as production does.
+      const root = mk(nodes[0], null);
+      const apply = (
+        node: Node,
+        x: number,
+        create: (parent: aether.Component) => aether.Component = shouldNotCallCreate,
+      ): void => {
+        states.set(node.id, x);
         root._updateState({
           path: node.fullPath,
-          state: { x: states.get(node.id) as number, id: node.id },
+          state: { x, id: node.id },
           type: node.isLeaf ? "leaf" : "node",
-          create: (parent) => construct(node, parent),
+          create,
         });
-      }
+      };
+      apply(nodes[0], randX());
+      for (const node of nodes.slice(1)) apply(node, randX(), (p) => mk(node, p));
 
       // Drive a random sequence of state updates and deletes.
       const live = new Set(nodes.map((n) => n.id));
@@ -238,25 +234,13 @@ describe("aether context propagation (property/oracle)", () => {
       for (let m = 0; m < ops; m++) {
         const deletable = liveList().filter((n) => n.id !== "n0");
         if (rand() < 0.2 && deletable.length > 0) {
-          const target = deletable[Math.floor(rand() * deletable.length)];
+          const target = pick(rand, deletable);
           root._delete(target.fullPath);
+          // Remove the deleted node and its whole subtree from the live set.
           for (const n of nodes)
-            if (
-              n.fullPath.length >= target.fullPath.length &&
-              target.fullPath.every((seg, i) => n.fullPath[i] === seg)
-            )
+            if (target.fullPath.every((seg, i) => n.fullPath[i] === seg))
               live.delete(n.id);
-        } else {
-          const candidates = liveList();
-          const target = candidates[Math.floor(rand() * candidates.length)];
-          states.set(target.id, randX());
-          root._updateState({
-            path: target.fullPath,
-            state: { x: states.get(target.id) as number, id: target.id },
-            type: target.isLeaf ? "leaf" : "node",
-            create: shouldNotCallCreate,
-          });
-        }
+        } else apply(pick(rand, liveList()), randX());
       }
 
       const expected = oracle(nodes, live, states);
