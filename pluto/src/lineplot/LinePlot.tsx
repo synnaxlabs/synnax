@@ -165,6 +165,67 @@ const ConnectedLine = ({
   );
 };
 
+interface ConnectedTitleProps {
+  pKey: lineplot.Key;
+  value: string;
+  onChange?: (value: string) => void;
+}
+
+const ConnectedTitle = ({
+  pKey,
+  value,
+  onChange,
+}: ConnectedTitleProps): ReactElement | null => {
+  const { visible, level } = useSelectTitle({ key: pKey });
+  if (!visible) return null;
+  return <Title value={value} onChange={onChange} level={level} />;
+};
+
+interface ConnectedLegendProps {
+  pKey: lineplot.Key;
+  variant?: LegendProps["variant"];
+  onLineChange?: LegendProps["onLineChange"];
+  editable?: boolean;
+}
+
+const ConnectedLegend = ({
+  pKey,
+  variant,
+  onLineChange,
+  editable,
+}: ConnectedLegendProps): ReactElement | null => {
+  const { dispatch } = useDispatch();
+  const legend = useSelectLegend({ key: pKey });
+  // Position is held locally for responsive dragging and debounced into the
+  // store so the document isn't written on every pointer move.
+  const [position, setPosition] = useState(legend.position);
+  const storePosition = useDebouncedCallback(
+    (next: typeof legend.position) =>
+      dispatch({
+        key: pKey,
+        actions: [lineplot.setLegend({ legend: { ...legend, position: next } })],
+      }),
+    TimeSpan.milliseconds(100),
+    [dispatch, pKey, legend],
+  );
+  const handlePositionChange = useCallback(
+    (next: typeof legend.position) => {
+      setPosition(next);
+      storePosition(next);
+    },
+    [storePosition],
+  );
+  if (!legend.visible) return null;
+  return (
+    <Legend
+      onLineChange={onLineChange}
+      position={position}
+      onPositionChange={editable ? handlePositionChange : undefined}
+      variant={variant}
+    />
+  );
+};
+
 interface AxisChildrenProps {
   pKey: lineplot.Key;
   resolvedRanges?: Map<string, ResolvedRange>;
@@ -380,8 +441,6 @@ export const LinePlot = ({
       [enableTriggers, undo, redo],
     ),
   });
-  const titleState = useSelectTitle({ key });
-  const legend = useSelectLegend({ key });
   const channels = useSelectChannels({ key });
   const ranges = useSelectRanges({ key });
   const rules = useSelectRules({ key });
@@ -460,24 +519,6 @@ export const LinePlot = ({
     [channels, dispatchChannelDrop],
   );
 
-  const [legendPosition, setLegendPosition] = useState(legend.position);
-  const storeLegendPosition = useDebouncedCallback(
-    (position: typeof legend.position) =>
-      dispatch({
-        key,
-        actions: [lineplot.setLegend({ legend: { ...legend, position } })],
-      }),
-    TimeSpan.milliseconds(100),
-    [dispatch, key, legend],
-  );
-  const handleLegendPositionChange = useCallback(
-    (position: typeof legend.position) => {
-      setLegendPosition(position);
-      storeLegendPosition(position);
-    },
-    [storeLegendPosition],
-  );
-
   const xAxisKeys = useMemo(
     () => lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
     [channels],
@@ -516,21 +557,17 @@ export const LinePlot = ({
           rangeProviderProps={rangeProviderProps}
         />
       ))}
-      {legend.visible && (
-        <Legend
-          onLineChange={editable ? handleLineChange : undefined}
-          position={legendPosition}
-          onPositionChange={editable ? handleLegendPositionChange : undefined}
-          variant={legendVariant}
-        />
-      )}
-      {titleState.visible && (
-        <Title
-          value={title ?? ""}
-          onChange={editable ? onTitleChange : undefined}
-          level={titleState.level}
-        />
-      )}
+      <ConnectedLegend
+        pKey={key}
+        variant={legendVariant}
+        onLineChange={editable ? handleLineChange : undefined}
+        editable={editable}
+      />
+      <ConnectedTitle
+        pKey={key}
+        value={title ?? ""}
+        onChange={editable ? onTitleChange : undefined}
+      />
       <CoreViewport
         initial={initialViewport}
         onChange={onViewportChange}
