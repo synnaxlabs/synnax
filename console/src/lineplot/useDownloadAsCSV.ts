@@ -62,7 +62,7 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
 
 export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
-  const derived = LinePlot.useDerivedLines(key);
+  const derived = LinePlot.useSelectLines({ key });
   const ranges = LinePlot.useSelectRanges({ key });
   const { name } = Layout.useSelectRequired(key);
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);

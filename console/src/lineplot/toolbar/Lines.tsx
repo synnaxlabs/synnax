@@ -20,7 +20,7 @@ import {
   type telem,
 } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
@@ -31,7 +31,8 @@ export interface LinesProps {
 }
 
 export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const lineKeys = LinePlot.useDerivedLineKeys(layoutKey);
+  const lines = LinePlot.useSelectLines({ key: layoutKey });
+  const lineKeys = useMemo(() => lines.map((l) => l.key), [lines]);
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
@@ -90,44 +91,43 @@ const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement =>
 );
 
 const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => {
-  const lines = LinePlot.useSelectLines({ key: layoutKey });
+  const line = LinePlot.useSelectLine({ key: layoutKey, lineKey: itemKey });
   const { dispatch } = LinePlot.useDispatch();
   const theme = Layout.useSelectTheme();
-  const stored = LinePlot.lookupDerivedLine(lines, itemKey);
-  const palette = theme?.colors.visualization.palettes.default ?? [];
-  const resolvedColor = LinePlot.resolveLineColor(stored.color, index, palette);
-  const line: lineplot.Line = { ...stored, color: resolvedColor };
 
   const update = useCallback(
-    (next: lineplot.Line): void => {
-      dispatch({ key: layoutKey, actions: [lineplot.setLine({ line: next })] });
+    (next: Omit<lineplot.SetLinePayload, "key">): void => {
+      dispatch({
+        key: layoutKey,
+        actions: [lineplot.setLine({ key: itemKey, ...next })],
+      });
     },
-    [dispatch, layoutKey],
+    [dispatch, layoutKey, itemKey],
   );
 
+  if (line == null) return null;
+  const palette = theme?.colors.visualization.palettes.default ?? [];
+  const resolvedColor = LinePlot.resolveLineColor(line.color, index, palette);
+
   const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
-    update({ ...line, label: value });
+    update({ label: value });
 
   const handleWidthChange: Input.Control<number>["onChange"] = (value) =>
-    update({ ...line, strokeWidth: value });
+    update({ strokeWidth: value });
 
   const handleDownsampleChange: Input.Control<number>["onChange"] = (value) =>
-    update({ ...line, downsample: value });
+    update({ downsample: value });
 
   const handleDownsampleModeChange: Select.ButtonsProps<telem.DownsampleMode>["onChange"] =
-    (value: telem.DownsampleMode) => update({ ...line, downsampleMode: value });
+    (value: telem.DownsampleMode) => update({ downsampleMode: value });
 
   const handleColorChange: Input.Control<color.Color>["onChange"] = (value) =>
-    update({ ...line, color: value });
-
-  const {
-    channels: { y: yChannel },
-  } = LinePlot.typedLineKeyFromString(line.key);
+    update({ color: value });
 
   return (
     <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">
       <Channel.AliasInput
-        channel={yChannel}
+        channel={line.yChannel}
         variant="shadow"
         value={line.label ?? ""}
         onChange={handleLabelChange}

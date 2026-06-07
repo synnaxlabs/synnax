@@ -13,7 +13,7 @@ import {
   color,
   DataType,
   type direction,
-  location as loc,
+  type location,
   type optional,
   primitive,
   type TimeRange,
@@ -39,8 +39,7 @@ import {
   XAxis as CoreXAxis,
   YAxis as CoreYAxis,
 } from "@/lineplot/Axis";
-import { axisLocation, isAxisKey, isXAxisKey, isYAxisKey } from "@/lineplot/axisKeys";
-import { type DerivedLine, resolveLineColor, useDerivedLines } from "@/lineplot/derive";
+import { type DerivedLine, resolveLineColor } from "@/lineplot/derive";
 import { Frame, type FrameProps, type FrameRef, type LineSpec } from "@/lineplot/Frame";
 import { Legend, type LegendProps } from "@/lineplot/Legend";
 import { Line as CoreLine } from "@/lineplot/Line";
@@ -77,7 +76,18 @@ export type ResolvedRange =
   | { variant: "static"; timeRange: TimeRange }
   | { variant: "dynamic"; span: TimeSpan };
 
-type AxisChange = Partial<CoreAxisProps> & { key: string };
+export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
+
+const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
+  y1: "left",
+  y2: "right",
+  y3: "left",
+  y4: "right",
+  x1: "bottom",
+  x2: "top",
+};
+
+type AxisChange = Partial<CoreAxisProps> & { key: lineplot.AxisKey };
 type RuleChange = Partial<lineplot.Rule> & { key: string };
 
 interface ResolvedLine {
@@ -86,14 +96,16 @@ interface ResolvedLine {
   resolved?: ResolvedRange;
 }
 
-interface AxisRenderProps extends CoreAxisProps {
-  key: string;
+interface AxisRenderProps<
+  K extends lineplot.AxisKey = lineplot.AxisKey,
+> extends CoreAxisProps {
+  key: K;
 }
 
-const useAxisDrop = (
-  axisKey: string,
+const useAxisDrop = <K extends lineplot.AxisKey>(
+  axisKey: K,
   direction: direction.Direction,
-  onDrop?: (key: string, keys: channel.Key[]) => void,
+  onDrop?: (key: K, keys: channel.Key[]) => void,
 ): Haul.UseDropReturn =>
   Haul.useDrop({
     type: `channel_lineplot_${direction}_axis`,
@@ -170,7 +182,7 @@ interface AxisChildrenProps {
 
 const renderRules = (
   rules: lineplot.Rule[],
-  axisKey: string,
+  axisKey: lineplot.AxisKey,
   onRuleChange: (rule: RuleChange) => void,
   onSelectRule?: (key: string) => void,
 ): ReactElement[] =>
@@ -194,9 +206,9 @@ const renderRules = (
     ));
 
 interface YAxisProps extends AxisChildrenProps {
-  axis: AxisRenderProps;
+  axis: AxisRenderProps<lineplot.YAxisKey>;
   onAxisChange: (a: AxisChange) => void;
-  onChannelDrop?: (key: string, keys: channel.Key[]) => void;
+  onChannelDrop?: (key: lineplot.YAxisKey, keys: channel.Key[]) => void;
 }
 
 const YAxis = ({
@@ -230,11 +242,12 @@ const YAxis = ({
 };
 
 interface XAxisProps extends AxisChildrenProps {
-  axis: AxisRenderProps;
+  axis: AxisRenderProps<lineplot.XAxisKey>;
   index: number;
-  yAxes: AxisRenderProps[];
+  yAxes: AxisRenderProps<lineplot.YAxisKey>[];
   onAxisChange: (a: AxisChange) => void;
-  onChannelDrop?: (key: string, keys: channel.Key[]) => void;
+  onXChannelDrop?: (key: lineplot.XAxisKey, keys: channel.Key[]) => void;
+  onYChannelDrop?: (key: lineplot.YAxisKey, keys: channel.Key[]) => void;
   rangeProviderProps?: Range.ProviderProps;
 }
 
@@ -245,12 +258,13 @@ const XAxis = ({
   lines,
   rules,
   onAxisChange,
-  onChannelDrop,
+  onXChannelDrop,
+  onYChannelDrop,
   onRuleChange,
   onSelectRule,
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
-  const dropProps = useAxisDrop(axisKey, "x", onChannelDrop);
+  const dropProps = useAxisDrop(axisKey, "x", onXChannelDrop);
   const dragging = Haul.useDraggingState();
   return (
     <CoreXAxis
@@ -269,7 +283,7 @@ const XAxis = ({
           lines={lines}
           rules={rules}
           onAxisChange={onAxisChange}
-          onChannelDrop={onChannelDrop}
+          onChannelDrop={onYChannelDrop}
           onRuleChange={onRuleChange}
           onSelectRule={onSelectRule}
         />
@@ -374,37 +388,8 @@ export const LinePlot = ({
   const rules = useSelectRules({ key });
   const axes = useSelectAxes({ key });
   const storedLines = useSelectLines({ key });
-  const derived = useDerivedLines(key);
 
   const palette = theme.colors.visualization.palettes.default;
-
-  useAsyncEffect(
-    async (signal) => {
-      if (!editable || client == null) return;
-      const stored = new Set(storedLines.map((l) => l.key));
-      const toMaterialize = derived.filter(
-        (l) => l.label == null && !stored.has(l.key),
-      );
-      if (toMaterialize.length === 0) return;
-      const fetched = await client.channels.retrieve(
-        toMaterialize.map((l) => l.yChannel),
-      );
-      if (signal.aborted) return;
-      dispatch({
-        key,
-        actions: toMaterialize.map((l) =>
-          lineplot.setLine({
-            line: {
-              ...l,
-              label: fetched.find((f) => f.key === l.yChannel)?.name ?? undefined,
-              color: resolveLineColor(l.color, derived.indexOf(l), palette),
-            },
-          }),
-        ),
-      });
-    },
-    [key, client, derived, storedLines, editable, palette],
-  );
 
   useAsyncEffect(async () => {
     if (!editable || client == null) return;
@@ -416,31 +401,30 @@ export const LinePlot = ({
       if (!retrieved.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
     }
     if (ax.type === newType) return;
-    dispatch({ key, actions: [lineplot.setAxis({ axis: { ...ax, type: newType } })] });
+    dispatch({ key, actions: [lineplot.setAxis({ key: "x1", type: newType })] });
   }, [channels.x1, axes.x1.type, client, editable]);
 
   const handleLineChange = useCallback(
     (d: optional.Optional<LineSpec, "legendGroup">) => {
-      const existing =
-        storedLines.find((l) => l.key === d.key) ??
-        derived.find((l) => l.key === d.key);
-      if (existing == null) return;
-      const next: lineplot.Line = {
-        ...existing,
-        label: d.label,
-        color: color.construct(d.color),
-      };
-      dispatch({ key, actions: [lineplot.setLine({ line: next })] });
+      dispatch({
+        key,
+        actions: [
+          lineplot.setLine({
+            key: d.key,
+            label: d.label,
+            color: color.construct(d.color),
+          }),
+        ],
+      });
     },
-    [dispatch, key, storedLines, derived],
+    [dispatch, key],
   );
 
   const handleRuleChange = useCallback(
     (rule: RuleChange) => {
       const existing = rules.find((r) => r.key === rule.key);
       if (existing == null) return;
-      const nextAxis =
-        rule.axis != null && isAxisKey(rule.axis) ? rule.axis : existing.axis;
+      const nextAxis = rule.axis ?? existing.axis;
       const next: lineplot.Rule = {
         ...existing,
         ...rule,
@@ -454,26 +438,14 @@ export const LinePlot = ({
 
   const handleAxisChange = useCallback(
     (a: AxisChange) => {
-      if (!isAxisKey(a.key)) return;
-      const existing = axes[a.key];
-      if (existing == null || a.label == null) return;
-      const next: lineplot.Axis = { ...existing, key: a.key, label: a.label };
-      dispatch({ key, actions: [lineplot.setAxis({ axis: next })] });
+      if (a.label == null) return;
+      dispatch({ key, actions: [lineplot.setAxis({ key: a.key, label: a.label })] });
     },
-    [dispatch, key, axes],
+    [dispatch, key],
   );
 
-  const handleChannelDrop = useCallback(
-    (axisKey: string, dropped: channel.Key[]): void => {
-      const actions: lineplot.Action[] = [];
-      if (isXAxisKey(axisKey))
-        actions.push(lineplot.setXChannel({ axisKey, channel: dropped[0] }));
-      else if (isYAxisKey(axisKey)) {
-        const existing = new Set(channels[axisKey]);
-        for (const c of dropped)
-          if (!existing.has(c))
-            actions.push(lineplot.addChannel({ axisKey, channel: c }));
-      } else return;
+  const dispatchChannelDrop = useCallback(
+    (actions: lineplot.Action[]): void => {
       if (
         activeRangeKey != null &&
         ranges.x1.length === 0 &&
@@ -483,7 +455,26 @@ export const LinePlot = ({
         actions.unshift(lineplot.addRange({ axisKey: "x1", range: activeRangeKey }));
       dispatch({ key, actions });
     },
-    [dispatch, key, channels, ranges, activeRangeKey],
+    [dispatch, key, ranges, activeRangeKey],
+  );
+
+  const handleXChannelDrop = useCallback(
+    (axisKey: lineplot.XAxisKey, dropped: channel.Key[]): void => {
+      dispatchChannelDrop([lineplot.setXChannel({ axisKey, channel: dropped[0] })]);
+    },
+    [dispatchChannelDrop],
+  );
+
+  const handleYChannelDrop = useCallback(
+    (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
+      const existing = new Set(channels[axisKey]);
+      const actions: lineplot.Action[] = [];
+      for (const c of dropped)
+        if (!existing.has(c))
+          actions.push(lineplot.addChannel({ axisKey, channel: c }));
+      dispatchChannelDrop(actions);
+    },
+    [channels, dispatchChannelDrop],
   );
 
   const [legendPosition, setLegendPosition] = useState(legend.position);
@@ -504,37 +495,50 @@ export const LinePlot = ({
     [storeLegendPosition],
   );
 
-  const builtAxes = useMemo<AxisRenderProps[]>(
+  const xAxes = useMemo<AxisRenderProps<lineplot.XAxisKey>[]>(
     () =>
-      lineplot.AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
-        (k): AxisRenderProps => ({ ...axes[k], location: axisLocation(k), key: k }),
+      lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
+        (k): AxisRenderProps<lineplot.XAxisKey> => ({
+          ...axes[k],
+          location: AXIS_LOCATIONS[k],
+          key: k,
+        }),
+      ),
+    [axes, channels],
+  );
+
+  const yAxes = useMemo<AxisRenderProps<lineplot.YAxisKey>[]>(
+    () =>
+      lineplot.Y_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)).map(
+        (k): AxisRenderProps<lineplot.YAxisKey> => ({
+          ...axes[k],
+          location: AXIS_LOCATIONS[k],
+          key: k,
+        }),
       ),
     [axes, channels],
   );
 
   const resolvedLines = useMemo<ResolvedLine[]>(
     () =>
-      derived.map((line, i) => ({
+      storedLines.map((line, i) => ({
         line,
         color: resolveLineColor(line.color, i, palette),
         resolved: resolvedRanges?.get(line.range),
       })),
-    [derived, palette, resolvedRanges],
+    [storedLines, palette, resolvedRanges],
   );
 
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
-  const prevLen = usePrevious(derived.length);
+  const prevLen = usePrevious(storedLines.length);
   const prevHold = usePrevious(rest.hold);
   useEffect(() => {
     if (
-      (prevLen === 0 && derived.length !== 0) ||
+      (prevLen === 0 && storedLines.length !== 0) ||
       (prevHold === true && rest.hold === false)
     )
       viewportRef.current?.reset();
-  }, [derived.length, rest.hold]);
-
-  const xAxes = builtAxes.filter(({ location }) => loc.isY(location));
-  const yAxes = builtAxes.filter(({ location }) => loc.isX(location));
+  }, [storedLines.length, rest.hold]);
 
   return (
     <Frame ref={ref} {...rest}>
@@ -547,7 +551,8 @@ export const LinePlot = ({
           lines={resolvedLines}
           rules={rules}
           onAxisChange={handleAxisChange}
-          onChannelDrop={editable ? handleChannelDrop : undefined}
+          onXChannelDrop={editable ? handleXChannelDrop : undefined}
+          onYChannelDrop={editable ? handleYChannelDrop : undefined}
           onRuleChange={handleRuleChange}
           onSelectRule={onSelectRule}
           rangeProviderProps={rangeProviderProps}

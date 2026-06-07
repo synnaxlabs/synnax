@@ -110,7 +110,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   }, [resolved]);
   const activeRangeKey = Range.useSelectActiveKey() ?? "recent";
 
-  const derived = PLinePlot.useDerivedLines(layoutKey);
+  const derived = PLinePlot.useSelectLines({ key: layoutKey });
   const csvLines = useMemo<DownloadLine[]>(
     () =>
       derived.map((d) => ({

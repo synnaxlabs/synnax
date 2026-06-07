@@ -246,7 +246,7 @@ describe("lineplot queries", () => {
         name: `dispatch_ws_${uuid.create()}`,
         layout: {},
       });
-      return client.lineplots.create(ws.key, { name: "dispatch_test" });
+      return await client.lineplots.create(ws.key, { name: "dispatch_test" });
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
@@ -281,14 +281,15 @@ describe("lineplot queries", () => {
       }));
       await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
       const original = result.current.retrieve.data!.axes.x1;
-      const widened: lineplotClient.Axis = {
-        ...original,
-        bounds: { lower: 0, upper: 100 },
-      };
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
-          actions: [lineplotClient.setAxis({ axis: widened })],
+          actions: [
+            lineplotClient.setAxis({
+              key: original.key,
+              bounds: { lower: 0, upper: 100 },
+            }),
+          ],
         });
       });
       await waitFor(() =>
@@ -312,14 +313,15 @@ describe("lineplot queries", () => {
       }));
       await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
       const original = result.current.retrieve.data!.axes.x1;
-      const widened: lineplotClient.Axis = {
-        ...original,
-        bounds: { lower: -5, upper: 25 },
-      };
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
-          actions: [lineplotClient.setAxis({ axis: widened })],
+          actions: [
+            lineplotClient.setAxis({
+              key: original.key,
+              bounds: { lower: -5, upper: 25 },
+            }),
+          ],
         });
       });
       await waitFor(() =>
@@ -352,7 +354,8 @@ describe("lineplot queries", () => {
             key: seeded.key,
             actions: [
               lineplotClient.setAxis({
-                axis: { ...original, bounds: { lower: 0, upper } },
+                key: original.key,
+                bounds: { lower: 0, upper },
               }),
             ],
           });
@@ -383,7 +386,8 @@ describe("lineplot queries", () => {
           key: seeded.key,
           actions: [
             lineplotClient.setAxis({
-              axis: { ...x1Orig, bounds: { lower: 0, upper: 50 } },
+              key: x1Orig.key,
+              bounds: { lower: 0, upper: 50 },
             }),
           ],
         });
@@ -393,7 +397,8 @@ describe("lineplot queries", () => {
           key: seeded.key,
           actions: [
             lineplotClient.setAxis({
-              axis: { ...x2Orig, bounds: { lower: 0, upper: 70 } },
+              key: x2Orig.key,
+              bounds: { lower: 0, upper: 70 },
             }),
           ],
         });
@@ -430,18 +435,16 @@ describe("lineplot queries", () => {
         expect(result.current.retrieve.data?.title.visible).toBe(true),
       );
       // setLine create — should NOT push to the undo stack.
-      const newLine: lineplotClient.Line = {
-        key: "line-new",
-        label: "ghost",
-        color: color.construct("#ff0000"),
-        strokeWidth: 2,
-        downsample: 1,
-        downsampleMode: "decimate",
-      };
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
-          actions: [lineplotClient.setLine({ line: newLine })],
+          actions: [
+            lineplotClient.setLine({
+              key: "line-new",
+              label: "ghost",
+              color: color.construct("#ff0000"),
+            }),
+          ],
         });
       });
       await waitFor(() =>
@@ -463,7 +466,7 @@ describe("lineplot queries", () => {
         name: `selector_ws_${uuid.create()}`,
         layout: {},
       });
-      return client.lineplots.create(ws.key, { name: "selector_test" });
+      return await client.lineplots.create(ws.key, { name: "selector_test" });
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
@@ -575,9 +578,7 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [
-            lineplotClient.setAxis({
-              axis: { ...result.current.axis, label: "Pressure" },
-            }),
+            lineplotClient.setAxis({ key: result.current.axis.key, label: "Pressure" }),
           ],
         });
       });
@@ -601,15 +602,7 @@ describe("lineplot queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [
-            lineplotClient.setLine({
-              line: {
-                key: "ln-1",
-                color: color.construct("#00aaff"),
-                strokeWidth: 2,
-                downsample: 1,
-                downsampleMode: "decimate",
-              },
-            }),
+            lineplotClient.setLine({ key: "ln-1", color: color.construct("#00aaff") }),
           ],
         });
       });

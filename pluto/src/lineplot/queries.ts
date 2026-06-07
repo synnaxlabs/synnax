@@ -13,6 +13,7 @@ import { useCallback } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
+import { type DerivedLine } from "@/lineplot/derive";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
@@ -155,13 +156,19 @@ export const useSelectAxis = Flux.createSelector<
   select: (store, { key, axisKey }) => requireLinePlot(store, key).axes[axisKey],
 });
 
+// useSelectLines returns the plot's lines enriched with their decoded identity.
+// Lines are materialized eagerly by the reducer, so this is the complete set of
+// plotted lines. transform is memoized on the stored lines reference, so it only
+// re-derives when the lines actually change.
 export const useSelectLines = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
+  DerivedLine[],
   lineplot.Line[]
 >({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key }) => requireLinePlot(store, key).lines,
+  transform: (lines) => lines.map((l) => ({ ...l, ...lineplot.parseLineKey(l.key) })),
 });
 
 export interface SelectLineArgs {
@@ -172,11 +179,14 @@ export interface SelectLineArgs {
 export const useSelectLine = Flux.createSelector<
   FluxSubStore,
   SelectLineArgs,
+  DerivedLine | undefined,
   lineplot.Line | undefined
 >({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key, lineKey }) =>
     store.lineplots.get(key)?.lines?.find((l) => l.key === lineKey),
+  transform: (line) =>
+    line == null ? undefined : { ...line, ...lineplot.parseLineKey(line.key) },
 });
 
 export const useSelectLineKeys = Flux.createSelector<
@@ -276,9 +286,9 @@ const kindOfTransaction = (actions: lineplot.Action[]): string => {
   if (actions.length === 0) return "default";
   if (actions.length === 1) {
     const a = actions[0];
-    if (a.type === "set_axis") return `set_axis:${a.setAxis.axis.key}`;
+    if (a.type === "set_axis") return `set_axis:${a.setAxis.key}`;
     if (a.type === "set_rule") return `set_rule:${a.setRule.rule.key}`;
-    if (a.type === "set_line") return `set_line:${a.setLine.line.key}`;
+    if (a.type === "set_line") return `set_line:${a.setLine.key}`;
     return a.type;
   }
   return "transaction";
