@@ -18,49 +18,43 @@ const MockSender = {
   send: vi.fn(),
 };
 
-const createLeaf = (key: string, parentCtxValues: aether.ContextMap | null = null) =>
+const createLeaf = (key: string, parent: aether.Component | null = null) =>
   new ExampleLeaf({
     path: [key],
     type: "leaf",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
-    parentCtxValues,
+    parent,
   });
 
-const createComposite = (
-  key: string,
-  parentCtxValues: Map<string, any> | null = null,
-) =>
+const createComposite = (key: string, parent: aether.Component | null = null) =>
   new ExampleComposite({
     path: [key],
     type: "composite",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
-    parentCtxValues,
+    parent,
   });
 
-const createContextSetter = (
-  key: string,
-  parentCtxValues: aether.ContextMap | null = null,
-) =>
+const createContextSetter = (key: string, parent: aether.Component | null = null) =>
   new ContextSetterComposite({
     path: [key],
     type: "context",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
-    parentCtxValues,
+    parent,
   });
 
 const createSecondaryContextSetter = (
   key: string,
-  parentCtxValues: aether.ContextMap | null = null,
+  parent: aether.Component | null = null,
 ) =>
   new SecondaryContextSetter({
     path: [key],
     type: "context",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
-    parentCtxValues,
+    parent,
   });
 
 export const exampleProps = z.object({
@@ -75,18 +69,20 @@ class ExampleLeaf extends aether.Leaf<typeof exampleProps, InternalState> {
   updatef = vi.fn();
   deletef = vi.fn();
   schema = exampleProps;
+  /** The values resolved for "key" and "key2" on the most recent afterUpdate. */
+  seen: { key?: number; key2?: number } = {};
 
   afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
-    this.internal.contextValue = ctx.getOptional("key") ?? 0;
+    this.seen = {
+      key: ctx.getOptional<number>("key") ?? undefined,
+      key2: ctx.getOptional<number>("key2") ?? undefined,
+    };
+    this.internal.contextValue = this.seen.key ?? 0;
   }
 
   afterDelete(): void {
     this.deletef();
-  }
-
-  get testingParentCtxValues(): Map<string, any> {
-    return this.parentCtxValues;
   }
 
   get testingChildCtxValues(): Map<string, any> {
@@ -110,10 +106,6 @@ class ExampleComposite extends aether.Composite<
 
   afterDelete(): void {
     this.deletef();
-  }
-
-  get testingParentCtxValues(): Map<string, any> {
-    return this.parentCtxValues;
   }
 
   get testingChildCtxValues(): Map<string, any> {
@@ -140,10 +132,6 @@ class ContextSetterComposite extends aether.Composite<
     this.deletef();
   }
 
-  get testingParentCtxValues(): Map<string, any> {
-    return this.parentCtxValues;
-  }
-
   get testingChildCtxValues(): Map<string, any> {
     return this.childCtxValues;
   }
@@ -157,21 +145,105 @@ class SecondaryContextSetter extends aether.Composite<
   deletef = vi.fn();
 
   schema = exampleProps;
+  /** The value resolved for "key" on the most recent afterUpdate. */
+  seen: { key?: number } = {};
 
   afterUpdate(ctx: aether.Context): void {
     this.updatef(ctx);
     const v = ctx.getOptional<number>("key");
+    this.seen = { key: v ?? undefined };
     if (v != null) ctx.set("key2", v + 1);
-  }
-
-  get testingParentCtxValues(): Map<string, any> {
-    return this.parentCtxValues;
   }
 
   get testingChildCtxValues(): Map<string, any> {
     return this.childCtxValues;
   }
 }
+
+/** Reads "key" only when `state.x > 0`, so its subscription appears and disappears with
+ * state. */
+class ConditionalReader extends aether.Leaf<typeof exampleProps> {
+  updatef = vi.fn();
+  schema = exampleProps;
+  seen: number | undefined = undefined;
+
+  afterUpdate(ctx: aether.Context): void {
+    this.updatef(ctx);
+    this.seen =
+      this.state.x > 0 ? (ctx.getOptional<number>("key") ?? undefined) : undefined;
+  }
+}
+
+const createConditionalReader = (key: string, parent: aether.Component | null = null) =>
+  new ConditionalReader({
+    path: [key],
+    type: "conditional",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parent,
+  });
+
+/** Republishes "key" as `state.x * 10`, shadowing an ancestor that also publishes it. */
+class ShadowingSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
+  updatef = vi.fn();
+  schema = exampleProps;
+
+  afterUpdate(ctx: aether.Context): void {
+    this.updatef(ctx);
+    ctx.set("key", this.state.x * 10);
+  }
+}
+
+const createShadowingSetter = (key: string, parent: aether.Component | null = null) =>
+  new ShadowingSetter({
+    path: [key],
+    type: "shadow",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parent,
+  });
+
+/** Re-publishes a constant value with `trigger=true` on every update — the canvas
+ * pattern. Subscribers must re-run even though the value is reference-equal. */
+class InstanceSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
+  updatef = vi.fn();
+  schema = exampleProps;
+
+  afterUpdate(ctx: aether.Context): void {
+    this.updatef(ctx);
+    ctx.set("key", 7);
+  }
+}
+
+const createInstanceSetter = (key: string, parent: aether.Component | null = null) =>
+  new InstanceSetter({
+    path: [key],
+    type: "instance",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parent,
+  });
+
+/** Publishes "late" only once `state.x > 0`, i.e. potentially for the first time after
+ * mount — exercises the late-shadowing guard. */
+class LateSetter extends aether.Composite<typeof exampleProps, {}, ExampleLeaf> {
+  updatef = vi.fn();
+  schema = exampleProps;
+
+  afterUpdate(ctx: aether.Context): void {
+    this.updatef(ctx);
+    if (this.state.x > 0) ctx.set("late", this.state.x);
+  }
+}
+
+const createLateSetter = (key: string, parent: aether.Component | null = null) =>
+  new LateSetter({
+    path: [key],
+    type: "late",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parent,
+  });
 
 const shouldNotCallCreate = () => {
   throw new Error("should not call create");
@@ -235,16 +307,13 @@ class InvokeLeaf
   afterDelete(): void {}
 }
 
-const createInvokeLeaf = (
-  key: string,
-  parentCtxValues: aether.ContextMap | null = null,
-) =>
+const createInvokeLeaf = (key: string, parent: aether.Component | null = null) =>
   new InvokeLeaf({
     path: [key],
     type: "invoke-leaf",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
-    parentCtxValues,
+    parent,
   });
 
 class InvokeComposite extends aether.Composite<
@@ -260,16 +329,13 @@ class InvokeComposite extends aether.Composite<
   afterDelete(): void {}
 }
 
-const createInvokeComposite = (
-  key: string,
-  parentCtxValues: aether.ContextMap | null = null,
-) =>
+const createInvokeComposite = (key: string, parent: aether.Component | null = null) =>
   new InvokeComposite({
     path: [key],
     type: "invoke-composite",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
-    parentCtxValues,
+    parent,
   });
 
 describe("Aether Worker", () => {
@@ -286,7 +352,7 @@ describe("Aether Worker", () => {
             path: [],
             state: {},
             type: "example",
-            create: (parentCtxValues) => createLeaf("test", parentCtxValues),
+            create: (parent) => createLeaf("test", parent),
           });
         }).toThrow(/empty path/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
@@ -298,7 +364,7 @@ describe("Aether Worker", () => {
             path: ["test", "dog"],
             state: {},
             type: "example",
-            create: (parentCtxValues) => createLeaf("dog", parentCtxValues),
+            create: (parent) => createLeaf("dog", parent),
           });
         }).toThrow(/subPath/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
@@ -310,7 +376,7 @@ describe("Aether Worker", () => {
             path: ["dog"],
             state: {},
             type: "example",
-            create: (parentCtxValues) => createLeaf("dog", parentCtxValues),
+            create: (parent) => createLeaf("dog", parent),
           });
         }).toThrow(/key/);
         expect(leaf.updatef).toHaveBeenCalledTimes(0);
@@ -321,7 +387,7 @@ describe("Aether Worker", () => {
           path: ["test"],
           state: { x: 2 },
           type: "example",
-          create: (parentCtxValues) => createLeaf("test", parentCtxValues),
+          create: (parent) => createLeaf("test", parent),
         });
         expect(leaf.state).toEqual({ x: 2 });
       });
@@ -331,7 +397,7 @@ describe("Aether Worker", () => {
           path: ["test"],
           state: { x: 2 },
           type: "example",
-          create: (parentCtxValues) => createLeaf("test", parentCtxValues),
+          create: (parent) => createLeaf("test", parent),
         });
         expect(leaf.updatef).toHaveBeenCalledTimes(1);
       });
@@ -350,7 +416,7 @@ describe("Aether Worker", () => {
           path: ["test"],
           state: { x: 2 },
           type: "example",
-          create: (parentCtxValues) => createLeaf("test", parentCtxValues),
+          create: (parent) => createLeaf("test", parent),
         });
         leaf.setState((p) => ({ ...p }));
         expect(MockSender.send).toHaveBeenCalledTimes(1);
@@ -461,7 +527,6 @@ describe("Aether Worker", () => {
         create: shouldNotCallCreate,
       });
       expect(v.testingChildCtxValues.get("key")).toEqual(2);
-      expect(v.testingParentCtxValues.size).toEqual(0);
     });
 
     it("should correctly pass an initial context value to a leaf child", async () => {
@@ -478,8 +543,8 @@ describe("Aether Worker", () => {
         type: "example",
         create: (c) => createLeaf("dog", c),
       });
-      const c = v.children[0];
-      expect(c.testingParentCtxValues.get("key")).toEqual(2);
+      const c = v.children[0] as ExampleLeaf;
+      expect(c.seen.key).toEqual(2);
       expect(c.testingChildCtxValues.size).toEqual(0);
     });
 
@@ -497,7 +562,7 @@ describe("Aether Worker", () => {
         type: "example",
         create: (c) => createLeaf("dog", c),
       });
-      const c = v.children[0];
+      const c = v.children[0] as ExampleLeaf;
       v._updateState({
         path: ["test"],
         state: { x: 4 },
@@ -505,8 +570,7 @@ describe("Aether Worker", () => {
         create: shouldNotCallCreate,
       });
       expect(v.testingChildCtxValues.get("key")).toEqual(4);
-      expect(v.testingParentCtxValues.size).toEqual(0);
-      expect(c.testingParentCtxValues.get("key")).toEqual(4);
+      expect(c.seen.key).toEqual(4);
       expect(c.testingChildCtxValues.size).toEqual(0);
     });
 
@@ -554,9 +618,9 @@ describe("Aether Worker", () => {
         type: "example",
         create: (c) => createSecondaryContextSetter("second", c),
       });
-      const c1 = v.children[0];
-      expect(c1.testingParentCtxValues.size).toEqual(1);
-      expect(c1.testingChildCtxValues.size).toEqual(1);
+      const c1 = v.children[0] as SecondaryContextSetter;
+      expect(c1.seen.key).toEqual(2);
+      expect(c1.testingChildCtxValues.get("key2")).toEqual(3);
       v._updateState({
         path: ["first", "second", "third"],
         state: { x: 4 },
@@ -564,10 +628,9 @@ describe("Aether Worker", () => {
         create: (c) => createLeaf("third", c),
       });
       const c2 = (v.children[0] as SecondaryContextSetter).children[0];
-      expect(c2.testingParentCtxValues.size).toEqual(2);
       expect(c2.testingChildCtxValues.size).toEqual(0);
-      expect(c2.testingParentCtxValues.get("key")).toEqual(2);
-      expect(c2.testingParentCtxValues.get("key2")).toEqual(3);
+      expect(c2.seen.key).toEqual(2);
+      expect(c2.seen.key2).toEqual(3);
     });
 
     it("should correctly update contexts with a nested leaf", async () => {
@@ -582,14 +645,14 @@ describe("Aether Worker", () => {
         path: ["first", "second"],
         state: { x: 3 },
         type: "example",
-        create: () => createSecondaryContextSetter("second"),
+        create: (c) => createSecondaryContextSetter("second", c),
       });
-      const c1 = v.children[0];
+      const c1 = v.children[0] as SecondaryContextSetter;
       v._updateState({
         path: ["first", "second", "third"],
         state: { x: 4 },
         type: "example",
-        create: () => createLeaf("third"),
+        create: (c) => createLeaf("third", c),
       });
       const c2 = (v.children[0] as SecondaryContextSetter).children[0];
       v._updateState({
@@ -598,12 +661,231 @@ describe("Aether Worker", () => {
         type: "example",
         create: shouldNotCallCreate,
       });
-      expect(c1.testingParentCtxValues.size).toEqual(1);
-      expect(c1.testingChildCtxValues.size).toEqual(1);
-      expect(c2.testingParentCtxValues.size).toEqual(2);
-      expect(c2.testingChildCtxValues.size).toEqual(0);
-      expect(c2.testingParentCtxValues.get("key")).toEqual(5);
-      expect(c2.testingParentCtxValues.get("key2")).toEqual(6);
+      expect(c1.seen.key).toEqual(5);
+      expect(c1.testingChildCtxValues.get("key2")).toEqual(6);
+      expect(c2.seen.key).toEqual(5);
+      expect(c2.seen.key2).toEqual(6);
+    });
+
+    it("re-runs only the subscribers of a changed key, not the whole subtree", () => {
+      const root = createContextSetter("root");
+      root._updateState({
+        path: ["root"],
+        state: { x: 1 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      // reader subscribes to "key"; ignorer never reads context.
+      let reader!: ExampleLeaf;
+      let ignorer!: ExampleComposite;
+      root._updateState({
+        path: ["root", "reader"],
+        state: { x: 0 },
+        type: "example",
+        create: (c) => (reader = createLeaf("reader", c)),
+      });
+      root._updateState({
+        path: ["root", "ignorer"],
+        state: { x: 0 },
+        type: "example",
+        create: (c) => (ignorer = createComposite("ignorer", c)),
+      });
+      reader.updatef.mockClear();
+      ignorer.updatef.mockClear();
+      root._updateState({
+        path: ["root"],
+        state: { x: 2 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      expect(reader.updatef).toHaveBeenCalledTimes(1);
+      expect(reader.seen.key).toEqual(2);
+      expect(ignorer.updatef).not.toHaveBeenCalled();
+    });
+
+    it("subscribes and unsubscribes as a conditional read appears and disappears", () => {
+      const root = createContextSetter("root");
+      root._updateState({
+        path: ["root"],
+        state: { x: 1 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      // ConditionalReader reads "key" only when state.x > 0.
+      let cond!: ConditionalReader;
+      root._updateState({
+        path: ["root", "cond"],
+        state: { x: 1 },
+        type: "example",
+        create: (c) => (cond = createConditionalReader("cond", c)),
+      });
+      expect(cond.seen).toEqual(1);
+
+      // Stop reading "key" (x -> 0). This re-runs cond and unsubscribes it.
+      root._updateState({
+        path: ["root", "cond"],
+        state: { x: 0 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      cond.updatef.mockClear();
+      root._updateState({
+        path: ["root"],
+        state: { x: 5 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      expect(cond.updatef).not.toHaveBeenCalled();
+
+      // Resume reading "key" (x -> 1); now changes to "key" re-run it again.
+      root._updateState({
+        path: ["root", "cond"],
+        state: { x: 1 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      cond.updatef.mockClear();
+      root._updateState({
+        path: ["root"],
+        state: { x: 9 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      expect(cond.updatef).toHaveBeenCalledTimes(1);
+      expect(cond.seen).toEqual(9);
+    });
+
+    it("binds a consumer to the nearest provider when a key is shadowed", () => {
+      const root = createContextSetter("root");
+      root._updateState({
+        path: ["root"],
+        state: { x: 1 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      // mid republishes "key" (x * 10), shadowing root for its descendants.
+      let mid!: ShadowingSetter;
+      root._updateState({
+        path: ["root", "mid"],
+        state: { x: 2 },
+        type: "example",
+        create: (c) => (mid = createShadowingSetter("mid", c)),
+      });
+      root._updateState({
+        path: ["root", "mid", "leaf"],
+        state: { x: 0 },
+        type: "example",
+        create: (c) => createLeaf("leaf", c),
+      });
+      const leaf = mid.children[0];
+      expect(leaf.seen.key).toEqual(20);
+
+      // Changing the far provider (root) does NOT re-run the shadowed leaf.
+      leaf.updatef.mockClear();
+      root._updateState({
+        path: ["root"],
+        state: { x: 7 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      expect(leaf.updatef).not.toHaveBeenCalled();
+      expect(leaf.seen.key).toEqual(20);
+
+      // Changing the near provider (mid) does re-run it.
+      leaf.updatef.mockClear();
+      root._updateState({
+        path: ["root", "mid"],
+        state: { x: 3 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      expect(leaf.updatef).toHaveBeenCalledTimes(1);
+      expect(leaf.seen.key).toEqual(30);
+    });
+
+    it("cascades to subscribers when a provider re-sets the same value reference", () => {
+      const root = createInstanceSetter("root");
+      root._updateState({
+        path: ["root"],
+        state: { x: 1 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      root._updateState({
+        path: ["root", "leaf"],
+        state: { x: 0 },
+        type: "example",
+        create: (c) => createLeaf("leaf", c),
+      });
+      const leaf = root.children[0];
+      leaf.updatef.mockClear();
+      // A self-update re-runs root.afterUpdate, which re-sets the SAME instance with
+      // trigger=true (the canvas pattern). Subscribers must still re-run.
+      root._updateState({
+        path: ["root"],
+        state: { x: 2 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      expect(leaf.updatef).toHaveBeenCalledTimes(1);
+    });
+
+    it("unsubscribes a deleted consumer so it is not re-run", () => {
+      const root = createContextSetter("root");
+      root._updateState({
+        path: ["root"],
+        state: { x: 1 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      root._updateState({
+        path: ["root", "leaf"],
+        state: { x: 0 },
+        type: "example",
+        create: (c) => createLeaf("leaf", c),
+      });
+      const leaf = root.children[0] as ExampleLeaf;
+      root._delete(["root", "leaf"]);
+      leaf.updatef.mockClear();
+      root._updateState({
+        path: ["root"],
+        state: { x: 2 },
+        type: "example",
+        create: shouldNotCallCreate,
+      });
+      expect(leaf.updatef).not.toHaveBeenCalled();
+    });
+
+    it("warns when a provider publishes a key for the first time after mount", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        const root = createLateSetter("root");
+        root._updateState({
+          path: ["root"],
+          state: { x: 0 },
+          type: "example",
+          create: shouldNotCallCreate,
+        });
+        // Give it a child so the late-shadow guard's hasChildren check is satisfied.
+        root._updateState({
+          path: ["root", "leaf"],
+          state: { x: 0 },
+          type: "example",
+          create: (c) => createLeaf("leaf", c),
+        });
+        expect(warn).not.toHaveBeenCalled();
+        // x -> 1 makes root publish "late" for the first time.
+        root._updateState({
+          path: ["root"],
+          state: { x: 1 },
+          type: "example",
+          create: shouldNotCallCreate,
+        });
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toContain("late context shadowing");
+      } finally {
+        warn.mockRestore();
+      }
     });
   });
 

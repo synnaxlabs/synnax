@@ -42,14 +42,11 @@ const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
   });
 };
 
-/** Read-only view over context values, exposed to {@link Component.afterUpdate}
- * for propagating context to descendants. */
-export interface ContextMap extends Pick<Map<string, unknown>, "get" | "forEach"> {}
-
 /** Factory passed to {@link Component._updateState} so a {@link Composite} can lazily
- * instantiate a missing child with the right parent context. */
+ * instantiate a missing child, wiring `parent` so the child can resolve inherited
+ * context up the tree. */
 interface CreateComponent {
-  (initialParentCtxValues: ContextMap): Component;
+  (parent: Component): Component;
 }
 
 export interface UpdateStateParams extends Pick<
@@ -69,7 +66,6 @@ export interface Component {
   key: string;
   toString(): string;
   _updateState: (params: UpdateStateParams) => void;
-  _updateContext: (values: ContextMap) => void;
   _delete: (path: readonly string[]) => void;
   _invokeMethod: (params: InvokeMethodParams) => void;
 }
@@ -82,8 +78,9 @@ export interface ComponentConstructorProps {
   /** Channel for posting messages back to the main thread. */
   sender: Sender;
   instrumentation: alamos.Instrumentation;
-  /** Parent context inherited at creation time. `null` only at the tree root. */
-  parentCtxValues: ContextMap | null;
+  /** The parent component, used to resolve inherited context up the tree. `null` only
+   * at the tree root. */
+  parent: Component | null;
 }
 
 /** Constructor signature every entry in a {@link ComponentRegistry} must satisfy. */
@@ -197,13 +194,32 @@ export abstract class Leaf<
   private _state: z.infer<StateSchema> | undefined;
   private _prevState: z.infer<StateSchema> | undefined;
   private _deleted: boolean = false;
-  /** Context values inherited from this component's parent. Read-only. */
-  protected readonly parentCtxValues: Map<string, any>;
-  /** Context values this component has published to its descendants. */
+  /** The parent component, used to resolve inherited context. `null` only at the root. */
+  private _parent: Leaf<any, any, any> | null;
+  /** Distance from the root (root is 0), derived from the parent chain at construction.
+   * Providers are always strict ancestors of their subscribers, so depth is a valid
+   * topological order for context propagation. */
+  private readonly _depth: number;
+  /** Context values this component has published to its descendants. A component is the
+   * provider of every key in this map for the descendants nearest to it. */
   protected readonly childCtxValues: Map<string, any>;
-  /** Keys in {@link childCtxValues} whose changes should trigger descendants to re-run
-   * {@link afterUpdate}. Cleared at the start of each update. */
+  /** Keys in {@link childCtxValues} this component changed during the current
+   * {@link afterUpdate}. Drives selective propagation; cleared at the start of each run. */
   protected readonly childCtxChangedKeys: Set<string>;
+  /** Provider side: for each key this component publishes, the descendants currently
+   * subscribed to it (i.e. those that resolved this component as their nearest provider
+   * of that key on their last {@link afterUpdate}). */
+  private readonly ctxSubscribers = new Map<string, Set<Leaf<any, any, any>>>();
+  /** Consumer side: keys this component read on its last {@link afterUpdate}, mapped to
+   * the provider it resolved each to. Diffed every run to keep subscriptions current. */
+  private readonly ctxSubscriptions = new Map<string, Leaf<any, any, any>>();
+  /** Accumulator for the in-progress {@link afterUpdate}: keys read so far mapped to
+   * their resolved provider (or `null` if unresolved). Non-`null` only while
+   * {@link afterUpdate} is running, so reads outside that window are not tracked. */
+  private ctxReads: Map<string, Leaf<any, any, any> | null> | null = null;
+  /** Whether {@link afterUpdate} has run at least once. Used only to detect unsupported
+   * late context shadowing (publishing a key for the first time after mount). */
+  private hasRunAfterUpdate = false;
   readonly instrumentation: alamos.Instrumentation;
 
   /** Zod schema for the component's state. Must be defined by every subclass. */
@@ -222,15 +238,15 @@ export abstract class Leaf<
     type,
     sender,
     instrumentation,
-    parentCtxValues,
+    parent,
   }: ComponentConstructorProps) {
     this.type = type;
     this.path = path;
     this.sender = sender;
     this._internalState = {} as InternalState;
     this.instrumentation = instrumentation.child(this.toString());
-    this.parentCtxValues = new Map();
-    parentCtxValues?.forEach((value, key) => this.parentCtxValues.set(key, value));
+    this._parent = parent as Leaf<any, any, any> | null;
+    this._depth = this._parent == null ? 0 : this._parent._depth + 1;
     this.childCtxValues = new Map();
     this.childCtxChangedKeys = new Set();
   }
@@ -304,21 +320,62 @@ export abstract class Leaf<
   private get ctx(): Context {
     return {
       get: (key: string) => {
-        const res = this.parentCtxValues.get(key);
-        if (res === undefined)
+        const provider = this.resolveProvider(key);
+        this.recordRead(key, provider);
+        if (provider == null)
           throw new NotFoundError(
             `Context value for ${key} not found on ${this.toString()}`,
           );
-        return res;
+        return provider.childCtxValues.get(key);
       },
-      getOptional: (key: string) => this.parentCtxValues.get(key),
-      has: (key: string) => this.parentCtxValues.has(key),
+      getOptional: (key: string) => {
+        const provider = this.resolveProvider(key);
+        this.recordRead(key, provider);
+        return provider?.childCtxValues.get(key);
+      },
+      has: (key: string) => {
+        const provider = this.resolveProvider(key);
+        this.recordRead(key, provider);
+        return provider != null;
+      },
       wasSetPreviously: (key: string) => this.childCtxValues.has(key),
       set: (key: string, value: unknown, trigger: boolean = true) => {
+        if (this.hasRunAfterUpdate && !this.childCtxValues.has(key) && this.hasChildren)
+          console.warn(
+            `[aether] ${this.toString()} published context key "${key}" for the first ` +
+              `time after mount. Descendants that already resolved this key bound to a ` +
+              `higher provider and will not re-bind — late context shadowing is ` +
+              `unsupported. Publish all context keys on the first afterUpdate.`,
+          );
         this.childCtxValues.set(key, value);
         if (trigger) this.childCtxChangedKeys.add(key);
       },
     };
+  }
+
+  /** Walks ancestors (excluding self) and returns the nearest one publishing `key`, or
+   * `null` if none. Self is excluded so that a component overriding a parent's key still
+   * reads the parent's value via {@link Context.get}. */
+  private resolveProvider(key: string): Leaf<any, any, any> | null {
+    let node = this._parent;
+    while (node != null) {
+      if (node.childCtxValues.has(key)) return node;
+      node = node._parent;
+    }
+    return null;
+  }
+
+  /** Records a context read for the in-progress {@link afterUpdate}. No-ops outside an
+   * {@link afterUpdate} (e.g. during {@link afterDelete}), so such reads form no
+   * subscription. */
+  private recordRead(key: string, provider: Leaf<any, any, any> | null): void {
+    this.ctxReads?.set(key, provider);
+  }
+
+  /** Whether this component has children. Overridden by {@link Composite}; a {@link Leaf}
+   * never does. */
+  protected get hasChildren(): boolean {
+    return false;
   }
 
   toString(): string {
@@ -341,21 +398,90 @@ export abstract class Leaf<
       else this.instrumentation.L.debug("setting initial state", { state, path });
       this._prevState = this._state ?? state_;
       this._state = state_;
-      this.afterUpdate(this.ctx);
+      this.runAfterUpdate();
       endSpan();
     } catch (e) {
       throw newTreeError(e, `${this.toString()}.updateState`);
     }
   }
 
-  _updateContext(values: ContextMap): void {
+  /** Runs {@link afterUpdate} with context-read tracking active, then reconciles the
+   * resulting subscriptions. Used for both state-driven updates and context-driven
+   * re-runs. */
+  private runAfterUpdate(): void {
+    const endSpan = this.instrumentation.T.debug(`${this.toString()}:afterUpdate`);
+    const prevReads = this.ctxReads;
+    this.ctxReads = new Map();
+    this.childCtxChangedKeys.clear();
     try {
-      const endSpan = this.instrumentation.T.debug(`${this.toString()}:updateContext`);
-      values.forEach((value, key) => this.parentCtxValues.set(key, value));
       this.afterUpdate(this.ctx);
+    } finally {
+      this.reconcileSubscriptions(this.ctxReads);
+      this.ctxReads = prevReads;
+      this.hasRunAfterUpdate = true;
       endSpan();
-    } catch (e) {
-      throw newTreeError(e, `${this.type}.${this.key}.updateContext`);
+    }
+  }
+
+  /** Diffs the keys read this pass against the prior subscriptions, updating both this
+   * component's {@link ctxSubscriptions} and each provider's {@link ctxSubscribers}.
+   * Re-runs every pass so conditional reads subscribe/unsubscribe as they appear and
+   * disappear. */
+  private reconcileSubscriptions(reads: Map<string, Leaf<any, any, any> | null>): void {
+    for (const [key, oldProvider] of this.ctxSubscriptions) {
+      const stillReading = reads.has(key);
+      if (stillReading && reads.get(key) === oldProvider) continue;
+      oldProvider.ctxSubscribers.get(key)?.delete(this);
+      this.ctxSubscriptions.delete(key);
+    }
+    for (const [key, provider] of reads) {
+      if (provider == null || this.ctxSubscriptions.get(key) === provider) continue;
+      this.ctxSubscriptions.set(key, provider);
+      let subs = provider.ctxSubscribers.get(key);
+      if (subs == null) provider.ctxSubscribers.set(key, (subs = new Set()));
+      subs.add(this);
+    }
+  }
+
+  /** Re-runs {@link afterUpdate} on every component subscribed to a key this component
+   * just changed, cascading through their own changed keys. Subscribers run shallowest
+   * first and at most once: since every provider is a strict ancestor of its
+   * subscribers, depth order guarantees each component runs after all of its changed
+   * providers have settled. */
+  protected propagate(): void {
+    const queued = new Set<Leaf<any, any, any>>();
+    const buckets = new Map<number, Leaf<any, any, any>[]>();
+    let minDepth = Infinity;
+    let maxDepth = -Infinity;
+    const enqueue = (provider: Leaf<any, any, any>, keys: Iterable<string>): void => {
+      for (const key of keys) {
+        const subs = provider.ctxSubscribers.get(key);
+        if (subs == null) continue;
+        for (const sub of subs) {
+          if (sub._deleted || queued.has(sub)) continue;
+          queued.add(sub);
+          const depth = sub._depth;
+          let bucket = buckets.get(depth);
+          if (bucket == null) buckets.set(depth, (bucket = []));
+          bucket.push(sub);
+          if (depth < minDepth) minDepth = depth;
+          if (depth > maxDepth) maxDepth = depth;
+        }
+      }
+    };
+    enqueue(this, this.childCtxChangedKeys);
+    for (let depth = minDepth; depth <= maxDepth; depth++) {
+      const bucket = buckets.get(depth);
+      if (bucket == null) continue;
+      for (const node of bucket) {
+        if (node._deleted) continue;
+        try {
+          node.runAfterUpdate();
+        } catch (e) {
+          throw newTreeError(e, `${node.toString()}.updateContext`);
+        }
+        if (node.childCtxChangedKeys.size > 0) enqueue(node, node.childCtxChangedKeys);
+      }
     }
   }
 
@@ -367,10 +493,21 @@ export abstract class Leaf<
       this.validatePath(path);
       this._deleted = true;
       this.afterDelete(this.ctx);
+      this.unsubscribeAll();
       endSpan();
     } catch (e) {
       throw newTreeError(e, `[${this.toString()}:delete]`);
     }
+  }
+
+  /** Removes this component from every provider's subscriber set and drops its own. For
+   * a {@link Composite}, the child-first delete recursion has already torn down (and
+   * unsubscribed) descendants before this runs. */
+  private unsubscribeAll(): void {
+    for (const [key, provider] of this.ctxSubscriptions)
+      provider.ctxSubscribers.get(key)?.delete(this);
+    this.ctxSubscriptions.clear();
+    this.ctxSubscribers.clear();
   }
 
   /** Hook fired after the component's state, context, or both are updated. Override to
@@ -471,6 +608,10 @@ export abstract class Composite<
 {
   private readonly _children: Map<string, ChildComponents> = new Map();
 
+  protected override get hasChildren(): boolean {
+    return this._children.size > 0;
+  }
+
   /** Snapshot of the children, in insertion order. */
   get children(): readonly ChildComponents[] {
     return Array.from(this._children.values());
@@ -499,10 +640,8 @@ export abstract class Composite<
 
     const isSelfUpdate = subPath.length === 0;
     if (isSelfUpdate) {
-      this.childCtxChangedKeys.clear();
       super._updateState(params);
-      if (this.childCtxChangedKeys.size == 0) return;
-      this.updateChildContexts();
+      if (this.childCtxChangedKeys.size > 0) this.propagate();
       return;
     }
 
@@ -523,34 +662,9 @@ export abstract class Composite<
         `,
       );
     }
-    const newChild = create(this.childCtx());
+    const newChild = create(this);
     newChild._updateState({ ...params, path: subPath });
     this._children.set(childKey, newChild as ChildComponents);
-  }
-
-  _updateContext(values: ContextMap): void {
-    super._updateContext(values);
-    this.updateChildContexts();
-  }
-
-  private childCtx(): ContextMap {
-    return {
-      get: (key) => this.childCtxValues.get(key) ?? this.parentCtxValues.get(key),
-      forEach: (callback) => {
-        this.childCtxValues.forEach((value, key) =>
-          callback(value, key, this.childCtxValues),
-        );
-        this.parentCtxValues.forEach((value, key) => {
-          if (this.childCtxValues.has(key)) return;
-          callback(value, key, this.parentCtxValues);
-        });
-      },
-    };
-  }
-
-  private updateChildContexts(): void {
-    const childCtx = this.childCtx();
-    this.children.forEach((c) => c._updateContext(childCtx));
   }
 
   _delete(path: readonly string[]): void {
@@ -641,7 +755,7 @@ export class Root extends Composite<typeof aetherRootState> {
       type: Root.TYPE,
       sender: worker,
       instrumentation,
-      parentCtxValues: null,
+      parent: null,
     });
     this.comms = worker;
     this.registry = registry;
@@ -688,7 +802,7 @@ export class Root extends Composite<typeof aetherRootState> {
       path,
       type,
       state,
-      create: (parentCtxValues) => this.create({ path, type, parentCtxValues }),
+      create: (parent) => this.create({ path, type, parent }),
     });
   }
 
@@ -723,7 +837,7 @@ export class Root extends Composite<typeof aetherRootState> {
   private create({
     path,
     type,
-    parentCtxValues,
+    parent,
   }: Omit<ComponentConstructorProps, "sender" | "instrumentation">): Component {
     const Constructor = this.registry[type];
     if (Constructor == null)
@@ -733,7 +847,7 @@ export class Root extends Composite<typeof aetherRootState> {
       type,
       sender: this.comms,
       instrumentation: this.instrumentation,
-      parentCtxValues,
+      parent,
     });
   }
 }

@@ -10,7 +10,9 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
+import { aether } from "@/aether/aether";
 import { channelConfigZ, Log, logState } from "@/log/aether/Log";
 import {
   MockLogSource,
@@ -27,6 +29,39 @@ import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/th
 const MockSender = { send: vi.fn() };
 
 const THEME: Theme = themeZ.parse(SYNNAX_DARK);
+
+const seedStateZ = z.object({});
+
+/** Test-only parent that republishes a fixed set of context values to its descendants,
+ * standing in for the theming/render/telem providers above a Log in a real tree. */
+class ContextSeed extends aether.Composite<typeof seedStateZ> {
+  schema = seedStateZ;
+  values = new Map<string, unknown>();
+
+  afterUpdate(ctx: aether.Context): void {
+    this.values.forEach((value, key) => ctx.set(key, value));
+  }
+}
+
+const seedParent = (values: Map<string, unknown>): ContextSeed => {
+  const seed = new ContextSeed({
+    path: ["seed"],
+    type: "seed",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parent: null,
+  });
+  seed.values = values;
+  seed._updateState({
+    path: ["seed"],
+    state: {},
+    type: "seed",
+    create: () => {
+      throw new Error("ContextSeed should not create children");
+    },
+  });
+  return seed;
+};
 
 // DONE: uses registerInstance pattern from telem/aether/test/factory.ts.
 // The test owns the source instance and registers it before afterUpdate runs.
@@ -50,7 +85,7 @@ const createLogContext = (
     ["pluto-render-context", renderCtx],
     ["pluto-telem-context", telemCtx],
   ]);
-  const log = createLog(parentCtx);
+  const log = createLog(seedParent(parentCtx));
   const spec = mockLogSourceSpec(testId);
   const updateState = (overrides: Record<string, unknown>) => {
     log._updateState({
@@ -76,16 +111,14 @@ const createLogContext = (
   return { log, source, renderCtx, updateState };
 };
 
-const createLog = (parentCtx?: Map<string, unknown>) => {
-  const ctx = parentCtx ?? new Map<string, unknown>();
-  return new Log({
+const createLog = (parent: aether.Component | null = null) =>
+  new Log({
     path: ["test-log"],
     type: "log",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
-    parentCtxValues: ctx,
+    parent,
   });
-};
 
 const REGION_500 = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
 
@@ -115,7 +148,7 @@ const setupWithContext = (
     ["pluto-render-context", renderCtx],
     ["pluto-telem-context", telemCtx],
   ]);
-  const log = createLog(parentCtx);
+  const log = createLog(seedParent(parentCtx));
   const spec = mockLogSourceSpec(testId);
   const state = logState.parse({
     region,
