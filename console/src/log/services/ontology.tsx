@@ -95,8 +95,8 @@ const loadLog = async (
   { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const log = await client.logs.retrieve({ key });
-  placeLayout(Log.create({ ...(log.data as Log.State), key: log.key, name: log.name }));
+  const l = await client.logs.retrieve({ key });
+  placeLayout(Log.create({ ...Log.stateFromLog(l), name: l.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -123,12 +123,11 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) =>
   handleError(async () => {
-    const log = await client.logs.retrieve({ key });
+    const l = await client.logs.retrieve({ key });
     placeLayout(
       Log.create({
-        name: log.name,
-        ...log.data,
-        key,
+        ...Log.stateFromLog(l),
+        name: l.name,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),

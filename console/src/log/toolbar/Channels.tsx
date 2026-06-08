@@ -36,10 +36,9 @@ import { useSyncComponent } from "@/log/Log";
 import { useSelectOptional } from "@/log/selectors";
 import {
   addChannel,
-  type ChannelConfig,
   removeChannelByIndex,
   setChannelAtIndex,
-  setChannelConfig,
+  setChannelEntry,
 } from "@/log/slice";
 
 const PRECISION_BOUNDS = { lower: -1, upper: 18 };
@@ -54,9 +53,12 @@ interface ChannelRowProps {
   index: number;
   channelKey: channel.Key;
   ch: channel.Channel | undefined;
-  config: ChannelConfig;
+  config: log.ChannelEntry;
   onChange: (index: number, channelKey: channel.Key) => void;
-  onConfigChange: (channelKey: channel.Key, config: Partial<ChannelConfig>) => void;
+  onConfigChange: (
+    channelKey: channel.Key,
+    config: Partial<Omit<log.ChannelEntry, "channel">>,
+  ) => void;
   onRemove: (index: number) => void;
   disabled: boolean;
 }
@@ -73,7 +75,7 @@ const ChannelRow = ({
 }: ChannelRowProps): ReactElement => {
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
-  const hasCustomColor = config.color !== "";
+  const hasCustomColor = !color.isZero(config.color);
   const showNumeric = showsNumericFields(ch?.dataType);
   const showTimestamp = isTimestamp(ch?.dataType);
 
@@ -170,9 +172,11 @@ const ChannelRow = ({
         )}
         <Color.Swatch
           value={hasCustomColor ? config.color : defaultColor}
-          onChange={(c) => onConfigChange(channelKey, { color: color.hex(c) })}
+          onChange={(c) => onConfigChange(channelKey, { color: c })}
           onDelete={
-            hasCustomColor ? () => onConfigChange(channelKey, { color: "" }) : undefined
+            hasCustomColor
+              ? () => onConfigChange(channelKey, { color: color.ZERO })
+              : undefined
           }
           size="small"
         />
@@ -232,8 +236,13 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
   );
 
   const handleConfigChange = useCallback(
-    (channelKey: channel.Key, config: Partial<ChannelConfig>): void => {
-      dispatch(setChannelConfig({ key: layoutKey, channelKey, config }));
+    (
+      channelKey: channel.Key,
+      config: Partial<Omit<log.ChannelEntry, "channel">>,
+    ): void => {
+      dispatch(
+        setChannelEntry({ key: layoutKey, entry: { ...config, channel: channelKey } }),
+      );
     },
     [dispatch, layoutKey],
   );

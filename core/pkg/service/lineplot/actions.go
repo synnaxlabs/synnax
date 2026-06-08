@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -29,9 +30,15 @@ func (p SetTitlePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle replaces the plot legend configuration.
-func (p SetLegendPayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Legend = p.Legend
+// Handle sets whether the plot legend is shown.
+func (p SetLegendVisiblePayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Legend.Visible = p.Visible
+	return state, nil
+}
+
+// Handle sets the anchor position of the plot legend.
+func (p SetLegendPositionPayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Legend.Position = p.Position
 	return state, nil
 }
 
@@ -53,6 +60,7 @@ func (p AddChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		return state, nil
 	}
 	*slice = append(*slice, p.Channel)
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -69,6 +77,7 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	}
 	slice := yAxisSlice(&state.Channels, p.AxisKey)
 	*slice = slices.DeleteFunc(*slice, func(c channel.Key) bool { return c == p.Channel })
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -86,6 +95,7 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 			p.AxisKey,
 		)
 	}
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -106,6 +116,7 @@ func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
 		return state, nil
 	}
 	*slice = append(*slice, p.Range)
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
@@ -121,42 +132,153 @@ func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	}
 	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
 	*slice = slices.DeleteFunc(*slice, func(r string) bool { return r == p.Range })
+	state.Lines = reconcileLines(state)
 	return state, nil
 }
 
-// Handle replaces the configuration for the axis named by axis.key.
-func (p SetAxisPayload) Handle(state LinePlot) (LinePlot, error) {
-	switch p.Axis.Key {
+// Handle sets the label rendered along the axis named by key.
+func (p SetAxisLabelPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.Label = p.Label
+	return state, nil
+}
+
+// Handle sets the orientation in which the axis label is laid out.
+func (p SetAxisLabelDirectionPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.LabelDirection = p.LabelDirection
+	return state, nil
+}
+
+// Handle sets the typography level of the axis label.
+func (p SetAxisLabelLevelPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.LabelLevel = p.LabelLevel
+	return state, nil
+}
+
+// Handle sets the axis value-space window together with its per-edge auto flags.
+func (p SetAxisBoundsPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.Bounds = p.Bounds
+	axis.AutoBounds = p.AutoBounds
+	return state, nil
+}
+
+// Handle sets the target pixel distance between adjacent tick marks.
+func (p SetAxisTickSpacingPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.TickSpacing = p.TickSpacing
+	return state, nil
+}
+
+// Handle sets the axis tick label style. A nil type resets it to the default.
+func (p SetAxisTypePayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.Type = p.Type
+	return state, nil
+}
+
+func unknownAxisKey(k AxisKey) error {
+	return errors.Wrapf(validate.ErrValidation, "unknown axis_key %q", k)
+}
+
+// axisPointer returns a pointer to the axis configuration for the given key so
+// handlers can set into it in place, or nil if the key is not a valid axis.
+func axisPointer(a *Axes, k AxisKey) *Axis {
+	switch k {
 	case AxisKeyX1:
-		state.Axes.X1 = p.Axis
+		return &a.X1
 	case AxisKeyX2:
-		state.Axes.X2 = p.Axis
+		return &a.X2
 	case AxisKeyY1:
-		state.Axes.Y1 = p.Axis
+		return &a.Y1
 	case AxisKeyY2:
-		state.Axes.Y2 = p.Axis
+		return &a.Y2
 	case AxisKeyY3:
-		state.Axes.Y3 = p.Axis
+		return &a.Y3
 	case AxisKeyY4:
-		state.Axes.Y4 = p.Axis
-	default:
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown axis_key %q",
-			p.Axis.Key,
-		)
+		return &a.Y4
+	}
+	return nil
+}
+
+// Handle sets the label of the line identified by key. A nil label resets it.
+func (p SetLineLabelPayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.Label = p.Label
 	}
 	return state, nil
 }
 
-// Handle inserts the line if no line with the same key exists, otherwise
-// replaces the existing entry in place.
-func (p SetLinePayload) Handle(state LinePlot) (LinePlot, error) {
+// Handle sets the color of the line identified by key. A nil color resets it.
+func (p SetLineColorPayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.Color = p.Color
+	}
+	return state, nil
+}
+
+// Handle sets the stroke width, in pixels, of the line identified by key.
+func (p SetLineStrokeWidthPayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.StrokeWidth = p.StrokeWidth
+	}
+	return state, nil
+}
+
+// Handle sets the downsample factor of the line identified by key.
+func (p SetLineDownsamplePayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.Downsample = p.Downsample
+	}
+	return state, nil
+}
+
+// Handle sets how the downsample factor is applied for the line by key.
+func (p SetLineDownsampleModePayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Key); l != nil {
+		l.DownsampleMode = p.DownsampleMode
+	}
+	return state, nil
+}
+
+// linePointer returns a pointer to the line with the given key so handlers can
+// set into it in place, or nil if no such line exists.
+func linePointer(state *LinePlot, key string) *Line {
 	for i := range state.Lines {
-		if state.Lines[i].Key == p.Line.Key {
-			state.Lines[i] = p.Line
-			return state, nil
+		if state.Lines[i].Key == key {
+			return &state.Lines[i]
 		}
+	}
+	return nil
+}
+
+// Handle replaces the line with the same key in place, inserting it when no such
+// line exists yet. The fine-grained SetLine* actions cover per-field edits; this
+// full-object form restores a line dropped by reconciliation.
+func (p SetLinePayload) Handle(state LinePlot) (LinePlot, error) {
+	if l := linePointer(&state, p.Line.Key); l != nil {
+		*l = p.Line
+		return state, nil
 	}
 	state.Lines = append(state.Lines, p.Line)
 	return state, nil
@@ -178,6 +300,73 @@ func (p SetRulePayload) Handle(state LinePlot) (LinePlot, error) {
 // Handle removes the rule with the given key. No-op when not present.
 func (p RemoveRulePayload) Handle(state LinePlot) (LinePlot, error) {
 	state.Rules = slices.DeleteFunc(state.Rules, func(r Rule) bool { return r.Key == p.Key })
+	return state, nil
+}
+
+// rulePointer returns a pointer to the rule with the given key so handlers can
+// set into it in place, or nil if no such rule exists.
+func rulePointer(state *LinePlot, key string) *Rule {
+	for i := range state.Rules {
+		if state.Rules[i].Key == key {
+			return &state.Rules[i]
+		}
+	}
+	return nil
+}
+
+// Handle sets the label of the rule identified by key.
+func (p SetRuleLabelPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Label = p.Label
+	}
+	return state, nil
+}
+
+// Handle sets the color of the rule identified by key. A nil color resets it.
+func (p SetRuleColorPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Color = p.Color
+	}
+	return state, nil
+}
+
+// Handle sets the axis the rule identified by key is anchored to.
+func (p SetRuleAxisPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Axis = p.Axis
+	}
+	return state, nil
+}
+
+// Handle sets the line width of the rule identified by key.
+func (p SetRuleLineWidthPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.LineWidth = p.LineWidth
+	}
+	return state, nil
+}
+
+// Handle sets the dash length of the rule identified by key.
+func (p SetRuleLineDashPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.LineDash = p.LineDash
+	}
+	return state, nil
+}
+
+// Handle sets the unit label of the rule identified by key.
+func (p SetRuleUnitsPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Units = p.Units
+	}
+	return state, nil
+}
+
+// Handle sets the value-space position of the rule identified by key.
+func (p SetRulePositionPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Position = p.Position
+	}
 	return state, nil
 }
 
@@ -213,4 +402,87 @@ func xAxisRangeSlice(r *Ranges, k XAxisKey) *[]string {
 		return &r.X2
 	}
 	panic(errors.Newf("lineplot: xAxisRangeSlice called with non-x-axis %q", k))
+}
+
+const lineKeySeparator = "---"
+
+// Default styling for a newly materialized line. These mirror the Oracle schema
+// defaults on Line. Oracle does not currently emit Go-side struct defaults, so
+// they are duplicated here and must be kept in sync with schemas/lineplot.oracle.
+const (
+	defaultLineStrokeWidth    = 2
+	defaultLineDownsample     = 1
+	defaultLineDownsampleMode = DownsampleModeDecimate
+)
+
+var (
+	xAxisKeys = []XAxisKey{XAxisKeyX1, XAxisKeyX2}
+	yAxisKeys = []YAxisKey{YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4}
+)
+
+// lineKey encodes the identity of a line into the stable string stored as
+// Line.Key. It must match the client's lineKey byte-for-byte so that lines
+// reduced on the server and on the client share identity.
+func lineKey(
+	yAxis YAxisKey,
+	xAxis XAxisKey,
+	rng string,
+	xChannel, yChannel channel.Key,
+) string {
+	return string(yAxis) + lineKeySeparator + string(xAxis) + lineKeySeparator + rng +
+		lineKeySeparator + xChannel.String() + lineKeySeparator + yChannel.String()
+}
+
+// zeroLine constructs a line at key with default styling. Label and color are
+// left nil so they resolve from the channel name and palette at render time.
+func zeroLine(key string) Line {
+	return Line{
+		Key:            key,
+		StrokeWidth:    defaultLineStrokeWidth,
+		Downsample:     defaultLineDownsample,
+		DownsampleMode: defaultLineDownsampleMode,
+	}
+}
+
+// xAxisChannel returns the single channel bound to the given x-axis.
+func xAxisChannel(c Channels, k XAxisKey) channel.Key {
+	if k == XAxisKeyX2 {
+		return c.X2
+	}
+	return c.X1
+}
+
+// reconcileLines rebuilds the complete set of lines implied by the channel and
+// range bindings: one line per (x-axis, range, y-axis, y-channel) combination.
+// Existing lines are preserved by key so user styling survives, missing ones are
+// created with default styling, and lines whose combination no longer exists are
+// dropped. It is the Go counterpart of the client's reconcileLines and must
+// produce identical keys.
+func reconcileLines(state LinePlot) []Line {
+	byKey := make(map[string]Line, len(state.Lines))
+	for _, l := range state.Lines {
+		byKey[l.Key] = l
+	}
+	kept := set.New[string]()
+	lines := make([]Line, 0, len(state.Lines))
+	for _, xAxis := range xAxisKeys {
+		xChannel := xAxisChannel(state.Channels, xAxis)
+		for _, rng := range *xAxisRangeSlice(&state.Ranges, xAxis) {
+			for _, yAxis := range yAxisKeys {
+				for _, yChannel := range *yAxisSlice(&state.Channels, yAxis) {
+					key := lineKey(yAxis, xAxis, rng, xChannel, yChannel)
+					if kept.Contains(key) {
+						continue
+					}
+					kept.Add(key)
+					if existing, ok := byKey[key]; ok {
+						lines = append(lines, existing)
+					} else {
+						lines = append(lines, zeroLine(key))
+					}
+				}
+			}
+		}
+	}
+	return lines
 }

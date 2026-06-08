@@ -13,7 +13,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/log/Log";
 import { select } from "@/log/selectors";
-import { type State } from "@/log/slice";
+import { stateFromLog } from "@/log/slice";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
@@ -22,7 +22,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   if (state == null || name == null) {
     if (client == null) throw new DisconnectedError();
     const log = await client.logs.retrieve({ key });
-    state ??= { ...(log.data as State), key: log.key };
+    state ??= stateFromLog(log);
     name ??= log.name;
   }
   return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
