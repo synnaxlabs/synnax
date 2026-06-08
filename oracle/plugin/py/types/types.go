@@ -837,12 +837,7 @@ func collectValidation(
 			}
 		case resolution.ValueKindStruct:
 			// Models are mutable, so they must use default_factory, never default=.
-			// Skip when the struct lives in another namespace: the constructor
-			// would render unqualified and break at runtime since we don't emit
-			// the cross-namespace import for default_factory references.
-			if typ, ok := typeRef.Resolve(table); ok && typ.Namespace == data.Namespace {
-				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
-			}
+			constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
 		}
 	}
 	return constraints
