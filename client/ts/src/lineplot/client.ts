@@ -13,8 +13,6 @@ import { z } from "zod";
 
 import { type Action, dispatchReqZ } from "@/lineplot/actions.gen";
 import {
-  type Axis,
-  type AxisKey,
   type Key,
   keyZ,
   type LinePlot,
@@ -52,37 +50,6 @@ const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
 
-// ZERO_NEW supplies the optional struct fields of the New body so the wire
-// payload arrives at the server fully populated with valid enum values.
-// Without this, omitted fields fall through as Go zero values (empty enum
-// strings) that the response zod schema later rejects. Spread shallowly into
-// the caller's input; callers that pass any nested struct must pass it whole.
-const zeroAxis = (key: AxisKey): Axis => ({
-  key,
-  label: "",
-  labelDirection: "x",
-  labelLevel: "small",
-  bounds: { lower: 0, upper: 0 },
-  autoBounds: { lower: true, upper: true },
-  tickSpacing: 75,
-});
-const ZERO_NEW: Omit<New, "name" | "key"> = {
-  title: { level: "p", visible: false },
-  legend: { visible: true, position: { x: 0, y: 0 } },
-  channels: { x1: 0, x2: 0, y1: [], y2: [], y3: [], y4: [] },
-  ranges: { x1: [], x2: [] },
-  axes: {
-    x1: zeroAxis("x1"),
-    x2: zeroAxis("x2"),
-    y1: zeroAxis("y1"),
-    y2: zeroAxis("y2"),
-    y3: zeroAxis("y3"),
-    y4: zeroAxis("y4"),
-  },
-  lines: [],
-  rules: [],
-};
-
 export class Client {
   private readonly client: UnaryClient;
 
@@ -99,10 +66,7 @@ export class Client {
     const isMany = Array.isArray(linePlots);
     const res = await this.client.send(
       "/lineplot/create",
-      {
-        workspace,
-        linePlots: array.toArray(linePlots).map((lp) => ({ ...ZERO_NEW, ...lp })),
-      },
+      { workspace, linePlots: array.toArray(linePlots) },
       createReqZ,
       createResZ,
     );
