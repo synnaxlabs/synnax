@@ -64,7 +64,7 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 		if rhsScope, kind := resolveChannelSource(ctx, ctx.AST.Expression()); kind != channelSourceNone {
 			switch kind {
 			case channelSourceLocal:
-				// Config params and variables have WASM locals holding the channel key
+				// Params and variables have WASM locals holding the channel key
 				ctx.Writer.WriteLocalGet(rhsScope.ID)
 			case channelSourceGlobal:
 				// Global channels don't have locals - their ID IS the channel key
@@ -95,7 +95,7 @@ type channelSourceKind int
 
 const (
 	channelSourceNone   channelSourceKind = iota // Not a channel source
-	channelSourceLocal                           // Config param or variable with chan type (has WASM local)
+	channelSourceLocal                           // Param or variable with chan type (has WASM local)
 	channelSourceGlobal                          // Global channel (ID is the channel key)
 )
 
