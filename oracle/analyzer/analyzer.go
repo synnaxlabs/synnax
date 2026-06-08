@@ -1411,6 +1411,13 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 
 	seenValues := set.New[string]()
 	for _, variant := range form.Variants {
+		if variant.Name == form.Discriminator {
+			d := diagnostics.Errorf(nil,
+				"union %s declares a variant value %q that collides with the discriminator field name; the generated per-variant and discriminator type names would clash",
+				typ.Name, variant.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
 		if seenValues.Contains(variant.Name) {
 			d := diagnostics.Errorf(nil,
 				"union %s declares duplicate variant value %q",
@@ -1449,6 +1456,14 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 		d := diagnostics.Errorf(nil,
 			"union %s base struct declares the discriminator field %q, which is owned by the union",
 			typ.Name, form.Discriminator)
+		d.File = c.filePath
+		c.diag.Add(d)
+	}
+
+	if baseFields.Contains("variant") {
+		d := diagnostics.Errorf(nil,
+			"union %s base struct declares a field named \"variant\", which is reserved for the union's generated protobuf oneof",
+			typ.Name)
 		d.File = c.filePath
 		c.diag.Add(d)
 	}

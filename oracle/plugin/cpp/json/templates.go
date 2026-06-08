@@ -78,7 +78,7 @@ inline x::json::json {{.Name}}::to_json() const {
 }
 {{- else}}
 
-inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {
+inline {{.Name}} {{.Name}}::parse(x::json::Parser{{ if .Fields }} parser{{ end }}) {
     return {{.Name}}{
 {{- range .Fields}}
         .{{.Name}} = {{.ParseExpr}},

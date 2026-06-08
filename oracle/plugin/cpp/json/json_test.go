@@ -706,6 +706,9 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				`inline ScaleLinear ScaleLinear::parse(x::json::Parser parser) {`,
 				`static_cast<LinearScale&>(result) = LinearScale::parse(parser);`,
 				`result.type = parser.field<std::string>("type");`,
+				// A field-less struct never reads the parser, so the parameter is
+				// left unnamed to avoid an unused-parameter warning.
+				`inline NoneScale NoneScale::parse(x::json::Parser) {`,
 			)
 	})
 

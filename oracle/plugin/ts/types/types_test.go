@@ -295,6 +295,22 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum(DATA_TYPES)`))
 		})
 
+		It("Should not double the trailing S on the values const for an enum ending in S", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Units enum {
+					volts = "Volts"
+					amps  = "Amps"
+				}
+			`
+			resp := MustGenerate(ctx, source, "telem", loader, typesPlugin)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(content).To(ContainSubstring(`export const UNITS = ["Volts", "Amps"] as const`))
+			Expect(content).To(ContainSubstring(`export const unitsZ = z.enum(UNITS)`))
+			Expect(content).ToNot(ContainSubstring(`UNITSS`))
+		})
+
 		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
 			source := `
 				@ts output "out"

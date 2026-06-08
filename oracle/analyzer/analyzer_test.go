@@ -2185,6 +2185,35 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.Error()).To(ContainSubstring(`duplicate variant value "same"`))
 		})
 
+		It("Should error when a variant value collides with the discriminator field name", func(ctx SpecContext) {
+			source := `
+				A struct {}
+				B struct {}
+
+				Bad union on type {
+					type A
+					linear B
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(`variant value "type" that collides with the discriminator field name`))
+		})
+
+		It("Should error when a base struct declares a field named variant", func(ctx SpecContext) {
+			source := `
+				Base struct { variant string }
+				A struct {}
+
+				Bad union on type extends Base {
+					linear A
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(`declares a field named "variant"`))
+		})
+
 		It("Should error on empty union", func(ctx SpecContext) {
 			source := `
 				Empty union on type {}
