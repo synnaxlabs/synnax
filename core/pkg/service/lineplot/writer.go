@@ -40,6 +40,9 @@ func (w Writer) Create(
 			return
 		}
 	}
+	// Materialize lines for any channel/range bindings supplied at creation so a
+	// plot created with channels and ranges but no lines is fully populated.
+	p.Lines = reconcileLines(*p)
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}

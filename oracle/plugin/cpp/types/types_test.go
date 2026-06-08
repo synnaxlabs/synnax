@@ -1573,6 +1573,24 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`empty = {}`))
 				Expect(content).To(ContainSubstring(`vals = {1.500000, 2.500000}`))
 			})
+
+			It("Should generate designated-initializer defaults for structs", func(ctx SpecContext) {
+				source := `
+					@cpp output "out"
+
+					Point struct {
+						x int32
+						y int32
+					}
+
+					Config struct {
+						p Point = { x = 1, y = 2 }
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				content := MustContentOf(resp, "types.gen.h")
+				Expect(content).To(ContainSubstring(`p = {.x = 1, .y = 2}`))
+			})
 		})
 	})
 })

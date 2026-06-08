@@ -53,12 +53,7 @@ Policy struct {
 }
 
 New struct extends Policy {
-    key Key? {
-        @doc value """
-            is an optional key for the policy. If not provided, one will be
-            automatically assigned.
-        """
-    }
+    key?
 
     @doc value    "contains parameters for creating a new policy."
     @ts use_input
