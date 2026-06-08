@@ -22,8 +22,8 @@ This RFC restructures `core/pkg` along five axes:
    naming the resolution source and generating a batched resolver is explicitly out of
    scope** and deferred to a separate relationship-management RFC (see §7).
 
-3. **Uniform versioned type layout, with strict per-package version tracking.**
-   Metadata services lay out versioned types inconsistently (`migrations/legacy/`,
+3. **Uniform versioned type layout, with strict per-package version tracking.** Metadata
+   services lay out versioned types inconsistently (`migrations/legacy/`,
    `migrations/v55/`, typed `migrations/v0,v1/`, or nothing). This RFC standardizes on
    `<resource>/types/vN/` — one package per version, current included. The top-level
    `types/` re-exports current and owns the `Decode` dispatch. Schema sources move to
@@ -137,9 +137,9 @@ version _schemes_ coexist (legacy semver `"5.0.0"` and core-release snapshots `v
 which makes "what version is this?" ambiguous.
 
 **Cross-package dependency tracking is unsolved.** Core-release snapshots (`v55`) used
-to give compatibility for free: every type at `v55` was guaranteed to compose with
-every other type at `v55`. Per-resource integer versions buy independence at the cost
-of that guarantee. Today there is no rule for what happens to `schematic` when
+to give compatibility for free: every type at `v55` was guaranteed to compose with every
+other type at `v55`. Per-resource integer versions buy independence at the cost of that
+guarantee. Today there is no rule for what happens to `schematic` when
 `spatial.Direction` reshapes — a `schematic v5` payload embeds whatever `spatial` bytes
 were canonical at the time, and nothing in the schema layer records which version of
 `spatial` that was. The historical answer ("it's whatever was in the `v55` snapshot")
@@ -614,10 +614,11 @@ schemas/
 
 The highest `vN.oracle` in each directory is the working draft. Every lower-numbered
 file is immutable; editing one is a CI failure because the corresponding
-`service/<resource>/types/vN/` Go package was committed once and on-disk records reference
-its byte layout. There is no separate "freeze" command — committing `v(N+1).oracle`
-implicitly locks `vN.oracle`. This replaces the `migrations/v55/` core-release-snapshot
-scheme entirely; each `vN.oracle` is its own per-resource snapshot.
+`service/<resource>/types/vN/` Go package was committed once and on-disk records
+reference its byte layout. There is no separate "freeze" command — committing
+`v(N+1).oracle` implicitly locks `vN.oracle`. This replaces the `migrations/v55/`
+core-release-snapshot scheme entirely; each `vN.oracle` is its own per-resource
+snapshot.
 
 **Dependency pinning is per-version, top-of-file.** Each `vN.oracle` declares the exact
 version of every external type it embeds:
@@ -659,12 +660,12 @@ new version too. Concretely, when `schemas/spatial/v2.oracle` lands:
    `service/spatial/types/v1/` — its byte layout is unchanged, on-disk records remain
    readable.
 
-The cascade applies **only to storage-embedded types** — types whose bytes appear in some
-stored `vN.<Resource>` record. A schema can be marked transient (used only at the API
-boundary, never embedded in a stored record); transient schemas don't trigger cascades
-when they bump. Oracle determines this from whether the schema declares a `Resource`
-(storable, generates `GorpKey`/`EncodeOrc`/`DecodeOrc`) or a `Struct`/`Message`
-(transient, generates only the codecs the wire path needs).
+The cascade applies **only to storage-embedded types** — types whose bytes appear in
+some stored `vN.<Resource>` record. A schema can be marked transient (used only at the
+API boundary, never embedded in a stored record); transient schemas don't trigger
+cascades when they bump. Oracle determines this from whether the schema declares a
+`Resource` (storable, generates `GorpKey`/`EncodeOrc`/`DecodeOrc`) or a
+`Struct`/`Message` (transient, generates only the codecs the wire path needs).
 
 **Non-trivial dep bumps fall back to the same scaffold-with-panic pattern as
 constraint-tightening freezes** (§4.6.0). If the autoscaffolded migrate cannot be a pure
@@ -676,8 +677,9 @@ developer either replaces the panic with explicit coercion or rejects the cascad
 choosing not to bump the dependent's `@uses` line (which then means rejecting the dep's
 bump itself, since the WIP must compile).
 
-**Worked example, the full chain.** Suppose `spatial.Direction` flips from `{x int, y
-int}` (v0) to `{horizontal int, vertical int}` (v1). The PR that introduces this:
+**Worked example, the full chain.** Suppose `spatial.Direction` flips from
+`{x int, y int}` (v0) to `{horizontal int, vertical int}` (v1). The PR that introduces
+this:
 
 ```
 schemas/spatial/v1.oracle              ← new, hand-authored
@@ -704,11 +706,12 @@ inflation — `schematic` accumulates version numbers driven by leaf changes els
 but every bump has a precise meaning ("the storage shape, transitively, changed at this
 point"), which is exactly the property Emil's L495 was asking for.
 
-**The historical question — what does `migrations/v55/` become?** Deleted. A core-release
-snapshot was a workaround for not having per-package version pinning; with the cascade
-rule it stops carrying load. The existing `migrations/v55/` directories migrate into the
-numbered chain (Phase 2): their contents become `schemas/<resource>/v(MaxLegacy+1).oracle`
-under the legacy/modern split described in §4.3.2.
+**The historical question — what does `migrations/v55/` become?** Deleted. A
+core-release snapshot was a workaround for not having per-package version pinning; with
+the cascade rule it stops carrying load. The existing `migrations/v55/` directories
+migrate into the numbered chain (Phase 2): their contents become
+`schemas/<resource>/v(MaxLegacy+1).oracle` under the legacy/modern split described in
+§4.3.2.
 
 ### 4.4.0 - Two-Stage Decode
 
@@ -1062,11 +1065,11 @@ Two cases produce a `migrate.go` Oracle cannot fully synthesize:
   because a `@uses` dependency bumped, but the dep migration is not a pure delegation —
   e.g., the dep dropped a field this resource reads from the embedded value.
 
-In both cases Oracle emits a `migrate.go` skeleton that copies untouched fields verbatim,
-marks the affected fields with a `TODO: reconcile with <reason>` directive, and inserts
-a compile-time `_ = panic("migrate must reconcile <field>")` on each. The developer
-replaces those with explicit coercion (clamp, remap, default, dep-migrate plus local
-fixup) or an error return. The panic ensures the bump cannot be merged while a
+In both cases Oracle emits a `migrate.go` skeleton that copies untouched fields
+verbatim, marks the affected fields with a `TODO: reconcile with <reason>` directive,
+and inserts a compile-time `_ = panic("migrate must reconcile <field>")` on each. The
+developer replaces those with explicit coercion (clamp, remap, default, dep-migrate plus
+local fixup) or an error return. The panic ensures the bump cannot be merged while a
 non-trivial reconciliation is left as a pass-through, closing the Migrate→Validate
 contract (§4.5.3) at generation time rather than relying on a live-data boot failure to
 surface the bug.
@@ -1126,12 +1129,12 @@ Each `schemas/<resource>/vN.oracle` declares its dependency versions explicitly 
 dependent — Oracle autoscaffolds the cascading bumps and their migrate skeletons
 (§4.3.3). The alternative — pinned/opt-in cascade, where a `schematic vN` can keep
 referencing an old `spatial v0` indefinitely while `lineplot vM` adopts `spatial v1` —
-permits a divergent dep graph where two simultaneously-live `<Resource>` types both spell
-the same embedded concept as different shapes. That divergence has no use case and is a
-debugging hazard. The cost of strict cascade is version-number inflation: `schematic`
-accumulates bumps driven by changes anywhere in its transitive dep graph, most of which
-are pure-passthrough delegations. Every such bump has a precise meaning ("the
-transitive storage shape changed at this point"), which is the property §2.2's
+permits a divergent dep graph where two simultaneously-live `<Resource>` types both
+spell the same embedded concept as different shapes. That divergence has no use case and
+is a debugging hazard. The cost of strict cascade is version-number inflation:
+`schematic` accumulates bumps driven by changes anywhere in its transitive dep graph,
+most of which are pure-passthrough delegations. Every such bump has a precise meaning
+("the transitive storage shape changed at this point"), which is the property §2.2's
 cross-package gap was missing. Snapshot folders (`migrations/v55/`) are deleted; each
 `vN.oracle` is its own per-resource snapshot. There is no separate freeze command —
 committing a higher-numbered version locks the lower one, enforced by CI re-running
@@ -1156,13 +1159,14 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   with no metadata record. This matches the existing weakness in
   `lease_proxy.go::deleteGateway` and unblocks the phase without a full distributed
   transaction. A stronger atomicity contract is left to a follow-up — see §7.
-- **Phase 2 — `types/vN/` layout + schema-source split + strict cascade (§4.3, §4.6.0).**
-  Relocate schema sources to `schemas/<resource>/vN.oracle` with top-of-file `@uses`
-  pins; teach Oracle the strict cascade (autoscaffold dependent `vN.oracle` files plus
-  passthrough migrate skeletons on dep bumps); land the immutability-by-CI rule on
-  frozen versions. Migrate `schematic`/`table`/`log`/`lineplot`/`workspace`/`view` onto
-  the new layout; fold each `migrations/v55/` snapshot directory into its resource's
-  numbered chain at `legacy.MaxVersion+1`.
+- **Phase 2 — `types/vN/` layout + schema-source split + strict cascade (§4.3,
+  §4.6.0).** Relocate schema sources to `schemas/<resource>/vN.oracle` with top-of-file
+  `@uses` pins; teach Oracle the strict cascade (autoscaffold dependent `vN.oracle`
+  files plus passthrough migrate skeletons on dep bumps); land the immutability-by-CI
+  rule on frozen versions. Migrate
+  `schematic`/`table`/`log`/`lineplot`/`workspace`/`view` onto the new layout; fold each
+  `migrations/v55/` snapshot directory into its resource's numbered chain at
+  `legacy.MaxVersion+1`.
 - **Phase 3 — Peek import (§4.4).** Peek front door; decode straight into the frozen
   `types/vN/` struct; remove the `map[string]any` import representation.
 - **Phase 4 — Single-type collapse + storage-exclusion marker (§4.2, §4.6.1).** Add the
