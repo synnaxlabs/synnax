@@ -12,7 +12,5 @@ import { type Link } from "@/link";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const linePlot = await client.lineplots.retrieve({ key });
-  placeLayout(
-    LinePlot.create({ key: linePlot.key, name: linePlot.name }, { remote: true }),
-  );
+  placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
 };

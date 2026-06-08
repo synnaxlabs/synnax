@@ -15,7 +15,8 @@ import { LinePlot } from "@/lineplot";
 import { Palette } from "@/palette";
 
 const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const handleSelect = useCallback(() => placeLayout(LinePlot.create()), [placeLayout]);
+  const create = LinePlot.useCreate({});
+  const handleSelect = useCallback(() => create(), [create]);
   return (
     <Palette.CommandListItem
       {...listProps}

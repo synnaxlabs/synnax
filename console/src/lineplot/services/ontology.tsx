@@ -110,9 +110,7 @@ const handleSelect: Ontology.HandleSelect = ({
     const linePlot = await client.lineplots.retrieve({
       key: selection[0].id.key,
     });
-    placeLayout(
-      LinePlot.create({ key: linePlot.key, name: linePlot.name }, { remote: true }),
-    );
+    placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
   }, `Failed to select ${names}`);
 };
 
@@ -127,15 +125,12 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError(async () => {
     const linePlot = await client.lineplots.retrieve({ key });
     placeLayout(
-      LinePlot.create(
-        {
-          key: linePlot.key,
-          name: linePlot.name,
-          location: "mosaic",
-          tab: { mosaicKey: nodeKey, location },
-        },
-        { remote: true },
-      ),
+      LinePlot.create({
+        key: linePlot.key,
+        name: linePlot.name,
+        location: "mosaic",
+        tab: { mosaicKey: nodeKey, location },
+      }),
     );
   }, "Failed to load line plot");
 

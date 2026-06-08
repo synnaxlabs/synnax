@@ -71,9 +71,7 @@ const useCreateLinePlot = ({
     afterSuccess: async ({ data }) => {
       const { workspace: _workspace, ...linePlot } = data;
       await maybeChangeWorkspace(workspaceID.key);
-      placeLayout(
-        LinePlot.create({ key: linePlot.key, name: linePlot.name }, { remote: true }),
-      );
+      placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
     },
   });
   return useCallback(

@@ -377,16 +377,16 @@ const YAxis = ({
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const channels = useSelectChannels({ key: pKey });
+  const { axis, lineKeys, channels } = useSelectYAxis({ key: pKey, axisKey });
   const commitDrop = useChannelDrop(pKey, activeRangeKey);
   const handleDrop = useCallback(
-    (k: lineplot.YAxisKey, dropped: channel.Key[]): void => {
+    (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
       if (editable !== true) return;
-      const existing = new Set(channels[k]);
+      const existing = new Set(channels);
       const actions: lineplot.Action[] = [];
-      for (const c of dropped)
-        if (!existing.has(c))
-          actions.push(lineplot.addChannel({ axisKey: k, channel: c }));
+      for (const channel of dropped)
+        if (!existing.has(channel))
+          actions.push(lineplot.addChannel({ axisKey, channel }));
       commitDrop(actions);
     },
     [channels, commitDrop, editable],
@@ -402,7 +402,6 @@ const YAxis = ({
   );
   const dropProps = useAxisDrop(axisKey, "y", handleDrop);
   const dragging = Haul.useDraggingState();
-  const { axis, lineKeys } = useSelectYAxis({ key: pKey, axisKey });
   const { key: _axisKey, ...axisConfig } = axis;
   return (
     <BaseYAxis

@@ -18,22 +18,15 @@ export type LayoutType = typeof LAYOUT_TYPE;
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 
-// create constructs a Layout for a new or existing line plot. Callers that
-// know the plot already exists on the server pass remote: true to skip
-// pendingUpload. Callers placing a fresh plot omit it so useAutoUpload
-// sends the body to the server on mount; a pendingUpload of {} is the
-// canonical "fresh empty plot" payload (useAutoUpload merges with
-// lineplot.ZERO_NEW for unset fields).
-export interface CreateOptions {
-  remote?: boolean;
-}
-
+// create constructs a Layout for an existing line plot, placing it in the
+// mosaic. The plot's document must already exist on the server; use useCreate to
+// create a fresh plot. pendingUpload is left untouched so migrations can stage a
+// pre-server plot's body for upload on first open.
 export const create =
-  (initial: CreateArg = {}, opts: CreateOptions = {}): Layout.Creator =>
+  (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = lineplot.keyZ.safeParse(initial.key).data ?? uuid.create();
-    const pendingUpload = opts.remote ? undefined : (initial.pendingUpload ?? {});
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key, pendingUpload }));
+    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
     return { key, name, location, type: LAYOUT_TYPE, icon: "Visualize", window, tab };
   };

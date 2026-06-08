@@ -73,12 +73,14 @@ const handleSelect: Ontology.HandleSelect = ({
     }
     default: {
       const workspace = Workspace.selectActiveKey(state) ?? uuid.ZERO;
+      const activeRange = Range.selectActiveKey(state) ?? "rolling30s";
       handleError(async () => {
         const { key, name } = await client.lineplots.create(workspace, {
           name: "Line Plot",
-          channels: { x1: 0, x2: 0, y1: nonVirtualSelection, y2: [], y3: [], y4: [] },
+          channels: { y1: nonVirtualSelection },
+          ranges: { x1: [activeRange] },
         });
-        placeLayout(LinePlot.create({ key, name }, { remote: true }));
+        placeLayout(LinePlot.create({ key, name }));
       }, "Failed to create plot");
     }
   }

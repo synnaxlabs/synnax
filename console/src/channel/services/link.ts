@@ -11,14 +11,17 @@ import { uuid } from "@synnaxlabs/x";
 
 import { LinePlot } from "@/lineplot";
 import { type Link } from "@/link";
+import { Range } from "@/range";
 import { Workspace } from "@/workspace";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout, store }) => {
   const channel = await client.channels.retrieve(key);
   const workspace = Workspace.selectActiveKey(store.getState()) ?? uuid.ZERO;
+  const activeRange = Range.selectActiveKey(store.getState()) ?? "rolling30s";
   const { key: plotKey, name } = await client.lineplots.create(workspace, {
     name: `${channel.name} Plot`,
-    channels: { x1: 0, x2: 0, y1: [channel.key], y2: [], y3: [], y4: [] },
+    channels: { y1: [channel.key] },
+    ranges: { x1: [activeRange] },
   });
-  placeLayout(LinePlot.create({ key: plotKey, name }, { remote: true }));
+  placeLayout(LinePlot.create({ key: plotKey, name }));
 };

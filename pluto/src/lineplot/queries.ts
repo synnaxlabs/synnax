@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, NotFoundError, ontology, type workspace } from "@synnaxlabs/client";
-import { array, compare, DataType, uuid } from "@synnaxlabs/x";
+import { array, compare, DataType, primitive, uuid } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -249,59 +249,71 @@ export interface SelectYAxisArgs {
   axisKey: lineplot.YAxisKey;
 }
 
-// useSelectYAxisLineKeys returns the keys of the lines plotted on the given
-// y-axis. Stable across styling edits (only changes when lines are added or
-// removed) so a y-axis re-renders only when its membership changes.
-export const useSelectYAxisLineKeys = Flux.createSelector<
-  FluxSubStore,
-  SelectYAxisArgs,
-  string[]
->({
-  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
-  select: (store, { key, axisKey }) =>
-    requireLinePlot(store, key)
-      .lines.filter((l) => lineplot.parseLineKey(l.key).yAxis === axisKey)
-      .map((l) => l.key),
-  equal: (a, b) => a.length === b.length && a.every((v, i) => v === b[i]),
-});
-
 export interface SelectXAxisArgs {
   key: lineplot.Key;
   axisKey: lineplot.XAxisKey;
 }
+
+interface SelectXAxisBaseReturn extends lineplot.Axis {
+  channel: lineplot.Channels[lineplot.XAxisKey];
+}
+
+const useSelectXAxisBase = Flux.createSelector<
+  FluxSubStore,
+  SelectXAxisArgs,
+  SelectXAxisBaseReturn,
+  [lineplot.Axis, lineplot.Channels[lineplot.XAxisKey]]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, axisKey }) => {
+    const plot = requireLinePlot(store, key);
+    return [plot.axes[axisKey], plot.channels[axisKey]];
+  },
+});
 
 // useSelectXAxis returns the x-axis configuration with its tick type resolved:
 // a null stored type is derived from the plotted channel's data type (timestamp
 // → time, otherwise linear), defaulting to time while the channel loads. A
 // non-null stored type is an explicit user override.
 export const useSelectXAxis = (args: SelectXAxisArgs): lineplot.Axis => {
-  const axis = useSelectAxis({ key: args.key, axisKey: args.axisKey });
-  const channelKey = useSelectChannels({ key: args.key })[args.axisKey];
-  const { data } = Channel.useRetrieve({ key: channelKey });
+  const axis = useSelectXAxisBase({ key: args.key, axisKey: args.axisKey });
+  const { data: chan } = Channel.useRetrieve(
+    { key: axis.channel },
+    { beforeRetrieve: ({ query: { key } }) => primitive.isNonZero(key) },
+  );
   return useMemo(() => {
     if (axis.type != null) return axis;
-    const type: lineplot.TickType =
-      channelKey === 0 || data == null
-        ? "time"
-        : data.dataType.equals(DataType.TIMESTAMP)
-          ? "time"
-          : "linear";
+    let type: lineplot.TickType = "linear";
+    if (axis.channel == 0 || chan == null || chan.dataType.equals(DataType.TIMESTAMP))
+      type = "time";
     return { ...axis, type };
-  }, [axis, channelKey, data]);
+  }, [axis, axis.channel, chan]);
 };
 
-export interface YAxisSelection {
+interface SelectYAxisReturn {
   axis: lineplot.Axis;
+  channels: lineplot.Channels[lineplot.YAxisKey];
   lineKeys: string[];
 }
 
-// useSelectYAxis returns the y-axis configuration together with the keys of the
-// lines plotted on it.
-export const useSelectYAxis = (args: SelectYAxisArgs): YAxisSelection => {
-  const axis = useSelectAxis({ key: args.key, axisKey: args.axisKey });
-  const lineKeys = useSelectYAxisLineKeys(args);
-  return useMemo(() => ({ axis, lineKeys }), [axis, lineKeys]);
-};
+export const useSelectYAxis = Flux.createSelector<
+  FluxSubStore,
+  SelectYAxisArgs,
+  SelectYAxisReturn
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, axisKey }) => {
+    const plot = requireLinePlot(store, key);
+    const lineKeys = plot.lines
+      .filter((l) => lineplot.parseLineKey(l.key).yAxis === axisKey)
+      .map((l) => l.key);
+    return { axis: plot.axes[axisKey], channels: plot.channels[axisKey], lineKeys };
+  },
+  equal: (a, b) =>
+    a.axis == b.axis &&
+    compare.arraysEqual(a.channels, b.channels) &&
+    compare.arraysEqual(a.lineKeys, b.lineKeys),
+});
 
 export interface SelectLineArgs {
   key: lineplot.Key;

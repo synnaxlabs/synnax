@@ -25,6 +25,7 @@ export * from "@/lineplot/middleware";
 export * from "@/lineplot/selectors";
 export * from "@/lineplot/slice";
 export * from "@/lineplot/toolbar";
+export * from "@/lineplot/useCreate";
 export * from "@/lineplot/useTriggerHold";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {

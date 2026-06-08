@@ -46,7 +46,5 @@ export const ingest: Import.FileIngester = async (
   const newPayload = parseImport(data, layout?.name);
   const created = await client.lineplots.create(workspaceKey, newPayload);
   store.lineplots.set(created.key, created);
-  placeLayout(
-    create({ ...layout, key: created.key, name: created.name }, { remote: true }),
-  );
+  placeLayout(create({ ...layout, key: created.key, name: created.name }));
 };

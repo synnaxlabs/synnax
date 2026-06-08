@@ -42,7 +42,7 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
             name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
             ranges: { x1: keys, x2: [] },
           });
-          placeLayout(createLinePlot({ key, name }, { remote: true }));
+          placeLayout(createLinePlot({ key, name }));
         }, "Failed to create plot");
       },
       [store, client, addStatus, handleError, placeLayout],
