@@ -51,12 +51,6 @@ export const parseLineKey = (key: string): LineKeyParts => {
   };
 };
 
-// zeroLine constructs a line at the given key with default styling pulled from
-// the Oracle schema defaults (stroke width, downsample, downsample mode). Label
-// and color are left unset so they resolve from the channel and palette at
-// render time.
-export const zeroLine = (key: string): Line => lineZ.parse({ key });
-
 // reconcileLines rebuilds the complete set of lines implied by the channel and
 // range bindings: one line per (x-axis, range, y-axis, y-channel) combination.
 // Existing lines are preserved by key so user styling survives, missing ones
@@ -78,7 +72,9 @@ export const reconcileLines = (
           const key = lineKey({ yAxis, xAxis, range, xChannel, yChannel });
           if (kept.has(key)) continue;
           kept.add(key);
-          lines.push(byKey.get(key) ?? zeroLine(key));
+          // A new line takes Oracle schema defaults (stroke width, downsample);
+          // label and color stay unset so they resolve at render time.
+          lines.push(byKey.get(key) ?? lineZ.parse({ key }));
         }
   }
   const dropped = existing.filter((l) => !kept.has(l.key));
