@@ -260,13 +260,6 @@ type flowNodeResult struct {
 	inlineScope *ir.Scope
 }
 
-func firstInputParam(inputs types.Params) string {
-	if len(inputs) > 0 {
-		return inputs[0].Name
-	}
-	return ir.DefaultInputParam
-}
-
 func firstOutputParam(outputs types.Params) string {
 	if len(outputs) > 0 {
 		return outputs[0].Name
@@ -459,7 +452,7 @@ func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (no
 		Key:      nodeKey,
 		Type:     "on",
 		Channels: types.NewChannels(),
-		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
+		Inputs:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type.Unwrap()}},
 	}
 	n.Channels.Read[chKey] = sym.Name
@@ -473,9 +466,11 @@ func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (n
 		Key:      nodeKey,
 		Type:     "write",
 		Channels: types.NewChannels(),
-		Config:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
-		Inputs:   types.Params{{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		Inputs: types.Params{
+			{Name: "channel", Type: sym.Type, Value: chKey},
+			{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()},
+		},
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 	}
 	n.Channels.Write[chKey] = sym.Name
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
@@ -491,7 +486,7 @@ func buildGlobalConstantNode(
 		Key:      key,
 		Type:     "constant",
 		Channels: types.NewChannels(),
-		Config:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
+		Inputs:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
 	}
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
@@ -566,21 +561,19 @@ func analyzeFunctionNode(
 		Key:      key,
 		Type:     nodeType,
 		Channels: sym.Channels.Copy(),
-		Config:   slices.Clone(freshType.Config),
+		Inputs:   slices.Clone(freshType.Inputs),
 		Outputs:  slices.Clone(freshType.Outputs),
 	}
-	// STL ExecBoth inputs mirror config; in flow form the upstream is a
-	// trigger, so omit Inputs. User-defined funcs (AST != nil) keep them.
-	upstreamIsTrigger := sym.Exec == symbol.ExecBoth && sym.AST == nil
-	if !upstreamIsTrigger {
-		n.Inputs = slices.Clone(freshType.Inputs)
-	}
 	var ok bool
-	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n, sym)
+	n.Inputs, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Inputs, n, sym)
 	if !ok {
 		return nodeResult{}, false
 	}
-	return newNodeResult(n, firstInputParam(n.Inputs), firstOutputParam(n.Outputs)), true
+	inputParam := ir.DefaultInputParam
+	if sym.Trigger.Target != "" {
+		inputParam = sym.Trigger.Target
+	}
+	return newNodeResult(n, inputParam, firstOutputParam(n.Outputs)), true
 }
 
 // tryAnalyzeFmtStrLiteral handles the format-string-with-placeholders case by
@@ -625,7 +618,6 @@ func tryAnalyzeFmtStrLiteral(
 		Key:      synthKey,
 		Body:     ir.Body{Raw: body},
 		Inputs:   types.Params{},
-		Config:   types.Params{},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		Channels: sym.Channels.Copy(),
 	})
@@ -667,7 +659,7 @@ func analyzeExpression(
 			Key:      key,
 			Type:     "constant",
 			Channels: types.NewChannels(),
-			Config:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
+			Inputs:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
 			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		}
 		return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
@@ -736,7 +728,6 @@ func Analyze(
 		i.Functions = append(i.Functions, ir.Function{
 			Key:      c.Name,
 			Body:     ir.Body{Raw: bodyAst.GetText(), AST: bodyAst},
-			Config:   c.Type.Config,
 			Inputs:   c.Type.Inputs,
 			Outputs:  c.Type.Outputs,
 			Channels: c.Channels,

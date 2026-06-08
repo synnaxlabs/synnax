@@ -459,10 +459,11 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		}
 		// Track channel reads for:
 		// 1. Direct channel symbols (KindChannel)
-		// 2. Config params with channel type (they are the source)
+		// 2. Params with channel type (they are the source)
 		// 3. Variables with channel type that have a SourceID
 		shouldTrackRead := resolved.Kind == symbol.KindChannel ||
-			(resolved.Type.Kind == basetypes.KindChan && resolved.Kind == symbol.KindConfig) ||
+			(resolved.Type.Kind == basetypes.KindChan &&
+				(resolved.Kind == symbol.KindConfig || resolved.Kind == symbol.KindInput)) ||
 			(resolved.Type.Kind == basetypes.KindChan && resolved.SourceID != nil)
 		if shouldTrackRead {
 			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)

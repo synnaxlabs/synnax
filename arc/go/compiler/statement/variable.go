@@ -117,9 +117,11 @@ func resolveChannelSource(
 	if scope.Kind == symbol.KindChannel {
 		return scope, channelSourceGlobal
 	}
-	// Config param or variable with channel type - has a WASM local holding the key
+	// Param or variable with channel type - has a WASM local holding the key
 	if scope.Type.Kind == types.KindChan &&
-		(scope.Kind == symbol.KindConfig || scope.Kind == symbol.KindVariable) {
+		(scope.Kind == symbol.KindConfig ||
+			scope.Kind == symbol.KindInput ||
+			scope.Kind == symbol.KindVariable) {
 		return scope, channelSourceLocal
 	}
 	return nil, channelSourceNone

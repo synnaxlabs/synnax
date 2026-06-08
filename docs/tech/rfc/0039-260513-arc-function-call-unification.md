@@ -1037,3 +1037,31 @@ it lands.
 
 Open question for that phase: what the rules rename to (e.g. `braceBlock` / `parenBlock`
 by surface form). Not just find-and-replace.
+
+### Part 4 - `symbol.KindConfig` should be deprecated
+
+Distinct from both the type-level `Config` collapse (this RFC) and the grammar `config`
+rename (above): the symbol-table scope `Kind` still carries a `KindConfig` / `KindInput`
+split. Plan §Phase 3 deliberately kept it ("the symbol `Kind` distinction stays via the
+block the param came from"). Since this RFC's intent is that "config" is no longer a
+load-bearing concept, the scope `Kind` should follow.
+
+Part 4 narrowed it without removing it: the graph analyzer now binds all params
+`KindInput`, and `KindInput` absorbed `KindConfig`'s channel behavior at the two sites
+where they diverged (`compiler/statement/variable.go` channel-source resolution and
+`analyzer/expression/expression.go` channel-read tracking). The remaining producer is
+`addConfigToScope` (text path, `analyzer/function/function.go`), which still emits
+`KindConfig` for brace-block params; every `KindConfig` reader therefore has to match
+both kinds for now.
+
+Full removal: flip `addConfigToScope` to `KindInput`, delete the `KindConfig` enum value
+and its `kind_string.go` entry, and collapse the readers. Most are already trivial: the
+`KindConfig` cases in `compiler/expression/identifier.go` and the write path of
+`compiler/statement/variable.go` are byte-identical to their `KindInput` neighbors, and
+`analyzer/statement/statement.go` only special-cases `KindChannel`; the LSP sites
+(`lsp/semantic.go`, `lsp/hover.go`) are cosmetic.
+
+Do it after the tree is green (post-Part 9), same reasoning as the grammar rename: a
+mechanical `Kind` collapse on a compiling tree lets the compiler and tests catch every
+missed reader, whereas mid-stack on the broken-by-design tree there is no safety net.
+Independent of the grammar rename; neither blocks the other.
