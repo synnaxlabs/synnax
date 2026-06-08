@@ -58,7 +58,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
-			Objects: log.OntologyIDsFromLogs(req.Logs),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeLog}},
 		}); err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveRe
 		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionRetrieve,
-			Objects: log.OntologyIDs(req.Keys),
+			Objects: log.OntologyIDsFromLogs(res.Logs),
 		})
 	}); err != nil {
 		return RetrieveResponse{}, err

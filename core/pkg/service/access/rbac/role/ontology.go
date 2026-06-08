@@ -15,6 +15,7 @@ import (
 	"iter"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
@@ -26,6 +27,17 @@ import (
 // OntologyID constructs a unique ontology.ID for the Role with the given key.
 func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRole, Key: k.String()}
+}
+
+// OntologyIDs constructs a slice of unique ontology.IDs for the Roles with the given
+// keys.
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+}
+
+// OntologyIDsFromRoles constructs a slice of unique ontology.IDs for the given Roles.
+func OntologyIDsFromRoles(roles []Role) []ontology.ID {
+	return lo.Map(roles, func(r Role, _ int) ontology.ID { return r.OntologyID() })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

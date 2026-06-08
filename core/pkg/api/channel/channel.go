@@ -88,7 +88,7 @@ func (s *Service) Create(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
-			Objects: channel.OntologyIDsFromChannels(translated),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeChannel}},
 		}); err != nil {
 			return err
 		}

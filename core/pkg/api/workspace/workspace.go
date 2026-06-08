@@ -60,7 +60,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
-			Objects: workspace.OntologyIDsFromWorkspaces(req.Workspaces),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeWorkspace}},
 		}); err != nil {
 			return err
 		}

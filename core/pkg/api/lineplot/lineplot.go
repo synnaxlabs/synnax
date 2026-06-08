@@ -58,7 +58,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
-			Objects: lineplot.OntologyIDsFromLinePlots(req.LinePlots),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeLineplot}},
 		}); err != nil {
 			return err
 		}
@@ -147,15 +147,15 @@ type (
 func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
 	var res RetrieveResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: lineplot.OntologyIDs(req.Keys),
-		}); err != nil {
+		if err := s.internal.NewRetrieve().
+			Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).Exec(ctx, tx); err != nil {
 			return err
 		}
-		return s.internal.NewRetrieve().
-			Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).Exec(ctx, tx)
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: lineplot.OntologyIDsFromLinePlots(res.LinePlots),
+		})
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}

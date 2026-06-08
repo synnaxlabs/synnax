@@ -64,7 +64,7 @@ func (s *Service) Create(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
-			Objects: schematic.OntologyIDsFromSchematics(req.Schematics),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeSchematic}},
 		}); err != nil {
 			return err
 		}
@@ -128,7 +128,7 @@ func (s *Service) Retrieve(
 		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionRetrieve,
-			Objects: schematic.OntologyIDs(req.Keys),
+			Objects: schematic.OntologyIDsFromSchematics(res.Schematics),
 		})
 	}); err != nil {
 		return RetrieveResponse{}, err
@@ -205,7 +205,7 @@ func (s *Service) CreateSymbol(ctx context.Context, req CreateSymbolRequest) (Cr
 		if err := enforcer.Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
-			Objects: symbol.OntologyIDsFromSymbols(req.Symbols),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeSchematicSymbol}},
 		}); err != nil {
 			return err
 		}

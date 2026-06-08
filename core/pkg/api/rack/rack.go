@@ -75,7 +75,7 @@ func (s *Service) Create(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
-			Objects: rack.OntologyIDsFromRacks(req.Racks),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
 		}); err != nil {
 			return err
 		}

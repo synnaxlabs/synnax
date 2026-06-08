@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -67,7 +68,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionCreate,
-			Objects: arc.OntologyIDsFromArcs(req.Arcs),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeArc}},
 		}); err != nil {
 			return err
 		}

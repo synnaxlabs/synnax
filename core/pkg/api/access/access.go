@@ -57,7 +57,7 @@ func (s *Service) CreatePolicy(
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
-			Objects: policy.OntologyIDsFromPolicies(req.Policies),
+			Objects: []ontology.ID{{Type: ontology.ResourceTypePolicy}},
 			Action:  access.ActionCreate,
 		}); err != nil {
 			return err
@@ -168,7 +168,7 @@ func (s *Service) CreateRole(
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
-			Objects: []ontology.ID{role.OntologyID(uuid.Nil)},
+			Objects: []ontology.ID{{Type: ontology.ResourceTypeRole}},
 			Action:  access.ActionCreate,
 		}); err != nil {
 			return err
@@ -227,7 +227,7 @@ func (s *Service) RetrieveRole(
 		return s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{role.OntologyID(uuid.Nil)}, // Type-level check
+			Objects: role.OntologyIDsFromRoles(res.Roles),
 		})
 	}); err != nil {
 		return RetrieveRoleResponse{}, err
