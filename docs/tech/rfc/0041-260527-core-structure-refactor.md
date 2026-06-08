@@ -839,8 +839,8 @@ centralized so it cannot be forgotten.
 Oracle's `validate` domain (RFC 0027 §3.6) is extended so the generated `Validate`
 method covers the gaps from §2.4:
 
-- **Numeric bounds**: `domain validate { min 1; max 64 }` on numeric fields, generating
-  a `validate.InBounds` check.
+- **Numeric bounds**: `@validate min 1` on numeric fields, generating a
+  `validate.InBounds` check.
 - **Enum variants**: enum-typed fields call the generated `IsValid()` (SY-4236), so an
   out-of-set variant fails validation rather than only an empty one.
 
