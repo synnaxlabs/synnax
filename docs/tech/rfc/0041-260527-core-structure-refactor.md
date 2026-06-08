@@ -16,8 +16,11 @@ This RFC restructures `core/pkg` along five axes:
 2. **One type per entity, with resolved fields.** Range, task, device, and rack carry
    fields resolved by callers (`Labels`, `Parent`, `Status`). Today each pattern is
    different — sometimes against a second, duplicate API type. This RFC collapses each
-   entity to a single service type. Resolved fields are declared in the schema, excluded
-   from storage by Oracle, and filled by the API layer.
+   entity to a single service type and marks the resolved fields in the schema so Oracle
+   omits them from the storage codec; resolution itself stays in hand-written API-layer
+   handlers, gated by the existing `Include<Field>` flags. **A schema-level syntax for
+   naming the resolution source and generating a batched resolver is explicitly out of
+   scope** and deferred to a separate relationship-management RFC (see §7).
 
 3. **Uniform versioned type layout.** Metadata services lay out versioned types
    inconsistently (`migrations/legacy/`, `migrations/v55/`, typed `migrations/v0,v1/`,
@@ -289,51 +292,58 @@ lands first; the channel split is its own phase (Section 6).
 
 ## 4.2 - One Type per Entity, With Resolved Fields
 
-### 4.2.0 - The Single Type
+### 4.2.0 - Scope
 
-Each entity has one type, owned by its service, with resolved fields declared inline:
+This RFC's resolved-field design is **deliberately minimal** — only the pieces required
+to collapse the duplicate service/API types without introducing schema-level
+relationship management:
+
+- **In scope.** Each entity is a single Go type owned by its service. Fields that are
+  not stored (`Labels`, `Parent`, `Status`) live on that type. Oracle is told, per
+  field, that the field is not part of the storage codec, so `EncodeOrc`/`DecodeOrc`
+  skip it. The API layer fills those fields after `Retrieve`, in hand-written handlers,
+  gated by the existing `Include<Field>` flags.
+- **Out of scope.** A `.oracle` syntax for naming a resolution source (label service,
+  status service, ontology parent, cascading-delete semantics, etc.) and a generated
+  batched resolver.
+
+### 4.2.1 - The Single Type
+
+Each entity has one type, owned by its service. The fields that are not stored are
+present on the type with a marker telling Oracle to omit them from the storage codec.
 
 ```
-// schemas/ranger.oracle (illustrative syntax)
+// schemas/ranger.oracle (illustrative — marker syntax not yet decided)
 struct Range {
-  key       uuid
-  name      string
+  key        uuid
+  name       string
   time_range telem.TimeRange
-  color     string
+  color      string
 
-  labels []label.Label {
-    domain resolved { from label via ontology }
-  }
-  parent *Range {
-    domain resolved { from ontology parent }
-  }
+  labels []label.Label      // filled by API layer from label.Service
+  parent *Range             // filled by API layer via ontology
 }
 ```
 
 The API layer drops its duplicate `Range` and serializes the service type directly. The
-`task`/`device`/`rack` `omitempty` resolved fields are expressed the same way, so all
+`task`/`device`/`rack` `omitempty` resolved fields collapse into the same shape, so all
 four entities share one pattern.
 
-### 4.2.1 - Storage Exclusion
+### 4.2.2 - Storage Exclusion
 
-Oracle excludes a `resolved` field from the generated `EncodeOrc`/`DecodeOrc` codec, so
-it is never persisted and never read back from storage. The same field _is_ serialized
-in the API/transport (JSON/proto) output, because clients need it. This solves the
-persisted-vs-derived split named in RFC 0026 §1.1.12 at the schema level.
+A field marked for storage exclusion is omitted from the generated
+`EncodeOrc`/`DecodeOrc` codec — never persisted, never read back from storage. The same
+field _is_ serialized in the API/transport (JSON/proto) output, because clients need it.
+This solves the persisted-vs-derived split named in RFC 0026 §1.1.12 at the schema
+level. The validation seam (§4.5) skips these fields — they are validated by their
+owning services, not by the entity's `Validate()`.
 
-### 4.2.2 - Resolution Stays in the API Layer
+### 4.2.3 - Resolution Stays in the API Layer, Hand-Written for Now
 
 Resolution stays in the API layer after `Retrieve`. The service reads only Gorp-backed
 fields and leaves resolved fields at zero values; the API handler fills them from
 `label.Service`, `status.Service`, and the ontology, gated by the existing
-`Include<Field>` flags. Resolution is **batched across the result set** — one labels
-query, one status query, one parent traversal per page — not one round trip per entity.
-Oracle generates the batched resolver from the `resolved` domain (§4.6.1).
-
-The change from today is structural: one service-layer type carries the resolved fields
-as zero values, instead of a duplicate API type embedding the service type and adding
-them. The write path is unaffected — resolved fields are excluded from storage and the
-validation seam (§4.5) ignores them.
+`Include<Field>` flags. **Resolvers stay hand-written under this RFC.**
 
 ## 4.3 - The `types/vN/` Layout
 
@@ -914,21 +924,6 @@ freeze cannot be merged with a constraint-tightening left as a pass-through. Thi
 the Migrate→Validate contract (§4.5.3) at generation time rather than relying on a
 live-data boot failure to surface the bug.
 
-### 4.6.1 - `resolved` Domain
-
-A new field domain marks a field as resolved. Oracle:
-
-1. excludes it from `EncodeOrc`/`DecodeOrc` (storage exclusion, 4.2.1);
-2. keeps it in API/proto serialization;
-3. generates a batched resolver the API layer calls, gated by the corresponding
-   `Include<Field>` request flag (4.2.2). The domain names the source (`label`,
-   `status`, ontology `parent`).
-
-### 4.6.2 - `validate` Extensions
-
-Numeric `min`/`max` and enum-variant enforcement (4.5.1), emitted into the generated
-`Validate` method, which satisfies the `gorp.Entry` `Validate` contract (4.5.0).
-
 # 5 - Resolved Design Decisions
 
 ## 5.0 - Substrate Moves to the Service Layer, Not a New Sub-Layer
@@ -945,14 +940,14 @@ built on it (§4.1.1). The alternative — leaving the metadata table in distrib
 moving only the wiring — strands service-level fields (`Expression`, `Operations`) on a
 distribution struct. Moving the whole table up is the cleaner cut.
 
-## 5.2 - Resolution Stays in the API Layer, Opt-In Preserved
+## 5.2 - Resolution Stays in the API Layer, Hand-Written, Opt-In Preserved
 
 The service `Retrieve` reads only Gorp-backed fields; the API handler fills
-`Labels`/`Parent`/`Status` under the existing `Include<Field>` flags (§4.2.2). The
+`Labels`/`Parent`/`Status` under the existing `Include<Field>` flags (§4.2.3). The
 alternative — resolving inside `Retrieve` — would force resolution on hot paths (CDC
 fan-out, calc-channel watchers) that don't need the resolved fields. What this RFC does
 change is the type returned: one service type with resolved fields as zero values,
-instead of a duplicate API type that embeds the service type to bolt them on (§4.2.0).
+instead of a duplicate API type that embeds the service type to bolt them on (§4.2.1).
 
 ## 5.3 - Uniform `types/vN/` for Every Version, with Oracle-Moved `helpers.go`
 
@@ -1001,9 +996,13 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   into the numbered chain.
 - **Phase 3 — Peek import (§4.4).** Peek front door; decode straight into the frozen
   `types/vN/` struct; remove the `map[string]any` import representation.
-- **Phase 4 — Resolved fields (§4.2, §4.6.1).** `resolved` domain; collapse the
-  duplicate API types; generate the batched API-layer resolver (still gated by
-  `Include<Field>` flags).
+- **Phase 4 — Single-type collapse + storage-exclusion marker (§4.2, §4.6.1).** Add the
+  per-field "skip from storage codec" marker to Oracle; mark `Labels`/`Parent`/`Status`
+  on `range`/`task`/`device`/`rack`; drop the duplicate API types and serialize the
+  service type directly. Existing hand-written API-layer resolvers keep their current
+  shape and `Include<Field>` flags — no generator changes. Schema-driven resolution and
+  the resolution-source syntax are deferred to the follow-up relationship-management RFC
+  (§7).
 - **Phase 5 — Validation chokepoint (§4.5, §4.6.2).** Add a `Validate` method to every
   entity type, call it at the Gorp write seam, and extend the Oracle `validate` domain
   (numeric bounds, enum variants). Migration write-back validates stored data through
@@ -1012,9 +1011,19 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
 
 # 7 - Open Questions
 
-- **`resolved` domain syntax.** The exact `.oracle` syntax for naming a resolution
-  source (label service vs. status service vs. ontology parent) and how a
-  self-referential `parent *Range` is expressed.
+- **Resolution-source syntax and schema-driven resolution (follow-up RFC).** This RFC
+  commits only to the storage-exclusion marker (§4.6.1) and the single-type collapse
+  (§4.2). The richer questions — naming the resolution source per field (label service
+  vs. status service vs. ontology parent), expressing a self-referential
+  `parent *Range`, generating a batched API-layer resolver, and the cascading-delete /
+  referential-integrity semantics that come with declaring relationships in the schema —
+  are deferred to a follow-up relationship-management RFC. The expectation is that
+  relationship management eventually moves into Oracle: schema declares the
+  relationship; Oracle generates resolution, retrieval, and integrity (e.g. cascading
+  deletes). That design is large enough to own its own RFC, and committing to a syntax
+  here would constrain it prematurely. Until that RFC lands, resolvers stay hand-written
+  in the API layer (§4.2.3) and the resolution-source field marker is whatever the
+  storage-exclusion marker turns out to be.
 - **Cross-layer create atomicity.** Channel create now spans layers: distribution
   creates the Cesium storage, then service writes the metadata record. Phase 1b ships
   with an interim **storage-first, orphan-tolerant** contract (see §6, Phase 1b):
