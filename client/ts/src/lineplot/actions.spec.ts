@@ -36,6 +36,13 @@ import {
   setLineLabel,
   setLineStrokeWidth,
   setRule,
+  setRuleAxis,
+  setRuleColor,
+  setRuleLabel,
+  setRuleLineDash,
+  setRuleLineWidth,
+  setRulePosition,
+  setRuleUnits,
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
@@ -552,6 +559,63 @@ describe("lineplot reducer", () => {
       expect(reduceAll(state, [removeRule({ key: "r1" })]).targets).toEqual([
         "rule:r1",
       ]);
+    });
+  });
+
+  describe("fine-grained rule actions", () => {
+    const base = (): LinePlot => empty({ rules: [rule("r1", "max")] });
+    it.each([
+      {
+        label: "setRuleLabel",
+        action: setRuleLabel({ key: "r1", label: "min" }),
+        expected: { label: "min" },
+      },
+      {
+        label: "setRuleColor",
+        action: setRuleColor({ key: "r1", color: color.construct("#00ff00") }),
+        expected: { color: color.construct("#00ff00") },
+      },
+      {
+        label: "setRuleAxis",
+        action: setRuleAxis({ key: "r1", axis: "y2" }),
+        expected: { axis: "y2" },
+      },
+      {
+        label: "setRuleLineWidth",
+        action: setRuleLineWidth({ key: "r1", lineWidth: 3 }),
+        expected: { lineWidth: 3 },
+      },
+      {
+        label: "setRuleLineDash",
+        action: setRuleLineDash({ key: "r1", lineDash: 4 }),
+        expected: { lineDash: 4 },
+      },
+      {
+        label: "setRuleUnits",
+        action: setRuleUnits({ key: "r1", units: "psi" }),
+        expected: { units: "psi" },
+      },
+      {
+        label: "setRulePosition",
+        action: setRulePosition({ key: "r1", position: 42 }),
+        expected: { position: 42 },
+      },
+    ])("$label sets its field and round-trips via inverse", ({ action, expected }) => {
+      const state = base();
+      expect(apply(state, action).rules[0]).toMatchObject(expected);
+      expect(roundTrip(state, action).rules[0]).toEqual(state.rules[0]);
+    });
+
+    it("is a no-op when the rule does not exist", () => {
+      const { targets } = reduceAll(empty(), [
+        setRuleLabel({ key: "missing", label: "x" }),
+      ]);
+      expect(targets).toEqual([]);
+    });
+
+    it("targets the rule so distinct rules are independent", () => {
+      const { targets } = reduceAll(base(), [setRuleLabel({ key: "r1", label: "x" })]);
+      expect(targets).toEqual(["rule:r1"]);
     });
   });
 

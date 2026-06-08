@@ -506,6 +506,34 @@ var _ = Describe("Writer", func() {
 					To(Succeed())
 				Expect(res.Rules).To(BeEmpty())
 			})
+
+			It("Should set rule fields via the fine-grained actions", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRuleAction(lineplot.SetRulePayload{Rule: lineplot.Rule{
+						Key: "r1", Label: "ceiling", Axis: lineplot.AxisKeyY1,
+					}}),
+				})).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d2", []lineplot.Action{
+					lineplot.NewSetRuleLabelAction(lineplot.SetRuleLabelPayload{
+						Key: "r1", Label: "max",
+					}),
+					lineplot.NewSetRulePositionAction(lineplot.SetRulePositionPayload{
+						Key: "r1", Position: 42,
+					}),
+					lineplot.NewSetRuleAxisAction(lineplot.SetRuleAxisPayload{
+						Key: "r1", Axis: lineplot.AxisKeyY2,
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Rules).To(HaveLen(1))
+				Expect(res.Rules[0].Label).To(Equal("max"))
+				Expect(res.Rules[0].Position).To(Equal(42.0))
+				Expect(res.Rules[0].Axis).To(Equal(lineplot.AxisKeyY2))
+			})
 		})
 
 		Describe("atomicity and broadcast", func() {

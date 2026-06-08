@@ -32,6 +32,13 @@ import {
   setLineLabel,
   setLineStrokeWidth,
   setRule,
+  setRuleAxis,
+  setRuleColor,
+  setRuleLabel,
+  setRuleLineDash,
+  setRuleLineWidth,
+  setRulePosition,
+  setRuleUnits,
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
@@ -323,6 +330,68 @@ const handlers: Handlers = {
     const oldRule = actions.snapshotDraft(state.rules[idx]);
     state.rules.splice(idx, 1);
     return { inverse: [setRule({ rule: oldRule })], targets: [`rule:${payload.key}`] };
+  },
+
+  // Each setRule* action sets one field of the rule identified by key.
+  setRuleLabel: (state, payload) => {
+    const rule = state.rules.find((r) => r.key === payload.key);
+    if (rule == null) return actions.NO_OP_RESULT;
+    const inverse = [setRuleLabel({ key: payload.key, label: rule.label })];
+    rule.label = payload.label;
+    return { inverse, targets: [`rule:${payload.key}`] };
+  },
+
+  setRuleColor: (state, payload) => {
+    const rule = state.rules.find((r) => r.key === payload.key);
+    if (rule == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setRuleColor({
+        key: payload.key,
+        color: rule.color === undefined ? undefined : actions.snapshotDraft(rule.color),
+      }),
+    ];
+    rule.color = payload.color;
+    return { inverse, targets: [`rule:${payload.key}`] };
+  },
+
+  setRuleAxis: (state, payload) => {
+    const rule = state.rules.find((r) => r.key === payload.key);
+    if (rule == null) return actions.NO_OP_RESULT;
+    const inverse = [setRuleAxis({ key: payload.key, axis: rule.axis })];
+    rule.axis = payload.axis;
+    return { inverse, targets: [`rule:${payload.key}`] };
+  },
+
+  setRuleLineWidth: (state, payload) => {
+    const rule = state.rules.find((r) => r.key === payload.key);
+    if (rule == null) return actions.NO_OP_RESULT;
+    const inverse = [setRuleLineWidth({ key: payload.key, lineWidth: rule.lineWidth })];
+    rule.lineWidth = payload.lineWidth;
+    return { inverse, targets: [`rule:${payload.key}`] };
+  },
+
+  setRuleLineDash: (state, payload) => {
+    const rule = state.rules.find((r) => r.key === payload.key);
+    if (rule == null) return actions.NO_OP_RESULT;
+    const inverse = [setRuleLineDash({ key: payload.key, lineDash: rule.lineDash })];
+    rule.lineDash = payload.lineDash;
+    return { inverse, targets: [`rule:${payload.key}`] };
+  },
+
+  setRuleUnits: (state, payload) => {
+    const rule = state.rules.find((r) => r.key === payload.key);
+    if (rule == null) return actions.NO_OP_RESULT;
+    const inverse = [setRuleUnits({ key: payload.key, units: rule.units })];
+    rule.units = payload.units;
+    return { inverse, targets: [`rule:${payload.key}`] };
+  },
+
+  setRulePosition: (state, payload) => {
+    const rule = state.rules.find((r) => r.key === payload.key);
+    if (rule == null) return actions.NO_OP_RESULT;
+    const inverse = [setRulePosition({ key: payload.key, position: rule.position })];
+    rule.position = payload.position;
+    return { inverse, targets: [`rule:${payload.key}`] };
   },
 };
 
