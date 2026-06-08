@@ -345,11 +345,15 @@ below; unexported helpers (the private `importer`/`exporter` structs in `imex.go
 `validate` helper on `Writer`, the change translators in `ontology.go`, etc.) live in
 the same files but are implementation detail and not part of the canonical contract.
 
+**Placeholder convention.** Below, `<resource>` (lowercase) stands in for the entity's
+package name (`channel`, `ranger`, `schematic`, …) and `<Resource>` (PascalCase) stands
+in for its exported Go type name (`Channel`, `Range`, `Schematic`, …).
+
 ```
 core/pkg/service/<resource>/
-├── resource.go              # public surface — re-exports the current version
+├── <resource>.go            # public surface — re-exports the current version
 │   ├── type Key = types.Key
-│   ├── type Resource = types.Resource
+│   ├── type <Resource> = types.<Resource>
 │   └─── const LatestVersion = types.LatestVersion
 │
 ├── service.go               # lifecycle + composition root
@@ -360,13 +364,13 @@ core/pkg/service/<resource>/
 │   ├── func OpenService(context.Context, ...ServiceConfig) (*Service, error)
 │   ├── func (s *Service) NewWriter(tx gorp.Tx) Writer
 │   ├── func (s *Service) NewRetrieve() Retrieve
-│   ├── func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Resource]]
+│   ├── func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, <Resource>]]
 │   └── func (s *Service) Close() error
 │
 ├── ontology.go              # ontology integration — implements ontology.Service
 │   ├── func OntologyID(Key) ontology.ID
 │   ├── func OntologyIDs([]Key) []ontology.ID
-│   ├── func OntologyIDsFromResources([]Resource) []ontology.ID
+│   ├── func OntologyIDsFrom<Resource>s([]<Resource>) []ontology.ID
 │   ├── func KeyFromOntologyID(ontology.ID) (Key, error)
 │   ├── func KeysFromOntologyIDs([]ontology.ID) ([]Key, error)
 │   ├── func (s *Service) Type() ontology.ResourceType
@@ -377,7 +381,7 @@ core/pkg/service/<resource>/
 │
 ├── retrieve.gen.go              # query builder
 │   ├── type Retrieve struct { ... }
-│   ├── type Filter func(gorp.Context, Retrieve, *Resource) (bool, error)
+│   ├── type Filter func(gorp.Context, Retrieve, *<Resource>) (bool, error)
 │   ├── func Match(Filter) Filter
 │   ├── func And(...Filter) Filter
 │   ├── func Or(...Filter) Filter
@@ -386,8 +390,8 @@ core/pkg/service/<resource>/
 │   ├── func (Retrieve) Where(Filter) Retrieve
 │   ├── func (Retrieve) WhereKeys(...Key) Retrieve
 │   ├── func (Retrieve) Search(string) Retrieve
-│   ├── func (Retrieve) Entry(*Resource) Retrieve
-│   ├── func (Retrieve) Entries(*[]Resource) Retrieve
+│   ├── func (Retrieve) Entry(*<Resource>) Retrieve
+│   ├── func (Retrieve) Entries(*[]<Resource>) Retrieve
 │   ├── func (Retrieve) Limit(int) Retrieve
 │   ├── func (Retrieve) Offset(int) Retrieve
 │   ├── func (Retrieve) Exec(context.Context, gorp.Tx) error
@@ -397,48 +401,48 @@ core/pkg/service/<resource>/
 │
 ├── writer.go                # mutation API — the validation chokepoint
 │   ├── type Writer struct { ... }
-│   ├── func (Writer) Create(context.Context, *Resource) error
-│   ├── func (Writer) CreateMany(context.Context, *[]Resource) error
+│   ├── func (Writer) Create(context.Context, *<Resource>) error
+│   ├── func (Writer) CreateMany(context.Context, *[]<Resource>) error
 │   ├── func (Writer) Rename(context.Context, Key, string) error
 │   └── func (Writer) Delete(context.Context, ...Key) error
 │
 ├── imex.go                  # imex.Importer + imex.Exporter — registered in OpenService
 │
 ├── actions.go               # OPTIONAL — reducer-style resources (schematic, lineplot)
-│   ├── func (p ActionNPayload) Handle(Resource) (Resource, error) # repeated for N actions
+│   ├── func (p ActionNPayload) Handle(<Resource>) (<Resource>, error) # repeated for N actions
 ├── actions.gen.go           # Oracle-generated payload structs + Action codec
 │   ├── const (ActionTypeN = "n")
 │   ├── type ActionNPayload struct { ... }
 │   ├── type Action struct { Type: string, N *ActionNPayload }
 │   ├── func NewNAction(p ActionNPayload) Action
-│   └── func Reduce(Resource, ...Action) (Resource, error)
+│   └── func Reduce(<Resource>, ...Action) (<Resource>, error)
 │
 ├── pb/                      # wire schema — sibling subpackage (Go name collision forces this)
 │   ├── <resource>.proto
 │   ├── <resource>.pb.go     # buf-generated
 │   └── translator.gen.go    # Oracle-generated
-│       ├── func ResourceToPB(Resource) (*Resource, error)
-│       ├── func ResourceFromPB(*Resource) (Resource, error)
-│       ├── func ResourcesToPB([]Resource) ([]*Resource, error)
-│       └── func ResourcesFromPB([]*Resource) ([]Resource, error)
+│       ├── func <Resource>ToPB(<Resource>) (*<Resource>, error)
+│       ├── func <Resource>FromPB(*<Resource>) (<Resource>, error)
+│       ├── func <Resource>sToPB([]<Resource>) ([]*<Resource>, error)
+│       └── func <Resource>sFromPB([]*<Resource>) ([]<Resource>, error)
 │
 │
 └── types/                          # public surface — re-exports current; other packages
     │                                # may import this to call Decode or to name the current
-    │                                # Resource/Version.
+    │                                # <Resource>/Version.
     ├── types.go                     # current selector
     │   ├── type Key = vN.Key
-    │   ├── type Resource = vN.Resource
+    │   ├── type <Resource> = vN.<Resource>
     │   └── const LatestVersion = vN.Version
     ├── decode.go                    # version dispatch — the only entry imex calls
-    │   └── func Decode(imex.Envelope) (Resource, error)
+    │   └── func Decode(imex.Envelope) (<Resource>, error)
     │
     ├── legacy/                      # REQUIRED for resources with a versioned data payload
     │   │                            #   (schematic, table, line plot, log) — see §4.3.2.
     │   │                            #   Occupies the LOW end of the unified integer namespace:
     │   │                            #   legacy versions are [0, MaxVersion]; modern versions
     │   │                            #   are [MaxVersion+1, LatestVersion]. No overlap, no gap.
-    │   ├── legacy.go                # const MaxVersion + Decode(env) → first-modern Resource
+    │   ├── legacy.go                # const MaxVersion + Decode(env) → first-modern <Resource>
     │   └── vN/                      # frozen legacy versions (v0..vMaxVersion); same shape as
     │                                # modern vN/ (types.gen.go, codec.gen.go, migrate.go)
     │
@@ -448,31 +452,31 @@ core/pkg/service/<resource>/
         ├── types.gen.go             # frozen struct + gorp.Entry methods
         │   ├── const Version imex.Version = N
         │   ├── type Key
-        │   ├── type Resource struct { Key Key; … }
-        │   ├── func (Resource) GorpKey() Key
-        │   ├── func (Resource) SetOptions() []any
-        │   └── func (Resource) Validate() error
+        │   ├── type <Resource> struct { Key Key; … }
+        │   ├── func (<Resource>) GorpKey() Key
+        │   ├── func (<Resource>) SetOptions() []any
+        │   └── func (<Resource>) Validate() error
         ├── codec.gen.go             # frozen ORC codec
-        │   ├── func (Resource) EncodeOrc(*orc.Writer) error
-        │   └── func (*Resource) DecodeOrc(*orc.Reader) error
+        │   ├── func (<Resource>) EncodeOrc(*orc.Writer) error
+        │   └── func (*<Resource>) DecodeOrc(*orc.Reader) error
         ├── migrate.go               # step migration; omitted on the first modern version.
         │   │                        # The first modern version (v(MaxVersion+1)) additionally
         │   │                        # owns the legacy bridge:
-        │   ├── func Migrate(v(N-1).Resource) (Resource, error)
-        │   └── func MigrateFromLegacy(legacy.vMaxVersion.Resource) (Resource, error)
+        │   ├── func Migrate(v(N-1).<Resource>) (<Resource>, error)
+        │   └── func MigrateFromLegacy(legacy.vMaxVersion.<Resource>) (<Resource>, error)
         │                            # — FIRST MODERN ONLY; absent on every other vN.
-        └── helpers.go               #  hand-written method receivers on Resource
-                                     #  (e.g. func (Resource) OntologyID() ontology.ID;
+        └── helpers.go               #  hand-written method receivers on <Resource>
+                                     #  (e.g. func (<Resource>) OntologyID() ontology.ID;
                                      #   ontology.go's free OntologyID(Key) wraps it).
                                      #  Oracle copies this file forward at each version bump (§4.6.0)
 ```
 
 A few file-level rules fall out of this layout:
 
-**`resource.go` is intentionally tiny.** Its only job is to be the import surface for
-the current version — external packages reach `resource.Resource` here. The sibling
-`types/` package is also public and is what other packages import when they need to call
-`types.Decode` or migration functions.
+**`<resource>.go` is intentionally tiny.** Its only job is to be the import surface for
+the current version — external packages reach `<resource>.<Resource>` here (i.e.
+`channel.Channel`, `ranger.Range`). The sibling `types/` package is also public and is
+what other packages import when they need to call `types.Decode` or migration functions.
 
 **`service.go` is the only place that enumerates collaborators.** `ServiceConfig` lists
 every cross-service dependency (`ontology`, `signals`, `group`, `search`, …).
@@ -526,7 +530,7 @@ Every `types/vN/` carries what that version needs to stand on its own: the froze
 
 - `gorp.Entry` methods in `types.gen.go` (`GorpKey`, `SetOptions`, `Validate` — see
   §5.5), the frozen codec in `codec.gen.go`, and — for `N ≥ 1` — `migrate.go` lifting
-  `v(N-1).Resource → vN.Resource`. Current additionally hosts `helpers.go`. This
+  `v(N-1).<Resource> → vN.<Resource>`. Current additionally hosts `helpers.go`. This
   replaces the scattered homes those methods have today (`helpers.go`, `ontology.go`,
   `codec.gen.go` under `migrations/`) and the single bottom-of-package migration file.
 
@@ -546,12 +550,12 @@ resource has a single contiguous integer namespace. Two patterns:
   envelope wraps a separately-versioned `Data` field. Bumps are driven by data-shape
   changes. The namespace is split by range: `[0, legacy.MaxVersion]` are legacy versions
   (kept in `legacy/vN/`), `[legacy.MaxVersion+1, LatestVersion]` are modern. Both ranges
-  store full Resource structs — the split is structural, isolating pre-integer history
-  in its own directory.
+  store full `<Resource>` structs — the split is structural, isolating pre-integer
+  history in its own directory.
 
 The dispatch rule is `v ≤ legacy.MaxVersion → legacy.Decode`, otherwise switch on the
 modern range. The two ranges chain at exactly one point:
-`MigrateFromLegacy( legacy.vMaxVersion.Resource) → v(MaxVersion+1).Resource`, the
+`MigrateFromLegacy(legacy.vMaxVersion.<Resource>) → v(MaxVersion+1).<Resource>`, the
 **bridge**, which lives on the first modern version's `migrate.go`. The first modern
 version therefore has no ordinary `Migrate` (no modern predecessor to step from), and
 `MigrateFromLegacy` exists on no other version.
@@ -853,9 +857,9 @@ failed boot is recoverable in minutes, a silently dropped record may not be reco
 at all.
 
 **The Migrate→Validate contract.** Every per-step
-`Migrate(v(N-1).Resource) → vN.Resource` must return a value that satisfies
-`vN.Resource.Validate()` for every input that satisfied `v(N-1).Resource.Validate()` at
-its own version's constraints. The boot-abort policy makes this a hard contract: a
+`Migrate(v(N-1).<Resource>) → vN.<Resource>` must return a value that satisfies
+`vN.<Resource>.Validate()` for every input that satisfied `v(N-1).<Resource>.Validate()`
+at its own version's constraints. The boot-abort policy makes this a hard contract: a
 developer who tightens a constraint at `vN` — adds a `min`/`max`, narrows an enum,
 requires a previously-optional field — without updating the `vN-1 → vN` `Migrate` to
 reconcile out-of-range values produces a cluster that boots green in tests (synthetic
