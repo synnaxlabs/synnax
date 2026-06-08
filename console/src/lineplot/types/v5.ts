@@ -48,6 +48,7 @@ export const stateZ = v4.stateZ
   .extend({
     version: z.literal(VERSION),
     selectedRules: z.array(z.string()).default([]),
+    hiddenLines: z.array(z.string()).default([]),
     pendingUpload: pendingUploadZ.optional(),
   });
 
@@ -72,6 +73,7 @@ export const ZERO_STATE: State = {
   ...zeroRest,
   version: VERSION,
   selectedRules: [],
+  hiddenLines: [],
   pendingUpload: undefined,
 };
 
@@ -123,6 +125,7 @@ export const stateMigration = migrate.createMigration<v4.State, State>({
       ...rest,
       version: VERSION,
       selectedRules,
+      hiddenLines: [],
       pendingUpload: state.remoteCreated ? undefined : buildPendingUpload(state),
     };
   },

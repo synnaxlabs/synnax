@@ -13,6 +13,7 @@ import { type lineplot } from "@synnaxlabs/pluto/ether";
 import { array, deep } from "@synnaxlabs/x";
 
 import * as latest from "@/lineplot/types";
+import { type RootState } from "@/store";
 
 export type ViewportState = latest.ViewportState;
 export type SelectionState = latest.SelectionState;
@@ -94,6 +95,12 @@ export interface SetRangeAnnotationsVisiblePayload {
 
 export interface ClearPendingUploadPayload {
   key: string;
+}
+
+export interface SetLineVisiblePayload {
+  key: string;
+  lineKey: string;
+  visible: boolean;
 }
 
 export const { actions, reducer } = createSlice({
@@ -179,6 +186,14 @@ export const { actions, reducer } = createSlice({
       if (plot == null) return;
       plot.pendingUpload = undefined;
     },
+    setLineVisible: (state, { payload }: PayloadAction<SetLineVisiblePayload>) => {
+      const plot = state.plots[payload.key];
+      if (plot == null) return;
+      const hidden = new Set(plot.hiddenLines);
+      if (payload.visible) hidden.delete(payload.lineKey);
+      else hidden.add(payload.lineKey);
+      plot.hiddenLines = Array.from(hidden);
+    },
   },
 });
 
@@ -195,7 +210,20 @@ export const {
   setMeasureMode,
   setRangeAnnotationsVisible,
   clearPendingUpload,
+  setLineVisible,
   create: internalCreate,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
+
+const purgeState = (state: latest.State): latest.State => {
+  state.hiddenLines = [];
+  return state;
+};
+
+export const purgeSliceState = (state: RootState): RootState => {
+  Object.values(state[SLICE_NAME].plots).forEach(purgeState);
+  return state;
+};
+
+export const PERSIST_EXCLUDE = [purgeSliceState];

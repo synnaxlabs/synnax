@@ -31,7 +31,9 @@ export interface EntriesProps {
   allowVisibleChange?: boolean;
   background?: Theming.Shade;
   data: optional.Optional<EntryData, "visible">[];
-  onEntryChange?: (value: EntryData) => void;
+  onColorChange?: (key: string, color: color.Crude) => void;
+  onLabelChange?: (key: string, label: string) => void;
+  onVisibleChange?: (key: string, visible: boolean) => void;
   colorPickerVisible?: boolean;
   onColorPickerVisibleChange?: state.Setter<boolean>;
   entryProps?: Omit<Flex.BoxProps, "background">;
@@ -71,7 +73,9 @@ interface EntryProps
 const Entry = ({
   allowVisibleChange = true,
   entry,
-  onEntryChange,
+  onColorChange,
+  onLabelChange,
+  onVisibleChange,
   colorPickerVisible,
   onColorPickerVisibleChange,
   className,
@@ -90,9 +94,9 @@ const Entry = ({
     >
       <Flex.Box align="center" gap="small" x>
         <Color.Swatch
-          allowChange={onEntryChange != null}
+          allowChange={onColorChange != null}
           draggable={false}
-          onChange={(c) => onEntryChange?.({ ...entry, color: c })}
+          onChange={(c) => onColorChange?.(key, c)}
           size="tiny"
           value={color}
           onVisibleChange={onColorPickerVisibleChange}
@@ -100,19 +104,17 @@ const Entry = ({
         <Text.MaybeEditable
           color={entry.visible ? 10 : 7}
           level="small"
-          onChange={(l) => onEntryChange?.({ ...entry, label: l })}
+          onChange={onLabelChange == null ? undefined : (l) => onLabelChange(key, l)}
           onDoubleClick={stopPropagation}
           overflow="nowrap"
           value={label}
         />
       </Flex.Box>
-      {allowVisibleChange && (
+      {allowVisibleChange && onVisibleChange != null && (
         <Button.Button
           className={CSS.B("visible-toggle")}
           contrast={background}
-          onClick={() => {
-            onEntryChange?.({ ...entry, visible: !visible });
-          }}
+          onClick={() => onVisibleChange(key, !visible)}
           onDoubleClick={stopPropagation}
           size="tiny"
           variant="text"

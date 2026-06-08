@@ -93,6 +93,12 @@ export const selectViewportMode = (state: StoreState, key: string): Viewport.Mod
 export const useSelectViewportMode = (key: string): Viewport.Mode =>
   useMemoSelect((state: StoreState) => selectViewportMode(state, key), [key]);
 
+export const selectHiddenLines = (state: StoreState, key: string): string[] =>
+  select(state, key).hiddenLines;
+
+export const useSelectHiddenLines = (key: string): string[] =>
+  useMemoSelect((state: StoreState) => selectHiddenLines(state, key), [key]);
+
 export const selectMeasureMode = (
   state: StoreState,
   key: string,

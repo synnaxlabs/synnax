@@ -13,7 +13,6 @@ import {
   color,
   type direction,
   type location,
-  type optional,
   type TimeRange,
   type TimeSpan,
 } from "@synnaxlabs/x";
@@ -31,7 +30,7 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
-import { Frame, type FrameProps, type LineSpec } from "@/lineplot/Frame";
+import { Frame, type FrameProps } from "@/lineplot/Frame";
 import {
   Legend as BaseLegend,
   type LegendProps as BaseLegendProps,
@@ -170,9 +169,15 @@ interface LineProps {
   pKey: lineplot.Key;
   lineKey: string;
   resolved?: ResolvedRange;
+  visible?: boolean;
 }
 
-const Line = ({ pKey, lineKey, resolved }: LineProps): ReactElement | null => {
+const Line = ({
+  pKey,
+  lineKey,
+  resolved,
+  visible = true,
+}: LineProps): ReactElement | null => {
   const line = useSelectLine({ key: pKey, lineKey });
   const telemetry = useMemo(() => {
     if (line == null || resolved == null) return null;
@@ -212,6 +217,7 @@ const Line = ({ pKey, lineKey, resolved }: LineProps): ReactElement | null => {
       color={line.color}
       strokeWidth={line.strokeWidth}
       label={line.label}
+      visible={visible}
       downsample={line.downsample}
       downsampleMode={line.downsampleMode}
       legendGroup={line.yAxis.toUpperCase()}
@@ -249,9 +255,15 @@ interface LegendProps {
   pKey: lineplot.Key;
   variant?: BaseLegendProps["variant"];
   editable?: boolean;
+  onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
-const Legend = ({ pKey, variant, editable }: LegendProps): ReactElement | null => {
+const Legend = ({
+  pKey,
+  variant,
+  editable,
+  onLineVisibleChange,
+}: LegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
   const legend = useSelectLegend({ key: pKey });
   const handlePositionChange = useCallback(
@@ -259,24 +271,28 @@ const Legend = ({ pKey, variant, editable }: LegendProps): ReactElement | null =
       dispatch({ key: pKey, actions: [lineplot.setLegendPosition({ position })] }),
     [dispatch, pKey],
   );
-  const handleLineChange = useCallback(
-    (d: optional.Optional<LineSpec, "legendGroup">) => {
+  const handleLineColorChange = useCallback(
+    (key: string, c: color.Crude) =>
       dispatch({
         key: pKey,
-        actions: [
-          lineplot.setLineLabel({ key: d.key, label: d.label }),
-          lineplot.setLineColor({ key: d.key, color: color.construct(d.color) }),
-        ],
-      });
-    },
+        actions: [lineplot.setLineColor({ key, color: color.construct(c) })],
+      }),
+    [dispatch, pKey],
+  );
+  const handleLineLabelChange = useCallback(
+    (key: string, label: string) =>
+      dispatch({ key: pKey, actions: [lineplot.setLineLabel({ key, label })] }),
     [dispatch, pKey],
   );
   if (!legend.visible) return null;
-  // The legend has no disabled prop; absent callbacks are how it disables drag
-  // and entry editing, so gate at the prop rather than inside the handlers.
+  // Color/label/position are document edits: the legend has no disabled prop, so
+  // omitting the callback is how we gate them on `editable`. Visibility is a
+  // session-only view operation, so it stays wired regardless.
   return (
     <BaseLegend
-      onLineChange={editable ? handleLineChange : undefined}
+      onLineColorChange={editable ? handleLineColorChange : undefined}
+      onLineLabelChange={editable ? handleLineLabelChange : undefined}
+      onLineVisibleChange={onLineVisibleChange}
       position={legend.position}
       onPositionChange={editable ? handlePositionChange : undefined}
       variant={variant}
@@ -289,6 +305,7 @@ interface AxisChildrenProps {
   editable?: boolean;
   activeRangeKey?: string;
   resolvedRanges?: Map<string, ResolvedRange>;
+  hiddenLines?: Set<string>;
   onSelectRule?: (key: string) => void;
 }
 
@@ -365,6 +382,7 @@ const YAxis = ({
   editable,
   activeRangeKey,
   resolvedRanges,
+  hiddenLines,
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
@@ -407,6 +425,7 @@ const YAxis = ({
           pKey={pKey}
           lineKey={lineKey}
           resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
+          visible={hiddenLines == null || !hiddenLines.has(lineKey)}
         />
       ))}
       <Rules pKey={pKey} axisKey={axisKey} onSelectRule={onSelectRule} />
@@ -425,6 +444,7 @@ const XAxis = ({
   editable,
   activeRangeKey,
   resolvedRanges,
+  hiddenLines,
   onSelectRule,
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
@@ -467,6 +487,7 @@ const XAxis = ({
           editable={editable}
           activeRangeKey={activeRangeKey}
           resolvedRanges={resolvedRanges}
+          hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
         />
       ))}
@@ -515,6 +536,8 @@ export interface LinePlotProps extends FrameProps {
   viewportTriggers?: Viewport.UseProps["triggers"];
   rangeProviderProps?: Range.ProviderProps;
   onSelectRule?: (key: string) => void;
+  hiddenLines?: Set<string>;
+  onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
 export const LinePlot = ({
@@ -533,6 +556,8 @@ export const LinePlot = ({
   viewportTriggers,
   rangeProviderProps,
   onSelectRule,
+  hiddenLines,
+  onLineVisibleChange,
   children,
   ref,
   ...rest
@@ -551,11 +576,17 @@ export const LinePlot = ({
           editable={editable}
           activeRangeKey={activeRangeKey}
           resolvedRanges={resolvedRanges}
+          hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
           rangeProviderProps={rangeProviderProps}
         />
       ))}
-      <Legend pKey={key} variant={legendVariant} editable={editable} />
+      <Legend
+        pKey={key}
+        variant={legendVariant}
+        editable={editable}
+        onLineVisibleChange={onLineVisibleChange}
+      />
       <Title pKey={key} editable={editable} />
       <BaseViewport
         initial={initialViewport}

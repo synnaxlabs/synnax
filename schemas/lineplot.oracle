@@ -226,9 +226,6 @@ Line struct {
     downsample_mode DownsampleMode = DownsampleModeDecimate {
         @doc value "selects how the downsample factor is applied."
     }
-    visible         bool = true {
-        @doc value "is whether the line is rendered. Hidden lines remain configured but are not drawn."
-    }
 
     @doc value "is the per-line styling and downsampling configuration."
 }
@@ -460,13 +457,6 @@ LinePlot struct {
         downsample_mode DownsampleMode
 
         @doc value "sets how the downsample factor is applied for the line identified by key."
-    }
-
-    action SetLineVisible {
-        key     string
-        visible bool
-
-        @doc value "sets whether the line identified by key is rendered."
     }
 
     action SetLine {

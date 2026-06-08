@@ -31,6 +31,7 @@ import {
   useSelect,
   useSelectControlState,
   useSelectExists,
+  useSelectHiddenLines,
   useSelectPendingUpload,
   useSelectSelection,
   useSelectViewportMode,
@@ -39,6 +40,7 @@ import {
   internalCreate,
   setActiveToolbarTab,
   setControlState,
+  setLineVisible,
   setMeasureMode,
   setSelectedRule,
   setSelection,
@@ -109,6 +111,14 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     return m;
   }, [resolved]);
   const activeRangeKey = Range.useSelectActiveKey() ?? "recent";
+
+  const hiddenLineKeys = useSelectHiddenLines(layoutKey);
+  const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);
+  const handleLineVisibleChange = useCallback(
+    (lineKey: string, lineVisible: boolean) =>
+      dispatch(setLineVisible({ key: layoutKey, lineKey, visible: lineVisible })),
+    [dispatch, layoutKey],
+  );
 
   const derived = PLinePlot.useSelectLines({ key: layoutKey });
   const csvLines = useMemo<DownloadLine[]>(
@@ -272,6 +282,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             menu: (p) => <RangeAnnotationContextMenu lines={csvLines} range={p} />,
           }}
           onSelectRule={handleSelectRule}
+          hiddenLines={hiddenLines}
+          onLineVisibleChange={handleLineVisibleChange}
           hold={hold}
           onHold={handleHold}
           onContextMenu={menuProps.open}
