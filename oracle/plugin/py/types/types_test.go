@@ -1710,7 +1710,11 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 	source := `
 		@py output "out"
 
-		LinearScale struct { slope float64 }
+		LinearScale struct {
+			slope float64 {
+				@doc value "the slope multiplier."
+			}
+		}
 		NoneScale struct {}
 
 		Scale union on type {
@@ -1725,10 +1729,14 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 		}
 	`
 
-	It("Should render a per-variant docstring on the variant model", func(ctx SpecContext) {
+	It("Should render a per-variant Google docstring with field Attributes", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
-		ExpectContent(resp, "types_gen.py").
-			ToContain("class ScaleLinear(BaseModel):", `"""a linear scale."""`)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"class ScaleLinear(BaseModel):",
+			`"""A linear scale.`,
+			"Attributes:",
+			"slope: The slope multiplier.",
+		)
 	})
 
 	It("Should resolve an array-of-union field to a list of the alias", func(ctx SpecContext) {

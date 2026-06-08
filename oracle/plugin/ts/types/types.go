@@ -2512,11 +2512,10 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- end }}
 {{- $disc := .Discriminator }}
 {{- range .Variants }}
-{{- if .Doc }}
 
+{{ if .Doc -}}
 {{ formatDoc .TypeName .Doc }}
-{{- end }}
-
+{{ end -}}
 export const {{ .SchemaName }} = z.object({
   {{ $disc }}: z.literal("{{ .Value }}"),
 {{- range .Fields }}

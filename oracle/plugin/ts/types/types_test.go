@@ -2650,11 +2650,11 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		`
 	}
 
-	It("Should render a per-variant doc comment on the variant interface", func(ctx SpecContext) {
+	It("Should render a per-variant doc comment directly above the variant schema", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale"), "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`a linear scale.`,
+				"/** ScaleLinear a linear scale. */\nexport const scaleLinearZ = z.object({",
 				`export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}`,
 			)
 	})
