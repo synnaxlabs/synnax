@@ -24,38 +24,6 @@ export interface DataProps {
   layoutKey: string;
 }
 
-const diffChannels = (
-  current: readonly channel.Key[],
-  next: readonly channel.Key[],
-  axisKey: lineplot.YAxisKey,
-): lineplot.Action[] => {
-  const currentSet = new Set(current);
-  const nextSet = new Set(next);
-  const actions: lineplot.Action[] = [];
-  for (const channel of current)
-    if (!nextSet.has(channel))
-      actions.push(lineplot.removeChannel({ axisKey, channel }));
-  for (const channel of next)
-    if (!currentSet.has(channel))
-      actions.push(lineplot.addChannel({ axisKey, channel }));
-  return actions;
-};
-
-const diffRanges = (
-  current: readonly string[],
-  next: readonly string[],
-  axisKey: lineplot.XAxisKey,
-): lineplot.Action[] => {
-  const currentSet = new Set(current);
-  const nextSet = new Set(next);
-  const actions: lineplot.Action[] = [];
-  for (const range of current)
-    if (!nextSet.has(range)) actions.push(lineplot.removeRange({ axisKey, range }));
-  for (const range of next)
-    if (!currentSet.has(range)) actions.push(lineplot.addRange({ axisKey, range }));
-  return actions;
-};
-
 export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const channels = LinePlot.useSelectChannels({ key: layoutKey });
   const ranges = LinePlot.useSelectRanges({ key: layoutKey });
@@ -63,10 +31,13 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
 
   const handleYChannelSelect = useCallback(
     (key: lineplot.AxisKey, value: readonly channel.Key[]): void => {
-      const axis = key as lineplot.YAxisKey;
-      dispatch({ key: layoutKey, actions: diffChannels(channels[axis], value, axis) });
+      const axisKey = key as lineplot.YAxisKey;
+      dispatch({
+        key: layoutKey,
+        actions: [lineplot.setChannels({ axisKey, channels: [...value] })],
+      });
     },
-    [dispatch, layoutKey, channels],
+    [dispatch, layoutKey],
   );
 
   const handleXChannelSelect = useCallback(
@@ -81,10 +52,13 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
   );
 
   const handleRangeSelect = useCallback(
-    (key: lineplot.XAxisKey, value: string[]): void => {
-      dispatch({ key: layoutKey, actions: diffRanges(ranges[key], value, key) });
+    (axisKey: lineplot.XAxisKey, value: string[]): void => {
+      dispatch({
+        key: layoutKey,
+        actions: [lineplot.setRanges({ axisKey, ranges: value })],
+      });
     },
-    [dispatch, layoutKey, ranges],
+    [dispatch, layoutKey],
   );
 
   return (

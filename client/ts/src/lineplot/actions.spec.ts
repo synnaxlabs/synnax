@@ -27,6 +27,7 @@ import {
   setAxisLabelLevel,
   setAxisTickSpacing,
   setAxisType,
+  setChannels,
   setLegendPosition,
   setLegendVisible,
   setLine,
@@ -35,6 +36,7 @@ import {
   setLineDownsampleMode,
   setLineLabel,
   setLineStrokeWidth,
+  setRanges,
   setRule,
   setRuleAxis,
   setRuleColor,
@@ -269,6 +271,141 @@ describe("lineplot reducer", () => {
     it("should target the range so distinct ranges do not invalidate each other", () => {
       const { targets } = reduceAll(empty(), [addRange({ axisKey: "x1", range: r1 })]);
       expect(targets).toEqual([`range:${r1}`]);
+    });
+  });
+
+  describe("setChannels", () => {
+    const r1 = "00000000-0000-0000-0000-000000000001";
+
+    it("should replace the whole channel set on the named y-axis", () => {
+      const state = empty({
+        channels: { x1: 0, x2: 0, y1: [1, 2, 3], y2: [], y3: [], y4: [] },
+      });
+      const out = apply(state, setChannels({ axisKey: "y1", channels: [2, 4] }));
+      expect(out.channels.y1).toEqual([2, 4]);
+    });
+
+    it("should be a no-op when the set is unchanged", () => {
+      const state = empty({
+        channels: { x1: 0, x2: 0, y1: [1, 2], y2: [], y3: [], y4: [] },
+      });
+      const { next, inverse, targets } = reduceAll(state, [
+        setChannels({ axisKey: "y1", channels: [1, 2] }),
+      ]);
+      expect(next.channels.y1).toEqual([1, 2]);
+      expect(inverse).toEqual([]);
+      expect(targets).toEqual([]);
+    });
+
+    it("should target only the channels that changed", () => {
+      const state = empty({
+        channels: { x1: 0, x2: 0, y1: [1, 2], y2: [], y3: [], y4: [] },
+      });
+      const { targets } = reduceAll(state, [
+        setChannels({ axisKey: "y1", channels: [2, 3] }),
+      ]);
+      expect(targets).toEqual(["channel:1", "channel:3"]);
+    });
+
+    it("should round-trip the previous channel set through its inverse", () => {
+      const state = empty({
+        channels: { x1: 0, x2: 0, y1: [1, 2], y2: [], y3: [], y4: [] },
+      });
+      expect(
+        roundTrip(state, setChannels({ axisKey: "y1", channels: [3, 4] })).channels.y1,
+      ).toEqual([1, 2]);
+    });
+
+    it("should drop lines for removed channels and add lines for new ones", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const withLines = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      const out = apply(withLines, setChannels({ axisKey: "y1", channels: [6] }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 6 }),
+      ]);
+    });
+
+    it("should preserve styling of surviving channels and restore dropped lines on undo", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5, 6], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      let s = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      const keep = lineKey({
+        yAxis: "y1",
+        xAxis: "x1",
+        range: r1,
+        xChannel: 10,
+        yChannel: 5,
+      });
+      const drop = lineKey({
+        yAxis: "y1",
+        xAxis: "x1",
+        range: r1,
+        xChannel: 10,
+        yChannel: 6,
+      });
+      s = apply(s, setLineColor({ key: keep, color: color.construct("#ff0000") }));
+      s = apply(s, setLineColor({ key: drop, color: color.construct("#00ff00") }));
+      const out = apply(s, setChannels({ axisKey: "y1", channels: [5] }));
+      const survivor = out.lines.find((l) => l.key === keep);
+      expect(survivor?.color).toEqual(color.construct("#ff0000"));
+      const restored = roundTrip(s, setChannels({ axisKey: "y1", channels: [5] }));
+      const dropped = restored.lines.find((l) => l.key === drop);
+      expect(dropped?.color).toEqual(color.construct("#00ff00"));
+    });
+  });
+
+  describe("setRanges", () => {
+    const r1 = "00000000-0000-0000-0000-000000000001";
+    const r2 = "00000000-0000-0000-0000-000000000002";
+    const r3 = "00000000-0000-0000-0000-000000000003";
+
+    it("should replace the whole range set on the named x-axis", () => {
+      const state = empty({ ranges: { x1: [r1, r2], x2: [] } });
+      const out = apply(state, setRanges({ axisKey: "x1", ranges: [r2, r3] }));
+      expect(out.ranges.x1).toEqual([r2, r3]);
+    });
+
+    it("should be a no-op when the set is unchanged", () => {
+      const state = empty({ ranges: { x1: [r1, r2], x2: [] } });
+      const { next, inverse, targets } = reduceAll(state, [
+        setRanges({ axisKey: "x1", ranges: [r1, r2] }),
+      ]);
+      expect(next.ranges.x1).toEqual([r1, r2]);
+      expect(inverse).toEqual([]);
+      expect(targets).toEqual([]);
+    });
+
+    it("should target only the ranges that changed", () => {
+      const state = empty({ ranges: { x1: [r1, r2], x2: [] } });
+      const { targets } = reduceAll(state, [
+        setRanges({ axisKey: "x1", ranges: [r2, r3] }),
+      ]);
+      expect(targets).toEqual([`range:${r1}`, `range:${r3}`]);
+    });
+
+    it("should round-trip the previous range set through its inverse", () => {
+      const state = empty({ ranges: { x1: [r1, r2], x2: [] } });
+      expect(
+        roundTrip(state, setRanges({ axisKey: "x1", ranges: [r3] })).ranges.x1,
+      ).toEqual([r1, r2]);
+    });
+
+    it("should drop lines for removed ranges and add lines for new ones", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const withLines = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      expect(withLines.lines).toHaveLength(1);
+      const out = apply(withLines, setRanges({ axisKey: "x1", ranges: [r2] }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r2, xChannel: 10, yChannel: 5 }),
+      ]);
     });
   });
 

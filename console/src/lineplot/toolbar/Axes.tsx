@@ -23,6 +23,8 @@ import {
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
+import { CSS } from "@/css";
+
 export interface AxesProps {
   layoutKey: string;
 }
@@ -145,7 +147,7 @@ export const LinePlotAxisControls = ({
     apply(lineplot.setAxisLabelLevel({ key: axisKey, labelLevel: value }));
 
   return (
-    <Flex.Box y style={{ padding: "2rem" }} gap="small">
+    <Flex.Box y className={CSS.BE("line-plot", "toolbar", "axes")} gap="small">
       <Flex.Box x>
         <Input.Item label="Lower Bound" y grow>
           <Input.Numeric
@@ -193,7 +195,10 @@ export const LinePlotAxisControls = ({
           />
         </Input.Item>
         {axis.key.startsWith("y") && (
-          <Input.Item label="Label Direction" style={{ minWidth: 90 }}>
+          <Input.Item
+            label="Label Direction"
+            className={CSS.BE("line-plot", "toolbar", "axes-label-direction")}
+          >
             <Direction.Select
               value={axis.labelDirection}
               onChange={handleLabelDirectionChange}

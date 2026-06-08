@@ -1020,6 +1020,448 @@ describe("lineplot queries", () => {
       expect(result.current.keys).toBe(firstKeys);
       expect(renderCount()).toEqual(countBefore);
     });
+
+    it("useSelectName stays stable across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        name: LinePlot.useSelectName({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const firstName = result.current.name;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+        });
+      });
+      expect(result.current.name).toBe(firstName);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectLegend keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        legend: LinePlot.useSelectLegend({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const firstLegend = result.current.legend;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 7 })],
+        });
+      });
+      expect(result.current.legend).toBe(firstLegend);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectChannels keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        channels: LinePlot.useSelectChannels({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const firstChannels = result.current.channels;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+        });
+      });
+      expect(result.current.channels).toBe(firstChannels);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectRanges keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        ranges: LinePlot.useSelectRanges({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const firstRanges = result.current.ranges;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+        });
+      });
+      expect(result.current.ranges).toBe(firstRanges);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectAxes keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        axes: LinePlot.useSelectAxes({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const firstAxes = result.current.axes;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+        });
+      });
+      expect(result.current.axes).toBe(firstAxes);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectAxis keeps a stable reference when a different axis changes", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        axis: LinePlot.useSelectAxis({ key: seeded.key, axisKey: "y1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const firstAxis = result.current.axis;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setAxisLabel({ key: "x1", label: "Time" })],
+        });
+      });
+      expect(result.current.axis).toBe(firstAxis);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectXAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        xKeys: LinePlot.useSelectXAxisKeys({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.xKeys).toEqual(["x1"]);
+      const firstKeys = result.current.xKeys;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
+        });
+      });
+      expect(result.current.xKeys).toBe(firstKeys);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectXAxis keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        xAxis: LinePlot.useSelectXAxis({ key: seeded.key, axisKey: "x1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.xAxis.type).toEqual("time");
+      const firstXAxis = result.current.xAxis;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
+        });
+      });
+      expect(result.current.xAxis).toBe(firstXAxis);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectYAxis keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        yAxis: LinePlot.useSelectYAxis({ key: seeded.key, axisKey: "y1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const firstYAxis = result.current.yAxis;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+        });
+      });
+      expect(result.current.yAxis).toBe(firstYAxis);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectLineCount stays stable across an edit that does not change the count", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        count: LinePlot.useSelectLineCount({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLine({
+              line: {
+                key: "ln-count-stable",
+                color: color.construct("#00aaff"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.count).toEqual(1));
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLineColor({
+              key: "ln-count-stable",
+              color: color.construct("#ff0000"),
+            }),
+          ],
+        });
+      });
+      expect(result.current.count).toEqual(1);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectLines keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        lines: LinePlot.useSelectLines({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLine({
+              line: {
+                key: "ln-lines-stable",
+                color: color.construct("#00aaff"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.lines).toHaveLength(1));
+      const firstLines = result.current.lines;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+        });
+      });
+      expect(result.current.lines).toBe(firstLines);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectRules keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        rules: LinePlot.useSelectRules({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setRule({
+              rule: {
+                key: "rl-rules-stable",
+                label: "max",
+                color: color.construct("#ff0000"),
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 4.5,
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.rules).toHaveLength(1));
+      const firstRules = result.current.rules;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+        });
+      });
+      expect(result.current.rules).toBe(firstRules);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectLine keeps a stable reference when a different line changes", async () => {
+      const suffix = uuid.create().replace(/-/g, "");
+      const index = await client.channels.create({
+        name: `lnstab_idx_${suffix}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const chA = await client.channels.create({
+        name: `lnstab_a_${suffix}`,
+        dataType: DataType.FLOAT32,
+        index: index.key,
+      });
+      const chB = await client.channels.create({
+        name: `lnstab_b_${suffix}`,
+        dataType: DataType.FLOAT32,
+        index: index.key,
+      });
+      const range = uuid.create();
+      const lineA = lineplotClient.lineKey({
+        yAxis: "y1",
+        xAxis: "x1",
+        range,
+        xChannel: index.key,
+        yChannel: chA.key,
+      });
+      const lineB = lineplotClient.lineKey({
+        yAxis: "y1",
+        xAxis: "x1",
+        range,
+        xChannel: index.key,
+        yChannel: chB.key,
+      });
+      const seeded = await seedPlot();
+      const setup = renderHook(
+        () => ({
+          retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+          dispatch: LinePlot.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(setup.result.current.retrieve.variant).toEqual("success"),
+      );
+      await act(async () => {
+        await setup.result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLine({
+              line: {
+                key: lineA,
+                color: color.construct("#00aaff"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
+            lineplotClient.setLine({
+              line: {
+                key: lineB,
+                color: color.construct("#ff8800"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
+          ],
+        });
+      });
+      let renderCount = 0;
+      const { result } = renderHook(
+        () => {
+          renderCount++;
+          return {
+            line: LinePlot.useSelectLine({ key: seeded.key, lineKey: lineA }),
+            dispatch: LinePlot.useDispatch(),
+          };
+        },
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.line.label).toEqual(`lnstab_a_${suffix}`),
+      );
+      const firstLine = result.current.line;
+      const countBefore = renderCount;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLineColor({
+              key: lineB,
+              color: color.construct("#00ff00"),
+            }),
+          ],
+        });
+      });
+      expect(result.current.line).toBe(firstLine);
+      expect(renderCount).toEqual(countBefore);
+    });
+
+    it("useSelectRule keeps a stable reference when a different rule changes", async () => {
+      const seeded = await seedPlot();
+      const setup = renderHook(
+        () => ({
+          retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+          dispatch: LinePlot.useDispatch(),
+        }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(setup.result.current.retrieve.variant).toEqual("success"),
+      );
+      await act(async () => {
+        await setup.result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setRule({
+              rule: {
+                key: "rl-a",
+                label: "a",
+                color: color.construct("#ff0000"),
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 1,
+              },
+            }),
+            lineplotClient.setRule({
+              rule: {
+                key: "rl-b",
+                label: "b",
+                color: color.construct("#00ff00"),
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 2,
+              },
+            }),
+          ],
+        });
+      });
+      let renderCount = 0;
+      const { result } = renderHook(
+        () => {
+          renderCount++;
+          return {
+            rule: LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-a" }),
+            dispatch: LinePlot.useDispatch(),
+          };
+        },
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.rule?.position).toEqual(1));
+      const firstRule = result.current.rule;
+      const countBefore = renderCount;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setRulePosition({ key: "rl-b", position: 9 })],
+        });
+      });
+      expect(result.current.rule).toBe(firstRule);
+      expect(renderCount).toEqual(countBefore);
+    });
   });
 
   describe("useRetrieveObservableName", () => {

@@ -12,6 +12,7 @@ import { Flex, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
 export interface PropertiesProps {
@@ -46,7 +47,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   };
 
   return (
-    <Flex.Box x style={{ padding: "2rem" }}>
+    <Flex.Box x className={CSS.BE("line-plot", "toolbar", "properties")}>
       <Input.Item label="Title" grow>
         <Input.Text
           value={name}

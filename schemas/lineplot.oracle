@@ -342,6 +342,18 @@ LinePlot struct {
         """
     }
 
+    action SetChannels {
+        axis_key YAxisKey
+        channels channel.Key[]
+
+        @doc value """
+            replaces the entire set of channels bound to the y-axis named by
+            axis_key with channels. Channels absent from the new set are
+            removed and their lines dropped; channels not previously present
+            are added. Existing channels keep their line styling.
+        """
+    }
+
     action SetXChannel {
         axis_key XAxisKey
         channel  channel.Key
@@ -369,6 +381,18 @@ LinePlot struct {
         @doc value """
             removes the range key from the x-axis named by axis_key. No-op
             when the range is not present.
+        """
+    }
+
+    action SetRanges {
+        axis_key XAxisKey
+        ranges   string[]
+
+        @doc value """
+            replaces the entire set of range keys bound to the x-axis named by
+            axis_key with ranges. Ranges absent from the new set are removed
+            and their lines dropped; ranges not previously present are added.
+            Existing ranges keep their line styling.
         """
     }
 

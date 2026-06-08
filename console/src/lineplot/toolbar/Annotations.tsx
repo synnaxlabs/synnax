@@ -26,6 +26,7 @@ import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
+import { CSS } from "@/css";
 import { useSelectSelectedRules } from "@/lineplot/selectors";
 import { setSelectedRule } from "@/lineplot/slice";
 
@@ -58,7 +59,7 @@ const ListItem = ({ layoutKey, ...rest }: ListItemProps): ReactElement | null =>
   return (
     <Select.ListItem
       {...rest}
-      style={{ padding: "0.5rem 1.5rem" }}
+      className={CSS.BE("line-plot", "toolbar", "annotations-item")}
       align="center"
       full="x"
       square={false}
@@ -94,8 +95,13 @@ const List = ({
   const menuProps = Menu.useContextMenu();
   const { data } = PList.useStaticData<string, lineplot.Rule>({ data: rules });
   return (
-    <Flex.Box x pack style={{ width: "20%" }} align="start">
-      <Flex.Box style={{ padding: "0.5rem" }}>
+    <Flex.Box
+      x
+      pack
+      className={CSS.BE("line-plot", "toolbar", "annotations-list")}
+      align="start"
+    >
+      <Flex.Box className={CSS.BE("line-plot", "toolbar", "annotations-add")}>
         <Button.Button tooltip="Add Rule" onClick={onCreate} size="small">
           <Icon.Add />
         </Button.Button>
@@ -183,7 +189,7 @@ const Details = ({ layoutKey, ruleKey }: DetailsProps): ReactElement | null => {
     apply(lineplot.setRuleLineDash({ key: ruleKey, lineDash }));
 
   return (
-    <Flex.Box y grow style={{ padding: "1.5rem 2rem" }}>
+    <Flex.Box y grow className={CSS.BE("line-plot", "toolbar", "annotations-details")}>
       <Flex.Box x wrap>
         <Input.Item label="Label" grow>
           <Input.Text onChange={handleChangeLabel} value={rule.label} />
@@ -192,14 +198,14 @@ const Details = ({ layoutKey, ruleKey }: DetailsProps): ReactElement | null => {
           <Input.Text
             onChange={handleChangeUnits}
             value={rule.units}
-            style={{ width: "15rem" }}
+            className={CSS.BE("line-plot", "toolbar", "annotations-units")}
           />
         </Input.Item>
         <Input.Item label="Position">
           <Input.Numeric
             onChange={handleChangePosition}
             value={Number(rule.position.toFixed(2))}
-            style={{ width: "25rem" }}
+            className={CSS.BE("line-plot", "toolbar", "annotations-position")}
           />
         </Input.Item>
         <Input.Item label="Axis">
@@ -270,7 +276,7 @@ export const Annotations = ({ layoutKey: key }: AnnotationsProps): ReactElement 
   if (shownRuleKey == null || !rules.some((rule) => rule.key === shownRuleKey))
     return <EmptyContent onCreateRule={handleCreateRule} />;
   return (
-    <Flex.Box x style={{ height: "100%" }} empty>
+    <Flex.Box x className={CSS.BE("line-plot", "toolbar", "annotations")} empty>
       <List
         selected={selectedRuleKeys}
         onChange={setSelectedRuleKeys}

@@ -317,6 +317,76 @@ var _ = Describe("Writer", func() {
 				Expect(res.Channels.Y3).To(ConsistOf(channel.Key(2)))
 			})
 
+			It("Should replace a y-axis's whole channel set via SetChannels", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{Y1: []channel.Key{1, 2, 3}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetChannelsAction(lineplot.SetChannelsPayload{
+						AxisKey: lineplot.YAxisKeyY1, Channels: []channel.Key{2, 4},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Channels.Y1).To(Equal([]channel.Key{2, 4}))
+			})
+
+			It("Should reconcile lines when SetChannels replaces the channel set", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetChannelsAction(lineplot.SetChannelsPayload{
+						AxisKey: lineplot.YAxisKeyY1, Channels: []channel.Key{6},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---10---6"))
+			})
+
+			It("Should preserve styling of surviving channels under SetChannels", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
+					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				keep := lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
+					Key:   "y1---x1---r1---10---5",
+					Color: new(color.MustFromHex("#ff0000")),
+				})
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{keep})).
+					To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetChannelsAction(lineplot.SetChannelsPayload{
+						AxisKey: lineplot.YAxisKeyY1, Channels: []channel.Key{5},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Lines).To(HaveLen(1))
+				Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#ff0000"))))
+			})
+
+			It("Should reject SetChannels targeting an x-axis with validate.ErrValidation", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetChannelsAction(lineplot.SetChannelsPayload{
+						AxisKey: lineplot.YAxisKey("x1"), Channels: []channel.Key{1},
+					}),
+				})).Error().To(MatchError(validate.ErrValidation))
+			})
+
 			It("Should replace the single channel bound to an x-axis via SetXChannel", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
@@ -369,6 +439,52 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
 						AxisKey: lineplot.XAxisKey("y1"), Range: uuid.NewString(),
+					}),
+				})).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should replace an x-axis's whole range set via SetRanges", func(ctx SpecContext) {
+				r1, r2, r3 := uuid.NewString(), uuid.NewString(), uuid.NewString()
+				plot := lineplot.LinePlot{
+					Name:   "test",
+					Ranges: lineplot.Ranges{X1: []string{r1, r2}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						AxisKey: lineplot.XAxisKeyX1, Ranges: []string{r2, r3},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Ranges.X1).To(Equal([]string{r2, r3}))
+			})
+
+			It("Should reconcile lines when SetRanges replaces the range set", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						AxisKey: lineplot.XAxisKeyX1, Ranges: []string{"r2"},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r2---10---5"))
+			})
+
+			It("Should reject SetRanges targeting a y-axis with validate.ErrValidation", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						AxisKey: lineplot.XAxisKey("y1"), Ranges: []string{uuid.NewString()},
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
 			})
