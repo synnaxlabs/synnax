@@ -2642,6 +2642,8 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 					@doc value "a linear scale."
 				}
 				none NoneScale
+
+				@doc value "determines how raw values are transformed."
 			}
 
 			Channel struct {
@@ -2649,6 +2651,13 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 			}
 		`
 	}
+
+	It("Should render the union doc directly above the discriminatedUnion, not the first variant", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale"), "ni", loader, typesPlugin)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring("/** Scale determines how raw values are transformed. */\nexport const scaleZ = z.discriminatedUnion("))
+		Expect(content).ToNot(ContainSubstring("/** Scale determines how raw values are transformed. */\nexport const scaleLinearZ"))
+	})
 
 	It("Should render a per-variant doc comment directly above the variant schema", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale"), "ni", loader, typesPlugin)

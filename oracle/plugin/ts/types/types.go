@@ -2506,10 +2506,6 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- end }}
 {{- else if .IsUnion }}
 {{- with .Union }}
-{{- if .Doc }}
-
-{{ formatDoc .TSName .Doc }}
-{{- end }}
 {{- $disc := .Discriminator }}
 {{- range .Variants }}
 
@@ -2542,6 +2538,9 @@ export const {{ .TypeSchemaName }} = z.enum({{ .TypesConst }});
 export type {{ .TypeName }} = z.infer<typeof {{ .TypeSchemaName }}>;
 {{- end }}
 
+{{ if .Doc -}}
+{{ formatDoc .TSName .Doc }}
+{{ end -}}
 export const {{ .SchemaName }} = z.discriminatedUnion("{{ .Discriminator }}", [
 {{- range .Variants }}
   {{ .SchemaName }},

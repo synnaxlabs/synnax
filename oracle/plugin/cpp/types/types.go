@@ -1590,7 +1590,7 @@ using {{$td.Name}} = {{$td.CppType}};
 {{end}}
 {{- if $u.Doc}}
 {{formatDoc $u.Name $u.Doc}}
-{{end}}
+{{- end}}
 using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end}}{{$v.TypeName}}{{end}}>;
 
 {{$u.Name}} parse_{{$u.SnakeName}}(x::json::Parser parser);

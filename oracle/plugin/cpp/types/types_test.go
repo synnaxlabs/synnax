@@ -1616,6 +1616,8 @@ var _ = Describe("C++ Union Generation", func() {
 			Scale union on type {
 				linear LinearScale
 				none NoneScale
+
+				@doc value "determines how raw values are transformed."
 			}
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
@@ -1626,7 +1628,7 @@ var _ = Describe("C++ Union Generation", func() {
 				`double slope = 0;`,
 				`struct ScaleNone {`,
 				`std::string type = "none";`,
-				`using Scale = std::variant<ScaleLinear, ScaleNone>;`,
+				"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<ScaleLinear, ScaleNone>;",
 				`Scale parse_scale(x::json::Parser parser);`,
 				`[[nodiscard]] x::json::json to_json(const Scale& value);`,
 			)

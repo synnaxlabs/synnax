@@ -1722,12 +1722,21 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 				@doc value "a linear scale."
 			}
 			none NoneScale
+
+			@doc value "determines how raw values are transformed."
 		}
 
 		Channel struct {
 			scales Scale[]
 		}
 	`
+
+	It("Should render the union doc as a comment above the Annotated alias", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"# Determines how raw values are transformed.\nScale = Annotated[",
+		)
+	})
 
 	It("Should render a per-variant Google docstring with field Attributes", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
