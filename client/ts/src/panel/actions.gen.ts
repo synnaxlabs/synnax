@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { ontology } from "@/ontology";
-import { keyZ, type Panel, tabZ } from "@/panel/types.gen";
+import { keyZ, type Panel, tabViewZ, tabZ } from "@/panel/types.gen";
 
 /**
  * Rename renames the panel. When the panel is owned by a user (draft),
@@ -89,8 +89,9 @@ export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;
 /**
  * SetTabResource sets the visualization resource displayed by the tab with the
  * given key, swapping it in place without changing the tab's
- * identity or position. Used to fill a freshly inserted
- * null-resource tab once the user picks a visualization.
+ * identity or position. Clears any view set on the tab. Used to
+ * fill a freshly inserted empty tab once the user picks a
+ * visualization.
  */
 export const setTabResourcePayloadZ = z.object({
   key: z.uuid(),
@@ -98,6 +99,18 @@ export const setTabResourcePayloadZ = z.object({
 });
 
 export type SetTabResourcePayload = z.infer<typeof setTabResourcePayloadZ>;
+
+/**
+ * SetTabView sets the inline view displayed by the tab with the given key,
+ * swapping it in place without changing the tab's identity or
+ * position. Clears any resource set on the tab.
+ */
+export const setTabViewPayloadZ = z.object({
+  key: z.uuid(),
+  view: tabViewZ,
+});
+
+export type SetTabViewPayload = z.infer<typeof setTabViewPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
@@ -110,6 +123,7 @@ export const actionZ = z.discriminatedUnion("type", [
     type: z.literal("set_tab_resource"),
     setTabResource: setTabResourcePayloadZ,
   }),
+  z.object({ type: z.literal("set_tab_view"), setTabView: setTabViewPayloadZ }),
 ]);
 
 export type Action = z.infer<typeof actionZ>;
@@ -149,6 +163,11 @@ export const setTabResource = (payload: SetTabResourcePayload): Action => ({
   setTabResource: payload,
 });
 
+export const setTabView = (payload: SetTabViewPayload): Action => ({
+  type: "set_tab_view",
+  setTabView: payload,
+});
+
 export type HandlerResult = actions.HandlerResult<Action>;
 
 export type ReduceAllResult = actions.ReduceAllResult<Panel, Action>;
@@ -164,6 +183,7 @@ export interface Handlers {
     state: Draft<Panel>,
     payload: SetTabResourcePayload,
   ) => HandlerResult;
+  setTabView: (state: Draft<Panel>, payload: SetTabViewPayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -183,6 +203,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.resizeSplit(state, action.resizeSplit);
       case "set_tab_resource":
         return handlers.setTabResource(state, action.setTabResource);
+      case "set_tab_view":
+        return handlers.setTabView(state, action.setTabView);
     }
   });
 

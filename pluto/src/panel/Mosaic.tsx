@@ -9,23 +9,35 @@
 
 import { ontology, panel } from "@synnaxlabs/client";
 import { type location, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ComponentType, type ReactElement, useCallback, useMemo } from "react";
 
+import { context } from "@/context";
 import { Mosaic as Base } from "@/mosaic";
 import { useDispatch, useRetrieve } from "@/panel/queries";
 import { Portal } from "@/portal";
-import { type Tabs } from "@/tabs";
+import { Tabs } from "@/tabs";
 
-// MosaicTabRenderProps is the contract for the children render prop. The
-// component decides how to render the visualization referenced by `resource`;
-// the panel layer is intentionally renderer-agnostic so different consumers
-// (console, integration tests, future apps) can plug in their own resolution.
+// MosaicTabRenderProps is the contract for the children (content) render prop. A
+// tab's content is a union: a resource (content with a backing document) or an
+// inline view. The consumer decides how to render each; the panel layer is
+// intentionally renderer-agnostic so different consumers (console, integration
+// tests, future apps) plug in their own resolution.
 export interface MosaicTabRenderProps {
   tabKey: string;
-  // resource is null when the tab has not yet been assigned a visualization. The
-  // consumer renders its selector for a null resource and swaps it via SetTabResource.
+  // resource and view are both null when the tab has no content yet. The consumer
+  // renders its selector in that case and swaps in content via SetTabResource /
+  // SetTabView. At most one is non-null.
   resource: ontology.ID | null;
+  view: panel.TabView | null;
   visible: boolean;
+}
+
+// MosaicTabNameProps is the contract for the tabName render prop. It extends the
+// base tab-name props with the tab's content union so the consumer can resolve a
+// display name (and rename behavior) from the underlying resource or view.
+export interface MosaicTabNameProps extends Tabs.NameProps {
+  resource: ontology.ID | null;
+  view: panel.TabView | null;
 }
 
 // MosaicProps mirrors Base.MosaicProps where the panel-aware shell adds value
@@ -41,7 +53,6 @@ export interface MosaicProps extends Pick<
   | "emptyContent"
   | "addTooltip"
   | "className"
-  | "Name"
   | "onFileDrop"
 > {
   panelKey: panel.Key;
@@ -52,30 +63,38 @@ export interface MosaicProps extends Pick<
   // onSelect fires when the operator clicks a tab. The panel-aware shell does
   // not persist this — consumers route it into their session-state store.
   onSelect?: (tabKey: string) => void;
-  // onRenameTab forwards inline rename gestures from the tab strip. Tab display
-  // names are derived from the referenced resource, so renaming a tab really
-  // means renaming the underlying resource — a per-type operation the panel
-  // layer cannot perform on its own.
-  onRenameTab?: (tabKey: string, name: string, resource: ontology.ID) => void;
+  // children renders a tab's content from its resolved content union.
   children: (props: MosaicTabRenderProps) => ReactElement | null;
+  // tabName renders a tab's display name from its content union. When omitted, tab
+  // strips show the default (empty) name. Rename, when supported, is the consumer's
+  // to wire through the underlying content (e.g. renaming the resource), so the
+  // panel layer needs no rename prop of its own.
+  tabName?: (props: MosaicTabNameProps) => ReactElement | null;
+}
+
+// TabContent is a tab's resolved content union. At most one of resource or view is
+// non-null; both null means the tab has no content yet.
+export interface TabContent {
+  resource: ontology.ID | null;
+  view: panel.TabView | null;
 }
 
 // adaptToMosaic walks the typed panel tree and produces the Base.Node shape
 // with path-derived numeric keys (root = 1, first child = 2k, last child =
-// 2k + 1). It also builds a tab → resource map so the render prop can
-// resolve a tab's reference without re-traversing the tree.
+// 2k + 1). It also builds a tab → content map so the render props can
+// resolve a tab's content without re-traversing the tree.
 interface AdaptResult {
   root: Base.Node;
-  // Maps every tab key to its resource, or null when the tab has no resource yet.
-  // A key absent from the map is not a tab in this panel.
-  resources: Map<string, ontology.ID | null>;
+  // Maps every tab key to its content union. A key absent from the map is not a
+  // tab in this panel.
+  contents: Map<string, TabContent>;
 }
 
 const adaptToMosaic = (
   root: panel.Node | undefined,
   activeTab: string | undefined,
 ): AdaptResult => {
-  const resources = new Map<string, ontology.ID | null>();
+  const contents = new Map<string, TabContent>();
   const visit = (node: panel.Node | undefined, key: number): Base.Node => {
     if (node == null) return { key };
     if (node.split != null)
@@ -89,8 +108,10 @@ const adaptToMosaic = (
 
     if (node.leaf == null) return { key, tabs: [] };
     const tabs: Tabs.Tab[] = node.leaf.tabs.map((t) => {
-      resources.set(t.key, t.resource ?? null);
-      return { tabKey: t.key, name: "", closable: true, editable: true };
+      contents.set(t.key, { resource: t.resource ?? null, view: t.view ?? null });
+      // Only resource tabs carry a renameable backing document; view and empty
+      // tabs are not editable.
+      return { tabKey: t.key, name: "", closable: true, editable: t.resource != null };
     });
     const selected =
       activeTab != null && tabs.some((t) => t.tabKey === activeTab)
@@ -98,7 +119,32 @@ const adaptToMosaic = (
         : tabs[0]?.tabKey;
     return { key, tabs, selected };
   };
-  return { root: visit(root, 1), resources };
+  return { root: visit(root, 1), contents };
+};
+
+// TabNameContext carries the per-tab content map and the consumer's tabName
+// resolver down to the Base.Mosaic tab strip, which only exposes Tabs.NameProps.
+// A module-stable Name component reads it so tab names never remount on tree
+// changes.
+interface TabNameContextValue {
+  contents: Map<string, TabContent>;
+  tabName?: (props: MosaicTabNameProps) => ReactElement | null;
+}
+
+const [TabNameContext, useTabNameContext] = context.create<TabNameContextValue>({
+  displayName: "Panel.Mosaic.TabName",
+  defaultValue: { contents: new Map() },
+});
+
+const TabName: ComponentType<Tabs.NameProps> = (props) => {
+  const { contents, tabName } = useTabNameContext();
+  if (tabName == null) return <Tabs.DefaultName {...props} />;
+  const content = contents.get(props.tabKey);
+  return tabName({
+    ...props,
+    resource: content?.resource ?? null,
+    view: content?.view ?? null,
+  });
 };
 
 // Mosaic renders a Flux-backed Panel as a Base.Mosaic. The architecture is a
@@ -108,27 +154,27 @@ const adaptToMosaic = (
 // observe each mutation through the panel action channel and apply it via
 // the panel reducer, so cross-client sync is automatic.
 //
-// Tab content is delivered through the children render prop, which receives
-// the tabKey and its underlying ontology resource. The portal pattern
-// borrowed from Base.Mosaic preserves content lifetime across structural
-// changes — moving a tab between leaves does not unmount its content.
+// Tab content is delivered through the children render prop, which receives the
+// tabKey and its resolved content union. The portal pattern borrowed from
+// Base.Mosaic preserves content lifetime across structural changes — moving a tab
+// between leaves does not unmount its content.
 //
-// Tab display names are the consumer's responsibility through the Name prop,
-// which Base.Mosaic invokes per tab. The default tab name on the underlying
-// Tabs.Tab is empty; consumers supply a Name component that resolves the
-// referenced resource via its Flux store.
+// Tab display names are the consumer's responsibility through the tabName render
+// prop, which receives the same content union. The default tab name on the
+// underlying Tabs.Tab is empty; consumers resolve a name (and rename) from the
+// referenced resource or view.
 export const Mosaic = ({
   panelKey,
   activeTab,
   onSelect,
-  onRenameTab,
   children,
+  tabName,
   ...rest
 }: MosaicProps): ReactElement | null => {
   const { data: p } = useRetrieve({ key: panelKey });
   const { dispatch } = useDispatch();
 
-  const { root, resources } = useMemo(
+  const { root, contents } = useMemo(
     () => adaptToMosaic(p?.root, activeTab),
     [p?.root, activeTab],
   );
@@ -198,24 +244,25 @@ export const Mosaic = ({
     [dispatch, panelKey],
   );
 
-  const handleRename = useCallback(
-    (tabKey: string, name: string) => {
-      const resource = resources.get(tabKey);
-      if (resource == null) return;
-      onRenameTab?.(tabKey, name, resource);
-    },
-    [resources, onRenameTab],
-  );
-
   const [portalRef, portalNodes] = Base.usePortal({
     root,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => {
-      if (!resources.has(tabKey)) return null;
-      const resource = resources.get(tabKey) ?? null;
-      return children({ tabKey, resource, visible: visible !== false });
+      const content = contents.get(tabKey);
+      if (content == null) return null;
+      return children({
+        tabKey,
+        resource: content.resource,
+        view: content.view,
+        visible: visible !== false,
+      });
     },
   });
+
+  const tabNameContext = useMemo<TabNameContextValue>(
+    () => ({ contents, tabName }),
+    [contents, tabName],
+  );
 
   const renderProp = useCallback<Tabs.RenderProp>(
     (props) => {
@@ -229,7 +276,7 @@ export const Mosaic = ({
   if (p == null) return null;
 
   return (
-    <>
+    <TabNameContext value={tabNameContext}>
       {portalNodes}
       <Base.Mosaic
         {...rest}
@@ -240,10 +287,10 @@ export const Mosaic = ({
         onResize={handleResize}
         onClose={handleClose}
         onCreate={handleCreate}
-        onRename={onRenameTab != null ? handleRename : undefined}
+        Name={tabName != null ? TabName : undefined}
       >
         {renderProp}
       </Base.Mosaic>
-    </>
+    </TabNameContext>
   );
 };

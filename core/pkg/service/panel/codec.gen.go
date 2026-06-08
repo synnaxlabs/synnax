@@ -12,6 +12,8 @@
 package panel
 
 import (
+	"encoding/json"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/spatial"
@@ -198,6 +200,14 @@ func (t Tab) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if t.View != nil {
+		w.Bool(true)
+		if err := (*t.View).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -216,6 +226,48 @@ func (t *Tab) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			t.Resource = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv TabView
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			t.View = &hv
+		}
+	}
+	return nil
+}
+
+func (tv TabView) EncodeOrc(w *orc.Writer) error {
+	w.String(tv.Type)
+	{
+		b, err := json.Marshal(tv.Args)
+		if err != nil {
+			return err
+		}
+		w.WriteWithLen(b)
+	}
+	return nil
+}
+
+func (tv *TabView) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if tv.Type, err = r.String(); err != nil {
+		return err
+	}
+	{
+		b, err := r.ReadWithLen()
+		if err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &tv.Args); err != nil {
+			return err
 		}
 	}
 	return nil

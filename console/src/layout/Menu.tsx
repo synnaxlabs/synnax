@@ -7,19 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Menu, Mosaic, Text } from "@synnaxlabs/pluto";
-import { type direction } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
+import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components/context-menu";
-import { useSelectMosaic } from "@/layout/selectors";
-import { moveMosaicTab, setFocus, splitMosaicNode } from "@/layout/slice";
-import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
+import { setFocus } from "@/layout/slice";
 import { useRemover } from "@/layout/useRemover";
-import { Runtime } from "@/runtime";
 
 interface MenuItemProps {
   layoutKey: string;
@@ -36,49 +31,6 @@ const FocusMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
     >
       <Icon.Focus />
       Focus
-    </Menu.Item>
-  );
-};
-
-const useMoveIntoMainWindow = () => {
-  const store = useStore();
-  return (layoutKey: string) => {
-    store.dispatch(
-      moveMosaicTab({ windowKey: MAIN_WINDOW, tabKey: layoutKey, loc: "center" }),
-    );
-  };
-};
-
-const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | null => {
-  const openInNewWindow = useOpenInNewWindow();
-  const isMain = useSelectWindowKey() === MAIN_WINDOW;
-  if (!isMain) return null;
-  return (
-    <Menu.Item
-      itemKey="openInNewWindow"
-      onClick={() => openInNewWindow(layoutKey)}
-      trigger={["Control", "O"]}
-      triggerIndicator
-    >
-      <Icon.OpenInNewWindow />
-      Open in new window
-    </Menu.Item>
-  );
-};
-
-const MoveToMainWindowMenuItem = ({
-  layoutKey,
-}: MenuItemProps): ReactElement | null => {
-  const moveIntoMainWindow = useMoveIntoMainWindow();
-  const windowKey = useSelectWindowKey();
-  if (windowKey === MAIN_WINDOW) return null;
-  return (
-    <Menu.Item
-      itemKey="moveIntoMainWindow"
-      onClick={() => moveIntoMainWindow(layoutKey)}
-    >
-      <Icon.OpenInNewWindow />
-      Move to main window
     </Menu.Item>
   );
 };
@@ -106,50 +58,20 @@ const RenameMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => (
   />
 );
 
-interface SplitMenuItemProps extends MenuItemProps {}
-
-const splitMenuItemFactory = (
-  direction: direction.Direction,
-): FC<SplitMenuItemProps> => {
-  const C = ({ layoutKey }: SplitMenuItemProps) => {
-    const dispatch = useDispatch();
-    const [windowKey, mosaic] = useSelectMosaic();
-    if (windowKey == null || mosaic == null) return null;
-    const canSplit = Mosaic.canSplit(mosaic, layoutKey);
-    if (!canSplit) return null;
-    return (
-      <Menu.Item
-        itemKey={`split${direction}`}
-        onClick={() =>
-          dispatch(splitMosaicNode({ windowKey, tabKey: layoutKey, direction }))
-        }
-      >
-        {direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
-        Split {direction === "x" ? "horizontally" : "vertically"}
-      </Menu.Item>
-    );
-  };
-  C.displayName = `Split${direction.toUpperCase()}MenuItem`;
-  return C;
-};
-const SplitXMenuItem = splitMenuItemFactory("x");
-const SplitYMenuItem = splitMenuItemFactory("y");
-
 export interface MenuItemsProps {
   layoutKey: string;
 }
 
+// MenuItems renders the shared layout context-menu items. Split and multi-window
+// items (split node, open/move to window) were mosaic operations; on the panel
+// model splitting is a tab-strip gesture and multi-window is rebuilt in a later
+// phase, so they are not included here.
 export const MenuItems = ({ layoutKey }: MenuItemsProps): ReactElement => (
   <>
     <RenameMenuItem layoutKey={layoutKey} />
     <CloseMenuItem layoutKey={layoutKey} />
     <Menu.Divider />
     <FocusMenuItem layoutKey={layoutKey} />
-    {Runtime.ENGINE === "tauri" && <OpenInNewWindowMenuItem layoutKey={layoutKey} />}
-    <MoveToMainWindowMenuItem layoutKey={layoutKey} />
-    <Menu.Divider />
-    <SplitXMenuItem layoutKey={layoutKey} />
-    <SplitYMenuItem layoutKey={layoutKey} />
     <Menu.Divider />
     <ContextMenu.ReloadConsoleItem />
   </>

@@ -12,13 +12,15 @@ import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
+import { LAYOUT_TYPE } from "@/lineplot/layout";
 import { useSelectControlStateOptional } from "@/lineplot/selectors";
 import { setControlState } from "@/lineplot/slice";
 
 export type Config = Triggers.ModeConfig<"toggle">;
 
 export const useTriggerHold = (triggers: Config): void => {
-  const { layoutKey: activeTab } = Layout.useSelectActiveMosaicTabState();
+  const active = Layout.useActiveResource();
+  const activeTab = active?.type === LAYOUT_TYPE ? active.key : null;
   const controlState = useSelectControlStateOptional(activeTab ?? "");
   const ref = useSyncedRef(controlState?.hold);
   const dispatch = useDispatch();

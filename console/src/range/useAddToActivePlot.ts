@@ -20,6 +20,9 @@ import { type RootState } from "@/store";
 export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
   const store = useStore<RootState>();
+  // Resolved at render and captured by the callback so an add targets the plot the
+  // user had active when they triggered it.
+  const active = Layout.useActiveResource();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(
       ({ data, variant, status }) => {
@@ -27,7 +30,6 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           if (variant === "error") addStatus(status);
           return;
         }
-        const active = Layout.selectActiveMosaicLayout(store.getState());
         if (active == null) return;
         store.dispatch(add({ ranges: fromClientRange(data) }));
         store.dispatch(
@@ -39,8 +41,8 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           }),
         );
       },
-      [store],
+      [store, active, addStatus],
     ),
   });
-  return useCallback((keys: string[]) => retrieve({ keys }), []);
+  return useCallback((keys: string[]) => retrieve({ keys }), [retrieve]);
 };

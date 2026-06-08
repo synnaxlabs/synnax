@@ -9,15 +9,10 @@
 
 import { type Middleware } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW, selectWindowKey } from "@synnaxlabs/drift";
-import { Mosaic } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 
 import { select, selectSliceState } from "@/layout/selectors";
 import {
-  clearProject,
-  MOSAIC_WINDOW_TYPE,
-  moveMosaicTab,
-  type MoveMosaicTabPayload,
   place,
   type PlacePayload,
   remove,
@@ -29,37 +24,6 @@ import {
   type WindowProps,
 } from "@/layout/slice";
 import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
-
-export const closeWindowOnEmptyMosaicEffect: MiddlewareEffect<
-  StoreState & Drift.StoreState,
-  MoveMosaicTabPayload | RemovePayload,
-  Drift.CloseWindowPayload
-> = ({ store }) => {
-  const s = store.getState();
-  if (selectWindowKey(s) !== MAIN_WINDOW) return;
-  const { mosaics } = selectSliceState(s);
-  // Close windows with empty mosaics.
-  Object.entries(mosaics).forEach(([k, { root }]) => {
-    if (k === Drift.MAIN_WINDOW || !Mosaic.isEmpty(root)) return;
-    const win = Drift.selectWindow(s, k);
-    if (win != null) store.dispatch(Drift.closeWindow({ key: k }));
-  });
-  // Close windows whose mosaics no longer exist.
-  const windows = Drift.selectWindows(s);
-  windows.forEach((win) => {
-    if (win.key == null) {
-      console.error("UNEXPECTED ERROR: Drift WindowState.key is null");
-      return;
-    }
-    if (
-      win.key == null ||
-      !win.key.startsWith(MOSAIC_WINDOW_TYPE) ||
-      win.key in mosaics
-    )
-      return;
-    store.dispatch(Drift.closeWindow({ key: win.key }));
-  });
-};
 
 const createWindowAction = (
   key: string,
@@ -129,21 +93,6 @@ export const createWindowsOnSetProjectEffect: MiddlewareEffect<
     });
 };
 
-const deleteLayoutsOnMosaicCloseEffect: MiddlewareEffect<
-  Drift.StoreState & StoreState,
-  Drift.CloseWindowPayload,
-  RemovePayload
-> = ({ store, action: { payload } }) => {
-  if (selectWindowKey(store.getState()) !== MAIN_WINDOW) return;
-  if (payload.key == null || !payload.key.startsWith(MOSAIC_WINDOW_TYPE)) return;
-  const { layouts } = selectSliceState(store.getState());
-  // remove all layouts associated with the mosaic window
-  const layoutKeys = Object.values(layouts)
-    .filter((layout) => layout.windowKey === payload.key)
-    .map((layout) => layout.key);
-  store.dispatch(remove({ keys: layoutKeys }));
-};
-
 /**
  * Injects the current window key into setNavDrawerVisible actions whose payload
  * omits one. Lets call sites dispatch the action without selecting the window key
@@ -160,12 +109,7 @@ const injectNavDrawerWindowKey: Middleware<{}, StoreState & Drift.StoreState> =
 
 export const MIDDLEWARE = [
   injectNavDrawerWindowKey,
-  effectMiddleware(
-    [moveMosaicTab.type, remove.type, clearProject.type, setProject.type],
-    [closeWindowOnEmptyMosaicEffect],
-  ),
   effectMiddleware([place.type], [createWindowOnPlaceEffect]),
   effectMiddleware([remove.type], [closeWindowOnRemoveEffect], true),
   effectMiddleware([setProject.type], [createWindowsOnSetProjectEffect]),
-  effectMiddleware([Drift.closeWindow.type], [deleteLayoutsOnMosaicCloseEffect]),
 ];

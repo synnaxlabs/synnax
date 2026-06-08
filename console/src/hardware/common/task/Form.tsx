@@ -42,11 +42,16 @@ export interface FormLayoutArgs {
 
 export interface Layout extends Layout.BaseState<FormLayoutArgs> {}
 
+// TODO(panels): task forms are args-driven and not yet slice-backed, so they cannot
+// be panel resource tabs. Until they are converted, open them in a window (bypass) so
+// they stay functional with their existing slice-sourced args. Their end state is a
+// resource tab keyed by the task.
 export const LAYOUT: Omit<Layout, "type"> = {
   name: "Configure",
   icon: "Task",
-  location: "mosaic",
+  location: "window",
   args: {},
+  window: { navTop: true, size: { width: 1000, height: 700 }, resizable: true },
 };
 
 export interface getInitialValuesArgs {

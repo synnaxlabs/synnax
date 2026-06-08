@@ -26,6 +26,7 @@ const (
 	ActionTypeSplitLeaf      = "split_leaf"
 	ActionTypeResizeSplit    = "resize_split"
 	ActionTypeSetTabResource = "set_tab_resource"
+	ActionTypeSetTabView     = "set_tab_view"
 )
 
 // RenamePayload renames the panel. When the panel is owned by a user (draft), the
@@ -74,11 +75,20 @@ type ResizeSplitPayload struct {
 }
 
 // SetTabResourcePayload sets the visualization resource displayed by the tab with the
-// given key, swapping it in place without changing the tab's identity or position. Used
-// to fill a freshly inserted null-resource tab once the user picks a visualization.
+// given key, swapping it in place without changing the tab's identity or position.
+// Clears any view set on the tab. Used to fill a freshly inserted empty tab once the
+// user picks a visualization.
 type SetTabResourcePayload struct {
 	Key      uuid.UUID   `json:"key" msgpack:"key"`
 	Resource ontology.ID `json:"resource" msgpack:"resource"`
+}
+
+// SetTabViewPayload sets the inline view displayed by the tab with the given key,
+// swapping it in place without changing the tab's identity or position. Clears any
+// resource set on the tab.
+type SetTabViewPayload struct {
+	Key  uuid.UUID `json:"key" msgpack:"key"`
+	View TabView   `json:"view" msgpack:"view"`
 }
 
 // Action is a discriminated union for all Panel mutations. Type names
@@ -92,6 +102,7 @@ type Action struct {
 	SplitLeaf      *SplitLeafPayload      `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
 	ResizeSplit    *ResizeSplitPayload    `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
 	SetTabResource *SetTabResourcePayload `json:"set_tab_resource,omitempty" msgpack:"set_tab_resource,omitempty"`
+	SetTabView     *SetTabViewPayload     `json:"set_tab_view,omitempty" msgpack:"set_tab_view,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -138,6 +149,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTabResource.Handle(state)
+		case ActionTypeSetTabView:
+			if a.SetTabView == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetTabView.Handle(state)
 		default:
 			continue
 		}
@@ -181,4 +197,9 @@ func NewResizeSplitAction(p ResizeSplitPayload) Action {
 // NewSetTabResourceAction wraps a SetTabResourcePayload in an Action envelope.
 func NewSetTabResourceAction(p SetTabResourcePayload) Action {
 	return Action{Type: ActionTypeSetTabResource, SetTabResource: &p}
+}
+
+// NewSetTabViewAction wraps a SetTabViewPayload in an Action envelope.
+func NewSetTabViewAction(p SetTabViewPayload) Action {
+	return Action{Type: ActionTypeSetTabView, SetTabView: &p}
 }

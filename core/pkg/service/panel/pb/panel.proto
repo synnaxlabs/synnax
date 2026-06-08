@@ -14,22 +14,42 @@ syntax = "proto3";
 package service.panel.pb;
 
 import "core/pkg/distribution/ontology/pb/ontology.proto";
+import "google/protobuf/struct.proto";
 import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/panel/pb";
 
-// Tab is a single tab in a leaf. Display attributes (name, icon, closability) are
-// resolved at render time from the referenced resource. The same resource may be
-// referenced by multiple tabs in the same or other panels.
+// TabView is a self-describing, inline view displayed by a tab. Unlike a resource, a
+// view has no backing core document: it carries its own type and opaque args. Used for
+// app-views and tools (docs, explorers, about, the visualization picker).
+message TabView {
+  // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
+  // a renderer.
+  string type = 1;
+  // args is an opaque, Console-owned configuration payload for the view. Core never
+  // interprets it; it round-trips as-is.
+  google.protobuf.Struct args = 2;
+}
+
+// Tab is a single tab in a leaf. Tab content is a union: either a resource (a backing
+// core document, e.g. a line plot) or a view (an inline, self-describing app-view, e.g.
+// docs). Exactly one of resource or view is set; when both are null the tab renders the
+// visualization selector. Display attributes (name, icon, closability) are resolved at
+// render time from the content. The same content may be referenced by multiple tabs in
+// the same or other panels.
 message Tab {
   // key is the stable unique identifier of this tab within the panel. It is independent
-  // of the referenced resource, so a tab's resource may be swapped without changing the
-  // tab's identity or position.
+  // of the tab's content, so a tab's content may be swapped without changing the tab's
+  // identity or position.
   string key = 1;
-  // resource is the visualization resource displayed by this tab. It is null until a
-  // resource is chosen; a null-resource tab renders the visualization selector at render
-  // time and is swapped to a real resource via SetTabResource.
+  // resource is the visualization resource displayed by this tab, set via SetTabResource.
+  // Exactly one of resource or view is set; when both are null the tab renders the
+  // visualization selector at render time. Setting one clears the other.
   optional .distribution.ontology.pb.ID resource = 2;
+  // view is the inline view displayed by this tab, set via SetTabView. Exactly one of
+  // resource or view is set; when both are null the tab renders the visualization
+  // selector at render time. Setting one clears the other.
+  optional TabView view = 3;
 }
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.

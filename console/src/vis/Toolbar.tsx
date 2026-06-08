@@ -59,13 +59,13 @@ const NoVis = (): ReactElement => {
 };
 
 const Content = (): ReactElement => {
-  const layout = Layout.useSelectActiveMosaicLayout();
-  if (layout == null) return <NoVis />;
-  const Toolbar = TOOLBARS[layout.type as LayoutType];
+  const active = Layout.useActiveResource();
+  if (active == null) return <NoVis />;
+  const Toolbar = TOOLBARS[active.type as LayoutType];
   if (Toolbar == null) return <NoVis />;
   return (
     <Errors.SuspenseBoundary>
-      <Toolbar layoutKey={layout.key} />
+      <Toolbar layoutKey={active.key} />
     </Errors.SuspenseBoundary>
   );
 };

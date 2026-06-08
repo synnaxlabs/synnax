@@ -159,7 +159,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   };
 
   const rng = ranges.find((r) => r.key === key);
-  const activeLayout = Layout.useSelectActiveMosaicLayout();
+  const activeResource = Layout.useActiveResource();
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
   const activeRange = useSelect();
@@ -214,7 +214,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
             </Menu.Item>
           )}
           <Menu.Divider />
-          {activeLayout?.type === LINE_PLOT_LAYOUT_TYPE &&
+          {activeResource?.type === LINE_PLOT_LAYOUT_TYPE &&
             hasLinePlotUpdatePermission && (
               <Menu.Item
                 itemKey="addToActivePlot"

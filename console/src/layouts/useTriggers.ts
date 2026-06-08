@@ -18,11 +18,9 @@ import {
   selectModals,
 } from "@/layout/selectors";
 import { setFocus } from "@/layout/slice";
-import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
 import { usePlacer } from "@/layout/usePlacer";
 import { useRemover } from "@/layout/useRemover";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
-import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
@@ -30,7 +28,6 @@ const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 export const useTriggers = (): void => {
   const store = useStore<RootState>();
   const remove = useRemover();
-  const openInNewWindow = useOpenInNewWindow();
   const placeLayout = usePlacer();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const createComponentEnabled = useSelectorVisible();
@@ -73,22 +70,7 @@ export const useTriggers = (): void => {
           CLOSE_WINDOW_TIMEOUT.milliseconds,
         );
       },
-      [store, remove, openInNewWindow],
-    ),
-  });
-  Triggers.use({
-    triggers: [["Control", "O"]],
-    loose: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        if (Runtime.ENGINE !== "tauri") return;
-        const state = store.getState();
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
-        if (active == null) return;
-        openInNewWindow(active);
-      },
-      [store, openInNewWindow],
+      [store, remove],
     ),
   });
   Triggers.use({

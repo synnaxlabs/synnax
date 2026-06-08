@@ -38,12 +38,12 @@ import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
 
 const handleSelect: Ontology.HandleSelect = ({
+  client,
   store,
   placeLayout,
+  handleError,
   selection,
 }): void => {
-  const state = store.getState();
-  const layout = Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
   const nonVirtualSelection = selection
@@ -52,28 +52,35 @@ const handleSelect: Ontology.HandleSelect = ({
 
   if (nonVirtualSelection.length === 0) return;
 
-  // Otherwise, update the layout with the selected channels.
-  switch (layout?.type) {
-    case LinePlot.LAYOUT_TYPE:
+  const createNewPlot = (): void => {
+    placeLayout(
+      LinePlot.create({
+        channels: { ...LinePlot.ZERO_CHANNELS_STATE, y1: nonVirtualSelection },
+      }),
+    );
+  };
+
+  // Add to the active line plot when one is active; otherwise create a new one. The
+  // active tab's resource is resolved against the server-backed panel tree, so the
+  // lookup is async — fall back to a new plot on failure.
+  handleError(async () => {
+    const state = store.getState();
+    const active = await Layout.getActiveResource(
+      client,
+      Layout.selectActivePanelKey(state),
+      Layout.selectActiveTabKey(state),
+    );
+    if (active?.type === LinePlot.LAYOUT_TYPE)
       store.dispatch(
         LinePlot.setYChannels({
-          key: layout.key,
+          key: active.key,
           mode: "add",
           axisKey: "y1",
           channels: nonVirtualSelection,
         }),
       );
-      break;
-    default:
-      placeLayout(
-        LinePlot.create({
-          channels: {
-            ...LinePlot.ZERO_CHANNELS_STATE,
-            y1: nonVirtualSelection,
-          },
-        }),
-      );
-  }
+    else createNewPlot();
+  }, "failed to add channels to the active plot");
 };
 
 const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {

@@ -75,8 +75,6 @@ describe("migrations", () => {
       };
       const migrated = migrateSlice(stateWithGetStarted);
       expect(migrated.layouts.getStarted).toBeUndefined();
-      expect(migrated.mosaics.main.activeTab).toBeNull();
-      expect(migrated.mosaics.main.root.tabs).toEqual([]);
     });
   });
 });

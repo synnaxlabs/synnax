@@ -199,6 +199,16 @@ const handlers: Handlers = {
     const tab = findTab(state.root, payload.key);
     if (tab == null) return NO_OP;
     tab.resource = payload.resource;
+    tab.view = undefined;
+    return { inverse: [], targets: [payload.key] };
+  },
+
+  setTabView: (state, payload) => {
+    if (state.root == null) return NO_OP;
+    const tab = findTab(state.root, payload.key);
+    if (tab == null) return NO_OP;
+    tab.view = payload.view;
+    tab.resource = undefined;
     return { inverse: [], targets: [payload.key] };
   },
 };

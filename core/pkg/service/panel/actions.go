@@ -109,7 +109,8 @@ func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
 }
 
 // Handle sets the visualization resource displayed by the tab with the given key,
-// swapping it in place without changing the tab's identity or position. Returns
+// swapping it in place without changing the tab's identity or position. Clears any
+// view set on the tab so that exactly one content arm is populated. Returns
 // ErrTabNotFound when no tab matches the key.
 func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
 	leaf, _, idx, ok := findTab(&state.Root, p.Key)
@@ -118,5 +119,21 @@ func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
 	}
 	resource := p.Resource
 	leaf.Tabs[idx].Resource = &resource
+	leaf.Tabs[idx].View = nil
+	return state, nil
+}
+
+// Handle sets the inline view displayed by the tab with the given key, swapping it
+// in place without changing the tab's identity or position. Clears any resource set
+// on the tab so that exactly one content arm is populated. Returns ErrTabNotFound
+// when no tab matches the key.
+func (p SetTabViewPayload) Handle(state Panel) (Panel, error) {
+	leaf, _, idx, ok := findTab(&state.Root, p.Key)
+	if !ok {
+		return Panel{}, ErrTabNotFound
+	}
+	view := p.View
+	leaf.Tabs[idx].View = &view
+	leaf.Tabs[idx].Resource = nil
 	return state, nil
 }

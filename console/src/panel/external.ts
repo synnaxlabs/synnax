@@ -9,4 +9,4 @@
 
 // Console-side panel module surface. Built out as the panel UI (tab strip,
 // mosaic host, draft promotion flow) lands.
-export {};
+export * from "@/panel/Mosaic";

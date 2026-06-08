@@ -8,12 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction } from "@reduxjs/toolkit";
+import { ontology, panel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { id } from "@synnaxlabs/x";
+import { Flux, Panel, type Pluto } from "@synnaxlabs/pluto";
+import { id, uuid } from "@synnaxlabs/x";
 import { type Dispatch, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { place, type State } from "@/layout/slice";
+import { selectActivePanelKey, selectActiveTabKey } from "@/layout/selectors";
+import { place, setActiveTab, type State } from "@/layout/slice";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 
 export interface CreatorProps {
@@ -37,29 +40,84 @@ export interface Placer<A = unknown> {
   (layout: PlacerArgs<A>): { windowKey: string; key: string };
 }
 
+// activeLeafPath resolves the path-derived key of the leaf to insert into: the leaf
+// holding the active tab, falling back to the first leaf, then the root. Mirrors the
+// reducer's key scheme (root = 1, first child = 2k, last child = 2k + 1).
+const activeLeafPath = (root: panel.Node, activeTab: string | null): number => {
+  let firstLeaf: number | null = null;
+  const visit = (node: panel.Node | undefined | null, path: number): number | null => {
+    if (node == null) return null;
+    if (node.leaf != null) {
+      firstLeaf ??= path;
+      if (activeTab != null && node.leaf.tabs.some((t) => t.key === activeTab))
+        return path;
+      return null;
+    }
+    if (node.split != null)
+      return visit(node.split.first, path * 2) ?? visit(node.split.last, path * 2 + 1);
+    return null;
+  };
+  return visit(root, 1) ?? firstLeaf ?? 1;
+};
+
+// tabFor builds the panel tab for a placed layout. A layout whose type is an ontology
+// resource type references that resource (loaded from core by key); any other type is
+// an inline, arg-light view identified by its type.
+const tabFor = (layout: State): panel.Tab => {
+  const resourceType = ontology.resourceTypeZ.safeParse(layout.type);
+  if (resourceType.success)
+    return {
+      key: uuid.create(),
+      resource: { type: resourceType.data, key: layout.key },
+    };
+  return { key: uuid.create(), view: { type: layout.type } };
+};
+
 /**
- * useLayoutPlacer is a hook that returns a function that allows the caller to place
- * a layout in the central mosaic or in a window.
+ * useLayoutPlacer is a hook that returns a function that places a layout. It routes by
+ * destination: document content (location "mosaic") is inserted into the active panel's
+ * active leaf as a tab; window and modal layouts are session overlays stored in the
+ * layout slice.
  *
- * @returns A layout placer function that allows the caller to open a layout using one
- * of two methods. The first is to pass a layout object with the layout's key, type,
- * title, location, and window properties. The second is to pass a layout creator function
- * that accepts a few utilities and returns a layout object. Prefer the first method
- * when possible, but feel free to use the second method for more dynamic layout creation.
+ * @returns A layout placer that accepts either a layout object (key, type, title,
+ * location, window props) or a layout creator function that receives utilities and
+ * returns one. Prefer the object form; use the creator for dynamic creation.
  */
 export const usePlacer = <A = unknown>(): Placer<A> => {
   const dispatch = useDispatch();
   const store = useStore<RootState, RootAction>();
   const windowKey = useSelectWindowKey();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
+  const { dispatch: dispatchPanel } = Panel.useDispatch();
   return useCallback(
     (base) => {
       if (windowKey == null) throw new Error("windowKey is null");
       const layout =
         typeof base === "function" ? base({ dispatch, store, windowKey }) : base;
       const key = layout.key ?? id.create();
-      dispatch(place({ ...layout, windowKey, key }));
+      const full = { ...layout, windowKey, key };
+      // Document content goes into the active panel. The active panel is read from
+      // the session slice and its tree from the Flux cache, so no dependency on the
+      // panel module is needed. When no panel is active the content has no home yet
+      // (drafts handle that later); fall through to storing the layout.
+      if (layout.location === "mosaic") {
+        const state = store.getState();
+        const panelKey = selectActivePanelKey(state);
+        const cached = panelKey != null ? fluxStore.panels.get(panelKey) : null;
+        if (panelKey != null && cached != null) {
+          const tab = tabFor(full);
+          const targetLeaf = activeLeafPath(cached.root, selectActiveTabKey(state));
+          dispatchPanel({
+            key: panelKey,
+            actions: [panel.insertTab({ tab, targetLeaf })],
+          });
+          dispatch(setActiveTab({ windowKey, key: tab.key }));
+          return { windowKey, key };
+        }
+      }
+      dispatch(place(full));
       return { windowKey, key };
     },
-    [dispatch, store, windowKey],
+    [dispatch, dispatchPanel, fluxStore, store, windowKey],
   );
 };

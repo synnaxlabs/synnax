@@ -17,6 +17,7 @@ import { useDispatch } from "react-redux";
 import { Controls as Base } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { LAYOUT_TYPE } from "@/lineplot/layout";
 import {
   useSelect,
   useSelectControlState,
@@ -43,7 +44,8 @@ export const Controls = ({
 }: ControlsProps): ReactElement => {
   const control = useSelectControlState(layoutKey);
   const plot = useSelect(layoutKey);
-  const { layoutKey: vis } = Layout.useSelectActiveMosaicTabState();
+  const active = Layout.useActiveResource();
+  const vis = active?.type === LAYOUT_TYPE ? active.key : null;
   const mode = useSelectViewportMode(layoutKey);
   const measureMode = useSelectMeasureMode(layoutKey);
   const dispatch = useDispatch();

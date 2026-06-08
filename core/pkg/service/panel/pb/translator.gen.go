@@ -16,7 +16,58 @@ import (
 	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
+	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// TabViewToPB converts TabView to TabView.
+func TabViewToPB(r panel.TabView) (*TabView, error) {
+	argsVal, err := structpb.NewStruct(r.Args)
+	if err != nil {
+		return nil, err
+	}
+	pb := &TabView{
+		Type: r.Type,
+		Args: argsVal,
+	}
+	return pb, nil
+}
+
+// TabViewFromPB converts TabView to TabView.
+func TabViewFromPB(pb *TabView) (panel.TabView, error) {
+	var r panel.TabView
+	if pb == nil {
+		return r, nil
+	}
+	r.Args = pb.Args.AsMap()
+	r.Type = pb.Type
+	return r, nil
+}
+
+// TabViewsToPB converts a slice of TabView to TabView.
+func TabViewsToPB(rs []panel.TabView) ([]*TabView, error) {
+	result := make([]*TabView, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TabViewToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TabViewsFromPB converts a slice of TabView to TabView.
+func TabViewsFromPB(pbs []*TabView) ([]panel.TabView, error) {
+	result := make([]panel.TabView, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TabViewFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // TabToPB converts Tab to Tab.
 func TabToPB(r panel.Tab) (*Tab, error) {
@@ -26,6 +77,13 @@ func TabToPB(r panel.Tab) (*Tab, error) {
 	if r.Resource != nil {
 		var err error
 		pb.Resource, err = ontologypb.IDToPB(*r.Resource)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.View != nil {
+		var err error
+		pb.View, err = TabViewToPB(*r.View)
 		if err != nil {
 			return nil, err
 		}
@@ -50,6 +108,13 @@ func TabFromPB(pb *Tab) (panel.Tab, error) {
 			return panel.Tab{}, err
 		}
 		r.Resource = &val
+	}
+	if pb.View != nil {
+		val, err := TabViewFromPB(pb.View)
+		if err != nil {
+			return panel.Tab{}, err
+		}
+		r.View = &val
 	}
 	return r, nil
 }

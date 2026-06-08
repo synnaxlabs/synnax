@@ -24,8 +24,13 @@ import (
 func tab(key uuid.UUID) panel.Tab {
 	return panel.Tab{
 		Key:      key,
-		Resource: ontology.ID{Type: ontology.ResourceTypeLineplot, Key: key.String()},
+		Resource: &ontology.ID{Type: ontology.ResourceTypeLineplot, Key: key.String()},
 	}
+}
+
+// viewTab constructs a Tab with a fixed UUID and an inline view of the given type.
+func viewTab(key uuid.UUID, viewType string) panel.Tab {
+	return panel.Tab{Key: key, View: &panel.TabView{Type: viewType}}
 }
 
 // leafNode wraps a tab list as a leaf node.
@@ -305,5 +310,58 @@ var _ = Describe("Actions", func() {
 				panel.ErrNotASplit,
 			),
 		)
+	})
+
+	Describe("SetTabResource", func() {
+		It("Should set the resource in place without changing identity", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			res := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: tab2.String()}
+			next := MustSucceed(panel.SetTabResourcePayload{Key: tab1, Resource: res}.Handle(p))
+			tabs := next.Root.Leaf.Tabs
+			Expect(tabs).To(HaveLen(1))
+			Expect(tabs[0].Key).To(Equal(tab1))
+			Expect(tabs[0].Resource).To(Equal(&res))
+		})
+
+		It("Should clear any view set on the tab", func() {
+			p := panel.Panel{Root: leafNode(viewTab(tab1, "docs"))}
+			res := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: tab2.String()}
+			next := MustSucceed(panel.SetTabResourcePayload{Key: tab1, Resource: res}.Handle(p))
+			Expect(next.Root.Leaf.Tabs[0].Resource).To(Equal(&res))
+			Expect(next.Root.Leaf.Tabs[0].View).To(BeNil())
+		})
+
+		It("Should return ErrTabNotFound when no tab matches the key", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			Expect(panel.SetTabResourcePayload{Key: uuid.New()}.Handle(p)).Error().
+				To(MatchError(panel.ErrTabNotFound))
+		})
+	})
+
+	Describe("SetTabView", func() {
+		It("Should set the view in place without changing identity", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			view := panel.TabView{Type: "docs"}
+			next := MustSucceed(panel.SetTabViewPayload{Key: tab1, View: view}.Handle(p))
+			tabs := next.Root.Leaf.Tabs
+			Expect(tabs).To(HaveLen(1))
+			Expect(tabs[0].Key).To(Equal(tab1))
+			Expect(tabs[0].View).To(Equal(&view))
+		})
+
+		It("Should clear any resource set on the tab", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			next := MustSucceed(panel.SetTabViewPayload{
+				Key: tab1, View: panel.TabView{Type: "docs"},
+			}.Handle(p))
+			Expect(next.Root.Leaf.Tabs[0].View).ToNot(BeNil())
+			Expect(next.Root.Leaf.Tabs[0].Resource).To(BeNil())
+		})
+
+		It("Should return ErrTabNotFound when no tab matches the key", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			Expect(panel.SetTabViewPayload{Key: uuid.New()}.Handle(p)).Error().
+				To(MatchError(panel.ErrTabNotFound))
+		})
 	})
 })

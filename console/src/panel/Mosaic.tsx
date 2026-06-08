@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, panel } from "@synnaxlabs/client";
-import { Flex, Panel as PlutoPanel, Text } from "@synnaxlabs/pluto";
+import { Errors, Panel as PlutoPanel, Tabs } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
@@ -22,52 +22,133 @@ export interface MosaicProps {
   windowKey: string;
 }
 
-interface TabContentProps {
+const NEW_TAB_NAME = "New Tab";
+
+interface RendererContentProps {
   panelKey: panel.Key;
   tabKey: string;
-  resource: ontology.ID | null;
+  type: string;
+  layoutKey: string;
+  visible: boolean;
 }
 
-// TabContent renders a panel tab. A tab with no resource shows the shared
-// visualization selector; picking a type eagerly creates the resource and swaps it
-// onto this tab via SetTabResource, keeping the tab's identity and position.
-const TabContent = ({ panelKey, tabKey, resource }: TabContentProps): ReactElement => {
+// RendererContent mounts the layout renderer registered for the content's type,
+// keyed by layoutKey — the resource key for a resource tab, the tab key for a view
+// tab. Renderers self-load their state from core, so one operator's panel renders
+// another operator's content unchanged. Closing the tab removes it from the panel.
+const RendererContent = ({
+  panelKey,
+  tabKey,
+  type,
+  layoutKey,
+  visible,
+}: RendererContentProps): ReactElement => {
+  const Renderer = Layout.useRenderer(type);
   const { dispatch } = PlutoPanel.useDispatch();
-  // A stable key for the resource the selector will create, so re-renders don't
-  // churn it. onResolved hands back ontologyID(resourceKey).
-  const resourceKey = useMemo(() => uuid.create(), [tabKey]);
-  const handleResolved = useCallback(
-    (resolved: ontology.ID) => {
-      dispatch({
-        key: panelKey,
-        actions: [panel.setTabResource({ key: tabKey, resource: resolved })],
-      });
-    },
+  const handleClose = useCallback(
+    () => dispatch({ key: panelKey, actions: [panel.removeTab({ key: tabKey })] }),
     [dispatch, panelKey, tabKey],
   );
-  if (resource == null)
-    return (
-      <Selector.Selector
-        layoutKey={resourceKey}
-        text="Select a Visualization Type"
-        selectables={Vis.SELECTABLES}
-        onResolved={handleResolved}
-      />
-    );
-  // TODO(#9): render the actual visualization from its ontology.ID. Until the
-  // resource→viz bridge lands, show what the tab references.
   return (
-    <Flex.Box grow center>
-      <Text.Text level="p" color={9}>
-        {resource.type}:{resource.key.slice(0, 8)}
-      </Text.Text>
-    </Flex.Box>
+    <Errors.SuspenseBoundary>
+      <Renderer
+        key={layoutKey}
+        layoutKey={layoutKey}
+        onClose={handleClose}
+        visible={visible}
+        focused={false}
+      />
+    </Errors.SuspenseBoundary>
   );
 };
 
+interface SelectorContentProps {
+  panelKey: panel.Key;
+  tabKey: string;
+}
+
+// SelectorContent renders the visualization selector for a tab with no content.
+// Picking a type eagerly creates the resource and swaps it onto this tab via
+// SetTabResource, keeping the tab's identity and position.
+const SelectorContent = ({ panelKey, tabKey }: SelectorContentProps): ReactElement => {
+  const { dispatch } = PlutoPanel.useDispatch();
+  // A stable key for the resource the selector will create, so re-renders don't
+  // churn it. onResolved hands back the created resource's ontology ID.
+  const resourceKey = useMemo(() => uuid.create(), [tabKey]);
+  const handleResolved = useCallback(
+    (resolved: ontology.ID) =>
+      dispatch({
+        key: panelKey,
+        actions: [panel.setTabResource({ key: tabKey, resource: resolved })],
+      }),
+    [dispatch, panelKey, tabKey],
+  );
+  return (
+    <Selector.Selector
+      layoutKey={resourceKey}
+      text="Select a Visualization Type"
+      selectables={Vis.SELECTABLES}
+      onResolved={handleResolved}
+    />
+  );
+};
+
+interface TabContentProps extends PlutoPanel.MosaicTabRenderProps {
+  panelKey: panel.Key;
+}
+
+// TabContent resolves a panel tab's content union to a renderer: a resource tab
+// mounts its type's renderer keyed by the resource key; a view tab mounts its
+// type's renderer keyed by the tab key; an empty tab shows the selector.
+const TabContent = ({
+  panelKey,
+  tabKey,
+  resource,
+  view,
+  visible,
+}: TabContentProps): ReactElement => {
+  if (resource != null)
+    return (
+      <RendererContent
+        panelKey={panelKey}
+        tabKey={tabKey}
+        type={resource.type}
+        layoutKey={resource.key}
+        visible={visible}
+      />
+    );
+  if (view != null)
+    return (
+      <RendererContent
+        panelKey={panelKey}
+        tabKey={tabKey}
+        type={view.type}
+        layoutKey={tabKey}
+        visible={visible}
+      />
+    );
+  return <SelectorContent panelKey={panelKey} tabKey={tabKey} />;
+};
+
+// renderTabName resolves a tab's display name from its content union. A resource
+// tab resolves its name from the backing resource (keyed by the resource key); a
+// view tab from the view type (keyed by the tab key); an empty tab shows a
+// placeholder until the user picks a visualization.
+const renderTabName = ({
+  resource,
+  view,
+  ...props
+}: PlutoPanel.MosaicTabNameProps): ReactElement => {
+  if (resource != null)
+    return <Layout.TabName type={resource.type} nameKey={resource.key} {...props} />;
+  if (view != null)
+    return <Layout.TabName type={view.type} nameKey={props.tabKey} {...props} />;
+  return <Tabs.DefaultName {...props} name={NEW_TAB_NAME} />;
+};
+
 // Mosaic renders the active panel through pluto's Panel.Mosaic, which owns the tree,
-// gestures, and structural dispatch. The console supplies tab content (the selector
-// for empty tabs, the visualization otherwise) and the per-window active-tab cursor.
+// gestures, and structural dispatch. The console supplies tab content and names
+// (resolved from each tab's content union) and the per-window active-tab cursor.
 export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement => {
   const dispatch = useDispatch();
   const activeTab = Layout.useSelectActiveTabKey();
@@ -80,14 +161,13 @@ export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement => {
       panelKey={panelKey}
       activeTab={activeTab ?? undefined}
       onSelect={handleSelect}
+      tabName={renderTabName}
       rounded={1}
       bordered
       borderColor={5}
       background={0}
     >
-      {({ tabKey, resource }) => (
-        <TabContent panelKey={panelKey} tabKey={tabKey} resource={resource} />
-      )}
+      {(props) => <TabContent panelKey={panelKey} {...props} />}
     </PlutoPanel.Mosaic>
   );
 };

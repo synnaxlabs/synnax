@@ -54,7 +54,6 @@ const SideEffect = (): null => {
   Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
-  Layout.useDropOutside();
   return null;
 };
 

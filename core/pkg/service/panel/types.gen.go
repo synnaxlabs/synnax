@@ -14,24 +14,44 @@ package panel
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
 
-// Tab is a single tab in a leaf. Display attributes (name, icon, closability) are
-// resolved at render time from the referenced resource. The same resource may be
-// referenced by multiple tabs in the same or other panels.
+// TabView is a self-describing, inline view displayed by a tab. Unlike a resource, a
+// view has no backing core document: it carries its own type and opaque args. Used for
+// app-views and tools (docs, explorers, about, the visualization picker).
+type TabView struct {
+	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
+	// a renderer.
+	Type string `json:"type" msgpack:"type"`
+	// Args is an opaque, Console-owned configuration payload for the view. Core never
+	// interprets it; it round-trips as-is.
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
+}
+
+// Tab is a single tab in a leaf. Tab content is a union: either a resource (a backing
+// core document, e.g. a line plot) or a view (an inline, self-describing app-view, e.g.
+// docs). Exactly one of resource or view is set; when both are null the tab renders the
+// visualization selector. Display attributes (name, icon, closability) are resolved at
+// render time from the content. The same content may be referenced by multiple tabs in
+// the same or other panels.
 type Tab struct {
 	// Key is the stable unique identifier of this tab within the panel. It is independent
-	// of the referenced resource, so a tab's resource may be swapped without changing the
-	// tab's identity or position.
+	// of the tab's content, so a tab's content may be swapped without changing the tab's
+	// identity or position.
 	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Resource is the visualization resource displayed by this tab. It is null until a
-	// resource is chosen; a null-resource tab renders the visualization selector at render
-	// time and is swapped to a real resource via SetTabResource.
+	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
+	// Exactly one of resource or view is set; when both are null the tab renders the
+	// visualization selector at render time. Setting one clears the other.
 	Resource *ontology.ID `json:"resource,omitempty" msgpack:"resource,omitempty"`
+	// View is the inline view displayed by this tab, set via SetTabView. Exactly one of
+	// resource or view is set; when both are null the tab renders the visualization
+	// selector at render time. Setting one clears the other.
+	View *TabView `json:"view,omitempty" msgpack:"view,omitempty"`
 }
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.

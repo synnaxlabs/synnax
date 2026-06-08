@@ -117,10 +117,10 @@ describe("Schematic Middleware", () => {
         [Layout.SLICE_NAME]: {
           ...Layout.ZERO_SLICE_STATE,
           layouts: { ...Layout.ZERO_SLICE_STATE.layouts, ...layouts },
-          mosaics: {
-            ...Layout.ZERO_SLICE_STATE.mosaics,
+          windowPanels: {
+            ...Layout.ZERO_SLICE_STATE.windowPanels,
             [MAIN_WINDOW]: {
-              ...Layout.ZERO_SLICE_STATE.mosaics[MAIN_WINDOW],
+              ...Layout.ZERO_SLICE_STATE.windowPanels[MAIN_WINDOW],
               activeTab,
             },
           },
