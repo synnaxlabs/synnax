@@ -312,6 +312,22 @@ const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null =
     },
     [dispatch, pKey],
   );
+  const handleLabelChange = useCallback(
+    (label: string) => apply(lineplot.setRuleLabel({ key: ruleKey, label })),
+    [apply, ruleKey],
+  );
+  const handlePositionChange = useCallback(
+    (position: number) => apply(lineplot.setRulePosition({ key: ruleKey, position })),
+    [apply, ruleKey],
+  );
+  const handleUnitsChange = useCallback(
+    (units: string) => apply(lineplot.setRuleUnits({ key: ruleKey, units })),
+    [apply, ruleKey],
+  );
+  const handleClick = useCallback(
+    () => onSelectRule?.(ruleKey),
+    [onSelectRule, ruleKey],
+  );
   if (rule == null) return null;
   return (
     <BaseRule.Rule
@@ -322,16 +338,10 @@ const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null =
       lineWidth={rule.lineWidth}
       lineDash={rule.lineDash}
       units={rule.units}
-      onLabelChange={(value) =>
-        apply(lineplot.setRuleLabel({ key: rule.key, label: value }))
-      }
-      onPositionChange={(value) =>
-        apply(lineplot.setRulePosition({ key: rule.key, position: value }))
-      }
-      onUnitsChange={(value) =>
-        apply(lineplot.setRuleUnits({ key: rule.key, units: value }))
-      }
-      onClick={() => onSelectRule?.(rule.key)}
+      onLabelChange={handleLabelChange}
+      onPositionChange={handlePositionChange}
+      onUnitsChange={handleUnitsChange}
+      onClick={handleClick}
     />
   );
 };
