@@ -21,13 +21,32 @@ import {
   removeRule,
   rename,
   scopedActionZ,
-  setAxis,
-  setLegend,
+  setAxisBounds,
+  setAxisLabel,
+  setAxisLabelDirection,
+  setAxisLabelLevel,
+  setAxisTickSpacing,
+  setAxisType,
+  setLegendPosition,
+  setLegendVisible,
   setLine,
+  setLineColor,
+  setLineDownsample,
+  setLineDownsampleMode,
+  setLineLabel,
+  setLineStrokeWidth,
   setRule,
+  setRuleAxis,
+  setRuleColor,
+  setRuleLabel,
+  setRuleLineDash,
+  setRuleLineWidth,
+  setRulePosition,
+  setRuleUnits,
   setTitle,
   setXChannel,
 } from "@/lineplot/actions.gen";
+import { lineKey } from "@/lineplot/line";
 import { type Axis, type Line, type LinePlot, type Rule } from "@/lineplot/types.gen";
 
 const zeroAxis = (key: Axis["key"]): Axis => ({
@@ -128,31 +147,30 @@ describe("lineplot reducer", () => {
     });
   });
 
-  describe("setLegend", () => {
-    it("should replace the legend configuration", () => {
-      const out = apply(
-        empty(),
-        setLegend({
-          legend: { visible: false, position: { x: 10, y: 20 } },
-        }),
-      );
+  describe("setLegendVisible", () => {
+    it("should set legend visibility, leaving position unchanged", () => {
+      const out = apply(empty(), setLegendVisible({ visible: false }));
       expect(out.legend.visible).toEqual(false);
-      expect(out.legend.position.x).toEqual(10);
+      expect(out.legend.position).toEqual(empty().legend.position);
     });
-    it("should round-trip the previous legend through its inverse", () => {
+    it("should round-trip the previous visibility through its inverse", () => {
       const state = empty();
-      const swapped = apply(
-        state,
-        setLegend({ legend: { visible: false, position: { x: 1, y: 2 } } }),
+      expect(roundTrip(state, setLegendVisible({ visible: false })).legend).toEqual(
+        state.legend,
       );
-      expect(swapped.legend).not.toEqual(state.legend);
+    });
+  });
+
+  describe("setLegendPosition", () => {
+    it("should set legend position, leaving visibility unchanged", () => {
+      const out = apply(empty(), setLegendPosition({ position: { x: 10, y: 20 } }));
+      expect(out.legend.position.x).toEqual(10);
+      expect(out.legend.visible).toEqual(empty().legend.visible);
+    });
+    it("should round-trip the previous position through its inverse", () => {
+      const state = empty();
       expect(
-        roundTrip(
-          state,
-          setLegend({
-            legend: { visible: false, position: { x: 1, y: 2 } },
-          }),
-        ).legend,
+        roundTrip(state, setLegendPosition({ position: { x: 1, y: 2 } })).legend,
       ).toEqual(state.legend);
     });
   });
@@ -254,52 +272,259 @@ describe("lineplot reducer", () => {
     });
   });
 
-  describe("setAxis", () => {
-    it("should replace the axis configuration at the target key", () => {
-      const next: Axis = { ...zeroAxis("y1"), label: "pressure", tickSpacing: 50 };
-      const out = apply(empty(), setAxis({ axis: next }));
-      expect(out.axes.y1.label).toEqual("pressure");
-      expect(out.axes.y1.tickSpacing).toEqual(50);
+  describe("eager line creation", () => {
+    const r1 = "00000000-0000-0000-0000-000000000001";
+    const r2 = "00000000-0000-0000-0000-000000000002";
+
+    it("should materialize a line per range when a y-channel is added", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
+        ranges: { x1: [r1, r2], x2: [] },
+      });
+      const out = apply(state, addChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 5 }),
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r2, xChannel: 10, yChannel: 5 }),
+      ]);
     });
-    it("should round-trip the previous axis through its inverse", () => {
+
+    it("should give created lines the Oracle default styling", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
+        ranges: { x1: [r1], x2: [] },
+      });
+      const out = apply(state, addChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.lines[0]).toMatchObject({
+        strokeWidth: 2,
+        downsample: 1,
+        downsampleMode: "decimate",
+      });
+    });
+
+    it("should create no lines when there are no ranges (partial selection)", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const out = apply(state, addChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.channels.y1).toEqual([5]);
+      expect(out.lines).toEqual([]);
+    });
+
+    it("should materialize a line per y-channel when a range is added", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5, 6], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const out = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 5 }),
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 6 }),
+      ]);
+    });
+
+    it("should remove a channel's lines when it is removed", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5, 6], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const withLines = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      expect(withLines.lines).toHaveLength(2);
+      const out = apply(withLines, removeChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 10, yChannel: 6 }),
+      ]);
+    });
+
+    it("should restore removed lines with their styling on undo", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const key = lineKey({
+        yAxis: "y1",
+        xAxis: "x1",
+        range: r1,
+        xChannel: 10,
+        yChannel: 5,
+      });
+      let s = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      s = apply(
+        s,
+        setLineColor({ key: s.lines[0].key, color: color.construct("#ff0000") }),
+      );
+      const restored = roundTrip(s, removeChannel({ axisKey: "y1", channel: 5 }));
+      expect(restored.lines).toHaveLength(1);
+      expect(restored.lines[0].key).toEqual(key);
+      expect(restored.lines[0].color).toEqual(color.construct("#ff0000"));
+    });
+
+    it("should rekey a y-axis's lines when the x-channel changes", () => {
+      const state = empty({
+        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
+        ranges: { x1: [], x2: [] },
+      });
+      const withLines = apply(state, addRange({ axisKey: "x1", range: r1 }));
+      const out = apply(withLines, setXChannel({ axisKey: "x1", channel: 20 }));
+      expect(out.lines.map((l) => l.key)).toEqual([
+        lineKey({ yAxis: "y1", xAxis: "x1", range: r1, xChannel: 20, yChannel: 5 }),
+      ]);
+    });
+  });
+
+  describe("fine-grained axis actions", () => {
+    it.each([
+      {
+        label: "setAxisLabel",
+        action: setAxisLabel({ key: "y1", label: "pressure" }),
+        expected: { label: "pressure" },
+      },
+      {
+        label: "setAxisLabelDirection",
+        action: setAxisLabelDirection({ key: "y1", labelDirection: "x" }),
+        expected: { labelDirection: "x" },
+      },
+      {
+        label: "setAxisLabelLevel",
+        action: setAxisLabelLevel({ key: "y1", labelLevel: "h5" }),
+        expected: { labelLevel: "h5" },
+      },
+      {
+        label: "setAxisTickSpacing",
+        action: setAxisTickSpacing({ key: "y1", tickSpacing: 50 }),
+        expected: { tickSpacing: 50 },
+      },
+    ])("$label sets its field and round-trips via inverse", ({ action, expected }) => {
       const state = empty();
-      const swapped = { ...zeroAxis("x1"), label: "time" };
-      expect(roundTrip(state, setAxis({ axis: swapped })).axes.x1).toEqual(
+      expect(apply(state, action).axes.y1).toMatchObject(expected);
+      expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
+    });
+
+    it("setAxisBounds sets bounds and auto flags together and round-trips", () => {
+      const state = empty();
+      const action = setAxisBounds({
+        key: "y1",
+        bounds: { lower: 1, upper: 2 },
+        autoBounds: { lower: false, upper: false },
+      });
+      const out = apply(state, action).axes.y1;
+      expect(out.bounds).toEqual({ lower: 1, upper: 2 });
+      expect(out.autoBounds).toEqual({ lower: false, upper: false });
+      expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
+    });
+
+    it("setAxisType sets the tick type, clears it with null, and round-trips", () => {
+      const state = empty({
+        axes: { ...empty().axes, x1: { ...zeroAxis("x1"), type: "time" } },
+      });
+      expect(
+        apply(state, setAxisType({ key: "x1", type: "linear" })).axes.x1.type,
+      ).toEqual("linear");
+      expect(apply(state, setAxisType({ key: "x1" })).axes.x1.type).toBeUndefined();
+      expect(roundTrip(state, setAxisType({ key: "x1" })).axes.x1).toEqual(
         state.axes.x1,
       );
     });
-    it("should target the edited axis so distinct axes are independent", () => {
-      const { targets } = reduceAll(empty(), [setAxis({ axis: zeroAxis("y3") })]);
+
+    it("targets the edited axis so distinct axes are independent", () => {
+      const { targets } = reduceAll(empty(), [setAxisLabel({ key: "y3", label: "x" })]);
       expect(targets).toEqual(["axis:y3"]);
     });
   });
 
-  describe("setLine", () => {
-    it("should append the line when its key is new", () => {
-      const out = apply(empty(), setLine({ line: line("l1", "#ff0000") }));
-      expect(out.lines).toEqual([line("l1", "#ff0000")]);
+  describe("fine-grained line actions", () => {
+    const base = (): LinePlot => empty({ lines: [line("l1", "#ff0000")] });
+    it.each([
+      {
+        label: "setLineStrokeWidth",
+        action: setLineStrokeWidth({ key: "l1", strokeWidth: 5 }),
+        expected: { strokeWidth: 5 },
+      },
+      {
+        label: "setLineDownsample",
+        action: setLineDownsample({ key: "l1", downsample: 3 }),
+        expected: { downsample: 3 },
+      },
+      {
+        label: "setLineDownsampleMode",
+        action: setLineDownsampleMode({ key: "l1", downsampleMode: "average" }),
+        expected: { downsampleMode: "average" },
+      },
+      {
+        label: "setLineColor",
+        action: setLineColor({ key: "l1", color: color.construct("#0000ff") }),
+        expected: { color: color.construct("#0000ff") },
+      },
+      {
+        label: "setLineLabel",
+        action: setLineLabel({ key: "l1", label: "flow" }),
+        expected: { label: "flow" },
+      },
+    ])("$label sets its field and round-trips via inverse", ({ action, expected }) => {
+      const state = base();
+      expect(apply(state, action).lines[0]).toMatchObject(expected);
+      expect(roundTrip(state, action).lines[0]).toEqual(state.lines[0]);
     });
-    it("should replace the line in place when its key already exists", () => {
-      const state = empty({ lines: [line("l1", "#ff0000"), line("l2", "#00ff00")] });
-      const out = apply(state, setLine({ line: line("l1", "#0000ff") }));
-      expect(out.lines).toEqual([line("l1", "#0000ff"), line("l2", "#00ff00")]);
-    });
-    it("should round-trip the previous line through its inverse on update", () => {
-      const state = empty({ lines: [line("l1", "#ff0000")] });
-      expect(roundTrip(state, setLine({ line: line("l1", "#0000ff") })).lines).toEqual(
-        state.lines,
+
+    it("clears a nullable field with null and round-trips", () => {
+      const state = base();
+      expect(apply(state, setLineColor({ key: "l1" })).lines[0].color).toBeUndefined();
+      expect(roundTrip(state, setLineColor({ key: "l1" })).lines[0]).toEqual(
+        state.lines[0],
       );
     });
-    it("should report no target for a fresh line insert so it is not recorded as undoable", () => {
+
+    it("restores a previously-unset field on undo", () => {
+      const start: Line = {
+        key: "l1",
+        strokeWidth: 2,
+        downsample: 1,
+        downsampleMode: "decimate",
+      };
+      const state = empty({ lines: [start] });
+      const action = setLineColor({ key: "l1", color: color.construct("#ff0000") });
+      expect(apply(state, action).lines[0].color).toEqual(color.construct("#ff0000"));
+      expect(roundTrip(state, action).lines[0]).toEqual(state.lines[0]);
+    });
+
+    it("is a no-op when the line does not exist", () => {
       const { targets } = reduceAll(empty(), [
-        setLine({ line: line("l1", "#ff0000") }),
+        setLineColor({ key: "missing", color: color.construct("#ff0000") }),
       ]);
       expect(targets).toEqual([]);
     });
-    it("should target the line on update so distinct lines are independent", () => {
-      const state = empty({ lines: [line("l1", "#ff0000")] });
-      const { targets } = reduceAll(state, [setLine({ line: line("l1", "#0000ff") })]);
+
+    it("targets the line so distinct lines are independent", () => {
+      const { targets } = reduceAll(base(), [
+        setLineColor({ key: "l1", color: color.construct("#0000ff") }),
+      ]);
       expect(targets).toEqual(["line:l1"]);
+    });
+  });
+
+  describe("setLine (full object)", () => {
+    it("should replace an existing line's full configuration and round-trip", () => {
+      const state = empty({ lines: [line("l1", "#ff0000")] });
+      const next: Line = {
+        key: "l1",
+        color: color.construct("#0000ff"),
+        strokeWidth: 4,
+        downsample: 2,
+        downsampleMode: "average",
+      };
+      expect(apply(state, setLine({ line: next })).lines[0]).toEqual(next);
+      expect(roundTrip(state, setLine({ line: next })).lines).toEqual(state.lines);
+    });
+    it("should insert a new line and not record it as undoable", () => {
+      const inserted: Line = {
+        key: "l1",
+        strokeWidth: 2,
+        downsample: 1,
+        downsampleMode: "decimate",
+      };
+      const { targets } = reduceAll(empty(), [setLine({ line: inserted })]);
+      expect(targets).toEqual([]);
+      expect(apply(empty(), setLine({ line: inserted })).lines).toEqual([inserted]);
     });
   });
 
@@ -334,6 +559,63 @@ describe("lineplot reducer", () => {
       expect(reduceAll(state, [removeRule({ key: "r1" })]).targets).toEqual([
         "rule:r1",
       ]);
+    });
+  });
+
+  describe("fine-grained rule actions", () => {
+    const base = (): LinePlot => empty({ rules: [rule("r1", "max")] });
+    it.each([
+      {
+        label: "setRuleLabel",
+        action: setRuleLabel({ key: "r1", label: "min" }),
+        expected: { label: "min" },
+      },
+      {
+        label: "setRuleColor",
+        action: setRuleColor({ key: "r1", color: color.construct("#00ff00") }),
+        expected: { color: color.construct("#00ff00") },
+      },
+      {
+        label: "setRuleAxis",
+        action: setRuleAxis({ key: "r1", axis: "y2" }),
+        expected: { axis: "y2" },
+      },
+      {
+        label: "setRuleLineWidth",
+        action: setRuleLineWidth({ key: "r1", lineWidth: 3 }),
+        expected: { lineWidth: 3 },
+      },
+      {
+        label: "setRuleLineDash",
+        action: setRuleLineDash({ key: "r1", lineDash: 4 }),
+        expected: { lineDash: 4 },
+      },
+      {
+        label: "setRuleUnits",
+        action: setRuleUnits({ key: "r1", units: "psi" }),
+        expected: { units: "psi" },
+      },
+      {
+        label: "setRulePosition",
+        action: setRulePosition({ key: "r1", position: 42 }),
+        expected: { position: 42 },
+      },
+    ])("$label sets its field and round-trips via inverse", ({ action, expected }) => {
+      const state = base();
+      expect(apply(state, action).rules[0]).toMatchObject(expected);
+      expect(roundTrip(state, action).rules[0]).toEqual(state.rules[0]);
+    });
+
+    it("is a no-op when the rule does not exist", () => {
+      const { targets } = reduceAll(empty(), [
+        setRuleLabel({ key: "missing", label: "x" }),
+      ]);
+      expect(targets).toEqual([]);
+    });
+
+    it("targets the rule so distinct rules are independent", () => {
+      const { targets } = reduceAll(base(), [setRuleLabel({ key: "r1", label: "x" })]);
+      expect(targets).toEqual(["rule:r1"]);
     });
   });
 

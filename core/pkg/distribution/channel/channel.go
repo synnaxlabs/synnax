@@ -48,24 +48,24 @@ func ParseKey(s string) (Key, error) {
 
 // Leaseholder returns the id of the node embedded in the key. This node is the
 // leaseholder node for the Channel.
-func (c Key) Leaseholder() node.Key { return node.Key(c >> 20) }
+func (k Key) Leaseholder() node.Key { return node.Key(k >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
-func (c Key) Free() bool { return c.Leaseholder() == node.KeyFree }
+func (k Key) Free() bool { return k.Leaseholder() == node.KeyFree }
 
 // StorageKey returns the storage layer representation of the channel key.
-func (c Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(c) }
+func (k Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(k) }
 
 // LocalKey returns the local key for the Channel. See the LocalKey type for more.
-func (c Key) LocalKey() LocalKey { return LocalKey(c & 0xFFFFF) }
+func (k Key) LocalKey() LocalKey { return LocalKey(k & 0xFFFFF) }
 
 // Lease implements the proxy.Entry interface, which routes Channel operations to the
 // correct node in the cluster.
-func (c Key) Lease() node.Key { return c.Leaseholder() }
+func (k Key) Lease() node.Key { return k.Leaseholder() }
 
 // String implements fmt.Stringer.
-func (c Key) String() string { return strconv.Itoa(int(c)) }
+func (k Key) String() string { return strconv.Itoa(int(k)) }
 
 // Keys extends []Key with a few convenience methods.
 type Keys []Key

@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { color } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Layout } from "@/layout";
 import { Log } from "@/log";
-import { type State } from "@/log/types/v1";
+import { type State } from "@/log/types";
 import { renderWithConsole } from "@/testUtils";
 
 // Access.useUpdateGranted returns false with null client.
@@ -31,7 +32,7 @@ import { Channels } from "@/log/toolbar/Channels";
 
 const ZERO_STATE: State = {
   key: "test-key",
-  version: "1.0.0",
+  version: "2.0.0",
   channels: [],
   remoteCreated: false,
   timestampPrecision: 0,
@@ -78,7 +79,7 @@ describe("log/toolbar/Channels", () => {
         channels: [
           {
             channel: 10,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -86,7 +87,7 @@ describe("log/toolbar/Channels", () => {
           },
           {
             channel: 20,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -107,7 +108,7 @@ describe("log/toolbar/Channels", () => {
         channels: [
           {
             channel: 10,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -115,7 +116,7 @@ describe("log/toolbar/Channels", () => {
           },
           {
             channel: 20,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -134,7 +135,7 @@ describe("log/toolbar/Channels", () => {
         channels: [
           {
             channel: 10,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",
@@ -158,7 +159,7 @@ describe("log/toolbar/Channels", () => {
         channels: [
           {
             channel: 10,
-            color: "",
+            color: color.ZERO,
             notation: "standard",
             precision: -1,
             alias: "",

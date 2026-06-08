@@ -9,7 +9,11 @@
 
 package v1
 
-import v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
+import (
+	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
+)
 
 // Migrate lifts a typed v0.Data into a v1.Data, applying the v0→v1 schema
 // transformation: bare channel keys become ChannelEntry records with default display
@@ -19,10 +23,12 @@ func Migrate(old v0.Data) Data {
 	for i, ch := range old.Channels {
 		channels[i] = ChannelEntry{
 			Channel:   ch,
-			Color:     "",
-			Notation:  "standard",
+			Notation:  notation.NotationStandard,
 			Precision: -1,
-			Alias:     "",
+			Timestamp: TimestampConfig{
+				Format: telem.TimestampFormatPreciseDate,
+				Tz:     telem.TimeZoneLocal,
+			},
 		}
 	}
 	return Data{
