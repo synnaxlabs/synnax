@@ -83,15 +83,15 @@ func (s *Service) Create(
 	for i := range translated {
 		translated[i].Internal = false
 	}
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: channel.OntologyIDsFromChannels(translated),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	var res CreateResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: channel.OntologyIDsFromChannels(translated),
+		}); err != nil {
+			return err
+		}
 		w := s.internal.NewWriter(tx)
 		opts := []channel.CreateOption{}
 		if req.RetrieveIfNameExists {
@@ -156,101 +156,108 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		resChannels     []channel.Channel
-		aliasChannels   []channel.Channel
-		q               = s.internal.NewRetrieve().Entries(&resChannels)
-		hasNames        = len(req.Names) > 0
-		hasKeys         = len(req.Keys) > 0
-		hasSearch       = len(req.SearchTerm) > 0
-		hasDataTypes    = len(req.DataTypes) > 0
-		hasNotDataTypes = len(req.NotDataTypes) > 0
-	)
-
-	var resRng ranger.Range
-	if req.RangeKey != uuid.Nil {
-		err := s.ranger.NewRetrieve().Where(ranger.MatchKeys(req.RangeKey)).Entry(&resRng).Exec(ctx, nil)
-		isNotFound := errors.Is(err, query.ErrNotFound)
-		if err != nil && !isNotFound {
-			return RetrieveResponse{}, err
-		}
-		// We can still do a best effort search without the range even if
-		// we don't find it.
-		if !isNotFound && hasSearch {
-			keys, err := s.alias.NewReader(nil).Search(ctx, resRng.Key, req.SearchTerm)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			aliasChannels = make([]channel.Channel, 0, len(keys))
-			err = s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, nil)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-		}
-	}
-	if hasKeys {
-		q = q.Where(channel.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(channel.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.NodeKey != 0 {
-		q = q.Where(channel.MatchLeaseholders(req.NodeKey))
-	}
-	if hasDataTypes {
-		q = q.Where(channel.MatchDataTypes(req.DataTypes...))
-	}
-	if hasNotDataTypes {
-		q = q.Where(channel.Not(channel.MatchDataTypes(req.NotDataTypes...)))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if req.Virtual != nil {
-		q = q.Where(channel.MatchVirtual(*req.Virtual))
-	}
-	if req.IsIndex != nil {
-		q = q.Where(channel.MatchIsIndex(*req.IsIndex))
-	}
-	if req.Internal != nil {
-		q = q.Where(channel.MatchInternal(*req.Internal))
-	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if len(aliasChannels) > 0 {
-		aliasKeys := channel.KeysFromChannels(aliasChannels)
-		resChannels = append(
-			aliasChannels,
-			lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
-				return !aliasKeys.Contains(ch.Key())
-			})...,
+	var res RetrieveResponse
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		var (
+			resChannels     []channel.Channel
+			aliasChannels   []channel.Channel
+			q               = s.internal.NewRetrieve().Entries(&resChannels)
+			hasNames        = len(req.Names) > 0
+			hasKeys         = len(req.Keys) > 0
+			hasSearch       = len(req.SearchTerm) > 0
+			hasDataTypes    = len(req.DataTypes) > 0
+			hasNotDataTypes = len(req.NotDataTypes) > 0
 		)
-	}
-	oChannels := translateChannelsForward(resChannels)
-	if resRng.Key != uuid.Nil {
-		aliasReader := s.alias.NewReader(nil)
-		for i, ch := range resChannels {
-			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
-			if err == nil {
-				oChannels[i].Alias = al
+
+		var resRng ranger.Range
+		if req.RangeKey != uuid.Nil {
+			err := s.ranger.NewRetrieve().Where(ranger.MatchKeys(req.RangeKey)).Entry(&resRng).Exec(ctx, tx)
+			isNotFound := errors.Is(err, query.ErrNotFound)
+			if err != nil && !isNotFound {
+				return err
+			}
+			// We can still do a best effort search without the range even if we don't
+			// find it.
+			if !isNotFound && hasSearch {
+				keys, err := s.alias.NewReader(tx).Search(ctx, resRng.Key, req.SearchTerm)
+				if err != nil {
+					return err
+				}
+				aliasChannels = make([]channel.Channel, 0, len(keys))
+				err = s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, tx)
+				if err != nil {
+					return err
+				}
 			}
 		}
-	}
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: channel.OntologyIDsFromChannels(resChannels),
+		if hasKeys {
+			q = q.Where(channel.MatchKeys(req.Keys...))
+		}
+		if hasNames {
+			q = q.Where(channel.MatchNames(req.Names...))
+		}
+		if hasSearch {
+			q = q.Search(req.SearchTerm)
+		}
+		if req.NodeKey != 0 {
+			q = q.Where(channel.MatchLeaseholders(req.NodeKey))
+		}
+		if hasDataTypes {
+			q = q.Where(channel.MatchDataTypes(req.DataTypes...))
+		}
+		if hasNotDataTypes {
+			q = q.Where(channel.Not(channel.MatchDataTypes(req.NotDataTypes...)))
+		}
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
+		if req.Virtual != nil {
+			q = q.Where(channel.MatchVirtual(*req.Virtual))
+		}
+		if req.IsIndex != nil {
+			q = q.Where(channel.MatchIsIndex(*req.IsIndex))
+		}
+		if req.Internal != nil {
+			q = q.Where(channel.MatchInternal(*req.Internal))
+		}
+		if err := q.Exec(ctx, tx); err != nil {
+			return err
+		}
+		if len(aliasChannels) > 0 {
+			aliasKeys := channel.KeysFromChannels(aliasChannels)
+			resChannels = append(
+				aliasChannels,
+				lo.Filter(resChannels, func(ch channel.Channel, _ int) bool {
+					return !aliasKeys.Contains(ch.Key())
+				})...,
+			)
+		}
+		oChannels := translateChannelsForward(resChannels)
+		if resRng.Key != uuid.Nil {
+			aliasReader := s.alias.NewReader(tx)
+			for i, ch := range resChannels {
+				al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
+				if err == nil {
+					oChannels[i].Alias = al
+				}
+			}
+		}
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: channel.OntologyIDsFromChannels(resChannels),
+		}); err != nil {
+			return err
+		}
+		res = RetrieveResponse{Channels: oChannels}
+		return nil
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Channels: oChannels}, nil
+	return res, nil
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {
@@ -312,7 +319,7 @@ func (s *Service) Delete(
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		w := s.internal.NewWriter(tx)
 		if len(req.Keys) > 0 {
-			if err := s.access.Enforce(ctx, access.Request{
+			if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 				Subject: auth.GetSubject(ctx),
 				Action:  access.ActionDelete,
 				Objects: req.Keys.OntologyIDs(),
@@ -333,7 +340,7 @@ func (s *Service) Delete(
 				Exec(ctx, tx); err != nil {
 				return err
 			}
-			if err := s.access.Enforce(ctx, access.Request{
+			if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 				Subject: auth.GetSubject(ctx),
 				Action:  access.ActionDelete,
 				Objects: channel.OntologyIDsFromChannels(res),
@@ -355,14 +362,14 @@ func (s *Service) Rename(
 	ctx context.Context,
 	req RenameRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: req.Keys.OntologyIDs(),
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: req.Keys.OntologyIDs(),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).RenameMany(
 			ctx, req.Keys, req.Names, false,
 		)
@@ -380,10 +387,12 @@ func (s *Service) RetrieveGroup(
 	_ RetrieveGroupRequest,
 ) (RetrieveGroupResponse, error) {
 	g := s.internal.Group()
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{g.OntologyID()},
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{g.OntologyID()},
+		})
 	}); err != nil {
 		return RetrieveGroupResponse{}, err
 	}

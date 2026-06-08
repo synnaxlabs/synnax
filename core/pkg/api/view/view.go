@@ -57,15 +57,15 @@ func (s *Service) Create(
 	ctx context.Context,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: view.OntologyIDsFromViews(req.Views),
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	var res CreateResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: view.OntologyIDsFromViews(req.Views),
+		}); err != nil {
+			return err
+		}
 		if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Views); err != nil {
 			return err
 		}
@@ -93,31 +93,33 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit != 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset != 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(view.MatchKeys(req.Keys...))
-	}
-	if len(req.Types) != 0 {
-		q = q.Where(view.MatchTypes(req.Types...))
-	}
-
 	var views []view.View
-	if err := q.Entries(&views).Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: view.OntologyIDsFromViews(views),
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		q := s.internal.NewRetrieve()
+		if req.SearchTerm != "" {
+			q = q.Search(req.SearchTerm)
+		}
+		if req.Limit != 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset != 0 {
+			q = q.Offset(req.Offset)
+		}
+		if len(req.Keys) != 0 {
+			q = q.Where(view.MatchKeys(req.Keys...))
+		}
+		if len(req.Types) != 0 {
+			q = q.Where(view.MatchTypes(req.Types...))
+		}
+
+		if err := q.Entries(&views).Exec(ctx, tx); err != nil {
+			return err
+		}
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: view.OntologyIDsFromViews(views),
+		})
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -128,18 +130,15 @@ type DeleteRequest struct {
 	Keys []view.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(
-	ctx context.Context,
-	req DeleteRequest,
-) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: view.OntologyIDs(req.Keys),
-	}); err != nil {
-		return types.Nil{}, err
-	}
+func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: view.OntologyIDs(req.Keys),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).DeleteMany(ctx, req.Keys...)
 	})
 }

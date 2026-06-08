@@ -56,15 +56,15 @@ func (s *Service) Create(
 	ctx context.Context,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	var res CreateResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: []ontology.ID{group.OntologyID(req.Key)},
+		}); err != nil {
+			return err
+		}
 		w := s.internal.NewWriter(tx)
 		g, err := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
 		if err != nil {
@@ -86,14 +86,14 @@ func (s *Service) Delete(
 	ctx context.Context,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: group.OntologyIDs(req.Keys),
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: group.OntologyIDs(req.Keys),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }
@@ -107,14 +107,14 @@ func (s *Service) Rename(
 	ctx context.Context,
 	req RenameRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{group.OntologyID(req.Key)},
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []ontology.ID{group.OntologyID(req.Key)},
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 	})
 }

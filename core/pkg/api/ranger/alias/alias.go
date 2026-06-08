@@ -55,14 +55,14 @@ func (s *Service) Set(
 	req SetRequest,
 ) (types.Nil, error) {
 	keys := lo.Keys(req.Aliases)
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: alias.OntologyIDs(req.Range, keys),
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: alias.OntologyIDs(req.Range, keys),
+		}); err != nil {
+			return err
+		}
 		w := s.alias.NewWriter(tx)
 		for k, v := range req.Aliases {
 			if err := w.Set(ctx, req.Range, k, v); err != nil {
@@ -87,22 +87,25 @@ func (s *Service) Resolve(
 	ctx context.Context,
 	req ResolveRequest,
 ) (ResolveResponse, error) {
-	reader := s.alias.NewReader(nil)
-	aliases := make(map[string]channel.Key, len(req.Aliases))
-	for _, a := range req.Aliases {
-		ch, err := reader.Resolve(ctx, req.Range, a)
-		if err != nil && !errors.Is(err, query.ErrNotFound) {
-			return ResolveResponse{}, err
+	var aliases map[string]channel.Key
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		reader := s.alias.NewReader(tx)
+		aliases = make(map[string]channel.Key, len(req.Aliases))
+		for _, a := range req.Aliases {
+			ch, err := reader.Resolve(ctx, req.Range, a)
+			if err != nil && !errors.Is(err, query.ErrNotFound) {
+				return err
+			}
+			if ch != 0 {
+				aliases[a] = ch
+			}
 		}
-		if ch != 0 {
-			aliases[a] = ch
-		}
-	}
-	keys := lo.Values(aliases)
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: alias.OntologyIDs(req.Range, keys),
+		keys := lo.Values(aliases)
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: alias.OntologyIDs(req.Range, keys),
+		})
 	}); err != nil {
 		return ResolveResponse{}, err
 	}
@@ -118,14 +121,14 @@ func (s *Service) Delete(
 	ctx context.Context,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: alias.OntologyIDs(req.Range, req.Channels),
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: alias.OntologyIDs(req.Range, req.Channels),
+		}); err != nil {
+			return err
+		}
 		w := s.alias.NewWriter(tx)
 		for _, ch := range req.Channels {
 			if err := w.Delete(ctx, req.Range, ch); err != nil {
@@ -149,16 +152,20 @@ func (s *Service) List(
 	ctx context.Context,
 	req ListRequest,
 ) (ListResponse, error) {
-	reader := s.alias.NewReader(nil)
-	aliases, err := reader.List(ctx, req.Range)
-	if err != nil {
-		return ListResponse{}, err
-	}
-	keys := lo.Keys(aliases)
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: alias.OntologyIDs(req.Range, keys),
+	var aliases map[channel.Key]string
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		reader := s.alias.NewReader(tx)
+		var err error
+		aliases, err = reader.List(ctx, req.Range)
+		if err != nil {
+			return err
+		}
+		keys := lo.Keys(aliases)
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: alias.OntologyIDs(req.Range, keys),
+		})
 	}); err != nil {
 		return ListResponse{}, err
 	}
@@ -179,23 +186,29 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: alias.OntologyIDs(req.Range, req.Channels),
+	var aliases map[channel.Key]string
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: alias.OntologyIDs(req.Range, req.Channels),
+		}); err != nil {
+			return err
+		}
+		reader := s.alias.NewReader(tx)
+		aliases = make(map[channel.Key]string)
+		for _, ch := range req.Channels {
+			al, err := reader.Retrieve(ctx, req.Range, ch)
+			if err != nil && !errors.Is(err, query.ErrNotFound) {
+				return err
+			}
+			if al != "" {
+				aliases[ch] = al
+			}
+		}
+		return nil
 	}); err != nil {
 		return RetrieveResponse{}, err
-	}
-	reader := s.alias.NewReader(nil)
-	aliases := make(map[channel.Key]string)
-	for _, ch := range req.Channels {
-		al, err := reader.Retrieve(ctx, req.Range, ch)
-		if err != nil && !errors.Is(err, query.ErrNotFound) {
-			return RetrieveResponse{}, err
-		}
-		if al != "" {
-			aliases[ch] = al
-		}
 	}
 	return RetrieveResponse{Aliases: aliases}, nil
 }

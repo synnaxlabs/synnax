@@ -61,40 +61,44 @@ type (
 	CreateResponse = CreateRequest
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: arc.OntologyIDsFromArcs(req.Arcs),
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
+	var res CreateResponse
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: arc.OntologyIDsFromArcs(req.Arcs),
+		}); err != nil {
+			return err
+		}
 		w := s.internal.NewWriter(tx)
 		for i, a := range req.Arcs {
-			if err = w.Create(ctx, &a); err != nil {
+			if err := w.Create(ctx, &a); err != nil {
 				return err
 			}
 			req.Arcs[i] = a
 		}
 		res.Arcs = req.Arcs
 		return nil
-	})
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	return res, nil
 }
 
 type DeleteRequest struct {
 	Keys []arc.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: arc.OntologyIDs(req.Keys),
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
+	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: arc.OntologyIDs(req.Keys),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 	})
 }
@@ -114,55 +118,60 @@ type (
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
+func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
 	var (
-		svcArcs   []arc.Arc
-		q         = s.internal.NewRetrieve().Entries(&svcArcs)
-		hasKeys   = len(req.Keys) > 0
-		hasNames  = len(req.Names) > 0
-		hasSearch = req.SearchTerm != ""
+		res     RetrieveResponse
+		svcArcs []arc.Arc
 	)
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		var (
+			q         = s.internal.NewRetrieve().Entries(&svcArcs)
+			hasKeys   = len(req.Keys) > 0
+			hasNames  = len(req.Names) > 0
+			hasSearch = req.SearchTerm != ""
+		)
 
-	if hasKeys {
-		q = q.Where(arc.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(arc.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
+		if hasKeys {
+			q = q.Where(arc.MatchKeys(req.Keys...))
+		}
+		if hasNames {
+			q = q.Where(arc.MatchNames(req.Names...))
+		}
+		if hasSearch {
+			q = q.Search(req.SearchTerm)
+		}
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
 
-	if err = q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
+		if err := q.Exec(ctx, tx); err != nil {
+			return err
+		}
 
-	res.Arcs = svcArcs
+		res.Arcs = svcArcs
 
-	// Compile Arcs to modules if requested
-	if req.Compile {
-		for i := range res.Arcs {
-			if err = s.compile(ctx, &res.Arcs[i]); err != nil {
-				return RetrieveResponse{}, err
+		// Compile Arcs to modules if requested
+		if req.Compile {
+			for i := range res.Arcs {
+				if err := s.compile(ctx, tx, &res.Arcs[i]); err != nil {
+					return err
+				}
+			}
+		} else {
+			// Reset the program to zero value just in case it was there
+			for i := range res.Arcs {
+				res.Arcs[i].Program = nil
 			}
 		}
-	} else {
-		// Reset the program to zero value just in case it was there
-		for i := range res.Arcs {
-			res.Arcs[i].Program = nil
-		}
-	}
 
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: arc.OntologyIDsFromArcs(svcArcs),
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: arc.OntologyIDsFromArcs(svcArcs),
+		})
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -186,14 +195,14 @@ func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMess
 
 // compile compiles the Arc text to a module containing IR and WASM bytecode.
 // Returns an error if parsing, analysis, or compilation fails.
-func (s *Service) compile(ctx context.Context, arc *Arc) error {
+func (s *Service) compile(ctx context.Context, tx gorp.Tx, arc *Arc) error {
 	// Step 1: Parse the Arc text
 	parsed, diag := arctext.Parse(arc.Text)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
 	// Step 2: Analyze the parsed text to produce IR
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil))
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(tx))
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}

@@ -71,20 +71,18 @@ type SetResponse struct {
 }
 
 // Set creates or updates statuses in the cluster.
-func (s *Service) Set(
-	ctx context.Context,
-	req SetRequest,
-) (res SetResponse, err error) {
+func (s *Service) Set(ctx context.Context, req SetRequest) (SetResponse, error) {
+	var res SetResponse
 	ids := statusAccessOntologyIDs(req.Statuses)
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: ids,
-	}); err != nil {
-		return SetResponse{}, err
-	}
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err = s.internal.NewWriter(tx).SetManyWithParent(
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: ids,
+		}); err != nil {
+			return err
+		}
+		if err := s.internal.NewWriter(tx).SetManyWithParent(
 			ctx,
 			&req.Statuses,
 			req.Parent,
@@ -121,25 +119,30 @@ type SetByKeyOrNameResponse struct {
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	req SetByKeyOrNameRequest,
-) (res SetByKeyOrNameResponse, err error) {
+) (SetByKeyOrNameResponse, error) {
 	// Check before opening a Tx
 	if !req.Variant.IsValid() {
 		return SetByKeyOrNameResponse{}, errors.Wrap(validate.ErrValidation, "invalid status variant")
 	}
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+	var res SetByKeyOrNameResponse
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		matches, err := s.internal.ResolveKeyOrName(ctx, tx, req.KeyOrName)
 		if err != nil {
 			return err
 		}
 		st := status.SetTarget(matches, req.KeyOrName, req.Message, string(req.Variant))
-		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		action := access.ActionUpdate
+		if len(matches) == 0 {
+			action = access.ActionCreate
+		}
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
+			Action:  action,
 			Objects: []ontology.ID{status.OntologyID(st.Key)},
 		}); err != nil {
 			return err
 		}
-		if err = s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
+		if err := s.internal.NewWriter(tx).Set(ctx, &st); err != nil {
 			return err
 		}
 		res.Key = st.Key
@@ -177,46 +180,49 @@ type RetrieveResponse struct {
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (res RetrieveResponse, err error) {
-	q := s.internal.NewRetrieve()
-	resStatuses := make([]status.Status[any], 0, len(req.Keys))
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		q := s.internal.NewRetrieve()
+		resStatuses := make([]status.Status[any], 0, len(req.Keys))
 
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.HasLabels) > 0 {
-		q = q.Where(status.MatchLabels[any](req.HasLabels...))
-	}
-	if len(req.Variants) > 0 {
-		q = q.Where(status.MatchVariants[any](req.Variants...))
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(status.MatchKeys[any](req.Keys...))
-	}
-	if err = q.Entries(&resStatuses).Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	res.Statuses = resStatuses
-	ids := statusAccessOntologyIDs(res.Statuses)
-	if req.IncludeLabels {
-		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), nil)
-			if err != nil {
-				return RetrieveResponse{}, err
-			}
-			res.Statuses[i].Labels = labels
+		if req.SearchTerm != "" {
+			q = q.Search(req.SearchTerm)
 		}
-	}
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: ids,
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
+		if len(req.HasLabels) > 0 {
+			q = q.Where(status.MatchLabels[any](req.HasLabels...))
+		}
+		if len(req.Variants) > 0 {
+			q = q.Where(status.MatchVariants[any](req.Variants...))
+		}
+		if len(req.Keys) != 0 {
+			q = q.Where(status.MatchKeys[any](req.Keys...))
+		}
+		if err := q.Entries(&resStatuses).Exec(ctx, tx); err != nil {
+			return err
+		}
+		res.Statuses = resStatuses
+		ids := statusAccessOntologyIDs(res.Statuses)
+		if req.IncludeLabels {
+			for i, stat := range res.Statuses {
+				labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), tx)
+				if err != nil {
+					return err
+				}
+				res.Statuses[i].Labels = labels
+			}
+		}
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: ids,
+		})
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -232,14 +238,14 @@ func (s *Service) Delete(
 	ctx context.Context,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: status.OntologyIDs(req.Keys),
-	}); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: status.OntologyIDs(req.Keys),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).DeleteMany(ctx, req.Keys...)
 	})
 }

@@ -94,36 +94,39 @@ type RetrievePolicyResponse struct {
 func (s *Service) RetrievePolicy(
 	ctx context.Context,
 	req RetrievePolicyRequest,
-) (res RetrievePolicyResponse, err error) {
-	q := s.internal.Policy.NewRetrieve()
-	if len(req.Subjects) > 0 {
-		subjectKeys, err := s.internal.Policy.ResolveSubjects(ctx, nil, req.Subjects...)
-		if err != nil {
-			return RetrievePolicyResponse{}, err
+) (RetrievePolicyResponse, error) {
+	var res RetrievePolicyResponse
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		q := s.internal.Policy.NewRetrieve()
+		if len(req.Subjects) > 0 {
+			subjectKeys, err := s.internal.Policy.ResolveSubjects(ctx, tx, req.Subjects...)
+			if err != nil {
+				return err
+			}
+			if len(req.Keys) > 0 {
+				subjectKeys = lo.Intersect(subjectKeys, req.Keys)
+			}
+			q = q.Where(policy.MatchKeys(subjectKeys...))
+		} else if len(req.Keys) > 0 {
+			q = q.Where(policy.MatchKeys(req.Keys...))
 		}
-		if len(req.Keys) > 0 {
-			subjectKeys = lo.Intersect(subjectKeys, req.Keys)
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
 		}
-		q = q.Where(policy.MatchKeys(subjectKeys...))
-	} else if len(req.Keys) > 0 {
-		q = q.Where(policy.MatchKeys(req.Keys...))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if req.Internal != nil {
-		q = q.Where(policy.MatchInternal(*req.Internal))
-	}
-	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
-		return RetrievePolicyResponse{}, err
-	}
-	if err = s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: policy.OntologyIDsFromPolicies(res.Policies),
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
+		if req.Internal != nil {
+			q = q.Where(policy.MatchInternal(*req.Internal))
+		}
+		if err := q.Entries(&res.Policies).Exec(ctx, tx); err != nil {
+			return err
+		}
+		return s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: policy.OntologyIDsFromPolicies(res.Policies),
+		})
 	}); err != nil {
 		return RetrievePolicyResponse{}, err
 	}
@@ -204,30 +207,31 @@ func (s *Service) RetrieveRole(
 	req RetrieveRoleRequest,
 ) (RetrieveRoleResponse, error) {
 	var res RetrieveRoleResponse
-	q := s.internal.Role.NewRetrieve()
-	if len(req.Keys) > 0 {
-		q = q.Where(role.MatchKeys(req.Keys...))
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if req.Internal != nil {
-		q = q.Where(role.MatchInternal(*req.Internal))
-	}
-	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
-		return RetrieveRoleResponse{}, err
-	}
-	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{role.OntologyID(uuid.Nil)}, // Type-level check
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		q := s.internal.Role.NewRetrieve()
+		if len(req.Keys) > 0 {
+			q = q.Where(role.MatchKeys(req.Keys...))
+		}
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
+		if req.Internal != nil {
+			q = q.Where(role.MatchInternal(*req.Internal))
+		}
+		if err := q.Entries(&res.Roles).Exec(ctx, tx); err != nil {
+			return err
+		}
+		return s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{role.OntologyID(uuid.Nil)}, // Type-level check
+		})
 	}); err != nil {
 		return RetrieveRoleResponse{}, err
 	}
-
 	return res, nil
 }
 

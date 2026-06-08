@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -46,6 +47,7 @@ const (
 )
 
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	channel  *channel.Service
 	internal *framer.Service
@@ -62,6 +64,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		internal:        cfg.Service.Framer,
 		channel:         cfg.Distribution.Channel,
 		access:          cfg.Service.RBAC,
+		db:              cfg.Distribution.DB,
 	}, nil
 }
 
@@ -92,14 +95,17 @@ func (s *Service) Delete(
 	if hasNames {
 		q = q.Where(channel.MatchNames(req.Names...))
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return types.Nil{}, err
-	}
-	keys := channel.KeysFromChannels(resChannels)
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: framer.OntologyIDs(keys),
+	var keys channel.Keys
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := q.Exec(ctx, tx); err != nil {
+			return err
+		}
+		keys = channel.KeysFromChannels(resChannels)
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: framer.OntologyIDs(keys),
+		})
 	}); err != nil {
 		return types.Nil{}, err
 	}
@@ -154,10 +160,12 @@ func (s *Service) openIterator(ctx context.Context, srv IteratorStream) (framer.
 	if err != nil {
 		return nil, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(req.Keys),
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: framer.OntologyIDs(req.Keys),
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -218,10 +226,12 @@ func (s *Service) openStreamer(
 	if err != nil {
 		return nil, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionRetrieve,
-		Objects: framer.OntologyIDs(req.Keys),
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionRetrieve,
+			Objects: framer.OntologyIDs(req.Keys),
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -393,10 +403,12 @@ func (s *Service) openWriter(
 		return nil, err
 	}
 
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: subject,
-		Action:  access.ActionCreate,
-		Objects: framer.OntologyIDs(req.Config.Keys),
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionCreate,
+			Objects: framer.OntologyIDs(req.Config.Keys),
+		})
 	}); err != nil {
 		return nil, err
 	}
@@ -421,10 +433,6 @@ func (s *Service) openWriter(
 		return w, err
 	}
 
-	channels := make([]channel.Channel, 0, len(req.Config.Keys))
-	if err = s.channel.NewRetrieve().Where(channel.MatchKeys(req.Config.Keys...)).Entries(&channels).Exec(ctx, nil); err != nil {
-		return w, err
-	}
 	// Let the client know the writer is ready to receive segments.
 	return w, srv.Send(WriterResponse{
 		Command: writer.CommandOpen,

@@ -59,22 +59,25 @@ type CreateResponse struct {
 func (s *Service) Create(
 	ctx context.Context,
 	req CreateRequest,
-) (res CreateResponse, err error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: label.OntologyIDsFromLabels(req.Labels),
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels)
-		if err != nil {
+) (CreateResponse, error) {
+	var res CreateResponse
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: label.OntologyIDsFromLabels(req.Labels),
+		}); err != nil {
+			return err
+		}
+		if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels); err != nil {
 			return err
 		}
 		res.Labels = req.Labels
 		return nil
-	})
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	return res, nil
 }
 
 type RetrieveRequest struct {
@@ -94,37 +97,47 @@ type RetrieveResponse struct {
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (res RetrieveResponse, err error) {
-	if !req.For.IsZero() {
-		res.Labels, err = s.internal.RetrieveFor(ctx, req.For, nil)
-		return
-	}
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if !req.For.IsZero() {
+			labels, err := s.internal.RetrieveFor(ctx, req.For, tx)
+			if err != nil {
+				return err
+			}
+			res.Labels = labels
+		} else {
+			q := s.internal.NewRetrieve()
 
-	q := s.internal.NewRetrieve()
+			if req.SearchTerm != "" {
+				q = q.Search(req.SearchTerm)
+			}
+			if req.Limit > 0 {
+				q = q.Limit(req.Limit)
+			}
+			if req.Offset > 0 {
+				q = q.Offset(req.Offset)
+			}
+			if len(req.Keys) != 0 {
+				q = q.Where(label.MatchKeys(req.Keys...))
+			}
+			if len(req.Names) != 0 {
+				q = q.Where(label.MatchNames(req.Names...))
+			}
 
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(label.MatchKeys(req.Keys...))
-	}
-	if len(req.Names) != 0 {
-		q = q.Where(label.MatchNames(req.Names...))
-	}
-
-	if err = q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: label.OntologyIDsFromLabels(res.Labels),
+			if err := q.Entries(&res.Labels).Exec(ctx, tx); err != nil {
+				return err
+			}
+		}
+		objects := label.OntologyIDsFromLabels(res.Labels)
+		if !req.For.IsZero() {
+			objects = append(objects, req.For)
+		}
+		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: objects,
+		})
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -135,18 +148,15 @@ type DeleteRequest struct {
 	Keys []label.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(
-	ctx context.Context,
-	req DeleteRequest,
-) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: label.OntologyIDs(req.Keys),
-	}); err != nil {
-		return types.Nil{}, err
-	}
+func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: label.OntologyIDs(req.Keys),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).DeleteMany(ctx, req.Keys)
 	})
 }
@@ -157,18 +167,15 @@ type AddRequest struct {
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
 
-func (s *Service) Add(
-	ctx context.Context,
-	req AddRequest,
-) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: append(label.OntologyIDs(req.Labels), req.ID),
-	}); err != nil {
-		return types.Nil{}, err
-	}
+func (s *Service) Add(ctx context.Context, req AddRequest) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: append(label.OntologyIDs(req.Labels), req.ID),
+		}); err != nil {
+			return err
+		}
 		w := s.internal.NewWriter(tx)
 		if req.Replace {
 			if err := w.Clear(ctx, req.ID); err != nil {
@@ -184,18 +191,15 @@ type RemoveRequest struct {
 	Labels []label.Key `json:"labels" msgpack:"labels" validate:"required"`
 }
 
-func (s *Service) Remove(
-	ctx context.Context,
-	req RemoveRequest,
-) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: append(label.OntologyIDs(req.Labels), req.ID),
-	}); err != nil {
-		return types.Nil{}, err
-	}
+func (s *Service) Remove(ctx context.Context, req RemoveRequest) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: append(label.OntologyIDs(req.Labels), req.ID),
+		}); err != nil {
+			return err
+		}
 		return s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
 	})
 }

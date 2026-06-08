@@ -60,7 +60,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Key: key, Name: "api_uuid", Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now(),
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
+				[]access.Action{access.ActionUpdate},
 				status.OntologyID(key))
 
 			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
@@ -81,7 +81,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "b", Time: telem.Now(),
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
+				[]access.Action{access.ActionUpdate},
 				statusTypeOnly)
 
 			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
