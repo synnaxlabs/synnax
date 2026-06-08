@@ -9,8 +9,9 @@
 
 import { type channel, lineplot } from "@synnaxlabs/client";
 import { Flex, LinePlot } from "@synnaxlabs/pluto";
-import { type CSSProperties, type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 
+import { CSS } from "@/css";
 import {
   SelectAxisInputItem,
   SelectMultipleAxesInputItem,
@@ -22,8 +23,6 @@ const SELECT_PROPS = { location: "top" } as const;
 export interface DataProps {
   layoutKey: string;
 }
-
-const SELECT_X_STYLE: CSSProperties = { maxWidth: 400, width: "100%" };
 
 const diffChannels = (
   current: readonly channel.Key[],
@@ -89,7 +88,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
   );
 
   return (
-    <Flex.Box style={{ padding: "2rem" }} full="x">
+    <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">
       <SelectMultipleAxesInputItem
         axis="y1"
         onChange={handleYChannelSelect}
@@ -113,7 +112,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement => {
         />
         <SelectAxisInputItem
           axis="x1"
-          style={SELECT_X_STYLE}
+          className={CSS.BE("line-plot", "toolbar", "data-x")}
           onChange={handleXChannelSelect}
           value={channels.x1}
           selectProps={SELECT_PROPS}

@@ -100,7 +100,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         <Base.Header>
           <Base.Title icon={<Icon.LinePlot />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty style={{ height: "100%", width: 86 }}>
+            <Flex.Box x empty className={CSS.BE("line-plot", "toolbar", "actions")}>
               <Button.Button
                 tooltip="Download as CSV"
                 sharp
@@ -116,7 +116,9 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
                 ontologyID={lineplot.ontologyID(layoutKey)}
               />
             </Flex.Box>
-            {hasUpdatePermission && <Tabs.Selector style={{ borderBottom: "none" }} />}
+            {hasUpdatePermission && (
+              <Tabs.Selector className={CSS.BE("line-plot", "toolbar", "selector")} />
+            )}
           </Flex.Box>
         </Base.Header>
         <Tabs.Content />

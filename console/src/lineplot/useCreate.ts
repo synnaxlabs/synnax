@@ -45,6 +45,13 @@ export const useCreate = ({
         ...plot,
         workspace: workspace ?? activeWorkspace ?? undefined,
       }),
-    [workspace, activeWorkspace, activeRange, maybeChangeWorkspace, placeLayout, update],
+    [
+      workspace,
+      activeWorkspace,
+      activeRange,
+      maybeChangeWorkspace,
+      placeLayout,
+      update,
+    ],
   );
 };

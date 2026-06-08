@@ -149,7 +149,7 @@ const Line = ({
   resolved,
   visible = true,
 }: LineProps): ReactElement | null => {
-  const line = useSelectLine({ key: pKey, lineKey });
+  const { key, ...line } = useSelectLine({ key: pKey, lineKey });
   const telemetry = useMemo(() => {
     if (resolved == null) return null;
     const { xChannel, yChannel } = line;
@@ -183,7 +183,8 @@ const Line = ({
   if (line == null || telemetry == null) return null;
   return (
     <BaseLine
-      aetherKey={line.key}
+      key={key}
+      aetherKey={key}
       x={telemetry.x}
       y={telemetry.y}
       visible={visible}

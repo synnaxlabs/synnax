@@ -16,12 +16,10 @@ import { CSV } from "@/csv";
 import { Layout } from "@/layout";
 import { Range } from "@/range";
 
-// DownloadLine carries only the fields the CSV export reads: the channels to
-// pull and an optional label to name them. It is intentionally narrower than
-// the renderer's line props.
+// DownloadLine carries only the channels the CSV export pulls. CSV columns are
+// headed by the channel name, never the line's display label, so none is read.
 export interface DownloadLine {
   channels: { x?: channel.Key; y: channel.Key };
-  label?: string;
 }
 
 export interface DownloadAsCSVArgs {
@@ -40,17 +38,11 @@ export const useDownloadAsCSV = (): ((args: DownloadAsCSVArgs) => void) => {
           .flatMap((l) => [l.channels.y, l.channels.x])
           .filter((v): v is channel.Key => v != null && v !== 0),
       );
-      const channelNames = lines.reduce<Record<channel.Key, string>>((acc, l) => {
-        if (l.label == null) return acc;
-        acc[l.channels.y] = l.label;
-        if (l.channels.x != null) acc[l.channels.x] = l.label;
-        return acc;
-      }, {});
       const timeRange = TimeRange.merge(...timeRanges);
       handleError(
         async () =>
           await openDownloadCSVModal(
-            { timeRange: timeRange.numeric, name, channels, channelNames },
+            { timeRange: timeRange.numeric, name, channels },
             { icon: "LinePlot" },
           ),
         `Failed to download CSV data for ${name}`,
@@ -71,7 +63,6 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
     const now = TimeStamp.now();
     const lines: DownloadLine[] = derived.map((d) => ({
       channels: { x: d.xChannel, y: d.yChannel },
-      label: d.label,
     }));
     const timeRanges = resolved.map((r) => {
       if (r.variant === "static") return new TimeRange(r.timeRange);

@@ -44,18 +44,18 @@ const EmptyContent = ({ onCreateRule }: EmptyContentProps): ReactElement => (
 
 interface ListItemProps extends PList.ItemProps<string> {
   layoutKey: string;
-  onChangeLabel: (label: string) => void;
 }
 
-const ListItem = ({
-  layoutKey,
-  onChangeLabel,
-  ...rest
-}: ListItemProps): ReactElement | null => {
+const ListItem = ({ layoutKey, ...rest }: ListItemProps): ReactElement | null => {
   const { itemKey } = rest;
   const entry = LinePlot.useSelectRule({ key: layoutKey, ruleKey: itemKey });
+  const { dispatch } = LinePlot.useDispatch();
   if (entry == null) return null;
-  const { label } = entry;
+  const handleChangeLabel = (label: string): void =>
+    dispatch({
+      key: layoutKey,
+      actions: [lineplot.setRuleLabel({ key: itemKey, label })],
+    });
   return (
     <Select.ListItem
       {...rest}
@@ -65,11 +65,11 @@ const ListItem = ({
       square={false}
     >
       <Text.Editable
-        value={label}
+        value={entry.label}
         overflow="ellipsis"
         color={10}
         weight={500}
-        onChange={onChangeLabel}
+        onChange={handleChangeLabel}
       />
     </Select.ListItem>
   );
@@ -82,7 +82,6 @@ interface ListProps {
   onChange: (keys: string[]) => void;
   onCreate: () => void;
   onRemoveAnnotations: (keys: string[]) => void;
-  onLabelChange: (label: string, key: string) => void;
 }
 
 const List = ({
@@ -92,7 +91,6 @@ const List = ({
   onCreate,
   onRemoveAnnotations,
   layoutKey,
-  onLabelChange,
 }: ListProps): ReactElement => {
   const menuProps = Menu.useContextMenu();
   const { data } = PList.useStaticData<string, lineplot.Rule>({ data: rules });
@@ -124,12 +122,7 @@ const List = ({
         >
           <PList.Items<string, lineplot.Rule> onContextMenu={menuProps.open} grow>
             {({ key, ...rest }) => (
-              <ListItem
-                layoutKey={layoutKey}
-                key={key}
-                {...rest}
-                onChangeLabel={(v) => onLabelChange(v, key)}
-              />
+              <ListItem layoutKey={layoutKey} key={key} {...rest} />
             )}
           </PList.Items>
         </Menu.ContextMenu>
@@ -140,6 +133,9 @@ const List = ({
 
 const AXIS_DATA: lineplot.AxisKey[] = ["y1", "y2"];
 
+const LINE_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 10 };
+const LINE_DASH_BOUNDS: bounds.Bounds = { lower: 0, upper: 50 };
+
 const SelectAxis = (
   props: Omit<Select.ButtonsProps<lineplot.AxisKey>, "keys">,
 ): ReactElement => (
@@ -149,67 +145,92 @@ const SelectAxis = (
   </Select.Buttons>
 );
 
-interface RuleContentProps {
-  rule: LinePlot.DerivedRule;
-  onChangeLabel: (label: string) => void;
-  onChangeUnits: (units: string) => void;
-  onChangePosition: (position: number) => void;
-  onChangeColor: (color: color.Color) => void;
-  onChangeAxis: (axis: lineplot.AxisKey) => void;
-  onChangeLineWidth: (lineWidth: number) => void;
-  onChangeLineDash: (lineDash: number) => void;
+interface DetailsProps {
+  layoutKey: string;
+  ruleKey: string;
 }
 
-const RuleContent = ({
-  rule: { label, units, position, color, axis, lineWidth, lineDash },
-  onChangeLabel,
-  onChangeUnits,
-  onChangePosition,
-  onChangeColor,
-  onChangeAxis,
-  onChangeLineWidth,
-  onChangeLineDash,
-}: RuleContentProps): ReactElement => (
-  <Flex.Box y grow style={{ padding: "1.5rem 2rem" }}>
-    <Flex.Box x wrap>
-      <Input.Item label="Label" grow>
-        <Input.Text onChange={onChangeLabel} value={label} />
-      </Input.Item>
-      <Input.Item label="Units">
-        <Input.Text onChange={onChangeUnits} value={units} style={{ width: "15rem" }} />
-      </Input.Item>
-      <Input.Item label="Position">
-        <Input.Numeric
-          onChange={onChangePosition}
-          value={Number(position.toFixed(2))}
-          style={{ width: "25rem" }}
-        />
-      </Input.Item>
-      <Input.Item label="Axis">
-        <SelectAxis value={axis} onChange={onChangeAxis} />
-      </Input.Item>
+const Details = ({ layoutKey, ruleKey }: DetailsProps): ReactElement | null => {
+  const rule = LinePlot.useSelectRule({ key: layoutKey, ruleKey });
+  const axes = LinePlot.useSelectAxes({ key: layoutKey });
+  const { dispatch } = LinePlot.useDispatch();
+
+  const apply = useCallback(
+    (action: lineplot.Action): void => dispatch({ key: layoutKey, actions: [action] }),
+    [dispatch, layoutKey],
+  );
+
+  if (rule == null) return null;
+
+  const handleChangeLabel = (label: string): void =>
+    apply(lineplot.setRuleLabel({ key: ruleKey, label }));
+  const handleChangeUnits = (units: string): void =>
+    apply(lineplot.setRuleUnits({ key: ruleKey, units }));
+  const handleChangePosition = (position: number): void =>
+    apply(lineplot.setRulePosition({ key: ruleKey, position }));
+  const handleChangeColor = (v: color.Color): void =>
+    apply(lineplot.setRuleColor({ key: ruleKey, color: v }));
+  const handleChangeAxis = (axis: lineplot.AxisKey): void => {
+    const position = bounds.mean(axes[axis].bounds);
+    dispatch({
+      key: layoutKey,
+      actions: [
+        lineplot.setRuleAxis({ key: ruleKey, axis }),
+        lineplot.setRulePosition({ key: ruleKey, position }),
+      ],
+    });
+  };
+  const handleChangeLineWidth = (lineWidth: number): void =>
+    apply(lineplot.setRuleLineWidth({ key: ruleKey, lineWidth }));
+  const handleChangeLineDash = (lineDash: number): void =>
+    apply(lineplot.setRuleLineDash({ key: ruleKey, lineDash }));
+
+  return (
+    <Flex.Box y grow style={{ padding: "1.5rem 2rem" }}>
+      <Flex.Box x wrap>
+        <Input.Item label="Label" grow>
+          <Input.Text onChange={handleChangeLabel} value={rule.label} />
+        </Input.Item>
+        <Input.Item label="Units">
+          <Input.Text
+            onChange={handleChangeUnits}
+            value={rule.units}
+            style={{ width: "15rem" }}
+          />
+        </Input.Item>
+        <Input.Item label="Position">
+          <Input.Numeric
+            onChange={handleChangePosition}
+            value={Number(rule.position.toFixed(2))}
+            style={{ width: "25rem" }}
+          />
+        </Input.Item>
+        <Input.Item label="Axis">
+          <SelectAxis value={rule.axis} onChange={handleChangeAxis} />
+        </Input.Item>
+      </Flex.Box>
+      <Flex.Box x wrap>
+        <Input.Item label="Color">
+          <Color.Swatch value={rule.color} onChange={handleChangeColor} />
+        </Input.Item>
+        <Input.Item label="Line Width">
+          <Input.Numeric
+            bounds={LINE_WIDTH_BOUNDS}
+            onChange={handleChangeLineWidth}
+            value={rule.lineWidth}
+          />
+        </Input.Item>
+        <Input.Item label="Line Dash">
+          <Input.Numeric
+            bounds={LINE_DASH_BOUNDS}
+            onChange={handleChangeLineDash}
+            value={rule.lineDash}
+          />
+        </Input.Item>
+      </Flex.Box>
     </Flex.Box>
-    <Flex.Box x wrap>
-      <Input.Item label="Color">
-        <Color.Swatch value={color} onChange={onChangeColor} />
-      </Input.Item>
-      <Input.Item label="Line Width">
-        <Input.Numeric
-          bounds={{ lower: 1, upper: 10 }}
-          onChange={onChangeLineWidth}
-          value={lineWidth}
-        />
-      </Input.Item>
-      <Input.Item label="Line Dash">
-        <Input.Numeric
-          bounds={{ lower: 0, upper: 50 }}
-          onChange={onChangeLineDash}
-          value={lineDash}
-        />
-      </Input.Item>
-    </Flex.Box>
-  </Flex.Box>
-);
+  );
+};
 
 export interface AnnotationsProps {
   layoutKey: string;
@@ -219,81 +240,38 @@ export const Annotations = ({ layoutKey: key }: AnnotationsProps): ReactElement 
   const axes = LinePlot.useSelectAxes({ key });
   const rules = LinePlot.useSelectRules({ key });
   const selectedRuleKeys = useSelectSelectedRules(key);
-  const reduxDispatch = useDispatch();
+  const dispatchSession = useDispatch();
   const { dispatch } = LinePlot.useDispatch();
 
   const setSelectedRuleKeys = useCallback(
     (keys: string[]): void => {
-      reduxDispatch(setSelectedRule({ key, ruleKey: keys }));
+      dispatchSession(setSelectedRule({ key, ruleKey: keys }));
     },
-    [reduxDispatch, key],
-  );
-
-  const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
-  const shownRule = rules.find((rule) => rule.key === shownRuleKey);
-
-  const apply = useCallback(
-    (action: lineplot.Action): void => {
-      dispatch({ key, actions: [action] });
-    },
-    [dispatch, key],
+    [dispatchSession, key],
   );
 
   const handleCreateRule = useCallback((): void => {
-    const key = id.create();
+    const ruleKey = id.create();
     const axis: lineplot.AxisKey = "y1";
     const position = bounds.mean(axes[axis].bounds);
     const label = `Rule ${rules.length + 1}`;
-    const rule = lineplot.ruleZ.parse({ key, label, axis, position });
+    const rule = lineplot.ruleZ.parse({ key: ruleKey, label, axis, position });
     dispatch({ key, actions: [lineplot.setRule({ rule })] });
-    setSelectedRuleKeys([key]);
+    setSelectedRuleKeys([ruleKey]);
   }, [dispatch, key, axes, rules.length, setSelectedRuleKeys]);
 
-  const handleChangeLabel = (label: string, key: string = shownRuleKey): void => {
-    if (key == null) return;
-    apply(lineplot.setRuleLabel({ key, label }));
-  };
-  const handleChangeUnits = (units: string): void => {
-    if (shownRule == null) return;
-    apply(lineplot.setRuleUnits({ key: shownRule.key, units }));
-  };
-  const handleChangePosition = (position: number): void => {
-    if (shownRule == null) return;
-    apply(lineplot.setRulePosition({ key: shownRule.key, position }));
-  };
-  const handleChangeColor = (v: color.Color): void => {
-    if (shownRule == null) return;
-    apply(lineplot.setRuleColor({ key: shownRule.key, color: v }));
-  };
-  const handleChangeAxis = (axis: lineplot.AxisKey): void => {
-    if (shownRule == null) return;
-    const position = bounds.mean(axes[axis].bounds);
-    dispatch({
-      key,
-      actions: [
-        lineplot.setRuleAxis({ key: shownRule.key, axis }),
-        lineplot.setRulePosition({ key: shownRule.key, position }),
-      ],
-    });
-  };
-  const handleChangeLineWidth = (lineWidth: number): void => {
-    if (shownRule == null) return;
-    apply(lineplot.setRuleLineWidth({ key: shownRule.key, lineWidth }));
-  };
-  const handleChangeLineDash = (lineDash: number): void => {
-    if (shownRule == null) return;
-    apply(lineplot.setRuleLineDash({ key: shownRule.key, lineDash }));
-  };
   const handleRemoveRules = (keys: string[]): void => {
     dispatch({
       key,
-      actions: keys.map((key) => lineplot.removeRule({ key })),
+      actions: keys.map((ruleKey) => lineplot.removeRule({ key: ruleKey })),
     });
     const newSelectedRuleKey = rules.find((rule) => !keys.includes(rule.key))?.key;
     setSelectedRuleKeys(newSelectedRuleKey == null ? [] : [newSelectedRuleKey]);
   };
 
-  if (shownRule == null) return <EmptyContent onCreateRule={handleCreateRule} />;
+  const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
+  if (shownRuleKey == null || !rules.some((rule) => rule.key === shownRuleKey))
+    return <EmptyContent onCreateRule={handleCreateRule} />;
   return (
     <Flex.Box x style={{ height: "100%" }} empty>
       <List
@@ -302,20 +280,10 @@ export const Annotations = ({ layoutKey: key }: AnnotationsProps): ReactElement 
         rules={rules}
         onCreate={handleCreateRule}
         onRemoveAnnotations={handleRemoveRules}
-        onLabelChange={handleChangeLabel}
         layoutKey={key}
       />
       <Divider.Divider y />
-      <RuleContent
-        rule={shownRule}
-        onChangeLabel={handleChangeLabel}
-        onChangeUnits={handleChangeUnits}
-        onChangePosition={handleChangePosition}
-        onChangeColor={handleChangeColor}
-        onChangeAxis={handleChangeAxis}
-        onChangeLineWidth={handleChangeLineWidth}
-        onChangeLineDash={handleChangeLineDash}
-      />
+      <Details layoutKey={key} ruleKey={shownRuleKey} />
     </Flex.Box>
   );
 };

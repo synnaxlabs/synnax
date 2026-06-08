@@ -124,7 +124,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     () =>
       derived.map((d) => ({
         channels: { x: d.xChannel, y: d.yChannel },
-        label: d.label,
       })),
     [derived],
   );
