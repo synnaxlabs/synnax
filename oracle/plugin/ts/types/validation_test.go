@@ -168,7 +168,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.default({ format: "preciseDate", tz: "local" })`)
+			ToContain(`.prefault({ format: "preciseDate", tz: "local" })`)
 	})
 
 	It("Should render every scalar value kind inside an object-literal default", func(ctx SpecContext) {
@@ -252,6 +252,124 @@ var _ = Describe("Validation Rules", func() {
 		content := MustContentOf(resp, "types.gen.ts")
 		Expect(content).To(ContainSubstring(`vals: array.nullishToEmpty(z.number()).default([1.500000, 2.500000]),`))
 		Expect(content).ToNot(ContainSubstring(`z.number().default`))
+	})
+
+	It("Should emit a struct default as a typed object literal", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Level enum {
+				low  = "low"
+				high = "high"
+			}
+
+			Point struct {
+				x     int32
+				y     int32
+				level Level
+			}
+
+			Item struct {
+				p Point = { x = 1, y = 2, level = LevelHigh }
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`p: pointZ.prefault({ x: 1, y: 2, level: "high" }),`))
+	})
+
+	It("Should emit nested struct and array values in a struct default", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Inner struct {
+				tags string[]
+			}
+
+			Mid struct {
+				inner Inner
+			}
+
+			Item struct {
+				m Mid = { inner = { tags = ["a", "b"] } }
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`m: midZ.prefault({ inner: { tags: ["a", "b"] } }),`))
+	})
+
+	It("Should emit .prefault() for a struct override in an extending input struct, not .partial()", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Title struct {
+				level   int32
+				visible bool
+			}
+
+			Plot struct {
+				key   string
+				title Title
+			}
+
+			NewPlot struct extends Plot {
+				title Title = { level = 1, visible = false }
+				@ts use_input
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`titleZ.prefault({ level: 1, visible: false })`))
+		Expect(content).ToNot(ContainSubstring(`.partial({ title: true })`))
+	})
+
+	It("Should resolve enum-extends variants and generics in a nested struct default via typeless override", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			XAxisKey enum {
+				x1 = "x1"
+				x2 = "x2"
+			}
+
+			YAxisKey enum {
+				y1 = "y1"
+			}
+
+			AxisKey enum extends XAxisKey, YAxisKey {}
+
+			Bounds struct<T extends numeric = float64> {
+				lower T
+				upper T
+			}
+
+			Axis struct {
+				key          AxisKey
+				bounds       Bounds
+				tick_spacing float64
+			}
+
+			Axes struct {
+				x1 Axis
+				y1 Axis
+			}
+
+			Plot struct {
+				axes Axes
+			}
+
+			NewPlot struct extends Plot {
+				axes = {
+					x1 = { key = AxisKeyX1, bounds = { lower = 0, upper = 0 }, tick_spacing = 75 },
+					y1 = { key = AxisKeyY1, bounds = { lower = 0, upper = 0 }, tick_spacing = 75 }
+				}
+				@ts use_input
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring(`axesZ.prefault({ x1: { key: "x1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 }, y1: { key: "y1", bounds: { lower: 0, upper: 0 }, tickSpacing: 75 } })`))
 	})
 
 	It("Should emit min/max length for string fields", func(ctx SpecContext) {

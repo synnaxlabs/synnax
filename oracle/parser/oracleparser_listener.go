@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -55,6 +46,9 @@ type OracleParserListener interface {
 	// EnterFieldOmit is called when entering the fieldOmit production.
 	EnterFieldOmit(c *FieldOmitContext)
 
+	// EnterDomainOmit is called when entering the domainOmit production.
+	EnterDomainOmit(c *DomainOmitContext)
+
 	// EnterActionDef is called when entering the actionDef production.
 	EnterActionDef(c *ActionDefContext)
 
@@ -67,8 +61,17 @@ type OracleParserListener interface {
 	// EnterFieldDefault is called when entering the fieldDefault production.
 	EnterFieldDefault(c *FieldDefaultContext)
 
+	// EnterDefaultValue is called when entering the defaultValue production.
+	EnterDefaultValue(c *DefaultValueContext)
+
 	// EnterArrayDefault is called when entering the arrayDefault production.
 	EnterArrayDefault(c *ArrayDefaultContext)
+
+	// EnterStructDefault is called when entering the structDefault production.
+	EnterStructDefault(c *StructDefaultContext)
+
+	// EnterStructFieldDefault is called when entering the structFieldDefault production.
+	EnterStructFieldDefault(c *StructFieldDefaultContext)
 
 	// EnterInlineDomain is called when entering the inlineDomain production.
 	EnterInlineDomain(c *InlineDomainContext)
@@ -175,6 +178,9 @@ type OracleParserListener interface {
 	// ExitFieldOmit is called when exiting the fieldOmit production.
 	ExitFieldOmit(c *FieldOmitContext)
 
+	// ExitDomainOmit is called when exiting the domainOmit production.
+	ExitDomainOmit(c *DomainOmitContext)
+
 	// ExitActionDef is called when exiting the actionDef production.
 	ExitActionDef(c *ActionDefContext)
 
@@ -187,8 +193,17 @@ type OracleParserListener interface {
 	// ExitFieldDefault is called when exiting the fieldDefault production.
 	ExitFieldDefault(c *FieldDefaultContext)
 
+	// ExitDefaultValue is called when exiting the defaultValue production.
+	ExitDefaultValue(c *DefaultValueContext)
+
 	// ExitArrayDefault is called when exiting the arrayDefault production.
 	ExitArrayDefault(c *ArrayDefaultContext)
+
+	// ExitStructDefault is called when exiting the structDefault production.
+	ExitStructDefault(c *StructDefaultContext)
+
+	// ExitStructFieldDefault is called when exiting the structFieldDefault production.
+	ExitStructFieldDefault(c *StructFieldDefaultContext)
 
 	// ExitInlineDomain is called when exiting the inlineDomain production.
 	ExitInlineDomain(c *InlineDomainContext)

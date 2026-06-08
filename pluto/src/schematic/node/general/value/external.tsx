@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
@@ -25,7 +26,7 @@ export * from "@/schematic/node/general/value/config";
 export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   orientation: "left",
-  color: t.colors.gray.l11,
+  color: color.ZERO,
   units: "psi",
   level: "h5",
   inlineSize: 70,

@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -107,6 +98,12 @@ func (s *BaseOracleParserListener) EnterFieldOmit(ctx *FieldOmitContext) {}
 // ExitFieldOmit is called when production fieldOmit is exited.
 func (s *BaseOracleParserListener) ExitFieldOmit(ctx *FieldOmitContext) {}
 
+// EnterDomainOmit is called when production domainOmit is entered.
+func (s *BaseOracleParserListener) EnterDomainOmit(ctx *DomainOmitContext) {}
+
+// ExitDomainOmit is called when production domainOmit is exited.
+func (s *BaseOracleParserListener) ExitDomainOmit(ctx *DomainOmitContext) {}
+
 // EnterActionDef is called when production actionDef is entered.
 func (s *BaseOracleParserListener) EnterActionDef(ctx *ActionDefContext) {}
 
@@ -131,11 +128,29 @@ func (s *BaseOracleParserListener) EnterFieldDefault(ctx *FieldDefaultContext) {
 // ExitFieldDefault is called when production fieldDefault is exited.
 func (s *BaseOracleParserListener) ExitFieldDefault(ctx *FieldDefaultContext) {}
 
+// EnterDefaultValue is called when production defaultValue is entered.
+func (s *BaseOracleParserListener) EnterDefaultValue(ctx *DefaultValueContext) {}
+
+// ExitDefaultValue is called when production defaultValue is exited.
+func (s *BaseOracleParserListener) ExitDefaultValue(ctx *DefaultValueContext) {}
+
 // EnterArrayDefault is called when production arrayDefault is entered.
 func (s *BaseOracleParserListener) EnterArrayDefault(ctx *ArrayDefaultContext) {}
 
 // ExitArrayDefault is called when production arrayDefault is exited.
 func (s *BaseOracleParserListener) ExitArrayDefault(ctx *ArrayDefaultContext) {}
+
+// EnterStructDefault is called when production structDefault is entered.
+func (s *BaseOracleParserListener) EnterStructDefault(ctx *StructDefaultContext) {}
+
+// ExitStructDefault is called when production structDefault is exited.
+func (s *BaseOracleParserListener) ExitStructDefault(ctx *StructDefaultContext) {}
+
+// EnterStructFieldDefault is called when production structFieldDefault is entered.
+func (s *BaseOracleParserListener) EnterStructFieldDefault(ctx *StructFieldDefaultContext) {}
+
+// ExitStructFieldDefault is called when production structFieldDefault is exited.
+func (s *BaseOracleParserListener) ExitStructFieldDefault(ctx *StructFieldDefaultContext) {}
 
 // EnterInlineDomain is called when production inlineDomain is entered.
 func (s *BaseOracleParserListener) EnterInlineDomain(ctx *InlineDomainContext) {}

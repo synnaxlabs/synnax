@@ -135,6 +135,7 @@ type Transport struct {
 	LinePlotDelete   freighter.UnaryServer[lineplot.DeleteRequest, types.Nil]
 	LinePlotRename   freighter.UnaryServer[lineplot.RenameRequest, types.Nil]
 	LinePlotSetData  freighter.UnaryServer[lineplot.SetDataRequest, types.Nil]
+	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, types.Nil]
 	// LABEL
 	LabelCreate   freighter.UnaryServer[label.CreateRequest, label.CreateResponse]
 	LabelRetrieve freighter.UnaryServer[label.RetrieveRequest, label.RetrieveResponse]
@@ -310,6 +311,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.LinePlotCreate,
 		t.LinePlotRename,
 		t.LinePlotSetData,
+		t.LinePlotDispatch,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
 
@@ -459,6 +461,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotCreate.BindHandler(l.LinePlot.Create)
 	t.LinePlotRename.BindHandler(l.LinePlot.Rename)
 	t.LinePlotSetData.BindHandler(l.LinePlot.SetData)
+	t.LinePlotDispatch.BindHandler(l.LinePlot.Dispatch)
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(l.LinePlot.Delete)
 

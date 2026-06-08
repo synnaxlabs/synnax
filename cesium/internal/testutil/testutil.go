@@ -12,13 +12,13 @@ package testutil
 import (
 	"fmt"
 	"math/rand"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/telem"
 )
 
-var k = atomic.Int64Counter{}
+var k atomic.Int64
 
 func GenerateChannelKey() cesium.ChannelKey {
 	return cesium.ChannelKey(k.Add(1))

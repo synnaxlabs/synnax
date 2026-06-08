@@ -184,15 +184,8 @@ Schematic struct {
 }
 
 New struct extends Schematic {
-    key      Key?  {
-        @doc value """
-            is an optional key for the schematic. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    snapshot bool? {
-        @doc value "is an optional snapshot flag."
-    }
+    key?
+    snapshot?
 
     @doc value    "contains parameters for creating a new schematic."
     @ts use_input

@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
 	pyprimitives "github.com/synnaxlabs/oracle/plugin/py/primitives"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -369,6 +370,14 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 	return "Any"
 }
 
+// hashableKey reports whether field is a @key field that can serve as the basis
+// for __hash__. An optional key (e.g. on a creation payload, where the key is
+// assigned by the server) is normally absent, so hashing by it is meaningless;
+// only a required key yields a __hash__.
+func hashableKey(field resolution.Field) bool {
+	return key.HasKey(field) && !field.IsOptional && !field.IsHardOptional
+}
+
 func processStruct(
 	entry resolution.Type,
 	table *resolution.Table,
@@ -437,6 +446,24 @@ func processStruct(
 		}
 
 		if allParentsValid {
+			// A domain removal (-@domain) cannot be expressed through class
+			// inheritance — the base class still carries the domain — so emit a
+			// flattened standalone class. Typeless overrides are already resolved
+			// by the analyzer.
+			if resolver.HasDomainOmissions(form) {
+				sd.HasExtends = false
+				sd.ExtendsNames = nil
+				flat := resolution.UnifiedFields(entry, table)
+				sd.Fields = make([]fieldData, 0, len(flat))
+				for _, field := range flat {
+					sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, form.OmittedFields))
+					if hashableKey(field) {
+						sd.KeyField = field.Name
+					}
+				}
+				return sd
+			}
+
 			// Get all parent fields for comparison (first parent wins on conflict)
 			parentFields := make([]resolution.Field, 0)
 			seenFields := make(set.Set[string])
@@ -493,13 +520,13 @@ func processStruct(
 					if childField, ok := childFieldsByName[pf.Name]; ok {
 						fd := processField(childField, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
-						if key.HasKey(childField) {
+						if hashableKey(childField) {
 							sd.KeyField = childField.Name
 						}
 					} else {
 						fd := processField(pf, table, data, keyFields, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
-						if key.HasKey(pf) {
+						if hashableKey(pf) {
 							sd.KeyField = pf.Name
 						}
 					}
@@ -512,7 +539,7 @@ func processStruct(
 					}
 					fd := processField(field, table, data, keyFields, form.OmittedFields)
 					sd.Fields = append(sd.Fields, fd)
-					if key.HasKey(field) {
+					if hashableKey(field) {
 						sd.KeyField = field.Name
 					}
 				}
@@ -528,14 +555,14 @@ func processStruct(
 				redefinedFields.Add(field.Name)
 				fd := processField(field, table, data, keyFields, form.OmittedFields)
 				sd.Fields = append(sd.Fields, fd)
-				// Check if this field has @key annotation for __hash__ generation
-				if key.HasKey(field) {
+				// Only a required @key field yields a __hash__.
+				if hashableKey(field) {
 					sd.KeyField = field.Name
 				}
 			}
 			// Also check parent fields for @key if not redefined
 			for _, pf := range parentFields {
-				if !redefinedFields.Contains(pf.Name) && key.HasKey(pf) {
+				if !redefinedFields.Contains(pf.Name) && hashableKey(pf) {
 					sd.KeyField = pf.Name
 				}
 			}
@@ -574,8 +601,8 @@ func processStruct(
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
 		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
-		// Check if this field has @key annotation for __hash__ generation
-		if key.HasKey(field) {
+		// Only a required @key field yields a __hash__.
+		if hashableKey(field) {
 			sd.KeyField = field.Name
 		}
 	}
@@ -801,87 +828,87 @@ func collectValidation(
 				variantRef := enumVariantToPython(ev, table, data)
 				constraints = append(constraints, fmt.Sprintf("default=%s", variantRef))
 			}
-		case resolution.ValueKindStruct:
-			if def := structDefaultToPython(*defaultVal, typeRef, table, data); def != "" {
-				constraints = append(constraints, def)
-			}
 		case resolution.ValueKindArray:
 			// Lists are mutable, so they must use default_factory, never default=.
 			if len(defaultVal.Elements) == 0 {
 				constraints = append(constraints, "default_factory=list")
 			} else {
-				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyArrayLiteral(defaultVal.Elements)))
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
+			}
+		case resolution.ValueKindStruct:
+			// Models are mutable, so they must use default_factory, never default=.
+			// Skip when the struct lives in another namespace: the constructor
+			// would render unqualified and break at runtime since we don't emit
+			// the cross-namespace import for default_factory references.
+			if typ, ok := typeRef.Resolve(table); ok && typ.Namespace == data.Namespace {
+				constraints = append(constraints, fmt.Sprintf("default_factory=lambda: %s", pyDefaultLiteral(typeRef, *defaultVal, table, data)))
 			}
 		}
 	}
 	return constraints
 }
 
-// structDefaultToPython renders a ValueKindStruct default as a Pydantic default_factory
-// that constructs the referenced model (e.g. default_factory=lambda:
-// TimestampConfig(format="preciseDate", tz="local")). It returns the empty string when
-// the struct type cannot be resolved or lives in another namespace (which would require
-// an import), leaving the field without a default rather than emitting an unqualified
-// reference.
-func structDefaultToPython(
-	ev resolution.ExpressionValue,
-	typeRef resolution.TypeRef,
-	table *resolution.Table,
-	data *templateData,
-) string {
-	typ := typeRef.MustResolve(table)
-	if typ.Namespace != data.Namespace {
-		return ""
-	}
-	className := getPyName(typ)
-	parts := make([]string, 0, len(ev.ObjectFields))
-	for _, f := range ev.ObjectFields {
-		parts = append(parts, fmt.Sprintf("%s=%s", f.Name, expressionValueToPython(f.Value)))
-	}
-	return fmt.Sprintf("default_factory=lambda: %s(%s)", className, strings.Join(parts, ", "))
-}
-
-// expressionValueToPython renders a scalar expression value as a Python literal.
-func expressionValueToPython(v resolution.ExpressionValue) string {
-	switch v.Kind {
+// pyDefaultLiteral renders a default value as a Python literal. typeRef is the
+// declared type of the value, used to resolve enum variants, array element
+// types, and nested struct field types. Arrays and structs recurse.
+func pyDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	switch val.Kind {
 	case resolution.ValueKindString:
-		return fmt.Sprintf("%q", v.StringValue)
+		return fmt.Sprintf("%q", val.StringValue)
 	case resolution.ValueKindInt:
-		return fmt.Sprintf("%d", v.IntValue)
+		return fmt.Sprintf("%d", val.IntValue)
 	case resolution.ValueKindFloat:
-		return fmt.Sprintf("%f", v.FloatValue)
+		return fmt.Sprintf("%f", val.FloatValue)
 	case resolution.ValueKindBool:
-		if v.BoolValue {
+		if val.BoolValue {
 			return "True"
 		}
 		return "False"
-	default:
-		return fmt.Sprintf("%q", v.StringValue)
+	case resolution.ValueKindIdent:
+		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, table); ok {
+			return enumVariantToPython(ev, table, data)
+		}
+		return val.IdentValue
+	case resolution.ValueKindArray:
+		elem := pyArrayElementType(typeRef)
+		parts := make([]string, 0, len(val.Elements))
+		for _, el := range val.Elements {
+			parts = append(parts, pyDefaultLiteral(elem, el, table, data))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	case resolution.ValueKindStruct:
+		return pyStructLiteral(typeRef, val, table, data)
 	}
+	return ""
 }
 
-// pyArrayLiteral renders an array default's elements as a Python list literal.
-func pyArrayLiteral(elements []resolution.ExpressionValue) string {
-	parts := make([]string, 0, len(elements))
-	for _, el := range elements {
-		switch el.Kind {
-		case resolution.ValueKindString:
-			parts = append(parts, fmt.Sprintf("%q", el.StringValue))
-		case resolution.ValueKindInt:
-			parts = append(parts, fmt.Sprintf("%d", el.IntValue))
-		case resolution.ValueKindFloat:
-			parts = append(parts, fmt.Sprintf("%f", el.FloatValue))
-		case resolution.ValueKindBool:
-			if el.BoolValue {
-				parts = append(parts, "True")
-			} else {
-				parts = append(parts, "False")
-			}
-		case resolution.ValueKindIdent:
-			parts = append(parts, el.IdentValue)
-		}
+// pyStructLiteral renders a struct default as a Python model constructor call,
+// resolving each field's value against its declared type in the struct named by
+// typeRef.
+func pyStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return "None"
 	}
-	return "[" + strings.Join(parts, ", ") + "]"
+	className := getPyName(resolved)
+	fieldsByName := map[string]resolution.Field{}
+	for _, f := range resolution.UnifiedFields(resolved, table) {
+		fieldsByName[f.Name] = f
+	}
+	parts := make([]string, 0, len(val.Fields))
+	for _, fv := range val.Fields {
+		parts = append(parts, fmt.Sprintf("%s=%s", keywords.Escape(fv.Name), pyDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data)))
+	}
+	return className + "(" + strings.Join(parts, ", ") + ")"
+}
+
+// pyArrayElementType returns the element type of an array type reference, or the
+// reference itself when it is not an array.
+func pyArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0]
+	}
+	return typeRef
 }
 
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
@@ -1161,8 +1188,8 @@ func toPythonModulePath(repoPath string) string {
 
 	path := repoPath
 	for _, prefix := range prefixes {
-		if strings.HasPrefix(path, prefix) {
-			path = strings.TrimPrefix(path, prefix)
+		if after, ok := strings.CutPrefix(path, prefix); ok {
+			path = after
 			break
 		}
 	}
