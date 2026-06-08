@@ -17,15 +17,16 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/set"
 )
 
 // acronyms are initialisms that stay fully upper-cased in PascalCase identifiers
 // derived from snake_case (e.g. "ai_voltage" -> "AIVoltage"). The set covers the
 // hardware and signal initialisms used in Synnax schemas.
-var acronyms = map[string]struct{}{
-	"ai": {}, "ao": {}, "ci": {}, "co": {}, "di": {}, "do": {},
-	"rtd": {}, "iepe": {}, "rms": {}, "dc": {}, "ac": {},
-}
+var acronyms = set.New(
+	"ai", "ao", "ci", "co", "di", "do",
+	"rtd", "iepe", "rms", "dc", "ac",
+)
 
 // PascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase,
 // fully upper-casing any whole underscore-delimited segment that is a known
@@ -37,7 +38,7 @@ func PascalAcronym(s string) string {
 		if seg == "" {
 			continue
 		}
-		if _, ok := acronyms[strings.ToLower(seg)]; ok {
+		if acronyms.Contains(strings.ToLower(seg)) {
 			segs[i] = strings.ToUpper(seg)
 		} else {
 			segs[i] = lo.Capitalize(seg)

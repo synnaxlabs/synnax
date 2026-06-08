@@ -939,9 +939,7 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	}
 
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 
 	if body := def.UnionBody(); body != nil {
 		for _, v := range body.AllUnionVariant() {
