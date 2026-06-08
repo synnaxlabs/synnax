@@ -47,7 +47,7 @@ interface ChannelRowProps {
   channelKey: channel.Key;
   ch: channel.Channel | undefined;
   config: log.ChannelEntry;
-  onChange: (index: number, channelKey: channel.Key) => void;
+  onChange: (prevKey: channel.Key, nextKey: channel.Key) => void;
   onConfigChange: (
     channelKey: channel.Key,
     config: Partial<Omit<log.ChannelEntry, "channel">>,
@@ -86,7 +86,7 @@ const ChannelRow = ({
       <Flex.Box x align="center" grow>
         <Channel.SelectSingle
           value={channelKey}
-          onChange={(v: channel.Key) => onChange(index, v)}
+          onChange={(v: channel.Key) => onChange(channelKey, v)}
           initialQuery={{ internal: IS_DEV ? undefined : false }}
           disabled={disabled}
           className={CSS.BE("log", "channel-select")}
@@ -229,15 +229,9 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement => {
   // Changing a row's channel keeps the row's position and display config, swapping
   // only the underlying channel; the full ordered list is sent so order is preserved.
   const handleChannelChange = useCallback(
-    (index: number, channelKey: channel.Key) =>
-      apply(
-        log.setChannels({
-          channels: channels.map((e, i) =>
-            i === index ? { ...e, channel: channelKey } : e,
-          ),
-        }),
-      ),
-    [apply, channels],
+    (prevKey: channel.Key, nextKey: channel.Key) =>
+      apply(log.swapChannel({ from: prevKey, to: nextKey })),
+    [apply],
   );
 
   const handleConfigChange = useCallback(
