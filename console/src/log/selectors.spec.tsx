@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { color } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
@@ -17,14 +18,16 @@ import {
   select,
   selectActiveToolbarTab,
   selectExists,
-  selectIsRemoteCreated,
   selectOptional,
+  selectPendingUpload,
   selectSliceState,
   selectVersion,
   useSelect,
   useSelectExists,
+  useSelectPendingUpload,
 } from "@/log/selectors";
 import {
+  type PendingUpload,
   reducer,
   SLICE_NAME,
   type State,
@@ -35,11 +38,29 @@ import {
 
 const KEY = "log-1";
 
+const PENDING: PendingUpload = {
+  key: KEY,
+  channels: [
+    {
+      channel: 42,
+      color: color.ZERO,
+      notation: "standard",
+      precision: -1,
+      alias: "",
+      timestamp: { format: "preciseDate", tz: "local" },
+    },
+  ],
+  remoteCreated: false,
+  timestampPrecision: 0,
+  showChannelNames: true,
+  showReceiptTimestamp: true,
+};
+
 const entry: State = {
   ...ZERO_STATE,
   key: KEY,
-  remoteCreated: true,
   toolbar: { ...ZERO_STATE.toolbar, activeTab: "properties" },
+  pendingUpload: PENDING,
 };
 
 const state: StoreState = {
@@ -97,10 +118,10 @@ describe("log selectors", () => {
     });
   });
 
-  describe("selectIsRemoteCreated", () => {
-    it("reads remoteCreated, undefined when absent", () => {
-      expect(selectIsRemoteCreated(state, KEY)).toBe(true);
-      expect(selectIsRemoteCreated(empty, "absent")).toBeUndefined();
+  describe("selectPendingUpload", () => {
+    it("reads the pending upload, undefined when absent", () => {
+      expect(selectPendingUpload(state, KEY)).toBe(PENDING);
+      expect(selectPendingUpload(empty, "absent")).toBeUndefined();
     });
   });
 
@@ -117,6 +138,13 @@ describe("log selectors", () => {
         wrapper: wrapperFor(state),
       });
       expect(result.current).toBe(true);
+    });
+
+    it("useSelectPendingUpload reads through the Redux provider", () => {
+      const { result } = renderHook(() => useSelectPendingUpload(KEY), {
+        wrapper: wrapperFor(state),
+      });
+      expect(result.current).toBe(PENDING);
     });
   });
 });
