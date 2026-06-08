@@ -37,13 +37,13 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
-export interface LogProps extends UseProps, Omit<Flex.BoxProps, "color"> {
+export interface BaseProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
   extraContextMenuItems?: ReactNode;
   enableTriggers?: boolean | (() => boolean);
 }
 
-export const Log = ({
+export const Base = ({
   aetherKey,
   font,
   className,
@@ -62,7 +62,7 @@ export const Log = ({
   extraContextMenuItems,
   enableTriggers,
   ...rest
-}: LogProps): ReactElement | null => {
+}: BaseProps): ReactElement | null => {
   const { state, setState } = use({
     aetherKey,
     font,

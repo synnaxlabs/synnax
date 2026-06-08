@@ -25,8 +25,11 @@ import { state } from "@/state";
 export const FLUX_STORE_KEY = "logs";
 const RESOURCE_NAME = "log";
 
-export interface FluxStore
-  extends Flux.UndoableUnaryStore<log.Key, log.Log, log.Action> {}
+export interface FluxStore extends Flux.UndoableUnaryStore<
+  log.Key,
+  log.Log,
+  log.Action
+> {}
 
 export type UseDeleteArgs = log.Key | log.Key[];
 
