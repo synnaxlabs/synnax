@@ -100,7 +100,7 @@ const useCreateLog = ({
     afterSuccess: async ({ data }) => {
       const { workspace, ...log } = data;
       await maybeChangeWorkspace(workspace);
-      placeLayout(Log.create({ ...Log.stateFromLog(log), name: log.name }));
+      placeLayout(Log.create({ key: log.key, name: log.name }));
     },
   });
   return useCallback(

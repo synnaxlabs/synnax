@@ -9,19 +9,18 @@
 
 import { log } from "@synnaxlabs/client";
 import { Access, Log as PLog } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { Log } from "@/log";
+import { useCreate } from "@/log/useCreate";
 import { Palette } from "@/palette";
 
-const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const handleSelect = useCallback(() => placeLayout(Log.create()), [placeLayout]);
+const CreateCommand: Palette.Command = (listProps) => {
+  const create = useCreate({});
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Create a log"
       icon={<PLog.CreateIcon />}
-      onSelect={handleSelect}
+      onSelect={create}
     />
   );
 };

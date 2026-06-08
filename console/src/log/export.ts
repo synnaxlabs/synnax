@@ -11,21 +11,17 @@ import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { LAYOUT_TYPE } from "@/log/Log";
-import { select } from "@/log/selectors";
-import { stateFromLog } from "@/log/slice";
+import { LAYOUT_TYPE } from "@/log/layout";
+import { VERSION } from "@/log/types/v3";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
-  const storeState = store.getState();
-  let state = select(storeState, key);
-  let name = Layout.select(storeState, key)?.name;
-  if (state == null || name == null) {
-    if (client == null) throw new DisconnectedError();
-    const log = await client.logs.retrieve({ key });
-    state ??= stateFromLog(log);
-    name ??= log.name;
-  }
-  return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
+  const name = Layout.select(store.getState(), key)?.name;
+  if (client == null) throw new DisconnectedError();
+  const l = await client.logs.retrieve({ key });
+  return {
+    data: JSON.stringify({ ...l, type: LAYOUT_TYPE, version: VERSION }),
+    name: name ?? l.name,
+  };
 };
 
 export const useExport = () => Export.use(extract, "log");

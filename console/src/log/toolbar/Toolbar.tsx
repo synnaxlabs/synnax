@@ -10,7 +10,7 @@
 import "@/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
-import { Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Flex, Icon, Log as PLog, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -20,7 +20,11 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
-import { useSelectActiveToolbarTab, useSelectExists } from "@/log/selectors";
+import {
+  useSelectActiveToolbarTab,
+  useSelectExists,
+  useSelectPendingUpload,
+} from "@/log/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/log/slice";
 import { Channels } from "@/log/toolbar/Channels";
 import { Properties } from "@/log/toolbar/Properties";
@@ -35,6 +39,7 @@ const TABS: Tabs.Tab[] = [
 ];
 
 const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
+  PLog.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const activeTab = useSelectActiveToolbarTab(layoutKey);
@@ -86,6 +91,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const exists = useSelectExists(layoutKey);
-  if (!exists) return null;
+  const pendingUpload = useSelectPendingUpload(layoutKey);
+  if (!exists || pendingUpload != null) return null;
   return <Internal layoutKey={layoutKey} />;
 };

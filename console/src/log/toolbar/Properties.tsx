@@ -8,57 +8,52 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Flex, Input } from "@synnaxlabs/pluto";
+import { Access, Flex, Input, Log as Base } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
-
-import { useSyncComponent } from "@/log/Log";
-import { useSelectOptional } from "@/log/selectors";
-import {
-  setShowChannelNames,
-  setShowReceiptTimestamp,
-  setTimestampPrecision,
-} from "@/log/slice";
 
 export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const Properties = ({ layoutKey }: PropertiesProps): ReactElement | null => {
-  const dispatch = useSyncComponent(layoutKey);
-  const state = useSelectOptional(layoutKey);
+export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
+  const { dispatch } = Base.useDispatch();
+  const showChannelNames = Base.useSelectShowChannelNames({ key: layoutKey });
+  const showReceiptTimestamp = Base.useSelectShowReceiptTimestamp({ key: layoutKey });
+  const timestampPrecision = Base.useSelectTimestampPrecision({ key: layoutKey });
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
 
-  const handlePrecisionChange = useCallback(
-    (v: number) =>
-      dispatch(setTimestampPrecision({ key: layoutKey, timestampPrecision: v })),
+  const apply = useCallback(
+    (action: log.Action) => dispatch({ key: layoutKey, actions: [action] }),
     [dispatch, layoutKey],
+  );
+
+  const handlePrecisionChange = useCallback(
+    (v: number) => apply(log.setTimestampPrecision({ timestampPrecision: v })),
+    [apply],
   );
 
   const handleShowChannelNamesChange = useCallback(
-    (v: boolean) =>
-      dispatch(setShowChannelNames({ key: layoutKey, showChannelNames: v })),
-    [dispatch, layoutKey],
+    (v: boolean) => apply(log.setShowChannelNames({ showChannelNames: v })),
+    [apply],
   );
 
   const handleShowReceiptTimestampChange = useCallback(
-    (v: boolean) =>
-      dispatch(setShowReceiptTimestamp({ key: layoutKey, showReceiptTimestamp: v })),
-    [dispatch, layoutKey],
+    (v: boolean) => apply(log.setShowReceiptTimestamp({ showReceiptTimestamp: v })),
+    [apply],
   );
 
-  if (state == null) return null;
   return (
     <Flex.Box x className="console-log__toolbar-properties">
       <Input.Item label="Show Receipt Timestamp">
         <Input.Switch
-          value={state.showReceiptTimestamp}
+          value={showReceiptTimestamp}
           onChange={handleShowReceiptTimestampChange}
           disabled={!hasEditPermission}
         />
       </Input.Item>
       <Input.Item label="Receipt Timestamp Precision">
         <Input.Numeric
-          value={state.timestampPrecision}
+          value={timestampPrecision}
           onChange={handlePrecisionChange}
           resetValue={0}
           bounds={{ lower: 0, upper: 4 }}
@@ -67,7 +62,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement | null 
       </Input.Item>
       <Input.Item label="Show Channel Names">
         <Input.Switch
-          value={state.showChannelNames}
+          value={showChannelNames}
           onChange={handleShowChannelNamesChange}
           disabled={!hasEditPermission}
         />
