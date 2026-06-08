@@ -49,45 +49,18 @@ import {
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { lineKey } from "@/lineplot/line";
-import { type Axis, type Line, type LinePlot, type Rule } from "@/lineplot/types.gen";
-
-const zeroAxis = (key: Axis["key"]): Axis => ({
-  key,
-  label: "",
-  labelDirection: key.startsWith("y") ? "y" : "x",
-  labelLevel: "small",
-  bounds: { lower: 0, upper: 0 },
-  autoBounds: { lower: true, upper: true },
-  tickSpacing: 75,
-  ...(key.startsWith("x") ? ({ type: "time" } as const) : {}),
-});
+import {
+  type Line,
+  type LinePlot,
+  lineZ,
+  newZ,
+  type Rule,
+  ruleZ,
+} from "@/lineplot/types.gen";
 
 const empty = (overrides: Partial<LinePlot> = {}): LinePlot => ({
   key: "00000000-0000-0000-0000-000000000000",
-  name: "",
-  title: { level: "h4", visible: false },
-  legend: {
-    visible: true,
-    position: {
-      x: 50,
-      y: 50,
-      root: { x: "left", y: "top" },
-      units: { x: "px", y: "px" },
-    },
-  },
-  channels: { x1: 0, x2: 0, y1: [], y2: [], y3: [], y4: [] },
-  ranges: { x1: [], x2: [] },
-  axes: {
-    x1: zeroAxis("x1"),
-    x2: zeroAxis("x2"),
-    y1: zeroAxis("y1"),
-    y2: zeroAxis("y2"),
-    y3: zeroAxis("y3"),
-    y4: zeroAxis("y4"),
-  },
-  lines: [],
-  rules: [],
-  ...overrides,
+  ...newZ.parse({ name: "", ...overrides }),
 });
 
 const apply = (state: LinePlot, ...actions: Action[]): LinePlot =>
@@ -100,24 +73,17 @@ const roundTrip = (state: LinePlot, ...actions: Action[]): LinePlot => {
   return reduceAll(next, inverse).next;
 };
 
-const line = (key: string, hex: string): Line => ({
-  key,
-  color: color.construct(hex),
-  strokeWidth: 1,
-  downsample: 1,
-  downsampleMode: "decimate",
-});
+const line = (key: string, hex: string): Line =>
+  lineZ.parse({ key, color: color.construct(hex) });
 
-const rule = (key: string, label: string): Rule => ({
-  key,
-  label,
-  color: color.construct("#888888"),
-  axis: "y1",
-  lineWidth: 1,
-  lineDash: 0,
-  units: "",
-  position: 0,
-});
+const rule = (key: string, label: string): Rule =>
+  ruleZ.parse({
+    key,
+    label,
+    color: color.construct("#888888"),
+    axis: "y1",
+    position: 0,
+  });
 
 describe("lineplot reducer", () => {
   describe("rename", () => {
@@ -130,7 +96,7 @@ describe("lineplot reducer", () => {
       expect(roundTrip(state, rename({ name: "after" })).name).toEqual("before");
     });
     it("should target the plot key so plot-level edits invalidate each other", () => {
-      const state = empty({ key: "11111111-1111-1111-1111-111111111111" });
+      const state = empty({ key: "11111111-1111-4111-8111-111111111111" });
       const { targets } = reduceAll(state, [rename({ name: "x" })]);
       expect(targets).toEqual([state.key]);
     });
@@ -552,7 +518,7 @@ describe("lineplot reducer", () => {
 
     it("setAxisType sets the tick type, clears it with null, and round-trips", () => {
       const state = empty({
-        axes: { ...empty().axes, x1: { ...zeroAxis("x1"), type: "time" } },
+        axes: { ...empty().axes, x1: { ...empty().axes.x1, type: "time" } },
       });
       expect(
         apply(state, setAxisType({ key: "x1", type: "linear" })).axes.x1.type,

@@ -38,7 +38,7 @@ export type YAxisKey = z.infer<typeof yAxisKeyZ>;
 /** Title is the plot title configuration. */
 export const titleZ = z.object({
   /** level is the typography level of the title text. */
-  level: text.levelZ.default("p"),
+  level: text.levelZ.default("h4"),
   /** visible is whether the title is shown above the plot. */
   visible: z.boolean().default(false),
 });
@@ -196,13 +196,13 @@ export const axesZ = z.object({
   /** x2 is the x2 axis configuration. */
   x2: axisZ.prefault({ key: "x2" }),
   /** y1 is the y1 axis configuration. */
-  y1: axisZ.prefault({ key: "y1" }),
+  y1: axisZ.prefault({ key: "y1", labelDirection: "y" }),
   /** y2 is the y2 axis configuration. */
-  y2: axisZ.prefault({ key: "y2" }),
+  y2: axisZ.prefault({ key: "y2", labelDirection: "y" }),
   /** y3 is the y3 axis configuration. */
-  y3: axisZ.prefault({ key: "y3" }),
+  y3: axisZ.prefault({ key: "y3", labelDirection: "y" }),
   /** y4 is the y4 axis configuration. */
-  y4: axisZ.prefault({ key: "y4" }),
+  y4: axisZ.prefault({ key: "y4", labelDirection: "y" }),
 });
 export interface Axes extends z.infer<typeof axesZ> {}
 

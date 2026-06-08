@@ -123,15 +123,6 @@ export const useSelectLegend = Flux.createSelector<
   select: (store, { key }) => requireLinePlot(store, key).legend,
 });
 
-export const useSelectChannels = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  lineplot.Channels
->({
-  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
-  select: (store, { key }) => requireLinePlot(store, key).channels,
-});
-
 export const useSelectRanges = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
@@ -159,31 +150,23 @@ const shouldDisplayAxis = (
   return channels[key].length > 0;
 };
 
-export const useSelectXAxisKeys = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  lineplot.XAxisKey[],
-  lineplot.Channels
->({
-  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
-  select: (store, { key }) => requireLinePlot(store, key).channels,
-  transform: (channels) =>
-    lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
-  equal: compare.arraysEqual,
-});
+// createAxisKeysSelector builds a selector returning the subset of keys whose
+// axes should currently be displayed (see shouldDisplayAxis). The result is
+// referentially stable until that subset changes, so consumers re-render only
+// on membership changes rather than on every channel edit.
+const createAxisKeysSelector = <K extends lineplot.AxisKey>(keys: readonly K[]) =>
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, K[], lineplot.Channels>({
+    subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+    select: (store, { key }) => requireLinePlot(store, key).channels,
+    transform: (channels) => keys.filter((k) => shouldDisplayAxis(k, channels)),
+    equal: compare.arraysEqual,
+  });
 
-export const useSelectYAxisKeys = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  lineplot.YAxisKey[],
-  lineplot.Channels
->({
-  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
-  select: (store, { key }) => requireLinePlot(store, key).channels,
-  transform: (channels) =>
-    lineplot.Y_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
-  equal: compare.arraysEqual,
-});
+export const useSelectXAxisKeys = createAxisKeysSelector(lineplot.X_AXIS_KEYS);
+
+export const useSelectYAxisKeys = createAxisKeysSelector(lineplot.Y_AXIS_KEYS);
+
+export const useSelectAxisKeys = createAxisKeysSelector(lineplot.AXIS_KEYS);
 
 export interface SelectAxisArgs {
   key: lineplot.Key;
@@ -283,6 +266,40 @@ export interface SelectXAxisArgs {
   key: lineplot.Key;
   axisKey: lineplot.XAxisKey;
 }
+
+// useSelectYAxisChannels selects the channels plotted on a single y-axis. It
+// subscribes at axis granularity, so editing one y-axis's channel set does not
+// re-render controls bound to a different axis.
+export const useSelectYAxisChannels = Flux.createSelector<
+  FluxSubStore,
+  SelectYAxisArgs,
+  lineplot.Channels[lineplot.YAxisKey]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, axisKey }) => requireLinePlot(store, key).channels[axisKey],
+  equal: compare.arraysEqual,
+});
+
+// useSelectXAxisChannel selects the single channel plotted on an x-axis.
+export const useSelectXAxisChannel = Flux.createSelector<
+  FluxSubStore,
+  SelectXAxisArgs,
+  lineplot.Channels[lineplot.XAxisKey]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, axisKey }) => requireLinePlot(store, key).channels[axisKey],
+});
+
+// useSelectXAxisRanges selects the range keys plotted against an x-axis.
+export const useSelectXAxisRanges = Flux.createSelector<
+  FluxSubStore,
+  SelectXAxisArgs,
+  lineplot.Ranges[lineplot.XAxisKey]
+>({
+  subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
+  select: (store, { key, axisKey }) => requireLinePlot(store, key).ranges[axisKey],
+  equal: compare.arraysEqual,
+});
 
 interface SelectXAxisBaseReturn {
   axis: lineplot.Axis;

@@ -542,22 +542,6 @@ describe("lineplot queries", () => {
       );
     });
 
-    it("useSelectChannels updates after addChannel", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        channels: LinePlot.useSelectChannels({ key: seeded.key }),
-        dispatch: LinePlot.useDispatch(),
-      }));
-      expect(result.current.channels.y1).toEqual([]);
-      await act(async () => {
-        await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
-          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
-        });
-      });
-      await waitFor(() => expect(result.current.channels.y1).toEqual([42]));
-    });
-
     it("useSelectRanges updates after addRange", async () => {
       const seeded = await seedPlot();
       const { result } = await loadAndUse(seeded.key, () => ({
@@ -573,6 +557,71 @@ describe("lineplot queries", () => {
         });
       });
       await waitFor(() => expect(result.current.ranges.x1).toEqual([rangeKey]));
+    });
+
+    it("useSelectYAxisChannels returns one axis's channels and updates after setChannels", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        channels: LinePlot.useSelectYAxisChannels({ key: seeded.key, axisKey: "y1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.channels).toEqual([]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setChannels({ axisKey: "y1", channels: [1, 2] })],
+        });
+      });
+      await waitFor(() => expect(result.current.channels).toEqual([1, 2]));
+    });
+
+    it("useSelectXAxisChannel returns the single x channel and updates after setXChannel", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        channel: LinePlot.useSelectXAxisChannel({ key: seeded.key, axisKey: "x1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.channel).toEqual(0);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setXChannel({ axisKey: "x1", channel: 99 })],
+        });
+      });
+      await waitFor(() => expect(result.current.channel).toEqual(99));
+    });
+
+    it("useSelectXAxisRanges returns one axis's ranges and updates after setRanges", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        ranges: LinePlot.useSelectXAxisRanges({ key: seeded.key, axisKey: "x1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.ranges).toEqual([]);
+      const rangeKey = uuid.create();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setRanges({ axisKey: "x1", ranges: [rangeKey] })],
+        });
+      });
+      await waitFor(() => expect(result.current.ranges).toEqual([rangeKey]));
+    });
+
+    it("useSelectAxisKeys returns displayed axes and updates as channels appear", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        axisKeys: LinePlot.useSelectAxisKeys({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.axisKeys).toEqual(["x1", "y1"]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setChannels({ axisKey: "y2", channels: [7] })],
+        });
+      });
+      await waitFor(() => expect(result.current.axisKeys).toEqual(["x1", "y1", "y2"]));
     });
 
     it("useSelectAxes / useSelectAxis return per-axis data and update on dispatch", async () => {
@@ -1054,24 +1103,6 @@ describe("lineplot queries", () => {
         });
       });
       expect(result.current.legend).toBe(firstLegend);
-      expect(renderCount()).toEqual(countBefore);
-    });
-
-    it("useSelectChannels keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        channels: LinePlot.useSelectChannels({ key: seeded.key }),
-        dispatch: LinePlot.useDispatch(),
-      }));
-      const firstChannels = result.current.channels;
-      const countBefore = renderCount();
-      await act(async () => {
-        await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
-        });
-      });
-      expect(result.current.channels).toBe(firstChannels);
       expect(renderCount()).toEqual(countBefore);
     });
 

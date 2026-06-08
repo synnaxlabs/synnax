@@ -10,7 +10,6 @@
 import { lineplot } from "@synnaxlabs/client";
 import {
   Button,
-  compareArrayDeps,
   Direction,
   Flex,
   Icon,
@@ -18,10 +17,9 @@ import {
   LinePlot,
   Select,
   Tabs,
-  useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
 
@@ -29,20 +27,12 @@ export interface AxesProps {
   layoutKey: string;
 }
 
-const shouldDisplay = (key: lineplot.AxisKey, channels: lineplot.Channels): boolean => {
-  if (key === "x1" || key === "y1") return true;
-  if (key === "x2") return channels.x2 !== 0;
-  return channels[key].length > 0;
-};
-
 export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
-  const channels = LinePlot.useSelectChannels({ key: layoutKey });
-  const shouldShow = lineplot.AXIS_KEYS.filter((k) => shouldDisplay(k, channels));
+  const axisKeys = LinePlot.useSelectAxisKeys({ key: layoutKey });
 
-  const tabs = useMemoCompare(
-    () => shouldShow.map((key) => ({ tabKey: key, name: key.toUpperCase() })),
-    compareArrayDeps,
-    [shouldShow] as [string[]],
+  const tabs = useMemo(
+    () => axisKeys.map((key) => ({ tabKey: key, name: key.toUpperCase() })),
+    [axisKeys],
   );
 
   const t = Tabs.useStatic({ tabs });
