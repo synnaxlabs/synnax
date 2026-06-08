@@ -10,7 +10,7 @@
 import "@/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
-import { Flex, Icon, Log as PLog, Tabs } from "@synnaxlabs/pluto";
+import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -39,7 +39,7 @@ const TABS: Tabs.Tab[] = [
 ];
 
 const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
-  PLog.useEnsureRetrieved({ key: layoutKey });
+  Log.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const activeTab = useSelectActiveToolbarTab(layoutKey);

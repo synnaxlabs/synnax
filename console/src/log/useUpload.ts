@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Flux, Log as PLog } from "@synnaxlabs/pluto";
+import { type Flux, Log } from "@synnaxlabs/pluto";
 import { useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
@@ -28,9 +28,9 @@ export const useAutoUpload = (key: string): boolean => {
   // workspaceKey or name changes before afterSuccess clears pendingUpload. A remount
   // (new instance) resets the ref, so a failed upload still retries.
   const startedRef = useRef(false);
-  const { update: create } = PLog.useCreate({
+  const { update: create } = Log.useCreate({
     afterSuccess: useCallback(
-      ({ data: { key } }: Flux.AfterSuccessParams<PLog.CreateOutput>) => {
+      ({ data: { key } }: Flux.AfterSuccessParams<Log.CreateOutput>) => {
         dispatch(clearPendingUpload({ key }));
       },
       [dispatch],

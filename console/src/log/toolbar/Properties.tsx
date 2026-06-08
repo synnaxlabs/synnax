@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Flex, Input, Log as Base } from "@synnaxlabs/pluto";
+import { Access, Flex, Input, Log } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 export interface PropertiesProps {
@@ -16,10 +16,10 @@ export interface PropertiesProps {
 }
 
 export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
-  const { dispatch } = Base.useDispatch();
-  const showChannelNames = Base.useSelectShowChannelNames({ key: layoutKey });
-  const showReceiptTimestamp = Base.useSelectShowReceiptTimestamp({ key: layoutKey });
-  const timestampPrecision = Base.useSelectTimestampPrecision({ key: layoutKey });
+  const { dispatch } = Log.useDispatch();
+  const showChannelNames = Log.useSelectShowChannelNames({ key: layoutKey });
+  const showReceiptTimestamp = Log.useSelectShowReceiptTimestamp({ key: layoutKey });
+  const timestampPrecision = Log.useSelectTimestampPrecision({ key: layoutKey });
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
 
   const apply = useCallback(

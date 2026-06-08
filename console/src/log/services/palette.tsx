@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Log as PLog } from "@synnaxlabs/pluto";
+import { Access, Log } from "@synnaxlabs/pluto";
 
 import { useCreate } from "@/log/useCreate";
 import { Palette } from "@/palette";
@@ -19,7 +19,7 @@ const CreateCommand: Palette.Command = (listProps) => {
     <Palette.CommandListItem
       {...listProps}
       name="Create a log"
-      icon={<PLog.CreateIcon />}
+      icon={<Log.CreateIcon />}
       onSelect={create}
     />
   );

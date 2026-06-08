@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Log as Base } from "@synnaxlabs/pluto";
+import { Log as PLog } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -27,11 +27,11 @@ export { create, LAYOUT_TYPE, type LayoutType } from "@/log/layout";
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  Base.useEnsureRetrieved({ key: layoutKey });
+  PLog.useEnsureRetrieved({ key: layoutKey });
   const dispatch = useDispatch();
   const store = useStore<RootState>();
   Workspace.useAdoptIntoActiveWorkspace(log.ontologyID(layoutKey));
-  const channelKeys = Base.useSelectChannelKeys({ key: layoutKey });
+  const channelKeys = PLog.useSelectChannelKeys({ key: layoutKey });
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 
   const enableTriggers = useCallback(
@@ -49,7 +49,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [dispatch, layoutKey, handleDoubleClick]);
 
   return (
-    <Base.Log
+    <PLog.Log
       resourceKey={layoutKey}
       onDoubleClick={handleDoubleClick}
       enableTriggers={enableTriggers}
@@ -82,4 +82,4 @@ export const Log: Layout.Renderer = (props) => {
   return <Loaded {...props} />;
 };
 
-Log.useName = Layout.createUseFluxName(Base.useRename, Base.useRetrieveObservableName);
+Log.useName = Layout.createUseFluxName(PLog.useRename, PLog.useRetrieveObservableName);

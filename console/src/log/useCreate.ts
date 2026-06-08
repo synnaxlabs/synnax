@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type log, type workspace } from "@synnaxlabs/client";
-import { Log as PLog } from "@synnaxlabs/pluto";
+import { Log } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Layout } from "@/layout";
@@ -28,7 +28,7 @@ export const useCreate = ({
   const activeWorkspace = Workspace.useSelectActiveKey();
   const maybeChangeWorkspace = Workspace.useMaybeChange();
   const placeLayout = Layout.usePlacer();
-  const { update } = PLog.useCreate({
+  const { update } = Log.useCreate({
     afterSuccess: async ({ data }) => {
       const { workspace, key, name } = data;
       if (workspace != null) await maybeChangeWorkspace(workspace);

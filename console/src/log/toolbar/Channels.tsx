@@ -17,7 +17,7 @@ import {
   Icon,
   Input,
   List,
-  Log as Base,
+  Log,
   Notation,
   Telem,
   Theming,
@@ -211,8 +211,8 @@ export interface ChannelsProps {
 }
 
 export const Channels = ({ layoutKey }: ChannelsProps): ReactElement => {
-  const { dispatch } = Base.useDispatch();
-  const channels = Base.useSelectChannels({ key: layoutKey });
+  const { dispatch } = Log.useDispatch();
+  const channels = Log.useSelectChannels({ key: layoutKey });
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
 
   const apply = useCallback(
@@ -226,8 +226,8 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement => {
   );
   const { data: retrieved } = Channel.useRetrieveMultiple({ keys: channelKeys });
 
-  // Changing a row's channel keeps the row's position and display config, swapping
-  // only the underlying channel; the full ordered list is sent so order is preserved.
+  // Repoint the row's entry at the new channel in place, preserving its position and
+  // display config.
   const handleChannelChange = useCallback(
     (prevKey: channel.Key, nextKey: channel.Key) =>
       apply(log.swapChannel({ from: prevKey, to: nextKey })),
