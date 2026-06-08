@@ -131,25 +131,20 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
     onDrop: useCallback(
       ({ items }) => {
         const dropped = filterHaulItems(items);
-        onDrop?.(
-          axisKey,
-          dropped.map(({ key }) => key),
-        );
+        const keys = dropped.map(({ key }) => key);
+        onDrop?.(axisKey, keys);
         return dropped;
       },
       [axisKey, onDrop],
     ),
   });
 
-// useChannelDropper commits the actions produced by a channel drop. If the plot
-// has no ranges yet and an active range is provided, it first binds that range
-// to x1 so the dropped channel has something to plot against.
-const useChannelDropper = (
-  pKey: lineplot.Key,
+const useChannelDrop = (
+  key: lineplot.Key,
   activeRangeKey?: string,
 ): ((actions: lineplot.Action[]) => void) => {
   const { dispatch } = useDispatch();
-  const ranges = useSelectRanges({ key: pKey });
+  const ranges = useSelectRanges({ key });
   return useCallback(
     (actions: lineplot.Action[]): void => {
       if (
@@ -159,9 +154,9 @@ const useChannelDropper = (
         actions.length > 0
       )
         actions.unshift(lineplot.addRange({ axisKey: "x1", range: activeRangeKey }));
-      dispatch({ key: pKey, actions });
+      dispatch({ key, actions });
     },
-    [dispatch, pKey, ranges, activeRangeKey],
+    [dispatch, key, ranges, activeRangeKey],
   );
 };
 
@@ -254,47 +249,42 @@ const Title = ({ pKey, editable }: TitleProps): ReactElement | null => {
 interface LegendProps {
   pKey: lineplot.Key;
   variant?: BaseLegendProps["variant"];
-  editable?: boolean;
+  editable: boolean;
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
 const Legend = ({
-  pKey,
+  pKey: key,
   variant,
   editable,
   onLineVisibleChange,
 }: LegendProps): ReactElement | null => {
   const { dispatch } = useDispatch();
-  const legend = useSelectLegend({ key: pKey });
+  const legend = useSelectLegend({ key });
   const handlePositionChange = useCallback(
     (position: typeof legend.position) =>
-      dispatch({ key: pKey, actions: [lineplot.setLegendPosition({ position })] }),
-    [dispatch, pKey],
+      editable &&
+      dispatch({ key, actions: [lineplot.setLegendPosition({ position })] }),
+    [dispatch, key, editable],
   );
   const handleLineColorChange = useCallback(
-    (key: string, c: color.Crude) =>
-      dispatch({
-        key: pKey,
-        actions: [lineplot.setLineColor({ key, color: color.construct(c) })],
-      }),
-    [dispatch, pKey],
+    (key: string, color: color.Color) =>
+      editable && dispatch({ key, actions: [lineplot.setLineColor({ key, color })] }),
+    [dispatch, key, editable],
   );
   const handleLineLabelChange = useCallback(
     (key: string, label: string) =>
-      dispatch({ key: pKey, actions: [lineplot.setLineLabel({ key, label })] }),
-    [dispatch, pKey],
+      editable && dispatch({ key, actions: [lineplot.setLineLabel({ key, label })] }),
+    [dispatch, key, editable],
   );
   if (!legend.visible) return null;
-  // Color/label/position are document edits: the legend has no disabled prop, so
-  // omitting the callback is how we gate them on `editable`. Visibility is a
-  // session-only view operation, so it stays wired regardless.
   return (
     <BaseLegend
-      onLineColorChange={editable ? handleLineColorChange : undefined}
-      onLineLabelChange={editable ? handleLineLabelChange : undefined}
+      onLineColorChange={handleLineColorChange}
+      onLineLabelChange={handleLineLabelChange}
       onLineVisibleChange={onLineVisibleChange}
       position={legend.position}
-      onPositionChange={editable ? handlePositionChange : undefined}
+      onPositionChange={handlePositionChange}
       variant={variant}
     />
   );
@@ -302,7 +292,7 @@ const Legend = ({
 
 interface AxisChildrenProps {
   pKey: lineplot.Key;
-  editable?: boolean;
+  editable: boolean;
   activeRangeKey?: string;
   resolvedRanges?: Map<string, ResolvedRange>;
   hiddenLines?: Set<string>;
@@ -387,7 +377,7 @@ const YAxis = ({
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
   const channels = useSelectChannels({ key: pKey });
-  const commitDrop = useChannelDropper(pKey, activeRangeKey);
+  const commitDrop = useChannelDrop(pKey, activeRangeKey);
   const handleDrop = useCallback(
     (k: lineplot.YAxisKey, dropped: channel.Key[]): void => {
       if (editable !== true) return;
@@ -399,6 +389,15 @@ const YAxis = ({
       commitDrop(actions);
     },
     [channels, commitDrop, editable],
+  );
+  const handleLabelChange = useCallback(
+    (label: string) =>
+      editable &&
+      dispatch({
+        key: pKey,
+        actions: [lineplot.setAxisLabel({ key: axisKey, label })],
+      }),
+    [editable],
   );
   const dropProps = useAxisDrop(axisKey, "y", handleDrop);
   const dragging = Haul.useDraggingState();
@@ -412,12 +411,7 @@ const YAxis = ({
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
       className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
-      onLabelChange={(value) =>
-        dispatch({
-          key: pKey,
-          actions: [lineplot.setAxisLabel({ key: axisKey, label: value })],
-        })
-      }
+      onLabelChange={handleLabelChange}
     >
       {lineKeys.map((lineKey) => (
         <Line
@@ -449,7 +443,7 @@ const XAxis = ({
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const commitDrop = useChannelDropper(pKey, activeRangeKey);
+  const commitDrop = useChannelDrop(pKey, activeRangeKey);
   const handleDrop = useCallback(
     (k: lineplot.XAxisKey, dropped: channel.Key[]): void => {
       if (editable !== true) return;
@@ -516,7 +510,7 @@ const useViewportReset = ({
       (prevHold === true && hold === false)
     )
       viewportRef.current?.reset();
-  }, [lineCount, hold]);
+  }, [lineCount, hold, prevLineCount, prevHold]);
   return viewportRef;
 };
 
@@ -542,7 +536,7 @@ export interface LinePlotProps extends FrameProps {
 
 export const LinePlot = ({
   resourceKey: key,
-  editable = false,
+  editable = true,
   enableTriggers = true,
   resolvedRanges,
   activeRangeKey,

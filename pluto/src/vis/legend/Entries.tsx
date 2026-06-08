@@ -31,7 +31,7 @@ export interface EntriesProps {
   allowVisibleChange?: boolean;
   background?: Theming.Shade;
   data: optional.Optional<EntryData, "visible">[];
-  onColorChange?: (key: string, color: color.Crude) => void;
+  onColorChange?: (key: string, color: color.Color) => void;
   onLabelChange?: (key: string, label: string) => void;
   onVisibleChange?: (key: string, visible: boolean) => void;
   colorPickerVisible?: boolean;
