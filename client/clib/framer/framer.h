@@ -32,17 +32,24 @@ typedef enum {
     SYNNAX_WRITER_MODE_STREAM = 3,
 } SynnaxWriterMode;
 
-/// @brief opens a writer over the given channels. start is the domain start in ns
-/// since epoch; mode is a SynnaxWriterMode value (0 = default = persist+stream);
-/// enable_auto_commit nonzero makes writes immediately durable. On success writes
-/// the handle to *out_writer and returns 0.
+/// @brief opens a writer over the given channel keys; param order mirrors TS/Python
+/// open_writer. authorities is NULL for absolute on all, length 1 to broadcast, or
+/// length channel_count for per-channel; auto_index_persist_interval ns falls back to
+/// 1s when <= 0. On success writes the handle to *out_writer and returns 0.
 SYNNAX_EXPORT int32_t synnax_writer_open(
     SynnaxClient *client,
     int64_t start,
     const uint32_t *channels,
     size_t channel_count,
+    const uint8_t *authorities,
+    size_t authority_count,
+    const char *subject_name,
+    uint32_t subject_group,
     int32_t mode,
+    int32_t err_on_unauthorized,
     int32_t enable_auto_commit,
+    int64_t auto_index_persist_interval,
+    int32_t auto_index,
     SynnaxWriter **out_writer,
     SynnaxError *err
 );

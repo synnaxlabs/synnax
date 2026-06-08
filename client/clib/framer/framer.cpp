@@ -12,6 +12,7 @@
 
 #include "client/clib/framer/framer.h"
 #include "client/clib/internal.h"
+#include "x/cpp/uuid/uuid.h"
 
 using namespace synnax::clib;
 
@@ -39,8 +40,15 @@ int32_t synnax_writer_open(
     const int64_t start,
     const uint32_t *channels,
     const size_t channel_count,
+    const uint8_t *authorities,
+    const size_t authority_count,
+    const char *subject_name,
+    const uint32_t subject_group,
     const int32_t mode,
+    const int32_t err_on_unauthorized,
     const int32_t enable_auto_commit,
+    const int64_t auto_index_persist_interval,
+    const int32_t auto_index,
     SynnaxWriter **out_writer,
     SynnaxError *err
 ) {
@@ -52,9 +60,23 @@ int32_t synnax_writer_open(
     try {
         synnax::framer::WriterConfig wc;
         if (channels != nullptr) wc.channels.assign(channels, channels + channel_count);
+        if (authorities != nullptr && authority_count > 0)
+            wc.authorities.assign(authorities, authorities + authority_count);
         wc.start = x::telem::TimeStamp(start);
+        wc.subject = x::control::Subject{
+            .key = x::uuid::create().to_string(),
+            .name = str_or(subject_name, ""),
+            .group = subject_group,
+        };
         wc.mode = mode_from_int(mode);
+        wc.err_on_unauthorized = err_on_unauthorized != 0;
         wc.enable_auto_commit = enable_auto_commit != 0;
+        wc.auto_index_persist_interval = auto_index_persist_interval > 0
+                                           ? x::telem::TimeSpan(
+                                                 auto_index_persist_interval
+                                             )
+                                           : x::telem::TimeSpan(x::telem::SECOND);
+        wc.auto_index = auto_index != 0;
 
         auto [writer, w_err] = client->client.telem.open_writer(wc);
         if (!w_err.ok()) {

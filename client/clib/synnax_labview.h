@@ -52,8 +52,15 @@ SYNNAX_EXPORT int32_t synnax_writer_open(
     int64_t start,
     const uint32_t *channels,
     uint64_t channel_count,
+    const uint8_t *authorities,
+    uint64_t authority_count,
+    const char *subject_name,
+    uint32_t subject_group,
     int32_t mode,
+    int32_t err_on_unauthorized,
     int32_t enable_auto_commit,
+    int64_t auto_index_persist_interval,
+    int32_t auto_index,
     SynnaxWriter *out_writer,
     SynnaxError err
 );
