@@ -15,6 +15,7 @@ import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
+import { selectPendingUpload } from "@/lineplot/selectors";
 import { add } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 import { type RootState } from "@/store";
@@ -33,6 +34,10 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
         }
         const active = Layout.selectActiveMosaicLayout(store.getState());
         if (active == null || active.type !== LAYOUT_TYPE || client == null) return;
+        // A plot still staging a pendingUpload does not exist on the server yet,
+        // so the dispatch below would fail with not found. Skip until
+        // useAutoUpload lands it; the user can retry once the plot is created.
+        if (selectPendingUpload(store.getState(), active.key) != null) return;
         store.dispatch(add({ ranges: fromClientRange(data) }));
         handleError(
           () =>
