@@ -22,6 +22,7 @@ import {
   setShowChannelNames,
   setShowReceiptTimestamp,
   setTimestampPrecision,
+  swapChannel,
 } from "@/log/actions.gen";
 import { type ChannelEntry } from "@/log/types.gen";
 
@@ -98,6 +99,16 @@ const handlers: Handlers = {
     payload.channels.forEach((e) => targets.add(`channel:${e.channel}`));
     state.channels = payload.channels;
     return { inverse: [setChannels({ channels: oldChannels })], targets: [...targets] };
+  },
+
+  swapChannel: (state, payload) => {
+    const idx = state.channels.findIndex((e) => e.channel === payload.from);
+    if (idx === -1) return actions.NO_OP_RESULT;
+    state.channels[idx].channel = payload.to;
+    return {
+      inverse: [swapChannel({ from: payload.to, to: payload.from })],
+      targets: [`channel:${payload.from}`, `channel:${payload.to}`],
+    };
   },
 
   setTimestampPrecision: (state, payload) => {

@@ -22,6 +22,7 @@ const (
 	ActionTypeRemoveChannel           = "remove_channel"
 	ActionTypeSetChannelEntry         = "set_channel_entry"
 	ActionTypeSetChannels             = "set_channels"
+	ActionTypeSwapChannel             = "swap_channel"
 	ActionTypeSetTimestampPrecision   = "set_timestamp_precision"
 	ActionTypeSetShowChannelNames     = "set_show_channel_names"
 	ActionTypeSetShowReceiptTimestamp = "set_show_receipt_timestamp"
@@ -57,6 +58,14 @@ type SetChannelsPayload struct {
 	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
 }
 
+// SwapChannelPayload repoints the entry referencing the "from" channel at the "to"
+// channel in place, preserving the entry's position and display configuration. No-op
+// when no entry references "from".
+type SwapChannelPayload struct {
+	From channel.Key `json:"from" msgpack:"from"`
+	To   channel.Key `json:"to" msgpack:"to"`
+}
+
 // SetTimestampPrecisionPayload sets the precision of displayed timestamps (0-3).
 type SetTimestampPrecisionPayload struct {
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
@@ -82,6 +91,7 @@ type Action struct {
 	RemoveChannel           *RemoveChannelPayload           `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
 	SetChannelEntry         *SetChannelEntryPayload         `json:"set_channel_entry,omitempty" msgpack:"set_channel_entry,omitempty"`
 	SetChannels             *SetChannelsPayload             `json:"set_channels,omitempty" msgpack:"set_channels,omitempty"`
+	SwapChannel             *SwapChannelPayload             `json:"swap_channel,omitempty" msgpack:"swap_channel,omitempty"`
 	SetTimestampPrecision   *SetTimestampPrecisionPayload   `json:"set_timestamp_precision,omitempty" msgpack:"set_timestamp_precision,omitempty"`
 	SetShowChannelNames     *SetShowChannelNamesPayload     `json:"set_show_channel_names,omitempty" msgpack:"set_show_channel_names,omitempty"`
 	SetShowReceiptTimestamp *SetShowReceiptTimestampPayload `json:"set_show_receipt_timestamp,omitempty" msgpack:"set_show_receipt_timestamp,omitempty"`
@@ -121,6 +131,11 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannels.Handle(state)
+		case ActionTypeSwapChannel:
+			if a.SwapChannel == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SwapChannel.Handle(state)
 		case ActionTypeSetTimestampPrecision:
 			if a.SetTimestampPrecision == nil {
 				return state, union.MissingPayload(a.Type)
@@ -169,6 +184,11 @@ func NewSetChannelEntryAction(p SetChannelEntryPayload) Action {
 // NewSetChannelsAction wraps a SetChannelsPayload in an Action envelope.
 func NewSetChannelsAction(p SetChannelsPayload) Action {
 	return Action{Type: ActionTypeSetChannels, SetChannels: &p}
+}
+
+// NewSwapChannelAction wraps a SwapChannelPayload in an Action envelope.
+func NewSwapChannelAction(p SwapChannelPayload) Action {
+	return Action{Type: ActionTypeSwapChannel, SwapChannel: &p}
 }
 
 // NewSetTimestampPrecisionAction wraps a SetTimestampPrecisionPayload in an Action envelope.

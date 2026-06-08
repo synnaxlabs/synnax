@@ -133,6 +133,17 @@ Log struct {
         """
     }
 
+    action SwapChannel {
+        from channel.Key
+        to   channel.Key
+
+        @doc value """
+            repoints the entry referencing the "from" channel at the "to"
+            channel in place, preserving the entry's position and display
+            configuration. No-op when no entry references "from".
+        """
+    }
+
     action SetTimestampPrecision {
         timestamp_precision int32
 
