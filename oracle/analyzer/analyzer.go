@@ -733,12 +733,9 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		field.Default = &dv
 	}
 
-	addDomain := func(de resolution.Domain) {
-		if existing, ok := field.Domains[de.Name]; ok {
-			field.Domains[de.Name] = de.Merge(existing)
-		} else {
-			field.Domains[de.Name] = de
-		}
+	for _, inl := range def.AllInlineDomain() {
+		de := collectInlineDomain(inl)
+		field.Domains[de.Name] = de
 		if de.Name == "key" {
 			*hasKeyDomain = true
 		}
@@ -747,13 +744,13 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
 	}
 
-	for _, inl := range def.AllInlineDomain() {
-		addDomain(collectInlineDomain(inl))
-	}
-
 	if fb := def.FieldBody(); fb != nil {
 		for _, d := range fb.AllDomain() {
-			addDomain(collectDomain(d))
+			de := collectDomain(d)
+			field.Domains[de.Name] = de
+			if de.Name == "key" {
+				*hasKeyDomain = true
+			}
 		}
 		for _, om := range fb.AllDomainOmit() {
 			field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
