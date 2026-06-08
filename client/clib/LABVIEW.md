@@ -39,7 +39,7 @@ dumpbin /headers $dll | Select-String machine         # expect: 8664 (x64)
 Copy it somewhere stable for LabVIEW to load:
 
 ```powershell
-Copy-Item $dll C:\synnax\labview\synnax_clib.dll
+Copy-Item $dll C:\synnax\client\labview\synnax_clib.dll
 ```
 
 The 7 exports: `synnax_client_open`, `synnax_client_close`, `synnax_client_version`,
@@ -66,13 +66,25 @@ Keep a Console **line plot** open on `lv_test` to watch samples arrive.
 
 One VI per function. For each Call Library Function Node:
 
-- **Library name/path:** `C:\synnax\labview\synnax_clib.dll`
+- **Library name/path:** `C:\synnax\client\labview\synnax_clib.dll`
 - **Function name:** as below
 - **Calling convention:** **C**
 - **Thread:** **Run in any thread** (these calls block on the network)
 
 `UPtr` = Numeric → _Unsigned Pointer-sized Integer_. **Opaque handles**
 (`SynnaxClient*`, `SynnaxWriter*`) and the `err` pointer are all `UPtr`.
+
+**Wizard header.** The Import Shared Library wizard's C parser rejects `synnax.h`
+because it can't resolve `size_t` (skips `<stddef.h>`) or the opaque `SynnaxClient`
+typedef. Point the wizard at `synnax_labview.h` instead — it's ABI-identical but spells
+handles as `void*` (→ UPtr) and `size_t` as `uint64_t`. Copy it next to the DLL:
+
+```powershell
+Copy-Item C:\synnax\client\clib\synnax_labview.h C:\synnax\client\labview\synnax_labview.h
+```
+
+You can also skip the wizard entirely and configure the 7 CLFNs by hand from the tables
+below — no header parsing involved.
 
 **Wizard gotchas** (the Import Shared Library wizard guesses these wrong):
 
@@ -93,20 +105,26 @@ string (e.g. `0.50.0`) with no inputs.
 
 ### `synnax_client_open` → I32
 
-| #   | Param        | LabVIEW type             | Pass                       |
-| --- | ------------ | ------------------------ | -------------------------- |
-| ret | return       | Numeric, Signed 32-bit   | Value                      |
-| 1   | host         | String                   | C String Pointer           |
-| 2   | port         | Numeric, Unsigned 16-bit | Value                      |
-| 3   | username     | String                   | C String Pointer           |
-| 4   | password     | String                   | C String Pointer           |
-| 5   | secure       | Numeric, Signed 32-bit   | Value (wire `0` insecure)  |
-| 6   | ca_cert_file | String                   | C String Pointer (wire "") |
-| 7   | out_client   | Numeric, UPtr            | **Pointer to Value**       |
-| 8   | err          | Numeric, UPtr            | Value (wire `0`)           |
+| #   | Param                | LabVIEW type             | Pass                       |
+| --- | -------------------- | ------------------------ | -------------------------- |
+| ret | return               | Numeric, Signed 32-bit   | Value                      |
+| 1   | host                 | String                   | C String Pointer           |
+| 2   | port                 | Numeric, Unsigned 16-bit | Value                      |
+| 3   | username             | String                   | C String Pointer           |
+| 4   | password             | String                   | C String Pointer           |
+| 5   | secure               | Numeric, Signed 32-bit   | Value (wire `0` insecure)  |
+| 6   | ca_cert_file         | String                   | C String Pointer (wire "") |
+| 7   | client_cert_file     | String                   | C String Pointer (wire "") |
+| 8   | client_key_file      | String                   | C String Pointer (wire "") |
+| 9   | max_retries          | Numeric, Unsigned 32-bit | Value (wire `0` = default) |
+| 10  | clock_skew_threshold | Numeric, Signed 64-bit   | Value (wire `0` = 1s)      |
+| 11  | out_client           | Numeric, UPtr            | **Pointer to Value**       |
+| 12  | err                  | Numeric, UPtr            | Value (wire `0`)           |
 
 Wire `host=""`, `port=0`, `username=""`, `password=""` to take dev defaults
-(localhost:9090 synnax/seldon). The client handle comes out of param 7.
+(localhost:9090 synnax/seldon); leave `client_cert_file`/`client_key_file` `""` and
+`max_retries`/`clock_skew_threshold` `0` for the insecure dev path. The client handle
+comes out of param 11.
 
 ### `synnax_client_close` → void
 
@@ -116,20 +134,30 @@ Wire `host=""`, `port=0`, `username=""`, `password=""` to take dev defaults
 
 ### `synnax_writer_open` → I32
 
-| #   | Param              | LabVIEW type                | Pass                             |
-| --- | ------------------ | --------------------------- | -------------------------------- |
-| ret | return             | Numeric, Signed 32-bit      | Value                            |
-| 1   | client             | Numeric, UPtr               | Value                            |
-| 2   | start              | Numeric, Signed 64-bit      | Value (wire `0` for stream-only) |
-| 3   | channels           | Array, Unsigned 32-bit, 1-D | **Array Data Pointer**           |
-| 4   | channel_count      | Numeric, UPtr               | Value (wire array size)          |
-| 5   | mode               | Numeric, Signed 32-bit      | Value (wire `3` = stream)        |
-| 6   | enable_auto_commit | Numeric, Signed 32-bit      | Value (wire `0`)                 |
-| 7   | out_writer         | Numeric, UPtr               | **Pointer to Value**             |
-| 8   | err                | Numeric, UPtr               | Value (wire `0`)                 |
+| #   | Param                       | LabVIEW type                | Pass                             |
+| --- | --------------------------- | --------------------------- | -------------------------------- |
+| ret | return                      | Numeric, Signed 32-bit      | Value                            |
+| 1   | client                      | Numeric, UPtr               | Value                            |
+| 2   | start                       | Numeric, Signed 64-bit      | Value (wire `0` for stream-only) |
+| 3   | channels                    | Array, Unsigned 32-bit, 1-D | **Array Data Pointer**           |
+| 4   | channel_count               | Numeric, UPtr               | Value (wire array size)          |
+| 5   | authorities                 | Array, Unsigned 8-bit, 1-D  | **Array Data Pointer** (empty)   |
+| 6   | authority_count             | Numeric, UPtr               | Value (wire `0` = absolute)      |
+| 7   | subject_name                | String                      | C String Pointer (wire "")       |
+| 8   | subject_group               | Numeric, Unsigned 32-bit    | Value (wire `0`)                 |
+| 9   | mode                        | Numeric, Signed 32-bit      | Value (wire `3` = stream)        |
+| 10  | err_on_unauthorized         | Numeric, Signed 32-bit      | Value (wire `0`)                 |
+| 11  | enable_auto_commit          | Numeric, Signed 32-bit      | Value (wire `0`)                 |
+| 12  | auto_index_persist_interval | Numeric, Signed 64-bit      | Value (wire `0` = 1s default)    |
+| 13  | auto_index                  | Numeric, Signed 32-bit      | Value (wire `0`)                 |
+| 14  | out_writer                  | Numeric, UPtr               | **Pointer to Value**             |
+| 15  | err                         | Numeric, UPtr               | Value (wire `0`)                 |
 
 Build a U32 array with the single `lv_test` key for param 3; wire its size to param 4.
-For `mode`, see the **Writer mode Ring** below.
+For `mode`, see the **Writer mode Ring** below. For a simple uncontended writer, default
+the control/index params: empty `authorities` array + `authority_count = 0` (absolute on
+all channels), `subject_name = ""`, `subject_group = 0`, `err_on_unauthorized = 0`,
+`auto_index_persist_interval = 0` (⇒ 1s), `auto_index = 0`.
 
 ### `synnax_writer_write` → I32
 

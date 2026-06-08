@@ -39,6 +39,10 @@ SYNNAX_EXPORT int32_t synnax_client_open(
     const char *password,
     int32_t secure,
     const char *ca_cert_file,
+    const char *client_cert_file,
+    const char *client_key_file,
+    uint32_t max_retries,
+    int64_t clock_skew_threshold,
     SynnaxClient *out_client,
     SynnaxError err
 );

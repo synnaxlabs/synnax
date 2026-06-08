@@ -22,6 +22,10 @@ int32_t synnax_client_open(
     const char *password,
     const int32_t secure,
     const char *ca_cert_file,
+    const char *client_cert_file,
+    const char *client_key_file,
+    const uint32_t max_retries,
+    const int64_t clock_skew_threshold,
     SynnaxClient **out_client,
     SynnaxError *err
 ) {
@@ -50,6 +54,13 @@ int32_t synnax_client_open(
             }
             c.ca_cert_file = ca;
         }
+        const std::string client_cert = str_or(client_cert_file, "");
+        if (!client_cert.empty()) c.client_cert_file = client_cert;
+        const std::string client_key = str_or(client_key_file, "");
+        if (!client_key.empty()) c.client_key_file = client_key;
+        if (max_retries != 0) c.max_retries = max_retries;
+        if (clock_skew_threshold > 0)
+            c.clock_skew_threshold = x::telem::TimeSpan(clock_skew_threshold);
 
         auto *wrapper = new SynnaxClient(c);
         const auto state = wrapper->client.connectivity->check();
