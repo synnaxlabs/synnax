@@ -241,9 +241,9 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
   const shownRule = rules.find((rule) => rule.key === shownRuleKey);
 
-  const updateRule = useCallback(
-    (next: lineplot.Rule): void => {
-      dispatch({ key: linePlotKey, actions: [lineplot.setRule({ rule: next })] });
+  const apply = useCallback(
+    (action: lineplot.Action): void => {
+      dispatch({ key: linePlotKey, actions: [action] });
     },
     [dispatch, linePlotKey],
   );
@@ -269,34 +269,39 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   }, [dispatch, linePlotKey, axes, rules.length, theme, setSelectedRuleKeys]);
 
   const handleChangeLabel = (label: string, key: string = shownRuleKey): void => {
-    const rule = rules.find((r) => r.key === key);
-    if (rule == null) return;
-    updateRule({ ...rule, label });
+    if (key == null) return;
+    apply(lineplot.setRuleLabel({ key, label }));
   };
   const handleChangeUnits = (units: string): void => {
     if (shownRule == null) return;
-    updateRule({ ...shownRule, units });
+    apply(lineplot.setRuleUnits({ key: shownRule.key, units }));
   };
   const handleChangePosition = (position: number): void => {
     if (shownRule == null) return;
-    updateRule({ ...shownRule, position });
+    apply(lineplot.setRulePosition({ key: shownRule.key, position }));
   };
   const handleChangeColor = (v: color.Color): void => {
     if (shownRule == null) return;
-    updateRule({ ...shownRule, color: v });
+    apply(lineplot.setRuleColor({ key: shownRule.key, color: v }));
   };
   const handleChangeAxis = (axis: lineplot.AxisKey): void => {
     if (shownRule == null) return;
     const position = bounds.mean(axes[axis].bounds);
-    updateRule({ ...shownRule, axis, position });
+    dispatch({
+      key: linePlotKey,
+      actions: [
+        lineplot.setRuleAxis({ key: shownRule.key, axis }),
+        lineplot.setRulePosition({ key: shownRule.key, position }),
+      ],
+    });
   };
   const handleChangeLineWidth = (lineWidth: number): void => {
     if (shownRule == null) return;
-    updateRule({ ...shownRule, lineWidth });
+    apply(lineplot.setRuleLineWidth({ key: shownRule.key, lineWidth }));
   };
   const handleChangeLineDash = (lineDash: number): void => {
     if (shownRule == null) return;
-    updateRule({ ...shownRule, lineDash });
+    apply(lineplot.setRuleLineDash({ key: shownRule.key, lineDash }));
   };
   const handleRemoveRules = (keys: string[]): void => {
     dispatch({

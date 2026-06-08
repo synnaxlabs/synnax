@@ -85,8 +85,6 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
   x2: "top",
 };
 
-type RuleChange = Partial<lineplot.Rule> & { key: string };
-
 const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
   undo: [["Control", "Z"]],
   redo: [["Control", "Shift", "Z"]],
@@ -308,24 +306,11 @@ interface RuleProps {
 const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null => {
   const { dispatch } = useDispatch();
   const rule = useSelectRule({ key: pKey, ruleKey });
-  const update = useCallback(
-    (next: RuleChange) => {
-      if (rule == null) return;
-      dispatch({
-        key: pKey,
-        actions: [
-          lineplot.setRule({
-            rule: {
-              ...rule,
-              ...next,
-              color: next.color != null ? color.construct(next.color) : rule.color,
-              axis: next.axis ?? rule.axis,
-            },
-          }),
-        ],
-      });
+  const apply = useCallback(
+    (action: lineplot.Action): void => {
+      dispatch({ key: pKey, actions: [action] });
     },
-    [dispatch, pKey, rule],
+    [dispatch, pKey],
   );
   if (rule == null) return null;
   return (
@@ -337,9 +322,15 @@ const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null =
       lineWidth={rule.lineWidth}
       lineDash={rule.lineDash}
       units={rule.units}
-      onLabelChange={(value) => update({ key: rule.key, label: value })}
-      onPositionChange={(value) => update({ key: rule.key, position: value })}
-      onUnitsChange={(value) => update({ key: rule.key, units: value })}
+      onLabelChange={(value) =>
+        apply(lineplot.setRuleLabel({ key: rule.key, label: value }))
+      }
+      onPositionChange={(value) =>
+        apply(lineplot.setRulePosition({ key: rule.key, position: value }))
+      }
+      onUnitsChange={(value) =>
+        apply(lineplot.setRuleUnits({ key: rule.key, units: value }))
+      }
       onClick={() => onSelectRule?.(rule.key)}
     />
   );

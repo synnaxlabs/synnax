@@ -486,6 +486,20 @@ const kindOfTransaction = (actions: lineplot.Action[]): string => {
       return `line:${a.setLine.line.key}`;
     case "set_rule":
       return `rule:${a.setRule.rule.key}`;
+    case "set_rule_label":
+      return `rule:${a.setRuleLabel.key}`;
+    case "set_rule_color":
+      return `rule:${a.setRuleColor.key}`;
+    case "set_rule_axis":
+      return `rule:${a.setRuleAxis.key}`;
+    case "set_rule_line_width":
+      return `rule:${a.setRuleLineWidth.key}`;
+    case "set_rule_line_dash":
+      return `rule:${a.setRuleLineDash.key}`;
+    case "set_rule_units":
+      return `rule:${a.setRuleUnits.key}`;
+    case "set_rule_position":
+      return `rule:${a.setRulePosition.key}`;
     default:
       return a.type;
   }
