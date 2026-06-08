@@ -8,17 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, NotFoundError, ontology, type workspace } from "@synnaxlabs/client";
-import { array, compare, DataType, primitive, uuid } from "@synnaxlabs/x";
+import { array, color, compare, DataType, primitive, uuid } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
-import {
-  type DerivedLine,
-  type RawDerivedLine,
-  resolveLineColor,
-} from "@/lineplot/derive";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 import { Theming } from "@/theming";
@@ -63,7 +58,7 @@ export const {
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.lineplots.onSet(onChange, key),
     store.resources.onSet(
-      (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
+      ({ name }) => onChange(state.skipUndefined((p) => ({ ...p, name }))),
       ontology.idToString(lineplot.ontologyID(key)),
     ),
   ],
@@ -166,6 +161,7 @@ export const useSelectXAxisKeys = Flux.createSelector<
   select: (store, { key }) => requireLinePlot(store, key).channels,
   transform: (channels) =>
     lineplot.X_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
+  equal: compare.arraysEqual,
 });
 
 export const useSelectYAxisKeys = Flux.createSelector<
@@ -178,6 +174,7 @@ export const useSelectYAxisKeys = Flux.createSelector<
   select: (store, { key }) => requireLinePlot(store, key).channels,
   transform: (channels) =>
     lineplot.Y_AXIS_KEYS.filter((k) => shouldDisplayAxis(k, channels)),
+  equal: compare.arraysEqual,
 });
 
 export interface SelectAxisArgs {
@@ -193,6 +190,26 @@ export const useSelectAxis = Flux.createSelector<
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key, axisKey }) => requireLinePlot(store, key).axes[axisKey],
 });
+
+// RawDerivedLine is a stored line enriched with its decoded identity (axis,
+// range, and channel keys parsed from Line.key). Its color may be unset.
+export interface RawDerivedLine extends lineplot.Line, lineplot.LineKeyParts {}
+
+// DerivedLine is a RawDerivedLine with its render color resolved to a concrete
+// palette color, ready for the chart and toolbar to consume directly.
+export interface DerivedLine extends Omit<RawDerivedLine, "color"> {
+  color: color.Color;
+}
+
+// resolveLineColor returns the concrete color a line should render with: its
+// stored color when set, otherwise a palette color chosen by its position. The
+// chart and the toolbar both route through this so the displayed colors agree.
+const resolveLineColor = (
+  stored: color.Color | undefined,
+  index: number,
+  palette: color.Crude[],
+): color.Color =>
+  stored ?? color.construct(palette[index % Math.max(palette.length, 1)] ?? color.ZERO);
 
 // useSelectRawLines selects the plot's stored lines enriched with their decoded
 // identity. transform is memoized on the stored lines reference, so it only
@@ -254,21 +271,22 @@ export interface SelectXAxisArgs {
   axisKey: lineplot.XAxisKey;
 }
 
-interface SelectXAxisBaseReturn extends lineplot.Axis {
+interface SelectXAxisBaseReturn {
+  axis: lineplot.Axis;
   channel: lineplot.Channels[lineplot.XAxisKey];
 }
 
 const useSelectXAxisBase = Flux.createSelector<
   FluxSubStore,
   SelectXAxisArgs,
-  SelectXAxisBaseReturn,
-  [lineplot.Axis, lineplot.Channels[lineplot.XAxisKey]]
+  SelectXAxisBaseReturn
 >({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key, axisKey }) => {
     const plot = requireLinePlot(store, key);
-    return [plot.axes[axisKey], plot.channels[axisKey]];
+    return { axis: plot.axes[axisKey], channel: plot.channels[axisKey] };
   },
+  equal: (a, b) => a.axis === b.axis && a.channel === b.channel,
 });
 
 // useSelectXAxis returns the x-axis configuration with its tick type resolved:
@@ -276,18 +294,21 @@ const useSelectXAxisBase = Flux.createSelector<
 // → time, otherwise linear), defaulting to time while the channel loads. A
 // non-null stored type is an explicit user override.
 export const useSelectXAxis = (args: SelectXAxisArgs): lineplot.Axis => {
-  const axis = useSelectXAxisBase({ key: args.key, axisKey: args.axisKey });
+  const { axis, channel } = useSelectXAxisBase({
+    key: args.key,
+    axisKey: args.axisKey,
+  });
   const { data: chan } = Channel.useRetrieve(
-    { key: axis.channel },
+    { key: channel },
     { beforeRetrieve: ({ query: { key } }) => primitive.isNonZero(key) },
   );
   return useMemo(() => {
     if (axis.type != null) return axis;
     let type: lineplot.TickType = "linear";
-    if (axis.channel == 0 || chan == null || chan.dataType.equals(DataType.TIMESTAMP))
+    if (channel == 0 || chan == null || chan.dataType.equals(DataType.TIMESTAMP))
       type = "time";
     return { ...axis, type };
-  }, [axis, axis.channel, chan]);
+  }, [axis, channel, chan]);
 };
 
 interface SelectYAxisReturn {
@@ -329,35 +350,34 @@ interface RawLine {
 // compares the stored line reference (kept stable across unrelated edits by
 // Immer) and the index, so it re-renders only when that line or its position
 // changes — not when other lines on the plot do.
-const useSelectRawLine = Flux.createSelector<
-  FluxSubStore,
-  SelectLineArgs,
-  RawLine | undefined
->({
+const useSelectRawLine = Flux.createSelector<FluxSubStore, SelectLineArgs, RawLine>({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key, lineKey }) => {
-    const lines = store.lineplots.get(key)?.lines;
-    if (lines == null) return undefined;
+    const lines = requireLinePlot(store, key).lines;
     const index = lines.findIndex((l) => l.key === lineKey);
-    return index === -1 ? undefined : { line: lines[index], index };
+    if (index === -1) throw new NotFoundError(`line with key ${lineKey} not found`);
+    return { line: lines[index], index };
   },
-  equal: (a, b) => a?.line === b?.line && a?.index === b?.index,
+  equal: (a, b) => a.line === b.line && a.index === b.index,
 });
 
 // useSelectLine returns a single line, enriched with its identity and its color
 // resolved by position the same way as useSelectLines, subscribing narrowly so
 // it re-renders only when that line, its position, or the palette changes.
-export const useSelectLine = (args: SelectLineArgs): DerivedLine | undefined => {
+export const useSelectLine = (args: SelectLineArgs): DerivedLine => {
   const raw = useSelectRawLine(args);
   const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(() => {
-    if (raw == null) return undefined;
-    return {
+  const parsed = useMemo(
+    () => ({
       ...raw.line,
       ...lineplot.parseLineKey(raw.line.key),
       color: resolveLineColor(raw.line.color, raw.index, palette),
-    };
-  }, [raw, palette]);
+    }),
+    [raw, palette],
+  );
+  const { data: chan } = Channel.useRetrieve({ key: parsed.yChannel });
+  if (parsed.label == null && chan != null) parsed.label = chan.name;
+  return parsed;
 };
 
 export const useSelectRules = Flux.createSelector<

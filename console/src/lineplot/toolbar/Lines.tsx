@@ -99,8 +99,6 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
     [dispatch, layoutKey],
   );
 
-  if (line == null) return null;
-
   const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
     apply(lineplot.setLineLabel({ key: itemKey, label: value }));
 

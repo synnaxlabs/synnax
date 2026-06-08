@@ -13,6 +13,7 @@ import {
   color,
   type direction,
   type location,
+  primitive,
   type TimeRange,
   type TimeSpan,
 } from "@synnaxlabs/x";
@@ -44,7 +45,6 @@ import {
   useRedo,
   useRename,
   useSelectAxisRuleKeys,
-  useSelectChannels,
   useSelectLegend,
   useSelectLine,
   useSelectLineCount,
@@ -173,20 +173,21 @@ const Line = ({
 }: LineProps): ReactElement | null => {
   const line = useSelectLine({ key: pKey, lineKey });
   const telemetry = useMemo(() => {
-    if (line == null || resolved == null) return null;
+    if (resolved == null) return null;
     const { xChannel, yChannel } = line;
-    const hasX = xChannel != null && xChannel !== 0;
+    const hasX = primitive.isNonZero(xChannel);
     if (resolved.variant === "dynamic") {
       const keepFor = Number(resolved.span.valueOf()) * 3;
+      const { span: timeSpan } = resolved;
       return {
         x: telem.streamChannelData({
-          timeSpan: resolved.span,
+          timeSpan,
           channel: hasX ? xChannel : yChannel,
           useIndexOfChannel: !hasX,
           keepFor,
         }),
         y: telem.streamChannelData({
-          timeSpan: resolved.span,
+          timeSpan,
           channel: yChannel,
           keepFor,
         }),
@@ -207,38 +208,29 @@ const Line = ({
       aetherKey={line.key}
       x={telemetry.x}
       y={telemetry.y}
-      color={line.color}
-      strokeWidth={line.strokeWidth}
-      label={line.label}
       visible={visible}
-      downsample={line.downsample}
-      downsampleMode={line.downsampleMode}
       legendGroup={line.yAxis.toUpperCase()}
+      {...line}
     />
   );
 };
 
 interface TitleProps {
   pKey: lineplot.Key;
-  editable?: boolean;
+  editable: boolean;
 }
 
-const Title = ({ pKey, editable }: TitleProps): ReactElement | null => {
-  const { visible, level } = useSelectTitle({ key: pKey });
-  const name = useSelectName({ key: pKey });
-  const { update: rename } = useRename({});
-  const handleChange = useCallback(
-    (value: string) => {
-      rename({ key: pKey, name: value });
-    },
-    [rename, pKey],
-  );
+const Title = ({ pKey: key, editable }: TitleProps): ReactElement | null => {
+  const { visible, level } = useSelectTitle({ key });
+  const name = useSelectName({ key });
+  const { update: rn } = useRename({});
+  const handleChange = useCallback((name: string) => rn({ key, name }), [rn, key]);
   if (!visible) return null;
   return (
     <BaseTitle
       value={name}
       onChange={handleChange}
-      disabled={editable !== true}
+      disabled={!editable}
       level={level}
     />
   );
@@ -266,13 +258,15 @@ const Legend = ({
     [dispatch, key, editable],
   );
   const handleLineColorChange = useCallback(
-    (key: string, color: color.Color) =>
-      editable && dispatch({ key, actions: [lineplot.setLineColor({ key, color })] }),
+    (lineKey: string, color: color.Color) =>
+      editable &&
+      dispatch({ key, actions: [lineplot.setLineColor({ key: lineKey, color })] }),
     [dispatch, key, editable],
   );
   const handleLineLabelChange = useCallback(
-    (key: string, label: string) =>
-      editable && dispatch({ key, actions: [lineplot.setLineLabel({ key, label })] }),
+    (lineKey: string, label: string) =>
+      editable &&
+      dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] }),
     [dispatch, key, editable],
   );
   if (!legend.visible) return null;

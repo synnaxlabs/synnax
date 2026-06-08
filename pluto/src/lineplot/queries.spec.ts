@@ -9,6 +9,7 @@
 
 import {
   createTestClient,
+  DataType,
   lineplot as lineplotClient,
   NotFoundError,
 } from "@synnaxlabs/client";
@@ -602,11 +603,10 @@ describe("lineplot queries", () => {
       const { result } = await loadAndUse(seeded.key, () => ({
         lines: LinePlot.useSelectLines({ key: seeded.key }),
         keys: LinePlot.useSelectLineKeys({ key: seeded.key }),
-        line: LinePlot.useSelectLine({ key: seeded.key, lineKey: "ln-1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.lines).toEqual([]);
-      expect(result.current.line).toBeUndefined();
+      expect(result.current.keys).toEqual([]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
@@ -626,8 +626,13 @@ describe("lineplot queries", () => {
       await waitFor(() => {
         expect(result.current.lines).toHaveLength(1);
         expect(result.current.keys).toEqual(["ln-1"]);
-        expect(result.current.line?.color).toEqual(color.construct("#00aaff"));
       });
+
+      const { result: line } = renderHook(
+        () => LinePlot.useSelectLine({ key: seeded.key, lineKey: "ln-1" }),
+        { wrapper },
+      );
+      expect(line.current.color).toEqual(color.construct("#00aaff"));
     });
 
     it("useSelectRules / useSelectRule reflect setRule and removeRule", async () => {
@@ -672,6 +677,312 @@ describe("lineplot queries", () => {
         expect(result.current.rules).toEqual([]);
         expect(result.current.rule).toBeUndefined();
       });
+    });
+
+    it("useSelectLineCount reflects the number of lines", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        count: LinePlot.useSelectLineCount({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.count).toEqual(0);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLine({
+              line: {
+                key: "ln-count",
+                color: color.construct("#00aaff"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.count).toEqual(1));
+    });
+
+    it("useSelectXAxisKeys / useSelectYAxisKeys reflect the displayed axes", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        xKeys: LinePlot.useSelectXAxisKeys({ key: seeded.key }),
+        yKeys: LinePlot.useSelectYAxisKeys({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.xKeys).toEqual(["x1"]);
+      expect(result.current.yKeys).toEqual(["y1"]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setXChannel({ axisKey: "x2", channel: 9 }),
+            lineplotClient.addChannel({ axisKey: "y2", channel: 11 }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.xKeys).toEqual(["x1", "x2"]);
+        expect(result.current.yKeys).toEqual(["y1", "y2"]);
+      });
+    });
+
+    it("useSelectXAxis returns a resolved axis config and updates on dispatch", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        xAxis: LinePlot.useSelectXAxis({ key: seeded.key, axisKey: "x1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.xAxis.key).toEqual("x1");
+      expect(result.current.xAxis.bounds).toBeDefined();
+      expect(result.current.xAxis.type).toEqual("time");
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setAxisLabel({ key: "x1", label: "Time" })],
+        });
+      });
+      await waitFor(() => expect(result.current.xAxis.label).toEqual("Time"));
+    });
+
+    it("useSelectXAxis derives a linear tick type from a non-timestamp channel", async () => {
+      const suffix = uuid.create().replace(/-/g, "");
+      const index = await client.channels.create({
+        name: `lp_idx_${suffix}`,
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const data = await client.channels.create({
+        name: `lp_data_${suffix}`,
+        dataType: DataType.FLOAT32,
+        index: index.key,
+      });
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        xAxis: LinePlot.useSelectXAxis({ key: seeded.key, axisKey: "x1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.xAxis.type).toEqual("time");
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.setXChannel({ axisKey: "x1", channel: data.key })],
+        });
+      });
+      await waitFor(() => expect(result.current.xAxis.type).toEqual("linear"));
+    });
+
+    it("useSelectYAxis returns axis, channels, and lineKeys", async () => {
+      const seeded = await seedPlot();
+      const lineKey = lineplotClient.lineKey({
+        yAxis: "y1",
+        xAxis: "x1",
+        range: uuid.create(),
+        xChannel: 3,
+        yChannel: 5,
+      });
+      const { result } = await loadAndUse(seeded.key, () => ({
+        yAxis: LinePlot.useSelectYAxis({ key: seeded.key, axisKey: "y1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.yAxis.axis.key).toEqual("y1");
+      expect(result.current.yAxis.channels).toEqual([]);
+      expect(result.current.yAxis.lineKeys).toEqual([]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.addChannel({ axisKey: "y1", channel: 5 }),
+            lineplotClient.setLine({
+              line: {
+                key: lineKey,
+                color: color.construct("#00aaff"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.yAxis.channels).toEqual([5]);
+        expect(result.current.yAxis.lineKeys).toEqual([lineKey]);
+      });
+    });
+
+    it("useSelectAxisRuleKeys returns the keys of rules on the given axis", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        y1Keys: LinePlot.useSelectAxisRuleKeys({ key: seeded.key, axisKey: "y1" }),
+        y2Keys: LinePlot.useSelectAxisRuleKeys({ key: seeded.key, axisKey: "y2" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.y1Keys).toEqual([]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setRule({
+              rule: {
+                key: "rule-y1",
+                label: "max",
+                color: color.construct("#ff0000"),
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 4.5,
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.y1Keys).toEqual(["rule-y1"]));
+      expect(result.current.y2Keys).toEqual([]);
+    });
+  });
+
+  describe("selector stability", () => {
+    const seedPlot = async () => {
+      const ws = await client.workspaces.create({
+        name: `stability_ws_${uuid.create()}`,
+        layout: {},
+      });
+      return await client.lineplots.create(ws.key, { name: "stability_test" });
+    };
+
+    const loadAndCount = async <T>(key: string, hook: () => T) => {
+      const retrieve = renderHook(() => LinePlot.useRetrieve({ key }), { wrapper });
+      await waitFor(() => expect(retrieve.result.current.variant).toEqual("success"));
+      let renderCount = 0;
+      const { result } = renderHook(
+        () => {
+          renderCount++;
+          return hook();
+        },
+        { wrapper },
+      );
+      return { result, renderCount: () => renderCount };
+    };
+
+    it("useSelectTitle keeps a stable reference across an unrelated edit", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        title: LinePlot.useSelectTitle({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      const firstTitle = result.current.title;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 99 })],
+        });
+      });
+      expect(result.current.title).toBe(firstTitle);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectYAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        yKeys: LinePlot.useSelectYAxisKeys({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      expect(result.current.yKeys).toEqual(["y1"]);
+      const firstKeys = result.current.yKeys;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
+        });
+      });
+      expect(result.current.yKeys).toBe(firstKeys);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectLineKeys stays stable when a line's style changes", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        keys: LinePlot.useSelectLineKeys({ key: seeded.key }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLine({
+              line: {
+                key: "ln-stable",
+                color: color.construct("#00aaff"),
+                strokeWidth: 2,
+                downsample: 1,
+                downsampleMode: "decimate",
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.keys).toEqual(["ln-stable"]));
+      const firstKeys = result.current.keys;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setLineColor({
+              key: "ln-stable",
+              color: color.construct("#ff0000"),
+            }),
+          ],
+        });
+      });
+      expect(result.current.keys).toBe(firstKeys);
+      expect(renderCount()).toEqual(countBefore);
+    });
+
+    it("useSelectAxisRuleKeys stays stable when a rule's position changes", async () => {
+      const seeded = await seedPlot();
+      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
+        keys: LinePlot.useSelectAxisRuleKeys({ key: seeded.key, axisKey: "y1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setRule({
+              rule: {
+                key: "rule-stable",
+                label: "max",
+                color: color.construct("#ff0000"),
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 4.5,
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => expect(result.current.keys).toEqual(["rule-stable"]));
+      const firstKeys = result.current.keys;
+      const countBefore = renderCount();
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setRulePosition({ key: "rule-stable", position: 9.9 }),
+          ],
+        });
+      });
+      expect(result.current.keys).toBe(firstKeys);
+      expect(renderCount()).toEqual(countBefore);
     });
   });
 

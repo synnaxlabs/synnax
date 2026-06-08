@@ -80,11 +80,17 @@ describe("caseconv", () => {
         ["foo-bar", "foo-bar"],
         ["foo.bar", "foo.bar"],
         ["fooBarBaz.qux", "foo_bar_baz.qux"],
+        ["setXChannel", "set_x_channel"],
+        ["fooXBar", "foo_x_bar"],
       ];
       SPECS.forEach(([input, expected]) => {
         it(`should convert ${input} to ${expected}`, () => {
           expect(caseconv.camelToSnake(input)).toBe(expected);
         });
+      });
+      it("should invert snakeToCamel for single-letter segments", () => {
+        const snake = "set_x_channel";
+        expect(caseconv.camelToSnake(caseconv.snakeToCamel(snake))).toBe(snake);
       });
     });
     describe("objects", () => {

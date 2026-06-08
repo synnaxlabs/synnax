@@ -34,10 +34,12 @@ const diffChannels = (
   const currentSet = new Set(current);
   const nextSet = new Set(next);
   const actions: lineplot.Action[] = [];
-  for (const c of current)
-    if (!nextSet.has(c)) actions.push(lineplot.removeChannel({ axisKey, channel: c }));
-  for (const c of next)
-    if (!currentSet.has(c)) actions.push(lineplot.addChannel({ axisKey, channel: c }));
+  for (const channel of current)
+    if (!nextSet.has(channel))
+      actions.push(lineplot.removeChannel({ axisKey, channel }));
+  for (const channel of next)
+    if (!currentSet.has(channel))
+      actions.push(lineplot.addChannel({ axisKey, channel }));
   return actions;
 };
 
@@ -49,10 +51,10 @@ const diffRanges = (
   const currentSet = new Set(current);
   const nextSet = new Set(next);
   const actions: lineplot.Action[] = [];
-  for (const r of current)
-    if (!nextSet.has(r)) actions.push(lineplot.removeRange({ axisKey, range: r }));
-  for (const r of next)
-    if (!currentSet.has(r)) actions.push(lineplot.addRange({ axisKey, range: r }));
+  for (const range of current)
+    if (!nextSet.has(range)) actions.push(lineplot.removeRange({ axisKey, range }));
+  for (const range of next)
+    if (!currentSet.has(range)) actions.push(lineplot.addRange({ axisKey, range }));
   return actions;
 };
 

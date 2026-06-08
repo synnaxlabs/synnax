@@ -245,12 +245,22 @@ const createConverter = (
 export const snakeToCamel = createConverter(snakeToCamelStr);
 
 const camelToSnakeStr = (str: string): string =>
-  // Don't convert the first character and don't convert a character that is after a
-  // non-alphanumeric character
-  str.replace(
-    /([a-z0-9])([A-Z])/g,
-    (_, p1: string, p2: string) => `${p1}_${p2.toLowerCase()}`,
-  );
+  // The first replace splits a single interior capital that sits between an
+  // uppercase run and a lowercase letter (the "X" in "setXChannel"), which the
+  // lowercase-to-uppercase rule below cannot see. Without it, single-letter
+  // segments don't round-trip back through snakeToCamel (set_x_channel would
+  // become set_xChannel). A fully uppercase semantic token (NS=1;ID=5) has no
+  // trailing lowercase, so it is left untouched.
+  str
+    .replace(
+      /([A-Z]+)([A-Z])([a-z])/g,
+      (_, head: string, mid: string, tail: string) =>
+        `${head}_${mid.toLowerCase()}${tail}`,
+    )
+    .replace(
+      /([a-z0-9])([A-Z])/g,
+      (_, p1: string, p2: string) => `${p1}_${p2.toLowerCase()}`,
+    );
 
 /**
  * Converts a camelCase string to snake_case.
