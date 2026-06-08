@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { log } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -38,23 +39,10 @@ import {
 
 const KEY = "log-1";
 
-const PENDING: PendingUpload = {
-  key: KEY,
-  channels: [
-    {
-      channel: 42,
-      color: color.ZERO,
-      notation: "standard",
-      precision: -1,
-      alias: "",
-      timestamp: { format: "preciseDate", tz: "local" },
-    },
-  ],
-  remoteCreated: false,
-  timestampPrecision: 0,
-  showChannelNames: true,
-  showReceiptTimestamp: true,
-};
+const PENDING: PendingUpload = log.logZ.omit({ name: true }).parse({
+  key: "11111111-1111-4111-8111-111111111111",
+  channels: [log.channelEntryZ.parse({ channel: 42, color: color.ZERO })],
+});
 
 const entry: State = {
   ...ZERO_STATE,

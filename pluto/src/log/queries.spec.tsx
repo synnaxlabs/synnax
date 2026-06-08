@@ -58,28 +58,13 @@ const createSeededWrapper = (): {
 const entry = (
   channel: number,
   overrides: Partial<log.ChannelEntry> = {},
-): log.ChannelEntry => ({
-  channel,
-  color: color.ZERO,
-  notation: "standard",
-  precision: -1,
-  alias: "",
-  timestamp: { format: "preciseDate", tz: "local" },
-  ...overrides,
-});
+): log.ChannelEntry =>
+  log.channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
 
-const KEY = "00000000-0000-0000-0000-000000000001";
+const KEY = "00000000-0000-0000-0000-000000000000";
 
-const logDoc = (overrides: Partial<log.Log> = {}): log.Log => ({
-  key: KEY,
-  name: "Test Log",
-  channels: [],
-  remoteCreated: true,
-  timestampPrecision: 0,
-  showChannelNames: true,
-  showReceiptTimestamp: true,
-  ...overrides,
-});
+const logDoc = (overrides: Partial<log.Log> = {}): log.Log =>
+  log.logZ.parse({ key: KEY, name: "Test Log", ...overrides });
 
 const seedWith = (doc: log.Log) => {
   const { wrapper, fluxClient } = createSeededWrapper();
@@ -181,20 +166,24 @@ describe("log queries (seeded, no core)", () => {
     });
 
     it("useSelectChannelEntry keeps a stable reference when its entry object is unchanged", () => {
+      // Set channels directly on the parsed base doc rather than through logDoc, so
+      // the shared entry's reference survives — mirroring reduceAll's structural
+      // sharing, which is what keeps untouched entries from re-rendering.
       const sharedEntry = entry(2, { alias: "shared" });
-      const { wrapper, store } = seedWith(
-        logDoc({ channels: [entry(1), sharedEntry] }),
-      );
+      const { wrapper, store } = seedWith({
+        ...logDoc(),
+        channels: [entry(1), sharedEntry],
+      });
       const { result } = renderHook(
         () => Log.useSelectChannelEntry({ key: KEY, channel: 2 }),
         { wrapper },
       );
       const first = result.current;
       act(() => {
-        store.logs.set(
-          KEY,
-          logDoc({ channels: [entry(1, { alias: "y" }), sharedEntry] }),
-        );
+        store.logs.set(KEY, {
+          ...logDoc(),
+          channels: [entry(1, { alias: "y" }), sharedEntry],
+        });
       });
       expect(result.current).toBe(first);
     });

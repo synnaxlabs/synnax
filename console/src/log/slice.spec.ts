@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { log } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -22,23 +23,10 @@ import {
 } from "@/log/slice";
 import { stateZ } from "@/log/types";
 
-const PENDING: PendingUpload = {
+const PENDING: PendingUpload = log.logZ.omit({ name: true }).parse({
   key: "11111111-1111-4111-8111-111111111111",
-  channels: [
-    {
-      channel: 42,
-      color: color.ZERO,
-      notation: "standard",
-      precision: -1,
-      alias: "",
-      timestamp: { format: "preciseDate", tz: "local" },
-    },
-  ],
-  remoteCreated: false,
-  timestampPrecision: 0,
-  showChannelNames: true,
-  showReceiptTimestamp: true,
-};
+  channels: [log.channelEntryZ.parse({ channel: 42, color: color.ZERO })],
+});
 
 const storeWith = (slice: SliceState) =>
   configureStore({
