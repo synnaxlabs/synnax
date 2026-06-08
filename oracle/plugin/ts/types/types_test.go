@@ -2546,7 +2546,7 @@ var _ = Describe("TS Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`export const aiChannelAiVoltageZ = z.object({`,
+				`export const aiVoltageChannelZ = z.object({`,
 				`type: z.literal("ai_voltage"),`,
 				`port: z.int32(),`,
 				`enabled: z.boolean(),`,
@@ -2596,7 +2596,7 @@ var _ = Describe("TS Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`export const aiChannelAiVoltageZ = z.object({`,
+				`export const aiVoltageChannelZ = z.object({`,
 				`customScale: scaleZ,`,
 			)
 	})

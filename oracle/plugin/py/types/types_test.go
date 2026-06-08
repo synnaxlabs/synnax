@@ -1650,7 +1650,7 @@ var _ = Describe("Python Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types_gen.py").
 			ToContain(
-				`class AIChannelAiVoltage(BaseModel):`,
+				`class AIVoltageChannel(BaseModel):`,
 				`type: Literal["ai_voltage"]`,
 				`enabled: bool`,
 				`minVal: float`,

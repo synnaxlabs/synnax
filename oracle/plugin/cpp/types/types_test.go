@@ -1648,11 +1648,11 @@ var _ = Describe("C++ Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
-				`struct AIChannelAiVoltage {`,
+				`struct AIVoltageChannel {`,
 				`std::string type = "ai_voltage";`,
 				`std::int32_t port = 0;`,
 				`double min_val = 0;`,
-				`using AIChannel = std::variant<AIChannelAiVoltage>;`,
+				`using AIChannel = std::variant<AIVoltageChannel>;`,
 			)
 	})
 

@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/plugin/domain"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
@@ -81,11 +82,11 @@ func (p *Plugin) processUnion(entry resolution.Type, table *resolution.Table, da
 		SchemasConst:   screaming + "_SCHEMAS",
 	}
 	for _, v := range form.Variants {
-		variantTSName := tsName + pascalCase(v.Name)
+		typeName := casing.VariantTypeName(tsName, v.Name)
 		vd := unionVariantData{
 			Value:      v.Name,
-			TypeName:   variantTSName,
-			SchemaName: camelCase(variantTSName) + "Z",
+			TypeName:   typeName,
+			SchemaName: camelCase(typeName) + "Z",
 			Doc:        doc.Get(v.Domains),
 		}
 		for _, f := range resolution.UnifiedVariantFields(entry, v, table) {
@@ -94,15 +95,4 @@ func (p *Plugin) processUnion(entry resolution.Type, table *resolution.Table, da
 		ud.Variants = append(ud.Variants, vd)
 	}
 	return ud
-}
-
-// pascalCase upper-cases the first rune of the camelCased form of s without
-// lower-casing the rest, so acronym runs produced by camelCasing survive
-// (e.g. "ai_voltage" -> "AiVoltage").
-func pascalCase(s string) string {
-	c := lo.CamelCase(s)
-	if c == "" {
-		return c
-	}
-	return strings.ToUpper(c[:1]) + c[1:]
 }

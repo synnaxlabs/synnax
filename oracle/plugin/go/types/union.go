@@ -12,7 +12,6 @@ package types
 import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/plugin/domain"
-	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/resolution"
 )
@@ -87,8 +86,8 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 
 	for _, v := range form.Variants {
 		vd := unionVariantData{
-			TypeName:  name + naming.ToPascalCase(v.Name),
-			ConstName: ud.DiscType + naming.ToPascalCase(v.Name),
+			TypeName:  casing.VariantTypeName(name, v.Name),
+			ConstName: ud.DiscType + casing.PascalAcronym(v.Name),
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}

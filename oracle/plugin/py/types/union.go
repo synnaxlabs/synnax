@@ -68,7 +68,7 @@ func processUnion(
 	}
 	for _, v := range form.Variants {
 		vd := unionVariantData{
-			ClassName: ud.Name + casing.TypePascal(v.Name),
+			ClassName: casing.VariantTypeName(ud.Name, v.Name),
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}

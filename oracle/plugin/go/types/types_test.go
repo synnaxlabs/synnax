@@ -1978,10 +1978,10 @@ var _ = Describe("Go Union Generation", func() {
 		ExpectContent(resp, "types.gen.go").
 			ToContain(
 				`type AIChannelVariant interface {`,
-				`type AIChannelAiVoltage struct {`,
+				`type AIVoltageChannel struct {`,
 				`BaseAIChan`,
 				`VoltageFields`,
-				`func (AIChannelAiVoltage) isAIChannelVariant() {}`,
+				`func (AIVoltageChannel) isAIChannelVariant() {}`,
 				`type AIChannel struct {`,
 				`Variant AIChannelVariant`,
 			)
