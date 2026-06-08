@@ -166,7 +166,7 @@ export type CallersFromSchema<T> = {
  * descendants, so its provider-side {@link ctxSubscribers} stays empty; only nodes that
  * own children ({@link Composite}s) ever accumulate subscribers.
  */
-export abstract class Node implements Component {
+abstract class Node implements Component {
   readonly type: string;
   /** Path from the root; this node's identity. Its last element is {@link key}. */
   protected readonly path: readonly string[];
@@ -185,7 +185,7 @@ export abstract class Node implements Component {
   protected readonly childCtxValues: Map<string, unknown>;
   /** Keys in {@link childCtxValues} this node changed during the current
    * {@link afterUpdate}. Drives selective propagation; cleared at the start of each run. */
-  protected readonly childCtxChangedKeys: Set<string>;
+  private readonly childCtxChangedKeys: Set<string>;
   /** Provider side: for each key this node publishes, the descendants currently
    * subscribed to it (i.e. those that resolved this node as their nearest provider of
    * that key on their last {@link afterUpdate}). Empty for a childless {@link Leaf}. */
@@ -308,6 +308,7 @@ export abstract class Node implements Component {
    * depth order guarantees each node runs after all of its changed providers have
    * settled. */
   protected propagate(): void {
+    if (this.childCtxChangedKeys.size === 0) return;
     const queued = new Set<Node>();
     const buckets = new Map<number, Node[]>();
     let minDepth = Infinity;
@@ -611,13 +612,13 @@ export abstract class Composite<
 
   /** Returns the child at `key`, or `null` if none. The `T` cast is unchecked — callers
    * must know which subtype they are looking up. */
-  getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
+  private getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
     return (this._children.get(key) ?? null) as T | null;
   }
 
   /** Returns the children whose `type` matches one of `types`. The `T` cast is
    * unchecked — callers must align the type filter with the asserted return type. */
-  childrenOfType<T extends ChildComponents = ChildComponents>(
+  protected childrenOfType<T extends ChildComponents = ChildComponents>(
     ...types: Array<T["type"]>
   ): readonly T[] {
     return this.children.filter((c) =>
@@ -633,7 +634,7 @@ export abstract class Composite<
     const isSelfUpdate = subPath.length === 0;
     if (isSelfUpdate) {
       super._updateState(params);
-      if (this.childCtxChangedKeys.size > 0) this.propagate();
+      this.propagate();
       return;
     }
 
