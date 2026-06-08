@@ -13,15 +13,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { streamMultiChannelLog } from "@/log/aether/telem/sources";
 import { Base, type BaseProps } from "@/log/Log";
-import {
-  useEnsureRetrieved,
-  useRedo,
-  useSelectChannels,
-  useSelectShowChannelNames,
-  useSelectShowReceiptTimestamp,
-  useSelectTimestampPrecision,
-  useUndo,
-} from "@/log/queries";
+import { useRedo, useRetrieveSuspended, useUndo } from "@/log/queries";
 import { Triggers } from "@/triggers";
 
 const DEFAULT_RETENTION = TimeSpan.days(1);
@@ -71,23 +63,19 @@ export interface LogProps extends Omit<
   resourceKey: log.Key;
 }
 
-// Log is the connected log visualization. It reads its display configuration from
-// the Pluto flux store keyed by resourceKey, builds the streaming telemetry source
+// Log is the connected log visualization. It reads the full log document from the
+// Pluto flux store keyed by resourceKey, builds the streaming telemetry source
 // internally, and renders the Base primitive. Cmd+Z / Cmd+Shift+Z are wired to undo
-// and redo, gated by enableTriggers. Callers must ensure the log record is loadable
-// (e.g. created on the server) before mounting; the component suspends via
-// useEnsureRetrieved until the record is in the store.
+// and redo, gated by enableTriggers. The component suspends until the record is in
+// cache, so callers must ensure it is loadable (e.g. created on the server).
 export const Log = ({
   resourceKey: key,
   enableTriggers,
   ...rest
 }: LogProps): ReactElement | null => {
-  useEnsureRetrieved({ key });
+  const { channels, showChannelNames, showReceiptTimestamp, timestampPrecision } =
+    useRetrieveSuspended({ key });
   useUndoRedoTriggers(key, enableTriggers);
-  const channels = useSelectChannels({ key });
-  const showChannelNames = useSelectShowChannelNames({ key });
-  const showReceiptTimestamp = useSelectShowReceiptTimestamp({ key });
-  const timestampPrecision = useSelectTimestampPrecision({ key });
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
   // must not subscribe to it.
   const activeChannels = channels.filter((e) => !primitive.isZero(e.channel));
