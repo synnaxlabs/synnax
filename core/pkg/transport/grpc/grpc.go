@@ -119,6 +119,7 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, types.Nil]{}
 	t.LinePlotRename = noop.UnaryServer[lineplot.RenameRequest, types.Nil]{}
 	t.LinePlotSetData = noop.UnaryServer[lineplot.SetDataRequest, types.Nil]{}
+	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, types.Nil]{}
 
 	// LOG
 	t.LogCreate = noop.UnaryServer[log.CreateRequest, log.CreateResponse]{}

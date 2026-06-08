@@ -277,18 +277,12 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
 	if len(form.Extends) > 0 {
-		if len(form.OmittedFields) > 0 {
-			for _, field := range resolution.UnifiedFields(entry, data.table) {
-				sd.Fields = append(sd.Fields, processField(field, data))
-			}
-			sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
-			for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
-				data.imports.AddExternal(imp)
-			}
-			return sd
-		}
-
-		if resolver.HasFieldConflicts(form.Extends, data.table) {
+		// Flatten (rather than embed the parent) when fields are omitted, parents
+		// conflict, or a field removes an inherited domain — none can be expressed
+		// through Go struct embedding.
+		if len(form.OmittedFields) > 0 ||
+			resolver.HasFieldConflicts(form.Extends, data.table) ||
+			resolver.HasDomainOmissions(form) {
 			for _, field := range resolution.UnifiedFields(entry, data.table) {
 				sd.Fields = append(sd.Fields, processField(field, data))
 			}

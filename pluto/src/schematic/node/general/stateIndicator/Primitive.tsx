@@ -10,12 +10,13 @@
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
@@ -34,7 +35,6 @@ export const StateIndicator = ({
 }: RenderProps): ReactElement => {
   const matched = options.find((o) => o.key === matchedOptionKey);
   const stateColor = matched?.color;
-  const borderColor = colorVal != null ? color.cssString(colorVal) : undefined;
   const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
   const theme = Theming.use();
   const textColor =
@@ -44,10 +44,18 @@ export const StateIndicator = ({
         )
       : undefined;
   const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
+  const style = useMemo<CSSProperties>(
+    () => ({
+      [CSS.var("symbol-color")]: symbolColorVar(colorVal),
+      backgroundColor,
+      minWidth: inlineSize,
+    }),
+    [colorVal, backgroundColor, inlineSize],
+  );
   return (
     <Primitive.Div
-      className={CSS(CSS.B("state-indicator"), className)}
-      style={{ borderColor, backgroundColor, minWidth: inlineSize }}
+      className={CSS(CSS.B("state-indicator"), CSS.B("symbol-colored"), className)}
+      style={style}
     >
       <Handle.Rectangle
         orientation={orientation}

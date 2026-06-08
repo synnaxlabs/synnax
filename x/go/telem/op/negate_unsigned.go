@@ -21,7 +21,7 @@ func NegateU8(input telem.Series, output *telem.Series) {
 	output.Resize(inputLen)
 	inData := xunsafe.CastSlice[uint8, uint8](input.Data)
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -int16(inData[i])
 	}
 }
@@ -33,7 +33,7 @@ func NegateU16(input telem.Series, output *telem.Series) {
 	output.Resize(inputLen)
 	inData := xunsafe.CastSlice[uint8, uint16](input.Data)
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -int32(inData[i])
 	}
 }
@@ -45,7 +45,7 @@ func NegateU32(input telem.Series, output *telem.Series) {
 	output.Resize(inputLen)
 	inData := xunsafe.CastSlice[uint8, uint32](input.Data)
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -int64(inData[i])
 	}
 }
@@ -58,7 +58,7 @@ func NegateU64(input telem.Series, output *telem.Series) {
 	output.Resize(inputLen)
 	inData := xunsafe.CastSlice[uint8, uint64](input.Data)
 	outData := xunsafe.CastSlice[uint8, float64](output.Data)
-	for i := int64(0); i < inputLen; i++ {
+	for i := range inputLen {
 		outData[i] = -float64(inData[i])
 	}
 }

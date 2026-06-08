@@ -48,6 +48,46 @@ describe("DynamicCache", () => {
         expect(allocated).toHaveLength(0);
         expect(cache.length).toEqual(ser.length * 2);
       });
+      it("should coalesce an overlapping frame instead of allocating a new fragment", () => {
+        const cache = new Dynamic({
+          dynamicBufferSize: 100,
+          dataType: DataType.FLOAT32,
+        });
+        const a = new Series({
+          data: new Float32Array([1, 2, 3]),
+          dataType: DataType.FLOAT32,
+        });
+        cache.write(new MultiSeries([a])); // occupies [0, 3)
+        // Incoming series steps back by 2 (alignment 1, covers [1, 4)); the first two
+        // samples duplicate what the buffer already holds.
+        const overlapping = new Series({
+          data: new Float32Array([2, 3, 4]),
+          dataType: DataType.FLOAT32,
+        }).reAlign(1n);
+        const { flushed, allocated } = cache.write(new MultiSeries([overlapping]));
+        expect(flushed).toHaveLength(0);
+        expect(allocated).toHaveLength(0);
+        expect(cache.length).toEqual(4); // [0, 4): 3 held + 1 genuinely new sample
+      });
+      it("should drop a fully-duplicate overlapping frame", () => {
+        const cache = new Dynamic({
+          dynamicBufferSize: 100,
+          dataType: DataType.FLOAT32,
+        });
+        const a = new Series({
+          data: new Float32Array([1, 2, 3, 4, 5]),
+          dataType: DataType.FLOAT32,
+        });
+        cache.write(new MultiSeries([a])); // occupies [0, 5)
+        const dup = new Series({
+          data: new Float32Array([2, 3]),
+          dataType: DataType.FLOAT32,
+        }).reAlign(1n); // [1, 3), entirely within the buffer
+        const { flushed, allocated } = cache.write(new MultiSeries([dup]));
+        expect(flushed).toHaveLength(0);
+        expect(allocated).toHaveLength(0);
+        expect(cache.length).toEqual(5); // unchanged
+      });
       it("should correctly allocate a single new buffer when the current one is full", async () => {
         const cache = new Dynamic({ dynamicBufferSize: 2, dataType: DataType.FLOAT32 });
         const ser = new Series({

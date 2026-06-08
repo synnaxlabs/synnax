@@ -13,6 +13,7 @@ package flow
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
@@ -440,8 +441,8 @@ func analyzeOutputRoutingTable(
 	nodesAfter []parser.IFlowNodeContext,
 ) {
 	var PrevFunc parser.IFunctionContext
-	for i := len(nodesBefore) - 1; i >= 0; i-- {
-		if fn := nodesBefore[i].Function(); fn != nil {
+	for _, n := range slices.Backward(nodesBefore) {
+		if fn := n.Function(); fn != nil {
 			PrevFunc = fn
 			break
 		}

@@ -259,11 +259,10 @@ var _ = Describe("Incremental Sync", func() {
 		Expect(client.Diagnostics()).To(BeEmpty())
 		baseline := client.PublishCount()
 
-		// Insert a newline at the very start of the document. The editor
-		// sends Range{(0,0)-(0,0)} with Text="\n". Because the protocol
-		// library deserializes an absent range to the same zero value,
-		// IsFullReplacement incorrectly treats this as a full replacement,
-		// wiping the document content to just "\n".
+		// Insert a newline at the very start of the document. The editor sends
+		// Range{(0,0)-(0,0)} with Text="\n". Because the protocol library deserializes
+		// an absent range to the same zero value, IsFullReplacement incorrectly treats
+		// this as a full replacement, wiping the document content to just "\n".
 		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 			TextDocument: protocol.VersionedTextDocumentIdentifier{
 				TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
@@ -281,9 +280,9 @@ var _ = Describe("Incremental Sync", func() {
 		})).To(Succeed())
 
 		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
-		// The document should now be "\nfunc test() {\n\tx := 42\n}".
-		// If IsFullReplacement incorrectly fires, it becomes just "\n"
-		// and semantic tokens will be empty.
+		// The document should now be "\nfunc test() {\n\tx := 42\n}". If
+		// IsFullReplacement incorrectly fires, it becomes just "\n" and semantic tokens
+		// will be empty.
 		tokens := SemanticTokens(server, ctx, uri)
 		Expect(tokens).ToNot(BeNil())
 		Expect(tokens.Data).ToNot(BeEmpty())
@@ -294,8 +293,8 @@ var _ = Describe("Incremental Sync", func() {
 		OpenArcDocument(server, ctx, uri, program)
 		baseline := client.PublishCount()
 
-		// Simulate selecting from col 0 to the end of the first line
-		// and pressing Enter (replacing the selection with a newline).
+		// Simulate selecting from col 0 to the end of the first line and pressing Enter
+		// (replacing the selection with a newline).
 		Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 			TextDocument: protocol.VersionedTextDocumentIdentifier{
 				TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
@@ -314,10 +313,10 @@ var _ = Describe("Incremental Sync", func() {
 
 		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
 
-		// After the edit the document is "\n\n    stage first {...". The
-		// exact diagnostics don't matter as much as verifying that the
-		// server still produces them (analysis didn't silently break).
-		// With the bug, the document would be wiped to just "\n".
+		// After the edit the document is "\n\n    stage first {...". The exact
+		// diagnostics don't matter as much as verifying that the server still produces
+		// them (analysis didn't silently break). With the bug, the document would be
+		// wiped to just "\n".
 		tokens := SemanticTokens(server, ctx, uri)
 		Expect(tokens).ToNot(BeNil())
 		Expect(tokens.Data).ToNot(BeEmpty())
@@ -337,10 +336,11 @@ var _ = Describe("External Change Notifications", func() {
 		resolver = StaticResolver{}
 		observer = observe.New[struct{}]()
 		server, uri, client = SetupTestServerWithClient(lsp.Config{
-			NewRoot: func() *symbol.Symbol {
-				return NewRoot(resolver)
-			},
+			NewRoot:          func() *symbol.Symbol { return NewRoot(resolver) },
 			OnExternalChange: observer,
+		})
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(server.Shutdown(ctx)).To(Succeed())
 		})
 	})
 

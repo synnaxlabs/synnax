@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
@@ -15,13 +16,12 @@ import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/
 import { OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/offPageReference/config";
 
-export const defaultConfig = (t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
-  color: t.colors.gray.l11,
+  color: color.ZERO,
   orientation: "right",
   label: Label.defaultConfig("Off Page Reference"),
 });

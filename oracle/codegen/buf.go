@@ -19,6 +19,7 @@ import (
 	"os"
 	osexec "os/exec"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -237,13 +238,7 @@ func walkExtensions(repoRoot string, exts []string, namePred func(string) bool) 
 			return nil
 		}
 		ext := filepath.Ext(path)
-		matchExt := false
-		for _, e := range exts {
-			if e == ext {
-				matchExt = true
-				break
-			}
-		}
+		matchExt := slices.Contains(exts, ext)
 		if !matchExt {
 			return nil
 		}

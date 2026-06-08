@@ -110,6 +110,7 @@ export const createDispatch = <
       async (input: DispatchInput<Key, Action>): Promise<boolean> => {
         if (client == null) return false;
         const actions = Array.isArray(input.actions) ? input.actions : [input.actions];
+        if (actions.length === 0) return true;
         return await apply(
           store,
           client,
