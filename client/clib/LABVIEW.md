@@ -10,12 +10,14 @@ or opaque handle — no pointer-bearing structs.
 - **64-bit only.** DLL bitness must match LabVIEW (use 64-bit LabVIEW).
 - **Insecure connection** for the demo: wire `secure = 0` and `ca_cert_file = ""`. (TLS
   works via `secure = 1` + a CA file path, but the spike runs against an insecure Core.)
-- **float64 data only**, single channel per write (`synnax_writer_write`).
+- **Any numeric dtype, multi-channel** per write: `synnax_writer_write` takes a
+  channel-major data block plus a `data_type` name (an `x::telem::DataType`).
 - **Demo writes stream-only to a virtual channel** (`mode = 3`). No index/timestamp
   column is needed and no commit is required. Observe the samples live in a Console line
   plot subscribed to the channel.
 - Persisted writes (`mode = 1` or `2`) additionally require writing the channel's index
-  timestamps, which the float64 `write` does not cover yet — that's a later wrapper.
+  timestamps; `synnax_writer_write` covers this via its `index_channel` + `timestamps`
+  parameters (or open with `auto_index` and skip them).
 - **Errors:** pass `0` (NULL) for every `err` parameter for now; check only the `int32`
   return (0 = ok). `SynnaxError` parsing is a follow-up.
 
@@ -159,16 +161,37 @@ the control/index params: empty `authorities` array + `authority_count = 0` (abs
 all channels), `subject_name = ""`, `subject_group = 0`, `err_on_unauthorized = 0`,
 `auto_index_persist_interval = 0` (⇒ 1s), `auto_index = 0`.
 
-### `synnax_writer_write` → I32
+### `synnax_writer_write` → I32 (multi-channel, any dtype)
 
-| #   | Param        | LabVIEW type              | Pass                      |
-| --- | ------------ | ------------------------- | ------------------------- |
-| ret | return       | Numeric, Signed 32-bit    | Value                     |
-| 1   | writer       | Numeric, UPtr             | Value                     |
-| 2   | channel      | Numeric, Unsigned 32-bit  | Value (the `lv_test` key) |
-| 3   | data         | Array, 64-bit double, 1-D | **Array Data Pointer**    |
-| 4   | sample_count | Numeric, UPtr             | Value (wire array size)   |
-| 5   | err          | Numeric, UPtr             | Value (wire `0`)          |
+One export backs a **polymorphic** `Synnax Write.vi`; each concrete instance (RT-safe,
+no malleable VIs) fixes the `data` array element type and hardcodes `data_type`.
+
+| #   | Param         | LabVIEW type                | Pass                                       |
+| --- | ------------- | --------------------------- | ------------------------------------------ |
+| ret | return        | Numeric, Signed 32-bit      | Value                                      |
+| 1   | writer        | Numeric, UPtr               | Value                                      |
+| 2   | index_channel | Numeric, Unsigned 32-bit    | Value (`0` = auto-index)                   |
+| 3   | timestamps    | Array, Signed 64-bit, 1-D   | **Array Data Pointer** (empty if no index) |
+| 4   | channels      | Array, Unsigned 32-bit, 1-D | **Array Data Pointer**                     |
+| 5   | channel_count | Numeric, UPtr               | Value (# channels)                         |
+| 6   | data          | Array, &lt;dtype&gt;, 1/2-D | **Array Data Pointer**                     |
+| 7   | sample_count  | Numeric, UPtr               | Value (samples per channel)                |
+| 8   | data_type     | String                      | C String Pointer (`"float64"`, …)          |
+| 9   | err           | Numeric, UPtr               | Value (wire `0`)                           |
+
+- **`data` is channel-major.** A 2-D array with rows = channels, cols = samples passes
+  correctly via the 2-D Array Data Pointer: `sample_count` = cols, `channel_count` =
+  rows.
+- **`data_type`** is an `x::telem::DataType` name (`"float64"`, `"float32"`, `"int64"`,
+  `"int32"`, `"uint8"`, `"timestamp"`, …) — hardcode it per polymorphic instance.
+- **Index:** non-auto-indexed writer → wire `index_channel` + an I64 `timestamps` array
+  (`sample_count` entries, ns since epoch). Auto-indexed writer → `index_channel = 0`,
+  empty `timestamps`.
+- **Waveform instances** compute `timestamps[i] = t0_ns + i*dT_ns` in the VI and pass
+  them like any explicit-timestamp call — the DLL never sees a waveform.
+
+Shapes vary by the arrays: 1 ch (`channels = [k]`, count 1) vs N ch; 1 samp
+(`sample_count = 1`) vs S samp; 2-D `data` for N×S.
 
 ### `synnax_writer_commit` → I32 (not needed for the stream-only demo)
 

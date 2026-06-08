@@ -96,19 +96,43 @@ int32_t synnax_writer_open(
 
 int32_t synnax_writer_write(
     SynnaxWriter *writer,
-    const uint32_t channel,
-    const double *data,
+    const uint32_t index_channel,
+    const int64_t *timestamps,
+    const uint32_t *channels,
+    const size_t channel_count,
+    const void *data,
     const size_t sample_count,
+    const char *data_type,
     SynnaxError *err
 ) {
     clear_err(err);
-    if (writer == nullptr || data == nullptr) {
-        set_err(err, CODE_INTERNAL, "sy.validation", "null writer or data");
+    if (writer == nullptr || channels == nullptr || data == nullptr) {
+        set_err(err, CODE_INTERNAL, "sy.validation", "null writer, channels, or data");
         return CODE_INTERNAL;
     }
     try {
-        x::telem::Frame frame(1);
-        frame.emplace(channel, x::telem::Series(data, sample_count));
+        const x::telem::DataType dt{str_or(data_type, "")};
+        if (dt.density() == 0) {
+            set_err(err, CODE_INTERNAL, "sy.validation", "unknown data type");
+            return CODE_INTERNAL;
+        }
+        const bool has_index = index_channel != 0 && timestamps != nullptr;
+        x::telem::Frame frame(channel_count + (has_index ? 1 : 0));
+        if (has_index)
+            frame.emplace(
+                index_channel,
+                x::telem::Series(timestamps, sample_count, x::telem::TIMESTAMP_T)
+            );
+        const auto *bytes = static_cast<const uint8_t *>(data);
+        for (size_t i = 0; i < channel_count; i++)
+            frame.emplace(
+                channels[i],
+                x::telem::Series(
+                    bytes + i * sample_count * dt.density(),
+                    sample_count,
+                    dt
+                )
+            );
         const auto w_err = writer->writer.write(frame);
         if (!w_err.ok()) {
             set_err(err, CODE_ERROR, w_err.type, w_err.data);

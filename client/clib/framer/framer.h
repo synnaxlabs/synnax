@@ -54,13 +54,17 @@ SYNNAX_EXPORT int32_t synnax_writer_open(
     SynnaxError *err
 );
 
-/// @brief writes sample_count float64 samples to a single channel. (float64-only
-/// for now; other dtypes and multi-channel frames come later.)
+/// @brief writes sample_count samples to each of channel_count channels (channel-major,
+/// data_type is a DataType name); also writes timestamps to index_channel when nonzero.
 SYNNAX_EXPORT int32_t synnax_writer_write(
     SynnaxWriter *writer,
-    uint32_t channel,
-    const double *data,
+    uint32_t index_channel,
+    const int64_t *timestamps,
+    const uint32_t *channels,
+    size_t channel_count,
+    const void *data,
     size_t sample_count,
+    const char *data_type,
     SynnaxError *err
 );
 

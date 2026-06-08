@@ -71,9 +71,13 @@ SYNNAX_EXPORT int32_t synnax_writer_open(
 
 SYNNAX_EXPORT int32_t synnax_writer_write(
     SynnaxWriter writer,
-    uint32_t channel,
-    const double *data,
+    uint32_t index_channel,
+    const int64_t *timestamps,
+    const uint32_t *channels,
+    uint64_t channel_count,
+    const void *data,
     uint64_t sample_count,
+    const char *data_type,
     SynnaxError err
 );
 
