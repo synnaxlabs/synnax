@@ -69,7 +69,12 @@ Legend struct {
     visible  bool = true {
         @doc value "is whether the legend is shown."
     }
-    position spatial.StickyXY = { x = 0, y = 0 } {
+    position spatial.StickyXY = {
+        x = 50,
+        y = 50,
+        root = { x = spatial.XLocationLeft, y = spatial.YLocationTop },
+        units = { x = spatial.StickyUnitPx, y = spatial.StickyUnitPx }
+    } {
         @doc value "is the anchor position of the legend within the plot container."
     }
 
@@ -243,13 +248,13 @@ Rule struct {
     axis       AxisKey       {
         @doc value "is the axis the rule is anchored to."
     }
-    line_width float64       {
+    line_width float64 = 1 {
         @doc value "is the rule line width in pixels."
     }
-    line_dash  float64       {
+    line_dash  float64 = 0 {
         @doc value "is the dash length in pixels; 0 renders a solid line."
     }
-    units      string        {
+    units      string = "" {
         @doc value "is the unit label displayed next to the position value."
     }
     position   float64       {

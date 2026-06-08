@@ -27,7 +27,6 @@ export type SliceState = latest.SliceState;
 export type PendingUpload = latest.PendingUpload;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_ANNOTATIONS_STATE = latest.ZERO_ANNOTATIONS_STATE;
-export const DEFAULT_RULE_COLOR = latest.DEFAULT_RULE_COLOR;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;

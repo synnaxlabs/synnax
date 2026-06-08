@@ -33,7 +33,6 @@ export const stateZ = v5.stateZ;
 export type State = v5.State;
 export const ZERO_STATE = v5.ZERO_STATE;
 export type PendingUpload = v5.PendingUpload;
-export const DEFAULT_RULE_COLOR = v5.DEFAULT_RULE_COLOR;
 
 export const toolbarTabZ = v0.toolbarTabZ;
 export type ToolbarTab = v0.ToolbarTab;

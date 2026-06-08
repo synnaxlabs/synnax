@@ -15,7 +15,6 @@ import {
   SelectAxisInputItem,
   SelectMultipleAxesInputItem,
 } from "@/lineplot/SelectAxis";
-import { useAssignedDispatch } from "@/lineplot/useAssignedDispatch";
 import { Range } from "@/range";
 
 const SELECT_PROPS = { location: "top" } as const;
@@ -61,29 +60,32 @@ const diffRanges = (
 export const Data = ({ layoutKey }: DataProps): ReactElement => {
   const channels = LinePlot.useSelectChannels({ key: layoutKey });
   const ranges = LinePlot.useSelectRanges({ key: layoutKey });
-  const dispatch = useAssignedDispatch(layoutKey);
+  const { dispatch } = LinePlot.useDispatch();
 
   const handleYChannelSelect = useCallback(
     (key: lineplot.AxisKey, value: readonly channel.Key[]): void => {
       const axis = key as lineplot.YAxisKey;
-      dispatch(diffChannels(channels[axis], value, axis));
+      dispatch({ key: layoutKey, actions: diffChannels(channels[axis], value, axis) });
     },
-    [dispatch, channels],
+    [dispatch, layoutKey, channels],
   );
 
   const handleXChannelSelect = useCallback(
     (key: lineplot.AxisKey, value: channel.Key): void => {
       const axis = key as lineplot.XAxisKey;
-      dispatch([lineplot.setXChannel({ axisKey: axis, channel: value })]);
+      dispatch({
+        key: layoutKey,
+        actions: [lineplot.setXChannel({ axisKey: axis, channel: value })],
+      });
     },
-    [dispatch],
+    [dispatch, layoutKey],
   );
 
   const handleRangeSelect = useCallback(
     (key: lineplot.XAxisKey, value: string[]): void => {
-      dispatch(diffRanges(ranges[key], value, key));
+      dispatch({ key: layoutKey, actions: diffRanges(ranges[key], value, key) });
     },
-    [dispatch, ranges],
+    [dispatch, layoutKey, ranges],
   );
 
   return (

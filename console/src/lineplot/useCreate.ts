@@ -13,6 +13,7 @@ import { useCallback } from "react";
 
 import { Layout } from "@/layout";
 import { create } from "@/lineplot/layout";
+import { Range } from "@/range";
 import { Workspace } from "@/workspace";
 
 export interface UseCreateProps {
@@ -26,6 +27,7 @@ export const useCreate = ({
   workspace,
 }: UseCreateProps): ((plot?: Partial<lineplot.New>) => void) => {
   const activeWorkspace = Workspace.useSelectActiveKey();
+  const activeRange = Range.useSelectActiveKey() ?? Range.RECENT_RANGE_KEY;
   const maybeChangeWorkspace = Workspace.useMaybeChange();
   const placeLayout = Layout.usePlacer();
   const { update } = LinePlot.useCreate({
@@ -39,9 +41,10 @@ export const useCreate = ({
     (plot) =>
       update({
         name: "Line Plot",
+        ranges: { x1: [activeRange], x2: [] },
         ...plot,
         workspace: workspace ?? activeWorkspace ?? undefined,
       }),
-    [workspace, activeWorkspace, maybeChangeWorkspace, placeLayout, update],
+    [workspace, activeWorkspace, activeRange, maybeChangeWorkspace, placeLayout, update],
   );
 };

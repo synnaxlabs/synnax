@@ -16,11 +16,6 @@ import * as v4 from "@/lineplot/types/v4";
 
 export const VERSION = "5.0.0";
 
-// DEFAULT_RULE_COLOR is the fallback applied at render time when a rule has no
-// explicit color. Rules are nullable on the wire; the Console resolves a
-// concrete color before handing off to the renderer.
-export const DEFAULT_RULE_COLOR: color.Color = color.construct("#3774D0");
-
 // toColor lifts a legacy hex-string color into the optional Color the oracle
 // types use. The empty string was the legacy "unset" sentinel and maps to
 // undefined so the Console assigns a palette/default at render time.

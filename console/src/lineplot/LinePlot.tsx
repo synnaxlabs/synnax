@@ -110,7 +110,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       );
     return m;
   }, [resolved]);
-  const activeRangeKey = Range.useSelectActiveKey() ?? "recent";
 
   const hiddenLineKeys = useSelectHiddenLines(layoutKey);
   const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);
@@ -267,7 +266,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           editable={hasUpdatePermission}
           enableTriggers={enableTriggers}
           resolvedRanges={resolvedRanges}
-          activeRangeKey={activeRangeKey}
           legendVariant={focused ? "fixed" : "floating"}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}

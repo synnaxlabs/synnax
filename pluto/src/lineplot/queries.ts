@@ -212,10 +212,11 @@ export interface DerivedLine extends Omit<RawDerivedLine, "color"> {
   isDefaultLabel: boolean;
 }
 
-// resolveLineColor returns the concrete color a line should render with: its
-// stored color when set, otherwise a palette color chosen by its position. The
-// chart and the toolbar both route through this so the displayed colors agree.
-const resolveLineColor = (
+// resolvePaletteColor returns the concrete color an element should render with:
+// its stored color when set, otherwise a palette color chosen by its position.
+// Lines and rules both route through this so their displayed colors agree, and
+// so the chart and the toolbar resolve an element to the same color.
+const resolvePaletteColor = (
   stored: color.Color | undefined,
   index: number,
   palette: color.Crude[],
@@ -247,7 +248,7 @@ export const useSelectLines = (args: SelectKeyArgs): DerivedLine[] => {
     () =>
       lines.map(({ color, ...line }, i) => ({
         ...line,
-        color: resolveLineColor(color, i, palette),
+        color: resolvePaletteColor(color, i, palette),
         isDefaultLabel: line.label == null,
       })),
     [lines, palette],
@@ -387,7 +388,7 @@ export const useSelectLine = (
     () => ({
       ...raw.line,
       ...lineplot.parseLineKey(raw.line.key),
-      color: resolveLineColor(raw.line.color, raw.index, palette),
+      color: resolvePaletteColor(raw.line.color, raw.index, palette),
       label: raw.line.label ?? chan?.name ?? "",
       isDefaultLabel: raw.line.label == null,
     }),
@@ -395,7 +396,13 @@ export const useSelectLine = (
   );
 };
 
-export const useSelectRules = Flux.createSelector<
+// DerivedRule is a stored rule with its render color resolved to a concrete
+// palette color, ready for the chart and toolbar to consume directly.
+export interface DerivedRule extends Omit<lineplot.Rule, "color"> {
+  color: color.Color;
+}
+
+const useSelectRawRules = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
   lineplot.Rule[]
@@ -404,20 +411,56 @@ export const useSelectRules = Flux.createSelector<
   select: (store, { key }) => requireLinePlot(store, key).rules,
 });
 
+// useSelectRules returns the plot's rules, each with its render color resolved
+// from the active palette (a rule with no stored color is assigned one by its
+// position, the same way lines are).
+export const useSelectRules = (args: SelectKeyArgs): DerivedRule[] => {
+  const rules = useSelectRawRules(args);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return useMemo(
+    () =>
+      rules.map(({ color, ...rule }, i) => ({
+        ...rule,
+        color: resolvePaletteColor(color, i, palette),
+      })),
+    [rules, palette],
+  );
+};
+
 export interface SelectRuleArgs {
   key: lineplot.Key;
   ruleKey: string;
 }
 
-export const useSelectRule = Flux.createSelector<
-  FluxSubStore,
-  SelectRuleArgs,
-  lineplot.Rule | undefined
->({
+interface RawRule {
+  rule: lineplot.Rule;
+  index: number;
+}
+
+const useSelectRawRule = Flux.createSelector<FluxSubStore, SelectRuleArgs, RawRule>({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
-  select: (store, { key, ruleKey }) =>
-    store.lineplots.get(key)?.rules?.find((r) => r.key === ruleKey),
+  select: (store, { key, ruleKey }) => {
+    const rules = requireLinePlot(store, key).rules;
+    const index = rules.findIndex((r) => r.key === ruleKey);
+    if (index === -1) throw new NotFoundError(`rule with key ${ruleKey} not found`);
+    return { rule: rules[index], index };
+  },
+  equal: (a, b) => a?.rule === b?.rule && a?.index === b?.index,
 });
+
+// useSelectRule returns a single rule with its color resolved by position the
+// same way as useSelectRules, or undefined when no rule with ruleKey exists.
+export const useSelectRule = (args: SelectRuleArgs): DerivedRule => {
+  const raw = useSelectRawRule(args);
+  const palette = Theming.use().colors.visualization.palettes.default;
+  return useMemo(
+    () => ({
+      ...raw.rule,
+      color: resolvePaletteColor(raw.rule.color, raw.index, palette),
+    }),
+    [raw, palette],
+  );
+};
 
 export interface SelectAxisRulesArgs {
   key: lineplot.Key;

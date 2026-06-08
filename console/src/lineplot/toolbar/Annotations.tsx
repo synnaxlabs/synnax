@@ -21,21 +21,13 @@ import {
   Select,
   Text,
 } from "@synnaxlabs/pluto";
-import { bounds, color, id } from "@synnaxlabs/x";
+import { bounds, type color, id } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
-import { Layout } from "@/layout";
 import { useSelectSelectedRules } from "@/lineplot/selectors";
-import { DEFAULT_RULE_COLOR, setSelectedRule } from "@/lineplot/slice";
-
-const ZERO_RULE: Omit<lineplot.Rule, "key" | "label" | "color" | "axis" | "position"> =
-  {
-    units: "",
-    lineWidth: 1,
-    lineDash: 0,
-  };
+import { setSelectedRule } from "@/lineplot/slice";
 
 interface EmptyContentProps {
   onCreateRule: () => void;
@@ -158,7 +150,7 @@ const SelectAxis = (
 );
 
 interface RuleContentProps {
-  rule: lineplot.Rule;
+  rule: LinePlot.DerivedRule;
   onChangeLabel: (label: string) => void;
   onChangeUnits: (units: string) => void;
   onChangePosition: (position: number) => void;
@@ -199,7 +191,7 @@ const RuleContent = ({
     </Flex.Box>
     <Flex.Box x wrap>
       <Input.Item label="Color">
-        <Color.Swatch value={color ?? DEFAULT_RULE_COLOR} onChange={onChangeColor} />
+        <Color.Swatch value={color} onChange={onChangeColor} />
       </Input.Item>
       <Input.Item label="Line Width">
         <Input.Numeric
@@ -220,22 +212,21 @@ const RuleContent = ({
 );
 
 export interface AnnotationsProps {
-  linePlotKey: string;
+  layoutKey: string;
 }
 
-export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => {
-  const axes = LinePlot.useSelectAxes({ key: linePlotKey });
-  const rules = LinePlot.useSelectRules({ key: linePlotKey });
-  const theme = Layout.useSelectTheme();
-  const selectedRuleKeys = useSelectSelectedRules(linePlotKey);
+export const Annotations = ({ layoutKey: key }: AnnotationsProps): ReactElement => {
+  const axes = LinePlot.useSelectAxes({ key });
+  const rules = LinePlot.useSelectRules({ key });
+  const selectedRuleKeys = useSelectSelectedRules(key);
   const reduxDispatch = useDispatch();
   const { dispatch } = LinePlot.useDispatch();
 
   const setSelectedRuleKeys = useCallback(
     (keys: string[]): void => {
-      reduxDispatch(setSelectedRule({ key: linePlotKey, ruleKey: keys }));
+      reduxDispatch(setSelectedRule({ key, ruleKey: keys }));
     },
-    [reduxDispatch, linePlotKey],
+    [reduxDispatch, key],
   );
 
   const shownRuleKey = selectedRuleKeys[selectedRuleKeys.length - 1];
@@ -243,30 +234,20 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
 
   const apply = useCallback(
     (action: lineplot.Action): void => {
-      dispatch({ key: linePlotKey, actions: [action] });
+      dispatch({ key, actions: [action] });
     },
-    [dispatch, linePlotKey],
+    [dispatch, key],
   );
 
   const handleCreateRule = useCallback((): void => {
-    const visColors = theme?.colors.visualization.palettes.default ?? [];
-    const colorVal = color.construct(
-      visColors[rules.length % visColors.length] ?? color.ZERO,
-    );
     const key = id.create();
     const axis: lineplot.AxisKey = "y1";
     const position = bounds.mean(axes[axis].bounds);
-    const rule: lineplot.Rule = {
-      ...ZERO_RULE,
-      key,
-      label: `Rule ${rules.length + 1}`,
-      color: colorVal,
-      axis,
-      position,
-    };
-    dispatch({ key: linePlotKey, actions: [lineplot.setRule({ rule })] });
+    const label = `Rule ${rules.length + 1}`;
+    const rule = lineplot.ruleZ.parse({ key, label, axis, position });
+    dispatch({ key, actions: [lineplot.setRule({ rule })] });
     setSelectedRuleKeys([key]);
-  }, [dispatch, linePlotKey, axes, rules.length, theme, setSelectedRuleKeys]);
+  }, [dispatch, key, axes, rules.length, setSelectedRuleKeys]);
 
   const handleChangeLabel = (label: string, key: string = shownRuleKey): void => {
     if (key == null) return;
@@ -288,7 +269,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
     if (shownRule == null) return;
     const position = bounds.mean(axes[axis].bounds);
     dispatch({
-      key: linePlotKey,
+      key,
       actions: [
         lineplot.setRuleAxis({ key: shownRule.key, axis }),
         lineplot.setRulePosition({ key: shownRule.key, position }),
@@ -305,7 +286,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
   };
   const handleRemoveRules = (keys: string[]): void => {
     dispatch({
-      key: linePlotKey,
+      key,
       actions: keys.map((key) => lineplot.removeRule({ key })),
     });
     const newSelectedRuleKey = rules.find((rule) => !keys.includes(rule.key))?.key;
@@ -322,7 +303,7 @@ export const Annotations = ({ linePlotKey }: AnnotationsProps): ReactElement => 
         onCreate={handleCreateRule}
         onRemoveAnnotations={handleRemoveRules}
         onLabelChange={handleChangeLabel}
-        layoutKey={linePlotKey}
+        layoutKey={key}
       />
       <Divider.Divider y />
       <RuleContent

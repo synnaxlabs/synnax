@@ -71,7 +71,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
         case "properties":
           return <Properties layoutKey={layoutKey} />;
         case "annotations":
-          return <Annotations linePlotKey={layoutKey} />;
+          return <Annotations layoutKey={layoutKey} />;
         default:
           return <Data layoutKey={layoutKey} />;
       }

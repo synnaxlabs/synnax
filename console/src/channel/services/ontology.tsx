@@ -58,22 +58,16 @@ const handleSelect: Ontology.HandleSelect = ({
   // Otherwise, update the layout with the selected channels.
   switch (layout?.type) {
     case LinePlot.LAYOUT_TYPE: {
-      const activeRange = Range.selectActiveKey(state) ?? undefined;
       handleError(
         () =>
-          LinePlot.addChannelsToActivePlot(
-            client,
-            layout.key,
-            nonVirtualSelection,
-            activeRange,
-          ),
+          LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
         "Failed to add channels to plot",
       );
       break;
     }
     default: {
       const workspace = Workspace.selectActiveKey(state) ?? uuid.ZERO;
-      const activeRange = Range.selectActiveKey(state) ?? "rolling30s";
+      const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_RANGE_KEY;
       handleError(async () => {
         const { key, name } = await client.lineplots.create(workspace, {
           name: "Line Plot",

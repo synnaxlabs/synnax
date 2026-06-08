@@ -679,6 +679,35 @@ describe("lineplot queries", () => {
       });
     });
 
+    it("useSelectRule resolves a palette color for a rule with no stored color", async () => {
+      const seeded = await seedPlot();
+      const { result } = await loadAndUse(seeded.key, () => ({
+        rule: LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-1" }),
+        dispatch: LinePlot.useDispatch(),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: seeded.key,
+          actions: [
+            lineplotClient.setRule({
+              rule: {
+                key: "rl-1",
+                label: "max",
+                axis: "y1",
+                lineWidth: 1,
+                lineDash: 0,
+                units: "psi",
+                position: 4.5,
+              },
+            }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.rule?.color).toBeDefined();
+      });
+    });
+
     it("useSelectLineCount reflects the number of lines", async () => {
       const seeded = await seedPlot();
       const { result } = await loadAndUse(seeded.key, () => ({

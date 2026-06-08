@@ -49,7 +49,12 @@ export const legendZ = z.object({
   /** visible is whether the legend is shown. */
   visible: z.boolean().default(true),
   /** position is the anchor position of the legend within the plot container. */
-  position: spatial.stickyXYZ.prefault({ x: 0, y: 0 }),
+  position: spatial.stickyXYZ.prefault({
+    x: 50,
+    y: 50,
+    root: { x: "left", y: "top" },
+    units: { x: "px", y: "px" },
+  }),
 });
 export interface Legend extends z.infer<typeof legendZ> {}
 
@@ -143,11 +148,11 @@ export const ruleZ = z.object({
   /** axis is the axis the rule is anchored to. */
   axis: axisKeyZ,
   /** lineWidth is the rule line width in pixels. */
-  lineWidth: z.number(),
+  lineWidth: z.number().default(1),
   /** lineDash is the dash length in pixels; 0 renders a solid line. */
-  lineDash: z.number(),
+  lineDash: z.number().default(0),
   /** units is the unit label displayed next to the position value. */
-  units: z.string(),
+  units: z.string().default(""),
   /** position is the value-space position of the rule along its anchored axis. */
   position: z.number(),
 });
