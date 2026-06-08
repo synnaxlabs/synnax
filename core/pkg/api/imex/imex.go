@@ -19,9 +19,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
+	db       *gorp.DB
 	access   *rbac.Service
 	internal *imex.Service
 }
@@ -31,7 +33,11 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Service.ImEx, access: cfg.Service.RBAC}, nil
+	return &Service{
+		db:       cfg.Distribution.DB,
+		internal: cfg.Service.ImEx,
+		access:   cfg.Service.RBAC,
+	}, nil
 }
 
 type (
@@ -49,18 +55,23 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
+	var key string
+	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err = s.access.Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionCreate,
+			Objects: []ontology.ID{{Type: resourceType, Key: ""}},
+		}); err != nil {
+			return err
+		}
+		if key, err = s.internal.Import(ctx, tx, req); err != nil {
+			return err
+		}
+		return nil
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	keys, err := s.internal.Import(ctx, []imex.Envelope{req})
-	if err != nil {
-		return ImportResponse{}, err
-	}
-	return ImportResponse{Key: keys[0]}, nil
+	return ImportResponse{Key: key}, nil
 }
 
 type (
@@ -72,16 +83,20 @@ func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{req},
+	var env imex.Envelope
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		err := s.access.Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: []ontology.ID{req},
+		})
+		if err != nil {
+			return err
+		}
+		env, err = s.internal.Export(ctx, tx, req)
+		return err
 	}); err != nil {
 		return ExportResponse{}, err
 	}
-	envs, err := s.internal.Export(ctx, []ontology.ID{req})
-	if err != nil {
-		return ExportResponse{}, err
-	}
-	return envs[0], nil
+	return env, nil
 }
