@@ -90,14 +90,12 @@ struct Body {
 };
 
 /// @brief Node is a concrete instantiation of a function with typed parameters and
-/// configuration values.
+/// values.
 struct Node {
     /// @brief key is the unique identifier for this node instance.
     std::string key;
     /// @brief type is the function type being instantiated.
     std::string type;
-    /// @brief config contains configuration parameter values.
-    ::arc::types::Params config;
     /// @brief inputs contains input parameter type signatures.
     ::arc::types::Params inputs;
     /// @brief outputs contains output parameter type signatures.
@@ -161,8 +159,6 @@ struct Function {
     std::string key;
     /// @brief body is raw source code for user-defined functions.
     Body body;
-    /// @brief config contains configuration parameter definitions.
-    ::arc::types::Params config;
     /// @brief inputs contains input parameter definitions.
     ::arc::types::Params inputs;
     /// @brief outputs contains output parameter definitions.

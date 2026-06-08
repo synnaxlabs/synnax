@@ -126,7 +126,6 @@ inline Function Function::parse(x::json::Parser parser) {
     return Function{
         .key = parser.field<std::string>("key"),
         .body = parser.field<Body>("body"),
-        .config = parser.field<::arc::types::Params>("config"),
         .inputs = parser.field<::arc::types::Params>("inputs"),
         .outputs = parser.field<::arc::types::Params>("outputs"),
         .channels = parser.field<::arc::types::Channels>("channels"),
@@ -137,7 +136,6 @@ inline x::json::json Function::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["body"] = this->body.to_json();
-    j["config"] = this->config.to_json();
     j["inputs"] = this->inputs.to_json();
     j["outputs"] = this->outputs.to_json();
     j["channels"] = this->channels.to_json();
@@ -148,7 +146,6 @@ inline Node Node::parse(x::json::Parser parser) {
     return Node{
         .key = parser.field<std::string>("key"),
         .type = parser.field<std::string>("type"),
-        .config = parser.field<::arc::types::Params>("config"),
         .inputs = parser.field<::arc::types::Params>("inputs"),
         .outputs = parser.field<::arc::types::Params>("outputs"),
         .channels = parser.field<::arc::types::Channels>("channels"),
@@ -159,7 +156,6 @@ inline x::json::json Node::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["type"] = this->type;
-    j["config"] = this->config.to_json();
     j["inputs"] = this->inputs.to_json();
     j["outputs"] = this->outputs.to_json();
     j["channels"] = this->channels.to_json();
