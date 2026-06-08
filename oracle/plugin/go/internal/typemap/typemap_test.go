@@ -439,7 +439,10 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 		Expect(result).To(Equal("Base"))
 	})
 
-	It("should resolve through a distinct type to a struct", func() {
+	It("should preserve a distinct type's own name rather than unwrapping to its base", func() {
+		// Distinct types are separate Go types from their base; `make([]X, n)`
+		// emitted by the codec must be assignable to `[]Distinct`, so the
+		// distinct's declared Go name is what we want, not the underlying type.
 		table := resolution.NewTable()
 		base := resolution.Type{
 			Name:          "Base",
@@ -456,7 +459,7 @@ var _ = Describe("ResolveGoSliceElemType", func() {
 		Expect(table.Add(base)).To(Succeed())
 		Expect(table.Add(distinct)).To(Succeed())
 		result := MustSucceed(typemap.ResolveGoSliceElemType(distinct, table, goTypeName))
-		Expect(result).To(Equal("Base"))
+		Expect(result).To(Equal("Distinct"))
 	})
 
 	It("should error when alias target is unresolvable", func() {

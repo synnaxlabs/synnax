@@ -84,6 +84,47 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Partial Field Overrides", func() {
+		It("should preserve a standalone optionality marker on a typeless override", func() {
+			result := format("Child struct extends Parent {\n  key?\n  note??\n}\n")
+			Expect(result).To(ContainSubstring("key?"))
+			Expect(result).To(ContainSubstring("note??"))
+			Expect(result).NotTo(ContainSubstring("key ?"))
+		})
+
+		It("should preserve a typeless override that changes only the default", func() {
+			result := format("Child struct extends Parent {\n  count = 10\n}\n")
+			Expect(result).To(ContainSubstring("count = 10"))
+		})
+
+		It("should preserve a typeless override that adds a domain", func() {
+			result := format("Child struct extends Parent {\n  name @validate required\n}\n")
+			Expect(result).To(ContainSubstring("name @validate required"))
+		})
+
+		It("should preserve a domain removal inline and in a body", func() {
+			result := format("Child struct extends Parent {\n  name -@validate\n  key? {\n    -@doc\n  }\n}\n")
+			Expect(result).To(ContainSubstring("name -@validate"))
+			Expect(result).To(ContainSubstring("-@doc"))
+		})
+
+		It("should keep a typeless override with a brace body idempotent", func() {
+			source := "Child struct extends Parent {\n" +
+				"  key? {\n    @doc value \"an optional key\"\n  }\n" +
+				"  query {\n    @doc value \"inherits its type\"\n  }\n" +
+				"  snapshot?\n" +
+				"  expression? = \"\"\n" +
+				"}\n"
+			once := format(source)
+			twice := format(once)
+			Expect(twice).To(Equal(once))
+			Expect(once).To(ContainSubstring("key?"))
+			Expect(once).To(MatchRegexp(`query\s+\{`))
+			Expect(once).To(ContainSubstring("snapshot?\n"))
+			Expect(once).To(ContainSubstring("expression? = \"\""))
+		})
+	})
+
 	Describe("Enum Definitions", func() {
 		It("should format an empty enum", func() {
 			Expect(format("Status enum {}\n")).To(Equal("Status enum {}\n"))
@@ -340,6 +381,34 @@ var _ = Describe("Format", func() {
 		It("should format a populated array default", func() {
 			result := format("Item struct {\n  vals float64[] = [1.5, 2.5]\n}\n")
 			Expect(result).To(ContainSubstring("vals float64[] = [1.5, 2.5]"))
+		})
+
+		It("should format an empty struct default", func() {
+			result := format("Point struct {\n  x int32\n}\nItem struct {\n  p Point = {}\n}\n")
+			Expect(result).To(ContainSubstring("p Point = {}"))
+		})
+
+		It("should format a populated struct default", func() {
+			result := format("Point struct {\n  x int32\n  y int32\n}\nItem struct {\n  p Point = { x = 1, y = 2 }\n}\n")
+			Expect(result).To(ContainSubstring("p Point = { x = 1, y = 2 }"))
+		})
+
+		It("should format a nested struct default", func() {
+			result := format("Inner struct {\n  tags string[]\n}\nMid struct {\n  inner Inner\n}\nItem struct {\n  m Mid = { inner = { tags = [\"a\"] } }\n}\n")
+			Expect(result).To(ContainSubstring("m Mid = { inner = { tags = [\"a\"] } }"))
+		})
+
+		It("should break a struct default across lines when it overflows the line", func() {
+			src := "Inner struct {\n  one int32\n  two int32\n  three int32\n}\n" +
+				"Outer struct {\n  a Inner\n  b Inner\n  c Inner\n}\n" +
+				"Item struct {\n  o Outer = { a = { one = 1, two = 2, three = 3 }, b = { one = 1, two = 2, three = 3 }, c = { one = 1, two = 2, three = 3 } }\n}\n"
+			result := format(src)
+			Expect(result).To(ContainSubstring("o Outer = {\n"))
+			Expect(result).To(ContainSubstring("        a = { one = 1, two = 2, three = 3 },\n"))
+			Expect(result).To(ContainSubstring("        c = { one = 1, two = 2, three = 3 }\n"))
+			Expect(result).To(ContainSubstring("    }\n"))
+			Expect(result).ToNot(ContainSubstring("three = 3 },\n    }"))
+			Expect(format(result)).To(Equal(result))
 		})
 
 		It("should format qualified ident expression values", func() {

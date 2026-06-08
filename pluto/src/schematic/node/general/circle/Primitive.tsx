@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
@@ -30,6 +30,7 @@ export const Circle = ({
   const diameter = radius * 2;
   const width = diameter + 2 * padding;
   const height = diameter + 2 * padding;
+  const dimensions = useMemo(() => ({ width, height }), [width, height]);
   return (
     <Primitive.Div className={CSS(className, CSS.B("circle-shape"))}>
       <Handle.Boundary orientation="left" refreshDeps={radius}>
@@ -62,12 +63,11 @@ export const Circle = ({
           id="4"
         />
       </Handle.Boundary>
-      <Primitive.SVG dimensions={{ width, height }}>
+      <Primitive.SVG dimensions={dimensions} color={colorVal}>
         <Primitive.Circle
           cx={width / 2}
           cy={height / 2}
           r={radius}
-          stroke={color.cssString(colorVal)}
           strokeWidth={strokeWidth ?? 2}
           fill={color.cssString(backgroundColor)}
         />

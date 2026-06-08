@@ -97,10 +97,7 @@ func (s *Server) Completion(_ context.Context, params *protocol.CompletionParams
 		return &protocol.CompletionList{Items: []protocol.CompletionItem{}}, nil
 	}
 	line := lines[params.Position.Line]
-	col := int(params.Position.Character)
-	if col > len(line) {
-		col = len(line)
-	}
+	col := min(int(params.Position.Character), len(line))
 	linePrefix := line[:col]
 
 	items := getCompletionsForContext(linePrefix)

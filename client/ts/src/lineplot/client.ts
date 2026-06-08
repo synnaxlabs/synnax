@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, dispatchReqZ } from "@/lineplot/actions.gen";
 import {
   type Key,
   keyZ,
@@ -22,12 +23,14 @@ import {
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
 
+export const SET_CHANNEL_NAME = "sy_lineplot_set";
+
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataReqZ = z.object({
-  key: keyZ,
-  data: caseconv.preserveCase(record.unknownZ()),
-});
+export type SetDataBody = Omit<LinePlot, "key" | "name">;
+const setDataBodyZ = linePlotZ.omit({ key: true, name: true });
+const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
+
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -74,8 +77,17 @@ export class Client {
     await this.client.send("/lineplot/rename", { key, name }, renameReqZ, emptyResZ);
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
+  async setData(key: Key, data: SetDataBody): Promise<void> {
     await this.client.send("/lineplot/set-data", { key, data }, setDataReqZ, emptyResZ);
+  }
+
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/lineplot/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
+      emptyResZ,
+    );
   }
 
   async retrieve(args: RetrieveSingleParams): Promise<LinePlot>;

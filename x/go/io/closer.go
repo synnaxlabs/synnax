@@ -11,6 +11,7 @@ package io
 
 import (
 	"io"
+	"slices"
 
 	"github.com/synnaxlabs/x/errors"
 )
@@ -49,8 +50,8 @@ var _ io.Closer = MultiCloser(nil)
 
 func (m MultiCloser) Close() error {
 	var err error
-	for i := len(m) - 1; i >= 0; i-- {
-		err = errors.Join(err, m[i].Close())
+	for _, v := range slices.Backward(m) {
+		err = errors.Join(err, v.Close())
 	}
 	return err
 }

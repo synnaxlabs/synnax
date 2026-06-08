@@ -28,7 +28,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
   cornerRounding: 0,
   rotation: 0,
-  color: t.colors.gray.l11,
+  color: color.ZERO,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
   strokeWidth: 2,
   label: Label.defaultConfig("Polygon"),

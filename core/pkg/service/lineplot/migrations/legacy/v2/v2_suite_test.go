@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package atomic_test
+package v2_test
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestAtomic(t *testing.T) {
+func TestV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Atomic Suite")
+	RunSpecs(t, "Line Plot v2 Legacy Migration Suite")
 }

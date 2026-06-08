@@ -111,6 +111,13 @@ fieldOmit
     : MINUS IDENT
     ;
 
+// Domain omission: remove a domain inherited from the overridden parent field.
+// Only meaningful on a field that overrides a parent field (in an extends struct).
+// Example: -@validate
+domainOmit
+    : MINUS AT IDENT
+    ;
+
 // Action definition within a struct: defines a named mutation with payload fields
 // Examples:
 //   action SetNodePosition {
@@ -144,19 +151,49 @@ actionBody
 //   name string {
 //       @validate { required, min_length 1 }
 //   }
+//
+// In a struct that extends a parent, the type may be omitted to partially
+// override an inherited field, in which case the type, optionality, and any
+// unspecified default are inherited from the parent:
+//   key = 0                  (change only the default)
+//   name @validate required  (add a domain)
+//   name -@validate          (remove an inherited domain)
+// A standalone optionality marker overrides only the optionality, inheriting
+// the type from the parent:
+//   key?                     (inherit the type, make it soft-optional)
+//   key??                    (inherit the type, make it hard-optional)
 fieldDef
-    : IDENT typeRef (EQUALS fieldDefault)? inlineDomain* fieldBody?
+    : IDENT (typeRef | typeModifiers)? (EQUALS fieldDefault)? (inlineDomain | domainOmit)* fieldBody?
     ;
 
-// A field default is either a scalar/ident literal or an array literal.
-// Examples: = 0, = "v", = volts, = [], = [1, 2, 3]
+// A field default is a scalar/ident literal, an array literal, or a struct
+// literal.
+// Examples: = 0, = "v", = volts, = [], = [1, 2, 3], = { x = 0, y = 1 }
 fieldDefault
     : expressionValue
     | arrayDefault
+    | structDefault
+    ;
+
+// A default value in a nested position (array element or struct field). Arrays
+// and structs nest recursively through this rule.
+defaultValue
+    : expressionValue
+    | arrayDefault
+    | structDefault
     ;
 
 arrayDefault
-    : LBRACKET nl* (expressionValue (COMMA nl* expressionValue)* nl*)? RBRACKET
+    : LBRACKET nl* (defaultValue (COMMA nl* defaultValue)* nl*)? RBRACKET
+    ;
+
+// A struct literal binds field names to values: { field = value, field = value }
+structDefault
+    : LBRACE nl* (structFieldDefault (COMMA nl* structFieldDefault)* nl*)? RBRACE
+    ;
+
+structFieldDefault
+    : IDENT EQUALS defaultValue
     ;
 
 // Inline domain on a field (after type, on same line)
@@ -165,9 +202,9 @@ inlineDomain
     : AT IDENT domainContent?
     ;
 
-// Optional field body containing domain definitions (multi-line)
+// Optional field body containing domain definitions and omissions (multi-line)
 fieldBody
-    : nl* LBRACE nl* (domain nl*)* RBRACE
+    : nl* LBRACE nl* ((domain | domainOmit) nl*)* RBRACE
     ;
 
 // =============================================================================

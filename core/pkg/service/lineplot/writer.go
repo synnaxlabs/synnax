@@ -14,14 +14,16 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	table *gorp.Table[Key, LinePlot]
+	tx         gorp.Tx
+	otg        ontology.Writer
+	table      *gorp.Table[Key, LinePlot]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 func (w Writer) Create(
@@ -38,6 +40,9 @@ func (w Writer) Create(
 			return
 		}
 	}
+	// Materialize lines for any channel/range bindings supplied at creation so a
+	// plot created with channels and ranges but no lines is fully populated.
+	p.Lines = reconcileLines(*p)
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}
@@ -72,17 +77,44 @@ func (w Writer) Rename(
 		}).Exec(ctx, w.tx)
 }
 
+// SetData replaces the body of the line plot with the given key with the
+// provided value. Key and Name are preserved from the existing entry; every
+// other field on data overwrites the stored entry verbatim.
 func (w Writer) SetData(
 	ctx context.Context,
 	key Key,
-	data map[string]any,
+	data LinePlot,
 ) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, LinePlot](key)).
 		Change(func(_ gorp.Context, p LinePlot) LinePlot {
-			p.Data = data
-			return p
+			data.Key = p.Key
+			data.Name = p.Name
+			return data
 		}).Exec(ctx, w.tx)
+}
+
+// Dispatch applies a sequence of actions atomically to the line plot with the
+// given key. After a successful update the actions are notified to the
+// service-level observer so subscribers (cluster signals) can broadcast them.
+// dispatchKey is a client-generated identifier carried verbatim onto the
+// broadcast so the originating client can match its own echo against the set
+// of outstanding local replays and skip a redundant reduce when no foreign
+// action interleaved.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, LinePlot](key)).
+		ChangeErr(func(_ gorp.Context, p LinePlot) (LinePlot, error) {
+			return Reduce(p, actions...)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
+	return nil
 }
 
 func (w Writer) Delete(

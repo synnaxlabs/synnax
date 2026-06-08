@@ -17,6 +17,10 @@
     text-overflow: ellipsis;
     text-wrap: wrap;
 
+    & .pluto-symbol__label {
+        color: var(--pluto-symbol-display);
+    }
+
     &.pluto--location-top {
         writing-mode: vertical-rl;
     }

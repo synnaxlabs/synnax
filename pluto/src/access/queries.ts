@@ -9,7 +9,7 @@
 
 import {
   access,
-  type ontology,
+  ontology,
   type Synnax,
   UnexpectedError,
   user,
@@ -79,6 +79,11 @@ export const isGranted = ({
 
 export interface IsGrantedExtensionParams extends Omit<IsGrantedParams, "query"> {}
 
+// affectsPermissions reports whether a relationship change can alter permissions:
+// only role links can (role -> policy, role -> subject). Others must not re-trigger.
+const affectsPermissions = (rel: ontology.Relationship): boolean =>
+  rel.type === ontology.PARENT_OF_RELATIONSHIP_TYPE && rel.from.type === "role";
+
 const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
   PermissionsQuery,
   boolean,
@@ -94,6 +99,20 @@ const { useRetrieve: useGrantedBase } = Flux.createRetrieve<
     if (subject == null) return false;
     const policies = await policy.retrieveForSubject({ client, subject, store });
     return access.allowRequest({ subject, objects, action }, policies);
+  },
+  mountListeners: ({ store, client, query, onChange }) => {
+    const update = () => onChange(isGranted({ store, client, query }));
+    return [
+      store.policies.onSet(update),
+      store.policies.onDelete(update),
+      store.relationships.onSet((rel) => {
+        if (affectsPermissions(rel)) update();
+      }),
+      store.relationships.onDelete((key) => {
+        const parsed = ontology.relationshipZ.safeParse(key);
+        if (parsed.success && affectsPermissions(parsed.data)) update();
+      }),
+    ];
   },
 });
 

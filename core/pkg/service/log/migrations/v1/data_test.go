@@ -23,9 +23,9 @@ var _ = Describe("Data", func() {
 	Describe("ToMap", func() {
 		It("Should produce a key for every json-tagged field on Data", func() {
 			m := v1.Data{}.ToMap()
-			t := reflect.TypeOf(v1.Data{})
-			for i := range t.NumField() {
-				tag := strings.Split(t.Field(i).Tag.Get("json"), ",")[0]
+			t := reflect.TypeFor[v1.Data]()
+			for field := range t.Fields() {
+				tag, _, _ := strings.Cut(field.Tag.Get("json"), ",")
 				Expect(m).To(HaveKey(tag), "field %s missing from Data.ToMap", tag)
 			}
 		})

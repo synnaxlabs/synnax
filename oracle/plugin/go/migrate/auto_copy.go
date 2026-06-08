@@ -14,6 +14,7 @@ package migrate
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -546,19 +547,12 @@ func (c *collector) hasOracleDefinedFields(typ resolution.Type) bool {
 			return true
 		}
 	}
-	for _, ext := range sf.Extends {
-		if c.refHasOracleType(ext) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(sf.Extends, c.refHasOracleType)
 }
 
 func (c *collector) refHasOracleType(ref resolution.TypeRef) bool {
-	for _, arg := range ref.TypeArgs {
-		if c.refHasOracleType(arg) {
-			return true
-		}
+	if slices.ContainsFunc(ref.TypeArgs, c.refHasOracleType) {
+		return true
 	}
 	resolved, ok := ref.Resolve(c.oldTable)
 	if !ok {
