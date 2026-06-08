@@ -23,13 +23,9 @@ import {
   setShowChannelNames,
   setShowReceiptTimestamp,
   setTimestampPrecision,
+  swapChannel,
 } from "@/log/actions.gen";
-import {
-  type ChannelEntry,
-  channelEntryZ,
-  type Log,
-  logZ,
-} from "@/log/types.gen";
+import { type ChannelEntry, channelEntryZ, type Log, logZ } from "@/log/types.gen";
 
 const entry = (channel: number, overrides: Partial<ChannelEntry> = {}): ChannelEntry =>
   channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
@@ -146,6 +142,34 @@ describe("log reducer", () => {
       const state = empty({ channels: [entry(1)] });
       const { targets } = reduceAll(state, [setChannels({ channels: [entry(2)] })]);
       expect(new Set(targets)).toEqual(new Set(["channel:1", "channel:2"]));
+    });
+  });
+
+  describe("swapChannel", () => {
+    it("should repoint a channel in place, keeping position and config", () => {
+      const state = empty({
+        channels: [entry(1), entry(2, { alias: "kept", precision: 3 }), entry(4)],
+      });
+      const out = apply(state, swapChannel({ from: 2, to: 5 }));
+      expect(out.channels.map((e) => e.channel)).toEqual([1, 5, 4]);
+      expect(out.channels[1]).toEqual(entry(5, { alias: "kept", precision: 3 }));
+    });
+    it("should be a no-op when the from channel is absent", () => {
+      const state = empty({ channels: [entry(1)] });
+      expect(apply(state, swapChannel({ from: 99, to: 5 })).channels).toEqual([
+        entry(1),
+      ]);
+    });
+    it("should round-trip through the reverse swap", () => {
+      const state = empty({ channels: [entry(1), entry(2)] });
+      expect(roundTrip(state, swapChannel({ from: 2, to: 5 })).channels).toEqual(
+        state.channels,
+      );
+    });
+    it("should target both the from and to channels", () => {
+      const state = empty({ channels: [entry(2)] });
+      const { targets } = reduceAll(state, [swapChannel({ from: 2, to: 5 })]);
+      expect(new Set(targets)).toEqual(new Set(["channel:2", "channel:5"]));
     });
   });
 

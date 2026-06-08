@@ -65,6 +65,18 @@ export const setChannelsPayloadZ = z.object({
 
 export type SetChannelsPayload = z.infer<typeof setChannelsPayloadZ>;
 
+/**
+ * SwapChannel repoints the entry referencing the "from" channel at the "to"
+ * channel in place, preserving the entry's position and display
+ * configuration. No-op when no entry references "from".
+ */
+export const swapChannelPayloadZ = z.object({
+  from: channel.keyZ,
+  to: channel.keyZ,
+});
+
+export type SwapChannelPayload = z.infer<typeof swapChannelPayloadZ>;
+
 /** SetTimestampPrecision sets the precision of displayed timestamps (0-3). */
 export const setTimestampPrecisionPayloadZ = z.object({
   timestampPrecision: z.int32(),
@@ -99,6 +111,7 @@ export const actionZ = z.discriminatedUnion("type", [
     setChannelEntry: setChannelEntryPayloadZ,
   }),
   z.object({ type: z.literal("set_channels"), setChannels: setChannelsPayloadZ }),
+  z.object({ type: z.literal("swap_channel"), swapChannel: swapChannelPayloadZ }),
   z.object({
     type: z.literal("set_timestamp_precision"),
     setTimestampPrecision: setTimestampPrecisionPayloadZ,
@@ -140,6 +153,11 @@ export const setChannels = (payload: SetChannelsPayload): Action => ({
   setChannels: payload,
 });
 
+export const swapChannel = (payload: SwapChannelPayload): Action => ({
+  type: "swap_channel",
+  swapChannel: payload,
+});
+
 export const setTimestampPrecision = (
   payload: SetTimestampPrecisionPayload,
 ): Action => ({
@@ -172,6 +190,7 @@ export interface Handlers {
     payload: SetChannelEntryPayload,
   ) => HandlerResult;
   setChannels: (state: Draft<Log>, payload: SetChannelsPayload) => HandlerResult;
+  swapChannel: (state: Draft<Log>, payload: SwapChannelPayload) => HandlerResult;
   setTimestampPrecision: (
     state: Draft<Log>,
     payload: SetTimestampPrecisionPayload,
@@ -199,6 +218,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setChannelEntry(state, action.setChannelEntry);
       case "set_channels":
         return handlers.setChannels(state, action.setChannels);
+      case "swap_channel":
+        return handlers.swapChannel(state, action.swapChannel);
       case "set_timestamp_precision":
         return handlers.setTimestampPrecision(state, action.setTimestampPrecision);
       case "set_show_channel_names":

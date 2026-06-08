@@ -82,6 +82,15 @@ func (p SetChannelsPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
+// Handle repoints the entry referencing From at To in place, preserving the entry's
+// position and display configuration. No-op when no entry references From.
+func (p SwapChannelPayload) Handle(state Log) (Log, error) {
+	if i := channelEntryIndex(state.Channels, p.From); i != -1 {
+		state.Channels[i].Channel = p.To
+	}
+	return state, nil
+}
+
 // Handle sets the log-level timestamp precision. It returns validate.ErrValidation
 // when the precision is outside the inclusive range [0, 3].
 func (p SetTimestampPrecisionPayload) Handle(state Log) (Log, error) {

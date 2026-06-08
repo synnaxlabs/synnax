@@ -236,6 +236,37 @@ var _ = Describe("Writer", func() {
 				Expect(res.Channels[1].Channel).To(Equal(channel.Key(3)))
 			})
 
+			It("Should repoint a channel in place via SwapChannel, keeping position and config", func(ctx SpecContext) {
+				l := log.Log{
+					Name: "test",
+					Channels: []log.ChannelEntry{
+						{Channel: 1},
+						{Channel: 2, Alias: "kept", Precision: 3},
+						{Channel: 4},
+					},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSwapChannelAction(log.SwapChannelPayload{From: 2, To: 5}),
+				})).To(Succeed())
+				res := retrieve(ctx, l.Key)
+				Expect(res.Channels).To(HaveLen(3))
+				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
+				Expect(res.Channels[1].Alias).To(Equal("kept"))
+				Expect(res.Channels[1].Precision).To(Equal(int32(3)))
+			})
+
+			It("Should treat SwapChannel as a no-op when the from channel is absent", func(ctx SpecContext) {
+				l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 1}}}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSwapChannelAction(log.SwapChannelPayload{From: 99, To: 5}),
+				})).To(Succeed())
+				res := retrieve(ctx, l.Key)
+				Expect(res.Channels).To(HaveLen(1))
+				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
+			})
+
 			It("Should set the timestamp precision via SetTimestampPrecision", func(ctx SpecContext) {
 				l := log.Log{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
