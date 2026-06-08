@@ -582,25 +582,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`duration: telem.TimeSpan = Field(default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807)`))
 		})
 
-		It("Should emit a default_factory for an object-literal struct default", func(ctx SpecContext) {
-			source := `
-				@py output "out"
-
-				TimestampConfig struct {
-					format string
-					tz     string
-				}
-
-				Log struct {
-					timestamp TimestampConfig = { format "preciseDate", tz "local" }
-				}
-			`
-			resp := MustGenerate(ctx, source, "log", loader, typesPlugin)
-			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")`))
-		})
-
-		It("Should render every scalar value kind inside an object-literal default", func(ctx SpecContext) {
+		It("Should render every scalar value kind inside a struct default", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -614,11 +596,11 @@ var _ = Describe("Python Types Plugin", func() {
 
 				Item struct {
 					cfg Cfg = {
-						s  "hi",
-						i  42,
-						f  1.5,
-						t  true,
-						ff false
+						s  = "hi",
+						i  = 42,
+						f  = 1.5,
+						t  = true,
+						ff = false
 					}
 				}
 			`
@@ -644,7 +626,7 @@ var _ = Describe("Python Types Plugin", func() {
 				}
 
 				Item struct {
-					cfg Cfg = { level Level.high }
+					cfg Cfg = { level = Level.high }
 				}
 			`
 			resp := MustGenerate(ctx, source, "item", loader, typesPlugin)
@@ -666,7 +648,7 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "out"
 
 				Item struct {
-					timestamp external.TimestampConfig = { format "preciseDate" }
+					timestamp external.TimestampConfig = { format = "preciseDate" }
 				}
 			`
 			resp := MustGenerate(ctx, source, "item", loader, typesPlugin)

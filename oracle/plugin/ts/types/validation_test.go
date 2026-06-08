@@ -153,25 +153,7 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(true)`)
 	})
 
-	It("Should emit an object-literal struct default", func(ctx SpecContext) {
-		source := `
-			@ts output "out"
-
-			TimestampConfig struct {
-				format string
-				tz     string
-			}
-
-			Item struct {
-				timestamp TimestampConfig = { format "preciseDate", tz "local" }
-			}
-		`
-		resp := MustGenerate(ctx, source, "item", loader, p)
-		ExpectContent(resp, "types.gen.ts").
-			ToContain(`.prefault({ format: "preciseDate", tz: "local" })`)
-	})
-
-	It("Should render every scalar value kind inside an object-literal default", func(ctx SpecContext) {
+	It("Should render every scalar value kind inside a struct default", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -194,12 +176,12 @@ var _ = Describe("Validation Rules", func() {
 
 			Item struct {
 				cfg Cfg = {
-					s     "hi",
-					i     42,
-					f     1.5,
-					b     true,
-					inner { label "deep" },
-					level Level.high
+					s     = "hi",
+					i     = 42,
+					f     = 1.5,
+					b     = true,
+					inner = { label = "deep" },
+					level = Level.high
 				}
 			}
 		`

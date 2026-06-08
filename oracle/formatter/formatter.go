@@ -858,31 +858,7 @@ func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueCon
 	if ctx.QualifiedIdent() != nil {
 		return f.formatQualifiedIdentToString(ctx.QualifiedIdent())
 	}
-	if ctx.ObjectLiteral() != nil {
-		return f.formatObjectLiteralToString(ctx.ObjectLiteral())
-	}
 	return ""
-}
-
-// formatObjectLiteralToString renders an object-literal value as a single-line
-// comma-separated list of key/value pairs, e.g. { format "preciseDate", tz "local" }.
-func (f *formatter) formatObjectLiteralToString(ctx parser.IObjectLiteralContext) string {
-	fields := ctx.AllObjectField()
-	if len(fields) == 0 {
-		return "{}"
-	}
-	var sb strings.Builder
-	sb.WriteString("{ ")
-	for i, field := range fields {
-		if i > 0 {
-			sb.WriteString(", ")
-		}
-		sb.WriteString(field.IDENT().GetText())
-		sb.WriteString(" ")
-		sb.WriteString(f.formatExpressionValueToString(field.ExpressionValue()))
-	}
-	sb.WriteString(" }")
-	return sb.String()
 }
 
 func (f *formatter) formatQualifiedIdentToString(ctx parser.IQualifiedIdentContext) string {
@@ -1052,8 +1028,6 @@ func (f *formatter) formatExpressionValue(ctx parser.IExpressionValueContext) {
 		f.write(ctx.BOOL_LIT().GetText())
 	} else if ctx.QualifiedIdent() != nil {
 		f.formatQualifiedIdent(ctx.QualifiedIdent())
-	} else if ctx.ObjectLiteral() != nil {
-		f.write(f.formatObjectLiteralToString(ctx.ObjectLiteral()))
 	}
 }
 

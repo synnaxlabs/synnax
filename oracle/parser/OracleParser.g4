@@ -285,32 +285,14 @@ expression
     : IDENT expressionValue*
     ;
 
-// Expression values can be various literal types, identifiers, or an object
-// literal (a struct-typed default value)
+// Expression values can be various literal types or identifiers
 expressionValue
     : TRIPLE_STRING_LIT
     | STRING_LIT
     | INT_LIT
     | FLOAT_LIT
     | BOOL_LIT
-    | objectLiteral
     | qualifiedIdent
-    ;
-
-// Object literal: a struct-typed default value written as comma-separated
-// key/value pairs. Values may themselves be object literals, so nested struct
-// defaults are supported.
-// Examples:
-//   default { format "preciseDate", tz "local" }
-//   default {}
-objectLiteral
-    : LBRACE nl* (objectField (COMMA nl* objectField)*)? COMMA? nl* RBRACE
-    ;
-
-// A single key/value pair within an object literal: the field name followed by
-// its value.
-objectField
-    : IDENT expressionValue
     ;
 
 // =============================================================================

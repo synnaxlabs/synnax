@@ -310,32 +310,6 @@ var _ = Describe("Parser", func() {
 			Expect(exprs[1].ExpressionValue(0).STRING_LIT().GetText()).To(Equal(`"[a-z]+"`))
 		})
 
-		It("Should parse a domain expression with an object-literal value", func() {
-			schema, diag := parser.Parse(`
-				Entry struct {
-					timestamp Config @validate {
-						default { format "preciseDate", tz "local" }
-					}
-				}
-			`)
-			Expect(diag).To(BeNil())
-			structDef := asStructFull(schema.Definition(0).StructDef())
-			field := structDef.StructBody().FieldDef(0)
-			content := field.InlineDomain(0).DomainContent()
-			block := content.DomainBlock()
-			exprs := block.AllExpression()
-
-			Expect(exprs[0].IDENT().GetText()).To(Equal("default"))
-			obj := exprs[0].ExpressionValue(0).ObjectLiteral()
-			Expect(obj).NotTo(BeNil())
-			fields := obj.AllObjectField()
-			Expect(fields).To(HaveLen(2))
-			Expect(fields[0].IDENT().GetText()).To(Equal("format"))
-			Expect(fields[0].ExpressionValue().STRING_LIT().GetText()).To(Equal(`"preciseDate"`))
-			Expect(fields[1].IDENT().GetText()).To(Equal("tz"))
-			Expect(fields[1].ExpressionValue().STRING_LIT().GetText()).To(Equal(`"local"`))
-		})
-
 		It("Should parse domain expressions with identifier values", func() {
 			schema, diag := parser.Parse(`
 				Range struct {

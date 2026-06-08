@@ -44,7 +44,7 @@ export const channelEntryZ = z.object({
   /** alias is a human-readable alias displayed in place of the channel name. */
   alias: z.string().default(""),
   /** timestamp is the per-channel timestamp display configuration. */
-  timestamp: timestampConfigZ.default({ format: "preciseDate", tz: "local" }),
+  timestamp: timestampConfigZ.prefault({ format: "preciseDate", tz: "local" }),
 });
 export interface ChannelEntry extends z.infer<typeof channelEntryZ> {}
 

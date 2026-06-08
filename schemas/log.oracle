@@ -52,7 +52,7 @@ ChannelEntry struct {
     alias     string = "" {
         @doc value "is a human-readable alias displayed in place of the channel name."
     }
-    timestamp TimestampConfig = { format "preciseDate", tz "local" } {
+    timestamp TimestampConfig = { format = "preciseDate", tz = "local" } {
         @doc value "is the per-channel timestamp display configuration."
     }
 

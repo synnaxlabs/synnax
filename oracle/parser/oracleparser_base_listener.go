@@ -1,3 +1,12 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -235,18 +244,6 @@ func (s *BaseOracleParserListener) EnterExpressionValue(ctx *ExpressionValueCont
 
 // ExitExpressionValue is called when production expressionValue is exited.
 func (s *BaseOracleParserListener) ExitExpressionValue(ctx *ExpressionValueContext) {}
-
-// EnterObjectLiteral is called when production objectLiteral is entered.
-func (s *BaseOracleParserListener) EnterObjectLiteral(ctx *ObjectLiteralContext) {}
-
-// ExitObjectLiteral is called when production objectLiteral is exited.
-func (s *BaseOracleParserListener) ExitObjectLiteral(ctx *ObjectLiteralContext) {}
-
-// EnterObjectField is called when production objectField is entered.
-func (s *BaseOracleParserListener) EnterObjectField(ctx *ObjectFieldContext) {}
-
-// ExitObjectField is called when production objectField is exited.
-func (s *BaseOracleParserListener) ExitObjectField(ctx *ObjectFieldContext) {}
 
 // EnterEnumDef is called when production enumDef is entered.
 func (s *BaseOracleParserListener) EnterEnumDef(ctx *EnumDefContext) {}

@@ -197,31 +197,6 @@ var _ = Describe("Format", func() {
 			result := format(source)
 			Expect(result).To(ContainSubstring("@validate"))
 		})
-
-		It("should format an object-literal default value", func() {
-			source := "Entry struct {\n  timestamp Config @validate default { format \"preciseDate\", tz \"local\" }\n}\n"
-			result := format(source)
-			Expect(result).To(ContainSubstring("@validate default { format \"preciseDate\", tz \"local\" }"))
-		})
-
-		It("should format an empty object-literal default", func() {
-			source := "Entry struct {\n  timestamp Config @validate default {}\n}\n"
-			result := format(source)
-			Expect(result).To(ContainSubstring("@validate default {}"))
-		})
-
-		It("should be idempotent when formatting an object-literal default", func() {
-			source := "Entry struct {\n  timestamp Config @validate default { format \"preciseDate\", tz \"local\" }\n}\n"
-			once := format(source)
-			Expect(format(once)).To(Equal(once))
-		})
-
-		It("should format an object-literal value inside a multi-expression domain block", func() {
-			source := "Entry struct {\n  timestamp Config {\n    @validate {\n      min 0\n      default { format \"preciseDate\", tz \"local\" }\n    }\n  }\n}\n"
-			result := format(source)
-			Expect(result).To(ContainSubstring("min 0"))
-			Expect(result).To(ContainSubstring("default { format \"preciseDate\", tz \"local\" }"))
-		})
 	})
 
 	Describe("Type Definitions", func() {
