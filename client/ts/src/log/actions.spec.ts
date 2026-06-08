@@ -24,31 +24,18 @@ import {
   setShowReceiptTimestamp,
   setTimestampPrecision,
 } from "@/log/actions.gen";
-import { type ChannelEntry, type Log } from "@/log/types.gen";
+import {
+  type ChannelEntry,
+  channelEntryZ,
+  type Log,
+  logZ,
+} from "@/log/types.gen";
 
-const entry = (
-  channel: number,
-  overrides: Partial<ChannelEntry> = {},
-): ChannelEntry => ({
-  channel,
-  color: color.ZERO,
-  notation: "standard",
-  precision: -1,
-  alias: "",
-  timestamp: { format: "preciseDate", tz: "local" },
-  ...overrides,
-});
+const entry = (channel: number, overrides: Partial<ChannelEntry> = {}): ChannelEntry =>
+  channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
 
-const empty = (overrides: Partial<Log> = {}): Log => ({
-  key: "00000000-0000-0000-0000-000000000000",
-  name: "",
-  channels: [],
-  remoteCreated: false,
-  timestampPrecision: 0,
-  showChannelNames: true,
-  showReceiptTimestamp: true,
-  ...overrides,
-});
+const empty = (overrides: Partial<Log> = {}): Log =>
+  logZ.parse({ key: "00000000-0000-0000-0000-000000000000", name: "", ...overrides });
 
 const apply = (state: Log, ...actions: Action[]): Log => reduceAll(state, actions).next;
 
@@ -72,7 +59,7 @@ describe("log reducer", () => {
       ).toEqual("before");
     });
     it("should target the log key", () => {
-      const state = empty({ key: "11111111-1111-1111-1111-111111111111" });
+      const state = empty({ key: "11111111-1111-4111-8111-111111111111" });
       expect(reduceAll(state, [rename({ name: "x" })]).targets).toEqual([state.key]);
     });
   });
