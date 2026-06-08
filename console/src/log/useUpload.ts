@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Flux, Log as PLog } from "@synnaxlabs/pluto";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -24,6 +24,10 @@ export const useAutoUpload = (key: string): boolean => {
   const name = Layout.useSelectRequiredName(key);
   const workspaceKey = Workspace.useSelectActiveKey();
   const dispatch = useDispatch();
+  // Guards against a second create while the first is in flight: the effect re-runs if
+  // workspaceKey or name changes before afterSuccess clears pendingUpload. A remount
+  // (new instance) resets the ref, so a failed upload still retries.
+  const startedRef = useRef(false);
   const { update: create } = PLog.useCreate({
     afterSuccess: useCallback(
       ({ data: { key } }: Flux.AfterSuccessParams<PLog.CreateOutput>) => {
@@ -33,7 +37,8 @@ export const useAutoUpload = (key: string): boolean => {
     ),
   });
   useEffect(() => {
-    if (pendingUpload == null) return;
+    if (pendingUpload == null || startedRef.current) return;
+    startedRef.current = true;
     create({ ...pendingUpload, workspace: workspaceKey ?? undefined, name });
   }, [pendingUpload, workspaceKey, key, create, name]);
   return pendingUpload == null;
