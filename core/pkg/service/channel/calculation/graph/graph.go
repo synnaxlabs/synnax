@@ -44,8 +44,9 @@ type node struct {
 // re-inspects affected nodes when channels are created, updated, or deleted.
 type Graph struct {
 	alamos.Instrumentation
+	db           *gorp.DB
 	distribution *channel.Service
-	status       status.Writer[types.Nil]
+	statusSvc    *status.Service
 	disconnect   observe.Disconnect
 	mu           struct {
 		nodes            map[channel.Key]node
@@ -57,6 +58,9 @@ type Graph struct {
 
 // Config configures a Graph.
 type Config struct {
+	// DB is the gorp database used to wrap reactive reconciliation work in a single
+	// atomic transaction.
+	DB *gorp.DB
 	// Channel is the distribution-layer channel service used for retrieval and
 	// observable subscription.
 	Channel *channel.Service
@@ -72,12 +76,14 @@ var (
 
 func (c Config) Validate() error {
 	v := validate.New("service.channel.calculation.graph")
+	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
 func (c Config) Override(other Config) Config {
+	c.DB = override.Nil(c.DB, other.DB)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -96,8 +102,9 @@ func Open(
 	}
 	s := &Graph{
 		Instrumentation: cfg.Instrumentation,
+		db:              cfg.DB,
 		distribution:    cfg.Channel,
-		status:          status.NewWriter[types.Nil](cfg.Status, nil),
+		statusSvc:       cfg.Status,
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
@@ -183,9 +190,9 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	}
 	for key, st := range statuses {
 		if st != nil {
-			s.setNodeStatus(ctx, st)
+			s.setNodeStatus(ctx, nil, st)
 		} else {
-			s.clearNodeStatus(ctx, key)
+			s.clearNodeStatus(ctx, nil, key)
 		}
 	}
 	s.mu.Lock()
@@ -210,67 +217,70 @@ func (s *Graph) hydrate(ctx context.Context) error {
 
 func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.Key, channel.Channel]) {
 	s.mu.Lock()
-	analyzer := s.newAnalyzer(nil)
-	queued := make(set.Set[channel.Key])
-	var unresolvedNames []string
-	var updates []channel.Channel
-	for chg := range reader {
-		ch := chg.Value
-		if chg.Variant == change.VariantDelete {
-			s.L.Debug("channel deleted, removing node and re-inspecting dependents",
-				zap.Stringer("channel", chg.Key),
-			)
-			s.removeNode(chg.Key)
-			if ch.Name != "" {
-				unresolvedNames = append(unresolvedNames, ch.Name)
-			}
-			s.enqueueDependents(chg.Key, queued)
-			continue
-		}
-		if ch.IsCalculated() {
-			node, err := s.inspectNode(ctx, nil, ch, analyzer)
-			if err != nil {
-				s.L.Info("calculated channel has invalid expression",
-					zap.Stringer("channel", ch.Key()),
-					zap.String("name", ch.Name),
-					zap.Error(err),
+	defer s.mu.Unlock()
+	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		analyzer := s.newAnalyzer(tx)
+		queued := make(set.Set[channel.Key])
+		var unresolvedNames []string
+		var updates []channel.Channel
+		for chg := range reader {
+			ch := chg.Value
+			if chg.Variant == change.VariantDelete {
+				s.L.Debug("channel deleted, removing node and re-inspecting dependents",
+					zap.Stringer("channel", chg.Key),
 				)
-				s.setNodeStatus(ctx, calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err))
-			} else {
-				s.L.Debug("calculated channel inspected",
-					zap.Stringer("channel", ch.Key()),
-					zap.String("name", ch.Name),
-					zap.Stringers("deps", node.deps),
-				)
-				s.clearNodeStatus(ctx, ch.Key())
+				s.removeNode(chg.Key)
+				if ch.Name != "" {
+					unresolvedNames = append(unresolvedNames, ch.Name)
+				}
+				s.enqueueDependents(chg.Key, queued)
+				continue
 			}
-			if !node.invalid && node.DataType != ch.DataType {
-				s.L.Debug("calculated channel DataType changed",
-					zap.Stringer("channel", ch.Key()),
-					zap.String("old", string(ch.DataType)),
-					zap.String("new", string(node.DataType)),
-				)
-				updates = append(updates, node.Channel)
+			if ch.IsCalculated() {
+				node, err := s.inspectNode(ctx, tx, ch, analyzer)
+				if err != nil {
+					s.L.Info("calculated channel has invalid expression",
+						zap.Stringer("channel", ch.Key()),
+						zap.String("name", ch.Name),
+						zap.Error(err),
+					)
+					s.setNodeStatus(ctx, tx, calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err))
+				} else {
+					s.L.Debug("calculated channel inspected",
+						zap.Stringer("channel", ch.Key()),
+						zap.String("name", ch.Name),
+						zap.Stringers("deps", node.deps),
+					)
+					s.clearNodeStatus(ctx, tx, ch.Key())
+				}
+				if !node.invalid && node.DataType != ch.DataType {
+					s.L.Debug("calculated channel DataType changed",
+						zap.Stringer("channel", ch.Key()),
+						zap.String("old", string(ch.DataType)),
+						zap.String("new", string(node.DataType)),
+					)
+					updates = append(updates, node.Channel)
+				}
+				s.upsertNode(node)
+				s.enqueueDependents(ch.Key(), queued)
+				continue
 			}
-			s.upsertNode(node)
 			s.enqueueDependents(ch.Key(), queued)
-			continue
+			unresolvedNames = append(unresolvedNames, ch.Name)
 		}
-		s.enqueueDependents(ch.Key(), queued)
-		unresolvedNames = append(unresolvedNames, ch.Name)
-	}
-	updates = append(updates, s.reconcileQueued(ctx, nil, queued, unresolvedNames, nil, analyzer)...)
-	s.mu.Unlock()
-	if len(updates) > 0 {
-		s.L.Info("persisting DataType updates", zap.Int("count", len(updates)))
-		if err := s.distribution.NewWriter(nil).CreateMany(ctx, &updates); err != nil {
-			s.L.Error("failed to persist DataType updates", zap.Error(err))
+		updates = append(updates, s.reconcileQueued(ctx, tx, queued, unresolvedNames, nil, analyzer)...)
+		if len(updates) > 0 {
+			s.L.Info("persisting DataType updates", zap.Int("count", len(updates)))
+			return s.distribution.NewWriter(tx).CreateMany(ctx, &updates)
 		}
+		return nil
+	}); err != nil {
+		s.L.Error("failed to reconcile calculated channel graph", zap.Error(err))
 	}
 }
 
-func (s *Graph) setNodeStatus(ctx context.Context, st *calculation.Status) {
-	if sErr := s.status.Set(ctx, st); sErr != nil {
+func (s *Graph) setNodeStatus(ctx context.Context, tx gorp.Tx, st *calculation.Status) {
+	if sErr := status.NewWriter[types.Nil](s.statusSvc, tx).Set(ctx, st); sErr != nil {
 		s.L.Warn("failed to set error status for channel",
 			zap.String("key", st.Key),
 			zap.Error(sErr),
@@ -278,8 +288,8 @@ func (s *Graph) setNodeStatus(ctx context.Context, st *calculation.Status) {
 	}
 }
 
-func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
-	if err := s.status.Delete(ctx, calculation.StatusKey(key)); err != nil {
+func (s *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
+	if err := status.NewWriter[types.Nil](s.statusSvc, tx).Delete(ctx, calculation.StatusKey(key)); err != nil {
 		s.L.Warn("failed to clear status for channel",
 			zap.Stringer("channel", key),
 			zap.Error(err),
@@ -356,10 +366,10 @@ func (s *Graph) reconcileQueued(
 					zap.String("name", refetched.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, calculation.StatusFromError(key, refetched.Name, fmt.Sprintf("invalid expression for %s", refetched.Name), err))
+				s.setNodeStatus(ctx, tx, calculation.StatusFromError(key, refetched.Name, fmt.Sprintf("invalid expression for %s", refetched.Name), err))
 				continue
 			}
-			s.clearNodeStatus(ctx, key)
+			s.clearNodeStatus(ctx, tx, key)
 			if oldInvalid || oldType != newNode.DataType {
 				if oldType != newNode.DataType {
 					s.L.Debug("dependent channel DataType changed during reconciliation",

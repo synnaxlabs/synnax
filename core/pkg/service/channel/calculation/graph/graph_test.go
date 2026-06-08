@@ -55,6 +55,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func openGraph(ctx context.Context) *graph.Graph {
 	return MustOpen(graph.Open(ctx, graph.Config{
+		DB:      dist.DB,
 		Channel: dist.Channel,
 		Status:  statusSvc,
 	}))
@@ -862,6 +863,7 @@ var _ = Describe("Graph", func() {
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
+				DB:      dist.DB,
 				Channel: dist.Channel,
 				Status:  statusSvc,
 			}))
@@ -870,6 +872,7 @@ var _ = Describe("Graph", func() {
 
 		It("Should disconnect observer on Close", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
+				DB:      dist.DB,
 				Channel: dist.Channel,
 				Status:  statusSvc,
 			}))
@@ -891,22 +894,28 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should fail to open with missing config", func(ctx SpecContext) {
-			_, err := graph.Open(ctx)
-			Expect(err).To(HaveOccurred())
+			Expect(graph.Open(ctx)).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
+		})
+
+		It("Should fail to open with nil DB", func(ctx SpecContext) {
+			Expect(graph.Open(ctx, graph.Config{Channel: dist.Channel, Status: statusSvc})).
+				Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 
 		It("Should fail to open with nil Channel", func(ctx SpecContext) {
-			_, err := graph.Open(ctx, graph.Config{Status: statusSvc})
-			Expect(err).To(HaveOccurred())
+			Expect(graph.Open(ctx, graph.Config{DB: dist.DB, Status: statusSvc})).
+				Error().To(MatchError(ContainSubstring("channel: must be non-nil")))
 		})
 
 		It("Should fail to open with nil Status", func(ctx SpecContext) {
-			_, err := graph.Open(ctx, graph.Config{Channel: dist.Channel})
-			Expect(err).To(HaveOccurred())
+			Expect(graph.Open(ctx, graph.Config{DB: dist.DB, Channel: dist.Channel})).
+				Error().To(MatchError(ContainSubstring("status: must be non-nil")))
 		})
 
 		It("Should handle Close being called twice", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
+				DB:      dist.DB,
 				Channel: dist.Channel,
 				Status:  statusSvc,
 			}))
