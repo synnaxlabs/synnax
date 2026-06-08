@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, NotFoundError, ontology, type workspace } from "@synnaxlabs/client";
-import { array, color, compare, DataType, primitive, uuid } from "@synnaxlabs/x";
+import {
+  array,
+  color,
+  compare,
+  DataType,
+  primitive,
+  type require,
+  uuid,
+} from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -199,6 +207,9 @@ export interface RawDerivedLine extends lineplot.Line, lineplot.LineKeyParts {}
 // palette color, ready for the chart and toolbar to consume directly.
 export interface DerivedLine extends Omit<RawDerivedLine, "color"> {
   color: color.Color;
+  // isDefaultLabel reports whether label is derived from the channel name rather
+  // than a stored user override. The toolbar uses it to offer a reset affordance.
+  isDefaultLabel: boolean;
 }
 
 // resolveLineColor returns the concrete color a line should render with: its
@@ -237,6 +248,7 @@ export const useSelectLines = (args: SelectKeyArgs): DerivedLine[] => {
       lines.map(({ color, ...line }, i) => ({
         ...line,
         color: resolveLineColor(color, i, palette),
+        isDefaultLabel: line.label == null,
       })),
     [lines, palette],
   );
@@ -364,20 +376,23 @@ const useSelectRawLine = Flux.createSelector<FluxSubStore, SelectLineArgs, RawLi
 // useSelectLine returns a single line, enriched with its identity and its color
 // resolved by position the same way as useSelectLines, subscribing narrowly so
 // it re-renders only when that line, its position, or the palette changes.
-export const useSelectLine = (args: SelectLineArgs): DerivedLine => {
+export const useSelectLine = (
+  args: SelectLineArgs,
+): require.Require<DerivedLine, "label"> => {
   const raw = useSelectRawLine(args);
   const palette = Theming.use().colors.visualization.palettes.default;
-  const parsed = useMemo(
+  const { yChannel } = lineplot.parseLineKey(raw.line.key);
+  const { data: chan } = Channel.useRetrieve({ key: yChannel });
+  return useMemo(
     () => ({
       ...raw.line,
       ...lineplot.parseLineKey(raw.line.key),
       color: resolveLineColor(raw.line.color, raw.index, palette),
+      label: raw.line.label ?? chan?.name ?? "",
+      isDefaultLabel: raw.line.label == null,
     }),
-    [raw, palette],
+    [raw, palette, chan],
   );
-  const { data: chan } = Channel.useRetrieve({ key: parsed.yChannel });
-  if (parsed.label == null && chan != null) parsed.label = chan.name;
-  return parsed;
 };
 
 export const useSelectRules = Flux.createSelector<

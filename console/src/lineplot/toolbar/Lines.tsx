@@ -93,27 +93,31 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
   const { dispatch } = LinePlot.useDispatch();
 
   const apply = useCallback(
-    (action: lineplot.Action): void => {
-      dispatch({ key: layoutKey, actions: [action] });
-    },
+    (action: lineplot.Action): void => dispatch({ key: layoutKey, actions: [action] }),
     [dispatch, layoutKey],
   );
 
-  const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
-    apply(lineplot.setLineLabel({ key: itemKey, label: value }));
+  const handleLabelChange: Input.Control<string>["onChange"] = (label) =>
+    apply(
+      lineplot.setLineLabel({
+        key: itemKey,
+        label: label.length === 0 ? undefined : label,
+      }),
+    );
 
-  const handleWidthChange: Input.Control<number>["onChange"] = (value) =>
-    apply(lineplot.setLineStrokeWidth({ key: itemKey, strokeWidth: value }));
+  const handleLabelReset = (): void => apply(lineplot.setLineLabel({ key: itemKey }));
 
-  const handleDownsampleChange: Input.Control<number>["onChange"] = (value) =>
-    apply(lineplot.setLineDownsample({ key: itemKey, downsample: value }));
+  const handleWidthChange = (strokeWidth: number) =>
+    apply(lineplot.setLineStrokeWidth({ key: itemKey, strokeWidth }));
 
-  const handleDownsampleModeChange: Select.ButtonsProps<telem.DownsampleMode>["onChange"] =
-    (value: telem.DownsampleMode) =>
-      apply(lineplot.setLineDownsampleMode({ key: itemKey, downsampleMode: value }));
+  const handleDownsampleChange = (downsample: number) =>
+    apply(lineplot.setLineDownsample({ key: itemKey, downsample }));
 
-  const handleColorChange: Input.Control<color.Color>["onChange"] = (value) =>
-    apply(lineplot.setLineColor({ key: itemKey, color: value }));
+  const handleDownsampleModeChange = (downsampleMode: telem.DownsampleMode) =>
+    apply(lineplot.setLineDownsampleMode({ key: itemKey, downsampleMode }));
+
+  const handleColorChange = (color: color.Color) =>
+    apply(lineplot.setLineColor({ key: itemKey, color }));
 
   return (
     <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">
@@ -122,6 +126,8 @@ const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => 
         variant="shadow"
         value={line.label ?? ""}
         onChange={handleLabelChange}
+        isDefault={line.isDefaultLabel}
+        onReset={handleLabelReset}
         full="x"
       />
       <Input.Numeric
