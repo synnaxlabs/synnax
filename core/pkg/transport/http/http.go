@@ -139,6 +139,7 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		LogDelete:   http.NewUnaryServer[log.DeleteRequest, types.Nil](router, "/api/v1/log/delete"),
 		LogRename:   http.NewUnaryServer[log.RenameRequest, types.Nil](router, "/api/v1/log/rename"),
 		LogSetData:  http.NewUnaryServer[log.SetDataRequest, types.Nil](router, "/api/v1/log/set-data"),
+		LogDispatch: http.NewUnaryServer[log.DispatchRequest, types.Nil](router, "/api/v1/log/dispatch"),
 
 		// TABLE
 		TableCreate:   http.NewUnaryServer[table.CreateRequest, table.CreateResponse](router, "/api/v1/table/create"),

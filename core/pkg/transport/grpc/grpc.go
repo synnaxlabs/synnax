@@ -127,6 +127,7 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.LogDelete = noop.UnaryServer[log.DeleteRequest, types.Nil]{}
 	t.LogRename = noop.UnaryServer[log.RenameRequest, types.Nil]{}
 	t.LogSetData = noop.UnaryServer[log.SetDataRequest, types.Nil]{}
+	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, types.Nil]{}
 
 	// TABLE
 	t.TableCreate = noop.UnaryServer[table.CreateRequest, table.CreateResponse]{}

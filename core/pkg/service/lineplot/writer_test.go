@@ -10,45 +10,17 @@
 package lineplot_test
 
 import (
-	"context"
-	"sync"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// scopedAction is a short local alias for the line plot's action envelope so
-// the test files don't have to spell out the generic parameters at every use.
-type scopedAction = actions.Scoped[lineplot.Key, lineplot.Action]
-
-// actionRecorder collects ScopedAction notifications emitted by the service's
-// action observer for assertions in tests.
-type actionRecorder struct {
-	mu      sync.Mutex
-	scopeds []scopedAction
-}
-
-func (r *actionRecorder) record(_ context.Context, sa scopedAction) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.scopeds = append(r.scopeds, sa)
-}
-
-func (r *actionRecorder) snapshot() []scopedAction {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	out := make([]scopedAction, len(r.scopeds))
-	copy(out, r.scopeds)
-	return out
-}
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
@@ -376,8 +348,8 @@ var _ = Describe("Writer", func() {
 			It("Should notify subscribers with the dispatched ScopedAction on success", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "observed"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-				rec := &actionRecorder{}
-				DeferCleanup(svc.OnAction(rec.record))
+				rec := &Recorder[lineplot.Key, lineplot.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
 				actions := []lineplot.Action{
 					lineplot.NewRenameAction(lineplot.RenamePayload{Name: "broadcast"}),
 					lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
@@ -386,7 +358,7 @@ var _ = Describe("Writer", func() {
 				}
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "client-xyz", actions)).
 					To(Succeed())
-				seen := rec.snapshot()
+				seen := rec.Snapshot()
 				Expect(seen).To(HaveLen(1))
 				Expect(seen[0].Key).To(Equal(plot.Key))
 				Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
@@ -398,14 +370,14 @@ var _ = Describe("Writer", func() {
 			It("Should assign strictly monotonic Seq across successive dispatches", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "seq"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-				rec := &actionRecorder{}
-				DeferCleanup(svc.OnAction(rec.record))
+				rec := &Recorder[lineplot.Key, lineplot.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
 				for _, name := range []string{"a", "b", "c"} {
 					Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d", []lineplot.Action{
 						lineplot.NewRenameAction(lineplot.RenamePayload{Name: name}),
 					})).To(Succeed())
 				}
-				seen := rec.snapshot()
+				seen := rec.Snapshot()
 				Expect(seen).To(HaveLen(3))
 				Expect(seen[1].Seq).To(BeNumerically(">", seen[0].Seq))
 				Expect(seen[2].Seq).To(BeNumerically(">", seen[1].Seq))
@@ -414,14 +386,14 @@ var _ = Describe("Writer", func() {
 			It("Should not notify subscribers when Reduce rejects the action", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "rejected"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-				rec := &actionRecorder{}
-				DeferCleanup(svc.OnAction(rec.record))
+				rec := &Recorder[lineplot.Key, lineplot.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
 						AxisKey: lineplot.YAxisKey("x1"), Channel: 1,
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
-				Expect(rec.snapshot()).To(BeEmpty())
+				Expect(rec.Snapshot()).To(BeEmpty())
 			})
 		})
 	})

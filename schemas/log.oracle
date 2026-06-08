@@ -89,6 +89,68 @@ Log struct {
         @doc value "controls whether the receipt timestamp column is displayed."
     }
 
+    action Rename {
+        name string
+
+        @doc value "renames the log."
+    }
+
+    action AddChannel {
+        channel channel.Key
+
+        @doc value """
+            appends a default channel entry for the given channel. No-op when
+            the channel is already present.
+        """
+    }
+
+    action RemoveChannel {
+        channel channel.Key
+
+        @doc value """
+            removes the channel entry for the given channel. No-op when the
+            channel is not present.
+        """
+    }
+
+    action SetChannelEntry {
+        entry ChannelEntry
+
+        @doc value """
+            inserts the channel entry if no entry with the same channel exists,
+            otherwise replaces the existing entry in place. Used both when a
+            channel is added and when the user edits an existing channel's
+            display configuration.
+        """
+    }
+
+    action SetChannels {
+        channels ChannelEntry[]
+
+        @doc value """
+            replaces the entire ordered list of channel entries. Used for bulk
+            channel selection and reordering.
+        """
+    }
+
+    action SetTimestampPrecision {
+        timestamp_precision int32
+
+        @doc value "sets the precision of displayed timestamps (0-3)."
+    }
+
+    action SetShowChannelNames {
+        show_channel_names bool
+
+        @doc value "controls whether channel names are displayed."
+    }
+
+    action SetShowReceiptTimestamp {
+        show_receipt_timestamp bool
+
+        @doc value "controls whether the receipt timestamp column is displayed."
+    }
+
     @doc value     """
         is a timestamped event and message logging component. Logs display
         chronological records of events, system messages, and audit trails with

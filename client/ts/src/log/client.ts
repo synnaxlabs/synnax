@@ -11,9 +11,12 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, dispatchReqZ } from "@/log/actions.gen";
 import { type Key, keyZ, type Log, logZ, type New, newZ } from "@/log/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
+
+export const SET_CHANNEL_NAME = "sy_log_set";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
@@ -65,6 +68,15 @@ export class Client {
 
   async setData(key: Key, data: SetDataBody): Promise<void> {
     await this.client.send("/log/set-data", { key, data }, setDataReqZ, emptyResZ);
+  }
+
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/log/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
+      emptyResZ,
+    );
   }
 
   async retrieve(args: RetrieveSingleParams): Promise<Log>;
