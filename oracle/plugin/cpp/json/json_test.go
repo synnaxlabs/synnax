@@ -704,8 +704,8 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`inline ScaleLinear ScaleLinear::parse(x::json::Parser parser) {`,
-				`.type = parser.field<std::string>("type"),`,
-				`.slope = parser.field<double>("slope"),`,
+				`static_cast<LinearScale&>(result) = LinearScale::parse(parser);`,
+				`result.type = parser.field<std::string>("type");`,
 			)
 	})
 

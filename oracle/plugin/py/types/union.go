@@ -38,17 +38,17 @@ type unionVariantData struct {
 	Value string
 	// Doc is the rendered per-variant documentation comment, if any.
 	Doc string
-	// HasKeywordAlias is true if any field needs a populate-by-name config.
-	HasKeywordAlias bool
-	// Fields are the flattened base + variant fields, excluding the
-	// discriminator, which the template emits as a Literal field.
-	Fields []fieldData
+	// Parents are the base classes the variant inherits: the union's extends
+	// base(s) followed by the variant's payload struct. Inherited fields keep
+	// their own declarations and docs on those classes, so the variant declares
+	// only the discriminator.
+	Parents []string
 }
 
-// processUnion builds the template view for a discriminated union, flattening
-// each variant's base and own fields via resolution.UnifiedVariantFields and
-// reusing the struct field processor so union variant fields render identically
-// to struct fields.
+// processUnion builds the template view for a discriminated union. Each variant
+// inherits the union's shared base struct(s) and its own payload struct via
+// Pydantic multiple inheritance, declaring only the discriminator itself, so the
+// shared fields are not duplicated across variants.
 func processUnion(
 	entry resolution.Type,
 	table *resolution.Table,
@@ -56,7 +56,6 @@ func processUnion(
 	keyFields []keyFieldData,
 ) unionData {
 	form := entry.Form.(resolution.UnionForm)
-	data.imports.addPydantic("BaseModel")
 	data.imports.addPydantic("Field")
 	data.imports.addTyping("Annotated")
 	data.imports.addTyping("Union")
@@ -72,13 +71,13 @@ func processUnion(
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
-		for _, f := range resolution.UnifiedVariantFields(entry, v, table) {
-			fd := processField(f, table, data, keyFields, nil)
-			if fd.Alias != "" {
-				vd.HasKeywordAlias = true
-				data.imports.addPydantic("ConfigDict")
+		for _, ext := range form.Extends {
+			if parent, ok := ext.Resolve(table); ok {
+				vd.Parents = append(vd.Parents, buildExtendsExpr(ext, parent, table, data))
 			}
-			vd.Fields = append(vd.Fields, fd)
+		}
+		if payload, ok := v.Type.Resolve(table); ok {
+			vd.Parents = append(vd.Parents, buildExtendsExpr(v.Type, payload, table, data))
 		}
 		ud.Variants = append(ud.Variants, vd)
 	}

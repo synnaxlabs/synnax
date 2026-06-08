@@ -67,20 +67,24 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]stru
 	for _, v := range form.Variants {
 		variantName := cppnaming.VariantTypeName(name, v.Name)
 		sd := structData{
-			Name: variantName,
-			Doc:  doc.Get(v.Domains),
+			Name:       variantName,
+			Doc:        doc.Get(v.Domains),
+			HasExtends: true,
 			Fields: []fieldData{{
 				Name:         discField,
 				CppType:      "std::string",
 				DefaultValue: fmt.Sprintf("%q", v.Name),
 			}},
 		}
-		for _, f := range resolution.UnifiedVariantFields(entry, v, data.table) {
-			sd.Fields = append(sd.Fields, p.processField(f, entry, data))
+		for _, ext := range form.Extends {
+			if parent, ok := ext.Resolve(data.table); ok {
+				sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(ext, parent, data))
+			}
 		}
-		if len(sd.Fields) > 0 {
-			data.includes.addInternal("x/cpp/json/json.h")
+		if payload, ok := v.Type.Resolve(data.table); ok {
+			sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(v.Type, payload, data))
 		}
+		data.includes.addInternal("x/cpp/json/json.h")
 		variants = append(variants, sd)
 		ud.Variants = append(ud.Variants, unionVariantData{
 			TypeName: variantName,

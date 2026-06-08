@@ -60,11 +60,20 @@ func (p *Plugin) processUnion(u resolution.Type, data *templateData) ([]serializ
 	serializers := make([]serializerData, 0, len(form.Variants))
 	for _, v := range form.Variants {
 		variantName := cppnaming.VariantTypeName(name, v.Name)
-		s := serializerData{Name: variantName, Fields: make([]fieldData, 0)}
-		s.Fields = append(s.Fields, p.processField(discField, u, data))
-		for _, f := range resolution.UnifiedVariantFields(u, v, data.table) {
-			s.Fields = append(s.Fields, p.processField(f, u, data))
+		s := serializerData{Name: variantName, HasExtends: true, Fields: make([]fieldData, 0)}
+		for _, ext := range form.Extends {
+			if parent, ok := ext.Resolve(data.table); ok {
+				s.ParentTypes = append(s.ParentTypes, parentTypeData{
+					QualifiedName: p.resolveExtendsType(ext, parent, data),
+				})
+			}
 		}
+		if payload, ok := v.Type.Resolve(data.table); ok {
+			s.ParentTypes = append(s.ParentTypes, parentTypeData{
+				QualifiedName: p.resolveExtendsType(v.Type, payload, data),
+			})
+		}
+		s.Fields = append(s.Fields, p.processField(discField, u, data))
 		serializers = append(serializers, s)
 		dispatch.Variants = append(dispatch.Variants, unionDispatchVariant{
 			TypeName: variantName,

@@ -1623,10 +1623,9 @@ var _ = Describe("C++ Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
-				`struct ScaleLinear {`,
+				`struct ScaleLinear : public LinearScale {`,
 				`std::string type = "linear";`,
-				`double slope = 0;`,
-				`struct ScaleNone {`,
+				`struct ScaleNone : public NoneScale {`,
 				`std::string type = "none";`,
 				"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<ScaleLinear, ScaleNone>;",
 				`Scale parse_scale(x::json::Parser parser);`,
@@ -1634,7 +1633,7 @@ var _ = Describe("C++ Union Generation", func() {
 			)
 	})
 
-	It("Should flatten base fields from extends into every variant struct", func(ctx SpecContext) {
+	It("Should inherit the union base and payload in every variant struct, not flatten", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
 
@@ -1648,7 +1647,7 @@ var _ = Describe("C++ Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain(
-				`struct AIVoltageChannel {`,
+				`struct AIVoltageChannel : public BaseAIChan, public VoltageFields {`,
 				`std::string type = "ai_voltage";`,
 				`std::int32_t port = 0;`,
 				`double min_val = 0;`,
@@ -1705,6 +1704,6 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
-			ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear {")
+			ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear : public LinearScale {")
 	})
 })

@@ -1622,10 +1622,9 @@ var _ = Describe("Python Union Generation", func() {
 			ToContain(
 				`from typing import Annotated, Union, Literal`,
 				`from pydantic import BaseModel, Field`,
-				`class ScaleLinear(BaseModel):`,
+				`class ScaleLinear(LinearScale):`,
 				`type: Literal["linear"]`,
-				`slope: float`,
-				`class ScaleNone(BaseModel):`,
+				`class ScaleNone(NoneScale):`,
 				`type: Literal["none"]`,
 				`Scale = Annotated[`,
 				`Union[ScaleLinear, ScaleNone],`,
@@ -1633,7 +1632,7 @@ var _ = Describe("Python Union Generation", func() {
 			)
 	})
 
-	It("Should flatten base fields from extends into every variant model", func(ctx SpecContext) {
+	It("Should inherit the union base and the payload in every variant, not flatten", func(ctx SpecContext) {
 		source := `
 			@py output "out"
 
@@ -1648,13 +1647,12 @@ var _ = Describe("Python Union Generation", func() {
 			}
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
-		ExpectContent(resp, "types_gen.py").
-			ToContain(
-				`class AIVoltageChannel(BaseModel):`,
-				`type: Literal["ai_voltage"]`,
-				`enabled: bool`,
-				`minVal: float`,
-			)
+		content := MustContentOf(resp, "types_gen.py")
+		// The variant inherits BaseAIChan + VoltageFields and declares only the
+		// discriminator, so the shared fields are not duplicated into it.
+		Expect(content).To(ContainSubstring("class AIVoltageChannel(BaseAIChan, VoltageFields):\n    type: Literal[\"ai_voltage\"]\n"))
+		Expect(content).To(ContainSubstring(`enabled: bool`))
+		Expect(content).To(ContainSubstring(`minVal: float`))
 	})
 
 	It("Should resolve a union-typed field to the union alias", func(ctx SpecContext) {
@@ -1738,14 +1736,15 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 		)
 	})
 
-	It("Should render a per-variant Google docstring with field Attributes", func(ctx SpecContext) {
+	It("Should keep field docs on the payload class and only a summary on the variant", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
-		ExpectContent(resp, "types_gen.py").ToContain(
-			"class ScaleLinear(BaseModel):",
-			`"""A linear scale.`,
-			"Attributes:",
-			"slope: The slope multiplier.",
-		)
+		content := MustContentOf(resp, "types_gen.py")
+		// Field docs live on the payload class (its Attributes), documented once.
+		Expect(content).To(ContainSubstring("class LinearScale(BaseModel):"))
+		Expect(content).To(ContainSubstring("slope: The slope multiplier."))
+		// The variant inherits the payload and carries only its own summary,
+		// so the field docs are not duplicated onto it.
+		Expect(content).To(ContainSubstring("class ScaleLinear(LinearScale):\n    \"\"\"A linear scale.\n    \"\"\"\n    type: Literal[\"linear\"]\n"))
 	})
 
 	It("Should resolve an array-of-union field to a list of the alias", func(ctx SpecContext) {

@@ -958,6 +958,32 @@ func camelCase(s string) string {
 	return base[:len(base)-runLen] + s[runStart:]
 }
 
+// parentSchemaName resolves a base or payload type reference to its TS schema
+// const name (e.g. "baseAIChannelZ"), importing and namespace-qualifying it when
+// it lives in another output. It reports false when the reference does not
+// resolve to a struct that can be composed. The resolution mirrors the
+// struct-extends path so union variants and structs compose identically.
+func parentSchemaName(ref resolution.TypeRef, table *resolution.Table, data *templateData) (string, bool) {
+	parent, ok := ref.Resolve(table)
+	if !ok {
+		return "", false
+	}
+	if _, isStruct := parent.Form.(resolution.StructForm); !isStruct {
+		return "", false
+	}
+	name := camelCase(domain.GetName(parent, "ts")) + "Z"
+	if parent.Namespace != data.Namespace {
+		ns := parent.Namespace
+		targetOutputPath := output.GetPath(parent, "ts")
+		if targetOutputPath == "" {
+			targetOutputPath = ns
+		}
+		data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+		name = ns + "." + name
+	}
+	return name, true
+}
+
 func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	sorted := make([]typeParamData, len(typeParams))
 	copy(sorted, typeParams)
@@ -2512,20 +2538,8 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{ if .Doc -}}
 {{ formatDoc .TypeName .Doc }}
 {{ end -}}
-export const {{ .SchemaName }} = z.object({
+export const {{ .SchemaName }} = {{ range $i, $p := .ParentSchemas }}{{ if $i }}.extend({{ end }}{{ $p }}{{ if $i }}.shape){{ end }}{{ end }}.extend({
   {{ $disc }}: z.literal("{{ .Value }}"),
-{{- range .Fields }}
-{{- if .Doc }}
-  {{ formatDoc .TSName .Doc }}
-{{- end }}
-{{- if .IsSelfRef }}
-  get {{ .TSName }}(): {{ .ZodSchemaType }} {
-    return {{ .ZodType }};
-  },
-{{- else }}
-  {{ .TSName }}: {{ .ZodType }},
-{{- end }}
-{{- end }}
 });
 {{- if $.GenerateTypes }}
 export interface {{ .TypeName }} extends z.infer<typeof {{ .SchemaName }}> {}

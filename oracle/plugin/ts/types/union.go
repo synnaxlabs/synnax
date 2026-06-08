@@ -55,15 +55,17 @@ type unionVariantData struct {
 	SchemaName string
 	// Doc is the rendered per-variant documentation comment, if any.
 	Doc string
-	// Fields are the flattened base + variant fields, excluding the
-	// discriminator, which the template emits as a z.literal.
-	Fields []fieldData
+	// ParentSchemas are the schema consts the variant composes via .extend: the
+	// union's shared base schema(s) followed by the variant's payload schema.
+	// The variant adds only the discriminator, so shared fields are not
+	// duplicated.
+	ParentSchemas []string
 }
 
-// processUnion builds the template view for a discriminated union. It flattens
-// each variant's fields via resolution.UnifiedVariantFields and reuses the
-// struct field processor so union variant fields render identically to struct
-// fields (arrays, optionality, nested schemas, forward references).
+// processUnion builds the template view for a discriminated union. Each variant
+// composes the union's shared base schema(s) and its own payload schema via
+// zod .extend, adding only the discriminator literal, so the shared fields are
+// not duplicated across variants.
 func (p *Plugin) processUnion(entry resolution.Type, table *resolution.Table, data *templateData) unionData {
 	form, ok := entry.Form.(resolution.UnionForm)
 	if !ok {
@@ -89,8 +91,13 @@ func (p *Plugin) processUnion(entry resolution.Type, table *resolution.Table, da
 			SchemaName: camelCase(typeName) + "Z",
 			Doc:        doc.Get(v.Domains),
 		}
-		for _, f := range resolution.UnifiedVariantFields(entry, v, table) {
-			vd.Fields = append(vd.Fields, p.processField(f, entry, table, data, false, false))
+		for _, ext := range form.Extends {
+			if pn, ok := parentSchemaName(ext, table, data); ok {
+				vd.ParentSchemas = append(vd.ParentSchemas, pn)
+			}
+		}
+		if pn, ok := parentSchemaName(v.Type, table, data); ok {
+			vd.ParentSchemas = append(vd.ParentSchemas, pn)
 		}
 		ud.Variants = append(ud.Variants, vd)
 	}

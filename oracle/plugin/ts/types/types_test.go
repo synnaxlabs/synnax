@@ -2474,10 +2474,9 @@ var _ = Describe("TS Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`export const scaleLinearZ = z.object({`,
+				`export const scaleLinearZ = linearScaleZ.extend({`,
 				`type: z.literal("linear"),`,
-				`slope: z.number(),`,
-				`export const scaleNoneZ = z.object({`,
+				`export const scaleNoneZ = noneScaleZ.extend({`,
 				`type: z.literal("none"),`,
 				`export const scaleZ = z.discriminatedUnion("type", [`,
 				`scaleLinearZ,`,
@@ -2529,7 +2528,7 @@ var _ = Describe("TS Union Generation", func() {
 			)
 	})
 
-	It("Should flatten base fields from extends into every variant", func(ctx SpecContext) {
+	It("Should compose the union base and payload via extend, not flatten", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
 
@@ -2544,14 +2543,12 @@ var _ = Describe("TS Union Generation", func() {
 			}
 		`
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
-		ExpectContent(resp, "types.gen.ts").
-			ToContain(
-				`export const aiVoltageChannelZ = z.object({`,
-				`type: z.literal("ai_voltage"),`,
-				`port: z.int32(),`,
-				`enabled: z.boolean(),`,
-				`minVal: z.number(),`,
-			)
+		content := MustContentOf(resp, "types.gen.ts")
+		// The variant composes the base and payload schemas and adds only the
+		// discriminator; the shared fields live on baseAiChanZ / voltageFieldsZ.
+		Expect(content).To(ContainSubstring("export const aiVoltageChannelZ = baseAiChanZ.extend(voltageFieldsZ.shape).extend({\n  type: z.literal(\"ai_voltage\"),\n});"))
+		Expect(content).To(ContainSubstring(`port: z.int32(),`))
+		Expect(content).To(ContainSubstring(`minVal: z.number(),`))
 	})
 
 	It("Should resolve a union-typed struct field to the union schema", func(ctx SpecContext) {
@@ -2596,7 +2593,7 @@ var _ = Describe("TS Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`export const aiVoltageChannelZ = z.object({`,
+				`export const aiVoltageChannelZ = voltageFieldsZ.extend({`,
 				`customScale: scaleZ,`,
 			)
 	})
@@ -2663,7 +2660,7 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale"), "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				"/** ScaleLinear a linear scale. */\nexport const scaleLinearZ = z.object({",
+				"/** ScaleLinear a linear scale. */\nexport const scaleLinearZ = linearScaleZ.extend({",
 				`export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}`,
 			)
 	})
