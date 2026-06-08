@@ -949,11 +949,7 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 			if body := v.EnumValueBody(); body != nil {
 				for _, d := range body.AllDomain() {
 					de := collectDomain(d)
-					if existing, ok := ev.Domains[de.Name]; ok {
-						ev.Domains[de.Name] = de.Merge(existing)
-					} else {
-						ev.Domains[de.Name] = de
-					}
+					ev.Domains[de.Name] = de
 				}
 			}
 			form.Values = append(form.Values, ev)

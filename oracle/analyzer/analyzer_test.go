@@ -413,28 +413,6 @@ var _ = Describe("Analyzer", func() {
 			Expect(maxExpr.Values[0].IntValue).To(Equal(int64(17)))
 		})
 
-		It("Should merge repeated domains on an enum value", func(ctx SpecContext) {
-			source := `
-					Priority enum {
-						high = "high" {
-							@doc value       "is the highest urgency tier."
-							@doc description "Pages on-call immediately."
-						}
-					}
-				`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "priority", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			form := table.MustGet("priority.Priority").Form.(resolution.EnumForm)
-			Expect(form.Values).To(HaveLen(1))
-			docDomain := form.Values[0].Domains["doc"]
-			Expect(docDomain.Expressions).To(HaveLen(2))
-			valueExpr := MustBeOk(docDomain.Expressions.Find("value"))
-			Expect(valueExpr.Values[0].StringValue).To(Equal("is the highest urgency tier."))
-			descExpr := MustBeOk(docDomain.Expressions.Find("description"))
-			Expect(descExpr.Values[0].StringValue).To(Equal("Pages on-call immediately."))
-		})
-
 		It("Should collect struct-level domains", func(ctx SpecContext) {
 			source := `
 				Range struct {
