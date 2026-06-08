@@ -449,7 +449,8 @@ const useSelectRawRule = Flux.createSelector<FluxSubStore, SelectRuleArgs, RawRu
 });
 
 // useSelectRule returns a single rule with its color resolved by position the
-// same way as useSelectRules, or undefined when no rule with ruleKey exists.
+// same way as useSelectRules. It throws NotFoundError when no rule with ruleKey
+// exists, so callers must only request rules they know are present.
 export const useSelectRule = (args: SelectRuleArgs): DerivedRule => {
   const raw = useSelectRawRule(args);
   const palette = Theming.use().colors.visualization.palettes.default;

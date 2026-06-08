@@ -156,6 +156,9 @@ describe("lineplot queries", () => {
         });
       });
 
+      await waitFor(() =>
+        expect(result.current.retrieve.data?.name).toEqual("renamed_plot"),
+      );
       const retrieved = await client.lineplots.retrieve({ key: plot.key });
       expect(retrieved.name).toEqual("renamed_plot");
     });
@@ -639,11 +642,9 @@ describe("lineplot queries", () => {
       const seeded = await seedPlot();
       const { result } = await loadAndUse(seeded.key, () => ({
         rules: LinePlot.useSelectRules({ key: seeded.key }),
-        rule: LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.rules).toEqual([]);
-      expect(result.current.rule).toBeUndefined();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
@@ -663,26 +664,28 @@ describe("lineplot queries", () => {
           ],
         });
       });
-      await waitFor(() => {
-        expect(result.current.rules).toHaveLength(1);
-        expect(result.current.rule?.position).toEqual(4.5);
-      });
+      await waitFor(() => expect(result.current.rules).toHaveLength(1));
+
+      const { result: rule, unmount } = renderHook(
+        () => LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-1" }),
+        { wrapper },
+      );
+      expect(rule.current.position).toEqual(4.5);
+      unmount();
+
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: seeded.key,
           actions: [lineplotClient.removeRule({ key: "rl-1" })],
         });
       });
-      await waitFor(() => {
-        expect(result.current.rules).toEqual([]);
-        expect(result.current.rule).toBeUndefined();
-      });
+      await waitFor(() => expect(result.current.rules).toEqual([]));
     });
 
     it("useSelectRule resolves a palette color for a rule with no stored color", async () => {
       const seeded = await seedPlot();
       const { result } = await loadAndUse(seeded.key, () => ({
-        rule: LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-1" }),
+        rules: LinePlot.useSelectRules({ key: seeded.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
@@ -703,9 +706,13 @@ describe("lineplot queries", () => {
           ],
         });
       });
-      await waitFor(() => {
-        expect(result.current.rule?.color).toBeDefined();
-      });
+      await waitFor(() => expect(result.current.rules).toHaveLength(1));
+
+      const { result: rule } = renderHook(
+        () => LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-1" }),
+        { wrapper },
+      );
+      expect(rule.current.color).toBeDefined();
     });
 
     it("useSelectLineCount reflects the number of lines", async () => {

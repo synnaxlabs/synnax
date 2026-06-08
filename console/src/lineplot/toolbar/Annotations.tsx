@@ -50,7 +50,6 @@ const ListItem = ({ layoutKey, ...rest }: ListItemProps): ReactElement | null =>
   const { itemKey } = rest;
   const entry = LinePlot.useSelectRule({ key: layoutKey, ruleKey: itemKey });
   const { dispatch } = LinePlot.useDispatch();
-  if (entry == null) return null;
   const handleChangeLabel = (label: string): void =>
     dispatch({
       key: layoutKey,
@@ -159,8 +158,6 @@ const Details = ({ layoutKey, ruleKey }: DetailsProps): ReactElement | null => {
     (action: lineplot.Action): void => dispatch({ key: layoutKey, actions: [action] }),
     [dispatch, layoutKey],
   );
-
-  if (rule == null) return null;
 
   const handleChangeLabel = (label: string): void =>
     apply(lineplot.setRuleLabel({ key: ruleKey, label }));
