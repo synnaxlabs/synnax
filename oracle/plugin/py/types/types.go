@@ -915,6 +915,13 @@ func pyArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
 }
 
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
+	// String-valued enums are emitted as a Literal alias with no runtime class to
+	// dot into, so reference the variant's string value directly (the field's type
+	// is that Literal). Only integer enums become IntEnum classes whose members can
+	// be accessed as Enum.variant.
+	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return fmt.Sprintf("%q", ev.Variant.StringValue())
+	}
 	enumName := domain.GetName(ev.Type, "py")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
 	if ev.Type.Namespace != data.Namespace {

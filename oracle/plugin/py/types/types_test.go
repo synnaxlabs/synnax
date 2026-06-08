@@ -292,6 +292,43 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
 		})
 
+		It("Should emit a string-enum field default as the literal value, not member access", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Units enum {
+					volts = "Volts"
+					amps  = "Amps"
+				}
+
+				Channel struct {
+					units Units = UnitsVolts
+				}
+			`
+			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`units: Units = Field(default="Volts")`))
+			Expect(content).ToNot(ContainSubstring(`default=Units.volts`))
+		})
+
+		It("Should emit an int-enum field default as Enum member access", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Mode enum {
+					off  = 0
+					on   = 1
+				}
+
+				Channel struct {
+					mode Mode = ModeOn
+				}
+			`
+			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`default=Mode.on`))
+		})
+
 		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
 			source := `
 				@py output "out"
