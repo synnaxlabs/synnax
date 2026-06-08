@@ -231,13 +231,74 @@ export type SetLinePayload = z.infer<typeof setLinePayloadZ>;
 
 /**
  * SetRule inserts the rule if no rule with rule.key exists, otherwise
- * replaces the existing entry in place.
+ * replaces the existing entry in place. The fine-grained setRule*
+ * actions cover per-field edits; this full-object form creates a rule
+ * or restores one removed by another action's inverse.
  */
 export const setRulePayloadZ = z.object({
   rule: ruleZ,
 });
 
 export type SetRulePayload = z.infer<typeof setRulePayloadZ>;
+
+/** SetRuleLabel sets the label of the rule identified by key. */
+export const setRuleLabelPayloadZ = z.object({
+  key: z.string(),
+  label: z.string(),
+});
+
+export type SetRuleLabelPayload = z.infer<typeof setRuleLabelPayloadZ>;
+
+/**
+ * SetRuleColor sets the color of the rule identified by key. Null resets it to a
+ * default color assigned at render time.
+ */
+export const setRuleColorPayloadZ = z.object({
+  key: z.string(),
+  color: color.colorZ.optional(),
+});
+
+export type SetRuleColorPayload = z.infer<typeof setRuleColorPayloadZ>;
+
+/** SetRuleAxis sets the axis the rule identified by key is anchored to. */
+export const setRuleAxisPayloadZ = z.object({
+  key: z.string(),
+  axis: axisKeyZ,
+});
+
+export type SetRuleAxisPayload = z.infer<typeof setRuleAxisPayloadZ>;
+
+/** SetRuleLineWidth sets the line width, in pixels, of the rule identified by key. */
+export const setRuleLineWidthPayloadZ = z.object({
+  key: z.string(),
+  lineWidth: z.number(),
+});
+
+export type SetRuleLineWidthPayload = z.infer<typeof setRuleLineWidthPayloadZ>;
+
+/** SetRuleLineDash sets the dash length, in pixels, of the rule identified by key. */
+export const setRuleLineDashPayloadZ = z.object({
+  key: z.string(),
+  lineDash: z.number(),
+});
+
+export type SetRuleLineDashPayload = z.infer<typeof setRuleLineDashPayloadZ>;
+
+/** SetRuleUnits sets the unit label of the rule identified by key. */
+export const setRuleUnitsPayloadZ = z.object({
+  key: z.string(),
+  units: z.string(),
+});
+
+export type SetRuleUnitsPayload = z.infer<typeof setRuleUnitsPayloadZ>;
+
+/** SetRulePosition sets the value-space position of the rule identified by key. */
+export const setRulePositionPayloadZ = z.object({
+  key: z.string(),
+  position: z.number(),
+});
+
+export type SetRulePositionPayload = z.infer<typeof setRulePositionPayloadZ>;
 
 /** RemoveRule removes the rule with the given key, if present. */
 export const removeRulePayloadZ = z.object({
@@ -296,6 +357,22 @@ export const actionZ = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("set_line"), setLine: setLinePayloadZ }),
   z.object({ type: z.literal("set_rule"), setRule: setRulePayloadZ }),
+  z.object({ type: z.literal("set_rule_label"), setRuleLabel: setRuleLabelPayloadZ }),
+  z.object({ type: z.literal("set_rule_color"), setRuleColor: setRuleColorPayloadZ }),
+  z.object({ type: z.literal("set_rule_axis"), setRuleAxis: setRuleAxisPayloadZ }),
+  z.object({
+    type: z.literal("set_rule_line_width"),
+    setRuleLineWidth: setRuleLineWidthPayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_rule_line_dash"),
+    setRuleLineDash: setRuleLineDashPayloadZ,
+  }),
+  z.object({ type: z.literal("set_rule_units"), setRuleUnits: setRuleUnitsPayloadZ }),
+  z.object({
+    type: z.literal("set_rule_position"),
+    setRulePosition: setRulePositionPayloadZ,
+  }),
   z.object({ type: z.literal("remove_rule"), removeRule: removeRulePayloadZ }),
 ]);
 
@@ -415,6 +492,41 @@ export const setRule = (payload: SetRulePayload): Action => ({
   setRule: payload,
 });
 
+export const setRuleLabel = (payload: SetRuleLabelPayload): Action => ({
+  type: "set_rule_label",
+  setRuleLabel: payload,
+});
+
+export const setRuleColor = (payload: SetRuleColorPayload): Action => ({
+  type: "set_rule_color",
+  setRuleColor: payload,
+});
+
+export const setRuleAxis = (payload: SetRuleAxisPayload): Action => ({
+  type: "set_rule_axis",
+  setRuleAxis: payload,
+});
+
+export const setRuleLineWidth = (payload: SetRuleLineWidthPayload): Action => ({
+  type: "set_rule_line_width",
+  setRuleLineWidth: payload,
+});
+
+export const setRuleLineDash = (payload: SetRuleLineDashPayload): Action => ({
+  type: "set_rule_line_dash",
+  setRuleLineDash: payload,
+});
+
+export const setRuleUnits = (payload: SetRuleUnitsPayload): Action => ({
+  type: "set_rule_units",
+  setRuleUnits: payload,
+});
+
+export const setRulePosition = (payload: SetRulePositionPayload): Action => ({
+  type: "set_rule_position",
+  setRulePosition: payload,
+});
+
 export const removeRule = (payload: RemoveRulePayload): Action => ({
   type: "remove_rule",
   removeRule: payload,
@@ -477,6 +589,22 @@ export interface Handlers {
   ) => HandlerResult;
   setLine: (state: Draft<LinePlot>, payload: SetLinePayload) => HandlerResult;
   setRule: (state: Draft<LinePlot>, payload: SetRulePayload) => HandlerResult;
+  setRuleLabel: (state: Draft<LinePlot>, payload: SetRuleLabelPayload) => HandlerResult;
+  setRuleColor: (state: Draft<LinePlot>, payload: SetRuleColorPayload) => HandlerResult;
+  setRuleAxis: (state: Draft<LinePlot>, payload: SetRuleAxisPayload) => HandlerResult;
+  setRuleLineWidth: (
+    state: Draft<LinePlot>,
+    payload: SetRuleLineWidthPayload,
+  ) => HandlerResult;
+  setRuleLineDash: (
+    state: Draft<LinePlot>,
+    payload: SetRuleLineDashPayload,
+  ) => HandlerResult;
+  setRuleUnits: (state: Draft<LinePlot>, payload: SetRuleUnitsPayload) => HandlerResult;
+  setRulePosition: (
+    state: Draft<LinePlot>,
+    payload: SetRulePositionPayload,
+  ) => HandlerResult;
   removeRule: (state: Draft<LinePlot>, payload: RemoveRulePayload) => HandlerResult;
 }
 
@@ -527,6 +655,20 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setLine(state, action.setLine);
       case "set_rule":
         return handlers.setRule(state, action.setRule);
+      case "set_rule_label":
+        return handlers.setRuleLabel(state, action.setRuleLabel);
+      case "set_rule_color":
+        return handlers.setRuleColor(state, action.setRuleColor);
+      case "set_rule_axis":
+        return handlers.setRuleAxis(state, action.setRuleAxis);
+      case "set_rule_line_width":
+        return handlers.setRuleLineWidth(state, action.setRuleLineWidth);
+      case "set_rule_line_dash":
+        return handlers.setRuleLineDash(state, action.setRuleLineDash);
+      case "set_rule_units":
+        return handlers.setRuleUnits(state, action.setRuleUnits);
+      case "set_rule_position":
+        return handlers.setRulePosition(state, action.setRulePosition);
       case "remove_rule":
         return handlers.removeRule(state, action.removeRule);
     }

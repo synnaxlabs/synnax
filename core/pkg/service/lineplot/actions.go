@@ -303,6 +303,73 @@ func (p RemoveRulePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
+// rulePointer returns a pointer to the rule with the given key so handlers can
+// set into it in place, or nil if no such rule exists.
+func rulePointer(state *LinePlot, key string) *Rule {
+	for i := range state.Rules {
+		if state.Rules[i].Key == key {
+			return &state.Rules[i]
+		}
+	}
+	return nil
+}
+
+// Handle sets the label of the rule identified by key.
+func (p SetRuleLabelPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Label = p.Label
+	}
+	return state, nil
+}
+
+// Handle sets the color of the rule identified by key. A nil color resets it.
+func (p SetRuleColorPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Color = p.Color
+	}
+	return state, nil
+}
+
+// Handle sets the axis the rule identified by key is anchored to.
+func (p SetRuleAxisPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Axis = p.Axis
+	}
+	return state, nil
+}
+
+// Handle sets the line width of the rule identified by key.
+func (p SetRuleLineWidthPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.LineWidth = p.LineWidth
+	}
+	return state, nil
+}
+
+// Handle sets the dash length of the rule identified by key.
+func (p SetRuleLineDashPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.LineDash = p.LineDash
+	}
+	return state, nil
+}
+
+// Handle sets the unit label of the rule identified by key.
+func (p SetRuleUnitsPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Units = p.Units
+	}
+	return state, nil
+}
+
+// Handle sets the value-space position of the rule identified by key.
+func (p SetRulePositionPayload) Handle(state LinePlot) (LinePlot, error) {
+	if r := rulePointer(&state, p.Key); r != nil {
+		r.Position = p.Position
+	}
+	return state, nil
+}
+
 // yAxisSlice returns a pointer to the channels slice for the given y-axis
 // key so handlers can append or filter in place. Callers must have already
 // validated k via IsValid; a non-matching key here means the y-axis enum

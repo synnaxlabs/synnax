@@ -474,8 +474,62 @@ LinePlot struct {
 
         @doc value """
             inserts the rule if no rule with rule.key exists, otherwise
-            replaces the existing entry in place.
+            replaces the existing entry in place. The fine-grained setRule*
+            actions cover per-field edits; this full-object form creates a rule
+            or restores one removed by another action's inverse.
         """
+    }
+
+    action SetRuleLabel {
+        key   string
+        label string
+
+        @doc value "sets the label of the rule identified by key."
+    }
+
+    action SetRuleColor {
+        key   string
+        color color.Color??
+
+        @doc value """
+            sets the color of the rule identified by key. Null resets it to a
+            default color assigned at render time.
+        """
+    }
+
+    action SetRuleAxis {
+        key  string
+        axis AxisKey
+
+        @doc value "sets the axis the rule identified by key is anchored to."
+    }
+
+    action SetRuleLineWidth {
+        key        string
+        line_width float64
+
+        @doc value "sets the line width, in pixels, of the rule identified by key."
+    }
+
+    action SetRuleLineDash {
+        key       string
+        line_dash float64
+
+        @doc value "sets the dash length, in pixels, of the rule identified by key."
+    }
+
+    action SetRuleUnits {
+        key   string
+        units string
+
+        @doc value "sets the unit label of the rule identified by key."
+    }
+
+    action SetRulePosition {
+        key      string
+        position float64
+
+        @doc value "sets the value-space position of the rule identified by key."
     }
 
     action RemoveRule {

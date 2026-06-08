@@ -42,6 +42,13 @@ const (
 	ActionTypeSetLineDownsampleMode = "set_line_downsample_mode"
 	ActionTypeSetLine               = "set_line"
 	ActionTypeSetRule               = "set_rule"
+	ActionTypeSetRuleLabel          = "set_rule_label"
+	ActionTypeSetRuleColor          = "set_rule_color"
+	ActionTypeSetRuleAxis           = "set_rule_axis"
+	ActionTypeSetRuleLineWidth      = "set_rule_line_width"
+	ActionTypeSetRuleLineDash       = "set_rule_line_dash"
+	ActionTypeSetRuleUnits          = "set_rule_units"
+	ActionTypeSetRulePosition       = "set_rule_position"
 	ActionTypeRemoveRule            = "remove_rule"
 )
 
@@ -184,9 +191,56 @@ type SetLinePayload struct {
 }
 
 // SetRulePayload inserts the rule if no rule with rule.key exists, otherwise replaces
-// the existing entry in place.
+// the existing entry in place. The fine-grained setRule* actions cover per-field edits;
+// this full-object form creates a rule or restores one removed by another action's
+// inverse.
 type SetRulePayload struct {
 	Rule Rule `json:"rule" msgpack:"rule"`
+}
+
+// SetRuleLabelPayload sets the label of the rule identified by key.
+type SetRuleLabelPayload struct {
+	Key   string `json:"key" msgpack:"key"`
+	Label string `json:"label" msgpack:"label"`
+}
+
+// SetRuleColorPayload sets the color of the rule identified by key. Null resets it to a
+// default color assigned at render time.
+type SetRuleColorPayload struct {
+	Key   string       `json:"key" msgpack:"key"`
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+}
+
+// SetRuleAxisPayload sets the axis the rule identified by key is anchored to.
+type SetRuleAxisPayload struct {
+	Key  string  `json:"key" msgpack:"key"`
+	Axis AxisKey `json:"axis" msgpack:"axis"`
+}
+
+// SetRuleLineWidthPayload sets the line width, in pixels, of the rule identified by
+// key.
+type SetRuleLineWidthPayload struct {
+	Key       string  `json:"key" msgpack:"key"`
+	LineWidth float64 `json:"line_width" msgpack:"line_width"`
+}
+
+// SetRuleLineDashPayload sets the dash length, in pixels, of the rule identified by
+// key.
+type SetRuleLineDashPayload struct {
+	Key      string  `json:"key" msgpack:"key"`
+	LineDash float64 `json:"line_dash" msgpack:"line_dash"`
+}
+
+// SetRuleUnitsPayload sets the unit label of the rule identified by key.
+type SetRuleUnitsPayload struct {
+	Key   string `json:"key" msgpack:"key"`
+	Units string `json:"units" msgpack:"units"`
+}
+
+// SetRulePositionPayload sets the value-space position of the rule identified by key.
+type SetRulePositionPayload struct {
+	Key      string  `json:"key" msgpack:"key"`
+	Position float64 `json:"position" msgpack:"position"`
 }
 
 // RemoveRulePayload removes the rule with the given key, if present.
@@ -220,6 +274,13 @@ type Action struct {
 	SetLineDownsampleMode *SetLineDownsampleModePayload `json:"set_line_downsample_mode,omitempty" msgpack:"set_line_downsample_mode,omitempty"`
 	SetLine               *SetLinePayload               `json:"set_line,omitempty" msgpack:"set_line,omitempty"`
 	SetRule               *SetRulePayload               `json:"set_rule,omitempty" msgpack:"set_rule,omitempty"`
+	SetRuleLabel          *SetRuleLabelPayload          `json:"set_rule_label,omitempty" msgpack:"set_rule_label,omitempty"`
+	SetRuleColor          *SetRuleColorPayload          `json:"set_rule_color,omitempty" msgpack:"set_rule_color,omitempty"`
+	SetRuleAxis           *SetRuleAxisPayload           `json:"set_rule_axis,omitempty" msgpack:"set_rule_axis,omitempty"`
+	SetRuleLineWidth      *SetRuleLineWidthPayload      `json:"set_rule_line_width,omitempty" msgpack:"set_rule_line_width,omitempty"`
+	SetRuleLineDash       *SetRuleLineDashPayload       `json:"set_rule_line_dash,omitempty" msgpack:"set_rule_line_dash,omitempty"`
+	SetRuleUnits          *SetRuleUnitsPayload          `json:"set_rule_units,omitempty" msgpack:"set_rule_units,omitempty"`
+	SetRulePosition       *SetRulePositionPayload       `json:"set_rule_position,omitempty" msgpack:"set_rule_position,omitempty"`
 	RemoveRule            *RemoveRulePayload            `json:"remove_rule,omitempty" msgpack:"remove_rule,omitempty"`
 }
 
@@ -342,6 +403,41 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRule.Handle(state)
+		case ActionTypeSetRuleLabel:
+			if a.SetRuleLabel == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRuleLabel.Handle(state)
+		case ActionTypeSetRuleColor:
+			if a.SetRuleColor == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRuleColor.Handle(state)
+		case ActionTypeSetRuleAxis:
+			if a.SetRuleAxis == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRuleAxis.Handle(state)
+		case ActionTypeSetRuleLineWidth:
+			if a.SetRuleLineWidth == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRuleLineWidth.Handle(state)
+		case ActionTypeSetRuleLineDash:
+			if a.SetRuleLineDash == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRuleLineDash.Handle(state)
+		case ActionTypeSetRuleUnits:
+			if a.SetRuleUnits == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRuleUnits.Handle(state)
+		case ActionTypeSetRulePosition:
+			if a.SetRulePosition == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRulePosition.Handle(state)
 		case ActionTypeRemoveRule:
 			if a.RemoveRule == nil {
 				return state, union.MissingPayload(a.Type)
@@ -465,6 +561,41 @@ func NewSetLineAction(p SetLinePayload) Action {
 // NewSetRuleAction wraps a SetRulePayload in an Action envelope.
 func NewSetRuleAction(p SetRulePayload) Action {
 	return Action{Type: ActionTypeSetRule, SetRule: &p}
+}
+
+// NewSetRuleLabelAction wraps a SetRuleLabelPayload in an Action envelope.
+func NewSetRuleLabelAction(p SetRuleLabelPayload) Action {
+	return Action{Type: ActionTypeSetRuleLabel, SetRuleLabel: &p}
+}
+
+// NewSetRuleColorAction wraps a SetRuleColorPayload in an Action envelope.
+func NewSetRuleColorAction(p SetRuleColorPayload) Action {
+	return Action{Type: ActionTypeSetRuleColor, SetRuleColor: &p}
+}
+
+// NewSetRuleAxisAction wraps a SetRuleAxisPayload in an Action envelope.
+func NewSetRuleAxisAction(p SetRuleAxisPayload) Action {
+	return Action{Type: ActionTypeSetRuleAxis, SetRuleAxis: &p}
+}
+
+// NewSetRuleLineWidthAction wraps a SetRuleLineWidthPayload in an Action envelope.
+func NewSetRuleLineWidthAction(p SetRuleLineWidthPayload) Action {
+	return Action{Type: ActionTypeSetRuleLineWidth, SetRuleLineWidth: &p}
+}
+
+// NewSetRuleLineDashAction wraps a SetRuleLineDashPayload in an Action envelope.
+func NewSetRuleLineDashAction(p SetRuleLineDashPayload) Action {
+	return Action{Type: ActionTypeSetRuleLineDash, SetRuleLineDash: &p}
+}
+
+// NewSetRuleUnitsAction wraps a SetRuleUnitsPayload in an Action envelope.
+func NewSetRuleUnitsAction(p SetRuleUnitsPayload) Action {
+	return Action{Type: ActionTypeSetRuleUnits, SetRuleUnits: &p}
+}
+
+// NewSetRulePositionAction wraps a SetRulePositionPayload in an Action envelope.
+func NewSetRulePositionAction(p SetRulePositionPayload) Action {
+	return Action{Type: ActionTypeSetRulePosition, SetRulePosition: &p}
 }
 
 // NewRemoveRuleAction wraps a RemoveRulePayload in an Action envelope.
