@@ -108,12 +108,6 @@ type Service struct {
 // Close shuts down the RBAC service and its sub-services.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// Enforce checks if the request is allowed based on the policies assigned to the
-// subject.
-func (s *Service) Enforce(ctx context.Context, req access.Request) error {
-	return s.NewEnforcer(nil).Enforce(ctx, req)
-}
-
 // RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
 // This includes all policies from roles assigned to the subject via ontology
 // relationships.
