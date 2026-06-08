@@ -244,12 +244,40 @@ relocate freely to the service layer.
 opens them in dependency order:
 
 ```
-ontology  →  search  →  group  →  service/node  →  service/channel  →  signals  →  (entities)
+ontology · search · group                                    (substrate metadata)
+   ↓
+service/node · service/channel                               (wrap distribution; channel owns the calc symbol resolver)
+   ↓
+arc                                                          (program metadata; one-way consumer of service/channel)
+   ↓
+signals (Provider)                                           (uses service/channel.Writer to bootstrap sy_*_set/delete)
+   ↓
+channel/signals · ontology/signals · group/signals           (substrate CDC publishers — pattern already in use today)
+   ↓
+ranger · task · device · rack · workspace · ...              (entities; each calls signals.PublishFromGorp at open)
+   ↓
+arc/runtime                                                  (reactive executor; depends on service/channel + entities)
 ```
 
 Substrate (`ontology`, `search`, `group`) opens first because every wrapper and entity
-service registers with it. `signals` opens after `channel`+`framer` because it publishes
-CDC through them.
+service registers with it. `service/channel` opens **before** `arc`: the
+channel→`arc.symbol.Symbol` projection (today's `service/arc/symbol/resolver.go`) is
+pure channel-metadata projection — no arc state — and relocates to
+`service/channel/calculation/symbol/`. The channel writer builds its own resolver from
+the standalone `synnaxlabs/arc` library and drops its `service/arc` import; `arc` then
+becomes a one-way consumer of `service/channel` (for symbol resolution, program rename
+on channel rename, and runtime dispatch). `arc/runtime` (the reactive executor) opens
+last because it depends on `service/channel` and the entity services it drives.
+
+The generic `signals` Provider opens after `service/channel` because
+`PublishFromObservable` calls `channel.Writer.CreateMany` to bootstrap each `sy_*_set` /
+`sy_*_delete` pair. Substrate CDC follows a `<package>/signals/` subpackage convention
+(`service/channel/signals`, `service/ontology/signals`, `service/group/signals`),
+matching the layout already in `distribution/` today. Each subpackage owns its `Publish`
+call against the parent's `Observe()` — the bootstrap creates fire the parent observable
+before the transform is wired in, so the CDC channels exist as silent metadata records
+and never publish their own birth. Entity services skip the subpackage and call
+`signals.PublishFromGorp` inline in their own `OpenService`.
 
 ### 4.1.3 - Blast Radius
 
