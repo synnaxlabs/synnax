@@ -21,5 +21,4 @@
 	<Item Name="synnax writer commit.vi" Type="VI" URL="../VIs/synnax writer commit.vi"/>
 	<Item Name="synnax writer open.vi" Type="VI" URL="../VIs/synnax writer open.vi"/>
 	<Item Name="synnax writer write.vi" Type="VI" URL="../VIs/synnax writer write.vi"/>
-	<Item Name="synnax_clib.dll" Type="Document" URL="../synnax_clib.dll"/>
 </Library>
