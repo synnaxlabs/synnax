@@ -112,7 +112,7 @@ const createLogContext = (
   return { log, source, renderCtx, updateState };
 };
 
-const createLog = (parent: aether.Component | null = null) =>
+const createLog = (parent: aether.Node | null = null) =>
   new Log({
     path: ["test-log"],
     type: "log",

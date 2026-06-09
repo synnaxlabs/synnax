@@ -46,7 +46,7 @@ const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
  * instantiate a missing child, wiring `parent` so the child can resolve inherited
  * context up the tree. */
 interface CreateComponent {
-  (parent: Component): Component;
+  (parent: Node): Component;
 }
 
 export interface UpdateStateParams extends Pick<
@@ -78,9 +78,9 @@ export interface ComponentConstructorProps {
   /** Channel for posting messages back to the main thread. */
   sender: Sender;
   instrumentation: alamos.Instrumentation;
-  /** The parent component, used to resolve inherited context up the tree. `null` only
-   * at the tree root. */
-  parent: Component | null;
+  /** The parent node, used to resolve inherited context up the tree. `null` only at the
+   * tree root. */
+  parent: Node | null;
 }
 
 /** Constructor signature every entry in a {@link ComponentRegistry} must satisfy. */
@@ -166,7 +166,7 @@ export type CallersFromSchema<T> = {
  * descendants, so its provider-side {@link ctxSubscribers} stays empty; only nodes that
  * own children ({@link Composite}s) ever accumulate subscribers.
  */
-abstract class Node implements Component {
+export abstract class Node implements Component {
   readonly type: string;
   /** Path from the root; this node's identity. Its last element is {@link key}. */
   protected readonly path: readonly string[];
@@ -209,7 +209,7 @@ abstract class Node implements Component {
     this.path = path;
     this.sender = sender;
     this.instrumentation = instrumentation.child(this.toString());
-    this._parent = parent as Node | null;
+    this._parent = parent;
     this._depth = this._parent == null ? 0 : this._parent._depth + 1;
     this.childCtxValues = new Map();
     this.childCtxChangedKeys = new Set();
