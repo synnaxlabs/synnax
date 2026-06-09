@@ -14,10 +14,11 @@ import "schemas/color"
 @ts output  "client/ts/src/ranger"
 @py output  "client/py/synnax/ranger"
 @cpp output "client/cpp/ranger"
+@go output  "core/pkg/service/ranger"
+@pb
 
 Key = uuid {
     @doc value "is a unique identifier for a range, represented as a UUID."
-    @go output "core/pkg/service/ranger"
 }
 
 Range struct {
@@ -42,60 +43,47 @@ Range struct {
             in user interfaces.
         """
     }
+    labels     label.Label[]?  {
+        @doc value  """
+            contains optional labels attached to this range for categorization
+            and filtering. Resolved on retrieval when requested; not persisted
+            on the range record itself.
+        """
+        @go marshal omit
+    }
+    parent     Range??         {
+        @doc value  """
+            is an optional parent range for hierarchical organization. Ranges
+            can be nested within other ranges. Resolved on retrieval when
+            requested; not persisted on the range record itself.
+        """
+        @go marshal omit
+    }
 
     @doc value       """
         is a user-defined region of time in the Synnax cluster. Ranges act as a
         method for labeling and categorizing telemetry data within specific time
         periods.
     """
-    @go output       "core/pkg/service/ranger"
     @retrieve custom
     @search type     "range"
+    @ontology type   "range"
     @pb
     @go marshal
     @go migrate
-    @cpp name        "Base"
+    @cpp name        "Range"
     @ts name         "Base"
     @py name         "Base"
-}
-
-APIRange struct extends Range {
-    labels label.Label[]? {
-        @doc value """
-            contains optional labels attached to this range for categorization
-            and filtering.
-        """
-    }
-    parent APIRange??     {
-        @doc value """
-            is an optional parent range for hierarchical organization. Ranges
-            can be nested within other ranges.
-        """
-    }
-
-    @doc value     """
-        is a range with additional relationships for hierarchical organization
-        and metadata. This is the primary type exposed through the API.
-    """
-    @go output     "core/pkg/api/ranger"
-    @go name       "Range"
-    @pb name       "Range"
-    @ontology type "range"
-    @py name       "Payload"
-    @cpp name      "Range"
-    @cpp methods   "ranger::kv::Client kv"
-    @cpp includes  "client/cpp/ranger/kv/kv.h"
+    @cpp methods     "ranger::kv::Client kv"
+    @cpp includes    "client/cpp/ranger/kv/kv.h"
 }
 
 TSRange struct extends Range {
-    labels     label.Label[]?         {
-        @doc value "contains optional labels attached to this range."
+    time_range telem.TimeRangeBounded {
+        @doc value "is the bounded temporal extent of the range."
     }
     parent     TSRange??              {
         @doc value "is an optional parent range for hierarchical organization."
-    }
-    time_range telem.TimeRangeBounded {
-        @doc value "is the bounded temporal extent of the range."
     }
 
     @doc value "is TypeScript-specific range representation with bounded time ranges."

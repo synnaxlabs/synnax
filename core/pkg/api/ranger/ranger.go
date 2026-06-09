@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -28,15 +27,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Key = ranger.Key
-
-func translateRangesToService(ranges []Range) []ranger.Range {
-	return lo.Map(ranges, func(r Range, _ int) ranger.Range { return r.Range })
-}
-
-func translateRangesFromService(ranges []ranger.Range) []Range {
-	return lo.Map(ranges, func(r ranger.Range, _ int) Range { return Range{Range: r} })
-}
+type (
+	Key   = ranger.Key
+	Range = ranger.Range
+)
 
 func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(ranges))
@@ -98,14 +92,13 @@ func (s *Service) Create(
 	}
 	var res CreateResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		svcRanges := translateRangesToService(req.Ranges)
 		if err := s.
 			internal.
 			NewWriter(tx).
-			CreateManyWithParent(ctx, &svcRanges, req.Parent); err != nil {
+			CreateManyWithParent(ctx, &req.Ranges, req.Parent); err != nil {
 			return err
 		}
-		res = CreateResponse{Ranges: translateRangesFromService(svcRanges)}
+		res = CreateResponse{Ranges: req.Ranges}
 		return nil
 	}); err != nil {
 		return CreateResponse{}, err
@@ -135,8 +128,8 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var (
-		svcRanges       []ranger.Range
-		q               = s.internal.NewRetrieve().Entries(&svcRanges)
+		ranges          []Range
+		q               = s.internal.NewRetrieve().Entries(&ranges)
 		hasNames        = len(req.Names) > 0
 		hasKeys         = len(req.Keys) > 0
 		hasSearch       = req.SearchTerm != ""
@@ -167,18 +160,17 @@ func (s *Service) Retrieve(
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	apiRanges := translateRangesFromService(svcRanges)
 	var err error
 	if req.IncludeLabels {
-		for i, rng := range apiRanges {
+		for i, rng := range ranges {
 			if rng.Labels, err = s.label.RetrieveFor(ctx, rng.OntologyID(), nil); err != nil {
 				return RetrieveResponse{}, err
 			}
-			apiRanges[i] = rng
+			ranges[i] = rng
 		}
 	}
 	if req.IncludeParent {
-		for i, rng := range apiRanges {
+		for i, rng := range ranges {
 			parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, nil)
 			if errors.Is(err, query.ErrNotFound) {
 				continue
@@ -190,18 +182,18 @@ func (s *Service) Retrieve(
 			if err = s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
-			rng.Parent = &Range{Range: parent}
-			apiRanges[i] = rng
+			rng.Parent = &parent
+			ranges[i] = rng
 		}
 	}
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rangeAccessOntologyIDs(apiRanges),
+		Objects: rangeAccessOntologyIDs(ranges),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Ranges: apiRanges}, nil
+	return RetrieveResponse{Ranges: ranges}, nil
 }
 
 type RenameRequest struct {

@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

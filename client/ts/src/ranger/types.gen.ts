@@ -22,7 +22,15 @@ export type Key = z.infer<typeof keyZ>;
  * method for labeling and categorizing telemetry data within specific time
  * periods.
  */
-export const baseZ = z.object({
+export interface Base {
+  key: Key;
+  name: string;
+  timeRange: telem.TimeRange;
+  color?: color.Color;
+  labels?: label.Label[];
+  parent?: Base;
+}
+export const baseZ: z.ZodType<Base> = z.object({
   /** key is the unique identifier for this range. */
   key: keyZ,
   /** name is a human-readable name for the range. */
@@ -37,23 +45,27 @@ export const baseZ = z.object({
    * in user interfaces.
    */
   color: color.colorZ.optional(),
-});
-export interface Base extends z.infer<typeof baseZ> {}
-
-export const apiRangeZ = baseZ.extend({
+  /**
+   * labels contains optional labels attached to this range for categorization
+   * and filtering. Resolved on retrieval when requested; not persisted
+   * on the range record itself.
+   */
   labels: zod.nullToUndefined(label.labelZ.array()),
-  get parent(): z.ZodOptional<typeof apiRangeZ> {
-    return apiRangeZ.optional();
+  /**
+   * parent is an optional parent range for hierarchical organization. Ranges
+   * can be nested within other ranges. Resolved on retrieval when
+   * requested; not persisted on the range record itself.
+   */
+  get parent() {
+    return baseZ.optional();
   },
 });
-export interface APIRange extends z.infer<typeof apiRangeZ> {}
 
-export const payloadZ = baseZ.omit({ timeRange: true }).extend({
-  labels: zod.nullToUndefined(label.labelZ.array()),
+export const payloadZ = baseZ.omit({ timeRange: true, parent: true }).extend({
+  timeRange: telem.timeRangeBoundedZ,
   get parent(): z.ZodOptional<typeof payloadZ> {
     return payloadZ.optional();
   },
-  timeRange: telem.timeRangeBoundedZ,
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 

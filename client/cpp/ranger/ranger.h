@@ -20,7 +20,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/ranger/pb/ranger.pb.h"
+#include "core/pkg/service/ranger/pb/ranger.pb.h"
 #include "core/pkg/transport/grpc/ranger/ranger.pb.h"
 
 namespace synnax::ranger {
