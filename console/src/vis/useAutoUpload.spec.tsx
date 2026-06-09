@@ -86,7 +86,7 @@ const buildHook = (ctrl: CreateController): ((key: string) => boolean) =>
     clearPendingUpload: fakeSlice.actions.clearPendingUpload,
   });
 
-interface SeedArgs {
+interface HarnessArgs {
   key: string;
   name: string;
   workspaceKey?: string;
@@ -103,7 +103,7 @@ const buildHarness = ({
   name,
   workspaceKey,
   pendingUpload,
-}: SeedArgs): Harness => {
+}: HarnessArgs): Harness => {
   const reducer = combineReducers({
     [Layout.SLICE_NAME]: Layout.reducer,
     [Workspace.SLICE_NAME]: Workspace.reducer,

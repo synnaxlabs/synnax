@@ -31,12 +31,12 @@ const MockSender = { send: vi.fn() };
 
 const THEME: Theme = themeZ.parse(SYNNAX_DARK);
 
-const seedStateZ = z.object({});
+const parentStateZ = z.object({});
 
 /** Test-only parent that republishes a fixed set of context values to its descendants,
  * standing in for the theming/render/telem providers above a Log in a real tree. */
-class ContextSeed extends aether.Composite<typeof seedStateZ> {
-  schema = seedStateZ;
+class ContextParent extends aether.Composite<typeof parentStateZ> {
+  schema = parentStateZ;
   values = new Map<string, unknown>();
 
   afterUpdate(ctx: aether.Context): void {
@@ -44,24 +44,24 @@ class ContextSeed extends aether.Composite<typeof seedStateZ> {
   }
 }
 
-const seedParent = (values: Map<string, unknown>): ContextSeed => {
-  const seed = new ContextSeed({
-    path: ["seed"],
-    type: "seed",
+const createContextParent = (values: Map<string, unknown>): ContextParent => {
+  const parent = new ContextParent({
+    path: ["parent"],
+    type: "parent",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
     parent: null,
   });
-  seed.values = values;
-  seed._updateState({
-    path: ["seed"],
+  parent.values = values;
+  parent._updateState({
+    path: ["parent"],
     state: {},
-    type: "seed",
+    type: "parent",
     create: () => {
-      throw new Error("ContextSeed should not create children");
+      throw new Error("ContextParent should not create children");
     },
   });
-  return seed;
+  return parent;
 };
 
 // DONE: uses registerInstance pattern from telem/aether/test/factory.ts.
@@ -86,7 +86,7 @@ const createLogContext = (
     ["pluto-render-context", renderCtx],
     ["pluto-telem-context", telemCtx],
   ]);
-  const log = createLog(seedParent(parentCtx));
+  const log = createLog(createContextParent(parentCtx));
   const spec = mockLogSourceSpec(testId);
   const updateState = (overrides: Record<string, unknown>) => {
     log._updateState({
@@ -149,7 +149,7 @@ const setupWithContext = (
     ["pluto-render-context", renderCtx],
     ["pluto-telem-context", telemCtx],
   ]);
-  const log = createLog(seedParent(parentCtx));
+  const log = createLog(createContextParent(parentCtx));
   const spec = mockLogSourceSpec(testId);
   const state = logStateZ.parse({
     region,

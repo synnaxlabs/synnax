@@ -23,7 +23,6 @@ export interface UseCreateProps {
 }
 
 interface CreatedRecord {
-  workspace?: workspace.Key;
   key: string;
   name: string;
 }
@@ -64,9 +63,10 @@ export const createUseCreate =
     const maybeChangeWorkspace = useMaybeChange();
     const placeLayout = Layout.usePlacer();
     const store = useStore<RootState>();
+    const targetWorkspace = workspace ?? activeWorkspace ?? undefined;
     const { update } = useCreate({
-      afterSuccess: async ({ data: { workspace, key, name } }) => {
-        if (workspace != null) await maybeChangeWorkspace(workspace);
+      afterSuccess: async ({ data: { key, name } }) => {
+        if (targetWorkspace != null) await maybeChangeWorkspace(targetWorkspace);
         placeLayout(createSessionState({ key, name }));
       },
     });
@@ -76,8 +76,8 @@ export const createUseCreate =
           name: defaultName,
           ...defaults?.(store),
           ...init,
-          workspace: workspace ?? activeWorkspace ?? undefined,
+          workspace: targetWorkspace,
         } as Input),
-      [update, defaults, workspace, activeWorkspace, defaultName],
+      [update, defaults, targetWorkspace, defaultName],
     );
   };

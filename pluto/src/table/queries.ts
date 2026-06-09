@@ -210,7 +210,7 @@ export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
   const themeRef = useSyncedRef(Theming.use());
-  const seed = useCallback(
+  const withDefaultLayout = useCallback(
     (data: CreateParams): CreateParams =>
       (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
         ? { ...data, ...createDefaultLayout(themeRef.current) }
@@ -218,12 +218,12 @@ export const useCreate: typeof useCreateBase = (args) => {
     [],
   );
   const update = useCallback<typeof base.update>(
-    (data, opts) => baseRef.current.update(seed(data), opts),
-    [seed],
+    (data, opts) => baseRef.current.update(withDefaultLayout(data), opts),
+    [withDefaultLayout],
   );
   const updateAsync = useCallback<typeof base.updateAsync>(
-    (data, opts) => baseRef.current.updateAsync(seed(data), opts),
-    [seed],
+    (data, opts) => baseRef.current.updateAsync(withDefaultLayout(data), opts),
+    [withDefaultLayout],
   );
   return { ...base, update, updateAsync };
 };
