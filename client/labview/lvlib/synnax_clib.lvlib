@@ -8,7 +8,26 @@
 </Property>
 	<Property Name="NI.LV.All.SourceOnly" Type="Bool">true</Property>
 	<Item Name="subvis" Type="Folder">
-		<Item Name="Error Converter (ErrCode or Status).vi" Type="VI" URL="../subvis/Error Converter (ErrCode or Status).vi"/>
+		<Item Name="writer" Type="Folder">
+			<Item Name="DBL" Type="Folder">
+				<Item Name="Write 1Ch 1Samp (DBL).vi" Type="VI" URL="../subvis/writer/DBL/Write 1Ch 1Samp (DBL).vi"/>
+				<Item Name="Write 1Ch NSamp (DBL).vi" Type="VI" URL="../subvis/writer/DBL/Write 1Ch NSamp (DBL).vi"/>
+				<Item Name="Write Base DBL.vi" Type="VI" URL="../subvis/writer/DBL/Write Base DBL.vi"/>
+				<Item Name="Write NCh 1Samp (DBL).vi" Type="VI" URL="../subvis/writer/DBL/Write NCh 1Samp (DBL).vi"/>
+				<Item Name="Write NCh NSamp (DBL).vi" Type="VI" URL="../subvis/writer/DBL/Write NCh NSamp (DBL).vi"/>
+			</Item>
+			<Item Name="I32" Type="Folder">
+				<Item Name="Write 1Ch 1Samp (I32).vi" Type="VI" URL="../subvis/writer/I32/Write 1Ch 1Samp (I32).vi"/>
+				<Item Name="Write 1Ch NSamp (I32).vi" Type="VI" URL="../subvis/writer/I32/Write 1Ch NSamp (I32).vi"/>
+				<Item Name="Write Base I32.vi" Type="VI" URL="../subvis/writer/I32/Write Base I32.vi"/>
+				<Item Name="Write NCh 1Samp (I32).vi" Type="VI" URL="../subvis/writer/I32/Write NCh 1Samp (I32).vi"/>
+				<Item Name="Write NCh NSamp (I32).vi" Type="VI" URL="../subvis/writer/I32/Write NCh NSamp (I32).vi"/>
+			</Item>
+		</Item>
+		<Item Name="Error Converter.vi" Type="VI" URL="../subvis/Error Converter.vi"/>
+		<Item Name="Timestamp Conversion Array.vi" Type="VI" URL="../subvis/Timestamp Conversion Array.vi"/>
+		<Item Name="Timestamp Conversion Poly.vi" Type="VI" URL="../subvis/Timestamp Conversion Poly.vi"/>
+		<Item Name="Timestamp Conversion Single.vi" Type="VI" URL="../subvis/Timestamp Conversion Single.vi"/>
 	</Item>
 	<Item Name="typedef" Type="Folder">
 		<Item Name="connection_config.ctl" Type="VI" URL="../typedefs/connection_config.ctl"/>
