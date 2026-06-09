@@ -64,7 +64,6 @@ const DEFAULT_STATE = {
   selectedText: "",
   selectedLines: [],
   computedLineHeight: 16,
-  entryCount: 0,
 };
 
 const setupAether = (overrides: Record<string, unknown> = {}) => {
@@ -103,7 +102,7 @@ describe("log/Base", () => {
     });
 
     it("should render the live button when not empty", () => {
-      setupAether({ empty: false, entryCount: 10 });
+      setupAether({ empty: false });
       const { container } = renderLog();
       const liveButton = container.querySelector(".pluto-log__live");
       expect(liveButton).not.toBeNull();
@@ -281,7 +280,6 @@ describe("log/Base", () => {
     const PRIMED_STATE = {
       ...DEFAULT_STATE,
       empty: false,
-      entryCount: 10,
       selectionStart: 2,
       selectionEnd: 7,
       selectedText: "primed",
@@ -308,33 +306,33 @@ describe("log/Base", () => {
     };
 
     const isSelectAll = (r: Record<string, unknown>) =>
-      r.selectionStart === 0 && r.selectionEnd === 9;
+      r.selectionStart === 0 && r.selectionEnd === Number.MAX_SAFE_INTEGER;
     const isClearSelection = (r: Record<string, unknown>) =>
       r.selectionStart === -1 && r.selectionEnd === -1 && r.selectedText === "";
 
     it("should fire setState selecting all entries on Ctrl+A when enableTriggers is true", () => {
-      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      const { setState } = setupAether({ empty: false });
       renderLog({ enableTriggers: true });
       fireCtrlA();
       expect(findUpdaterResult(setState, isSelectAll)).toBeDefined();
     });
 
     it("should not fire setState on Ctrl+A when enableTriggers returns false", () => {
-      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      const { setState } = setupAether({ empty: false });
       renderLog({ enableTriggers: () => false });
       fireCtrlA();
       expect(findUpdaterResult(setState, isSelectAll)).toBeUndefined();
     });
 
     it("should fire setState selecting all on Ctrl+A when enableTriggers is undefined", () => {
-      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      const { setState } = setupAether({ empty: false });
       renderLog();
       fireCtrlA();
       expect(findUpdaterResult(setState, isSelectAll)).toBeDefined();
     });
 
     it("should clear selection on Escape when enableTriggers is true", () => {
-      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      const { setState } = setupAether({ empty: false });
       renderLog({ enableTriggers: true });
       fireEvent.keyDown(document.body, { code: "Escape" });
       fireEvent.keyUp(document.body, { code: "Escape" });
@@ -342,7 +340,7 @@ describe("log/Base", () => {
     });
 
     it("should not clear selection on Escape when enableTriggers returns false", () => {
-      const { setState } = setupAether({ empty: false, entryCount: 10 });
+      const { setState } = setupAether({ empty: false });
       renderLog({ enableTriggers: () => false });
       fireEvent.keyDown(document.body, { code: "Escape" });
       fireEvent.keyUp(document.body, { code: "Escape" });

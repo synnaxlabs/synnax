@@ -170,9 +170,7 @@ class LogLifecycle(ConsoleCase):
         assert log.wait_until_streaming(), (
             "Log should stream entries from a timestamp channel"
         )
-        assert log.wait_for_entry_count(1) >= 1, (
-            "Log should render entries from a timestamp channel"
-        )
+        assert not log.is_empty(), "Log should render entries from a timestamp channel"
 
     def test_virtual_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a virtual channel and that log data
