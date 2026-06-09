@@ -242,8 +242,8 @@ func (s *Service) NewEnforcer(tx gorp.Tx) *Enforcer {
 	}
 }
 
-// Enforce implements the access.Enforcer interface. It checks both direct user policies
-// and policies from all roles assigned to the user.
+// Enforce checks both direct user policies and policies from all roles assigned to the
+// user.
 func (e *Enforcer) Enforce(ctx context.Context, req access.Request) error {
 	v, err := e.retrievePolicies(ctx, req.Subject)
 	if err != nil {
