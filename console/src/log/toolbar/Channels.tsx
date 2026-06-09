@@ -226,8 +226,6 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement => {
   );
   const { data: retrieved } = Channel.useRetrieveMultiple({ keys: channelKeys });
 
-  // Repoint the row's entry at the new channel in place, preserving its position and
-  // display config.
   const handleChannelChange = useCallback(
     (prevKey: channel.Key, nextKey: channel.Key) =>
       apply(log.swapChannel({ from: prevKey, to: nextKey })),

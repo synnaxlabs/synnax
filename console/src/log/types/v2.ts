@@ -21,25 +21,9 @@ export const toolbarStateZ = v1.toolbarStateZ;
 export type ToolbarState = v1.ToolbarState;
 export const ZERO_TOOLBAR_STATE = v1.ZERO_TOOLBAR_STATE;
 
-export const ZERO_CHANNEL_ENTRY: log.ChannelEntry = {
-  channel: 0,
-  color: color.ZERO,
-  notation: "standard",
-  precision: -1,
-  alias: "",
-  timestamp: { format: "preciseDate", tz: "local" },
-};
-
-// pendingUploadZ is the typed log body needed to upload a not-yet-synced log on first
-// render. name is omitted because the live name lives in Layout.
 export const pendingUploadZ = log.logZ.omit({ name: true });
 export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
-// v2 removes the document body (channels, timestamp precision, display flags) from
-// Console state; those fields are owned by the Pluto flux store and round-trip to the
-// server. The slice keeps only UI state (the toolbar tab). Legacy state that was never
-// synced to the server has its body parked in pendingUpload so it can be re-created on
-// first render.
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),

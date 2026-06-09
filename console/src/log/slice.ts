@@ -16,7 +16,6 @@ export type SliceState = latest.SliceState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
 export type PendingUpload = latest.PendingUpload;
-export const ZERO_CHANNEL_ENTRY = latest.ZERO_CHANNEL_ENTRY;
 export const ZERO_TOOLBAR_STATE = latest.ZERO_TOOLBAR_STATE;
 export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;

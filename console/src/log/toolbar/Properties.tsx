@@ -9,41 +9,48 @@
 
 import { log } from "@synnaxlabs/client";
 import { Access, Flex, Input, Log } from "@synnaxlabs/pluto";
+import { type bounds } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
+
+import { CSS } from "@/css";
+
+const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 4 };
 
 export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
+export const Properties = ({ layoutKey: key }: PropertiesProps): ReactElement => {
   const { dispatch } = Log.useDispatch();
-  const showChannelNames = Log.useSelectShowChannelNames({ key: layoutKey });
-  const showReceiptTimestamp = Log.useSelectShowReceiptTimestamp({ key: layoutKey });
-  const timestampPrecision = Log.useSelectTimestampPrecision({ key: layoutKey });
-  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
+  const showChannelNames = Log.useSelectShowChannelNames({ key });
+  const showReceiptTimestamp = Log.useSelectShowReceiptTimestamp({ key });
+  const timestampPrecision = Log.useSelectTimestampPrecision({ key });
+  const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
   const apply = useCallback(
-    (action: log.Action) => dispatch({ key: layoutKey, actions: [action] }),
-    [dispatch, layoutKey],
+    (action: log.Action) => dispatch({ key, actions: [action] }),
+    [dispatch, key],
   );
 
   const handlePrecisionChange = useCallback(
-    (v: number) => apply(log.setTimestampPrecision({ timestampPrecision: v })),
+    (timestampPrecision: number) =>
+      apply(log.setTimestampPrecision({ timestampPrecision })),
     [apply],
   );
 
   const handleShowChannelNamesChange = useCallback(
-    (v: boolean) => apply(log.setShowChannelNames({ showChannelNames: v })),
+    (showChannelNames: boolean) => apply(log.setShowChannelNames({ showChannelNames })),
     [apply],
   );
 
   const handleShowReceiptTimestampChange = useCallback(
-    (v: boolean) => apply(log.setShowReceiptTimestamp({ showReceiptTimestamp: v })),
+    (showReceiptTimestamp: boolean) =>
+      apply(log.setShowReceiptTimestamp({ showReceiptTimestamp })),
     [apply],
   );
 
   return (
-    <Flex.Box x className="console-log__toolbar-properties">
+    <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
       <Input.Item label="Show Receipt Timestamp">
         <Input.Switch
           value={showReceiptTimestamp}
@@ -56,7 +63,7 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
           value={timestampPrecision}
           onChange={handlePrecisionChange}
           resetValue={0}
-          bounds={{ lower: 0, upper: 4 }}
+          bounds={RECEIPT_TIMESTAMP_PRECISION_BOUNDS}
           disabled={!hasEditPermission}
         />
       </Input.Item>

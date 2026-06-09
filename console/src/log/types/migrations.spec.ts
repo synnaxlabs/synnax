@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
@@ -37,8 +38,8 @@ describe("log type migrations", () => {
         remoteCreated: false,
       });
       expect(migrated.pendingUpload?.channels).toEqual([
-        { ...v2.ZERO_CHANNEL_ENTRY, channel: 1 },
-        { ...v2.ZERO_CHANNEL_ENTRY, channel: 2 },
+        log.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
+        log.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
       ]);
     });
 
@@ -50,7 +51,7 @@ describe("log type migrations", () => {
         timestampPrecision: 2,
         showChannelNames: false,
         channels: [
-          { ...v1.ZERO_CHANNEL_ENTRY, channel: 1, color: "#ff0000", precision: 3 },
+          v1.channelEntryZ.parse({ channel: 1, color: "#ff0000", precision: 3 }),
         ],
       });
       expect(migrated.pendingUpload).toMatchObject({
@@ -70,7 +71,7 @@ describe("log type migrations", () => {
         ...v1.ZERO_STATE,
         key: "test",
         remoteCreated: true,
-        channels: [{ ...v1.ZERO_CHANNEL_ENTRY, channel: 1 }],
+        channels: [v1.channelEntryZ.parse({ channel: 1 })],
       });
       expect(migrated.pendingUpload).toBeUndefined();
     });
@@ -91,7 +92,7 @@ describe("log type migrations", () => {
         ...v1.ZERO_STATE,
         key: "test",
         remoteCreated: false,
-        channels: [{ ...v1.ZERO_CHANNEL_ENTRY, channel: 1, color: channelColor }],
+        channels: [v1.channelEntryZ.parse({ channel: 1, color: channelColor })],
       }).pendingUpload?.channels[0].color;
 
     it("should convert an empty-string color to color.ZERO", () => {
@@ -116,7 +117,7 @@ describe("log type migrations", () => {
             ...v1.ZERO_STATE,
             key: "test",
             remoteCreated: false,
-            channels: [{ ...v1.ZERO_CHANNEL_ENTRY, channel: 1, color: "" }],
+            channels: [v1.channelEntryZ.parse({ channel: 1, color: "" })],
           },
         },
       });

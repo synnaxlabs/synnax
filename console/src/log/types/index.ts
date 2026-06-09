@@ -19,7 +19,6 @@ export type State = v2.State;
 export type SliceState = v2.SliceState;
 export const ZERO_SLICE_STATE = v2.ZERO_SLICE_STATE;
 export const ZERO_STATE = v2.ZERO_STATE;
-export const ZERO_CHANNEL_ENTRY = v2.ZERO_CHANNEL_ENTRY;
 export type ToolbarTab = v2.ToolbarTab;
 export type ToolbarState = v2.ToolbarState;
 export const ZERO_TOOLBAR_STATE = v2.ZERO_TOOLBAR_STATE;
