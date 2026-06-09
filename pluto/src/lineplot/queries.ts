@@ -521,14 +521,10 @@ export interface CreateParams extends lineplot.New {
   workspace?: workspace.Key;
 }
 
-export interface CreateOutput extends lineplot.LinePlot {
-  workspace?: workspace.Key;
-}
-
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
-  CreateOutput
+  lineplot.LinePlot
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
@@ -538,7 +534,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const workspace = data.workspace ?? uuid.ZERO;
     const created = await client.lineplots.create(workspace, optimistic);
     store.lineplots.set(created);
-    return { ...created, workspace };
+    return created;
   },
 });
 
