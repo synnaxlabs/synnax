@@ -122,8 +122,8 @@ type Transport struct {
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
 	LogDelete   freighter.UnaryServer[log.DeleteRequest, types.Nil]
-	LogRename   freighter.UnaryServer[log.RenameRequest, types.Nil]
 	LogSetData  freighter.UnaryServer[log.SetDataRequest, types.Nil]
+	LogDispatch freighter.UnaryServer[log.DispatchRequest, types.Nil]
 	// TABLE
 	TableCreate   freighter.UnaryServer[table.CreateRequest, table.CreateResponse]
 	TableRetrieve freighter.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]
@@ -319,8 +319,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.LogCreate,
 		t.LogRetrieve,
 		t.LogDelete,
-		t.LogRename,
 		t.LogSetData,
+		t.LogDispatch,
 
 		// TABLE
 		t.TableCreate,
@@ -469,8 +469,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.LogCreate.BindHandler(l.Log.Create)
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
 	t.LogDelete.BindHandler(l.Log.Delete)
-	t.LogRename.BindHandler(l.Log.Rename)
 	t.LogSetData.BindHandler(l.Log.SetData)
+	t.LogDispatch.BindHandler(l.Log.Dispatch)
 
 	// TABLE
 	t.TableCreate.BindHandler(l.Table.Create)
