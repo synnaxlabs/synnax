@@ -33,14 +33,14 @@ type UnaryServer[RQ, RS freighter.Payload] struct {
 	// not nil.
 	Address address.Address
 	// Handler is the handler that is called when a request is received.
-	Handler func(context.Context, RQ) (RS, error)
+	Handler freighter.UnaryHandler[RQ, RS]
 	mu      sync.RWMutex
 	freighter.Reporter
 	freighter.MiddlewareCollector
 }
 
 // BindHandler implements the freighter.Unary interface.
-func (u *UnaryServer[RQ, RS]) BindHandler(handler func(context.Context, RQ) (RS, error)) {
+func (u *UnaryServer[RQ, RS]) BindHandler(handler freighter.UnaryHandler[RQ, RS]) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	u.Handler = handler
