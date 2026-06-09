@@ -17,7 +17,6 @@ import { createTestClient } from "@/testutil/client";
 const newProjectSchematic = async (client: ReturnType<typeof createTestClient>) => {
   const ws = await client.projects.create({ name: "dispatch" });
   const schem = await client.schematics.create(ws.key, {
-    ...schematic.ZERO_NEW,
     name: "dispatch",
   });
   return { ws, schem };
@@ -32,7 +31,6 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
         name: "Schematic",
       });
       expect(schem.name).toEqual("Schematic");
@@ -48,7 +46,6 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
         name: "Schematic",
       });
       await client.schematics.rename(schem.key, "Schematic2");
@@ -63,7 +60,6 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
         name: "Schematic",
       });
       await client.schematics.delete(schem.key);
@@ -77,7 +73,7 @@ describe("Schematic", () => {
     test("preserves arbitrary key casing within config values", async () => {
       const ws = await client.projects.create({ name: "CaseTest" });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
+        name: "CaseTest",
         configs: {
           n1: {
             camelCaseKey: "value1",
@@ -113,7 +109,6 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
         name: "Schematic",
       });
       const schem2 = await client.schematics.copy({
@@ -131,7 +126,6 @@ describe("Schematic", () => {
           name: "Schematic",
         });
         const schem = await client.schematics.create(ws.key, {
-          ...schematic.ZERO_NEW,
           name: "Schematic",
         });
         const schem2 = await client.schematics.copy({

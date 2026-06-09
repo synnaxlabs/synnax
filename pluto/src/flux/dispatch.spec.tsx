@@ -25,7 +25,6 @@ const createSchem = async () => {
     name: `ws_${uuid.create()}`,
   });
   return await client.schematics.create(ws.key, {
-    ...schematic.ZERO_NEW,
     name: `dispatch_test_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -510,7 +509,7 @@ describe("Flux.createDispatch", () => {
         dispatch: td.useDispatch(),
         undo: td.useUndo({ key: k }),
       }));
-      // Seed an existing config so the next two setConfigs hit the
+      // Establish an existing config so the next two setConfigs hit the
       // "existing != null" branch and capture non-empty inverses. setNode's
       // kind differs from "set_config", so this entry won't coalesce with
       // the burst that follows.

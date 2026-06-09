@@ -8,32 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel, lineplot } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
-import { type measure } from "@synnaxlabs/pluto/ether";
-import { array, deep, record, unique } from "@synnaxlabs/x";
+import { type lineplot } from "@synnaxlabs/pluto/ether";
+import { array, deep } from "@synnaxlabs/x";
 
 import * as latest from "@/lineplot/types";
+import { type RootState } from "@/store";
 
-export const shouldDisplayAxis = (key: lineplot.AxisKey, state: State): boolean => {
-  if (["x1", "y1"].includes(key)) return true;
-  const channels = state.channels[key];
-  if (Array.isArray(channels)) return channels.length > 0;
-  return channels !== 0;
-};
-
-export type TitleState = latest.TitleState;
-export type LegendState = latest.LegendState;
 export type ViewportState = latest.ViewportState;
 export type SelectionState = latest.SelectionState;
-export type AxisState = latest.AxisState;
-export type AxesState = latest.AxesState;
-export type LineState = latest.LineState;
-export type LinesState = latest.LinesState;
-export type RuleState = latest.RuleState;
-export type RulesState = latest.RulesState;
-export type ChannelsState = latest.ChannelsState;
-export type RangesState = latest.RangesState;
 export type AnnotationsState = latest.AnnotationsState;
 export type State = latest.State;
 export type ToolbarTab = latest.ToolbarTab;
@@ -41,17 +24,13 @@ export type ToolbarState = latest.ToolbarState;
 export type ClickMode = latest.ClickMode;
 export type ControlState = latest.ControlState;
 export type SliceState = latest.SliceState;
+export type PendingUpload = latest.PendingUpload;
 export const ZERO_STATE = latest.ZERO_STATE;
-export const ZERO_CHANNELS_STATE = latest.ZERO_CHANNELS_STATE;
 export const ZERO_ANNOTATIONS_STATE = latest.ZERO_ANNOTATIONS_STATE;
-export const ZERO_RULE_STATE = latest.ZERO_RULE_STATE;
-export const DEFAULT_RULE_COLOR = latest.DEFAULT_RULE_COLOR;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
 export const anyStateZ = latest.anyStateZ;
-export const toWire = latest.toWire;
-export const fromWire = latest.fromWire;
 
 export const SLICE_NAME = "line";
 
@@ -79,60 +58,6 @@ export interface SetSelectionPayload extends SelectionState {
   key: string;
 }
 
-export interface SetYChannelsPayload {
-  key: string;
-  axisKey: lineplot.YAxisKey;
-  channels: channel.Key[];
-  mode?: "set" | "add";
-}
-
-export interface SetXChannelPayload {
-  key: string;
-  axisKey: lineplot.XAxisKey;
-  channel: channel.Key;
-}
-
-export interface SetRangesPayload {
-  key: string;
-  axisKey: lineplot.XAxisKey;
-  ranges: string[];
-  mode?: "set" | "add";
-}
-
-export interface SetLinePayload {
-  key: string;
-  line:
-    | (Partial<LineState> & { key: string })
-    | Array<Partial<LineState> & { key: string }>;
-}
-
-export interface SetTitlePayload {
-  key: string;
-  title: Partial<TitleState>;
-}
-
-export interface SetLegendPayload {
-  key: string;
-  legend: Partial<LegendState>;
-}
-
-export interface SetAxisPayload {
-  key: string;
-  axisKey: lineplot.AxisKey;
-  axis: Partial<AxisState>;
-  triggerRender?: boolean;
-}
-
-export interface SetRulePayload {
-  key: string;
-  rule: Partial<RuleState> & { key: string };
-}
-
-export interface RemoveRulePayload {
-  key: string;
-  ruleKeys: string[];
-}
-
 export interface SetActiveToolbarTabPayload {
   key: string;
   tab: ToolbarTab;
@@ -153,23 +78,13 @@ export interface SelectRulePayload {
   ruleKey: string;
 }
 
-interface TypedLineKey {
-  range: string;
-  xAxis: lineplot.XAxisKey;
-  yAxis: lineplot.YAxisKey;
-  channels: {
-    x: channel.Key;
-    y: channel.Key;
-  };
-}
-
 export interface SetRemoteCreatedPayload {
   key: string;
 }
 
 export interface SetMeasureModePayload {
   key: string;
-  mode: measure.Mode;
+  mode: lineplot.measure.Mode;
 }
 
 export interface SetRangeAnnotationsVisiblePayload {
@@ -177,55 +92,15 @@ export interface SetRangeAnnotationsVisiblePayload {
   visible: boolean;
 }
 
-export const typedLineKeyToString = (key: TypedLineKey): string =>
-  `${key.yAxis}---${key.xAxis}---${key.range}---${key.channels.x}---${key.channels.y}`;
+export interface ClearPendingUploadPayload {
+  key: string;
+}
 
-export const typedLineKeyFromString = (key: string): TypedLineKey => {
-  const [yAxis, xAxis, range, x, y] = key.split("---");
-  return {
-    range,
-    xAxis: xAxis as lineplot.XAxisKey,
-    yAxis: yAxis as lineplot.YAxisKey,
-    channels: {
-      x: Number(x),
-      y: Number(y),
-    },
-  };
-};
-
-const createTypedLineKeys = (state: State): TypedLineKey[] =>
-  Object.entries(state.ranges)
-    .map(([xAxis, ranges]) =>
-      ranges.flatMap((range) =>
-        Object.entries(state.channels)
-          .filter(([axis]) => !lineplot.X_AXIS_KEYS.includes(axis as lineplot.XAxisKey))
-          .flatMap(([yAxis, yChannels]) => {
-            const xChannel = state.channels[xAxis as lineplot.XAxisKey];
-            return (yChannels as channel.Key[]).map((yChannel) => ({
-              range,
-              xAxis: xAxis as lineplot.XAxisKey,
-              yAxis: yAxis as lineplot.YAxisKey,
-              channels: {
-                x: xChannel,
-                y: yChannel,
-              },
-            }));
-          }),
-      ),
-    )
-    .flat();
-
-const updateLines = (state: State): LineState[] => {
-  const keys = createTypedLineKeys(state);
-  const lines: LineState[] = [];
-  unique.unique(keys).forEach((key) => {
-    const strKey = typedLineKeyToString(key);
-    const existing = state.lines.find((line) => strKey === line.key);
-    if (existing != null) lines.push(existing);
-    else lines.push({ key: strKey, ...latest.ZERO_LINE_STATE });
-  });
-  return lines;
-};
+export interface SetLineVisiblePayload {
+  key: string;
+  lineKey: string;
+  visible: boolean;
+}
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -238,7 +113,6 @@ export const { actions, reducer } = createSlice({
       const existing = state.plots[layoutKey];
       if (existing != null && existing.version === migrated.version) return;
       state.plots[layoutKey] = migrated;
-      state.plots[layoutKey].lines = updateLines(migrated);
     },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((k) => {
@@ -256,10 +130,7 @@ export const { actions, reducer } = createSlice({
     },
     storeViewport: (state, { payload }: PayloadAction<StoreViewportPayload>) => {
       const p = state.plots[payload.key];
-      p.viewport = {
-        ...state.plots[payload.key].viewport,
-        ...payload,
-      };
+      p.viewport = { ...state.plots[payload.key].viewport, ...payload };
       p.selection = { ...latest.ZERO_SELECTION_STATE };
     },
     setSelection: (state, { payload }: PayloadAction<SetSelectionPayload>) => {
@@ -267,77 +138,6 @@ export const { actions, reducer } = createSlice({
         ...state.plots[payload.key].selection,
         ...payload,
       };
-    },
-    setYChannels: (state, { payload }: PayloadAction<SetYChannelsPayload>) => {
-      const { key: layoutKey, axisKey, channels, mode = "set" } = payload;
-      const p = state.plots[layoutKey];
-      const prevShouldDisplay = shouldDisplayAxis(axisKey, p);
-      if (mode === "set") p.channels[axisKey] = channels;
-      else p.channels[axisKey] = unique.unique([...p.channels[axisKey], ...channels]);
-      const nextShouldDisplay = shouldDisplayAxis(axisKey, p);
-      p.lines = updateLines(p);
-      p.viewport = deep.copy(latest.ZERO_VIEWPORT_STATE);
-      p.axes.hasHadChannelSet = true;
-      if (prevShouldDisplay !== nextShouldDisplay) p.axes.renderTrigger += 1;
-    },
-    setXChannel: (state, { payload }: PayloadAction<SetXChannelPayload>) => {
-      const { key: layoutKey, axisKey, channel } = payload;
-      const p = state.plots[layoutKey];
-      p.channels[axisKey] = channel;
-      p.axes.renderTrigger += 1;
-      p.axes.hasHadChannelSet = true;
-      p.lines = updateLines(p);
-    },
-    setRanges: (state, { payload }: PayloadAction<SetRangesPayload>) => {
-      const { key: layoutKey, axisKey, ranges, mode = "set" } = payload;
-      const p = state.plots[layoutKey];
-      if (mode === "set") p.ranges[axisKey] = ranges;
-      else if (mode === "add")
-        p.ranges[axisKey] = unique.unique([...p.ranges[axisKey], ...ranges]);
-      p.axes.renderTrigger += 1;
-      p.lines = updateLines(p);
-    },
-    setLine: (state, { payload }: PayloadAction<SetLinePayload>) => {
-      const { key: layoutKey, line: line_ } = payload;
-      const plot = state.plots[layoutKey];
-      array.toArray(line_).forEach((line) => {
-        const idx = plot.lines.findIndex((l) => l.key === line.key);
-        if (idx >= 0) plot.lines[idx] = { ...plot.lines[idx], ...line };
-      });
-    },
-    setAxis: (state, { payload }: PayloadAction<SetAxisPayload>) => {
-      const { key: layoutKey, axisKey, axis, triggerRender = true } = payload;
-      const plot = state.plots[layoutKey];
-      plot.axes.axes[axisKey] = { ...plot.axes.axes[axisKey], ...axis, key: axisKey };
-      if (triggerRender) plot.axes.renderTrigger += 1;
-    },
-    setTitle: (state, { payload }: PayloadAction<SetTitlePayload>) => {
-      const { key: layoutKey, title } = payload;
-      const plot = state.plots[layoutKey];
-      plot.title = { ...plot.title, ...title };
-    },
-    setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
-      const { key: layoutKey, legend } = payload;
-      const plot = state.plots[layoutKey];
-      plot.legend = { ...plot.legend, ...legend };
-    },
-    setRule: (state, { payload }: PayloadAction<SetRulePayload>) => {
-      const { key: layoutKey, rule } = payload;
-      const plot = state.plots[layoutKey];
-      const idx = plot.rules.findIndex((r) => r.key === rule.key);
-      if (idx >= 0)
-        plot.rules[idx] = { ...plot.rules[idx], ...record.purgeUndefined(rule) };
-      else
-        plot.rules.push({
-          ...latest.ZERO_RULE_STATE,
-          label: `Rule ${plot.rules.length + 1}`,
-          ...rule,
-        });
-    },
-    removeRule: (state, { payload }: PayloadAction<RemoveRulePayload>) => {
-      const { key: layoutKey, ruleKeys } = payload;
-      const plot = state.plots[layoutKey];
-      plot.rules = plot.rules.filter((rule) => !ruleKeys.includes(rule.key));
     },
     setActiveToolbarTab: (
       state,
@@ -377,21 +177,28 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.plots[payload.key].annotations.visible = payload.visible;
     },
+    clearPendingUpload: (
+      state,
+      { payload }: PayloadAction<ClearPendingUploadPayload>,
+    ) => {
+      const plot = state.plots[payload.key];
+      if (plot == null) return;
+      plot.pendingUpload = undefined;
+    },
+    setLineVisible: (state, { payload }: PayloadAction<SetLineVisiblePayload>) => {
+      const plot = state.plots[payload.key];
+      if (plot == null) return;
+      const hidden = new Set(plot.hiddenLines);
+      if (payload.visible) hidden.delete(payload.lineKey);
+      else hidden.add(payload.lineKey);
+      plot.hiddenLines = Array.from(hidden);
+    },
   },
 });
 
 export const {
   remove,
   setViewport,
-  setYChannels,
-  setXChannel,
-  setRanges,
-  setLine,
-  setAxis,
-  setTitle,
-  setLegend,
-  setRule,
-  removeRule,
   setActiveToolbarTab,
   setControlState,
   storeViewport,
@@ -401,7 +208,21 @@ export const {
   setSelection,
   setMeasureMode,
   setRangeAnnotationsVisible,
+  clearPendingUpload,
+  setLineVisible,
   create: internalCreate,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
+
+const purgeState = (state: latest.State): latest.State => {
+  state.hiddenLines = [];
+  return state;
+};
+
+export const purgeSliceState = (state: RootState): RootState => {
+  Object.values(state[SLICE_NAME].plots).forEach(purgeState);
+  return state;
+};
+
+export const PERSIST_EXCLUDE = [purgeSliceState];

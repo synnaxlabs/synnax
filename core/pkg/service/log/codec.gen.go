@@ -75,7 +75,6 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(lv.RemoteCreated)
 	w.Int32(int32(lv.TimestampPrecision))
 	w.Bool(lv.ShowChannelNames)
 	w.Bool(lv.ShowReceiptTimestamp)
@@ -107,9 +106,6 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-	}
-	if lv.RemoteCreated, err = r.Bool(); err != nil {
-		return err
 	}
 	if lv.TimestampPrecision, err = r.Int32(); err != nil {
 		return err

@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, type project, table } from "@synnaxlabs/client";
+import { NotFoundError, type project, table } from "@synnaxlabs/client";
 import { array, compare, id, uuid, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
 import { Cell } from "@/table/cells";
 import { Theming } from "@/theming";
 
@@ -54,16 +53,8 @@ export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
   Flux.createRetrieve<RetrieveQuery, table.Table, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
-    mountListeners: ({ store, query: { key }, onChange }) => [
+    mountListeners: ({ store, query: { key }, onChange }) =>
       store.tables.onSet(onChange, key),
-      // Names propagate through the ontology resources store; this listener
-      // forwards the renamed name back into the retrieved snapshot so consumers
-      // observing the table see the new name without a full refetch.
-      store.resources.onSet(
-        (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
-        ontology.idToString(table.ontologyID(key)),
-      ),
-    ],
   });
 
 export const useRetrieveObservableName = ({
@@ -178,14 +169,10 @@ export interface CreateParams extends table.New {
   project?: project.Key;
 }
 
-export interface CreateOutput extends table.Table {
-  project?: project.Key;
-}
-
-// seedDefaultLayout returns a fresh 2x2 grid of empty text cells so a caller
+// createDefaultLayout returns a fresh 2x2 grid of empty text cells so a caller
 // that creates a table with no structural data opens onto a usable starter
 // layout instead of a blank canvas.
-const seedDefaultLayout = (
+const createDefaultLayout = (
   theme: ReturnType<typeof Theming.use>,
 ): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
@@ -205,18 +192,17 @@ const seedDefaultLayout = (
 const { useUpdate: useCreateBase } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
-  CreateOutput
+  table.Table
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const { project, ...rest } = data;
-    rest.key ??= uuid.create();
-    const created = rest as table.Table;
-    rollbacks.push(store.tables.set(created.key, created));
-    const t = await client.tables.create(project ?? uuid.ZERO, created);
-    store.tables.set(t);
-    return { ...t, project };
+    const optimistic = table.newZ.parse(data);
+    rollbacks.push(store.tables.set(optimistic));
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.tables.create(project, optimistic);
+    store.tables.set(created);
+    return created;
   },
 });
 
@@ -227,20 +213,20 @@ export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
   const themeRef = useSyncedRef(Theming.use());
-  const seed = useCallback(
+  const withDefaultLayout = useCallback(
     (data: CreateParams): CreateParams =>
       (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
-        ? { ...data, ...seedDefaultLayout(themeRef.current) }
+        ? { ...data, ...createDefaultLayout(themeRef.current) }
         : data,
     [],
   );
   const update = useCallback<typeof base.update>(
-    (data, opts) => baseRef.current.update(seed(data), opts),
-    [seed],
+    (data, opts) => baseRef.current.update(withDefaultLayout(data), opts),
+    [withDefaultLayout],
   );
   const updateAsync = useCallback<typeof base.updateAsync>(
-    (data, opts) => baseRef.current.updateAsync(seed(data), opts),
-    [seed],
+    (data, opts) => baseRef.current.updateAsync(withDefaultLayout(data), opts),
+    [withDefaultLayout],
   );
   return { ...base, update, updateAsync };
 };

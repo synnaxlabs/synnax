@@ -14,190 +14,121 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   actions,
+  type PendingUpload,
   reducer,
   SLICE_NAME,
-  type StoreState,
-  ZERO_CHANNEL_ENTRY,
+  type SliceState,
   ZERO_SLICE_STATE,
   ZERO_STATE,
 } from "@/log/slice";
 import { stateZ } from "@/log/types";
 
-const RED = color.construct("#ff0000");
+const PENDING: PendingUpload = log.newZ.omit({ name: true }).parse({
+  channels: [log.channelEntryZ.parse({ channel: 42, color: color.ZERO })],
+});
 
-const ch = (channel: number) => ({ ...ZERO_CHANNEL_ENTRY, channel });
+const storeWith = (slice: SliceState) =>
+  configureStore({
+    reducer: { [SLICE_NAME]: reducer },
+    preloadedState: { [SLICE_NAME]: slice },
+  });
 
 describe("Log Slice", () => {
-  let store: ReturnType<typeof configureStore<StoreState>>;
+  let store: ReturnType<typeof storeWith>;
 
   beforeEach(() => {
-    store = configureStore({
-      reducer: { [SLICE_NAME]: reducer },
-      preloadedState: { [SLICE_NAME]: ZERO_SLICE_STATE },
-    });
+    store = storeWith(ZERO_SLICE_STATE);
   });
 
   describe("create", () => {
-    it("should create a new log", () => {
-      const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
-      const state = store.getState()[SLICE_NAME];
-      expect(state.logs[key]).toBeDefined();
-      expect(state.logs[key].key).toBe(key);
-      expect(state.logs[key].channels).toEqual([]);
+    it("should bootstrap session state from ZERO_STATE for the key", () => {
+      store.dispatch(actions.create({ key: "log-1" }));
+      expect(store.getState()[SLICE_NAME].logs["log-1"]).toEqual({
+        ...ZERO_STATE,
+        key: "log-1",
+      });
     });
 
     it("should create multiple logs independently", () => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "log-1" }));
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "log-2" }));
-      const state = store.getState()[SLICE_NAME];
-      expect(Object.keys(state.logs)).toHaveLength(2);
+      store.dispatch(actions.create({ key: "log-1" }));
+      store.dispatch(actions.create({ key: "log-2" }));
+      expect(Object.keys(store.getState()[SLICE_NAME].logs)).toHaveLength(2);
+    });
+
+    it("should not overwrite an existing entry", () => {
+      store.dispatch(actions.create({ key: "log-1" }));
+      store.dispatch(actions.setActiveToolbarTab({ key: "log-1", tab: "properties" }));
+      store.dispatch(actions.create({ key: "log-1" }));
+      expect(store.getState()[SLICE_NAME].logs["log-1"].toolbar.activeTab).toBe(
+        "properties",
+      );
     });
   });
 
-  describe("setTimestampPrecision", () => {
-    it("should update timestamp precision", () => {
-      const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
-      store.dispatch(actions.setTimestampPrecision({ key, timestampPrecision: 2 }));
-      expect(store.getState()[SLICE_NAME].logs[key].timestampPrecision).toBe(2);
+  describe("setActiveToolbarTab", () => {
+    it("should set the active toolbar tab", () => {
+      store.dispatch(actions.create({ key: "log-1" }));
+      store.dispatch(actions.setActiveToolbarTab({ key: "log-1", tab: "properties" }));
+      expect(store.getState()[SLICE_NAME].logs["log-1"].toolbar.activeTab).toBe(
+        "properties",
+      );
+    });
+
+    it("should be a no-op when the log does not exist", () => {
+      store.dispatch(actions.setActiveToolbarTab({ key: "absent", tab: "properties" }));
+      expect(store.getState()[SLICE_NAME].logs.absent).toBeUndefined();
     });
   });
 
-  describe("setChannelEntry", () => {
-    it("should update config for a channel entry", () => {
-      const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [ch(42)] }));
-      store.dispatch(
-        actions.setChannelEntry({ key, entry: { channel: 42, color: RED } }),
-      );
-      const entry = store.getState()[SLICE_NAME].logs[key].channels[0];
-      expect(entry).toEqual({ ...ZERO_CHANNEL_ENTRY, channel: 42, color: RED });
-    });
-
-    it("should merge partial updates into an existing entry", () => {
-      const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [ch(1)] }));
-      store.dispatch(
-        actions.setChannelEntry({
-          key,
-          entry: { channel: 1, color: RED, precision: 2 },
-        }),
-      );
-      store.dispatch(
-        actions.setChannelEntry({ key, entry: { channel: 1, precision: 4 } }),
-      );
-      const entry = store.getState()[SLICE_NAME].logs[key].channels[0];
-      expect(entry).toEqual({
-        channel: 1,
-        color: RED,
-        notation: "standard",
-        precision: 4,
-        alias: "",
-        timestamp: { format: "preciseDate", tz: "local" },
+  describe("clearPendingUpload", () => {
+    it("should clear a pending upload", () => {
+      const store = storeWith({
+        ...ZERO_SLICE_STATE,
+        logs: { "log-1": { ...ZERO_STATE, key: "log-1", pendingUpload: PENDING } },
       });
+      store.dispatch(actions.clearPendingUpload({ key: "log-1" }));
+      expect(store.getState()[SLICE_NAME].logs["log-1"].pendingUpload).toBeUndefined();
     });
-  });
 
-  describe("setShowChannelNames", () => {
-    it("should update showChannelNames", () => {
-      const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
-      expect(store.getState()[SLICE_NAME].logs[key].showChannelNames).toBe(true);
-      store.dispatch(actions.setShowChannelNames({ key, showChannelNames: false }));
-      expect(store.getState()[SLICE_NAME].logs[key].showChannelNames).toBe(false);
-    });
-  });
-
-  describe("addChannel", () => {
-    it("should append a channel entry to the list", () => {
-      const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
-      store.dispatch(actions.addChannel({ key, channelKey: 10 }));
-      store.dispatch(actions.addChannel({ key, channelKey: 20 }));
-      const channels = store.getState()[SLICE_NAME].logs[key].channels;
-      expect(channels).toEqual([ch(10), ch(20)]);
-    });
-  });
-
-  describe("removeChannelByIndex", () => {
-    it("should remove the channel at the given index", () => {
-      const key = "log-1";
-      store.dispatch(
-        actions.create({ ...ZERO_STATE, key, channels: [ch(1), ch(2), ch(3)] }),
-      );
-      store.dispatch(actions.removeChannelByIndex({ key, index: 1 }));
-      const channels = store.getState()[SLICE_NAME].logs[key].channels;
-      expect(channels).toEqual([ch(1), ch(3)]);
-    });
-  });
-
-  describe("setChannelAtIndex", () => {
-    it("should replace the channel key at the given index", () => {
-      const key = "log-1";
-      store.dispatch(
-        actions.create({ ...ZERO_STATE, key, channels: [ch(1), ch(2), ch(3)] }),
-      );
-      store.dispatch(actions.setChannelAtIndex({ key, index: 1, channelKey: 99 }));
-      const channels = store.getState()[SLICE_NAME].logs[key].channels;
-      expect(channels).toEqual([ch(1), ch(99), ch(3)]);
-    });
-  });
-
-  describe("setRemoteCreated", () => {
-    it("should mark the log as remotely created", () => {
-      const key = "log-1";
-      store.dispatch(actions.create({ ...ZERO_STATE, key }));
-      expect(store.getState()[SLICE_NAME].logs[key].remoteCreated).toBe(false);
-      store.dispatch(actions.setRemoteCreated({ key }));
-      expect(store.getState()[SLICE_NAME].logs[key].remoteCreated).toBe(true);
+    it("should be a no-op when the log does not exist", () => {
+      store.dispatch(actions.clearPendingUpload({ key: "absent" }));
+      expect(store.getState()[SLICE_NAME].logs.absent).toBeUndefined();
     });
   });
 
   describe("remove", () => {
     it("should remove a log by key", () => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "log-1" }));
+      store.dispatch(actions.create({ key: "log-1" }));
       store.dispatch(actions.remove({ keys: ["log-1"] }));
       expect(store.getState()[SLICE_NAME].logs["log-1"]).toBeUndefined();
     });
 
     it("should remove multiple logs at once", () => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "log-1" }));
-      store.dispatch(actions.create({ ...ZERO_STATE, key: "log-2" }));
+      store.dispatch(actions.create({ key: "log-1" }));
+      store.dispatch(actions.create({ key: "log-2" }));
       store.dispatch(actions.remove({ keys: ["log-1", "log-2"] }));
       expect(Object.keys(store.getState()[SLICE_NAME].logs)).toHaveLength(0);
     });
   });
 
   describe("stateZ schema", () => {
-    it("should accept a valid state", () => {
+    it("should accept the zero state", () => {
       expect(() => stateZ.parse(ZERO_STATE)).not.toThrow();
     });
 
-    it("should reject timestampPrecision above 3", () => {
-      expect(() => stateZ.parse({ ...ZERO_STATE, timestampPrecision: 4 })).toThrow();
-    });
-
-    it("should reject timestampPrecision below 0", () => {
-      expect(() => stateZ.parse({ ...ZERO_STATE, timestampPrecision: -1 })).toThrow();
-    });
-
-    it("should reject channel precision above 17", () => {
+    it("should accept a state with a pending upload", () => {
       expect(() =>
-        log.channelEntryZ.parse({ ...ZERO_CHANNEL_ENTRY, precision: 18 }),
-      ).toThrow();
+        stateZ.parse({ ...ZERO_STATE, key: "log-1", pendingUpload: PENDING }),
+      ).not.toThrow();
     });
 
-    it("should reject channel precision below -1", () => {
-      expect(() =>
-        log.channelEntryZ.parse({ ...ZERO_CHANNEL_ENTRY, precision: -2 }),
-      ).toThrow();
+    it("should default the toolbar when missing", () => {
+      const { toolbar: _toolbar, ...withoutToolbar } = ZERO_STATE;
+      expect(stateZ.parse(withoutToolbar).toolbar).toEqual(ZERO_STATE.toolbar);
     });
 
-    it("should default showChannelNames to true when missing", () => {
-      const { showChannelNames: _, ...withoutField } = ZERO_STATE;
-      const parsed = stateZ.parse(withoutField);
-      expect(parsed.showChannelNames).toBe(true);
+    it("should reject an incorrect version", () => {
+      expect(() => stateZ.parse({ ...ZERO_STATE, version: "1.0.0" })).toThrow();
     });
   });
 });

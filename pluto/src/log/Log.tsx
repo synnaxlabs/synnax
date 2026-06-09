@@ -7,264 +7,92 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/log/Log.css";
+import { type log } from "@synnaxlabs/client";
+import { primitive, TimeSpan } from "@synnaxlabs/x";
+import { type ReactElement, useCallback } from "react";
 
-import { box, location, strings } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
-
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { type Flex } from "@/flex";
-import { useCombinedRefs } from "@/hooks/ref";
-import { Icon } from "@/icon";
-import { use, type UseProps } from "@/log/use";
-import { Menu } from "@/menu";
-import { Status } from "@/status/base";
+import { streamMultiChannelLog } from "@/log/aether/telem/sources";
+import { Base, type BaseProps } from "@/log/Base";
+import { useRedo, useRetrieveSuspended, useUndo } from "@/log/queries";
 import { Triggers } from "@/triggers";
-import { Canvas } from "@/vis/canvas";
 
-const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
+const DEFAULT_RETENTION = TimeSpan.days(1);
+const PRELOAD = TimeSpan.seconds(30);
 
-type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
+type UndoRedoMode = "undo" | "redo" | "default";
 
-const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
-  selectAll: [["Control", "A"]],
-  clearSelection: [["Escape"]],
-  togglePause: [["H"]],
+const UNDO_REDO_CONFIG: Triggers.ModeConfig<UndoRedoMode> = {
+  undo: [["Control", "Z"]],
+  redo: [["Control", "Shift", "Z"]],
   default: [],
   defaultMode: "default",
 };
 
-const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
+const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
 
-export interface LogProps extends UseProps, Omit<Flex.BoxProps, "color"> {
-  emptyContent?: ReactElement;
-  extraContextMenuItems?: ReactNode;
-  enableTriggers?: boolean | (() => boolean);
-}
-
-export const Log = ({
-  aetherKey,
-  font,
-  className,
-  visible,
-  showChannelNames,
-  showReceiptTimestamp,
-  timestampPrecision,
-  channels,
-  emptyContent = (
-    <Status.Summary center level="h3" variant="disabled" hideIcon>
-      Empty Log
-    </Status.Summary>
-  ),
-  color,
-  telem,
-  extraContextMenuItems,
-  enableTriggers,
-  ...rest
-}: LogProps): ReactElement | null => {
-  const { state, setState } = use({
-    aetherKey,
-    font,
-    visible,
-    showChannelNames,
-    showReceiptTimestamp,
-    timestampPrecision,
-    channels,
-    color,
-    telem,
-  });
-
-  const {
-    scrolling,
-    empty,
-    selectedText,
-    selectedLines,
-    region,
-    visibleStart,
-    computedLineHeight,
-    entryCount,
-  } = state;
-
-  const resizeRef = Canvas.useRegion(
-    useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),
-  );
-  const containerRef = useRef<HTMLDivElement>(null);
-  const combinedRef = useCombinedRefs(resizeRef, containerRef);
-
-  const draggingRef = useRef(false);
-
-  const mouseYToEntryIndex = useCallback(
-    (clientY: number): number => {
-      if (computedLineHeight <= 0) return 0;
-      const localY = clientY - box.top(region);
-      const lineIndex = Math.floor((localY - 6) / computedLineHeight);
-      return Math.max(0, visibleStart + lineIndex);
-    },
-    [region, computedLineHeight, visibleStart],
-  );
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.button !== 0) return;
-      const idx = mouseYToEntryIndex(e.clientY);
-      draggingRef.current = true;
-      if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
-      else
-        setState((s) => {
-          if (s.selectionStart === idx && s.selectionEnd === idx)
-            return { ...s, selectionStart: -1, selectionEnd: -1 };
-          return { ...s, selectionStart: idx, selectionEnd: idx };
-        });
-    },
-    [mouseYToEntryIndex, setState],
-  );
-
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!draggingRef.current) return;
-      const idx = mouseYToEntryIndex(e.clientY);
-      setState((s) => ({ ...s, selectionEnd: idx }));
-    },
-    [mouseYToEntryIndex, setState],
-  );
-
-  const handleMouseUp = useCallback(() => {
-    draggingRef.current = false;
-  }, []);
-
-  const buildCopyHTML = useCallback((): string => {
-    const lines = selectedLines.map((l) => {
-      const escaped = strings.escapeHTML(l.text);
-      if (l.color.length === 0) return escaped;
-      // Preserve color and font when pasting into rich text editors.
-      return `<span style="color: ${strings.escapeHTML(l.color)}">${escaped}</span>`;
-    });
-    return `<pre style="font-family: monospace">${lines.join("\n")}</pre>`;
-  }, [selectedLines]);
-
-  const addStatus = Status.useAdder();
-  const notifyCopied = useCallback(
-    (count: number) =>
-      addStatus({
-        variant: "success",
-        message: `Copied ${count} ${count === 1 ? "line" : "lines"} to clipboard`,
-      }),
-    [addStatus],
-  );
-
-  const copyToClipboard = useCallback(() => {
-    if (selectedText.length === 0) return;
-    const item = new ClipboardItem({
-      "text/html": new Blob([buildCopyHTML()], { type: "text/html" }),
-      "text/plain": new Blob([selectedText], { type: "text/plain" }),
-    });
-    const count = selectedLines.length;
-    void navigator.clipboard.write([item]).then(() => notifyCopied(count));
-  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied]);
-
+const useUndoRedoTriggers = (
+  key: log.Key,
+  enabled?: boolean | (() => boolean),
+): void => {
+  const { undo } = useUndo({ key });
+  const { redo } = useRedo({ key });
   Triggers.use({
-    triggers: FLATTENED_TRIGGERS,
+    triggers: UNDO_REDO_TRIGGERS,
     callback: useCallback(
       ({ triggers, stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        if (enableTriggers === false) return;
-        if (typeof enableTriggers === "function" && !enableTriggers()) return;
-        const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
-        if (mode === "selectAll") {
-          if (entryCount === 0) return;
-          setState((s) => ({
-            ...s,
-            selectionStart: 0,
-            selectionEnd: entryCount - 1,
-          }));
-        } else if (mode === "clearSelection")
-          setState((s) => ({
-            ...s,
-            selectionStart: -1,
-            selectionEnd: -1,
-            selectedText: "",
-          }));
-        else if (mode === "togglePause")
-          setState((s) => ({ ...s, scrolling: !s.scrolling }));
+        if (enabled === false) return;
+        if (typeof enabled === "function" && !enabled()) return;
+        const mode = Triggers.determineMode(UNDO_REDO_CONFIG, triggers);
+        if (mode === "undo") undo();
+        else if (mode === "redo") redo();
       },
-      [entryCount, setState, enableTriggers],
+      [undo, redo, enabled],
     ),
   });
+};
 
-  const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
-  const hasSelection = selectedText.length > 0;
+export interface LogProps extends Omit<
+  BaseProps,
+  | "channels"
+  | "telem"
+  | "showChannelNames"
+  | "showReceiptTimestamp"
+  | "timestampPrecision"
+> {
+  resourceKey: log.Key;
+}
 
-  const handleMenuSelect = useCallback(
-    (key: string) => {
-      if (key === "copy") copyToClipboard();
-    },
-    [copyToClipboard],
-  );
-
-  const menuContent = useCallback(
-    () => (
-      <Menu.Menu level="small" onChange={handleMenuSelect}>
-        <Menu.Item
-          itemKey="copy"
-          trigger={COPY_TRIGGER}
-          triggerIndicator
-          disabled={!hasSelection}
-        >
-          <Icon.Copy />
-          Copy
-        </Menu.Item>
-        {extraContextMenuItems != null && (
-          <>
-            <Menu.Divider />
-            {extraContextMenuItems}
-          </>
-        )}
-      </Menu.Menu>
-    ),
-    [handleMenuSelect, hasSelection, extraContextMenuItems],
-  );
-
+// Log is the connected log visualization. It reads the full log document from the
+// Pluto flux store keyed by resourceKey, builds the streaming telemetry source
+// internally, and renders the Base primitive. Cmd+Z / Cmd+Shift+Z are wired to undo
+// and redo, gated by enableTriggers. The component suspends until the record is in
+// cache, so callers must ensure it is loadable (e.g. created on the server).
+export const Log = ({
+  resourceKey: key,
+  enableTriggers,
+  ...rest
+}: LogProps): ReactElement | null => {
+  const { channels, showChannelNames, showReceiptTimestamp, timestampPrecision } =
+    useRetrieveSuspended({ key });
+  useUndoRedoTriggers(key, enableTriggers);
+  // A channel entry with key 0 is an unconfigured placeholder row; the telem source
+  // must not subscribe to it.
+  const activeChannels = channels.filter((e) => !primitive.isZero(e.channel));
+  const telem = streamMultiChannelLog({
+    channels: [],
+    timeSpan: PRELOAD,
+    keepFor: DEFAULT_RETENTION,
+  });
   return (
-    <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
-      <div
-        ref={combinedRef}
-        tabIndex={0}
-        className={CSS(CSS.B("log"), className)}
-        onWheel={(e) => {
-          setState((s) => ({
-            ...s,
-            wheelPos: s.wheelPos - e.deltaY,
-            scrolling: s.scrolling ? s.scrolling : e.deltaY < 0,
-          }));
-        }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onCopy={(e) => {
-          if (selectedText.length === 0) return;
-          e.preventDefault();
-          e.clipboardData.setData("text/plain", selectedText);
-          e.clipboardData.setData("text/html", buildCopyHTML());
-          notifyCopied(selectedLines.length);
-        }}
-        onContextMenu={menuProps.open}
-        {...rest}
-      >
-        {empty ? (
-          emptyContent
-        ) : (
-          <Button.Button
-            className={CSS(CSS.BE("log", "live"), scrolling && CSS.M("active"))}
-            variant="outlined"
-            onClick={() => setState((s) => ({ ...s, scrolling: !s.scrolling }))}
-            tooltip={scrolling ? "Resume Scrolling" : "Pause Scrolling"}
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            <Icon.Dynamic />
-          </Button.Button>
-        )}
-      </div>
-    </Menu.ContextMenu>
+    <Base
+      telem={telem}
+      channels={activeChannels}
+      showChannelNames={showChannelNames}
+      showReceiptTimestamp={showReceiptTimestamp}
+      timestampPrecision={timestampPrecision}
+      enableTriggers={enableTriggers}
+      {...rest}
+    />
   );
 };

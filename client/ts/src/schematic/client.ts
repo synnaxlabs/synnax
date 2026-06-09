@@ -128,10 +128,3 @@ export class Client {
     return res.schematic;
   }
 }
-
-export const ZERO_NEW: New = {
-  name: "",
-  nodes: [],
-  edges: [],
-  configs: {},
-};

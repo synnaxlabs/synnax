@@ -35,7 +35,7 @@ describe("Schematic Slice", () => {
     store.dispatch(actions.create({ key: layoutKey }));
   });
 
-  it("should seed a default UI shell on create", () => {
+  it("should initialize a default UI shell on create", () => {
     const s = store.getState()[SLICE_NAME].schematics[layoutKey];
     expect(s).toBeDefined();
     expect(s.selected).toEqual([]);

@@ -17,7 +17,6 @@ import { Export } from "@/export";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { fromWire } from "@/lineplot/slice";
 import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
@@ -111,7 +110,7 @@ const handleSelect: Ontology.HandleSelect = ({
     const linePlot = await client.lineplots.retrieve({
       key: selection[0].id.key,
     });
-    placeLayout(LinePlot.create({ ...fromWire(linePlot), name: linePlot.name }));
+    placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
   }, `Failed to select ${names}`);
 };
 
@@ -127,7 +126,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const linePlot = await client.lineplots.retrieve({ key });
     placeLayout(
       LinePlot.create({
-        ...fromWire(linePlot),
+        key: linePlot.key,
         name: linePlot.name,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },

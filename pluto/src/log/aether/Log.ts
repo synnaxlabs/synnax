@@ -31,7 +31,7 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const logStateZ = log.logZ
+export const logStateZ = log.newZ
   .pick({
     channels: true,
     timestampPrecision: true,
@@ -60,7 +60,6 @@ export const logStateZ = log.logZ
       .array(z.object({ text: z.string(), color: z.string() }))
       .default([]),
     computedLineHeight: z.number().default(0),
-    entryCount: z.number().default(0),
   });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
@@ -256,13 +255,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
 
   private checkEmpty(): void {
     const actuallyEmpty = this.entries.length === 0;
-    const countChanged = this.entries.length !== this.state.entryCount;
-    if (actuallyEmpty === this.state.empty && !countChanged) return;
-    this.setState((s) => ({
-      ...s,
-      empty: actuallyEmpty,
-      entryCount: this.entries.length,
-    }));
+    if (actuallyEmpty === this.state.empty) return;
+    this.setState((s) => ({ ...s, empty: actuallyEmpty }));
   }
 
   afterDelete(): void {

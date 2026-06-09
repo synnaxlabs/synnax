@@ -92,9 +92,7 @@ const newProject = async (): Promise<project.Project> =>
   await client.projects.create({ name: `proj-${id.create()}` });
 
 const findPlacedTableLayout = (store: RootStore) =>
-  Object.values(store.getState()[Layout.SLICE_NAME].layouts).find(
-    (l) => l.type === LAYOUT_TYPE,
-  );
+  Layout.selectByFilter(store.getState(), (l) => l.type === LAYOUT_TYPE);
 
 const waitForPlacedLayout = async (store: RootStore): Promise<string> => {
   let key: string | undefined;
@@ -165,8 +163,8 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const state = store.getState();
       expect(selectEditable(state, placedKey)).toBe(true);
-      expect(state[Layout.SLICE_NAME].layouts[placedKey].name).toEqual("Editable");
-      expect(state[Layout.SLICE_NAME].layouts[placedKey].type).toEqual(LAYOUT_TYPE);
+      expect(Layout.select(state, placedKey)?.name).toEqual("Editable");
+      expect(Layout.selectType(state, placedKey)).toEqual(LAYOUT_TYPE);
     });
 
     it("defaults the layout name to 'Table' when init does not provide one", async () => {
@@ -176,9 +174,7 @@ describe("useCreate", () => {
         result.current();
       });
       const placedKey = await waitForPlacedLayout(store);
-      expect(store.getState()[Layout.SLICE_NAME].layouts[placedKey].name).toEqual(
-        "Table",
-      );
+      expect(Layout.select(store.getState(), placedKey)?.name).toEqual("Table");
     });
 
     it("uses the caller-provided key for both the server table and the layout", async () => {
@@ -189,7 +185,7 @@ describe("useCreate", () => {
         result.current({ key: callerKey, name: "WithKey" });
       });
       await waitFor(() => {
-        expect(store.getState()[Layout.SLICE_NAME].layouts[callerKey]).toBeDefined();
+        expect(Layout.select(store.getState(), callerKey)).toBeDefined();
       });
       const retrieved = await client.tables.retrieve({ key: callerKey });
       expect(retrieved.key).toEqual(callerKey);

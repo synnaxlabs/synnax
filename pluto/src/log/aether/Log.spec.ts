@@ -11,7 +11,9 @@ import { alamos } from "@synnaxlabs/alamos";
 import { log as clientLog } from "@synnaxlabs/client";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
+import { aether } from "@/aether/aether";
 import { Log, logStateZ } from "@/log/aether/Log";
 import {
   MockLogSource,
@@ -28,6 +30,39 @@ import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/th
 const MockSender = { send: vi.fn() };
 
 const THEME: Theme = themeZ.parse(SYNNAX_DARK);
+
+const parentStateZ = z.object({});
+
+/** Test-only parent that republishes a fixed set of context values to its descendants,
+ * standing in for the theming/render/telem providers above a Log in a real tree. */
+class ContextParent extends aether.Composite<typeof parentStateZ> {
+  schema = parentStateZ;
+  values = new Map<string, unknown>();
+
+  afterUpdate(ctx: aether.Context): void {
+    this.values.forEach((value, key) => ctx.set(key, value));
+  }
+}
+
+const createContextParent = (values: Map<string, unknown>): ContextParent => {
+  const parent = new ContextParent({
+    path: ["parent"],
+    type: "parent",
+    sender: MockSender,
+    instrumentation: alamos.Instrumentation.NOOP,
+    parent: null,
+  });
+  parent.values = values;
+  parent._updateState({
+    path: ["parent"],
+    state: {},
+    type: "parent",
+    create: () => {
+      throw new Error("ContextParent should not create children");
+    },
+  });
+  return parent;
+};
 
 // DONE: uses registerInstance pattern from telem/aether/test/factory.ts.
 // The test owns the source instance and registers it before afterUpdate runs.
@@ -51,7 +86,7 @@ const createLogContext = (
     ["pluto-render-context", renderCtx],
     ["pluto-telem-context", telemCtx],
   ]);
-  const log = createLog(parentCtx);
+  const log = createLog(createContextParent(parentCtx));
   const spec = mockLogSourceSpec(testId);
   const updateState = (overrides: Record<string, unknown>) => {
     log._updateState({
@@ -77,16 +112,14 @@ const createLogContext = (
   return { log, source, renderCtx, updateState };
 };
 
-const createLog = (parentCtx?: Map<string, unknown>) => {
-  const ctx = parentCtx ?? new Map<string, unknown>();
-  return new Log({
+const createLog = (parent: aether.Node | null = null) =>
+  new Log({
     path: ["test-log"],
     type: "log",
     sender: MockSender,
     instrumentation: alamos.Instrumentation.NOOP,
-    parentCtxValues: ctx,
+    parent,
   });
-};
 
 const REGION_500 = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
 
@@ -116,7 +149,7 @@ const setupWithContext = (
     ["pluto-render-context", renderCtx],
     ["pluto-telem-context", telemCtx],
   ]);
-  const log = createLog(parentCtx);
+  const log = createLog(createContextParent(parentCtx));
   const spec = mockLogSourceSpec(testId);
   const state = logStateZ.parse({
     region,
@@ -250,7 +283,6 @@ describe("log/aether/Log", () => {
       expect(parsed.selectedText).toBe("");
       expect(parsed.selectedLines).toEqual([]);
       expect(parsed.computedLineHeight).toBe(0);
-      expect(parsed.entryCount).toBe(0);
     });
 
     it("should provide defaults for channel-related fields", () => {
@@ -293,16 +325,16 @@ describe("log/aether/Log", () => {
     });
   });
 
-  describe("entryCount tracking", () => {
-    it("should set entryCount when entries arrive", () => {
+  describe("empty tracking", () => {
+    it("should set empty to false when entries arrive", () => {
       const entries = Array.from({ length: 7 }, (_, i) => makeEntry(i));
       const { log } = setupWithContext(entries);
-      expect(log.state.entryCount).toBe(7);
+      expect(log.state.empty).toBe(false);
     });
 
-    it("should keep entryCount at 0 when no entries", () => {
+    it("should keep empty true when no entries", () => {
       const { log } = setupWithContext([]);
-      expect(log.state.entryCount).toBe(0);
+      expect(log.state.empty).toBe(true);
     });
   });
 
@@ -921,6 +953,16 @@ describe("log/aether/Log", () => {
       // selectedLines should contain entries 2 through 5 inclusive
       expect(log.state.selectedLines).toHaveLength(4);
       expect(log.state.selectedText).toContain("\n");
+    });
+
+    it("should clamp a select-to-end sentinel to all entries", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
+      const { log } = setupWithContext(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: Number.MAX_SAFE_INTEGER,
+      });
+      log.render();
+      expect(log.state.selectedLines).toHaveLength(10);
     });
 
     it("should handle reversed selection (end < start)", () => {

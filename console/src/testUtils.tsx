@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { combineReducers, configureStore, type EnhancedStore } from "@reduxjs/toolkit";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Aether, Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
 import { aether, flux, status, synnax } from "@synnaxlabs/pluto/ether";
 import { render, type RenderOptions, type RenderResult } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement, useMemo } from "react";
+import { type FC, type PropsWithChildren, type ReactElement, useMemo } from "react";
 import { Provider } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -28,7 +29,7 @@ const consoleReducer = combineReducers({
   [Cluster.SLICE_NAME]: Cluster.reducer,
 });
 
-type ConsolePreloadedState = {
+export type ConsolePreloadedState = {
   [Layout.SLICE_NAME]?: Layout.SliceState;
   [Log.SLICE_NAME]?: Log.SliceState;
   [Project.SLICE_NAME]?: Project.SliceState;
@@ -64,27 +65,40 @@ const AetherTestProvider = ({ children }: PropsWithChildren): ReactElement => {
   return <Aether.Provider worker={worker}>{children}</Aether.Provider>;
 };
 
-const fluxClient = new Flux.Client({
-  client: null,
-  storeConfig: { ...Pluto.FLUX_STORE_CONFIG },
-  handleError: status.createErrorHandler(console.error),
-  handleAsyncError: status.createAsyncErrorHandler(console.error),
-});
+const createFluxClient = (client: Client | null): Flux.Client =>
+  new Flux.Client({
+    client,
+    storeConfig: { ...Pluto.FLUX_STORE_CONFIG },
+    handleError: status.createErrorHandler(console.error),
+    handleAsyncError: status.createAsyncErrorHandler(console.error),
+  });
 
 export const ConsoleTestProvider = ({
   store,
+  client = null,
+  fluxClient,
   children,
-}: PropsWithChildren<{ store: EnhancedStore }>): ReactElement => (
-  <AetherTestProvider>
-    <Status.Aggregator>
-      <Synnax.TestProvider client={null}>
-        <Flux.Provider client={fluxClient}>
-          <Provider store={store}>{children}</Provider>
-        </Flux.Provider>
-      </Synnax.TestProvider>
-    </Status.Aggregator>
-  </AetherTestProvider>
-);
+}: PropsWithChildren<{
+  store: EnhancedStore;
+  client?: Client | null;
+  fluxClient?: Flux.Client;
+}>): ReactElement => {
+  const resolvedFluxClient = useMemo(
+    () => fluxClient ?? createFluxClient(client),
+    [fluxClient, client],
+  );
+  return (
+    <AetherTestProvider>
+      <Status.Aggregator>
+        <Synnax.TestProvider client={client}>
+          <Flux.Provider client={resolvedFluxClient}>
+            <Provider store={store}>{children}</Provider>
+          </Flux.Provider>
+        </Synnax.TestProvider>
+      </Status.Aggregator>
+    </AetherTestProvider>
+  );
+};
 
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;
@@ -101,7 +115,45 @@ export const renderWithConsole = (
     ...rest
   } = options;
   const Wrapper = ({ children }: PropsWithChildren) => (
-    <ConsoleTestProvider store={store}>{children}</ConsoleTestProvider>
+    <ConsoleTestProvider
+      store={store}
+      client={null}
+      fluxClient={createFluxClient(null)}
+    >
+      {children}
+    </ConsoleTestProvider>
   );
   return { ...render(ui, { wrapper: Wrapper, ...rest }), store };
+};
+
+export interface CreateConsoleWrapperArgs {
+  client: Client | null;
+  preloadedState?: ConsolePreloadedState;
+  store?: EnhancedStore;
+}
+
+/**
+ * Builds a provider wrapper backed by a real Synnax client for live-core tests. The
+ * returned wrapper mounts the same provider stack as renderWithConsole (Aether, status,
+ * Synnax, flux, and the Redux store) but routes flux retrieves and dispatches through
+ * the given client, so components exercise the production query infrastructure against
+ * a running cluster rather than reading pre-populated state. Awaits flux store
+ * initialization before returning so listeners are live.
+ */
+export const createConsoleWrapper = async ({
+  client,
+  preloadedState,
+  store = createTestStore({ preloadedState }),
+}: CreateConsoleWrapperArgs): Promise<{
+  wrapper: FC<PropsWithChildren>;
+  store: EnhancedStore;
+}> => {
+  const fluxClient = createFluxClient(client);
+  await fluxClient.awaitInitialized();
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <ConsoleTestProvider store={store} client={client} fluxClient={fluxClient}>
+      {children}
+    </ConsoleTestProvider>
+  );
+  return { wrapper, store };
 };

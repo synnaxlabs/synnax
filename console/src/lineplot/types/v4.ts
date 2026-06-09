@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { measure } from "@synnaxlabs/pluto/ether";
+import { lineplot } from "@synnaxlabs/pluto/ether";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -17,7 +17,7 @@ import * as v3 from "@/lineplot/types/v3";
 export const VERSION = "4.0.0";
 
 const measureStateZ = z.object({
-  mode: measure.modeZ,
+  mode: lineplot.measure.modeZ,
 });
 
 export interface MeasureState extends z.infer<typeof measureStateZ> {}

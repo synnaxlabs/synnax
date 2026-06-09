@@ -301,7 +301,7 @@ const SelectorButton = ({
         dragOverPosition != null && CSS.M("drag-over"),
         dragOverPosition != null && CSS.loc(dragOverPosition),
       )}
-      draggable
+      draggable={onDragStart != null}
       justify="center"
       align="center"
       empty

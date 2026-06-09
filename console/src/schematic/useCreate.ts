@@ -7,46 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { create } from "@/schematic/layout";
-import { type Selector } from "@/selector";
 
-export interface UseCreateProps {
-  project?: project.Key;
-  // onResolved, when provided, replaces opening the schematic as a mosaic tab: the
-  // created schematic is handed back as a resource to fill a panel tab in place.
-  onResolved?: (content: Selector.ResolvedContent) => void;
-}
-
-// useCreate dispatches a schematic create against the active project (or an
-// override). The workspace-era "switch projects on creation" behavior is gone;
-// callers either operate on the active project or pass one explicitly.
-export const useCreate = ({
-  project,
-  onResolved,
-}: UseCreateProps): ((schematic?: Partial<schematic.Schematic>) => void) => {
-  const activeProject = Project.useSelectActiveKey();
-  const placeLayout = Layout.usePlacer();
-  const { update } = Schematic.useCreate({
-    afterSuccess: async ({ data }) => {
-      const { key, name } = data;
-      if (onResolved != null) onResolved({ resource: schematic.ontologyID(key) });
-      else placeLayout(create({ key, name, editable: true }));
-    },
-  });
-  return useCallback(
-    (schem) =>
-      update({
-        ...schematic.ZERO_NEW,
-        name: "Schematic",
-        ...schem,
-        project: project ?? activeProject ?? undefined,
-      }),
-    [project, activeProject, update],
-  );
-};
+export const useCreate = Project.createUseCreate({
+  useCreate: Schematic.useCreate,
+  createSessionState: ({ key, name }) => create({ key, name, editable: true }),
+  defaultName: "Schematic",
+  ontologyID: schematic.ontologyID,
+});

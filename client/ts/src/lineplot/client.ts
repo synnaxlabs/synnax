@@ -11,7 +11,11 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, dispatchReqZ } from "@/lineplot/actions.gen";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+} from "@/lineplot/actions.gen";
 import {
   type Key,
   keyZ,
@@ -24,12 +28,6 @@ import { project } from "@/project";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_lineplot_set";
-
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
-
-export type SetDataBody = Omit<LinePlot, "key" | "name">;
-const setDataBodyZ = linePlotZ.omit({ key: true, name: true });
-const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -74,11 +72,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await this.client.send("/lineplot/rename", { key, name }, renameReqZ, emptyResZ);
-  }
-
-  async setData(key: Key, data: SetDataBody): Promise<void> {
-    await this.client.send("/lineplot/set-data", { key, data }, setDataReqZ, emptyResZ);
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {

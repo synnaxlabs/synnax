@@ -72,20 +72,90 @@ Log struct {
     channels               ChannelEntry[] {
         @doc value "are the channels displayed in this log, in order."
     }
-    remote_created         bool = false {
-        @doc value "indicates whether the log was created on a remote client."
-    }
-    timestamp_precision    int32 = 0 {
+    timestamp_precision    int32          {
         @doc value "is the precision of displayed timestamps (0-3)."
         @validate {
             min 0
             max 3
         }
     }
-    show_channel_names     bool = true {
+    show_channel_names     bool           {
         @doc value "controls whether channel names are displayed."
     }
-    show_receipt_timestamp bool = true {
+    show_receipt_timestamp bool           {
+        @doc value "controls whether the receipt timestamp column is displayed."
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the log."
+    }
+
+    action AddChannel {
+        channel channel.Key
+
+        @doc value """
+            appends a default channel entry for the given channel. No-op when
+            the channel is already present.
+        """
+    }
+
+    action RemoveChannel {
+        channel channel.Key
+
+        @doc value """
+            removes the channel entry for the given channel. No-op when the
+            channel is not present.
+        """
+    }
+
+    action SetChannelEntry {
+        entry ChannelEntry
+
+        @doc value """
+            inserts the channel entry if no entry with the same channel exists,
+            otherwise replaces the existing entry in place. Used both when a
+            channel is added and when the user edits an existing channel's
+            display configuration.
+        """
+    }
+
+    action SetChannels {
+        channels ChannelEntry[]
+
+        @doc value """
+            replaces the entire ordered list of channel entries. Used for bulk
+            channel selection and reordering.
+        """
+    }
+
+    action SwapChannel {
+        from channel.Key
+        to   channel.Key
+
+        @doc value """
+            repoints the entry referencing the "from" channel at the "to"
+            channel in place, preserving the entry's position and display
+            configuration. No-op when no entry references "from".
+        """
+    }
+
+    action SetTimestampPrecision {
+        timestamp_precision int32
+
+        @doc value "sets the precision of displayed timestamps (0-3)."
+    }
+
+    action SetShowChannelNames {
+        show_channel_names bool
+
+        @doc value "controls whether channel names are displayed."
+    }
+
+    action SetShowReceiptTimestamp {
+        show_receipt_timestamp bool
+
         @doc value "controls whether the receipt timestamp column is displayed."
     }
 
@@ -101,7 +171,11 @@ Log struct {
 }
 
 New struct extends Log {
-    key?
+    key                    = create
+    channels               = []
+    timestamp_precision    = 0
+    show_channel_names     = true
+    show_receipt_timestamp = true
 
     @doc value    "contains parameters for creating a new log."
     @ts use_input

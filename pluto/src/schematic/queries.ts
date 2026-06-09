@@ -239,24 +239,20 @@ export interface UseCreateArgs extends schematic.New {
   project?: project.Key;
 }
 
-export interface UseCreateResult extends schematic.Schematic {
-  project?: project.Key;
-}
-
 export const { useUpdate: useCreate } = Flux.createUpdate<
   UseCreateArgs,
   FluxSubStore,
-  UseCreateResult
+  schematic.Schematic
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    data.key ??= uuid.create();
-    const { project, ...rest } = data;
-    rollbacks.push(store.schematics.set(data.key, data as schematic.Schematic));
-    const s = await client.schematics.create(project ?? uuid.ZERO, rest);
-    store.schematics.set(s);
-    return { ...s, project };
+    const optimistic = schematic.newZ.parse(data);
+    rollbacks.push(store.schematics.set(optimistic));
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.schematics.create(project, optimistic);
+    store.schematics.set(created);
+    return created;
   },
 });
 

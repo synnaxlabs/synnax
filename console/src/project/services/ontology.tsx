@@ -26,7 +26,7 @@ import {
   Table as PTable,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
@@ -43,7 +43,6 @@ import { createUseRename } from "@/ontology/createUseRename";
 import { useExport } from "@/project/export";
 import { selectActiveKey } from "@/project/selectors";
 import { maybeRename, setActive } from "@/project/slice";
-import { useMaybeChange } from "@/project/useMaybeChange";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
 
@@ -60,77 +59,6 @@ const useDelete = createUseDelete({
     store.dispatch(Layout.clearProject());
   },
 });
-
-const useCreateLinePlot = ({
-  placeLayout,
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeProject = useMaybeChange();
-  const projectID = ids[0];
-  const { update } = PLinePlot.useCreate({
-    afterSuccess: async ({ data }) => {
-      const { project, ...linePlot } = data;
-      await maybeChangeProject(projectID.key);
-      placeLayout(
-        LinePlot.create({
-          ...LinePlot.fromWire(linePlot),
-          name: linePlot.name,
-        }),
-      );
-    },
-  });
-  return useCallback(
-    () =>
-      update({
-        project: projectID.key,
-        name: "New Line Plot",
-        ...LinePlot.toWire(LinePlot.ZERO_STATE),
-      }),
-    [projectID.key],
-  );
-};
-
-const useCreateLog = ({
-  placeLayout,
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeProject = useMaybeChange();
-  const projectID = ids[0];
-  const { update } = PLog.useCreate({
-    afterSuccess: async ({ data }) => {
-      const { project, ...log } = data;
-      await maybeChangeProject(project);
-      placeLayout(Log.create({ ...Log.stateFromLog(log), name: log.name }));
-    },
-  });
-  return useCallback(
-    () => update({ project: projectID.key, name: "New Log" }),
-    [projectID.key],
-  );
-};
-
-const useCreateTable = ({
-  placeLayout,
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeProject = useMaybeChange();
-  const projectID = ids[0];
-  const { update } = PTable.useCreate({
-    afterSuccess: async ({ data }) => {
-      const { project, key, name } = data;
-      if (project != null) await maybeChangeProject(project);
-      placeLayout(Table.create({ key, name }));
-    },
-  });
-  return useCallback(
-    () =>
-      update({
-        project: projectID.key,
-        name: "New Table",
-      }),
-    [projectID.key],
-  );
-};
 
 const useRename = createUseRename({
   query: Base.useRename,
@@ -151,10 +79,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   } = props;
   const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
-  const createPlot = useCreateLinePlot(props);
-  const createLog = useCreateLog(props);
-  const createTable = useCreateTable(props);
-  const createSchematic = Schematic.useCreate({ project: ids[0].key });
+  const projectKey = ids[0].key;
+  const createPlot = LinePlot.useCreate({ project: projectKey });
+  const createLog = Log.useCreate({ project: projectKey });
+  const createTable = Table.useCreate({ project: projectKey });
+  const createSchematic = Schematic.useCreate({ project: projectKey });
   const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
@@ -193,19 +122,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       {singleResource && (
         <>
           {hasLinePlotCreatePermission && (
-            <Menu.Item itemKey="createPlot" onClick={createPlot}>
+            <Menu.Item itemKey="createPlot" onClick={() => createPlot()}>
               <PLinePlot.CreateIcon />
               Create line plot
             </Menu.Item>
           )}
           {hasLogCreatePermission && (
-            <Menu.Item itemKey="createLog" onClick={createLog}>
+            <Menu.Item itemKey="createLog" onClick={() => createLog()}>
               <PLog.CreateIcon />
               Create log
             </Menu.Item>
           )}
           {hasTableCreatePermission && (
-            <Menu.Item itemKey="createTable" onClick={createTable}>
+            <Menu.Item itemKey="createTable" onClick={() => createTable()}>
               <PTable.CreateIcon />
               Create table
             </Menu.Item>

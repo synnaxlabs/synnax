@@ -23,17 +23,25 @@ import {
   useSelectEditable,
   useSelectExists,
   useSelectHideIndicators,
+  useSelectPendingUpload,
   useSelectSelectedCellKeys,
 } from "@/table/selectors";
 import {
+  clearPendingUpload,
   internalCreate,
   setEditable,
   setHideIndicators,
   setSelectedCells,
 } from "@/table/slice";
-import { useAutoUpload } from "@/table/useUpload";
+import { createUseAutoUpload } from "@/vis/useAutoUpload";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
+
+const useAutoUpload = createUseAutoUpload({
+  useSelectPendingUpload,
+  useCreate: Base.useCreate,
+  clearPendingUpload,
+});
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const editable = useSelectEditable(layoutKey);

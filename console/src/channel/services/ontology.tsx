@@ -22,7 +22,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { id, primitive, status } from "@synnaxlabs/x";
+import { id, primitive, status, uuid } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -35,6 +35,7 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
+import { Project } from "@/project";
 import { Range } from "@/range";
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -52,14 +53,6 @@ const handleSelect: Ontology.HandleSelect = ({
 
   if (nonVirtualSelection.length === 0) return;
 
-  const createNewPlot = (): void => {
-    placeLayout(
-      LinePlot.create({
-        channels: { ...LinePlot.ZERO_CHANNELS_STATE, y1: nonVirtualSelection },
-      }),
-    );
-  };
-
   // Add to the active line plot when one is active; otherwise create a new one. The
   // active tab's resource is resolved against the server-backed panel tree, so the
   // lookup is async — fall back to a new plot on failure.
@@ -70,16 +63,22 @@ const handleSelect: Ontology.HandleSelect = ({
       Layout.selectActivePanelKey(state),
       Layout.selectActiveTabKey(state),
     );
-    if (active?.type === LinePlot.LAYOUT_TYPE)
-      store.dispatch(
-        LinePlot.setYChannels({
-          key: active.key,
-          mode: "add",
-          axisKey: "y1",
-          channels: nonVirtualSelection,
-        }),
-      );
-    else createNewPlot();
+    if (active?.type === LinePlot.LAYOUT_TYPE) {
+      // A plot still staging a pendingUpload does not exist on the server yet,
+      // so an add would fail with not found. Skip until useAutoUpload lands it;
+      // the user can retry once the plot is created.
+      if (LinePlot.selectPendingUpload(state, active.key) != null) return;
+      await LinePlot.addChannelsToActivePlot(client, active.key, nonVirtualSelection);
+      return;
+    }
+    const project = Project.selectActiveKey(state) ?? uuid.ZERO;
+    const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_KEY;
+    const { key, name } = await client.lineplots.create(project, {
+      name: "Line Plot",
+      channels: { y1: nonVirtualSelection },
+      ranges: { x1: [activeRange] },
+    });
+    placeLayout(LinePlot.create({ key, name }));
   }, "failed to add channels to the active plot");
 };
 
