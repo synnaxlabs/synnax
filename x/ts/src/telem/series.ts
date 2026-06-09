@@ -836,11 +836,11 @@ export class Series<T extends TelemValue = TelemValue>
     if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required);
     const v = this.at(index, required as true);
     if (v == null) return undefined;
-    // A bigint here means a bigint-typed series (e.g. an i64 timestamp narrowed to a
-    // float32 GL buffer, reconstructed via a bigint sampleOffset): stringify it as an
-    // integer rather than routing it through float formatting.
-    if (typeof v === "number" && this.dataType.equals(DataType.FLOAT32))
-      return stringifyFloat32(v);
+    // Only genuine numbers get float32-precision formatting. at() can also return a
+    // bigint at runtime — an i64 value narrowed into a float32 GL buffer and
+    // reconstructed via a bigint sampleOffset — which stringifies as an integer.
+    if (typeof v !== "number") return String(v);
+    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v);
     return String(v);
   }
 
