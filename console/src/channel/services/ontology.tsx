@@ -22,7 +22,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { id, primitive, status } from "@synnaxlabs/x";
+import { id, primitive, status, uuid } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -36,11 +36,14 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
+import { Workspace } from "@/workspace";
 
 const handleSelect: Ontology.HandleSelect = ({
+  client,
   store,
   placeLayout,
   selection,
+  handleError,
 }): void => {
   const state = store.getState();
   const layout = Layout.selectActiveMosaicLayout(state);
@@ -54,25 +57,29 @@ const handleSelect: Ontology.HandleSelect = ({
 
   // Otherwise, update the layout with the selected channels.
   switch (layout?.type) {
-    case LinePlot.LAYOUT_TYPE:
-      store.dispatch(
-        LinePlot.setYChannels({
-          key: layout.key,
-          mode: "add",
-          axisKey: "y1",
-          channels: nonVirtualSelection,
-        }),
+    case LinePlot.LAYOUT_TYPE: {
+      // A plot still staging a pendingUpload does not exist on the server yet,
+      // so an add would fail with not found. Skip until useAutoUpload lands it;
+      // the user can retry once the plot is created.
+      if (LinePlot.selectPendingUpload(state, layout.key) != null) return;
+      handleError(
+        () => LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
+        "Failed to add channels to plot",
       );
       break;
-    default:
-      placeLayout(
-        LinePlot.create({
-          channels: {
-            ...LinePlot.ZERO_CHANNELS_STATE,
-            y1: nonVirtualSelection,
-          },
-        }),
-      );
+    }
+    default: {
+      const workspace = Workspace.selectActiveKey(state) ?? uuid.ZERO;
+      const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_RANGE_KEY;
+      handleError(async () => {
+        const { key, name } = await client.lineplots.create(workspace, {
+          name: "Line Plot",
+          channels: { y1: nonVirtualSelection },
+          ranges: { x1: [activeRange] },
+        });
+        placeLayout(LinePlot.create({ key, name }));
+      }, "Failed to create plot");
+    }
   }
 };
 

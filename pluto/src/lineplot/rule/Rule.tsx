@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/vis/rule/Rule.css";
+import "@/lineplot/rule/Rule.css";
 
 import { box, color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
@@ -20,10 +20,10 @@ import { Divider } from "@/divider";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { LinePlot } from "@/lineplot";
+import { useContext } from "@/lineplot/Frame";
+import { rule } from "@/lineplot/rule/aether";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps
   extends
@@ -85,7 +85,7 @@ export const Rule = ({
   const pixelPosRef = useRef(pixelPosition);
   if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
 
-  const { id } = LinePlot.useContext("Rule.Rule");
+  const { id } = useContext("Rule.Rule");
 
   const plotEl = document.getElementById(id);
   const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");

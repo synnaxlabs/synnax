@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { type lineplot } from "@synnaxlabs/client";
 import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
@@ -17,22 +16,12 @@ import { describe, expect, it } from "vitest";
 import {
   select,
   selectActiveToolbarTab,
-  selectAxes,
-  selectAxis,
-  selectAxisBounds,
   selectControlState,
   selectControlStateOptional,
   selectExists,
   selectIsRemoteCreated,
-  selectLine,
-  selectLineKeys,
-  selectLines,
   selectMeasureMode,
-  selectMultiple,
   selectOptional,
-  selectRanges,
-  selectRule,
-  selectRules,
   selectSelection,
   selectSliceState,
   selectToolbar,
@@ -48,10 +37,8 @@ import {
   ZERO_SLICE_STATE,
   ZERO_STATE,
 } from "@/lineplot/slice";
-import { Range } from "@/range";
 
 const KEY = "plot-1";
-const AXIS = Object.keys(ZERO_STATE.axes.axes)[0] as lineplot.AxisKey;
 
 const entry: State = {
   ...ZERO_STATE,
@@ -84,11 +71,10 @@ describe("lineplot selectors", () => {
     });
   });
 
-  describe("select / selectOptional / selectMultiple", () => {
+  describe("select / selectOptional", () => {
     it("returns the entry when present", () => {
       expect(select(state, KEY)).toBe(entry);
       expect(selectOptional(state, KEY)).toBe(entry);
-      expect(selectMultiple(state, [KEY])).toEqual([entry]);
     });
 
     it("returns undefined from selectOptional when absent", () => {
@@ -134,46 +120,6 @@ describe("lineplot selectors", () => {
     });
   });
 
-  describe("axes selectors", () => {
-    it("selectAxes returns the axes record", () => {
-      expect(selectAxes(state, KEY)).toBe(entry.axes.axes);
-    });
-
-    it("selectAxis returns a single axis", () => {
-      expect(selectAxis(state, KEY, AXIS)).toBe(entry.axes.axes[AXIS]);
-    });
-
-    it("selectAxisBounds returns the axis bounds", () => {
-      expect(selectAxisBounds(state, KEY, AXIS)).toBe(entry.axes.axes[AXIS].bounds);
-    });
-  });
-
-  describe("rules selectors", () => {
-    it("selectRules returns the rules", () => {
-      expect(selectRules(state, KEY)).toBe(entry.rules);
-    });
-
-    it("selectRule returns undefined without a rule key or on miss", () => {
-      expect(selectRule(state, KEY)).toBeUndefined();
-      expect(selectRule(state, KEY, "missing")).toBeUndefined();
-    });
-  });
-
-  describe("lines selectors", () => {
-    it("selectLines returns the lines", () => {
-      expect(selectLines(state, KEY)).toBe(entry.lines);
-    });
-
-    it("selectLineKeys maps the line keys", () => {
-      expect(selectLineKeys(state, KEY)).toEqual(entry.lines.map(({ key }) => key));
-    });
-
-    it("selectLine returns undefined without a line key or on miss", () => {
-      expect(selectLine(state, KEY)).toBeUndefined();
-      expect(selectLine(state, KEY, "missing")).toBeUndefined();
-    });
-  });
-
   describe("metadata selectors", () => {
     it("selectVersion reads the version, undefined when absent", () => {
       expect(selectVersion(state, KEY)).toBe(ZERO_STATE.version);
@@ -183,16 +129,6 @@ describe("lineplot selectors", () => {
     it("selectIsRemoteCreated reads remoteCreated, undefined when absent", () => {
       expect(selectIsRemoteCreated(state, KEY)).toBe(true);
       expect(selectIsRemoteCreated(empty, "absent")).toBeUndefined();
-    });
-  });
-
-  describe("selectRanges", () => {
-    it("resolves the plot's range keys against the range slice", () => {
-      const combined = {
-        ...state,
-        [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
-      } as StoreState & Range.StoreState;
-      expect(selectRanges(combined, KEY)).toEqual({ x1: [], x2: [] });
     });
   });
 

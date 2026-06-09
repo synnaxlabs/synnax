@@ -10,7 +10,7 @@
 import "@/lineplot/toolbar/Toolbar.css";
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access, Button, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -20,7 +20,11 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/export";
-import { useSelectActiveToolbarTab, useSelectExists } from "@/lineplot/selectors";
+import {
+  useSelectActiveToolbarTab,
+  useSelectExists,
+  useSelectPendingUpload,
+} from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
@@ -46,7 +50,12 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  // The toolbar reads body fields through LinePlot selectors that throw
+  // NotFoundError when the plot is not in the flux cache. Suspend until the
+  // canonical record is loaded so the surrounding error boundary doesn't tear
+  // the toolbar down on first mount of a freshly placed plot.
+  LinePlot.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const activeTab = useSelectActiveToolbarTab(layoutKey);
@@ -62,7 +71,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
         case "properties":
           return <Properties layoutKey={layoutKey} />;
         case "annotations":
-          return <Annotations linePlotKey={layoutKey} />;
+          return <Annotations layoutKey={layoutKey} />;
         default:
           return <Data layoutKey={layoutKey} />;
       }
@@ -91,7 +100,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
         <Base.Header>
           <Base.Title icon={<Icon.LinePlot />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty style={{ height: "100%", width: 86 }}>
+            <Flex.Box x empty className={CSS.BE("line-plot", "toolbar", "actions")}>
               <Button.Button
                 tooltip="Download as CSV"
                 sharp
@@ -107,7 +116,9 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
                 ontologyID={lineplot.ontologyID(layoutKey)}
               />
             </Flex.Box>
-            {hasUpdatePermission && <Tabs.Selector style={{ borderBottom: "none" }} />}
+            {hasUpdatePermission && (
+              <Tabs.Selector className={CSS.BE("line-plot", "toolbar", "selector")} />
+            )}
           </Flex.Box>
         </Base.Header>
         <Tabs.Content />
@@ -116,8 +127,9 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   );
 };
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  const exists = useSelectExists(layoutKey);
-  if (!exists) return null;
-  return <Internal layoutKey={layoutKey} />;
+export const Toolbar = (props: ToolbarProps): ReactElement | null => {
+  const exists = useSelectExists(props.layoutKey);
+  const pendingUpload = useSelectPendingUpload(props.layoutKey);
+  if (!exists || pendingUpload != null) return null;
+  return <Internal {...props} />;
 };

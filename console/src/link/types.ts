@@ -32,6 +32,7 @@ export interface HandlerArgs {
   dispatch: Dispatch<UnknownAction>;
   key: string;
   placeLayout: Layout.Placer;
+  store: Store<RootState>;
 }
 
 export interface Handler {

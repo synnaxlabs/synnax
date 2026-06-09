@@ -11,17 +11,15 @@ import { lineplot } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { create, LAYOUT_TYPE } from "@/lineplot/layout";
+import { LAYOUT_TYPE } from "@/lineplot/layout";
+import { useCreate } from "@/lineplot/useCreate";
 import { Selector } from "@/selector";
 
-export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
+export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
   const hasCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
-  const handleClick = useCallback(() => {
-    onPlace(create({ key: layoutKey }));
-  }, [onPlace, layoutKey]);
-
+  const create = useCreate({});
+  const handleClick = useCallback(() => create({ key }), [create, key]);
   if (!hasCreatePermission) return null;
-
   return (
     <Selector.Item
       key={LAYOUT_TYPE}

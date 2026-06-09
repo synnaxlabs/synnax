@@ -7,17 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot } from "@synnaxlabs/client";
 import { type Viewport } from "@synnaxlabs/pluto";
-import { type measure } from "@synnaxlabs/pluto/ether";
-import { type bounds } from "@synnaxlabs/x";
+import { type lineplot } from "@synnaxlabs/pluto/ether";
 
 import { useMemoSelect } from "@/hooks";
 import {
-  type AxisState,
   type ControlState,
-  type LineState,
-  type RuleState,
+  type PendingUpload,
   type SelectionState,
   SLICE_NAME,
   type SliceState,
@@ -26,7 +22,6 @@ import {
   type ToolbarState,
   type ToolbarTab,
 } from "@/lineplot/slice";
-import { Range } from "@/range";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -36,11 +31,11 @@ export const select = (state: StoreState, key: string): State =>
 export const selectOptional = (state: StoreState, key: string): State | undefined =>
   selectSliceState(state).plots[key];
 
-export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
-  keys.map((key) => select(state, key));
-
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+export const useSelectOptional = (key: string): State | undefined =>
+  useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
 
 export const selectExists = (state: StoreState, key: string): boolean =>
   selectOptional(state, key) != null;
@@ -56,24 +51,13 @@ export const selectIsRemoteCreated = (
 export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
   useMemoSelect((state: StoreState) => selectIsRemoteCreated(state, key), [key]);
 
-export const selectRanges = (
-  state: StoreState & Range.StoreState,
+export const selectPendingUpload = (
+  state: StoreState,
   key: string,
-): Record<lineplot.XAxisKey, Range.Range[]> => {
-  const ranges = select(state, key).ranges;
-  return {
-    x1: Range.selectMultiple(state, ranges.x1),
-    x2: Range.selectMultiple(state, ranges.x2),
-  };
-};
+): PendingUpload | undefined => selectOptional(state, key)?.pendingUpload;
 
-export const useSelectRanges = (
-  key: string,
-): Record<lineplot.XAxisKey, Range.Range[]> =>
-  useMemoSelect(
-    (state: StoreState & Range.StoreState) => selectRanges(state, key),
-    [key],
-  );
+export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
+  useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);
 
 export const selectToolbar = (
   state: StoreState,
@@ -109,10 +93,18 @@ export const selectViewportMode = (state: StoreState, key: string): Viewport.Mod
 export const useSelectViewportMode = (key: string): Viewport.Mode =>
   useMemoSelect((state: StoreState) => selectViewportMode(state, key), [key]);
 
-export const selectMeasureMode = (state: StoreState, key: string): measure.Mode =>
-  select(state, key).measure.mode;
+export const selectHiddenLines = (state: StoreState, key: string): string[] =>
+  select(state, key).hiddenLines;
 
-export const useSelectMeasureMode = (key: string): measure.Mode =>
+export const useSelectHiddenLines = (key: string): string[] =>
+  useMemoSelect((state: StoreState) => selectHiddenLines(state, key), [key]);
+
+export const selectMeasureMode = (
+  state: StoreState,
+  key: string,
+): lineplot.measure.Mode => select(state, key).measure.mode;
+
+export const useSelectMeasureMode = (key: string): lineplot.measure.Mode =>
   useMemoSelect((state: StoreState) => selectMeasureMode(state, key), [key]);
 
 export const selectSelection = (state: StoreState, key: string): SelectionState =>
@@ -121,101 +113,14 @@ export const selectSelection = (state: StoreState, key: string): SelectionState 
 export const useSelectSelection = (key: string): SelectionState =>
   useMemoSelect((state: StoreState) => selectSelection(state, key), [key]);
 
-export const selectAxes = (state: StoreState, key: string) =>
-  select(state, key).axes.axes;
-
-export const useSelectAxes = (key: string) =>
-  useMemoSelect((state: StoreState) => selectAxes(state, key), [key]);
-
-export const selectAxis = (
-  state: StoreState,
-  key: string,
-  axisKey: lineplot.AxisKey,
-): AxisState => select(state, key).axes.axes[axisKey];
-
-export const useSelectAxis = (key: string, axisKey: lineplot.AxisKey): AxisState =>
-  useMemoSelect((state: StoreState) => selectAxis(state, key, axisKey), [key, axisKey]);
-
-export const selectAxisBounds = (
-  state: StoreState,
-  key: string,
-  axisKey: lineplot.AxisKey,
-): bounds.Bounds => {
-  const p = select(state, key);
-  return p.axes.axes[axisKey].bounds;
-};
-
-export const useSelectAxisBounds = (
-  key: string,
-  axisKey: lineplot.AxisKey,
-): bounds.Bounds =>
-  useMemoSelect(
-    (state: StoreState) => selectAxisBounds(state, key, axisKey),
-    [key, axisKey],
-  );
-
 export const selectVersion = (state: StoreState, key: string): string | undefined =>
   selectOptional(state, key)?.version;
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
 
-export const selectRules = (state: StoreState, key: string): RuleState[] =>
-  select(state, key).rules;
-
-export const useSelectRules = (key: string): RuleState[] =>
-  useMemoSelect((state: StoreState) => selectRules(state, key), [key]);
-
 export const selectSelectedRules = (state: StoreState, key: string): string[] =>
   select(state, key).selectedRules;
 
 export const useSelectSelectedRules = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelectedRules(state, key), [key]);
-
-export const selectRule = (
-  state: StoreState,
-  key: string,
-  ruleKey?: string,
-): RuleState | undefined => {
-  if (ruleKey == null) return undefined;
-  return select(state, key).rules.find(({ key: k }) => k === ruleKey);
-};
-
-export const useSelectRule = (
-  layoutKey: string,
-  ruleKey?: string,
-): RuleState | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectRule(state, layoutKey, ruleKey),
-    [layoutKey, ruleKey],
-  );
-
-export const selectLines = (state: StoreState, key: string): LineState[] =>
-  select(state, key).lines;
-
-export const useSelectLines = (key: string): LineState[] =>
-  useMemoSelect((state: StoreState) => selectLines(state, key), [key]);
-
-export const selectLineKeys = (state: StoreState, key: string): string[] =>
-  select(state, key).lines.map(({ key }) => key);
-
-export const useSelectLineKeys = (key: string): string[] =>
-  useMemoSelect((state: StoreState) => selectLineKeys(state, key), [key]);
-
-export const selectLine = (
-  state: StoreState,
-  plotKey: string,
-  lineKey?: string,
-): LineState | undefined => {
-  if (lineKey == null) return undefined;
-  return select(state, plotKey).lines.find(({ key: k }) => k === lineKey);
-};
-
-export const useSelectLine = (
-  plotKey: string,
-  lineKey?: string,
-): LineState | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectLine(state, plotKey, lineKey),
-    [plotKey, lineKey],
-  );

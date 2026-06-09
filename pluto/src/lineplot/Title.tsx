@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useGridEntry } from "@/lineplot/LinePlot";
+import { useGridEntry } from "@/lineplot/Frame";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
