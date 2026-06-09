@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
@@ -170,9 +172,16 @@ class LogLifecycle(ConsoleCase):
         assert log.wait_until_streaming(), (
             "Log should stream entries from a timestamp channel"
         )
-        assert log.wait_for_entry_count(1) >= 1, (
-            "Log should render entries from a timestamp channel"
-        )
+        entries = log.wait_for_copied_entries()
+        assert len(entries) >= 1, "Log should render entries from a timestamp channel"
+        # Each entry's value must render as a formatted date (e.g. "Jun 9
+        # 15:59:52.809"), not the raw i64 nanosecond value. This is the bigint
+        # formatting path whose regression previously froze the log.
+        formatted_value = re.compile(r"[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2}")
+        assert all(
+            self.idx_name in entry and formatted_value.search(entry)
+            for entry in entries
+        ), f"Log should render formatted timestamp values, got {entries!r}"
 
     def test_virtual_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a virtual channel and that log data
