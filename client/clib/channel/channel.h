@@ -23,14 +23,12 @@
 extern "C" {
 #endif
 
-/// @brief resolves name_count channel names to their keys in a single batch lookup,
-/// writing one key per name to out_keys (caller-allocated, length name_count) in input
-/// order; names with no matching channel get key 0. If any name is unresolved, returns
-/// a NOT_FOUND error (type sy.query.not_found) whose message lists every missing name.
-/// On full success returns 0.
+/// @brief resolves name_count '\n'-delimited channel names to keys, written in order to
+/// out_keys (caller-allocated, length name_count; 0 unmatched). Misses return
+/// NOT_FOUND.
 SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     SynnaxClient *client,
-    const char **names,
+    const char *names,
     size_t name_count,
     uint32_t *out_keys,
     SynnaxError *err

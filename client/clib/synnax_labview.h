@@ -53,7 +53,7 @@ SYNNAX_EXPORT const char *synnax_client_version(void);
 
 SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     SynnaxClient client,
-    const char **names,
+    const char *names,
     uint64_t name_count,
     uint32_t *out_keys,
     SynnaxError err

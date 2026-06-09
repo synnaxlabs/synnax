@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <exception>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -20,7 +21,7 @@ using namespace synnax::clib;
 
 int32_t synnax_channel_retrieve_keys(
     SynnaxClient *client,
-    const char **names,
+    const char *names,
     const size_t name_count,
     uint32_t *out_keys,
     SynnaxError *err
@@ -31,10 +32,25 @@ int32_t synnax_channel_retrieve_keys(
         return CODE_INTERNAL;
     }
     try {
+        // LabVIEW's CLFN has no array-of-C-string-pointers type, so names arrives as a
+        // single '\n'-delimited string (Array To Spreadsheet String); split it back
+        // out.
         std::vector<std::string> req;
         req.reserve(name_count);
-        for (size_t i = 0; i < name_count; i++)
-            req.emplace_back(str_or(names[i], ""));
+        std::stringstream ss(str_or(names, ""));
+        std::string token;
+        while (std::getline(ss, token, '\n'))
+            req.push_back(token);
+        if (req.size() != name_count) {
+            set_err(
+                err,
+                CODE_INTERNAL,
+                "sy.validation",
+                "parsed " + std::to_string(req.size()) + " names but name_count is " +
+                    std::to_string(name_count)
+            );
+            return CODE_INTERNAL;
+        }
 
         auto [channels, c_err] = client->client.channels.retrieve(req);
         if (!c_err.ok()) {
