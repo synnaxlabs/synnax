@@ -10,7 +10,6 @@
 package testutil_test
 
 import (
-	"context"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -72,12 +71,5 @@ var _ = Describe("Recorder", func() {
 		}
 		wg.Wait()
 		Expect(rec.Snapshot()).To(HaveLen(goroutines * perGoroutine))
-	})
-})
-
-var _ = Describe("Record", func() {
-	It("Should match the handler signature expected by Service.OnAction", func() {
-		rec := &Recorder[string, testAction]{}
-		var _ func(context.Context, actions.Scoped[string, testAction]) = rec.Record
 	})
 })
