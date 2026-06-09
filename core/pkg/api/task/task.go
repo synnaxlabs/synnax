@@ -78,7 +78,7 @@ func (s *Service) Create(
 		}
 		req.Tasks[i] = m
 	}
-	return CreateResponse{Tasks: req.Tasks}, nil
+	return CreateResponse(req), nil
 }
 
 type (

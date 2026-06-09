@@ -71,7 +71,7 @@ func (s *Service) Create(
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Labels: req.Labels}, nil
+	return CreateResponse(req), nil
 }
 
 type RetrieveRequest struct {

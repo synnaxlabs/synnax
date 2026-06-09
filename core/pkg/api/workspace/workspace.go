@@ -74,7 +74,7 @@ func (s *Service) Create(
 		}
 		req.Workspaces[i] = ws
 	}
-	return CreateResponse{Workspaces: req.Workspaces}, nil
+	return CreateResponse(req), nil
 }
 
 type RenameRequest struct {

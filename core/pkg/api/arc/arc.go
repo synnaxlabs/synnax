@@ -81,7 +81,7 @@ func (s *Service) Create(
 		}
 		req.Arcs[i] = a
 	}
-	return CreateResponse{Arcs: req.Arcs}, nil
+	return CreateResponse(req), nil
 }
 
 type DeleteRequest struct {
@@ -123,9 +123,9 @@ func (s *Service) Retrieve(
 	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var svcArcs []arc.Arc
+	var arcs []arc.Arc
 	var (
-		q         = s.internal.NewRetrieve().Entries(&svcArcs)
+		q         = s.internal.NewRetrieve().Entries(&arcs)
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
 		hasSearch = req.SearchTerm != ""
@@ -149,7 +149,7 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 
-	res := RetrieveResponse{Arcs: svcArcs}
+	res := RetrieveResponse{Arcs: arcs}
 
 	// Compile Arcs to modules if requested
 	if req.Compile {
@@ -168,7 +168,7 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: arc.OntologyIDsFromArcs(svcArcs),
+		Objects: arc.OntologyIDsFromArcs(arcs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}

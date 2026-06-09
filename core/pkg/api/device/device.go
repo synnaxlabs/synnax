@@ -76,7 +76,7 @@ func (s *Service) Create(
 			return CreateResponse{}, err
 		}
 	}
-	return CreateResponse{Devices: req.Devices}, nil
+	return CreateResponse(req), nil
 }
 
 type RetrieveRequest struct {

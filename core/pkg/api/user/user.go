@@ -221,11 +221,11 @@ func (s *Service) Delete(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	// Look up the usernames of the keys that actually exist so we can deactivate
-	// the matching auth rows. A bare-key retrieve wraps query.ErrNotFound when any
-	// key is missing; we treat that as "those keys are simply not here" and
-	// continue with whatever was found, so deleting a non-existent user is a no-op
-	// rather than an error.
+	// Look up the usernames of the keys that actually exist so we can deactivate the
+	// matching auth rows. A bare-key retrieve wraps query.ErrNotFound when any key is
+	// missing; we treat that as "those keys are simply not here" and continue with
+	// whatever was found, so deleting a non-existent user is a no-op rather than an
+	// error.
 	var toDelete []user.User
 	if err := s.internal.NewRetrieve().
 		Where(user.MatchKeys(req.Keys...)).

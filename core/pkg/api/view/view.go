@@ -69,7 +69,7 @@ func (s *Service) Create(
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Views); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse{Views: req.Views}, nil
+	return CreateResponse(req), nil
 }
 
 type RetrieveRequest struct {

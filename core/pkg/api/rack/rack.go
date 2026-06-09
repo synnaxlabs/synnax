@@ -85,7 +85,7 @@ func (s *Service) Create(
 		}
 		req.Racks[i] = r
 	}
-	return CreateResponse{Racks: req.Racks}, nil
+	return CreateResponse(req), nil
 }
 
 type (

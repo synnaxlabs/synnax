@@ -28,12 +28,11 @@ func WithUnaryTx[RQ, RS freighter.Payload](
 ) freighter.UnaryHandler[RQ, RS] {
 	return func(ctx context.Context, req RQ) (RS, error) {
 		var res RS
-		err := db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 			var err error
 			res, err = handle(ctx, tx, req)
 			return err
-		})
-		if err != nil {
+		}); err != nil {
 			var zero RS
 			return zero, err
 		}
