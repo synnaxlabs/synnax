@@ -31,11 +31,13 @@ func (entry) SetOptions() []any { return nil }
 
 var errBoom = errors.New("boom")
 
-var _ = Describe("WithUnaryTx", func() {
+var _ = Describe("CreateUnaryHandlerWithTx", func() {
 	It("Should commit the transaction when the handler returns nil", func(ctx SpecContext) {
-		handler := gorp.WithUnaryTx(db,
+		handler := gorp.CreateUnaryHandlerWithTx(
+			db,
 			func(ctx context.Context, tx xgorp.Tx, req entry) (entry, error) {
-				if err := xgorp.NewCreate[string, entry]().Entry(&req).
+				if err := xgorp.NewCreate[string, entry]().
+					Entry(&req).
 					Exec(ctx, tx); err != nil {
 					return entry{}, err
 				}
@@ -44,14 +46,17 @@ var _ = Describe("WithUnaryTx", func() {
 		Expect(handler(ctx, entry{ID: "unary-commit", Data: "v"})).
 			To(Equal(entry{ID: "unary-commit", Data: "v"}))
 		var got entry
-		Expect(xgorp.NewRetrieve[string, entry]().
-			Where(xgorp.MatchKeys[string, entry]("unary-commit")).Entry(&got).Exec(ctx, db)).
-			To(Succeed())
+		Expect(
+			xgorp.NewRetrieve[string, entry]().
+				Where(xgorp.MatchKeys[string, entry]("unary-commit")).
+				Entry(&got).Exec(ctx, db),
+		).To(Succeed())
 		Expect(got).To(Equal(entry{ID: "unary-commit", Data: "v"}))
 	})
 
 	It("Should roll back the transaction when the handler returns an error", func(ctx SpecContext) {
-		handler := gorp.WithUnaryTx(db,
+		handler := gorp.CreateUnaryHandlerWithTx(
+			db,
 			func(ctx context.Context, tx xgorp.Tx, req entry) (entry, error) {
 				if err := xgorp.NewCreate[string, entry]().Entry(&req).
 					Exec(ctx, tx); err != nil {
@@ -63,12 +68,13 @@ var _ = Describe("WithUnaryTx", func() {
 			Error().To(MatchError(errBoom))
 		Expect(xgorp.NewRetrieve[string, entry]().
 			Where(xgorp.MatchKeys[string, entry]("unary-rollback")).
-			Entry(&entry{}).Exec(ctx, db)).
-			To(MatchError(query.ErrNotFound))
+			Entry(&entry{}).Exec(ctx, db),
+		).To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should return a zero RS on error", func(ctx SpecContext) {
-		handler := gorp.WithUnaryTx(db,
+		handler := gorp.CreateUnaryHandlerWithTx(
+			db,
 			func(context.Context, xgorp.Tx, entry) (entry, error) {
 				return entry{ID: "leaked", Data: "leaked"}, errBoom
 			})
@@ -76,7 +82,8 @@ var _ = Describe("WithUnaryTx", func() {
 	})
 
 	It("Should propagate the request to the handler unchanged", func(ctx SpecContext) {
-		handler := gorp.WithUnaryTx(db,
+		handler := gorp.CreateUnaryHandlerWithTx(
+			db,
 			func(_ context.Context, _ xgorp.Tx, req entry) (entry, error) {
 				return req, nil
 			})

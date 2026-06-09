@@ -18,11 +18,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// WithUnaryTx wraps a unary handler that needs to execute inside a single [gorp.Tx].
-// The returned handler matches the signature accepted by
-// [freighter.UnaryServer.BindHandler]. The transaction is committed when handle returns
-// nil and rolled back otherwise. On any error a zero RS is returned.
-func WithUnaryTx[RQ, RS freighter.Payload](
+// CreateUnaryHandlerWithTx wraps a unary handler that needs to execute inside a single
+// [gorp.Tx] to a [freighter.UnaryHandler]. The transaction is committed when handle
+// returns nil and rolled back otherwise. On any error a zero RS is returned.
+func CreateUnaryHandlerWithTx[RQ, RS freighter.Payload](
 	db *gorp.DB,
 	handle func(context.Context, gorp.Tx, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {
