@@ -7,42 +7,20 @@
 
 </Property>
 	<Property Name="NI.LV.All.SourceOnly" Type="Bool">true</Property>
-	<Item Name="subvis" Type="Folder">
-		<Item Name="writer" Type="Folder">
-			<Item Name="DBL" Type="Folder">
-				<Item Name="Write 1Ch 1Samp (DBL).vi" Type="VI" URL="../subvis/writer/DBL/Write 1Ch 1Samp (DBL).vi"/>
-				<Item Name="Write 1Ch NSamp (DBL).vi" Type="VI" URL="../subvis/writer/DBL/Write 1Ch NSamp (DBL).vi"/>
-				<Item Name="Write Base DBL.vi" Type="VI" URL="../subvis/writer/DBL/Write Base DBL.vi"/>
-				<Item Name="Write NCh 1Samp (DBL).vi" Type="VI" URL="../subvis/writer/DBL/Write NCh 1Samp (DBL).vi"/>
-				<Item Name="Write NCh NSamp (DBL).vi" Type="VI" URL="../subvis/writer/DBL/Write NCh NSamp (DBL).vi"/>
-			</Item>
-			<Item Name="I32" Type="Folder">
-				<Item Name="Write 1Ch 1Samp (I32).vi" Type="VI" URL="../subvis/writer/I32/Write 1Ch 1Samp (I32).vi"/>
-				<Item Name="Write 1Ch NSamp (I32).vi" Type="VI" URL="../subvis/writer/I32/Write 1Ch NSamp (I32).vi"/>
-				<Item Name="Write Base I32.vi" Type="VI" URL="../subvis/writer/I32/Write Base I32.vi"/>
-				<Item Name="Write NCh 1Samp (I32).vi" Type="VI" URL="../subvis/writer/I32/Write NCh 1Samp (I32).vi"/>
-				<Item Name="Write NCh NSamp (I32).vi" Type="VI" URL="../subvis/writer/I32/Write NCh NSamp (I32).vi"/>
-			</Item>
-		</Item>
+	<Item Name="classes" Type="Folder">
+		<Item Name="Synnax Client.lvclass" Type="LVClass" URL="../classes/Client/Synnax Client.lvclass"/>
+		<Item Name="Synnax Writer.lvclass" Type="LVClass" URL="../classes/Synnax Writer.lvclass"/>
+	</Item>
+	<Item Name="private" Type="Folder">
 		<Item Name="Error Converter.vi" Type="VI" URL="../subvis/Error Converter.vi"/>
-		<Item Name="synnax channel retrieve keys Array.vi" Type="VI" URL="../subvis/synnax channel retrieve keys Array.vi"/>
-		<Item Name="synnax channel retrieve keys Single.vi" Type="VI" URL="../subvis/synnax channel retrieve keys Single.vi"/>
-		<Item Name="synnax writer open Array.vi" Type="VI" URL="../subvis/synnax writer open Array.vi"/>
-		<Item Name="synnax writer open Single.vi" Type="VI" URL="../subvis/synnax writer open Single.vi"/>
 		<Item Name="Timestamp Conversion Array.vi" Type="VI" URL="../subvis/Timestamp Conversion Array.vi"/>
 		<Item Name="Timestamp Conversion Single.vi" Type="VI" URL="../subvis/Timestamp Conversion Single.vi"/>
 	</Item>
-	<Item Name="typedef" Type="Folder">
+	<Item Name="public" Type="Folder">
+		<Item Name="Timestamp Conversion.vi" Type="VI" URL="../Public/Timestamp Conversion.vi"/>
+	</Item>
+	<Item Name="typedefs" Type="Folder">
 		<Item Name="connection_config.ctl" Type="VI" URL="../typedefs/connection_config.ctl"/>
 		<Item Name="writer_mode.ctl" Type="VI" URL="../typedefs/writer_mode.ctl"/>
 	</Item>
-	<Item Name="synnax channel retrieve keys.vi" Type="VI" URL="../VIs/synnax channel retrieve keys.vi"/>
-	<Item Name="synnax client close.vi" Type="VI" URL="../VIs/synnax client close.vi"/>
-	<Item Name="synnax client open.vi" Type="VI" URL="../VIs/synnax client open.vi"/>
-	<Item Name="synnax client version.vi" Type="VI" URL="../VIs/synnax client version.vi"/>
-	<Item Name="synnax writer close.vi" Type="VI" URL="../VIs/synnax writer close.vi"/>
-	<Item Name="synnax writer commit.vi" Type="VI" URL="../VIs/synnax writer commit.vi"/>
-	<Item Name="synnax writer open.vi" Type="VI" URL="../VIs/synnax writer open.vi"/>
-	<Item Name="synnax writer write.vi" Type="VI" URL="../VIs/synnax writer write.vi"/>
-	<Item Name="Timestamp Conversion.vi" Type="VI" URL="../VIs/Timestamp Conversion.vi"/>
 </Library>
