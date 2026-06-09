@@ -55,7 +55,7 @@ AxisKey enum extends XAxisKey, YAxisKey {
 }
 
 Title struct {
-    level   text.Level = text.LevelP {
+    level   text.Level = text.LevelH4 {
         @doc value "is the typography level of the title text."
     }
     visible bool = false {
@@ -69,7 +69,12 @@ Legend struct {
     visible  bool = true {
         @doc value "is whether the legend is shown."
     }
-    position spatial.StickyXY = { x = 0, y = 0 } {
+    position spatial.StickyXY = {
+        x = 50,
+        y = 50,
+        root = { x = spatial.XLocationLeft, y = spatial.YLocationTop },
+        units = { x = spatial.StickyUnitPx, y = spatial.StickyUnitPx }
+    } {
         @doc value "is the anchor position of the legend within the plot container."
     }
 
@@ -178,16 +183,16 @@ Axes struct {
     x2 Axis = { key = AxisKeyX2 } {
         @doc value "is the x2 axis configuration."
     }
-    y1 Axis = { key = AxisKeyY1 } {
+    y1 Axis = { key = AxisKeyY1, label_direction = spatial.DirectionY } {
         @doc value "is the y1 axis configuration."
     }
-    y2 Axis = { key = AxisKeyY2 } {
+    y2 Axis = { key = AxisKeyY2, label_direction = spatial.DirectionY } {
         @doc value "is the y2 axis configuration."
     }
-    y3 Axis = { key = AxisKeyY3 } {
+    y3 Axis = { key = AxisKeyY3, label_direction = spatial.DirectionY } {
         @doc value "is the y3 axis configuration."
     }
-    y4 Axis = { key = AxisKeyY4 } {
+    y4 Axis = { key = AxisKeyY4, label_direction = spatial.DirectionY } {
         @doc value "is the y4 axis configuration."
     }
 
@@ -243,13 +248,13 @@ Rule struct {
     axis       AxisKey       {
         @doc value "is the axis the rule is anchored to."
     }
-    line_width float64       {
+    line_width float64 = 1 {
         @doc value "is the rule line width in pixels."
     }
-    line_dash  float64       {
+    line_dash  float64 = 0 {
         @doc value "is the dash length in pixels; 0 renders a solid line."
     }
-    units      string        {
+    units      string = "" {
         @doc value "is the unit label displayed next to the position value."
     }
     position   float64       {
@@ -337,6 +342,18 @@ LinePlot struct {
         """
     }
 
+    action SetChannels {
+        axis_key YAxisKey
+        channels channel.Key[]
+
+        @doc value """
+            replaces the entire set of channels bound to the y-axis named by
+            axis_key with channels. Channels absent from the new set are
+            removed and their lines dropped; channels not previously present
+            are added. Existing channels keep their line styling.
+        """
+    }
+
     action SetXChannel {
         axis_key XAxisKey
         channel  channel.Key
@@ -364,6 +381,18 @@ LinePlot struct {
         @doc value """
             removes the range key from the x-axis named by axis_key. No-op
             when the range is not present.
+        """
+    }
+
+    action SetRanges {
+        axis_key XAxisKey
+        ranges   string[]
+
+        @doc value """
+            replaces the entire set of range keys bound to the x-axis named by
+            axis_key with ranges. Ranges absent from the new set are removed
+            and their lines dropped; ranges not previously present are added.
+            Existing ranges keep their line styling.
         """
     }
 

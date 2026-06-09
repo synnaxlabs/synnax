@@ -8,80 +8,37 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
-import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
+import { Log as PLog } from "@synnaxlabs/pluto";
+import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useStore } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
-import { createLoadRemote } from "@/hooks/useLoadRemote";
+import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
-import {
-  select,
-  useSelect,
-  useSelectIsRemoteCreated,
-  useSelectVersion,
-} from "@/log/selectors";
-import {
-  internalCreate,
-  setActiveToolbarTab,
-  setRemoteCreated,
-  type State,
-  stateFromLog,
-  ZERO_STATE,
-} from "@/log/slice";
-import { Selector } from "@/selector";
+import { useSelectExists } from "@/log/selectors";
+import { internalCreate, setActiveToolbarTab } from "@/log/slice";
+import { useAutoUpload } from "@/log/useUpload";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const LAYOUT_TYPE = "log";
-export type LayoutType = typeof LAYOUT_TYPE;
+export { create, LAYOUT_TYPE, type LayoutType } from "@/log/layout";
 
-export const useSyncComponent = Workspace.createSyncComponent(
-  "Log",
-  async ({ key, workspace, store, fluxStore, client }) => {
-    const storeState = store.getState();
-    if (!Access.updateGranted({ id: log.ontologyID(key), store: fluxStore, client }))
-      return;
-    const data = select(storeState, key);
-    if (data == null) return;
-    const layout = Layout.selectRequired(storeState, key);
-    if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
-    await client.logs.create(workspace, {
-      key,
-      name: layout.name,
-      channels: data.channels,
-      remoteCreated: data.remoteCreated,
-      timestampPrecision: data.timestampPrecision,
-      showChannelNames: data.showChannelNames,
-      showReceiptTimestamp: data.showReceiptTimestamp,
-    });
-  },
-);
-
-const DEFAULT_RETENTION = TimeSpan.days(1);
-const PRELOAD = TimeSpan.seconds(30);
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const log = useSelect(layoutKey);
-  const dispatch = useSyncComponent(layoutKey);
+  PLog.useEnsureRetrieved({ key: layoutKey });
+  const dispatch = useDispatch();
   const store = useStore<RootState>();
+  Workspace.useAdoptIntoActiveWorkspace(log.ontologyID(layoutKey));
+  const channelKeys = PLog.useSelectChannelKeys({ key: layoutKey });
+  const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 
   const enableTriggers = useCallback(
     () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
     [store, layoutKey],
   );
 
-  const activeChannels = log.channels.filter((e) => !primitive.isZero(e.channel));
-  const hasChannels = activeChannels.length > 0;
-  // Stable spec — channels are passed separately via the `channels` prop so that
-  // adding/removing a channel does not destroy and recreate the telem source.
-  const t = Base.streamMultiChannelLog({
-    channels: [],
-    timeSpan: PRELOAD,
-    keepFor: DEFAULT_RETENTION,
-  });
   const handleDoubleClick = useCallback(() => {
     dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [dispatch]);
@@ -92,23 +49,19 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   }, [dispatch, layoutKey, handleDoubleClick]);
 
   return (
-    <Base.Log
-      telem={t}
-      channels={activeChannels}
-      showChannelNames={log.showChannelNames}
-      showReceiptTimestamp={log.showReceiptTimestamp}
-      timestampPrecision={log.timestampPrecision}
+    <PLog.Log
+      resourceKey={layoutKey}
       onDoubleClick={handleDoubleClick}
       enableTriggers={enableTriggers}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <EmptyAction
           message={
-            !hasChannels
-              ? "No channels configured for this log."
-              : "No data received yet."
+            hasChannels
+              ? "No data received yet."
+              : "No channels configured for this log."
           }
-          action={!hasChannels ? "Configure channels" : ""}
+          action={hasChannels ? "" : "Configure channels"}
           onClick={hasChannels ? handleDoubleClick : handleConfigureChannels}
         />
       }
@@ -117,61 +70,16 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 };
 
-const useLoadRemote = createLoadRemote<log.Log>({
-  useRetrieve: Base.useRetrieveObservable,
-  targetVersion: ZERO_STATE.version,
-  useSelectVersion,
-  actionCreator: (v) => internalCreate(stateFromLog(v)),
+const useEnsureState = createEnsureState({
+  useExists: useSelectExists,
+  create: (key) => internalCreate({ key }),
 });
 
-export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const log = useLoadRemote(layoutKey);
-  if (log == null) return null;
-  return <Loaded layoutKey={layoutKey} {...rest} />;
+export const Log: Layout.Renderer = (props) => {
+  const exists = useEnsureState(props.layoutKey);
+  const uploaded = useAutoUpload(props.layoutKey);
+  if (!exists || !uploaded) return null;
+  return <Loaded {...props} />;
 };
 
-Log.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-  useSelectIsRemoteCreated,
-);
-
-export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
-  const handleClick = useCallback(() => {
-    onPlace(create({ key: layoutKey }));
-  }, [onPlace, layoutKey]);
-
-  if (!hasCreatePermission) return null;
-
-  return (
-    <Selector.Item
-      key={LAYOUT_TYPE}
-      title="Log"
-      icon={<Icon.Log />}
-      onClick={handleClick}
-    />
-  );
-};
-Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
-
-export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
-
-export const create =
-  (initial: CreateArg = {}): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Log", location = "mosaic", window, tab, ...rest } = initial;
-    const key = log.keyZ.safeParse(initial.key).data ?? uuid.create();
-    dispatch(internalCreate({ ...deep.copy(ZERO_STATE), ...rest, key }));
-    return {
-      key,
-      name,
-      icon: "Log",
-      location,
-      type: LAYOUT_TYPE,
-      windowKey: key,
-      window,
-      tab,
-    };
-  };
+Log.useName = Layout.createUseFluxName(PLog.useRename, PLog.useRetrieveObservableName);

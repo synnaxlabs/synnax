@@ -17,6 +17,13 @@
     overflow: hidden;
 }
 
+.pluto-line-plot .pluto-haul-drop-region {
+    background: var(--haul-background);
+    border: var(--pluto-border);
+    border-color: var(--haul-border-color);
+    border-radius: var(--pluto-border-radius);
+}
+
 .pluto-line-plot__viewport {
     grid-area: plot-start / plot-start / plot-end / plot-end;
 }

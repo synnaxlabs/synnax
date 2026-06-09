@@ -23,6 +23,7 @@ import {
   setAxisLabelLevel,
   setAxisTickSpacing,
   setAxisType,
+  setChannels,
   setLegendPosition,
   setLegendVisible,
   setLine,
@@ -31,6 +32,7 @@ import {
   setLineDownsampleMode,
   setLineLabel,
   setLineStrokeWidth,
+  setRanges,
   setRule,
   setRuleAxis,
   setRuleColor,
@@ -120,6 +122,37 @@ const handlers: Handlers = {
     };
   },
 
+  // setChannels replaces a y-axis's whole channel set in one edit, reconciling
+  // the line set once. It is the bulk form of addChannel/removeChannel for the
+  // multi-select toolbar: channels new to the set add lines, channels dropped
+  // from it tear theirs down. Dropped lines are restored verbatim on undo so
+  // styling survives, and targets name only the channels that actually changed
+  // so the undoable invalidation stays per-channel.
+  setChannels: (state, payload) => {
+    const axis = payload.axisKey;
+    const current = state.channels[axis];
+    const nextSet = new Set(payload.channels);
+    const currentSet = new Set(current);
+    const removed = current.filter((channel) => !nextSet.has(channel));
+    const added = payload.channels.filter((channel) => !currentSet.has(channel));
+    if (added.length === 0 && removed.length === 0) return actions.NO_OP_RESULT;
+    const oldChannels = actions.snapshotDraft(current);
+    state.channels[axis] = [...payload.channels];
+    const { lines, dropped } = reconcileLines(
+      state.channels,
+      state.ranges,
+      state.lines,
+    );
+    state.lines = lines;
+    return {
+      inverse: [
+        setChannels({ axisKey: axis, channels: oldChannels }),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+      ],
+      targets: [...removed, ...added].map((channel) => `channel:${channel}`),
+    };
+  },
+
   // setXChannel swaps the single channel on an x-axis. Reconciliation rekeys
   // every line on that axis: the old lines are dropped and fresh ones
   // materialized. Undo restores both the previous channel and the previous
@@ -179,6 +212,35 @@ const handlers: Handlers = {
         ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
       ],
       targets: [`range:${payload.range}`],
+    };
+  },
+
+  // setRanges replaces an x-axis's whole range set in one edit, reconciling the
+  // line set once. It is the bulk form of addRange/removeRange for the
+  // multi-select toolbar; dropped lines are restored verbatim on undo and
+  // targets name only the ranges that actually changed.
+  setRanges: (state, payload) => {
+    const axis = payload.axisKey;
+    const current = state.ranges[axis];
+    const nextSet = new Set(payload.ranges);
+    const currentSet = new Set(current);
+    const removed = current.filter((range) => !nextSet.has(range));
+    const added = payload.ranges.filter((range) => !currentSet.has(range));
+    if (added.length === 0 && removed.length === 0) return actions.NO_OP_RESULT;
+    const oldRanges = actions.snapshotDraft(current);
+    state.ranges[axis] = [...payload.ranges];
+    const { lines, dropped } = reconcileLines(
+      state.channels,
+      state.ranges,
+      state.lines,
+    );
+    state.lines = lines;
+    return {
+      inverse: [
+        setRanges({ axisKey: axis, ranges: oldRanges }),
+        ...dropped.map((l) => setLine({ line: actions.snapshotDraft(l) })),
+      ],
+      targets: [...removed, ...added].map((range) => `range:${range}`),
     };
   },
 

@@ -12,20 +12,15 @@ import { DisconnectedError } from "@synnaxlabs/client";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
-import { select } from "@/lineplot/selectors";
-import { fromWire } from "@/lineplot/slice";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
-  const storeState = store.getState();
-  let state = select(storeState, key);
-  let name = Layout.select(storeState, key)?.name;
-  if (state == null || name == null) {
-    if (client == null) throw new DisconnectedError();
-    const linePlot = await client.lineplots.retrieve({ key });
-    state ??= fromWire(linePlot);
-    name ??= linePlot.name;
-  }
-  return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };
+  const name = Layout.select(store.getState(), key)?.name;
+  if (client == null) throw new DisconnectedError();
+  const lp = await client.lineplots.retrieve({ key });
+  return {
+    data: JSON.stringify({ ...lp, type: LAYOUT_TYPE }),
+    name: name ?? lp.name,
+  };
 };
 
 export const useExport = () => Export.use(extract, "line plot");

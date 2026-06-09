@@ -81,6 +81,24 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
+// Handle replaces the entire set of channels bound to the y-axis named by
+// AxisKey, reconciling the line set. Channels dropped from the set lose their
+// lines; channels new to it gain default-styled lines. Surviving channels keep
+// their existing line styling.
+func (p SetChannelsPayload) Handle(state LinePlot) (LinePlot, error) {
+	if !p.AxisKey.IsValid() {
+		return LinePlot{}, errors.Wrapf(
+			validate.ErrValidation,
+			"unknown y-axis %q",
+			p.AxisKey,
+		)
+	}
+	slice := yAxisSlice(&state.Channels, p.AxisKey)
+	*slice = slices.Clone(p.Channels)
+	state.Lines = reconcileLines(state)
+	return state, nil
+}
+
 // Handle replaces the single channel bound to the x-axis named by AxisKey.
 func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 	switch p.AxisKey {
@@ -132,6 +150,24 @@ func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
 	}
 	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
 	*slice = slices.DeleteFunc(*slice, func(r string) bool { return r == p.Range })
+	state.Lines = reconcileLines(state)
+	return state, nil
+}
+
+// Handle replaces the entire set of range keys bound to the x-axis named by
+// AxisKey, reconciling the line set. Ranges dropped from the set lose their
+// lines; ranges new to it gain default-styled lines. Surviving ranges keep
+// their existing line styling.
+func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
+	if !p.AxisKey.IsValid() {
+		return LinePlot{}, errors.Wrapf(
+			validate.ErrValidation,
+			"unknown x-axis %q",
+			p.AxisKey,
+		)
+	}
+	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
+	*slice = slices.Clone(p.Ranges)
 	state.Lines = reconcileLines(state)
 	return state, nil
 }
