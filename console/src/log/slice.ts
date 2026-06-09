@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel, type log } from "@synnaxlabs/client";
 
 import * as latest from "@/log/types";
 
@@ -16,13 +15,12 @@ export type State = latest.State;
 export type SliceState = latest.SliceState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
-export const ZERO_CHANNEL_ENTRY = latest.ZERO_CHANNEL_ENTRY;
+export type PendingUpload = latest.PendingUpload;
 export const ZERO_TOOLBAR_STATE = latest.ZERO_TOOLBAR_STATE;
 export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const migrateSlice = latest.migrateSlice;
-export const stateFromLog = latest.stateFromLog;
 
 export const SLICE_NAME = "log";
 
@@ -30,30 +28,8 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export type CreatePayload = State;
-
-export interface SetTimestampPrecisionPayload {
+export interface CreatePayload {
   key: string;
-  timestampPrecision: number;
-}
-
-export interface SetChannelEntryPayload {
-  key: string;
-  entry: Partial<log.ChannelEntry> & { channel: channel.Key };
-}
-
-export interface SetRemoteCreatedPayload {
-  key: string;
-}
-
-export interface SetShowChannelNamesPayload {
-  key: string;
-  showChannelNames: boolean;
-}
-
-export interface SetShowReceiptTimestampPayload {
-  key: string;
-  showReceiptTimestamp: boolean;
 }
 
 export interface SetActiveToolbarTabPayload {
@@ -61,20 +37,8 @@ export interface SetActiveToolbarTabPayload {
   tab: ToolbarTab;
 }
 
-export interface AddChannelPayload {
+export interface ClearPendingUploadPayload {
   key: string;
-  channelKey: channel.Key;
-}
-
-export interface RemoveChannelByIndexPayload {
-  key: string;
-  index: number;
-}
-
-export interface SetChannelAtIndexPayload {
-  key: string;
-  index: number;
-  channelKey: channel.Key;
 }
 
 export interface RemovePayload {
@@ -86,61 +50,22 @@ export const { actions, reducer } = createSlice({
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      const { key } = payload;
-      state.logs[key] = payload;
-    },
-    setTimestampPrecision: (
-      state,
-      { payload }: PayloadAction<SetTimestampPrecisionPayload>,
-    ) => {
-      state.logs[payload.key].timestampPrecision = payload.timestampPrecision;
-    },
-    setChannelEntry: (state, { payload }: PayloadAction<SetChannelEntryPayload>) => {
-      const logState = state.logs[payload.key];
-      const existing = logState.channels.find(
-        (e) => e.channel === payload.entry.channel,
-      );
-      if (existing != null) Object.assign(existing, payload.entry);
-    },
-    setShowChannelNames: (
-      state,
-      { payload }: PayloadAction<SetShowChannelNamesPayload>,
-    ) => {
-      state.logs[payload.key].showChannelNames = payload.showChannelNames;
-    },
-    setShowReceiptTimestamp: (
-      state,
-      { payload }: PayloadAction<SetShowReceiptTimestampPayload>,
-    ) => {
-      state.logs[payload.key].showReceiptTimestamp = payload.showReceiptTimestamp;
+      if (state.logs[payload.key] != null) return;
+      state.logs[payload.key] = { ...ZERO_STATE, key: payload.key };
     },
     setActiveToolbarTab: (
       state,
       { payload }: PayloadAction<SetActiveToolbarTabPayload>,
     ) => {
-      state.logs[payload.key].toolbar.activeTab = payload.tab;
+      const log = state.logs[payload.key];
+      if (log != null) log.toolbar.activeTab = payload.tab;
     },
-    addChannel: (state, { payload }: PayloadAction<AddChannelPayload>) => {
-      state.logs[payload.key].channels.push({
-        ...ZERO_CHANNEL_ENTRY,
-        channel: payload.channelKey,
-      });
-    },
-    removeChannelByIndex: (
+    clearPendingUpload: (
       state,
-      { payload }: PayloadAction<RemoveChannelByIndexPayload>,
+      { payload }: PayloadAction<ClearPendingUploadPayload>,
     ) => {
-      state.logs[payload.key].channels.splice(payload.index, 1);
-    },
-    setChannelAtIndex: (
-      state,
-      { payload }: PayloadAction<SetChannelAtIndexPayload>,
-    ) => {
-      const entry = state.logs[payload.key].channels[payload.index];
-      if (entry != null) entry.channel = payload.channelKey;
-    },
-    setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
-      state.logs[payload.key].remoteCreated = true;
+      const log = state.logs[payload.key];
+      if (log != null) log.pendingUpload = undefined;
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.logs[key]);
@@ -150,15 +75,8 @@ export const { actions, reducer } = createSlice({
 
 export const {
   create: internalCreate,
-  setTimestampPrecision,
-  setChannelEntry,
-  setShowChannelNames,
-  setShowReceiptTimestamp,
   setActiveToolbarTab,
-  addChannel,
-  removeChannelByIndex,
-  setChannelAtIndex,
-  setRemoteCreated,
+  clearPendingUpload,
   remove,
 } = actions;
 

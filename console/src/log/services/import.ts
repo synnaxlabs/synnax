@@ -7,21 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
+import { DisconnectedError, log } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/import";
-import { create } from "@/log/Log";
+import { create, LAYOUT_TYPE } from "@/log/layout";
 import { anyStateZ } from "@/log/types";
 
-export const ingest: Import.FileIngester = (
+export const parseImport = (
+  data: unknown,
+  fallbackName: string | undefined,
+): log.New => {
+  // Legacy console-state exports are tried first: forcing remoteCreated false makes the
+  // migration ladder park the body in pendingUpload regardless of the source's sync
+  // state. A current typed export carries a name and parses as logZ; it falls through
+  // because its body fields are stripped by the console-state schema, leaving no
+  // pendingUpload.
+  if (typeof data === "object" && data != null) {
+    const legacy = anyStateZ.safeParse({ ...data, remoteCreated: false });
+    if (legacy.success && legacy.data.pendingUpload != null) {
+      const { key: _key, ...body } = legacy.data.pendingUpload;
+      return { ...body, name: fallbackName ?? "Log" };
+    }
+  }
+  const { key: _key, ...rest } = log.logZ.parse(data);
+  return { ...rest, name: fallbackName ?? rest.name };
+};
+
+export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client },
+  { layout, placeLayout, store, client, workspaceKey },
 ) => {
-  const state = anyStateZ.parse(data);
   if (!Access.updateGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import logs");
-  // create with an undefined key so we do not have to worry about the key that was from
-  // the imported data overwriting existing logs in the cluster
-  placeLayout(create({ ...state, key: layout?.key, ...layout }));
+  if (client == null) throw new DisconnectedError();
+  const newPayload = parseImport(data, layout?.name);
+  const created = await client.logs.create(workspaceKey, newPayload);
+  store.logs.set(created.key, created);
+  placeLayout(
+    create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),
+  );
+  return log.ontologyID(created.key);
 };

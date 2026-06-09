@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, table, type workspace } from "@synnaxlabs/client";
+import { NotFoundError, table, type workspace } from "@synnaxlabs/client";
 import { array, compare, id, uuid, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
 import { Cell } from "@/table/cells";
 import { Theming } from "@/theming";
 
@@ -54,16 +53,8 @@ export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
   Flux.createRetrieve<RetrieveQuery, table.Table, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
-    mountListeners: ({ store, query: { key }, onChange }) => [
+    mountListeners: ({ store, query: { key }, onChange }) =>
       store.tables.onSet(onChange, key),
-      // Names propagate through the ontology resources store; this listener
-      // forwards the renamed name back into the retrieved snapshot so consumers
-      // observing the table see the new name without a full refetch.
-      store.resources.onSet(
-        (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
-        ontology.idToString(table.ontologyID(key)),
-      ),
-    ],
   });
 
 export const useRetrieveObservableName = ({
@@ -212,7 +203,7 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<
   update: async ({ client, data, store, rollbacks }) => {
     const { workspace, ...rest } = data;
     rest.key ??= uuid.create();
-    const created = rest as table.Table;
+    const created = table.tableZ.parse(rest);
     rollbacks.push(store.tables.set(created.key, created));
     const t = await client.tables.create(workspace ?? uuid.ZERO, created);
     store.tables.set(t);
