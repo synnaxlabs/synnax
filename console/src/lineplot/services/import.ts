@@ -29,7 +29,8 @@ export const parseImport = (
     if (legacy.success) {
       if (legacy.data.pendingUpload == null)
         throw new Error("Imported line plot has no body data");
-      return { ...legacy.data.pendingUpload, name: fallbackName ?? "" };
+      const { key: _key, ...body } = legacy.data.pendingUpload;
+      return { ...body, name: fallbackName ?? "" };
     }
   }
   const { key: _key, ...rest } = lineplot.linePlotZ.parse(data);

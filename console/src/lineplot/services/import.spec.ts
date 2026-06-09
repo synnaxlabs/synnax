@@ -94,5 +94,15 @@ describe("lineplot import", () => {
       expect(out.lines).toHaveLength(1);
       expect(out.channels?.y1).toEqual([65538]);
     });
+
+    it("should drop the source key from a legacy export so the server assigns a fresh one", () => {
+      const out = parseImport(LEGACY, undefined);
+      expect(out.key).toBeUndefined();
+    });
+
+    it("should drop the source key from a typed export so the server assigns a fresh one", () => {
+      const out = parseImport(TYPED_EXPORT, undefined);
+      expect(out.key).toBeUndefined();
+    });
   });
 });
