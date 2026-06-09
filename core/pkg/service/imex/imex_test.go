@@ -14,30 +14,39 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// wirePayload is the shape used by the envelope-level tests to exercise Decode and
+// Encode through the flat wire format. Tag-driven Encode keys the body in lowercase;
+// Decode reads the same keys back via the json tags.
+type wirePayload struct {
+	Name string `json:"name"`
+	Foo  int    `json:"foo"`
+	Bar  string `json:"bar,omitempty"`
+}
+
 var _ = Describe("ImEx", func() {
 	Describe("Envelope", func() {
 		Describe("UnmarshalJSON", func() {
-			It("Should extract promoted fields and put the rest into Data", func() {
+			It("Should extract promoted headers and retain the body for typed decode", func(ctx SpecContext) {
 				src := []byte(`{"version":54,"type":"log","name":"n","foo":1}`)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
 				Expect(env.Version).To(Equal(imex.Version(54)))
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("n"))
-				Expect(env.Data).To(HaveKeyWithValue("foo", json.Number("1")))
-				Expect(env.Data).NotTo(HaveKey("version"))
-				Expect(env.Data).NotTo(HaveKey("type"))
-				Expect(env.Data).NotTo(HaveKey("name"))
+				p := MustSucceed(imex.Decode[wirePayload](ctx, env))
+				Expect(p.Foo).To(Equal(1))
+				Expect(p.Name).To(Equal("n"))
 			})
 
 			It("Should accept a legacy N.0.0 version string", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
-					[]byte(`{"version":"4.0.0","type":"log"}`), &env,
+					[]byte(`{"version":"4.0.0","type":"log","name":"n"}`), &env,
 				)).To(Succeed())
 				Expect(env.Version).To(Equal(imex.Version(4)))
 			})
@@ -91,17 +100,6 @@ var _ = Describe("ImEx", func() {
 				)
 			})
 
-			It("Should leave Data nil when only promoted fields are present", func() {
-				var env imex.Envelope
-				Expect(json.Unmarshal(
-					[]byte(`{"version":1,"type":"log","name":"n"}`), &env,
-				)).To(Succeed())
-				Expect(env.Version).To(Equal(imex.Version(1)))
-				Expect(env.Type).To(Equal("log"))
-				Expect(env.Name).To(Equal("n"))
-				Expect(env.Data).To(BeNil())
-			})
-
 			It("Should yield a zero envelope on null", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal([]byte(`null`), &env)).To(Succeed())
@@ -115,59 +113,240 @@ var _ = Describe("ImEx", func() {
 				)
 			})
 
-			It("Should preserve int64 precision on payload values past 2^53", func() {
+			It("Should preserve int64 precision on payload values past 2^53", func(ctx SpecContext) {
 				// 1700000000000000000 is roughly a current Unix nanosecond timestamp,
 				// well past float64's 53-bit mantissa (9007199254740992). The previous
-				// float64-based decode lost the low-order bits; UseNumber preserves
-				// them by deferring the parse to the typed conversion call.
+				// float64-based decode lost the low-order bits; capturing raw bytes
+				// preserves them all the way to the typed decode.
 				const big int64 = 1700000000000000000
-				src := []byte(`{"version":1,"type":"log","ts":1700000000000000000}`)
+				src := []byte(`{"version":1,"type":"log","name":"n","ts":1700000000000000000}`)
 				var env imex.Envelope
 				Expect(json.Unmarshal(src, &env)).To(Succeed())
-				n, ok := env.Data["ts"].(json.Number)
-				Expect(ok).To(BeTrue())
-				Expect(n.Int64()).To(Equal(big))
+				type tsPayload struct {
+					TS int64 `json:"ts"`
+				}
+				p := MustSucceed(imex.Decode[tsPayload](ctx, env))
+				Expect(p.TS).To(Equal(big))
 			})
 		})
 
 		Describe("MarshalJSON", func() {
-			It("Should merge the promoted fields onto Data, with promoted winning on conflict", func() {
-				env := imex.Envelope{
-					Version: 54,
-					Type:    "log",
-					Name:    "n",
-					Data: map[string]any{
-						"version":  999,
-						"type":     "ignored",
-						"channels": []any{1.0, 2.0},
-					},
-				}
+			It("Should emit the body built by Encode, with headers at the top level", func() {
+				env := MustSucceed(imex.Encode(
+					wirePayload{Name: "n", Foo: 1, Bar: "x"},
+					54,
+					ontology.ResourceType("log"),
+				))
 				b := MustSucceed(json.Marshal(env))
 				var round map[string]any
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
 				Expect(round["version"]).To(BeNumerically("==", 54))
 				Expect(round["type"]).To(Equal("log"))
 				Expect(round["name"]).To(Equal("n"))
-				Expect(round["channels"]).To(HaveLen(2))
-				Expect(round).NotTo(HaveKey("key"))
+				Expect(round["foo"]).To(BeNumerically("==", 1))
+				Expect(round["bar"]).To(Equal("x"))
+			})
+
+			It("Should emit JSON null for a hand-constructed envelope with no body", func() {
+				// Hand-constructed envelopes (no Encode call) intentionally marshal as
+				// null — callers must go through Encode to produce a wire-valid body.
+				env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
+				Expect(json.Marshal(env)).To(Equal([]byte("null")))
+			})
+		})
+
+		Describe("Decode", func() {
+			It("Should decode the body into the requested type", func(ctx SpecContext) {
+				src := []byte(`{"version":1,"type":"log","name":"n","foo":42,"bar":"x"}`)
+				var env imex.Envelope
+				Expect(json.Unmarshal(src, &env)).To(Succeed())
+				p := MustSucceed(imex.Decode[wirePayload](ctx, env))
+				Expect(p.Name).To(Equal("n"))
+				Expect(p.Foo).To(Equal(42))
+				Expect(p.Bar).To(Equal("x"))
+			})
+
+			It("Should fail on a type mismatch in the body", func(ctx SpecContext) {
+				src := []byte(`{"version":1,"type":"log","name":"n","foo":"not a number"}`)
+				var env imex.Envelope
+				Expect(json.Unmarshal(src, &env)).To(Succeed())
+				Expect(imex.Decode[wirePayload](ctx, env)).Error().To(
+					MatchError(ContainSubstring("decode envelope body")),
+				)
+			})
+
+			It("Should fail when the envelope has no body to decode", func(ctx SpecContext) {
+				env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
+				Expect(imex.Decode[wirePayload](ctx, env)).Error().To(
+					MatchError(ContainSubstring("no body to decode")),
+				)
+			})
+		})
+
+		Describe("Encode", func() {
+			It("Should stamp the headers and surface them on the envelope", func() {
+				env := MustSucceed(imex.Encode(
+					wirePayload{Name: "n", Foo: 1},
+					7,
+					ontology.ResourceType("log"),
+				))
+				Expect(env.Version).To(Equal(imex.Version(7)))
+				Expect(env.Type).To(Equal("log"))
+				Expect(env.Name).To(Equal("n"))
+			})
+
+			It("Should fail when the data is missing a top-level name field", func() {
+				type missingName struct {
+					Foo int `json:"foo"`
+				}
+				Expect(imex.Encode(missingName{Foo: 1}, 1, "log")).Error().To(
+					MatchError(ContainSubstring("name")),
+				)
+			})
+
+			It("Should fail when the top-level name field is the wrong type", func() {
+				type badName struct {
+					Name int `json:"name"`
+				}
+				Expect(imex.Encode(badName{Name: 5}, 1, "log")).Error().To(
+					MatchError(ContainSubstring("name")),
+				)
+			})
+
+			It("Should fail when a field tagged json:\"-\" hides the name field", func() {
+				type hidden struct {
+					Name string `json:"-"`
+					Foo  int    `json:"foo"`
+				}
+				Expect(imex.Encode(hidden{Name: "n", Foo: 1}, 1, "log")).Error().To(
+					MatchError(ContainSubstring("name")),
+				)
+			})
+
+			It("Should key the wire body by the json tag, not the Go field name", func() {
+				type payload struct {
+					Name     string `json:"name"`
+					FieldOne string `json:"field_one"`
+				}
+				env := MustSucceed(imex.Encode(
+					payload{Name: "n", FieldOne: "v"}, 1, "log",
+				))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).To(HaveKey("field_one"))
+				Expect(round).NotTo(HaveKey("FieldOne"))
+			})
+
+			It("Should strip comma options like omitempty from the json tag", func() {
+				type payload struct {
+					Name string `json:"name"`
+					Foo  int    `json:"foo,omitempty"`
+				}
+				env := MustSucceed(imex.Encode(
+					payload{Name: "n", Foo: 1}, 1, "log",
+				))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).To(HaveKey("foo"))
+				Expect(round).NotTo(HaveKey("foo,omitempty"))
+			})
+
+			It("Should skip fields tagged json:\"-\" from the wire body", func() {
+				type payload struct {
+					Name   string `json:"name"`
+					Hidden string `json:"-"`
+				}
+				env := MustSucceed(imex.Encode(
+					payload{Name: "n", Hidden: "secret"}, 1, "log",
+				))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).NotTo(HaveKey("Hidden"))
+				Expect(round).NotTo(HaveKey("-"))
+			})
+
+			It("Should skip untagged exported fields from the wire body", func() {
+				type payload struct {
+					Name    string `json:"name"`
+					Ignored string
+				}
+				env := MustSucceed(imex.Encode(
+					payload{Name: "n", Ignored: "x"}, 1, "log",
+				))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).NotTo(HaveKey("Ignored"))
+				Expect(round).NotTo(HaveKey("ignored"))
+			})
+
+			It("Should skip fields whose tag has no name (e.g. json:\",omitempty\")", func() {
+				type payload struct {
+					Name    string `json:"name"`
+					Ignored string `json:",omitempty"`
+				}
+				env := MustSucceed(imex.Encode(
+					payload{Name: "n", Ignored: "x"}, 1, "log",
+				))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).NotTo(HaveKey("Ignored"))
+				Expect(round).NotTo(HaveKey(""))
+			})
+
+			It("Should accept a pointer to the resource", func() {
+				env := MustSucceed(imex.Encode(
+					&wirePayload{Name: "n", Foo: 1}, 1, "log",
+				))
+				Expect(env.Name).To(Equal("n"))
+			})
+
+			It("Should preserve nested struct, slice, and map fields on the wire", func() {
+				type inner struct {
+					A int `json:"a"`
+				}
+				type payload struct {
+					Name     string            `json:"name"`
+					Inner    inner             `json:"inner"`
+					Channels []int             `json:"channels"`
+					Labels   map[string]string `json:"labels"`
+				}
+				env := MustSucceed(imex.Encode(payload{
+					Name:     "n",
+					Inner:    inner{A: 1},
+					Channels: []int{1, 2, 3},
+					Labels:   map[string]string{"k": "v"},
+				}, 1, "log"))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round["inner"]).To(HaveKeyWithValue("a", BeNumerically("==", 1)))
+				Expect(round["channels"]).To(HaveLen(3))
+				Expect(round["labels"]).To(HaveKeyWithValue("k", "v"))
 			})
 		})
 
 		Describe("Round-trip", func() {
-			It("Should preserve nested content across Marshal/Unmarshal", func() {
-				src := imex.Envelope{
-					Version: 7,
-					Type:    "log",
-					Name:    "n",
-					Data: map[string]any{
-						"channels":       []any{json.Number("1"), json.Number("2"), json.Number("3")},
-						"remote_created": true,
-					},
+			It("Should preserve nested content across Encode → Marshal → Unmarshal → Decode", func(ctx SpecContext) {
+				type payload struct {
+					Name          string  `json:"name"`
+					Channels      []int64 `json:"channels"`
+					RemoteCreated bool    `json:"remote_created"`
 				}
-				b := MustSucceed(json.Marshal(src))
-				var dst imex.Envelope
-				Expect(json.Unmarshal(b, &dst)).To(Succeed())
-				Expect(src).To(Equal(dst))
+				src := payload{Name: "n", Channels: []int64{1, 2, 3}, RemoteCreated: true}
+				env := MustSucceed(imex.Encode(src, 7, ontology.ResourceType("log")))
+				b := MustSucceed(json.Marshal(env))
+				var roundEnv imex.Envelope
+				Expect(json.Unmarshal(b, &roundEnv)).To(Succeed())
+				Expect(roundEnv.Version).To(Equal(imex.Version(7)))
+				Expect(roundEnv.Type).To(Equal("log"))
+				Expect(roundEnv.Name).To(Equal("n"))
+				out := MustSucceed(imex.Decode[payload](ctx, roundEnv))
+				Expect(out).To(Equal(src))
 			})
 		})
 	})

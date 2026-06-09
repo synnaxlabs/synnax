@@ -14,13 +14,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func samplePayload() map[string]any {
-	return map[string]any{"field_one": "value", "field_two": float64(42)}
-}
 
 var _ = Describe("Service", func() {
 	Describe("ServiceConfig", func() {
@@ -93,13 +91,16 @@ var _ = Describe("Service", func() {
 				s.RegisterImporter("opc_scan", noopImporter{typ: "task"})
 				Expect(s.ImporterType("http_read")).To(Equal(ontology.ResourceType("task")))
 				Expect(s.ImporterType("opc_scan")).To(Equal(ontology.ResourceType("task")))
-				keys := MustSucceed(s.Import(ctx, []imex.Envelope{
-					{Version: 1, Type: "http_read", Name: "ingest"},
-					{Version: 1, Type: "opc_scan", Name: "scan"},
-				}))
-				Expect(keys).To(HaveLen(2))
-				Expect(keys[0]).To(Equal("noop-key"))
-				Expect(keys[1]).To(Equal("noop-key"))
+				k1 := MustSucceed(s.Import(
+					ctx, db,
+					imex.Envelope{Version: 1, Type: "http_read", Name: "ingest"},
+				))
+				k2 := MustSucceed(s.Import(
+					ctx, db,
+					imex.Envelope{Version: 1, Type: "opc_scan", Name: "scan"},
+				))
+				Expect(k1).To(Equal("noop-key"))
+				Expect(k2).To(Equal("noop-key"))
 			},
 		)
 	})
@@ -108,104 +109,94 @@ var _ = Describe("Service", func() {
 		It("Should register an exporter under its own Type", func(ctx SpecContext) {
 			s := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
 			s.RegisterExporter(noopExporter{typ: "noop_export"})
-			result := MustSucceed(s.Export(ctx, []ontology.ID{{
+			env := MustSucceed(s.Export(ctx, db, ontology.ID{
 				Type: "noop_export",
 				Key:  "any",
-			}}))
-			Expect(result).To(HaveLen(1))
-			Expect(result[0].Type).To(Equal("noop_export"))
-			Expect(result[0].Name).To(Equal("noop"))
+			}))
+			Expect(env.Type).To(Equal("noop_export"))
+			Expect(env.Name).To(Equal("noop"))
 		})
 	})
 
 	Describe("Import", func() {
 		It("Should route to the correct service by type and return the new key", func(ctx SpecContext) {
-			envs := []imex.Envelope{{
-				Version: testVersion,
-				Type:    string(testResourceType),
-				Name:    "Registry Test",
-				Data:    samplePayload(),
-			}}
-			keys := MustSucceed(svc.Import(ctx, envs))
-			Expect(keys).To(HaveLen(1))
-			Expect(keys[0]).NotTo(BeEmpty())
+			key := MustSucceed(svc.Import(
+				ctx, db, sampleEnvelope("Registry Test", testResourceType),
+			))
+			Expect(key).NotTo(BeEmpty())
 		})
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
-			envs := []imex.Envelope{{
+			env := imex.Envelope{
 				Version: testVersion,
 				Type:    "nonexistent",
 				Name:    "Bad Type",
-				Data:    map[string]any{},
-			}}
-			Expect(svc.Import(ctx, envs)).Error().To(SatisfyAll(
+			}
+			Expect(svc.Import(ctx, db, env)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("no importer registered")),
 				MatchError(ContainSubstring("validation error")),
 			))
 		})
 		It("Should pass errors from the importer through verbatim", func(ctx SpecContext) {
-			Expect(svc.Import(ctx, []imex.Envelope{{
-				Version: testVersion,
-				Type:    string(errorResourceType),
-				Name:    "Erroring",
-				Data:    samplePayload(),
-			}})).Error().To(MatchError(ContainSubstring("importer error: forced failure")))
+			Expect(svc.Import(
+				ctx, db, sampleEnvelope("Erroring", errorResourceType),
+			)).Error().To(MatchError(ContainSubstring("importer error: forced failure")))
 		})
 
-		It("Should roll back the transaction if any envelope's import fails", func(ctx SpecContext) {
-			envs := []imex.Envelope{
-				{
-					Version: testVersion,
-					Type:    string(testResourceType),
-					Name:    "Good Record",
-					Data:    samplePayload(),
-				},
-				{
+		It("Should roll back the transaction when a sibling envelope fails", func(ctx SpecContext) {
+			// Per-envelope atomicity is now the caller's responsibility — Service.Import
+			// takes a single envelope on a single Tx, and the caller wraps the multi-
+			// envelope batch in db.WithTx. This test exercises that contract: the bad
+			// envelope causes the tx callback to return early, so the good envelope's
+			// write is rolled back along with it.
+			err := db.WithTx(ctx, func(tx gorp.Tx) error {
+				if _, err := svc.Import(
+					ctx, tx, sampleEnvelope("Good Record", testResourceType),
+				); err != nil {
+					return err
+				}
+				_, err := svc.Import(ctx, tx, imex.Envelope{
 					Version: testVersion,
 					Type:    "nonexistent",
 					Name:    "Bad Type",
-					Data:    map[string]any{},
-				},
-			}
-			Expect(svc.Import(ctx, envs)).Error().To(
-				MatchError(ContainSubstring("no importer registered")),
+				})
+				return err
+			})
+			Expect(err).To(MatchError(ContainSubstring("no importer registered")))
+			Expect(ts.RetrieveByName(ctx, "Good Record")).Error().To(
+				MatchError(query.ErrNotFound),
 			)
-			Expect(ts.RetrieveByName(ctx, "Good Record")).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
 	Describe("Export", func() {
 		It("Should round-trip a registered resource through Import then Export", func(ctx SpecContext) {
-			envs := []imex.Envelope{{
-				Version: testVersion,
-				Type:    string(testResourceType),
-				Name:    "Round Trip",
-				Data:    samplePayload(),
-			}}
-			keys := MustSucceed(svc.Import(ctx, envs))
-			Expect(keys).To(HaveLen(1))
-			result := MustSucceed(svc.Export(ctx, []ontology.ID{{
+			key := MustSucceed(svc.Import(
+				ctx, db, sampleEnvelope("Round Trip", testResourceType),
+			))
+			env := MustSucceed(svc.Export(ctx, db, ontology.ID{
 				Type: testResourceType,
-				Key:  keys[0],
-			}}))
-			Expect(result).To(HaveLen(1))
-			Expect(result[0].Version).To(Equal(testVersion))
-			Expect(result[0].Type).To(Equal(string(testResourceType)))
-			Expect(result[0].Name).To(Equal("Round Trip"))
-			Expect(result[0].Data).To(HaveKeyWithValue("field_one", "value"))
+				Key:  key,
+			}))
+			Expect(env.Version).To(Equal(testVersion))
+			Expect(env.Type).To(Equal(string(testResourceType)))
+			Expect(env.Name).To(Equal("Round Trip"))
+			roundTripped := MustSucceed(imex.Decode[testResource](ctx, env))
+			Expect(roundTripped.FieldOne).To(Equal("value"))
+			Expect(roundTripped.FieldTwo).To(Equal(42))
 		})
 		It("Should pass errors from the exporter through verbatim", func(ctx SpecContext) {
-			Expect(svc.Export(ctx, []ontology.ID{{
+			Expect(svc.Export(ctx, db, ontology.ID{
 				Type: errorResourceType,
 				Key:  "any-key",
-			}})).Error().To(MatchError(ContainSubstring("exporter error: forced failure")))
+			})).Error().To(MatchError(ContainSubstring("exporter error: forced failure")))
 		})
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
-			Expect(svc.Export(ctx, []ontology.ID{{
+			Expect(svc.Export(ctx, db, ontology.ID{
 				Type: "nonexistent",
 				Key:  "660e8400-e29b-41d4-a716-446655440000",
-			}})).Error().To(SatisfyAll(
+			})).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("no exporter registered")),
 				MatchError(ContainSubstring("validation error")),
 			))
