@@ -27,7 +27,6 @@ const client = createTestClient();
 
 const createTestSchematic = async (wsKey: string): Promise<schematic.Schematic> =>
   await client.schematics.create(wsKey, {
-    ...schematic.ZERO_NEW,
     name: "test_schematic",
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -315,7 +314,6 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.create.updateAsync({
-          ...schematic.ZERO_NEW,
           key,
           name: "created_schematic",
           workspace: ws.key,
@@ -323,6 +321,7 @@ describe("schematic queries", () => {
       });
 
       await waitFor(() => {
+        console.log(result.current.create)
         expect(result.current.create.variant).toBe("success");
       });
       expect(result.current.create.data?.name).toBe("created_schematic");

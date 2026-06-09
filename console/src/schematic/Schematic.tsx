@@ -26,8 +26,14 @@ import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
-import { selectEditable, useSelect, useSelectExists } from "@/schematic/selectors";
 import {
+  selectEditable,
+  useSelect,
+  useSelectExists,
+  useSelectPendingUpload,
+} from "@/schematic/selectors";
+import {
+  clearPendingUpload,
   internalCreate,
   setEditable,
   setFitViewOnResize,
@@ -36,9 +42,15 @@ import {
   setViewport,
   setViewportMode,
 } from "@/schematic/slice";
-import { useAutoUpload } from "@/schematic/useUpload";
 import { type RootState } from "@/store";
+import { createUseAutoUpload } from "@/vis/useAutoUpload";
 import { Workspace } from "@/workspace";
+
+const useAutoUpload = createUseAutoUpload({
+  useSelectPendingUpload,
+  useCreate: Base.useCreate,
+  clearPendingUpload,
+});
 
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });

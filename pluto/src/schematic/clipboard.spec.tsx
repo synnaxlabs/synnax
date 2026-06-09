@@ -54,7 +54,6 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
     layout: {},
   });
   return await client.schematics.create(ws.key, {
-    ...schematic.ZERO_NEW,
     name: `schem_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },

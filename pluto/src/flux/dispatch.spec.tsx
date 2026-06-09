@@ -26,7 +26,6 @@ const createSchem = async () => {
     layout: {},
   });
   return await client.schematics.create(ws.key, {
-    ...schematic.ZERO_NEW,
     name: `dispatch_test_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },

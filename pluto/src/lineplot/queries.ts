@@ -533,12 +533,12 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    data.key ??= uuid.create();
-    const { workspace, ...rest } = data;
-    rollbacks.push(store.lineplots.set(data.key, data as lineplot.LinePlot));
-    const l = await client.lineplots.create(workspace ?? uuid.ZERO, rest);
-    store.lineplots.set(l.key, l);
-    return { ...l, workspace };
+    const optimistic = lineplot.newZ.parse(data);
+    rollbacks.push(store.lineplots.set(optimistic));
+    const workspace = data.workspace ?? uuid.ZERO;
+    const created = await client.lineplots.create(workspace, optimistic);
+    store.lineplots.set(created);
+    return { ...created, workspace };
   },
 });
 

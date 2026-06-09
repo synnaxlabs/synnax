@@ -18,9 +18,6 @@ import { workspace } from "@/workspace";
 
 export const SET_CHANNEL_NAME = "sy_log_set";
 
-const setDataBodyZ = logZ.omit({ key: true, name: true });
-export type SetDataBody = z.input<typeof setDataBodyZ>;
-const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -62,10 +59,6 @@ export class Client {
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatch(key, "", [renameAction({ name })]);
-  }
-
-  async setData(key: Key, data: SetDataBody): Promise<void> {
-    await this.client.send("/log/set-data", { key, data }, setDataReqZ, emptyResZ);
   }
 
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {

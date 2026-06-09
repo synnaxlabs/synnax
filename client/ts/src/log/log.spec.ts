@@ -34,26 +34,6 @@ describe("Log", () => {
       expect(res.name).toEqual("Log2");
     });
   });
-  describe("setData", () => {
-    test("set data replaces body fields while preserving key and name", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
-      const log = await client.logs.create(ws.key, { name: "Log" });
-      await client.logs.setData(log.key, {
-        channels: [
-          { channel: 1, color: color.ZERO, timestamp: { format: "ISO", tz: "UTC" } },
-        ],
-        timestampPrecision: 2,
-        showChannelNames: false,
-      });
-      const res = await client.logs.retrieve({ key: log.key });
-      expect(res.name).toEqual("Log");
-      expect(res.channels).toHaveLength(1);
-      expect(res.channels[0].channel).toEqual(1);
-      expect(res.channels[0].timestamp.tz).toEqual("UTC");
-      expect(res.timestampPrecision).toEqual(2);
-      expect(res.showChannelNames).toEqual(false);
-    });
-  });
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });

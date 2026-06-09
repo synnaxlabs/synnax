@@ -59,8 +59,8 @@ import {
 } from "@/lineplot/types.gen";
 
 const empty = (overrides: Partial<LinePlot> = {}): LinePlot => ({
-  key: "00000000-0000-0000-0000-000000000000",
   ...newZ.parse({ name: "", ...overrides }),
+  key: "00000000-0000-0000-0000-000000000000",
 });
 
 const apply = (state: LinePlot, ...actions: Action[]): LinePlot =>

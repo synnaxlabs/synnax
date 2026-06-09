@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic, type workspace } from "@synnaxlabs/client";
+import { type schematic, type workspace } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -35,7 +35,6 @@ export const useCreate = ({
   return useCallback(
     (schem) =>
       update({
-        ...schematic.ZERO_NEW,
         name: "Schematic",
         ...schem,
         workspace: workspace ?? activeWorkspace ?? undefined,
