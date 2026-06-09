@@ -21,6 +21,8 @@
 	</Item>
 	<Item Name="typedefs" Type="Folder">
 		<Item Name="connection_config.ctl" Type="VI" URL="../typedefs/connection_config.ctl"/>
+		<Item Name="tls_config.ctl" Type="VI" URL="../typedefs/tls_config.ctl"/>
 		<Item Name="writer_mode.ctl" Type="VI" URL="../typedefs/writer_mode.ctl"/>
 	</Item>
+	<Item Name="synnax_client_smoke_test.vi" Type="VI" URL="../../examples/synnax_client_smoke_test.vi"/>
 </Library>
