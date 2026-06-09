@@ -5,6 +5,7 @@ EXPORTS
     synnax_client_open
     synnax_client_close
     synnax_client_version
+    synnax_channel_retrieve_keys
     synnax_writer_open
     synnax_writer_write
     synnax_writer_commit

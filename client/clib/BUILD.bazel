@@ -4,10 +4,12 @@ load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
 cc_library(
     name = "clib",
     srcs = [
+        "channel/channel.cpp",
         "framer/framer.cpp",
         "synnax.cpp",
     ],
     hdrs = [
+        "channel/channel.h",
         "export.h",
         "framer/framer.h",
         "internal.h",
@@ -16,7 +18,10 @@ cc_library(
     ],
     local_defines = ["SYNNAX_BUILDING_DLL=1"],
     visibility = ["//visibility:public"],
-    deps = ["//client/cpp:synnax"],
+    deps = [
+        "//client/cpp:synnax",
+        "//client/cpp/errors",
+    ],
     alwayslink = True,
 )
 

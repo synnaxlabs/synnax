@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include "client/clib/channel/channel.h"
 #include "client/clib/export.h"
 #include "client/clib/framer/framer.h"
 #include "client/clib/types.h"
