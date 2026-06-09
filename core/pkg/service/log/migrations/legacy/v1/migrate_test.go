@@ -12,42 +12,47 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Migrate", func() {
 	It("Should convert bare channel keys to config entries with defaults", func() {
 		old := v0.Data{
-			Channels:      []int{1, 2, 3},
+			Channels:      []channel.Key{1, 2, 3},
 			RemoteCreated: false,
 		}
 		result := v1.Migrate(old)
 		Expect(result.Channels).To(HaveLen(3))
-		Expect(result.Channels[0].Channel).To(Equal(1))
-		Expect(result.Channels[0].Color).To(Equal(""))
-		Expect(result.Channels[0].Notation).To(Equal("standard"))
-		Expect(result.Channels[0].Precision).To(Equal(-1))
+		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+		Expect(result.Channels[0].Color).To(BeEmpty())
+		Expect(result.Channels[0].Notation).To(Equal(notation.NotationStandard))
+		Expect(result.Channels[0].Precision).To(Equal(int32(-1)))
 		Expect(result.Channels[0].Alias).To(Equal(""))
-		Expect(result.Channels[2].Channel).To(Equal(3))
+		Expect(result.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
+		Expect(result.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
+		Expect(result.Channels[2].Channel).To(Equal(channel.Key(3)))
 	})
 
 	It("Should preserve RemoteCreated", func() {
-		old := v0.Data{Channels: []int{}, RemoteCreated: true}
+		old := v0.Data{Channels: []channel.Key{}, RemoteCreated: true}
 		result := v1.Migrate(old)
 		Expect(result.RemoteCreated).To(BeTrue())
 	})
 
 	It("Should set correct v1 defaults", func() {
-		old := v0.Data{Channels: []int{}, RemoteCreated: false}
+		old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
 		result := v1.Migrate(old)
-		Expect(result.TimestampPrecision).To(Equal(0))
+		Expect(result.TimestampPrecision).To(Equal(int32(0)))
 		Expect(result.ShowChannelNames).To(BeTrue())
 		Expect(result.ShowReceiptTimestamp).To(BeTrue())
 	})
 
 	It("Should handle empty channels", func() {
-		old := v0.Data{Channels: []int{}, RemoteCreated: false}
+		old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
 		result := v1.Migrate(old)
 		Expect(result.Channels).To(HaveLen(0))
 	})

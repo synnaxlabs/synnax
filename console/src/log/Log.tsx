@@ -27,6 +27,7 @@ import {
   setActiveToolbarTab,
   setRemoteCreated,
   type State,
+  stateFromLog,
   ZERO_STATE,
 } from "@/log/slice";
 import { Project } from "@/project";
@@ -44,12 +45,15 @@ export const useSyncComponent = Project.createSyncComponent(
     const data = select(storeState, key);
     if (data == null) return;
     const layout = Layout.selectRequired(storeState, key);
-    const setData = { ...data, key: undefined };
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
     await client.logs.create(project, {
       key,
       name: layout.name,
-      data: setData,
+      channels: data.channels,
+      remoteCreated: data.remoteCreated,
+      timestampPrecision: data.timestampPrecision,
+      showChannelNames: data.showChannelNames,
+      showReceiptTimestamp: data.showReceiptTimestamp,
     });
   },
 );
@@ -112,7 +116,7 @@ const useLoadRemote = createLoadRemote<log.Log>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+  actionCreator: (v) => internalCreate(stateFromLog(v)),
 });
 
 export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {

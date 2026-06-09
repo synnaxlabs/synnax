@@ -6,7 +6,7 @@
   "channels": [
     {
       "channel": 1,
-      "color": "red",
+      "color": "#ff0000",
       "notation": "scientific",
       "precision": 2,
       "alias": "temp"
@@ -19,8 +19,8 @@
       "alias": ""
     }
   ],
-  "remote_created": false,
-  "timestamp_precision": 1,
-  "show_channel_names": true,
-  "show_receipt_timestamp": false
+  "remoteCreated": false,
+  "timestampPrecision": 1,
+  "showChannelNames": true,
+  "showReceiptTimestamp": false
 }

@@ -26,13 +26,8 @@ describe("log queries", () => {
 
   describe("useRetrieve", () => {
     it("should retrieve a log by key", async () => {
-      const project = await client.projects.create({
-        name: "test_project",
-      });
-      const log = await client.logs.create(project.key, {
-        name: "retrieve_test",
-        data: {},
-      });
+      const workspace = await client.projects.create({ name: "test_workspace" });
+      const log = await client.logs.create(workspace.key, { name: "retrieve_test" });
 
       const { result } = renderHook(() => Log.useRetrieve({ key: log.key }), {
         wrapper,
@@ -45,13 +40,8 @@ describe("log queries", () => {
     });
 
     it("should cache retrieved logs", async () => {
-      const project = await client.projects.create({
-        name: "cache_project",
-      });
-      const log = await client.logs.create(project.key, {
-        name: "cached_log",
-        data: {},
-      });
+      const workspace = await client.projects.create({ name: "cache_workspace" });
+      const log = await client.logs.create(workspace.key, { name: "cached_log" });
 
       const { result: result1 } = renderHook(() => Log.useRetrieve({ key: log.key }), {
         wrapper,
@@ -68,9 +58,7 @@ describe("log queries", () => {
 
   describe("useCreate", () => {
     it("should create a new log", async () => {
-      const project = await client.projects.create({
-        name: "create_project",
-      });
+      const workspace = await client.projects.create({ name: "create_workspace" });
 
       const { result } = renderHook(() => Log.useCreate(), { wrapper });
 
@@ -78,24 +66,21 @@ describe("log queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           key,
-          project: project.key,
+          project: workspace.key,
           name: "created_log",
-          data: {},
         });
       });
 
       expect(result.current.variant).toEqual("success");
       expect(result.current.data?.name).toEqual("created_log");
-      expect(result.current.data?.project).toEqual(project.key);
+      expect(result.current.data?.project).toEqual(workspace.key);
 
       const retrieved = await client.logs.retrieve({ key });
       expect(retrieved.name).toEqual("created_log");
     });
 
     it("should store created log in flux store", async () => {
-      const project = await client.projects.create({
-        name: "store_project",
-      });
+      const workspace = await client.projects.create({ name: "store_workspace" });
 
       const { result: createResult } = renderHook(() => Log.useCreate(), {
         wrapper,
@@ -105,9 +90,8 @@ describe("log queries", () => {
       await act(async () => {
         await createResult.current.updateAsync({
           key,
-          project: project.key,
+          project: workspace.key,
           name: "stored_log",
-          data: {},
         });
       });
 
@@ -121,13 +105,8 @@ describe("log queries", () => {
 
   describe("useRename", () => {
     it("should rename a log", async () => {
-      const project = await client.projects.create({
-        name: "rename_project",
-      });
-      const log = await client.logs.create(project.key, {
-        name: "original_name",
-        data: {},
-      });
+      const workspace = await client.projects.create({ name: "rename_workspace" });
+      const log = await client.logs.create(workspace.key, { name: "original_name" });
 
       const { result } = renderHook(
         () => {
@@ -142,10 +121,7 @@ describe("log queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_name");
 
       await act(async () => {
-        await result.current.rename.updateAsync({
-          key: log.key,
-          name: "renamed_log",
-        });
+        await result.current.rename.updateAsync({ key: log.key, name: "renamed_log" });
       });
 
       const retrieved = await client.logs.retrieve({ key: log.key });
@@ -153,13 +129,8 @@ describe("log queries", () => {
     });
 
     it("should update cached log after rename", async () => {
-      const project = await client.projects.create({
-        name: "rename_cache_project",
-      });
-      const log = await client.logs.create(project.key, {
-        name: "cache_original",
-        data: {},
-      });
+      const workspace = await client.projects.create({ name: "rename_cache_workspace" });
+      const log = await client.logs.create(workspace.key, { name: "cache_original" });
 
       const { result } = renderHook(
         () => ({
@@ -185,13 +156,8 @@ describe("log queries", () => {
 
   describe("useDelete", () => {
     it("should delete a single log", async () => {
-      const project = await client.projects.create({
-        name: "delete_project",
-      });
-      const log = await client.logs.create(project.key, {
-        name: "delete_single",
-        data: {},
-      });
+      const workspace = await client.projects.create({ name: "delete_workspace" });
+      const log = await client.logs.create(workspace.key, { name: "delete_single" });
 
       const { result } = renderHook(() => Log.useDelete(), { wrapper });
 
@@ -205,17 +171,9 @@ describe("log queries", () => {
     });
 
     it("should delete multiple logs", async () => {
-      const project = await client.projects.create({
-        name: "delete_multi_project",
-      });
-      const log1 = await client.logs.create(project.key, {
-        name: "delete_multi_1",
-        data: {},
-      });
-      const log2 = await client.logs.create(project.key, {
-        name: "delete_multi_2",
-        data: {},
-      });
+      const workspace = await client.projects.create({ name: "delete_multi_workspace" });
+      const log1 = await client.logs.create(workspace.key, { name: "delete_multi_1" });
+      const log2 = await client.logs.create(workspace.key, { name: "delete_multi_2" });
 
       const { result } = renderHook(() => Log.useDelete(), { wrapper });
 
