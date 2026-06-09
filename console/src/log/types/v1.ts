@@ -21,9 +21,6 @@ export const timestampConfigZ = z.object({
 });
 export type TimestampConfig = z.infer<typeof timestampConfigZ>;
 
-// channelEntryZ is the v1 per-channel display configuration. color is stored as a raw
-// string (a hex value, or the empty string when unset) rather than a strongly-typed
-// color; v2 migrates these into color.Color.
 export const channelEntryZ = z.object({
   channel: channel.keyZ,
   color: z.string().default(""),
@@ -33,15 +30,6 @@ export const channelEntryZ = z.object({
   timestamp: timestampConfigZ.default({ format: "preciseDate", tz: "local" }),
 });
 export type ChannelEntry = z.infer<typeof channelEntryZ>;
-
-export const ZERO_CHANNEL_ENTRY: ChannelEntry = {
-  channel: 0,
-  color: "",
-  notation: "standard",
-  precision: -1,
-  alias: "",
-  timestamp: { format: "preciseDate", tz: "local" },
-};
 
 export const toolbarTabZ = z.enum(["channels", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
@@ -96,7 +84,7 @@ export const stateMigration = migrate.createMigration<v0.State, State>({
     showChannelNames: true,
     showReceiptTimestamp: true,
     toolbar: ZERO_TOOLBAR_STATE,
-    channels: state.channels.map((key) => ({ ...ZERO_CHANNEL_ENTRY, channel: key })),
+    channels: state.channels.map((key) => channelEntryZ.parse({ channel: key })),
   }),
 });
 

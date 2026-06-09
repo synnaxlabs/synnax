@@ -11,7 +11,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Log } from "@/log/Log";
+import { Base } from "@/log/Base";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { Triggers } from "@/triggers";
 
@@ -75,7 +75,7 @@ const setupAether = (overrides: Record<string, unknown> = {}) => {
 };
 
 const renderLog = (props: Record<string, unknown> = {}) =>
-  render(<Log {...props} />, { wrapper: Wrapper });
+  render(<Base {...props} />, { wrapper: Wrapper });
 
 const getLogDiv = (container: HTMLElement): HTMLElement => {
   const div = container.querySelector(".pluto-log");
@@ -86,7 +86,7 @@ const getLogDiv = (container: HTMLElement): HTMLElement => {
 const getAetherInitialState = (): Record<string, unknown> =>
   mockAetherUse.mock.calls[0][0].initialState;
 
-describe("log/Log", () => {
+describe("log/Base", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupAether();

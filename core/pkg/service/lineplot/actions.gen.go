@@ -26,9 +26,11 @@ const (
 	ActionTypeSetLegendPosition     = "set_legend_position"
 	ActionTypeAddChannel            = "add_channel"
 	ActionTypeRemoveChannel         = "remove_channel"
+	ActionTypeSetChannels           = "set_channels"
 	ActionTypeSetXChannel           = "set_x_channel"
 	ActionTypeAddRange              = "add_range"
 	ActionTypeRemoveRange           = "remove_range"
+	ActionTypeSetRanges             = "set_ranges"
 	ActionTypeSetAxisLabel          = "set_axis_label"
 	ActionTypeSetAxisLabelDirection = "set_axis_label_direction"
 	ActionTypeSetAxisLabelLevel     = "set_axis_label_level"
@@ -87,6 +89,15 @@ type RemoveChannelPayload struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
+// SetChannelsPayload replaces the entire set of channels bound to the y-axis named by
+// axis_key with channels. Channels absent from the new set are removed and their lines
+// dropped; channels not previously present are added. Existing channels keep their line
+// styling.
+type SetChannelsPayload struct {
+	AxisKey  YAxisKey      `json:"axis_key" msgpack:"axis_key"`
+	Channels []channel.Key `json:"channels" msgpack:"channels"`
+}
+
 // SetXChannelPayload replaces the single channel bound to the x-axis named by axis_key.
 type SetXChannelPayload struct {
 	AxisKey XAxisKey    `json:"axis_key" msgpack:"axis_key"`
@@ -105,6 +116,15 @@ type AddRangePayload struct {
 type RemoveRangePayload struct {
 	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
 	Range   string   `json:"range" msgpack:"range"`
+}
+
+// SetRangesPayload replaces the entire set of range keys bound to the x-axis named by
+// axis_key with ranges. Ranges absent from the new set are removed and their lines
+// dropped; ranges not previously present are added. Existing ranges keep their line
+// styling.
+type SetRangesPayload struct {
+	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
+	Ranges  []string `json:"ranges" msgpack:"ranges"`
 }
 
 // SetAxisLabelPayload sets the label rendered along the axis identified by key.
@@ -258,9 +278,11 @@ type Action struct {
 	SetLegendPosition     *SetLegendPositionPayload     `json:"set_legend_position,omitempty" msgpack:"set_legend_position,omitempty"`
 	AddChannel            *AddChannelPayload            `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
 	RemoveChannel         *RemoveChannelPayload         `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
+	SetChannels           *SetChannelsPayload           `json:"set_channels,omitempty" msgpack:"set_channels,omitempty"`
 	SetXChannel           *SetXChannelPayload           `json:"set_x_channel,omitempty" msgpack:"set_x_channel,omitempty"`
 	AddRange              *AddRangePayload              `json:"add_range,omitempty" msgpack:"add_range,omitempty"`
 	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitempty" msgpack:"remove_range,omitempty"`
+	SetRanges             *SetRangesPayload             `json:"set_ranges,omitempty" msgpack:"set_ranges,omitempty"`
 	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitempty" msgpack:"set_axis_label,omitempty"`
 	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitempty" msgpack:"set_axis_label_direction,omitempty"`
 	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitempty" msgpack:"set_axis_label_level,omitempty"`
@@ -323,6 +345,11 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveChannel.Handle(state)
+		case ActionTypeSetChannels:
+			if a.SetChannels == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetChannels.Handle(state)
 		case ActionTypeSetXChannel:
 			if a.SetXChannel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -338,6 +365,11 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveRange.Handle(state)
+		case ActionTypeSetRanges:
+			if a.SetRanges == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetRanges.Handle(state)
 		case ActionTypeSetAxisLabel:
 			if a.SetAxisLabel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -483,6 +515,11 @@ func NewRemoveChannelAction(p RemoveChannelPayload) Action {
 	return Action{Type: ActionTypeRemoveChannel, RemoveChannel: &p}
 }
 
+// NewSetChannelsAction wraps a SetChannelsPayload in an Action envelope.
+func NewSetChannelsAction(p SetChannelsPayload) Action {
+	return Action{Type: ActionTypeSetChannels, SetChannels: &p}
+}
+
 // NewSetXChannelAction wraps a SetXChannelPayload in an Action envelope.
 func NewSetXChannelAction(p SetXChannelPayload) Action {
 	return Action{Type: ActionTypeSetXChannel, SetXChannel: &p}
@@ -496,6 +533,11 @@ func NewAddRangeAction(p AddRangePayload) Action {
 // NewRemoveRangeAction wraps a RemoveRangePayload in an Action envelope.
 func NewRemoveRangeAction(p RemoveRangePayload) Action {
 	return Action{Type: ActionTypeRemoveRange, RemoveRange: &p}
+}
+
+// NewSetRangesAction wraps a SetRangesPayload in an Action envelope.
+func NewSetRangesAction(p SetRangesPayload) Action {
+	return Action{Type: ActionTypeSetRanges, SetRanges: &p}
 }
 
 // NewSetAxisLabelAction wraps a SetAxisLabelPayload in an Action envelope.

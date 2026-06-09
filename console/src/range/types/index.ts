@@ -19,6 +19,7 @@ export type AnyRange = v0.Range;
 export type AnySliceState = v0.SliceState;
 
 export const ZERO_SLICE_STATE = v0.ZERO_SLICE_STATE;
+export const RECENT_RANGE_KEY = v0.RECENT_RANGE_KEY;
 
 export const RANGE_MIGRATIONS: migrate.Migrations = {};
 

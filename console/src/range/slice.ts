@@ -19,6 +19,7 @@ export type StaticRange = latest.StaticRange;
 export type Range = latest.Range;
 export const migrateSlice = latest.migrateSlice;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
+export const RECENT_RANGE_KEY = latest.RECENT_RANGE_KEY;
 
 export const SLICE_NAME = "range";
 

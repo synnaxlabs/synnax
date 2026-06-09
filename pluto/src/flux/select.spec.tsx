@@ -435,6 +435,97 @@ describe("createSelector", () => {
     });
   });
 
+  describe("transform", () => {
+    it("should apply transform to the raw selection", () => {
+      const { wrapper, fluxClient } = createTestWrapper();
+      setDoc(fluxClient, {
+        key: "k1",
+        name: "Alice",
+        count: 1,
+        nested: { x: 1, y: 2 },
+      });
+
+      const useSelectSum = Flux.createSelector<
+        TestStore,
+        { key: string },
+        number,
+        { x: number; y: number }
+      >({
+        subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
+        select: (store, { key }) => store.docs.get(key)?.nested ?? { x: 0, y: 0 },
+        transform: (raw) => raw.x + raw.y,
+      });
+
+      const { result } = renderHook(() => useSelectSum({ key: "k1" }), { wrapper });
+      expect(result.current).toBe(3);
+    });
+
+    it("should not re-run transform when the raw selection reference is unchanged", () => {
+      const { wrapper, fluxClient } = createTestWrapper();
+      const nested = { x: 1, y: 2 };
+      setDoc(fluxClient, { key: "k1", name: "Alice", count: 1, nested });
+
+      const transform = vi.fn((raw: { x: number; y: number }) => ({
+        sum: raw.x + raw.y,
+      }));
+      const useSelectNested = Flux.createSelector<
+        TestStore,
+        { key: string },
+        { sum: number },
+        { x: number; y: number }
+      >({
+        subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
+        select: (store, { key }) => store.docs.get(key)?.nested ?? { x: 0, y: 0 },
+        transform,
+      });
+
+      const { result } = renderHook(() => useSelectNested({ key: "k1" }), { wrapper });
+      const firstOut = result.current;
+      const callsAfterMount = transform.mock.calls.length;
+
+      act(() => setDoc(fluxClient, { key: "k1", name: "Bob", count: 2, nested }));
+
+      expect(transform.mock.calls.length).toBe(callsAfterMount);
+      expect(result.current).toBe(firstOut);
+    });
+
+    it("should re-run transform when the raw selection reference changes", () => {
+      const { wrapper, fluxClient } = createTestWrapper();
+      setDoc(fluxClient, {
+        key: "k1",
+        name: "Alice",
+        count: 1,
+        nested: { x: 1, y: 2 },
+      });
+
+      const transform = vi.fn((raw: { x: number; y: number }) => raw.x + raw.y);
+      const useSelectSum = Flux.createSelector<
+        TestStore,
+        { key: string },
+        number,
+        { x: number; y: number }
+      >({
+        subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
+        select: (store, { key }) => store.docs.get(key)?.nested ?? { x: 0, y: 0 },
+        transform,
+      });
+
+      const { result } = renderHook(() => useSelectSum({ key: "k1" }), { wrapper });
+      expect(result.current).toBe(3);
+
+      act(() =>
+        setDoc(fluxClient, {
+          key: "k1",
+          name: "Alice",
+          count: 1,
+          nested: { x: 10, y: 5 },
+        }),
+      );
+
+      expect(result.current).toBe(15);
+    });
+  });
+
   describe("cleanup", () => {
     it("should unsubscribe when the component unmounts", () => {
       const { wrapper } = createTestWrapper();

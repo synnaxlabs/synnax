@@ -15,7 +15,6 @@ import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
-import { tooltip } from "@/lineplot/tooltip/aether";
 import { log } from "@/log/aether";
 import { LogFactory } from "@/log/aether/telem/factory";
 import { ontology } from "@/ontology/aether";
@@ -34,8 +33,6 @@ import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
-import { measure } from "@/vis/measure/aether";
-import { rule } from "@/vis/rule/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { toggle } from "@/vis/toggle/aether";
@@ -67,9 +64,7 @@ export const render = (): void => {
     ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
-    ...measure.REGISTRY,
     ...range.REGISTRY,
-    ...rule.REGISTRY,
     ...setpoint.REGISTRY,
     ...stateIndicator.REGISTRY,
     ...status.REGISTRY,
@@ -77,7 +72,6 @@ export const render = (): void => {
     ...telem.createRegistry((client) => new LogFactory(client)),
     ...theming.REGISTRY,
     ...toggle.REGISTRY,
-    ...tooltip.REGISTRY,
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,

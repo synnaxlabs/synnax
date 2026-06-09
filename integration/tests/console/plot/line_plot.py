@@ -61,6 +61,7 @@ class LinePlot(ConsoleCase):
         # Track the renamed plot title
         self._shared_plot_name = plot.page_name
         self.test_move_channel_between_axes(plot, data_name)
+        self.test_undo_redo_add_channel(plot, data_name)
         self.test_live_data(plot)
         self.test_drag_channel_to_canvas(plot)
         self.test_drag_channel_to_toolbar(plot)
@@ -155,6 +156,26 @@ class LinePlot(ConsoleCase):
         plot.set_title(new_title)
         value = plot.get_title()
         assert value == new_title, f"Expected title '{new_title}', got '{value}'"
+
+    def test_undo_redo_add_channel(self, plot: Plot, data_name: str) -> None:
+        """Test that Cmd+Z reverts an add-channel and Cmd+Shift+Z re-applies it.
+
+        Reverts the add_channel(Y2) dispatch left on the undo stack by the
+        preceding test_move_channel_between_axes, then redoes it to leave
+        the plot in its original state for downstream tests.
+        """
+        self.log("Testing undo/redo for add channel")
+        assert plot.has_channel("Y2", data_name), (
+            "Setup precondition: previous test should have added channel to Y2"
+        )
+        plot.undo()
+        assert not plot.has_channel("Y2", data_name), (
+            f"Undo should remove {data_name} from Y2"
+        )
+        plot.redo()
+        assert plot.has_channel("Y2", data_name), (
+            f"Redo should re-add {data_name} to Y2"
+        )
 
     def test_live_data(self, plot: Plot) -> None:
         """Test plotting live data with a rolling time range."""

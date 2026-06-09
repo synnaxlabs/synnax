@@ -8,20 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Log as PLog } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { Access, Log } from "@synnaxlabs/pluto";
 
-import { Log } from "@/log";
+import { useCreate } from "@/log/useCreate";
 import { Palette } from "@/palette";
 
-const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const handleSelect = useCallback(() => placeLayout(Log.create()), [placeLayout]);
+const CreateCommand: Palette.Command = (listProps) => {
+  const create = useCreate({});
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Create a log"
-      icon={<PLog.CreateIcon />}
-      onSelect={handleSelect}
+      icon={<Log.CreateIcon />}
+      onSelect={create}
     />
   );
 };

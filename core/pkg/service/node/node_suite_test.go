@@ -7,4 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Measure from "@/vis/measure/Measure";
+package node_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestNode(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Node Suite")
+}
