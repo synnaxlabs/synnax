@@ -19,7 +19,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-
 var _ = Describe("Service", func() {
 	Describe("ServiceConfig", func() {
 		Describe("Validate", func() {
@@ -163,7 +162,7 @@ var _ = Describe("Service", func() {
 				return err
 			})
 			Expect(err).To(MatchError(ContainSubstring("no importer registered")))
-			Expect(ts.RetrieveByName(ctx, "Good Record")).Error().To(
+			Expect(ts.Retrieve(ctx, "Good Record")).Error().To(
 				MatchError(query.ErrNotFound),
 			)
 		})

@@ -64,10 +64,10 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 
 // Envelope is the portable format for a single importable/exportable resource. The
 // public fields hold the wire headers; the body is private — raw bytes plus a bound
-// codec on the import path, a codec-independent map on the export path. Services
-// never touch the body directly: import handlers call Decode[T] to materialize the
-// payload (using the codec the matching UnmarshalX method bound on the way in), and
-// export handlers call Encode[T] to construct an envelope from a typed value.
+// codec on the import path, a codec-independent map on the export path. Services never
+// touch the body directly: import handlers call Decode[T] to materialize the payload
+// (using the codec the matching UnmarshalX method bound on the way in), and export
+// handlers call Encode[T] to construct an envelope from a typed value.
 type Envelope struct {
 	// Version is the per-schema integer version stamped on every envelope.
 	Version Version
@@ -82,8 +82,7 @@ type Envelope struct {
 	Name string
 
 	// codec is the encoding.Codec bound by the UnmarshalX method that produced this
-	// envelope, and is what Decode[T] uses to interpret raw. Nil for envelopes built
-	// by Encode or constructed by hand; Decode falls back to xjson.Codec in that case.
+	// envelope, and is what Decode[T] uses to interpret raw.
 	codec encoding.Codec
 	// raw holds the original wire bytes of an import payload, captured by the matching
 	// UnmarshalX method. Decode[T] feeds these straight into the requested type via
@@ -91,14 +90,14 @@ type Envelope struct {
 	// intermediate.
 	raw []byte
 	// body holds the export-side representation: the typed value reduced to a
-	// codec-independent map by Encode, with the headers merged in. MarshalJSON emits
-	// it directly; nil for import-side envelopes.
+	// codec-independent map by Encode, with the headers merged in. Marshalling emits it
+	// directly; nil for import-side envelopes.
 	body map[string]any
 }
 
-// MarshalJSON emits the codec-independent body built by Encode. Hand-constructed
-// envelopes (no Encode call, no wire round-trip) have a nil body and marshal as JSON
-// null — callers should go through Encode to produce a wire-valid payload.
+// MarshalJSON emits the body built by Encode. Hand-constructed envelopes (no Encode
+// call, no wire round-trip) have a nil body and marshal as JSON null — callers should
+// go through Encode to produce a wire-valid payload.
 func (e Envelope) MarshalJSON() ([]byte, error) { return json.Marshal(e.body) }
 
 // UnmarshalJSON reads a flat JSON object, extracts the promoted headers, retains the
@@ -113,6 +112,19 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 	var m map[string]any
 	if err := dec.Decode(&m); err != nil {
 		return err
+	}
+	return e.unmarshal(m, b, xjson.Codec)
+}
+
+// unmarshal is the codec-agnostic tail shared by every UnmarshalX method on Envelope.
+// Given the body already decoded as a flat map, the original wire bytes, and the codec
+// that produced them, it promotes the {version, type, name} headers onto the receiver
+// and stashes raw + codec for the later typed decode via Decode[T]. A nil m (e.g. a
+// JSON `null` payload) is treated as a zero envelope: no headers, no codec binding, so
+// Decode[T] surfaces the "no body to decode" path rather than silently succeeding.
+func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
+	if m == nil {
+		return nil
 	}
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
@@ -135,10 +147,8 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 		}
 		e.Name = s
 	}
-	if m != nil {
-		e.codec = xjson.Codec
-		e.raw = b
-	}
+	e.codec = codec
+	e.raw = raw
 	return nil
 }
 

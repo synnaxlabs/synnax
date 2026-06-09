@@ -35,10 +35,6 @@ const (
 	testVersion       imex.Version          = 1
 )
 
-// testResource is the wire-side payload that flows through the Envelope: name plus a
-// pair of fields the registry round-trip tests assert on. The json tags drive both
-// Encode (via types.StructToMap, which honors them) and Decode (json.Unmarshal), so
-// the wire shape stays lowercase end-to-end.
 type testResource struct {
 	Name     string `json:"name"`
 	FieldOne string `json:"field_one"`
@@ -49,14 +45,10 @@ func sampleResource(name string) testResource {
 	return testResource{Name: name, FieldOne: "value", FieldTwo: 42}
 }
 
-// sampleEnvelope encodes a sampleResource as an envelope of the given type. Used by
-// the service-level tests to exercise the registry through the new Encode path.
 func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
 	return MustSucceed(imex.Encode(sampleResource(name), testVersion, typ))
 }
 
-// testEntry is the in-memory record persisted by testService through a Gorp table so
-// transaction rollback semantics in the ImEx registry can be exercised end-to-end.
 type testEntry struct {
 	Key      string `json:"key" msgpack:"key"`
 	Name     string `json:"name" msgpack:"name"`
@@ -64,13 +56,15 @@ type testEntry struct {
 	FieldTwo int    `json:"field_two" msgpack:"field_two"`
 }
 
+var _ gorp.Entry[string] = testEntry{}
+
 func (e testEntry) GorpKey() string { return e.Key }
 func (testEntry) SetOptions() []any { return nil }
 
 // testService is a minimal in-memory ImportExporter used to exercise the ImEx registry
 // without depending on any concrete service. Imports decode the typed payload, allocate
-// a fresh key, and persist through the provided transaction; exports look up by key
-// and re-encode through Encode.
+// a fresh key, and persist through the provided transaction; exports look up by key and
+// re-encode through Encode.
 type testService struct {
 	db    *gorp.DB
 	table *gorp.Table[string, testEntry]
@@ -87,7 +81,7 @@ func (s *testService) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
-) (string, error) {
+) (imex.Key, error) {
 	r, err := imex.Decode[testResource](ctx, env)
 	if err != nil {
 		return "", err
@@ -103,7 +97,7 @@ func (s *testService) Import(
 func (s *testService) Export(
 	ctx context.Context,
 	tx gorp.Tx,
-	key string,
+	key imex.Key,
 ) (imex.Envelope, error) {
 	var e testEntry
 	if err := s.table.NewRetrieve().
@@ -119,21 +113,7 @@ func (s *testService) Export(
 	)
 }
 
-func (s *testService) Retrieve(ctx context.Context, key string) (testEntry, error) {
-	var e testEntry
-	if err := s.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, testEntry](key)).
-		Entry(&e).
-		Exec(ctx, s.db); err != nil {
-		return testEntry{}, err
-	}
-	return e, nil
-}
-
-func (s *testService) RetrieveByName(
-	ctx context.Context,
-	name string,
-) (testEntry, error) {
+func (s *testService) Retrieve(ctx context.Context, name string) (testEntry, error) {
 	var e testEntry
 	if err := s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, e *testEntry) (bool, error) {
@@ -154,11 +134,11 @@ type errorService struct{}
 
 func (errorService) Type() ontology.ResourceType { return errorResourceType }
 
-func (errorService) Import(context.Context, gorp.Tx, imex.Envelope) (string, error) {
+func (errorService) Import(context.Context, gorp.Tx, imex.Envelope) (imex.Key, error) {
 	return "", errors.New("importer error: forced failure")
 }
 
-func (errorService) Export(context.Context, gorp.Tx, string) (imex.Envelope, error) {
+func (errorService) Export(context.Context, gorp.Tx, imex.Key) (imex.Envelope, error) {
 	return imex.Envelope{}, errors.New("exporter error: forced failure")
 }
 
@@ -168,7 +148,7 @@ type noopImporter struct{ typ ontology.ResourceType }
 
 func (n noopImporter) Type() ontology.ResourceType { return n.typ }
 
-func (noopImporter) Import(context.Context, gorp.Tx, imex.Envelope) (string, error) {
+func (noopImporter) Import(context.Context, gorp.Tx, imex.Envelope) (imex.Key, error) {
 	return "noop-key", nil
 }
 
@@ -177,7 +157,11 @@ type noopExporter struct{ typ ontology.ResourceType }
 
 func (n noopExporter) Type() ontology.ResourceType { return n.typ }
 
-func (n noopExporter) Export(context.Context, gorp.Tx, string) (imex.Envelope, error) {
+func (n noopExporter) Export(
+	context.Context,
+	gorp.Tx,
+	imex.Key,
+) (imex.Envelope, error) {
 	return imex.Encode(testResource{Name: "noop"}, testVersion, n.typ)
 }
 
