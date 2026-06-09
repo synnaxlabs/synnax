@@ -41,8 +41,11 @@ func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		k, err := strconv.Atoi(id.Key)
-		return Key(k), err
+		k, err := strconv.ParseUint(id.Key, 10, 64)
+		if err != nil {
+			return 0, err
+		}
+		return Key(k), nil
 	})
 }
 

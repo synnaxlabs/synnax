@@ -117,10 +117,7 @@ type DeleteRequest struct {
 	Range    ranger.Key    `json:"range" msgpack:"range"`
 }
 
-func (s *Service) Delete(
-	ctx context.Context,
-	req DeleteRequest,
-) (types.Nil, error) {
+func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
@@ -148,10 +145,7 @@ type (
 	}
 )
 
-func (s *Service) List(
-	ctx context.Context,
-	req ListRequest,
-) (ListResponse, error) {
+func (s *Service) List(ctx context.Context, req ListRequest) (ListResponse, error) {
 	var aliases map[channel.Key]string
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		reader := s.alias.NewReader(tx)

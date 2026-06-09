@@ -234,10 +234,7 @@ type DeleteRequest struct {
 	Keys []string `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(
-	ctx context.Context,
-	req DeleteRequest,
-) (types.Nil, error) {
+func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
 	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),

@@ -99,7 +99,9 @@ func (s *Service) RetrievePolicy(
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		q := s.internal.Policy.NewRetrieve()
 		if len(req.Subjects) > 0 {
-			subjectKeys, err := s.internal.Policy.ResolveSubjects(ctx, tx, req.Subjects...)
+			subjectKeys, err := s.internal.Policy.ResolveSubjects(
+				ctx, tx, req.Subjects...,
+			)
 			if err != nil {
 				return err
 			}

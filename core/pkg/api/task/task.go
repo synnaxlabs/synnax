@@ -207,10 +207,7 @@ type (
 	}
 )
 
-func (s *Service) Copy(
-	ctx context.Context,
-	req CopyRequest,
-) (CopyResponse, error) {
+func (s *Service) Copy(ctx context.Context, req CopyRequest) (CopyResponse, error) {
 	var res CopyResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{

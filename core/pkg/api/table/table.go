@@ -53,7 +53,10 @@ type (
 	}
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
+func (s *Service) Create(
+	ctx context.Context,
+	req CreateRequest,
+) (CreateResponse, error) {
 	var res CreateResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -107,7 +110,10 @@ type (
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
 	var res RetrieveResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.internal.NewRetrieve().

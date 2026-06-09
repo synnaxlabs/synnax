@@ -62,7 +62,10 @@ type (
 	CreateResponse = CreateRequest
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
+func (s *Service) Create(
+	ctx context.Context,
+	req CreateRequest,
+) (CreateResponse, error) {
 	var res CreateResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
@@ -119,7 +122,10 @@ type (
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
 	var (
 		res     RetrieveResponse
 		svcArcs []arc.Arc
@@ -183,7 +189,10 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveRe
 type LSPMessage = arctransport.JSONRPCMessage
 
 // LSP handles LSP protocol messages over a Freighter stream
-func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMessage, LSPMessage]) error {
+func (s *Service) LSP(
+	ctx context.Context,
+	stream freighter.ServerStream[LSPMessage, LSPMessage],
+) error {
 	lsp, err := s.internal.NewLSP()
 	if err != nil {
 		return err
@@ -194,25 +203,21 @@ func (s *Service) LSP(ctx context.Context, stream freighter.ServerStream[LSPMess
 	})
 }
 
-// compile compiles the Arc text to a module containing IR and WASM bytecode.
-// Returns an error if parsing, analysis, or compilation fails.
+// compile compiles the Arc text to a module containing IR and WASM bytecode. Returns an
+// error if parsing, analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, tx gorp.Tx, arc *Arc) error {
-	// Step 1: Parse the Arc text
 	parsed, diag := arctext.Parse(arc.Text)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
-	// Step 2: Analyze the parsed text to produce IR
 	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(tx))
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
-	// Step 3: Compile IR to WebAssembly module
 	mod, err := arctext.Compile(ctx, ir)
 	if err != nil {
 		return err
 	}
-	// Step 4: Attach compiled module to Arc
 	arc.Program = &mod
 	return nil
 }

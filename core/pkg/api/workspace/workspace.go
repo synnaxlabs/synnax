@@ -50,7 +50,9 @@ type (
 	CreateResponse = CreateRequest
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
+func (s *Service) Create(
+	ctx context.Context, req CreateRequest,
+) (CreateResponse, error) {
 	userKey, err := user.KeyFromOntologyID(auth.GetSubject(ctx))
 	if err != nil {
 		return CreateResponse{}, err
