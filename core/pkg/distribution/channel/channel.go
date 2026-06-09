@@ -86,8 +86,7 @@ func KeysFromUint32(keys []uint32) Keys {
 	return unsafe.ReinterpretSlice[uint32, Key](keys)
 }
 
-// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs. This
-// function will skip any ontology.IDs that are not of the correct type.
+// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
 		return ParseKey(id.Key)
