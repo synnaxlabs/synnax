@@ -25,6 +25,11 @@ import { Canvas } from "@/vis/canvas";
 
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 
+// Select-all sends "to end" rather than a concrete index so the entry count never
+// has to be synced from the worker on every batch. The worker holds entries.length
+// and its slice/clamp logic resolves this to the true last entry at render time.
+const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
+
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
 const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
@@ -83,7 +88,6 @@ export const Base = ({
     region,
     visibleStart,
     computedLineHeight,
-    entryCount,
   } = state;
 
   const resizeRef = Canvas.useRegion(
@@ -171,14 +175,9 @@ export const Base = ({
         if (enableTriggers === false) return;
         if (typeof enableTriggers === "function" && !enableTriggers()) return;
         const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
-        if (mode === "selectAll") {
-          if (entryCount === 0) return;
-          setState((s) => ({
-            ...s,
-            selectionStart: 0,
-            selectionEnd: entryCount - 1,
-          }));
-        } else if (mode === "clearSelection")
+        if (mode === "selectAll")
+          setState((s) => ({ ...s, selectionStart: 0, selectionEnd: SELECT_ALL_END }));
+        else if (mode === "clearSelection")
           setState((s) => ({
             ...s,
             selectionStart: -1,
@@ -188,7 +187,7 @@ export const Base = ({
         else if (mode === "togglePause")
           setState((s) => ({ ...s, scrolling: !s.scrolling }));
       },
-      [entryCount, setState, enableTriggers],
+      [setState, enableTriggers],
     ),
   });
 
