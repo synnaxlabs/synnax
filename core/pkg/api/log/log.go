@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -76,24 +77,6 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse
 	return res, nil
 }
 
-type RenameRequest struct {
-	Name string  `json:"name" msgpack:"name"`
-	Key  log.Key `json:"key" msgpack:"key"`
-}
-
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{log.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
-}
-
 type SetDataRequest struct {
 	Data log.Log `json:"data" msgpack:"data"`
 	Key  log.Key `json:"key" msgpack:"key"`
@@ -109,6 +92,30 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (types.Nil, e
 			return err
 		}
 		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
+	})
+}
+
+// DispatchRequest carries an action sequence to apply to a single log. DispatchKey
+// identifies the originating client's batch so cluster broadcasts can be deduplicated
+// against the local optimistic update.
+type DispatchRequest = actions.DispatchRequest[log.Key, log.Action]
+
+// Dispatch applies the action sequence to the target log atomically. Subscribers to the
+// log action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	req DispatchRequest,
+) (types.Nil, error) {
+	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionUpdate,
+			Objects: []ontology.ID{log.OntologyID(req.Key)},
+		}); err != nil {
+			return err
+		}
+		return s.internal.NewWriter(tx).
+			Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 	})
 }
 
