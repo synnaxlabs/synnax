@@ -47,8 +47,10 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		// Project, when non-zero, parents each created panel to that project in
-		// the ontology. Zero is allowed for project-less / orphan panels (the
-		// panel is still parented to the root Panels group).
+		// the ontology (a project panel). When zero, the panels are parented to
+		// the creating user instead — a draft, visible only to its creator until
+		// promoted to a project. Either way the panel is also parented to the
+		// root Panels group.
 		Project project.Key   `json:"project" msgpack:"project"`
 		Panels  []panel.Panel `json:"panels" msgpack:"panels"`
 	}
@@ -63,7 +65,9 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	}); err != nil {
 		return res, err
 	}
-	parent := ontology.ID{}
+	// No project -> draft, parented to the creating user. With a project ->
+	// project panel.
+	parent := auth.GetSubject(ctx)
 	if req.Project != uuid.Nil {
 		parent = project.OntologyID(req.Project)
 	}
