@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/log/actions";
-export * from "@/log/actions.gen";
-export * from "@/log/client";
-export * from "@/log/types.gen";
+package testutil_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestTestutil(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Actions Testutil Suite")
+}
