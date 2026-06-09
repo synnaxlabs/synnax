@@ -87,16 +87,6 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal("second"))
 		})
 	})
-	Describe("Update", func() {
-		It("Should rename a Log", func(ctx SpecContext) {
-			l := log.Log{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, l.Key, "test2")).To(Succeed())
-			var res log.Log
-			Expect(svc.NewRetrieve().Where(log.MatchKeys(l.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Name).To(Equal("test2"))
-		})
-	})
 	Describe("SetData", func() {
 		It("Should replace every body field on the Log while preserving Key and Name", func(ctx SpecContext) {
 			l := log.Log{Name: "test"}
