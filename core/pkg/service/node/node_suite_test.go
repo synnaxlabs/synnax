@@ -18,5 +18,5 @@ import (
 
 func TestNode(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Node Suite")
+	RunSpecs(t, "Service Node Suite")
 }

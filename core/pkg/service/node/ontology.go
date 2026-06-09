@@ -49,7 +49,11 @@ func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeNod
 func (s *Service) Schema() zyn.Schema { return schema }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	_ context.Context,
+	key string,
+	_ gorp.Tx,
+) (ontology.Resource, error) {
 	intKey, err := strconv.Atoi(key)
 	if err != nil {
 		return ontology.Resource{}, err
@@ -66,14 +70,20 @@ func (s *Service) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (on
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values(lo.MapToSlice(s.cfg.Cluster.CopyState().Nodes, func(_ Key, n Node) ontology.Resource {
-		return newResource(n)
-	})), xio.NopCloser, nil
+func (s *Service) OpenNexter(
+	context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
+	return slices.Values(lo.MapToSlice(s.cfg.Cluster.CopyState().Nodes,
+		func(_ Key, n Node) ontology.Resource {
+			return newResource(n)
+		},
+	)), xio.NopCloser, nil
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	onChange := func(ctx context.Context, ch ClusterChange) {
 		f(ctx, slices.Values(lo.Map(ch.Changes, translateChange)))
 	}

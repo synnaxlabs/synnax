@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package node publishes the cluster's nodes as resources in the Synnax ontology and
+// search index.
 package node
 
 import (
@@ -73,7 +75,8 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{cfg: cfg}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if err := cfg.Ontology.NewWriter(nil).DefineResource(ctx, OntologyID(KeyFree)); err != nil {
+	if err := cfg.Ontology.NewWriter(nil).
+		DefineResource(ctx, OntologyID(KeyFree)); err != nil {
 		return nil, errors.Wrap(err, "define free node ontology resource")
 	}
 	return s, nil
