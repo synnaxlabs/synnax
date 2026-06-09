@@ -10,7 +10,6 @@
 import { color } from "@synnaxlabs/x";
 
 import { actions } from "@/actions";
-import { type channel } from "@/channel";
 import {
   addChannel,
   createReduceAll,
@@ -24,21 +23,7 @@ import {
   setTimestampPrecision,
   swapChannel,
 } from "@/log/actions.gen";
-import { type ChannelEntry } from "@/log/types.gen";
-
-// defaultChannelEntry builds the entry a freshly added channel receives. It must
-// stay in sync with the field defaults declared on ChannelEntry in
-// schemas/log.oracle and with defaultChannelEntry in
-// core/pkg/service/log/actions.go. Color is left at the zero value; the rendering
-// layer resolves a palette color for entries without an explicit color.
-const defaultChannelEntry = (key: channel.Key): ChannelEntry => ({
-  channel: key,
-  color: color.ZERO,
-  notation: "standard",
-  precision: -1,
-  alias: "",
-  timestamp: { format: "preciseDate", tz: "local" },
-});
+import { channelEntryZ } from "@/log/types.gen";
 
 // Handlers report the narrowest resource each action touches as its target. Log-level
 // config (name, timestamp precision, display flags) targets the log key itself; channel
@@ -54,7 +39,9 @@ const handlers: Handlers = {
   addChannel: (state, payload) => {
     if (state.channels.some((e) => e.channel === payload.channel))
       return actions.NO_OP_RESULT;
-    state.channels.push(defaultChannelEntry(payload.channel));
+    state.channels.push(
+      channelEntryZ.parse({ channel: payload.channel, color: color.ZERO }),
+    );
     return {
       inverse: [removeChannel({ channel: payload.channel })],
       targets: [`channel:${payload.channel}`],
