@@ -283,7 +283,6 @@ describe("log/aether/Log", () => {
       expect(parsed.selectedText).toBe("");
       expect(parsed.selectedLines).toEqual([]);
       expect(parsed.computedLineHeight).toBe(0);
-      expect(parsed.entryCount).toBe(0);
     });
 
     it("should provide defaults for channel-related fields", () => {
@@ -326,16 +325,16 @@ describe("log/aether/Log", () => {
     });
   });
 
-  describe("entryCount tracking", () => {
-    it("should set entryCount when entries arrive", () => {
+  describe("empty tracking", () => {
+    it("should set empty to false when entries arrive", () => {
       const entries = Array.from({ length: 7 }, (_, i) => makeEntry(i));
       const { log } = setupWithContext(entries);
-      expect(log.state.entryCount).toBe(7);
+      expect(log.state.empty).toBe(false);
     });
 
-    it("should keep entryCount at 0 when no entries", () => {
+    it("should keep empty true when no entries", () => {
       const { log } = setupWithContext([]);
-      expect(log.state.entryCount).toBe(0);
+      expect(log.state.empty).toBe(true);
     });
   });
 
@@ -954,6 +953,16 @@ describe("log/aether/Log", () => {
       // selectedLines should contain entries 2 through 5 inclusive
       expect(log.state.selectedLines).toHaveLength(4);
       expect(log.state.selectedText).toContain("\n");
+    });
+
+    it("should clamp a select-to-end sentinel to all entries", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
+      const { log } = setupWithContext(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: Number.MAX_SAFE_INTEGER,
+      });
+      log.render();
+      expect(log.state.selectedLines).toHaveLength(10);
     });
 
     it("should handle reversed selection (end < start)", () => {
