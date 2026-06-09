@@ -449,6 +449,12 @@ export interface RendererProps {
   visible: boolean;
   focused: boolean;
   /**
+   * active is true when this layout is the one the user is currently working in —
+   * the selected, non-blurred tab of the active panel (or the visible window/modal).
+   * Renderers gate keyboard shortcuts on it so input goes to a single layout.
+   */
+  active: boolean;
+  /**
    * onClose should be called when the layout is ready to be closed. This function is
    * polymorphic and may have different behavior depending on the location of the layout.
    * For example, if the layout is in a window, onClose will close the window. If the

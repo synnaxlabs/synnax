@@ -45,6 +45,11 @@ const RendererContent = ({
 }: RendererContentProps): ReactElement => {
   const Renderer = Layout.useRenderer(type);
   const { dispatch } = PlutoPanel.useDispatch();
+  // active is true when this is the tab the user is working in: the selected,
+  // non-blurred tab of the panel. Compared tab-key to tab-key. Before an explicit
+  // selection, fall back to whichever tab is visible in its leaf.
+  const { layoutKey: activeTabKey, blurred } = Layout.useSelectActiveMosaicTabState();
+  const active = (activeTabKey != null ? tabKey === activeTabKey : visible) && !blurred;
   const handleClose = useCallback(
     () => dispatch({ key: panelKey, actions: [panel.removeTab({ key: tabKey })] }),
     [dispatch, panelKey, tabKey],
@@ -57,6 +62,7 @@ const RendererContent = ({
         onClose={handleClose}
         visible={visible}
         focused={false}
+        active={active}
       />
     </Errors.SuspenseBoundary>
   );

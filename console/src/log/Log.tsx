@@ -11,7 +11,7 @@ import { log } from "@synnaxlabs/client";
 import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
@@ -31,7 +31,6 @@ import {
 } from "@/log/slice";
 import { Project } from "@/project";
 import { Selector } from "@/selector";
-import { type RootState } from "@/store";
 
 export const LAYOUT_TYPE = "log";
 export type LayoutType = typeof LAYOUT_TYPE;
@@ -59,15 +58,11 @@ const DEFAULT_RETENTION = TimeSpan.days(1);
 const PRELOAD = TimeSpan.seconds(30);
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
+const Loaded: Layout.Renderer = ({ layoutKey, visible, active }) => {
   const log = useSelect(layoutKey);
   const dispatch = useSyncComponent(layoutKey);
-  const store = useStore<RootState>();
 
-  const enableTriggers = useCallback(
-    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
-    [store, layoutKey],
-  );
+  const enableTriggers = useCallback(() => active, [active]);
 
   const activeChannels = log.channels.filter((e) => !primitive.isZero(e.channel));
   const hasChannels = activeChannels.length > 0;
@@ -132,11 +127,7 @@ Log.useName = Layout.createUseFluxName(
   useSelectIsRemoteCreated,
 );
 
-export const Selectable: Selector.Selectable = ({
-  layoutKey,
-  onPlace,
-  onResolved,
-}) => {
+export const Selectable: Selector.Selectable = ({ layoutKey, onPlace, onResolved }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
   const dispatch = useDispatch();
   const handleClick = useCallback(() => {
