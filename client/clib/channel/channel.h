@@ -23,14 +23,16 @@
 extern "C" {
 #endif
 
-/// @brief resolves name_count '\n'-delimited channel names to keys, written in order to
-/// out_keys (caller-allocated, length name_count; 0 unmatched). Misses return
-/// NOT_FOUND.
+/// @brief resolves name_count '\n'-delimited names to keys (out_keys) and '\n'-joined
+/// data type names (out_dtypes, out_dtypes_size bytes; NULL to skip). Misses
+/// return NOT_FOUND.
 SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     SynnaxClient *client,
     const char *names,
     size_t name_count,
     uint32_t *out_keys,
+    char *out_dtypes,
+    size_t out_dtypes_size,
     SynnaxError *err
 );
 

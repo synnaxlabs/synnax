@@ -24,6 +24,8 @@ int32_t synnax_channel_retrieve_keys(
     const char *names,
     const size_t name_count,
     uint32_t *out_keys,
+    char *out_dtypes,
+    const size_t out_dtypes_size,
     SynnaxError *err
 ) {
     clear_err(err);
@@ -58,22 +60,39 @@ int32_t synnax_channel_retrieve_keys(
             return CODE_ERROR;
         }
 
-        std::unordered_map<std::string, uint32_t> by_name;
+        std::unordered_map<std::string, const synnax::channel::Channel *> by_name;
         by_name.reserve(channels.size());
         for (const auto &ch: channels)
-            by_name[ch.name] = ch.key;
+            by_name[ch.name] = &ch;
 
         // retrieve omits unmatched names, so map by name and collect every miss to
-        // report them together (missing names get key 0).
+        // report them together (missing names get key 0 and an empty data type).
         std::string missing;
+        std::string types;
         for (size_t i = 0; i < name_count; i++) {
+            if (i > 0) types += '\n';
             const auto it = by_name.find(req[i]);
             if (it == by_name.end()) {
                 out_keys[i] = 0;
                 if (!missing.empty()) missing += ", ";
                 missing += req[i];
-            } else
-                out_keys[i] = it->second;
+            } else {
+                out_keys[i] = it->second->key;
+                types += it->second->data_type.name();
+            }
+        }
+        if (out_dtypes != nullptr) {
+            if (types.size() + 1 > out_dtypes_size) {
+                set_err(
+                    err,
+                    CODE_INTERNAL,
+                    "sy.validation",
+                    "out_dtypes too small: need " + std::to_string(types.size() + 1) +
+                        " bytes, have " + std::to_string(out_dtypes_size)
+                );
+                return CODE_INTERNAL;
+            }
+            copy_str(out_dtypes, out_dtypes_size, types);
         }
         if (!missing.empty()) {
             const auto nf = synnax::errors::not_found_error(
