@@ -73,24 +73,6 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	})
 }
 
-type RenameRequest struct {
-	Name string  `json:"name" msgpack:"name"`
-	Key  log.Key `json:"key" msgpack:"key"`
-}
-
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{log.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
-}
-
 type SetDataRequest struct {
 	Data log.Log `json:"data" msgpack:"data"`
 	Key  log.Key `json:"key" msgpack:"key"`
