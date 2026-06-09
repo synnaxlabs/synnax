@@ -10,6 +10,9 @@
 package imex_test
 
 import (
+	"fmt"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -199,6 +202,39 @@ var _ = Describe("Service", func() {
 				MatchError(ContainSubstring("no exporter registered")),
 				MatchError(ContainSubstring("validation error")),
 			))
+		})
+	})
+
+	Describe("Concurrency", func() {
+		It("Should be safe to register and look up handlers from multiple goroutines", func() {
+			// Stress test the registry under concurrent registration and lookup.
+			// Under `go test -race` a missing lock would surface as a data race; under
+			// a normal run it just verifies that every concurrent registration
+			// eventually resolves.
+			s := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
+			const N = 64
+			types := make([]string, N)
+			for i := range types {
+				types[i] = fmt.Sprintf("type-%d", i)
+			}
+			var wg sync.WaitGroup
+			wg.Add(N * 2)
+			for _, t := range types {
+				go func(t string) {
+					defer wg.Done()
+					s.RegisterImporter(t, noopImporter{typ: "task"})
+				}(t)
+				go func(t string) {
+					defer wg.Done()
+					// May or may not see the registration depending on scheduling;
+					// the race detector is what catches a missing lock here.
+					_, _ = s.ImporterType(t)
+				}(t)
+			}
+			wg.Wait()
+			for _, t := range types {
+				Expect(s.ImporterType(t)).To(Equal(ontology.ResourceType("task")))
+			}
 		})
 	})
 })

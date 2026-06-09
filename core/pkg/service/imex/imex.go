@@ -96,9 +96,18 @@ type Envelope struct {
 }
 
 // MarshalJSON emits the body built by Encode. Hand-constructed envelopes (no Encode
-// call, no wire round-trip) have a nil body and marshal as JSON null — callers should
-// go through Encode to produce a wire-valid payload.
-func (e Envelope) MarshalJSON() ([]byte, error) { return json.Marshal(e.body) }
+// call, no wire round-trip) have a nil body and would otherwise marshal as JSON null,
+// which is rarely what the caller intended; MarshalJSON instead returns an error so a
+// service that accidentally returns an empty Envelope from Export surfaces the bug
+// loudly rather than silently sending null over the wire.
+func (e Envelope) MarshalJSON() ([]byte, error) {
+	if e.body == nil {
+		return nil, errors.New(
+			"envelope has no body; build one with Encode before marshaling",
+		)
+	}
+	return json.Marshal(e.body)
+}
 
 // UnmarshalJSON reads a flat JSON object, extracts the promoted headers, retains the
 // original bytes for a later typed decode through Decode[T], and binds xjson.Codec on
@@ -174,23 +183,29 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 }
 
 // Encode is the symmetric inverse of Decode. The typed value is reduced to a
-// codec-independent map[string]any keyed by JSON tag name (via structToMap — fields
-// without a `json:"name"` tag are dropped from the wire body), the headers are merged
-// in as flat top-level entries, and the resulting envelope is ready to be handed to
-// any of the MarshalX methods.
+// codec-independent map[string]any with encoding/json semantics (via structToMap),
+// the headers are merged in as flat top-level entries, and the resulting envelope is
+// ready to be handed to any of the MarshalX methods.
 //
-// Invariant: every imex-registered resource carries a top-level string `name` field
-// on the wire — i.e. a Go field tagged `json:"name"`. Encode enforces this so that a
-// resource without a name surfaces as a programmer bug at exporter-test time rather
-// than at runtime.
+// Invariant: every imex-registered resource carries a non-empty top-level string
+// `name` field on the wire. Encode enforces this so that a resource without a name
+// surfaces as a programmer bug at exporter-test time rather than at runtime.
 func Encode[T any](
 	data T, version Version, typ ontology.ResourceType,
 ) (Envelope, error) {
-	body := structToMap(data)
+	body, err := structToMap(data)
+	if err != nil {
+		return Envelope{}, errors.Wrap(err, "encode envelope")
+	}
 	name, ok := body["name"].(string)
 	if !ok {
-		return Envelope{}, errors.Newf(
+		return Envelope{}, errors.New(
 			"encode envelope: data must carry a top-level string `name` field",
+		)
+	}
+	if name == "" {
+		return Envelope{}, errors.New(
+			"encode envelope: top-level `name` field must not be empty",
 		)
 	}
 	body["version"] = version

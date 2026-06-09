@@ -11,6 +11,7 @@ package imex
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -22,8 +23,8 @@ import (
 
 // ServiceConfig is the configuration for opening an import/export Service.
 type ServiceConfig struct {
-	// DB is the database the registry uses to validate the config and that callers
-	// pass to Import / Export through their own transactions.
+	// DB is the database the registry uses to validate the config and that callers pass
+	// to Import / Export through their own transactions.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -46,9 +47,10 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the central import/export registry. Handlers are registered via
 // RegisterImportExporter, RegisterImporter, or RegisterExporter, and Import and Export
-// route to them by Type.
+// route to them by Type. Service is safe for concurrent registration and lookup.
 type Service struct {
 	cfg       ServiceConfig
+	mu        sync.RWMutex
 	importers map[string]Importer
 	exporters map[ontology.ResourceType]Exporter
 }
@@ -72,6 +74,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 // Use this for symmetric services (one resource type for both import and export) —
 // e.g., logs, schematics.
 func (s *Service) RegisterImportExporter(ie ImportExporter) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	t := ie.Type()
 	s.importers[string(t)] = ie
 	s.exporters[t] = ie
@@ -81,11 +85,19 @@ func (s *Service) RegisterImportExporter(ie ImportExporter) {
 // with asymmetric registration — for example, a task service that imports under
 // fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a single
 // coarse type ("task").
-func (s *Service) RegisterImporter(t string, i Importer) { s.importers[t] = i }
+func (s *Service) RegisterImporter(t string, i Importer) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.importers[t] = i
+}
 
 // RegisterExporter adds an Exporter for the given resource type. See RegisterImporter
 // for the asymmetric-registration use case.
-func (s *Service) RegisterExporter(e Exporter) { s.exporters[e.Type()] = e }
+func (s *Service) RegisterExporter(e Exporter) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.exporters[e.Type()] = e
+}
 
 // ImporterType returns the ontology resource type that the importer registered under
 // the given (possibly narrow) type string creates. For symmetric importers (e.g.,
@@ -94,7 +106,9 @@ func (s *Service) RegisterExporter(e Exporter) { s.exporters[e.Type()] = e }
 // ("task"). Returns a validation error scoped to the "type" field if no importer is
 // registered for t.
 func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
+	s.mu.RLock()
 	imp, ok := s.importers[t]
+	s.mu.RUnlock()
 	if !ok {
 		return "", notFoundError(t, "type", "importer")
 	}
@@ -120,7 +134,9 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	envelope Envelope,
 ) (Key, error) {
+	s.mu.RLock()
 	importer, ok := s.importers[envelope.Type]
+	s.mu.RUnlock()
 	if !ok {
 		return "", notFoundError(envelope.Type, "type", "importer")
 	}
@@ -140,7 +156,9 @@ func (s *Service) Export(
 	tx gorp.Tx,
 	resource ontology.ID,
 ) (Envelope, error) {
+	s.mu.RLock()
 	exporter, ok := s.exporters[resource.Type]
+	s.mu.RUnlock()
 	if !ok {
 		return Envelope{}, notFoundError(resource.Type, "type", "exporter")
 	}
