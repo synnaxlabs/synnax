@@ -321,7 +321,6 @@ describe("schematic queries", () => {
       });
 
       await waitFor(() => {
-        console.log(result.current.create);
         expect(result.current.create.variant).toBe("success");
       });
       expect(result.current.create.data?.name).toBe("created_schematic");
