@@ -11,7 +11,7 @@ import { type ReactElement, useEffect } from "react";
 
 import { type Aether } from "@/aether";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useContext } from "@/lineplot/LinePlot";
+import { useContext } from "@/lineplot/Frame";
 import { Line as Base } from "@/vis/line";
 
 export interface LineProps extends Base.LineProps, Aether.ComponentProps {

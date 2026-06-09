@@ -7,42 +7,47 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Input, LinePlot as Base } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback } from "react";
+import { lineplot } from "@synnaxlabs/client";
+import { Flex, Input, LinePlot } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { useSelect, useSelectIsRemoteCreated } from "@/lineplot/selectors";
-import { setLegend, setTitle } from "@/lineplot/slice";
 
 export interface PropertiesProps {
   layoutKey: string;
 }
 
 export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
-  const plot = useSelect(layoutKey);
+  const title = LinePlot.useSelectTitle({ key: layoutKey });
+  const legend = LinePlot.useSelectLegend({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
-  const dispatch = useDispatch();
-  const isRemote = useSelectIsRemoteCreated(layoutKey);
-  const { update: renameRemote } = Base.useRename({
-    beforeUpdate: useCallback(() => isRemote === true, [isRemote]),
-  });
+  const reduxDispatch = useDispatch();
+  const { dispatch } = LinePlot.useDispatch();
+  const { update: renameRemote } = LinePlot.useRename({});
 
   const handleTitleRename = (value: string): void => {
-    dispatch(Layout.rename({ key: layoutKey, name: value }));
+    reduxDispatch(Layout.rename({ key: layoutKey, name: value }));
     renameRemote({ key: layoutKey, name: value });
   };
 
-  const handleTitleVisibilityChange = (value: boolean): void => {
-    dispatch(setTitle({ key: layoutKey, title: { visible: value } }));
+  const handleTitleVisibilityChange = (visible: boolean): void => {
+    dispatch({
+      key: layoutKey,
+      actions: [lineplot.setTitle({ title: { ...title, visible } })],
+    });
   };
 
-  const handleLegendVisibilityChange = (value: boolean): void => {
-    dispatch(setLegend({ key: layoutKey, legend: { visible: value } }));
+  const handleLegendVisibilityChange = (visible: boolean): void => {
+    dispatch({
+      key: layoutKey,
+      actions: [lineplot.setLegendVisible({ visible })],
+    });
   };
 
   return (
-    <Flex.Box x style={{ padding: "2rem" }}>
+    <Flex.Box x className={CSS.BE("line-plot", "toolbar", "properties")}>
       <Input.Item label="Title" grow>
         <Input.Text
           value={name}
@@ -52,16 +57,10 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
         />
       </Input.Item>
       <Input.Item label="Show Title">
-        <Input.Switch
-          value={plot.title.visible}
-          onChange={handleTitleVisibilityChange}
-        />
+        <Input.Switch value={title.visible} onChange={handleTitleVisibilityChange} />
       </Input.Item>
       <Input.Item label="Show Legend">
-        <Input.Switch
-          value={plot.legend.visible}
-          onChange={handleLegendVisibilityChange}
-        />
+        <Input.Switch value={legend.visible} onChange={handleLegendVisibilityChange} />
       </Input.Item>
     </Flex.Box>
   );

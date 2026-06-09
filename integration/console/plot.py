@@ -421,3 +421,20 @@ class Plot(ConsolePage):
         axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
         result = axis_section.get_by_text(channel_name).count() > 0
         return result
+
+    def focus(self) -> None:
+        """Bring focus onto the plot pane so keyboard triggers fire on it."""
+        if self.pane_locator is not None:
+            self.pane_locator.click()
+
+    def undo(self) -> None:
+        """Cmd/Ctrl + Z — pop the last entry off the undo stack."""
+        self.focus()
+        self.layout.press_key("ControlOrMeta+z")
+        self.page.wait_for_timeout(300)
+
+    def redo(self) -> None:
+        """Cmd/Ctrl + Shift + Z — re-apply the most recently undone entry."""
+        self.focus()
+        self.layout.press_key("ControlOrMeta+Shift+z")
+        self.page.wait_for_timeout(300)

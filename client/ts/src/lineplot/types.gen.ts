@@ -38,7 +38,7 @@ export type YAxisKey = z.infer<typeof yAxisKeyZ>;
 /** Title is the plot title configuration. */
 export const titleZ = z.object({
   /** level is the typography level of the title text. */
-  level: text.levelZ.default("p"),
+  level: text.levelZ.default("h4"),
   /** visible is whether the title is shown above the plot. */
   visible: z.boolean().default(false),
 });
@@ -49,7 +49,12 @@ export const legendZ = z.object({
   /** visible is whether the legend is shown. */
   visible: z.boolean().default(true),
   /** position is the anchor position of the legend within the plot container. */
-  position: spatial.stickyXYZ.prefault({ x: 0, y: 0 }),
+  position: spatial.stickyXYZ.prefault({
+    x: 50,
+    y: 50,
+    root: { x: "left", y: "top" },
+    units: { x: "px", y: "px" },
+  }),
 });
 export interface Legend extends z.infer<typeof legendZ> {}
 
@@ -143,11 +148,11 @@ export const ruleZ = z.object({
   /** axis is the axis the rule is anchored to. */
   axis: axisKeyZ,
   /** lineWidth is the rule line width in pixels. */
-  lineWidth: z.number(),
+  lineWidth: z.number().default(1),
   /** lineDash is the dash length in pixels; 0 renders a solid line. */
-  lineDash: z.number(),
+  lineDash: z.number().default(0),
   /** units is the unit label displayed next to the position value. */
-  units: z.string(),
+  units: z.string().default(""),
   /** position is the value-space position of the rule along its anchored axis. */
   position: z.number(),
 });
@@ -191,13 +196,13 @@ export const axesZ = z.object({
   /** x2 is the x2 axis configuration. */
   x2: axisZ.prefault({ key: "x2" }),
   /** y1 is the y1 axis configuration. */
-  y1: axisZ.prefault({ key: "y1" }),
+  y1: axisZ.prefault({ key: "y1", labelDirection: "y" }),
   /** y2 is the y2 axis configuration. */
-  y2: axisZ.prefault({ key: "y2" }),
+  y2: axisZ.prefault({ key: "y2", labelDirection: "y" }),
   /** y3 is the y3 axis configuration. */
-  y3: axisZ.prefault({ key: "y3" }),
+  y3: axisZ.prefault({ key: "y3", labelDirection: "y" }),
   /** y4 is the y4 axis configuration. */
-  y4: axisZ.prefault({ key: "y4" }),
+  y4: axisZ.prefault({ key: "y4", labelDirection: "y" }),
 });
 export interface Axes extends z.infer<typeof axesZ> {}
 

@@ -71,12 +71,7 @@ const useCreateLinePlot = ({
     afterSuccess: async ({ data }) => {
       const { workspace: _workspace, ...linePlot } = data;
       await maybeChangeWorkspace(workspaceID.key);
-      placeLayout(
-        LinePlot.create({
-          ...LinePlot.fromWire(linePlot),
-          name: linePlot.name,
-        }),
-      );
+      placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
     },
   });
   return useCallback(
@@ -84,7 +79,6 @@ const useCreateLinePlot = ({
       update({
         workspace: workspaceID.key,
         name: "New Line Plot",
-        ...LinePlot.toWire(LinePlot.ZERO_STATE),
       }),
     [workspaceID.key],
   );

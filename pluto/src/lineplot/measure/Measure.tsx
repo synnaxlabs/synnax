@@ -13,10 +13,10 @@ import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { Aether } from "@/aether";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { LinePlot } from "@/lineplot";
+import { useViewport } from "@/lineplot/Frame";
+import { measure } from "@/lineplot/measure/aether";
 import { Triggers } from "@/triggers";
 import { type Viewport } from "@/viewport";
-import { measure } from "@/vis/measure/aether";
 
 const MEASURE_TRIGGERS: Triggers.ModeConfig<measure.Mode> = {
   one: [["1"]],
@@ -85,7 +85,7 @@ export const Measure = ({
     [setState, onModeChange],
   );
 
-  LinePlot.useViewport(handleClick, "Measure.Measure");
+  useViewport(handleClick, "Measure.Measure");
 
   const handleMove = useCallback(
     (e: MouseEvent): void => setState((p) => ({ ...p, hover: xy.construct(e) })),

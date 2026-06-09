@@ -26,7 +26,14 @@ export interface GroupData {
 export interface GroupedProps
   extends
     Omit<ContainerProps, "value" | "onChange" | "background" | "draggable" | "gap">,
-    Pick<EntriesProps, "background" | "allowVisibleChange" | "onEntryChange"> {
+    Pick<
+      EntriesProps,
+      | "background"
+      | "allowVisibleChange"
+      | "onColorChange"
+      | "onLabelChange"
+      | "onVisibleChange"
+    > {
   data: GroupData[];
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
@@ -36,7 +43,9 @@ export const Grouped = ({
   data,
   background = 1,
   allowVisibleChange = true,
-  onEntryChange,
+  onColorChange,
+  onLabelChange,
+  onVisibleChange,
   position,
   onPositionChange,
   ...rest
@@ -66,7 +75,9 @@ export const Grouped = ({
           <Flex.Box y grow className={CSS.B("legend-entries")} empty>
             <Entries
               data={groupData}
-              onEntryChange={onEntryChange}
+              onColorChange={onColorChange}
+              onLabelChange={onLabelChange}
+              onVisibleChange={onVisibleChange}
               colorPickerVisible={pickerVisible}
               onColorPickerVisibleChange={setPickerVisible}
               allowVisibleChange={allowVisibleChange}

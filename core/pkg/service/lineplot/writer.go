@@ -53,15 +53,15 @@ func (w Writer) Create(
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if err := w.otg.DefineRelationship(
+	if ws == uuid.Nil {
+		return nil
+	}
+	return w.otg.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
 		ontology.RelationshipTypeParentOf,
 		otgID,
-	); err != nil {
-		return err
-	}
-	return err
+	)
 }
 
 func (w Writer) Rename(

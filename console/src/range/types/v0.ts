@@ -34,6 +34,12 @@ export const rangeZ = z.union([staticRangeZ, dynamicRangeZ]);
 
 export type Range = z.infer<typeof rangeZ>;
 
+// RECENT_RANGE_KEY is the range key of the default "Rolling 30s" dynamic range. It is
+// the fallback used when no range is active so that newly created plots have something
+// to plot against. Note that this is the range's key, not its key within the slice's
+// ranges record (which is "rolling30s").
+export const RECENT_RANGE_KEY = "recent";
+
 export const sliceStateZ = z.object({
   version: z.literal("0.0.0"),
   activeRange: z.string().nullable(),
@@ -47,7 +53,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   activeRange: null,
   ranges: {
     rolling30s: {
-      key: "recent",
+      key: RECENT_RANGE_KEY,
       variant: "dynamic",
       name: "Rolling 30s",
       span: Number(TimeSpan.seconds(30)),
