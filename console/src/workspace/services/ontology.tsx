@@ -25,7 +25,7 @@ import {
   Table as PTable,
   Workspace as Base,
 } from "@synnaxlabs/pluto";
-import { array, deep, strings } from "@synnaxlabs/x";
+import { array, strings } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Cluster } from "@/cluster";
@@ -100,16 +100,11 @@ const useCreateLog = ({
     afterSuccess: async ({ data }) => {
       const { workspace, ...log } = data;
       await maybeChangeWorkspace(workspace);
-      placeLayout(Log.create({ ...log.data, key: log.key, name: log.name }));
+      placeLayout(Log.create({ ...Log.stateFromLog(log), name: log.name }));
     },
   });
   return useCallback(
-    () =>
-      update({
-        workspace: workspaceID.key,
-        name: "New Log",
-        data: deep.copy(Log.ZERO_STATE),
-      }),
+    () => update({ workspace: workspaceID.key, name: "New Log" }),
     [workspaceID.key],
   );
 };

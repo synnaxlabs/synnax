@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { log } from "@synnaxlabs/client";
+import { color } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
@@ -15,14 +17,15 @@ import {
   reducer,
   SLICE_NAME,
   type StoreState,
-  ZERO_CHANNEL_CONFIG,
+  ZERO_CHANNEL_ENTRY,
   ZERO_SLICE_STATE,
   ZERO_STATE,
 } from "@/log/slice";
 import { stateZ } from "@/log/types";
-import { channelConfigZ } from "@/log/types/v1";
 
-const ch = (channel: number) => ({ ...ZERO_CHANNEL_CONFIG, channel });
+const RED = color.construct("#ff0000");
+
+const ch = (channel: number) => ({ ...ZERO_CHANNEL_ENTRY, channel });
 
 describe("Log Slice", () => {
   let store: ReturnType<typeof configureStore<StoreState>>;
@@ -61,34 +64,33 @@ describe("Log Slice", () => {
     });
   });
 
-  describe("setChannelConfig", () => {
+  describe("setChannelEntry", () => {
     it("should update config for a channel entry", () => {
       const key = "log-1";
       store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [ch(42)] }));
       store.dispatch(
-        actions.setChannelConfig({ key, channelKey: 42, config: { color: "#ff0000" } }),
+        actions.setChannelEntry({ key, entry: { channel: 42, color: RED } }),
       );
       const entry = store.getState()[SLICE_NAME].logs[key].channels[0];
-      expect(entry).toEqual({ ...ZERO_CHANNEL_CONFIG, channel: 42, color: "#ff0000" });
+      expect(entry).toEqual({ ...ZERO_CHANNEL_ENTRY, channel: 42, color: RED });
     });
 
-    it("should merge partial updates into an existing config", () => {
+    it("should merge partial updates into an existing entry", () => {
       const key = "log-1";
       store.dispatch(actions.create({ ...ZERO_STATE, key, channels: [ch(1)] }));
       store.dispatch(
-        actions.setChannelConfig({
+        actions.setChannelEntry({
           key,
-          channelKey: 1,
-          config: { color: "#ff0000", precision: 2 },
+          entry: { channel: 1, color: RED, precision: 2 },
         }),
       );
       store.dispatch(
-        actions.setChannelConfig({ key, channelKey: 1, config: { precision: 4 } }),
+        actions.setChannelEntry({ key, entry: { channel: 1, precision: 4 } }),
       );
       const entry = store.getState()[SLICE_NAME].logs[key].channels[0];
       expect(entry).toEqual({
         channel: 1,
-        color: "#ff0000",
+        color: RED,
         notation: "standard",
         precision: 4,
         alias: "",
@@ -181,11 +183,15 @@ describe("Log Slice", () => {
     });
 
     it("should reject channel precision above 17", () => {
-      expect(() => channelConfigZ.parse({ color: "", precision: 18 })).toThrow();
+      expect(() =>
+        log.channelEntryZ.parse({ ...ZERO_CHANNEL_ENTRY, precision: 18 }),
+      ).toThrow();
     });
 
     it("should reject channel precision below -1", () => {
-      expect(() => channelConfigZ.parse({ color: "", precision: -2 })).toThrow();
+      expect(() =>
+        log.channelEntryZ.parse({ ...ZERO_CHANNEL_ENTRY, precision: -2 }),
+      ).toThrow();
     });
 
     it("should default showChannelNames to true when missing", () => {

@@ -8,23 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type log } from "@synnaxlabs/client";
 
 import * as latest from "@/log/types";
 
 export type State = latest.State;
 export type SliceState = latest.SliceState;
-export type ChannelConfig = latest.ChannelConfig;
-export type ChannelEntry = latest.ChannelEntry;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
-export const ZERO_CHANNEL_CONFIG = latest.ZERO_CHANNEL_CONFIG;
 export const ZERO_CHANNEL_ENTRY = latest.ZERO_CHANNEL_ENTRY;
 export const ZERO_TOOLBAR_STATE = latest.ZERO_TOOLBAR_STATE;
 export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const migrateSlice = latest.migrateSlice;
+export const stateFromLog = latest.stateFromLog;
 
 export const SLICE_NAME = "log";
 
@@ -39,10 +37,9 @@ export interface SetTimestampPrecisionPayload {
   timestampPrecision: number;
 }
 
-export interface SetChannelConfigPayload {
+export interface SetChannelEntryPayload {
   key: string;
-  channelKey: channel.Key;
-  config: Partial<ChannelConfig>;
+  entry: Partial<log.ChannelEntry> & { channel: channel.Key };
 }
 
 export interface SetRemoteCreatedPayload {
@@ -98,10 +95,12 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.logs[payload.key].timestampPrecision = payload.timestampPrecision;
     },
-    setChannelConfig: (state, { payload }: PayloadAction<SetChannelConfigPayload>) => {
+    setChannelEntry: (state, { payload }: PayloadAction<SetChannelEntryPayload>) => {
       const logState = state.logs[payload.key];
-      const entry = logState.channels.find((e) => e.channel === payload.channelKey);
-      if (entry != null) Object.assign(entry, payload.config);
+      const existing = logState.channels.find(
+        (e) => e.channel === payload.entry.channel,
+      );
+      if (existing != null) Object.assign(existing, payload.entry);
     },
     setShowChannelNames: (
       state,
@@ -123,7 +122,7 @@ export const { actions, reducer } = createSlice({
     },
     addChannel: (state, { payload }: PayloadAction<AddChannelPayload>) => {
       state.logs[payload.key].channels.push({
-        ...ZERO_CHANNEL_CONFIG,
+        ...ZERO_CHANNEL_ENTRY,
         channel: payload.channelKey,
       });
     },
@@ -152,7 +151,7 @@ export const { actions, reducer } = createSlice({
 export const {
   create: internalCreate,
   setTimestampPrecision,
-  setChannelConfig,
+  setChannelEntry,
   setShowChannelNames,
   setShowReceiptTimestamp,
   setActiveToolbarTab,
