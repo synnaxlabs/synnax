@@ -15,7 +15,9 @@ import { type Layout } from "@/layout";
 import { Selector as BaseSelector } from "@/selector";
 import { Vis } from "@/vis";
 
-const SELECTABLES: BaseSelector.Selectable[] = [
+// SELECTABLES is the canonical "create a component" set, shared by the new-layout
+// selector and the panel empty-tab selector so the two never diverge.
+export const SELECTABLES: BaseSelector.Selectable[] = [
   ...Vis.SELECTABLES,
   ...Hardware.SELECTABLES,
   ...Arc.SELECTABLES,

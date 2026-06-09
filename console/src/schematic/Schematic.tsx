@@ -12,6 +12,7 @@ import {
   Access,
   Control,
   Diagram,
+  Icon,
   Menu,
   Schematic as Base,
   Viewport,
@@ -192,3 +193,4 @@ Schematic.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
 );
+Schematic.icon = <Icon.Schematic />;

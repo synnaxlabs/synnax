@@ -26,9 +26,13 @@ message TabView {
   // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
   // a renderer.
   string type = 1;
+  // name is the human-readable tab name for the view. A view has no backing resource to
+  // derive a name from, so it carries its own. May be renamed via SetTabView; when empty
+  // the Console falls back to a type-derived default.
+  string name = 2;
   // args is an opaque, Console-owned configuration payload for the view. Core never
   // interprets it; it round-trips as-is.
-  google.protobuf.Struct args = 2;
+  google.protobuf.Struct args = 3;
 }
 
 // Tab is a single tab in a leaf. Tab content is a union: either a resource (a backing

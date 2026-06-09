@@ -130,6 +130,7 @@ Log.useName = Layout.createUseFluxName(
   Base.useRetrieveObservableName,
   useSelectIsRemoteCreated,
 );
+Log.icon = <Icon.Log />;
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace, onResolved }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
@@ -140,7 +141,7 @@ export const Selectable: Selector.Selectable = ({ layoutKey, onPlace, onResolved
     // mosaic tab as before.
     if (onResolved != null) {
       dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key: layoutKey }));
-      onResolved(log.ontologyID(layoutKey));
+      onResolved({ resource: log.ontologyID(layoutKey) });
     } else onPlace(create({ key: layoutKey }));
   }, [onResolved, onPlace, layoutKey, dispatch]);
 

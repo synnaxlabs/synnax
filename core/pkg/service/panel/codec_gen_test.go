@@ -44,7 +44,11 @@ var _ = Describe("Codec", func() {
 						Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
 						Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}; return &v }(),
 						View: func() *panel.TabView {
-							v := panel.TabView{Type: "test_7", Args: msgpack.EncodedJSON{"key_8": "value_8"}}
+							v := panel.TabView{
+								Type: "test_7",
+								Name: "test_8",
+								Args: msgpack.EncodedJSON{"key_9": "value_9"},
+							}
 							return &v
 						}(),
 					},
@@ -73,7 +77,11 @@ var _ = Describe("Codec", func() {
 								Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 								Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"}; return &v }(),
 								View: func() *panel.TabView {
-									v := panel.TabView{Type: "test_8", Args: msgpack.EncodedJSON{"key_9": "value_9"}}
+									v := panel.TabView{
+										Type: "test_8",
+										Name: "test_9",
+										Args: msgpack.EncodedJSON{"key_10": "value_10"},
+									}
 									return &v
 								}(),
 							},
@@ -84,14 +92,14 @@ var _ = Describe("Codec", func() {
 				Split: func() *panel.Split {
 					v := panel.Split{
 						Direction: spatial.Direction("x"),
-						Size:      12.5,
+						Size:      13.5,
 						First: func() *panel.Node {
 							v := panel.Node{
 								Leaf: func() *panel.Leaf { v := panel.Leaf{Tabs: []panel.Tab{{}}}; return &v }(),
 								Split: func() *panel.Split {
 									v := panel.Split{
 										Direction: spatial.Direction("x"),
-										Size:      18.5,
+										Size:      19.5,
 										First:     func() *panel.Node { v := panel.Node{}; return &v }(),
 										Last:      func() *panel.Node { v := panel.Node{}; return &v }(),
 									}
@@ -106,7 +114,7 @@ var _ = Describe("Codec", func() {
 								Split: func() *panel.Split {
 									v := panel.Split{
 										Direction: spatial.Direction("x"),
-										Size:      26.5,
+										Size:      27.5,
 										First:     func() *panel.Node { v := panel.Node{}; return &v }(),
 										Last:      func() *panel.Node { v := panel.Node{}; return &v }(),
 									}
@@ -293,7 +301,11 @@ var _ = Describe("Codec", func() {
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"}; return &v }(),
 				View: func() *panel.TabView {
-					v := panel.TabView{Type: "test_6", Args: msgpack.EncodedJSON{"key_7": "value_7"}}
+					v := panel.TabView{
+						Type: "test_6",
+						Name: "test_7",
+						Args: msgpack.EncodedJSON{"key_8": "value_8"},
+					}
 					return &v
 				}(),
 			}),
@@ -315,8 +327,16 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", panel.TabView{Type: "test_1", Args: msgpack.EncodedJSON{"key_2": "value_2"}}),
-			Entry("zero values", panel.TabView{Type: "", Args: nil}),
+			Entry("fully populated", panel.TabView{
+				Type: "test_1",
+				Name: "test_2",
+				Args: msgpack.EncodedJSON{"key_3": "value_3"},
+			}),
+			Entry("zero values", panel.TabView{
+				Type: "",
+				Name: "",
+				Args: nil,
+			}),
 		)
 	})
 })
@@ -328,7 +348,11 @@ func BenchmarkEncodeDecodeLeaf(b *testing.B) {
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
 				Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}; return &v }(),
 				View: func() *panel.TabView {
-					v := panel.TabView{Type: "test_7", Args: msgpack.EncodedJSON{"key_8": "value_8"}}
+					v := panel.TabView{
+						Type: "test_7",
+						Name: "test_8",
+						Args: msgpack.EncodedJSON{"key_9": "value_9"},
+					}
 					return &v
 				}(),
 			},
@@ -358,7 +382,11 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 						Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 						Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"}; return &v }(),
 						View: func() *panel.TabView {
-							v := panel.TabView{Type: "test_8", Args: msgpack.EncodedJSON{"key_9": "value_9"}}
+							v := panel.TabView{
+								Type: "test_8",
+								Name: "test_9",
+								Args: msgpack.EncodedJSON{"key_10": "value_10"},
+							}
 							return &v
 						}(),
 					},
@@ -369,14 +397,14 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 		Split: func() *panel.Split {
 			v := panel.Split{
 				Direction: spatial.Direction("x"),
-				Size:      12.5,
+				Size:      13.5,
 				First: func() *panel.Node {
 					v := panel.Node{
 						Leaf: func() *panel.Leaf { v := panel.Leaf{Tabs: []panel.Tab{{}}}; return &v }(),
 						Split: func() *panel.Split {
 							v := panel.Split{
 								Direction: spatial.Direction("x"),
-								Size:      18.5,
+								Size:      19.5,
 								First:     func() *panel.Node { v := panel.Node{}; return &v }(),
 								Last:      func() *panel.Node { v := panel.Node{}; return &v }(),
 							}
@@ -391,7 +419,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 						Split: func() *panel.Split {
 							v := panel.Split{
 								Direction: spatial.Direction("x"),
-								Size:      26.5,
+								Size:      27.5,
 								First:     func() *panel.Node { v := panel.Node{}; return &v }(),
 								Last:      func() *panel.Node { v := panel.Node{}; return &v }(),
 							}
@@ -575,7 +603,11 @@ func BenchmarkEncodeDecodeTab(b *testing.B) {
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"}; return &v }(),
 		View: func() *panel.TabView {
-			v := panel.TabView{Type: "test_6", Args: msgpack.EncodedJSON{"key_7": "value_7"}}
+			v := panel.TabView{
+				Type: "test_6",
+				Name: "test_7",
+				Args: msgpack.EncodedJSON{"key_8": "value_8"},
+			}
 			return &v
 		}(),
 	}
@@ -595,7 +627,11 @@ func BenchmarkEncodeDecodeTab(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTabView(b *testing.B) {
-	tv := panel.TabView{Type: "test_1", Args: msgpack.EncodedJSON{"key_2": "value_2"}}
+	tv := panel.TabView{
+		Type: "test_1",
+		Name: "test_2",
+		Args: msgpack.EncodedJSON{"key_3": "value_3"},
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -619,7 +655,11 @@ func FuzzDecodeLeaf(f *testing.F) {
 					Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
 					Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"}; return &v }(),
 					View: func() *panel.TabView {
-						v := panel.TabView{Type: "test_7", Args: msgpack.EncodedJSON{"key_8": "value_8"}}
+						v := panel.TabView{
+							Type: "test_7",
+							Name: "test_8",
+							Args: msgpack.EncodedJSON{"key_9": "value_9"},
+						}
 						return &v
 					}(),
 				},
@@ -686,7 +726,11 @@ func FuzzDecodeNode(f *testing.F) {
 							Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
 							Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_6"}; return &v }(),
 							View: func() *panel.TabView {
-								v := panel.TabView{Type: "test_8", Args: msgpack.EncodedJSON{"key_9": "value_9"}}
+								v := panel.TabView{
+									Type: "test_8",
+									Name: "test_9",
+									Args: msgpack.EncodedJSON{"key_10": "value_10"},
+								}
 								return &v
 							}(),
 						},
@@ -697,14 +741,14 @@ func FuzzDecodeNode(f *testing.F) {
 			Split: func() *panel.Split {
 				v := panel.Split{
 					Direction: spatial.Direction("x"),
-					Size:      12.5,
+					Size:      13.5,
 					First: func() *panel.Node {
 						v := panel.Node{
 							Leaf: func() *panel.Leaf { v := panel.Leaf{Tabs: []panel.Tab{{}}}; return &v }(),
 							Split: func() *panel.Split {
 								v := panel.Split{
 									Direction: spatial.Direction("x"),
-									Size:      18.5,
+									Size:      19.5,
 									First:     func() *panel.Node { v := panel.Node{}; return &v }(),
 									Last:      func() *panel.Node { v := panel.Node{}; return &v }(),
 								}
@@ -719,7 +763,7 @@ func FuzzDecodeNode(f *testing.F) {
 							Split: func() *panel.Split {
 								v := panel.Split{
 									Direction: spatial.Direction("x"),
-									Size:      26.5,
+									Size:      27.5,
 									First:     func() *panel.Node { v := panel.Node{}; return &v }(),
 									Last:      func() *panel.Node { v := panel.Node{}; return &v }(),
 								}
@@ -999,7 +1043,11 @@ func FuzzDecodeTab(f *testing.F) {
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Resource: func() *ontology.ID { v := ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_4"}; return &v }(),
 			View: func() *panel.TabView {
-				v := panel.TabView{Type: "test_6", Args: msgpack.EncodedJSON{"key_7": "value_7"}}
+				v := panel.TabView{
+					Type: "test_6",
+					Name: "test_7",
+					Args: msgpack.EncodedJSON{"key_8": "value_8"},
+				}
 				return &v
 			}(),
 		}
@@ -1052,7 +1100,11 @@ func FuzzDecodeTab(f *testing.F) {
 
 func FuzzDecodeTabView(f *testing.F) {
 	{
-		seed := panel.TabView{Type: "test_1", Args: msgpack.EncodedJSON{"key_2": "value_2"}}
+		seed := panel.TabView{
+			Type: "test_1",
+			Name: "test_2",
+			Args: msgpack.EncodedJSON{"key_3": "value_3"},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1060,7 +1112,11 @@ func FuzzDecodeTabView(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := panel.TabView{Type: "", Args: nil}
+		seed := panel.TabView{
+			Type: "",
+			Name: "",
+			Args: nil,
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

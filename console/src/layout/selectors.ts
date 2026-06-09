@@ -71,7 +71,7 @@ export const useSelectAltKey = (key: string): string | undefined =>
 const selectName = (state: StoreState, key: string): string | undefined =>
   select(state, key)?.name;
 
-const selectRequiredName = (state: StoreState, key: string): string =>
+export const selectRequiredName = (state: StoreState, key: string): string =>
   selectRequired(state, key).name;
 
 export const useSelectName = (key: string): string | undefined =>
@@ -309,3 +309,10 @@ export const selectActiveTabKey = (
 
 export const useSelectActiveTabKey = (): string | null =>
   useMemoSelect(selectActiveTabKey, []);
+
+export const selectTabUnsavedChanges = (
+  state: StoreState,
+): Record<string, boolean> => selectSliceState(state).tabUnsavedChanges;
+
+export const useSelectTabUnsavedChanges = (): Record<string, boolean> =>
+  useMemoSelect(selectTabUnsavedChanges, []);

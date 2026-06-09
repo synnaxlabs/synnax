@@ -156,3 +156,4 @@ Table.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
 );
+Table.icon = <Icon.Table />;

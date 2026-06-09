@@ -23,4 +23,5 @@ export * from "@/layout/useNavDrawer";
 export * from "@/layout/usePlacer";
 export * from "@/layout/useRemover";
 export * from "@/layout/useThemeProvider";
+export * from "@/layout/view";
 export * from "@/layout/Window";

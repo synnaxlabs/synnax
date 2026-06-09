@@ -16,7 +16,7 @@ import {
 } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Color, type Haul } from "@synnaxlabs/pluto";
+import { type Color, type Haul, type Icon } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
@@ -49,7 +49,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["hauling", "themes"].map(
+export const PERSIST_EXCLUDE = ["hauling", "themes", "tabUnsavedChanges"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<RootState>>;
 
@@ -392,6 +392,16 @@ export const { actions, reducer } = createSlice({
       });
       wp.activeTab = payload.key;
     },
+    // setTabUnsavedChanges records, per panel tab key, whether a view tab's form has
+    // unsaved edits. Session-only (this operator's draft state); absent entries mean
+    // saved, so cleared keys are deleted to keep the map a set of dirty tabs.
+    setTabUnsavedChanges: (
+      state,
+      { payload }: PayloadAction<{ key: string; unsavedChanges: boolean }>,
+    ) => {
+      if (payload.unsavedChanges) state.tabUnsavedChanges[payload.key] = true;
+      else delete state.tabUnsavedChanges[payload.key];
+    },
     hideAllNavDrawers: (state) => {
       Object.values(state.nav).forEach((navState) => {
         Object.values(navState.drawers).forEach((drawer) => {
@@ -425,6 +435,7 @@ export const {
   hideAllNavDrawers,
   setActivePanel,
   setActiveTab,
+  setTabUnsavedChanges,
 } = actions;
 
 export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>
@@ -495,9 +506,13 @@ export type UseName = (
  * A React component that renders a layout for a given type. All layouts in state are
  * rendered by a layout renderer of a specific type. Renderers may optionally bind a
  * {@link UseName} via the `useName` property to take over the name read/write path
- * for layouts of their type.
+ * for layouts of their type, and an `icon` to display in tab strips and selectors for
+ * layouts of their type.
  */
-export type Renderer = ComponentType<RendererProps> & { useName?: UseName };
+export type Renderer = ComponentType<RendererProps> & {
+  useName?: UseName;
+  icon?: Icon.ReactElement;
+};
 
 export interface ContextMenuProps {
   layoutKey: string;

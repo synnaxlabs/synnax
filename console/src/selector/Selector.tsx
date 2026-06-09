@@ -9,7 +9,7 @@
 
 import "@/selector/Selector.css";
 
-import { type ontology } from "@synnaxlabs/client";
+import { type ontology, type panel } from "@synnaxlabs/client";
 import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
@@ -17,15 +17,23 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 
+// ResolvedContent is what a selectable hands back when resolving into a panel tab: an
+// ontology-backed resource (for visualizations) or an inline view (for arg-driven
+// views such as task forms). The panel mosaic routes these to SetTabResource /
+// SetTabView respectively.
+export type ResolvedContent =
+  | { resource: ontology.ID }
+  | { view: panel.TabView };
+
 export interface SelectableProps {
   layoutKey: string;
   rename: Modals.PromptRename;
   onPlace: Layout.Placer;
   handleError: Status.ErrorHandler;
-  // onResolved, when provided, switches selectables from placing a layout to
-  // creating the resource and handing its ontology.ID back to the caller. The
-  // panel mosaic uses this to swap a null-resource tab's resource in place.
-  onResolved?: (resource: ontology.ID) => void;
+  // onResolved, when provided, switches selectables from placing a layout to resolving
+  // their content (resource or view) back to the caller. The panel mosaic uses this to
+  // fill a null-content tab in place.
+  onResolved?: (content: ResolvedContent) => void;
 }
 
 export interface Selectable extends FC<SelectableProps> {
@@ -37,7 +45,7 @@ export interface SelectorProps {
   layoutKey: string;
   text: string;
   selectables: Selectable[];
-  onResolved?: (resource: ontology.ID) => void;
+  onResolved?: (content: ResolvedContent) => void;
 }
 
 export const Selector = ({

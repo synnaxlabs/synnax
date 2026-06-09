@@ -62,7 +62,8 @@ const activeLeafPath = (root: panel.Node, activeTab: string | null): number => {
 
 // tabFor builds the panel tab for a placed layout. A layout whose type is an ontology
 // resource type references that resource (loaded from core by key); any other type is
-// an inline, arg-light view identified by its type.
+// an inline view carrying its type, name, and opaque args (e.g. a task form keyed by
+// its taskKey).
 const tabFor = (layout: State): panel.Tab => {
   const resourceType = ontology.resourceTypeZ.safeParse(layout.type);
   if (resourceType.success)
@@ -70,7 +71,14 @@ const tabFor = (layout: State): panel.Tab => {
       key: uuid.create(),
       resource: { type: resourceType.data, key: layout.key },
     };
-  return { key: uuid.create(), view: { type: layout.type } };
+  return {
+    key: uuid.create(),
+    view: {
+      type: layout.type,
+      name: layout.name,
+      args: layout.args as panel.TabView["args"],
+    },
+  };
 };
 
 /**

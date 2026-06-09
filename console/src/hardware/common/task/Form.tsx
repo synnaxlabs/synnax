@@ -10,10 +10,18 @@
 import "@/hardware/common/task/Form.css";
 
 import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
-import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
+import {
+  Device,
+  Flex,
+  type Flux,
+  Form as PForm,
+  Icon,
+  Input,
+  Task,
+} from "@synnaxlabs/pluto";
 import { primitive, TimeStamp } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { type FC, useCallback, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { type z } from "zod";
 
 import { CSS } from "@/css";
@@ -24,7 +32,6 @@ import { useStatus } from "@/hardware/common/task/useStatus";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
-import { type RootState } from "@/store";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
@@ -42,16 +49,15 @@ export interface FormLayoutArgs {
 
 export interface Layout extends Layout.BaseState<FormLayoutArgs> {}
 
-// TODO(panels): task forms are args-driven and not yet slice-backed, so they cannot
-// be panel resource tabs. Until they are converted, open them in a window (bypass) so
-// they stay functional with their existing slice-sourced args. Their end state is a
-// resource tab keyed by the task.
+// LAYOUT is the base for each task type's layout. Tasks render only as panel view tabs,
+// so placing one routes into the active panel (location "mosaic") as a view, never a
+// window. The form reads its args/name from the tab's RendererView and writes back
+// through the panel document.
 export const LAYOUT: Omit<Layout, "type"> = {
   name: "Configure",
   icon: "Task",
-  location: "window",
+  location: "mosaic",
   args: {},
-  window: { navTop: true, size: { width: 1000, height: 700 }, resizable: true },
 };
 
 export interface getInitialValuesArgs {
@@ -120,17 +126,20 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   showControls = true,
 }: WrapFormArgs<S>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const store = useStore<RootState>();
-    const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
-      store.getState(),
-      layoutKey,
-    );
+    const view = Layout.useRendererView();
+    if (view == null)
+      throw new Error("a task form must be rendered inside a panel view tab");
     const dispatch = useDispatch();
-    const handleUnsavedChanges = useCallback(
-      (unsavedChanges: boolean) =>
-        dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),
-      [dispatch, layoutKey],
+    const { deviceKey, taskKey, rackKey, config }: FormLayoutArgs = view.args;
+    const setUnsavedChanges = useCallback(
+      (unsavedChanges: boolean) => {
+        dispatch(Layout.setTabUnsavedChanges({ key: view.key, unsavedChanges }));
+      },
+      [dispatch, view.key],
     );
+    // Clear the tab's dirty state when the form unmounts (the tab is closed), so a
+    // closed task view doesn't leave a stale unsaved marker behind.
+    useEffect(() => () => setUnsavedChanges(false), [setUnsavedChanges]);
     const initialValues = {
       ...getInitialValues({ deviceKey, config }),
       key: taskKey,
@@ -139,7 +148,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const confirm = useConfirm();
     const { form, status, save } = Task.createForm({ schemas, initialValues })({
       query: { key: taskKey },
-      onHasTouched: handleUnsavedChanges,
+      onHasTouched: setUnsavedChanges,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();
         const [newConfig, rackKey] = await onConfigure(client, config, name);
@@ -174,9 +183,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       afterSave: ({ client, ...form }) => {
         const { key, name } = form.value();
         if (key == null) return;
-        dispatch(Layout.rename({ key: layoutKey, name }));
-        dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: key } }));
-        dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
+        view.update({ name, args: { ...view.args, taskKey: key } });
       },
     });
     Device.useRetrieveEffect({
@@ -232,6 +239,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
   Wrapper.useName = useName;
+  Wrapper.icon = <Icon.Task />;
   return Wrapper;
 };
 

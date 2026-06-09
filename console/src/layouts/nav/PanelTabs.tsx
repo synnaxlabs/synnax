@@ -73,6 +73,15 @@ const PanelContextMenu = ({
   );
 };
 
+// PanelTabName renders a panel tab's name from the live Flux record. Renames
+// leave the panel key unchanged, so the memoized tab list does not recompute;
+// subscribing per-tab here keeps the displayed name in sync (and matches the
+// synchronized names used by the inner panel mosaic tabs).
+const PanelTabName = ({ tabKey, name, ...rest }: Tabs.NameProps): ReactElement => {
+  const { data } = PlutoPanel.useRetrieve({ key: tabKey });
+  return <Tabs.DefaultName tabKey={tabKey} name={data?.name ?? name} {...rest} />;
+};
+
 // PanelTabs renders the project's panel tab strip in the top nav. Source of
 // truth is Flux (panel.useList); per-window active panel state lives in the
 // Redux layout slice. When there is no active project, the strip renders
@@ -86,13 +95,7 @@ export const PanelTabs = (): ReactElement | null => {
   const { data, retrieve, getItem } = PlutoPanel.useList();
   const { updateAsync: createAsync } = PlutoPanel.useCreate();
   const { update: rename } = PlutoPanel.useRename();
-
-  // Fetch the panel list once on mount. Reactive channel listeners on the
-  // Pluto panel store keep it fresh from here on.
-  useEffect(() => {
-    if (activeProjectKey == null) return;
-    retrieve({});
-  }, [activeProjectKey, retrieve]);
+  useEffect(() => retrieve({}), [retrieve]);
 
   const tabs = useMemo<Tabs.Tab[]>(() => {
     const out: Tabs.Tab[] = [];
@@ -147,6 +150,7 @@ export const PanelTabs = (): ReactElement | null => {
       onSelect: handleSelect,
       onCreate: handleCreate,
       onRename: handleRename,
+      Name: PanelTabName,
     }),
     [tabs, activeKey, handleSelect, handleCreate, handleRename],
   );

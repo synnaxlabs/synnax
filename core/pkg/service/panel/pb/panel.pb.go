@@ -43,9 +43,13 @@ type TabView struct {
 	// type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
 	// a renderer.
 	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	// name is the human-readable tab name for the view. A view has no backing resource to
+	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
+	// the Console falls back to a type-derived default.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// args is an opaque, Console-owned configuration payload for the view. Core never
 	// interprets it; it round-trips as-is.
-	Args          *structpb.Struct `protobuf:"bytes,2,opt,name=args,proto3" json:"args,omitempty"`
+	Args          *structpb.Struct `protobuf:"bytes,3,opt,name=args,proto3" json:"args,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -83,6 +87,13 @@ func (*TabView) Descriptor() ([]byte, []int) {
 func (x *TabView) GetType() string {
 	if x != nil {
 		return x.Type
+	}
+	return ""
+}
+
+func (x *TabView) GetName() string {
+	if x != nil {
+		return x.Name
 	}
 	return ""
 }
@@ -418,10 +429,11 @@ var File_core_pkg_service_panel_pb_panel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_panel_pb_panel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/panel/pb/panel.proto\x12\x10service.panel.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"J\n" +
+	"%core/pkg/service/panel/pb/panel.proto\x12\x10service.panel.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"^\n" +
 	"\aTabView\x12\x12\n" +
-	"\x04type\x18\x01 \x01(\tR\x04type\x12+\n" +
-	"\x04args\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x04args\"\xa0\x01\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
+	"\x04args\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04args\"\xa0\x01\n" +
 	"\x03Tab\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12=\n" +
 	"\bresource\x18\x02 \x01(\v2\x1c.distribution.ontology.pb.IDH\x00R\bresource\x88\x01\x01\x122\n" +

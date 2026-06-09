@@ -12,6 +12,7 @@ import { type location, uuid } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement, useCallback, useMemo } from "react";
 
 import { context } from "@/context";
+import { type Icon } from "@/icon";
 import { Mosaic as Base } from "@/mosaic";
 import { useDispatch, useRetrieve } from "@/panel/queries";
 import { Portal } from "@/portal";
@@ -70,6 +71,14 @@ export interface MosaicProps extends Pick<
   // to wire through the underlying content (e.g. renaming the resource), so the
   // panel layer needs no rename prop of its own.
   tabName?: (props: MosaicTabNameProps) => ReactElement | null;
+  // tabInfo resolves a tab's passive display attributes (icon, unsaved-changes
+  // indicator) from its content union. Unlike tabName it returns data baked onto the
+  // tab spec, not a rendered node.
+  tabInfo?: (props: {
+    tabKey: string;
+    resource: ontology.ID | null;
+    view: panel.TabView | null;
+  }) => { icon?: Icon.ReactElement | string; unsavedChanges?: boolean };
 }
 
 // TabContent is a tab's resolved content union. At most one of resource or view is
@@ -93,6 +102,7 @@ interface AdaptResult {
 const adaptToMosaic = (
   root: panel.Node | undefined,
   activeTab: string | undefined,
+  tabInfo?: MosaicProps["tabInfo"],
 ): AdaptResult => {
   const contents = new Map<string, TabContent>();
   const visit = (node: panel.Node | undefined, key: number): Base.Node => {
@@ -108,10 +118,19 @@ const adaptToMosaic = (
 
     if (node.leaf == null) return { key, tabs: [] };
     const tabs: Tabs.Tab[] = node.leaf.tabs.map((t) => {
-      contents.set(t.key, { resource: t.resource ?? null, view: t.view ?? null });
-      // Only resource tabs carry a renameable backing document; view and empty
-      // tabs are not editable.
-      return { tabKey: t.key, name: "", closable: true, editable: t.resource != null };
+      const resource = t.resource ?? null;
+      const view = t.view ?? null;
+      contents.set(t.key, { resource, view });
+      const info = tabInfo?.({ tabKey: t.key, resource, view }) ?? {};
+      // Resource and view tabs carry a renameable name; empty (selector) tabs do not.
+      return {
+        tabKey: t.key,
+        name: "",
+        closable: true,
+        editable: resource != null || view != null,
+        icon: info.icon,
+        unsavedChanges: info.unsavedChanges,
+      };
     });
     const selected =
       activeTab != null && tabs.some((t) => t.tabKey === activeTab)
@@ -169,14 +188,15 @@ export const Mosaic = ({
   onSelect,
   children,
   tabName,
+  tabInfo,
   ...rest
 }: MosaicProps): ReactElement | null => {
   const { data: p } = useRetrieve({ key: panelKey });
   const { dispatch } = useDispatch();
 
   const { root, contents } = useMemo(
-    () => adaptToMosaic(p?.root, activeTab),
-    [p?.root, activeTab],
+    () => adaptToMosaic(p?.root, activeTab, tabInfo),
+    [p?.root, activeTab, tabInfo],
   );
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);

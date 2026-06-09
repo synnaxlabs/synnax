@@ -30,7 +30,7 @@ export const Selectable: Selector.Selectable = ({
     // mosaic tab as before.
     if (onResolved != null) {
       dispatch(internalCreate({ ...deep.copy(ZERO_STATE), key: layoutKey }));
-      onResolved(lineplot.ontologyID(layoutKey));
+      onResolved({ resource: lineplot.ontologyID(layoutKey) });
     } else onPlace(create({ key: layoutKey }));
   }, [onResolved, onPlace, layoutKey, dispatch]);
 

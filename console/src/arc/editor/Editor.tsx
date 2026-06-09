@@ -11,6 +11,7 @@ import { arc } from "@synnaxlabs/client";
 import { Access, Arc, Icon } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
+import { useDispatch } from "react-redux";
 
 import { useCreateModal } from "@/arc/editor/CreateModal";
 import { Graph } from "@/arc/editor/graph";
@@ -52,6 +53,7 @@ export const Editor: Layout.Renderer = (props) => {
 };
 
 Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);
+Editor.icon = <Icon.Arc />;
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
@@ -81,18 +83,33 @@ export const create =
 export const Selectable: Selector.Selectable = ({
   layoutKey,
   onPlace,
+  onResolved,
   handleError,
 }) => {
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const createArcModal = useCreateModal();
+  const dispatch = useDispatch();
 
   const handleClick = useCallback(() => {
     handleError(async () => {
       const result = await createArcModal({});
-      if (result != null)
+      if (result == null) return;
+      // In a panel, create the local arc state (so it renders and later syncs to the
+      // server on edit) and fill the tab with its resource; otherwise open it as a
+      // mosaic tab as before.
+      if (onResolved != null) {
+        dispatch(
+          internalCreate({
+            ...deep.copy(ZERO_STATE),
+            key: layoutKey,
+            mode: result.mode,
+          }),
+        );
+        onResolved({ resource: arc.ontologyID(layoutKey) });
+      } else
         onPlace(create({ key: layoutKey, name: result.name, mode: result.mode }));
     }, "Failed to create Arc program");
-  }, [onPlace, layoutKey, createArcModal, handleError]);
+  }, [onResolved, onPlace, layoutKey, dispatch, createArcModal, handleError]);
 
   if (!hasCreatePermission) return null;
 

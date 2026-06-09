@@ -28,6 +28,10 @@ type TabView struct {
 	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
 	// a renderer.
 	Type string `json:"type" msgpack:"type"`
+	// Name is the human-readable tab name for the view. A view has no backing resource to
+	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
+	// the Console falls back to a type-derived default.
+	Name string `json:"name" msgpack:"name"`
 	// Args is an opaque, Console-owned configuration payload for the view. Core never
 	// interprets it; it round-trips as-is.
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`

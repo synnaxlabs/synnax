@@ -18,6 +18,9 @@ TabView struct {
     type string  {
         @doc value "is the Console-owned view type identifier (e.g., 'docs', 'about') used to select a renderer."
     }
+    name string? {
+        @doc value "is the human-readable tab name for the view. A view has no backing resource to derive a name from, so it carries its own. May be renamed via SetTabView; when empty the Console falls back to a type-derived default."
+    }
     args record? {
         @doc value        "is an opaque, Console-owned configuration payload for the view. Core never interprets it; it round-trips as-is."
         @ts preserve_case

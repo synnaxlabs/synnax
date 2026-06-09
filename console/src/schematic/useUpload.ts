@@ -9,16 +9,17 @@
 
 import { type Flux, Schematic } from "@synnaxlabs/pluto";
 import { useCallback, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { useSelectPendingUpload } from "@/schematic/selectors";
 import { clearPendingUpload } from "@/schematic/slice";
+import { type RootState } from "@/store";
 
 export const useAutoUpload = (key: string): boolean => {
+  const store = useStore<RootState>();
   const pendingUpload = useSelectPendingUpload(key);
-  const name = Layout.useSelectRequiredName(key);
   const projectKey = Project.useSelectActiveKey();
   const dispatch = useDispatch();
   const { update: create } = Schematic.useCreate({
@@ -31,7 +32,8 @@ export const useAutoUpload = (key: string): boolean => {
   });
   useEffect(() => {
     if (pendingUpload == null) return;
+    const name = Layout.selectRequiredName(store.getState(), key);
     create({ ...pendingUpload, project: projectKey ?? undefined, name });
-  }, [pendingUpload, projectKey, key, create, name]);
+  }, [pendingUpload, projectKey, key, create]);
   return pendingUpload == null;
 };

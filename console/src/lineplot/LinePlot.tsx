@@ -535,3 +535,4 @@ LinePlot.useName = Layout.createUseFluxName(
   Base.useRetrieveObservableName,
   useSelectIsRemoteCreated,
 );
+LinePlot.icon = <Icon.LinePlot />;

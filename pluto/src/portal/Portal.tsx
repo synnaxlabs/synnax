@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createRef, useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
 type NodeProps = Record<string, string>;
@@ -50,9 +50,9 @@ export interface OutProps {
 }
 
 export const Out = ({ node }: OutProps): React.ReactElement => {
-  const stub = createRef<HTMLDivElement>();
+  const stub = useRef<HTMLDivElement>(null);
   const portal = useRef<Node>(node);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const placeholder = stub.current;
     if (placeholder == null) return;
     const parent = placeholder.parentNode;
@@ -62,7 +62,7 @@ export const Out = ({ node }: OutProps): React.ReactElement => {
       if (stub.current != null) node.unmount(stub.current);
     };
   }, []);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (portal.current != null && node !== portal.current) {
       portal.current.unmount(stub.current);
       portal.current = node;

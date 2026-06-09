@@ -246,6 +246,7 @@ func (t *Tab) DecodeOrc(r *orc.Reader) error {
 
 func (tv TabView) EncodeOrc(w *orc.Writer) error {
 	w.String(tv.Type)
+	w.String(tv.Name)
 	{
 		b, err := json.Marshal(tv.Args)
 		if err != nil {
@@ -259,6 +260,9 @@ func (tv TabView) EncodeOrc(w *orc.Writer) error {
 func (tv *TabView) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if tv.Type, err = r.String(); err != nil {
+		return err
+	}
+	if tv.Name, err = r.String(); err != nil {
 		return err
 	}
 	{

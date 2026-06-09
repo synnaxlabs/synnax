@@ -23,6 +23,8 @@ import { ontology } from "@/ontology";
 export const tabViewZ = z.object({
   /** type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select a renderer. */
   type: z.string(),
+  /** name is the human-readable tab name for the view. A view has no backing resource to derive a name from, so it carries its own. May be renamed via SetTabView; when empty the Console falls back to a type-derived default. */
+  name: z.string().optional(),
   /** args is an opaque, Console-owned configuration payload for the view. Core never interprets it; it round-trips as-is. */
   args: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
 });

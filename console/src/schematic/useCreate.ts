@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type project, schematic } from "@synnaxlabs/client";
+import { type project, schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { create } from "@/schematic/layout";
+import { type Selector } from "@/selector";
 
 export interface UseCreateProps {
   project?: project.Key;
   // onResolved, when provided, replaces opening the schematic as a mosaic tab: the
-  // created schematic's ontology.ID is handed back instead. The panel selector uses
-  // this to fill a tab's resource.
-  onResolved?: (resource: ontology.ID) => void;
+  // created schematic is handed back as a resource to fill a panel tab in place.
+  onResolved?: (content: Selector.ResolvedContent) => void;
 }
 
 // useCreate dispatches a schematic create against the active project (or an
@@ -35,7 +35,7 @@ export const useCreate = ({
   const { update } = Schematic.useCreate({
     afterSuccess: async ({ data }) => {
       const { key, name } = data;
-      if (onResolved != null) onResolved(schematic.ontologyID(key));
+      if (onResolved != null) onResolved({ resource: schematic.ontologyID(key) });
       else placeLayout(create({ key, name, editable: true }));
     },
   });

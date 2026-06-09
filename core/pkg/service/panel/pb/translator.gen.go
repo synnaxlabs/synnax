@@ -27,6 +27,7 @@ func TabViewToPB(r panel.TabView) (*TabView, error) {
 	}
 	pb := &TabView{
 		Type: r.Type,
+		Name: r.Name,
 		Args: argsVal,
 	}
 	return pb, nil
@@ -40,6 +41,7 @@ func TabViewFromPB(pb *TabView) (panel.TabView, error) {
 	}
 	r.Args = pb.Args.AsMap()
 	r.Type = pb.Type
+	r.Name = pb.Name
 	return r, nil
 }
 
