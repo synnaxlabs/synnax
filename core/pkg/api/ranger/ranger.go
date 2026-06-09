@@ -90,12 +90,21 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
+	if !req.Parent.IsZero() {
+		parentKey, err := ranger.KeyFromOntologyID(req.Parent)
+		if err != nil {
+			return CreateResponse{}, err
+		}
+		parent := &Range{Key: parentKey}
+		for i := range req.Ranges {
+			if req.Ranges[i].Parent == nil {
+				req.Ranges[i].Parent = parent
+			}
+		}
+	}
 	var res CreateResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.
-			internal.
-			NewWriter(tx).
-			CreateManyWithParent(ctx, &req.Ranges, req.Parent); err != nil {
+		if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Ranges); err != nil {
 			return err
 		}
 		res = CreateResponse{Ranges: req.Ranges}

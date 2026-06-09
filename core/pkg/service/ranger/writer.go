@@ -29,25 +29,12 @@ type Writer struct {
 	table     *gorp.Table[Key, Range]
 }
 
-// Create creates a new range within the DB, assigning it a unique key if it does not
-// already have one. If the Range already has a key and an existing Range already exists
-// with that key, the existing range will be updated.
+// Create creates or updates the given range. If r.Parent is non-nil, the range is
+// parented to that range; otherwise its parent relationship is left unchanged on update
+// and left undefined on create. If the range does not already have a key, a new key
+// will be assigned. If the range already exists and r.Parent is non-nil, the existing
+// parent relationship will be replaced.
 func (w Writer) Create(ctx context.Context, r *Range) error {
-	return w.CreateWithParent(ctx, r, ontology.ID{})
-}
-
-// CreateWithParent creates a new range as a child range of the ontology.Resource with
-// the given ID. If the range does not already have a key, a new key will be assigned.
-// If the range already exists, it will be updated. If the range already exists and a
-// parent is provided, the existing parent relationship will be deleted and a new parent
-// relationship will be created. If the range already exists and no parent is provided,
-// the existing parent relationship will be preserved. If an empty parent is provided,
-// the range will be created under the top level "Ranges" group.
-func (w Writer) CreateWithParent(
-	ctx context.Context,
-	r *Range,
-	parent ontology.ID,
-) error {
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
 	}
@@ -68,67 +55,44 @@ func (w Writer) CreateWithParent(
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	// If parent is not provided, don't define a parent relationship. If it is provided,
-	// delete the previous parent (if it exists) and define a new parent relationship.
-	if !parent.IsZero() {
-		if exists {
-			if relAlreadyExists, err := w.otgWriter.HasRelationship(
-				ctx,
-				parent,
-				ontology.RelationshipTypeParentOf,
-				otgID,
-			); relAlreadyExists || err != nil {
-				return err
-			}
-			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
-				ctx,
-				otgID,
-				ontology.RelationshipTypeParentOf,
-			); err != nil {
-				return err
-			}
-		}
-		if err = w.otgWriter.DefineRelationship(
+	if r.Parent == nil {
+		return nil
+	}
+	parent := r.Parent.OntologyID()
+	if exists {
+		if relAlreadyExists, err := w.otgWriter.HasRelationship(
 			ctx,
 			parent,
 			ontology.RelationshipTypeParentOf,
 			otgID,
+		); relAlreadyExists || err != nil {
+			return err
+		}
+		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+			ctx,
+			otgID,
+			ontology.RelationshipTypeParentOf,
 		); err != nil {
 			return err
 		}
 	}
-	return nil
+	return w.otgWriter.DefineRelationship(
+		ctx,
+		parent,
+		ontology.RelationshipTypeParentOf,
+		otgID,
+	)
 }
 
 // CreateMany creates multiple ranges within the DB. If any of the ranges already exist,
-// they will be updated.
+// they will be updated. Each range's Parent field, if non-nil, is used to set its
+// parent relationship.
 func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
-	for i, r := range *ranges {
-		if err := w.Create(ctx, &r); err != nil {
-			return err
-		}
-		(*ranges)[i] = r
-	}
-	return nil
-}
-
-// CreateManyWithParent creates multiple ranges within the DB as child ranges of the
-// ontology.Resource with the given ID. If any of the ranges already exist, they will be
-// updated. If the range already exists and a parent is provided, the existing parent
-// relationship will be deleted and a new parent relationship will be created. If the
-// range already exists and no parent is provided, the existing parent relationship will
-// be preserved. If an empty parent is provided, the range will be created under the top
-// level "Ranges" group.
-func (w Writer) CreateManyWithParent(
-	ctx context.Context,
-	ranges *[]Range,
-	parent ontology.ID,
-) error {
 	if ranges == nil {
 		return nil
 	}
 	for i, r := range *ranges {
-		if err := w.CreateWithParent(ctx, &r, parent); err != nil {
+		if err := w.Create(ctx, &r); err != nil {
 			return err
 		}
 		(*ranges)[i] = r

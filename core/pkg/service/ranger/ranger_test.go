@@ -119,8 +119,9 @@ var _ = Describe("Ranger", Ordered, func() {
 				r := &ranger.Range{
 					Name:      "Range",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    &parent,
 				}
-				Expect(w.CreateWithParent(ctx, r, parent.OntologyID())).To(Succeed())
+				Expect(w.Create(ctx, r)).To(Succeed())
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
@@ -138,8 +139,10 @@ var _ = Describe("Ranger", Ordered, func() {
 				r := &ranger.Range{
 					Name:      "Range",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    &parent,
 				}
-				Expect(w.CreateWithParent(ctx, r, parent.OntologyID())).To(Succeed())
+				Expect(w.Create(ctx, r)).To(Succeed())
+				r.Parent = nil
 				Expect(w.Create(ctx, r)).To(Succeed())
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
@@ -163,9 +166,11 @@ var _ = Describe("Ranger", Ordered, func() {
 				r := &ranger.Range{
 					Name:      "Range",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    &parent1,
 				}
-				Expect(w.CreateWithParent(ctx, r, parent1.OntologyID())).To(Succeed())
-				Expect(w.CreateWithParent(ctx, r, parent2.OntologyID())).To(Succeed())
+				Expect(w.Create(ctx, r)).To(Succeed())
+				r.Parent = &parent2
+				Expect(w.Create(ctx, r)).To(Succeed())
 				var res ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent2.OntologyID()).
@@ -189,12 +194,14 @@ var _ = Describe("Ranger", Ordered, func() {
 				r1 := ranger.Range{
 					Name:      "Range1",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    &parent,
 				}
 				r2 := ranger.Range{
 					Name:      "Range2",
 					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    &parent,
 				}
-				Expect(w.CreateManyWithParent(ctx, &[]ranger.Range{r1, r2}, parent.OntologyID())).To(Succeed())
+				Expect(w.CreateMany(ctx, &[]ranger.Range{r1, r2})).To(Succeed())
 				var res []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(parent.OntologyID()).
@@ -213,8 +220,9 @@ var _ = Describe("Ranger", Ordered, func() {
 					r := ranger.Range{
 						Name:      "Range",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+						Parent:    &parent,
 					}
-					Expect(w.CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+					Expect(w.Create(ctx, &r)).To(Succeed())
 					pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
 					Expect(pKey).To(Equal(parent.Key))
 				})
@@ -238,8 +246,9 @@ var _ = Describe("Ranger", Ordered, func() {
 					r := ranger.Range{
 						Name:      "Range",
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
+						Parent:    &parent,
 					}
-					Expect(w.CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+					Expect(w.Create(ctx, &r)).To(Succeed())
 					pKey := MustSucceed(svc.RetrieveParentKey(ctx, r.Key, tx))
 					Expect(pKey).To(Equal(parent.Key))
 				})
@@ -517,11 +526,38 @@ var _ = Describe("Ranger", Ordered, func() {
 					Start: telem.TimeStamp(7 * telem.Second),
 					End:   telem.TimeStamp(9 * telem.Second),
 				},
+				Parent: &parent,
 			}
-			Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, parent.Key)).To(Succeed())
 			var retrieveR ranger.Range
 			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
+		})
+		It("Should recursively delete grandchild ranges when a range is deleted", func(ctx SpecContext) {
+			grandparent := ranger.Range{
+				Name:      "Grandparent",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &grandparent)).To(Succeed())
+			parent := ranger.Range{
+				Name:      "Parent",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				Parent:    &grandparent,
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &parent)).To(Succeed())
+			child := ranger.Range{
+				Name:      "Child",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				Parent:    &parent,
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &child)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, grandparent.Key)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(grandparent.Key)).Exists(ctx, tx)).
+				To(BeFalse())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(parent.Key)).Exists(ctx, tx)).
+				To(BeFalse())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(child.Key)).Exists(ctx, tx)).
+				To(BeFalse())
 		})
 	})
 })
