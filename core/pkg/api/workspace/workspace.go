@@ -51,35 +51,30 @@ type (
 )
 
 func (s *Service) Create(
-	ctx context.Context, req CreateRequest,
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
 ) (CreateResponse, error) {
 	userKey, err := user.KeyFromOntologyID(auth.GetSubject(ctx))
 	if err != nil {
 		return CreateResponse{}, err
 	}
-	var res CreateResponse
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeWorkspace}},
-		}); err != nil {
-			return err
-		}
-		w := s.internal.NewWriter(tx)
-		for i, ws := range req.Workspaces {
-			ws.Author = userKey
-			if err := w.Create(ctx, &ws); err != nil {
-				return err
-			}
-			req.Workspaces[i] = ws
-		}
-		res.Workspaces = req.Workspaces
-		return nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeWorkspace}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	w := s.internal.NewWriter(tx)
+	for i, ws := range req.Workspaces {
+		ws.Author = userKey
+		if err := w.Create(ctx, &ws); err != nil {
+			return CreateResponse{}, err
+		}
+		req.Workspaces[i] = ws
+	}
+	return CreateResponse{Workspaces: req.Workspaces}, nil
 }
 
 type RenameRequest struct {
@@ -87,17 +82,19 @@ type RenameRequest struct {
 	Key  workspace.Key `json:"key" msgpack:"key"`
 }
 
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{workspace.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type SetLayoutRequest struct {
@@ -107,18 +104,17 @@ type SetLayoutRequest struct {
 
 func (s *Service) SetLayout(
 	ctx context.Context,
+	tx gorp.Tx,
 	req SetLayoutRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{workspace.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).SetLayout(ctx, req.Key, req.Layout)
-	})
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{workspace.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).SetLayout(ctx, req.Key, req.Layout)
 }
 
 type (
@@ -136,31 +132,30 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
+	q := s.internal.NewRetrieve().Search(req.SearchTerm)
+	if len(req.Keys) > 0 {
+		q = q.Where(workspace.MatchKeys(req.Keys...))
+	}
+	if req.Author != uuid.Nil {
+		q = q.Where(workspace.MatchAuthor(req.Author))
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
 	var res RetrieveResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		q := s.internal.NewRetrieve().Search(req.SearchTerm)
-		if len(req.Keys) > 0 {
-			q = q.Where(workspace.MatchKeys(req.Keys...))
-		}
-		if req.Author != uuid.Nil {
-			q = q.Where(workspace.MatchAuthor(req.Author))
-		}
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if err := q.Entries(&res.Workspaces).Exec(ctx, tx); err != nil {
-			return err
-		}
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: workspace.OntologyIDsFromWorkspaces(res.Workspaces),
-		})
+	if err := q.Entries(&res.Workspaces).Exec(ctx, tx); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: workspace.OntologyIDsFromWorkspaces(res.Workspaces),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -171,15 +166,17 @@ type DeleteRequest struct {
 	Keys []workspace.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: workspace.OntologyIDs(req.Keys),
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: workspace.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

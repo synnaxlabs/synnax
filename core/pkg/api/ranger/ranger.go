@@ -83,34 +83,26 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
 	ids := rangeAccessOntologyIDs(req.Ranges)
 	if !req.Parent.IsZero() {
 		ids = append(ids, req.Parent)
 	}
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: ids,
-		}); err != nil {
-			return err
-		}
-		svcRanges := translateRangesToService(req.Ranges)
-		if err := s.
-			internal.
-			NewWriter(tx).
-			CreateManyWithParent(ctx, &svcRanges, req.Parent); err != nil {
-			return err
-		}
-		res = CreateResponse{Ranges: translateRangesFromService(svcRanges)}
-		return nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: ids,
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	svcRanges := translateRangesToService(req.Ranges)
+	if err := s.internal.NewWriter(tx).
+		CreateManyWithParent(ctx, &svcRanges, req.Parent); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse{Ranges: translateRangesFromService(svcRanges)}, nil
 }
 
 type (
@@ -132,75 +124,74 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var apiRanges []Range
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var (
-			svcRanges       []ranger.Range
-			q               = s.internal.NewRetrieve().Entries(&svcRanges)
-			hasNames        = len(req.Names) > 0
-			hasKeys         = len(req.Keys) > 0
-			hasSearch       = req.SearchTerm != ""
-			hasOverlapsWith = !req.OverlapsWith.IsZero()
-			hasLabels       = len(req.HasLabels) > 0
-		)
-		if hasOverlapsWith {
-			q = q.Where(ranger.MatchOverlap(req.OverlapsWith))
-		}
-		if hasNames {
-			q = q.Where(ranger.MatchNames(req.Names...))
-		}
-		if hasKeys {
-			q = q.Where(ranger.MatchKeys(req.Keys...))
-		}
-		if hasLabels {
-			q = q.Where(ranger.MatchLabels(req.HasLabels...))
-		}
-		if hasSearch {
-			q = q.Search(req.SearchTerm)
-		}
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if err := q.Exec(ctx, tx); err != nil {
-			return err
-		}
-		apiRanges = translateRangesFromService(svcRanges)
-		var err error
-		if req.IncludeLabels {
-			for i, rng := range apiRanges {
-				if rng.Labels, err = s.label.RetrieveFor(ctx, rng.OntologyID(), tx); err != nil {
-					return err
-				}
-				apiRanges[i] = rng
+	var (
+		svcRanges       []ranger.Range
+		q               = s.internal.NewRetrieve().Entries(&svcRanges)
+		hasNames        = len(req.Names) > 0
+		hasKeys         = len(req.Keys) > 0
+		hasSearch       = req.SearchTerm != ""
+		hasOverlapsWith = !req.OverlapsWith.IsZero()
+		hasLabels       = len(req.HasLabels) > 0
+	)
+	if hasOverlapsWith {
+		q = q.Where(ranger.MatchOverlap(req.OverlapsWith))
+	}
+	if hasNames {
+		q = q.Where(ranger.MatchNames(req.Names...))
+	}
+	if hasKeys {
+		q = q.Where(ranger.MatchKeys(req.Keys...))
+	}
+	if hasLabels {
+		q = q.Where(ranger.MatchLabels(req.HasLabels...))
+	}
+	if hasSearch {
+		q = q.Search(req.SearchTerm)
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+	if err := q.Exec(ctx, tx); err != nil {
+		return RetrieveResponse{}, err
+	}
+	apiRanges := translateRangesFromService(svcRanges)
+	if req.IncludeLabels {
+		for i, rng := range apiRanges {
+			labels, err := s.label.RetrieveFor(ctx, rng.OntologyID(), tx)
+			if err != nil {
+				return RetrieveResponse{}, err
 			}
+			rng.Labels = labels
+			apiRanges[i] = rng
 		}
-		if req.IncludeParent {
-			for i, rng := range apiRanges {
-				parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, tx)
-				if errors.Is(err, query.ErrNotFound) {
-					continue
-				}
-				if err != nil {
-					return err
-				}
-				var parent ranger.Range
-				if err = s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, tx); err != nil {
-					return err
-				}
-				rng.Parent = &Range{Range: parent}
-				apiRanges[i] = rng
+	}
+	if req.IncludeParent {
+		for i, rng := range apiRanges {
+			parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, tx)
+			if errors.Is(err, query.ErrNotFound) {
+				continue
 			}
+			if err != nil {
+				return RetrieveResponse{}, err
+			}
+			var parent ranger.Range
+			if err := s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, tx); err != nil {
+				return RetrieveResponse{}, err
+			}
+			rng.Parent = &Range{Range: parent}
+			apiRanges[i] = rng
 		}
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: rangeAccessOntologyIDs(apiRanges),
-		})
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: rangeAccessOntologyIDs(apiRanges),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -212,38 +203,42 @@ type RenameRequest struct {
 	Key  ranger.Key `json:"key" msgpack:"key"`
 }
 
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{ranger.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {
 	Keys []ranger.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: ranger.OntologyIDs(req.Keys),
-		}); err != nil {
-			return err
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: ranger.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	w := s.internal.NewWriter(tx)
+	for _, key := range req.Keys {
+		if err := w.Delete(ctx, key); err != nil {
+			return types.Nil{}, err
 		}
-		w := s.internal.NewWriter(tx)
-		for _, key := range req.Keys {
-			if err := w.Delete(ctx, key); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }

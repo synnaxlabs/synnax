@@ -72,40 +72,35 @@ type (
 // returns a slice of the new users.
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeUser}},
-		}); err != nil {
-			return err
-		}
-		authW := s.auth.NewWriter(tx)
-		userW := s.internal.NewWriter(tx)
-		newUsers := make([]user.User, len(req.Users))
-		for i, nu := range req.Users {
-			err := authW.Register(ctx, nu.Credentials)
-			if err != nil {
-				return err
-			}
-			if newUsers[i], err = userW.Create(ctx, user.User{
-				Username:  nu.Username,
-				FirstName: nu.FirstName,
-				LastName:  nu.LastName,
-				Key:       nu.Key,
-			}); err != nil {
-				return err
-			}
-		}
-		res.Users = newUsers
-		return nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeUser}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	authW := s.auth.NewWriter(tx)
+	userW := s.internal.NewWriter(tx)
+	newUsers := make([]user.User, len(req.Users))
+	for i, nu := range req.Users {
+		if err := authW.Register(ctx, nu.Credentials); err != nil {
+			return CreateResponse{}, err
+		}
+		u, err := userW.Create(ctx, user.User{
+			Username:  nu.Username,
+			FirstName: nu.FirstName,
+			LastName:  nu.LastName,
+			Key:       nu.Key,
+		})
+		if err != nil {
+			return CreateResponse{}, err
+		}
+		newUsers[i] = u
+	}
+	return CreateResponse{Users: newUsers}, nil
 }
 
 type ChangeUsernameRequest struct {
@@ -116,6 +111,7 @@ type ChangeUsernameRequest struct {
 // ChangeUsername changes the username for the user with the given key.
 func (s *Service) ChangeUsername(
 	ctx context.Context,
+	tx gorp.Tx,
 	req ChangeUsernameRequest,
 ) (types.Nil, error) {
 	subject := auth.GetSubject(ctx)
@@ -124,29 +120,27 @@ func (s *Service) ChangeUsername(
 			"you cannot change your own username through the user service",
 		)
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var u user.User
-		if err := s.internal.NewRetrieve().
-			Where(user.MatchKeys(req.Key)).Entry(&u).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		if u.Username == req.Username {
-			return nil
-		}
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{user.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		if err := s.internal.NewWriter(tx).
-			ChangeUsername(ctx, req.Key, req.Username); err != nil {
-			return err
-		}
-		return s.auth.NewWriter(tx).UpdateUsername(ctx, u.Username, req.Username)
-	})
+	var u user.User
+	if err := s.internal.NewRetrieve().
+		Where(user.MatchKeys(req.Key)).Entry(&u).
+		Exec(ctx, tx); err != nil {
+		return types.Nil{}, err
+	}
+	if u.Username == req.Username {
+		return types.Nil{}, nil
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{user.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	if err := s.internal.NewWriter(tx).
+		ChangeUsername(ctx, req.Key, req.Username); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.auth.NewWriter(tx).UpdateUsername(ctx, u.Username, req.Username)
 }
 
 type RenameRequest struct {
@@ -157,18 +151,20 @@ type RenameRequest struct {
 
 // Rename changes the name for the user with the provided key. If either the first or
 // last name is empty, the corresponding field will not be updated.
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{user.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).
-			ChangeName(ctx, req.Key, req.FirstName, req.LastName)
-	})
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{user.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).
+		ChangeName(ctx, req.Key, req.FirstName, req.LastName)
 }
 
 type (
@@ -184,25 +180,24 @@ type (
 // Retrieve returns the users with the provided keys or usernames.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
+	q := s.internal.NewRetrieve()
+	if len(req.Keys) > 0 {
+		q = q.Where(user.MatchKeys(req.Keys...))
+	}
+	if len(req.Usernames) > 0 {
+		q = q.Where(user.MatchUsernames(req.Usernames...))
+	}
 	var users []user.User
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		q := s.internal.NewRetrieve()
-		if len(req.Keys) > 0 {
-			q = q.Where(user.MatchKeys(req.Keys...))
-		}
-		if len(req.Usernames) > 0 {
-			q = q.Where(user.MatchUsernames(req.Usernames...))
-		}
-		if err := q.Entries(&users).Exec(ctx, tx); err != nil {
-			return err
-		}
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: user.OntologyIDsFromUsers(users),
-		})
+	if err := q.Entries(&users).Exec(ctx, tx); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: user.OntologyIDsFromUsers(users),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -214,37 +209,38 @@ type DeleteRequest struct {
 }
 
 // Delete removes the users with the provided keys from the Synnax cluster.
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: user.OntologyIDsFromKeys(req.Keys),
-		}); err != nil {
-			return err
-		}
-		// Look up the usernames of the keys that actually exist so we can deactivate
-		// the matching auth rows. A bare-key retrieve wraps query.ErrNotFound when any
-		// key is missing; we treat that as "those keys are simply not here" and
-		// continue with whatever was found, so deleting a non-existent user is a no-op
-		// rather than an error.
-		var toDelete []user.User
-		err := s.internal.NewRetrieve().
-			Where(user.MatchKeys(req.Keys...)).
-			Entries(&toDelete).
-			Exec(ctx, tx)
-		if err != nil && !errors.Is(err, query.ErrNotFound) {
-			return err
-		}
-		if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
-			return err
-		}
-		if len(toDelete) == 0 {
-			return nil
-		}
-		usernames := lo.Map(toDelete, func(u user.User, _ int) string {
-			return u.Username
-		})
-		return s.auth.NewWriter(tx).Deactivate(ctx, usernames...)
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: user.OntologyIDsFromKeys(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	// Look up the usernames of the keys that actually exist so we can deactivate
+	// the matching auth rows. A bare-key retrieve wraps query.ErrNotFound when any
+	// key is missing; we treat that as "those keys are simply not here" and
+	// continue with whatever was found, so deleting a non-existent user is a no-op
+	// rather than an error.
+	var toDelete []user.User
+	if err := s.internal.NewRetrieve().
+		Where(user.MatchKeys(req.Keys...)).
+		Entries(&toDelete).
+		Exec(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		return types.Nil{}, err
+	}
+	if err := s.internal.NewWriter(tx).Delete(ctx, req.Keys...); err != nil {
+		return types.Nil{}, err
+	}
+	if len(toDelete) == 0 {
+		return types.Nil{}, nil
+	}
+	usernames := lo.Map(toDelete, func(u user.User, _ int) string {
+		return u.Username
 	})
+	return types.Nil{}, s.auth.NewWriter(tx).Deactivate(ctx, usernames...)
 }

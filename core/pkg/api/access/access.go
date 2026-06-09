@@ -51,30 +51,26 @@ type (
 
 func (s *Service) CreatePolicy(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreatePolicyRequest,
 ) (CreatePolicyResponse, error) {
-	results := make([]policy.Policy, len(req.Policies))
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Objects: []ontology.ID{{Type: ontology.ResourceTypePolicy}},
-			Action:  access.ActionCreate,
-		}); err != nil {
-			return err
-		}
-		w := s.internal.Policy.NewWriter(tx, allowInternal)
-		for i, p := range req.Policies {
-			if p.Key == uuid.Nil {
-				p.Key = uuid.New()
-			}
-			if err := w.Create(ctx, &p); err != nil {
-				return err
-			}
-			results[i] = p
-		}
-		return nil
+	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypePolicy}},
+		Action:  access.ActionCreate,
 	}); err != nil {
 		return CreatePolicyRequest{}, err
+	}
+	results := make([]policy.Policy, len(req.Policies))
+	w := s.internal.Policy.NewWriter(tx, allowInternal)
+	for i, p := range req.Policies {
+		if p.Key == uuid.Nil {
+			p.Key = uuid.New()
+		}
+		if err := w.Create(ctx, &p); err != nil {
+			return CreatePolicyRequest{}, err
+		}
+		results[i] = p
 	}
 	return CreatePolicyResponse{Policies: results}, nil
 }
@@ -93,42 +89,41 @@ type RetrievePolicyResponse struct {
 
 func (s *Service) RetrievePolicy(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrievePolicyRequest,
 ) (RetrievePolicyResponse, error) {
+	q := s.internal.Policy.NewRetrieve()
+	if len(req.Subjects) > 0 {
+		subjectKeys, err := s.internal.Policy.ResolveSubjects(
+			ctx, tx, req.Subjects...,
+		)
+		if err != nil {
+			return RetrievePolicyResponse{}, err
+		}
+		if len(req.Keys) > 0 {
+			subjectKeys = lo.Intersect(subjectKeys, req.Keys)
+		}
+		q = q.Where(policy.MatchKeys(subjectKeys...))
+	} else if len(req.Keys) > 0 {
+		q = q.Where(policy.MatchKeys(req.Keys...))
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+	if req.Internal != nil {
+		q = q.Where(policy.MatchInternal(*req.Internal))
+	}
 	var res RetrievePolicyResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		q := s.internal.Policy.NewRetrieve()
-		if len(req.Subjects) > 0 {
-			subjectKeys, err := s.internal.Policy.ResolveSubjects(
-				ctx, tx, req.Subjects...,
-			)
-			if err != nil {
-				return err
-			}
-			if len(req.Keys) > 0 {
-				subjectKeys = lo.Intersect(subjectKeys, req.Keys)
-			}
-			q = q.Where(policy.MatchKeys(subjectKeys...))
-		} else if len(req.Keys) > 0 {
-			q = q.Where(policy.MatchKeys(req.Keys...))
-		}
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if req.Internal != nil {
-			q = q.Where(policy.MatchInternal(*req.Internal))
-		}
-		if err := q.Entries(&res.Policies).Exec(ctx, tx); err != nil {
-			return err
-		}
-		return s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: policy.OntologyIDsFromPolicies(res.Policies),
-		})
+	if err := q.Entries(&res.Policies).Exec(ctx, tx); err != nil {
+		return RetrievePolicyResponse{}, err
+	}
+	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: policy.OntologyIDsFromPolicies(res.Policies),
 	}); err != nil {
 		return RetrievePolicyResponse{}, err
 	}
@@ -139,18 +134,19 @@ type DeletePolicyRequest struct {
 	Keys []policy.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) DeletePolicy(ctx context.Context, req DeletePolicyRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Objects: policy.OntologyIDs(req.Keys),
-			Action:  access.ActionDelete,
-		}); err != nil {
-			return err
-		}
-		return s.internal.Policy.NewWriter(tx, allowInternal).Delete(ctx, req.Keys...)
-	})
-
+func (s *Service) DeletePolicy(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeletePolicyRequest,
+) (types.Nil, error) {
+	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Objects: policy.OntologyIDs(req.Keys),
+		Action:  access.ActionDelete,
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.Policy.NewWriter(tx, allowInternal).Delete(ctx, req.Keys...)
 }
 
 type (
@@ -164,30 +160,26 @@ type (
 
 func (s *Service) CreateRole(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRoleRequest,
 ) (CreateRoleResponse, error) {
-	results := make([]role.Role, len(req.Roles))
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeRole}},
-			Action:  access.ActionCreate,
-		}); err != nil {
-			return err
-		}
-		w := s.internal.Role.NewWriter(tx, allowInternal)
-		for i, r := range req.Roles {
-			if r.Key == uuid.Nil {
-				r.Key = uuid.New()
-			}
-			if err := w.Create(ctx, &r); err != nil {
-				return err
-			}
-			results[i] = r
-		}
-		return nil
+	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeRole}},
+		Action:  access.ActionCreate,
 	}); err != nil {
 		return CreateRoleResponse{}, err
+	}
+	results := make([]role.Role, len(req.Roles))
+	w := s.internal.Role.NewWriter(tx, allowInternal)
+	for i, r := range req.Roles {
+		if r.Key == uuid.Nil {
+			r.Key = uuid.New()
+		}
+		if err := w.Create(ctx, &r); err != nil {
+			return CreateRoleResponse{}, err
+		}
+		results[i] = r
 	}
 	return CreateRoleResponse{Roles: results}, nil
 }
@@ -206,31 +198,30 @@ type (
 
 func (s *Service) RetrieveRole(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRoleRequest,
 ) (RetrieveRoleResponse, error) {
+	q := s.internal.Role.NewRetrieve()
+	if len(req.Keys) > 0 {
+		q = q.Where(role.MatchKeys(req.Keys...))
+	}
+	if req.Limit > 0 {
+		q = q.Limit(req.Limit)
+	}
+	if req.Offset > 0 {
+		q = q.Offset(req.Offset)
+	}
+	if req.Internal != nil {
+		q = q.Where(role.MatchInternal(*req.Internal))
+	}
 	var res RetrieveRoleResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		q := s.internal.Role.NewRetrieve()
-		if len(req.Keys) > 0 {
-			q = q.Where(role.MatchKeys(req.Keys...))
-		}
-		if req.Limit > 0 {
-			q = q.Limit(req.Limit)
-		}
-		if req.Offset > 0 {
-			q = q.Offset(req.Offset)
-		}
-		if req.Internal != nil {
-			q = q.Where(role.MatchInternal(*req.Internal))
-		}
-		if err := q.Entries(&res.Roles).Exec(ctx, tx); err != nil {
-			return err
-		}
-		return s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: role.OntologyIDsFromRoles(res.Roles),
-		})
+	if err := q.Entries(&res.Roles).Exec(ctx, tx); err != nil {
+		return RetrieveRoleResponse{}, err
+	}
+	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: role.OntologyIDsFromRoles(res.Roles),
 	}); err != nil {
 		return RetrieveRoleResponse{}, err
 	}
@@ -241,27 +232,29 @@ type DeleteRoleRequest struct {
 	Keys []role.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) DeleteRole(ctx context.Context, req DeleteRoleRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		roleIDs := make([]ontology.ID, len(req.Keys))
-		for i, key := range req.Keys {
-			roleIDs[i] = role.OntologyID(key)
+func (s *Service) DeleteRole(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRoleRequest,
+) (types.Nil, error) {
+	roleIDs := make([]ontology.ID, len(req.Keys))
+	for i, key := range req.Keys {
+		roleIDs[i] = role.OntologyID(key)
+	}
+	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Objects: roleIDs,
+		Action:  access.ActionDelete,
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	w := s.internal.Role.NewWriter(tx, allowInternal)
+	for _, key := range req.Keys {
+		if err := w.Delete(ctx, key); err != nil {
+			return types.Nil{}, err
 		}
-		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Objects: roleIDs,
-			Action:  access.ActionDelete,
-		}); err != nil {
-			return err
-		}
-		w := s.internal.Role.NewWriter(tx, allowInternal)
-		for _, key := range req.Keys {
-			if err := w.Delete(ctx, key); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }
 
 type AssignRoleRequest struct {
@@ -271,19 +264,18 @@ type AssignRoleRequest struct {
 
 func (s *Service) AssignRole(
 	ctx context.Context,
+	tx gorp.Tx,
 	req AssignRoleRequest,
 ) (types.Nil, error) {
 	userID := user.OntologyID(req.User)
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Objects: []ontology.ID{userID},
-			Action:  access.ActionUpdate,
-		}); err != nil {
-			return err
-		}
-		return s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, userID, req.Role)
-	})
+	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Objects: []ontology.ID{userID},
+		Action:  access.ActionUpdate,
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.Role.NewWriter(tx, allowInternal).AssignRole(ctx, userID, req.Role)
 }
 
 type UnassignRoleRequest struct {
@@ -291,16 +283,18 @@ type UnassignRoleRequest struct {
 	Role role.Key `json:"role" msgpack:"role"`
 }
 
-func (s *Service) UnassignRole(ctx context.Context, req UnassignRoleRequest) (types.Nil, error) {
+func (s *Service) UnassignRole(
+	ctx context.Context,
+	tx gorp.Tx,
+	req UnassignRoleRequest,
+) (types.Nil, error) {
 	userID := user.OntologyID(req.User)
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Objects: []ontology.ID{userID},
-			Action:  access.ActionUpdate,
-		}); err != nil {
-			return err
-		}
-		return s.internal.Role.NewWriter(tx, true).UnassignRole(ctx, userID, req.Role)
-	})
+	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Objects: []ontology.ID{userID},
+		Action:  access.ActionUpdate,
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.Role.NewWriter(tx, true).UnassignRole(ctx, userID, req.Role)
 }

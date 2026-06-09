@@ -61,27 +61,24 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	var res CreateResponse
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
-		}); err != nil {
-			return err
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeTask}},
+	}); err != nil {
+		return CreateResponse{}, err
+	}
+	w := s.task.NewWriter(tx)
+	for i, m := range req.Tasks {
+		if err := w.Create(ctx, &m); err != nil {
+			return CreateResponse{}, err
 		}
-		w := s.task.NewWriter(tx)
-		for i, m := range req.Tasks {
-			if err := w.Create(ctx, &m); err != nil {
-				return err
-			}
-			req.Tasks[i] = m
-		}
-		res.Tasks = req.Tasks
-		return nil
-	})
+		req.Tasks[i] = m
+	}
+	return CreateResponse{Tasks: req.Tasks}, nil
 }
 
 type (
@@ -104,69 +101,67 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
+	var (
+		hasSearch = len(req.SearchTerm) > 0
+		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
+		hasTypes  = len(req.Types) > 0
+		hasLimit  = req.Limit > 0
+		hasOffset = req.Offset > 0
+	)
+	q := s.task.NewRetrieve()
+	if req.Internal != nil {
+		q = q.Where(task.MatchInternal(*req.Internal))
+	}
+	if req.Snapshot != nil {
+		q = q.Where(task.MatchSnapshot(*req.Snapshot))
+	}
+	if hasNames {
+		q = q.Where(task.MatchNames(req.Names...))
+	}
+	if hasKeys {
+		q = q.Where(task.MatchKeys(req.Keys...))
+	}
+	if hasTypes {
+		q = q.Where(task.MatchTypes(req.Types...))
+	}
+	if hasSearch {
+		q = q.Search(req.SearchTerm)
+	}
+	if hasLimit {
+		q = q.Limit(req.Limit)
+	}
+	if hasOffset {
+		q = q.Offset(req.Offset)
+	}
+	if !req.Rack.IsZero() {
+		q = q.Where(task.MatchRacks(req.Rack))
+	}
 	var res RetrieveResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var (
-			hasSearch = len(req.SearchTerm) > 0
-			hasKeys   = len(req.Keys) > 0
-			hasNames  = len(req.Names) > 0
-			hasTypes  = len(req.Types) > 0
-			hasLimit  = req.Limit > 0
-			hasOffset = req.Offset > 0
-		)
-		q := s.task.NewRetrieve()
-		if req.Internal != nil {
-			q = q.Where(task.MatchInternal(*req.Internal))
-		}
-		if req.Snapshot != nil {
-			q = q.Where(task.MatchSnapshot(*req.Snapshot))
-		}
-		if hasNames {
-			q = q.Where(task.MatchNames(req.Names...))
-		}
-		if hasKeys {
-			q = q.Where(task.MatchKeys(req.Keys...))
-		}
-		if hasTypes {
-			q = q.Where(task.MatchTypes(req.Types...))
-		}
-		if hasSearch {
-			q = q.Search(req.SearchTerm)
-		}
-		if hasLimit {
-			q = q.Limit(req.Limit)
-		}
-		if hasOffset {
-			q = q.Offset(req.Offset)
-		}
-		if !req.Rack.IsZero() {
-			q = q.Where(task.MatchRacks(req.Rack))
-		}
-		err := q.Entries(&res.Tasks).Exec(ctx, tx)
-		if err != nil {
-			return err
-		}
+	if err := q.Entries(&res.Tasks).Exec(ctx, tx); err != nil {
+		return RetrieveResponse{}, err
+	}
 
-		if req.IncludeStatus {
-			statuses := make([]task.Status, 0, len(res.Tasks))
-			if err = status.NewRetrieve[task.StatusDetails](s.status).
-				Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
-				Entries(&statuses).
-				Exec(ctx, tx); err != nil {
-				return err
-			}
-			// TODO(SY-4247)
-			for i, stat := range statuses {
-				res.Tasks[i].Status = &stat
-			}
+	if req.IncludeStatus {
+		statuses := make([]task.Status, 0, len(res.Tasks))
+		if err := status.NewRetrieve[task.StatusDetails](s.status).
+			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
+			Entries(&statuses).
+			Exec(ctx, tx); err != nil {
+			return RetrieveResponse{}, err
 		}
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: task.OntologyIDsFromTasks(res.Tasks),
-		})
+		// TODO(SY-4247)
+		for i, stat := range statuses {
+			res.Tasks[i].Status = &stat
+		}
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: task.OntologyIDsFromTasks(res.Tasks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -177,23 +172,25 @@ type DeleteRequest struct {
 	Keys []task.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: task.OntologyIDs(req.Keys),
-		}); err != nil {
-			return err
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: task.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	w := s.task.NewWriter(tx)
+	for _, k := range req.Keys {
+		if err := w.Delete(ctx, k, false); err != nil {
+			return types.Nil{}, err
 		}
-		w := s.task.NewWriter(tx)
-		for _, k := range req.Keys {
-			if err := w.Delete(ctx, k, false); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }
 
 type (
@@ -207,32 +204,28 @@ type (
 	}
 )
 
-func (s *Service) Copy(ctx context.Context, req CopyRequest) (CopyResponse, error) {
-	var res CopyResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{task.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		res.Task, err = s.task.NewWriter(tx).Copy(
-			ctx,
-			req.Key,
-			req.Name,
-			req.Snapshot,
-		)
-		if err != nil {
-			return err
-		}
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{task.OntologyID(res.Task.Key)},
-		})
+func (s *Service) Copy(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CopyRequest,
+) (CopyResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: []ontology.ID{task.OntologyID(req.Key)},
 	}); err != nil {
 		return CopyResponse{}, err
 	}
-	return res, nil
+	t, err := s.task.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot)
+	if err != nil {
+		return CopyResponse{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{task.OntologyID(t.Key)},
+	}); err != nil {
+		return CopyResponse{}, err
+	}
+	return CopyResponse{Task: t}, nil
 }

@@ -68,30 +68,24 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
-		}); err != nil {
-			return err
-		}
-		w := s.rack.NewWriter(tx)
-		for i, r := range req.Racks {
-			if err := w.Create(ctx, &r); err != nil {
-				return err
-			}
-			req.Racks[i] = r
-		}
-		res.Racks = req.Racks
-		return nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	w := s.rack.NewWriter(tx)
+	for i, r := range req.Racks {
+		if err := w.Create(ctx, &r); err != nil {
+			return CreateResponse{}, err
+		}
+		req.Racks[i] = r
+	}
+	return CreateResponse{Racks: req.Racks}, nil
 }
 
 type (
@@ -113,78 +107,72 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var res RetrieveResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var (
-			hasSearch      = len(req.SearchTerm) > 0
-			hasKeys        = len(req.Keys) > 0
-			hasNames       = len(req.Names) > 0
-			hasLimit       = req.Limit > 0
-			hasOffset      = req.Offset > 0
-			hasIntegration = req.Integration != ""
-		)
-		resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
-		q := s.rack.NewRetrieve()
-		if hasKeys {
-			q = q.Where(rack.MatchKeys(req.Keys...))
-		}
-		if hasNames {
-			q = q.Where(rack.MatchNames(req.Names...))
-		}
-		if hasSearch {
-			q = q.Search(req.SearchTerm)
-		}
-		if hasLimit {
-			q = q.Limit(req.Limit)
-		}
-		if hasOffset {
-			q = q.Offset(req.Offset)
-		}
-		if req.Embedded != nil {
-			q = q.Where(rack.MatchEmbedded(*req.Embedded))
-		}
-		if req.HostIsNode != nil {
-			q = q.Where(rack.MatchNodeIsHost(*req.HostIsNode))
-		}
-		if hasIntegration {
-			q = q.Where(rack.MatchIntegration(req.Integration))
-		}
-		if err := q.Entries(&resRacks).Exec(ctx, tx); err != nil {
-			return err
-		}
+	var (
+		hasSearch      = len(req.SearchTerm) > 0
+		hasKeys        = len(req.Keys) > 0
+		hasNames       = len(req.Names) > 0
+		hasLimit       = req.Limit > 0
+		hasOffset      = req.Offset > 0
+		hasIntegration = req.Integration != ""
+	)
+	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
+	q := s.rack.NewRetrieve()
+	if hasKeys {
+		q = q.Where(rack.MatchKeys(req.Keys...))
+	}
+	if hasNames {
+		q = q.Where(rack.MatchNames(req.Names...))
+	}
+	if hasSearch {
+		q = q.Search(req.SearchTerm)
+	}
+	if hasLimit {
+		q = q.Limit(req.Limit)
+	}
+	if hasOffset {
+		q = q.Offset(req.Offset)
+	}
+	if req.Embedded != nil {
+		q = q.Where(rack.MatchEmbedded(*req.Embedded))
+	}
+	if req.HostIsNode != nil {
+		q = q.Where(rack.MatchNodeIsHost(*req.HostIsNode))
+	}
+	if hasIntegration {
+		q = q.Where(rack.MatchIntegration(req.Integration))
+	}
+	if err := q.Entries(&resRacks).Exec(ctx, tx); err != nil {
+		return RetrieveResponse{}, err
+	}
 
-		if req.IncludeStatus {
-			keys := make([]rack.Key, len(resRacks))
-			for i := range resRacks {
-				keys[i] = resRacks[i].Key
-			}
-			statuses := make([]rack.Status, 0, len(resRacks))
-			if err := status.NewRetrieve[rack.StatusDetails](s.status).
-				Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
-				Entries(&statuses).
-				Exec(ctx, tx); err != nil {
-				return err
-			}
-			for i, stat := range statuses {
-				resRacks[i].Status = (*rack.Status)(&stat)
-			}
+	if req.IncludeStatus {
+		keys := make([]rack.Key, len(resRacks))
+		for i := range resRacks {
+			keys[i] = resRacks[i].Key
 		}
+		statuses := make([]rack.Status, 0, len(resRacks))
+		if err := status.NewRetrieve[rack.StatusDetails](s.status).
+			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
+			Entries(&statuses).
+			Exec(ctx, tx); err != nil {
+			return RetrieveResponse{}, err
+		}
+		for i, stat := range statuses {
+			resRacks[i].Status = (*rack.Status)(&stat)
+		}
+	}
 
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: rack.OntologyIDsFromRacks(resRacks),
-		}); err != nil {
-			return err
-		}
-		res.Racks = resRacks
-		return nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: rack.OntologyIDsFromRacks(resRacks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, nil
+	return RetrieveResponse{Racks: resRacks}, nil
 }
 
 type DeleteRequest struct {
@@ -198,43 +186,45 @@ func embeddedGuard(_ gorp.Context, r rack.Rack) error {
 	return errors.Wrapf(validate.ErrValidation, "cannot delete embedded rack")
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: rack.OntologyIDs(req.Keys),
-		}); err != nil {
-			return err
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: rack.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	exists, err := s.device.NewRetrieve().Where(device.MatchRacks(req.Keys...)).Exists(ctx, tx)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	if exists {
+		return types.Nil{}, errors.Wrapf(
+			validate.ErrValidation,
+			"cannot delete rack when devices are still attached",
+		)
+	}
+	exists, err = s.task.NewRetrieve().
+		Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
+		Exists(ctx, tx)
+	if err != nil {
+		return types.Nil{}, err
+	}
+	if exists {
+		return types.Nil{}, errors.Wrapf(
+			validate.ErrValidation,
+			"cannot delete rack when tasks are still attached",
+		)
+	}
+	w := s.rack.NewWriter(tx)
+	for _, k := range req.Keys {
+		if err := w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
+			return types.Nil{}, err
 		}
-		exists, err := s.device.NewRetrieve().Where(device.MatchRacks(req.Keys...)).Exists(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if exists {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"cannot delete rack when devices are still attached",
-			)
-		}
-		exists, err = s.task.NewRetrieve().
-			Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
-			Exists(ctx, tx)
-		if err != nil {
-			return err
-		}
-		if exists {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"cannot delete rack when tasks are still attached",
-			)
-		}
-		w := s.rack.NewWriter(tx)
-		for _, k := range req.Keys {
-			if err = w.DeleteGuard(ctx, k, embeddedGuard); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }

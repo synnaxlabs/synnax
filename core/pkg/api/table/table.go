@@ -55,29 +55,23 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeTable}},
-		}); err != nil {
-			return err
-		}
-		for i, t := range req.Tables {
-			if err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &t); err != nil {
-				return err
-			}
-			req.Tables[i] = t
-		}
-		res.Tables = req.Tables
-		return nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeTable}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	for i, t := range req.Tables {
+		if err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &t); err != nil {
+			return CreateResponse{}, err
+		}
+		req.Tables[i] = t
+	}
+	return CreateResponse{Tables: req.Tables}, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single table. DispatchKey is
@@ -88,17 +82,19 @@ type DispatchRequest = actions.DispatchRequest[table.Key, table.Action]
 
 // Dispatch applies the action sequence to the target table atomically. Subscribers to
 // the table action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{table.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	})
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{table.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -112,19 +108,18 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewRetrieve().
-			Where(table.MatchKeys(req.Keys...)).Entries(&res.Tables).Exec(ctx, tx); err != nil {
-			return err
-		}
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: table.OntologyIDsFromTables(res.Tables),
-		})
+	if err := s.internal.NewRetrieve().
+		Where(table.MatchKeys(req.Keys...)).Entries(&res.Tables).Exec(ctx, tx); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: table.OntologyIDsFromTables(res.Tables),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -135,15 +130,17 @@ type DeleteRequest struct {
 	Keys []table.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: table.OntologyIDs(req.Keys),
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: table.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

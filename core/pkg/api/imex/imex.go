@@ -49,18 +49,17 @@ type (
 
 func (s *Service) Import(
 	ctx context.Context,
+	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
 	resourceType, err := s.internal.ImporterType(req.Type)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: resourceType, Key: ""}},
-		})
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
@@ -78,14 +77,13 @@ type (
 
 func (s *Service) Export(
 	ctx context.Context,
+	tx gorp.Tx,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{req},
-		})
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: []ontology.ID{req},
 	}); err != nil {
 		return ExportResponse{}, err
 	}

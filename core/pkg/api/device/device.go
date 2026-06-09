@@ -60,29 +60,23 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
-		}); err != nil {
-			return err
-		}
-		w := s.device.NewWriter(tx)
-		for i := range req.Devices {
-			if err := w.Create(ctx, &req.Devices[i]); err != nil {
-				return err
-			}
-		}
-		res.Devices = req.Devices
-		return nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeDevice}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	w := s.device.NewWriter(tx)
+	for i := range req.Devices {
+		if err := w.Create(ctx, &req.Devices[i]); err != nil {
+			return CreateResponse{}, err
+		}
+	}
+	return CreateResponse{Devices: req.Devices}, nil
 }
 
 type RetrieveRequest struct {
@@ -106,100 +100,93 @@ type RetrieveResponse struct {
 
 func (s *Service) Retrieve(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var (
-		res    RetrieveResponse
-		retErr error
+		hasSearch    = len(req.SearchTerm) > 0
+		hasKeys      = len(req.Keys) > 0
+		hasNames     = len(req.Names) > 0
+		hasMakes     = len(req.Makes) > 0
+		hasLimit     = req.Limit > 0
+		hasOffset    = req.Offset > 0
+		hasLocations = len(req.Locations) > 0
+		hasModels    = len(req.Models) > 0
+		hasRacks     = len(req.Racks) > 0
 	)
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var (
-			hasSearch    = len(req.SearchTerm) > 0
-			hasKeys      = len(req.Keys) > 0
-			hasNames     = len(req.Names) > 0
-			hasMakes     = len(req.Makes) > 0
-			hasLimit     = req.Limit > 0
-			hasOffset    = req.Offset > 0
-			hasLocations = len(req.Locations) > 0
-			hasModels    = len(req.Models) > 0
-			hasRacks     = len(req.Racks) > 0
-		)
-		q := s.device.NewRetrieve()
-		if hasKeys {
-			q = q.Where(device.MatchKeys(req.Keys...))
-		}
-		if hasSearch {
-			q = q.Search(req.SearchTerm)
-		}
-		if hasNames {
-			q = q.Where(device.MatchNames(req.Names...))
-		}
-		if hasLimit {
-			q = q.Limit(req.Limit)
-		}
-		if hasOffset {
-			q = q.Offset(req.Offset)
-		}
-		if hasMakes {
-			q = q.Where(device.MatchMakes(req.Makes...))
-		}
-		if hasLocations {
-			q = q.Where(device.MatchLocations(req.Locations...))
-		}
-		if hasModels {
-			q = q.Where(device.MatchModels(req.Models...))
-		}
-		if hasRacks {
-			q = q.Where(device.MatchRacks(req.Racks...))
-		}
-		retErr = q.Entries(&res.Devices).Exec(ctx, tx)
+	q := s.device.NewRetrieve()
+	if hasKeys {
+		q = q.Where(device.MatchKeys(req.Keys...))
+	}
+	if hasSearch {
+		q = q.Search(req.SearchTerm)
+	}
+	if hasNames {
+		q = q.Where(device.MatchNames(req.Names...))
+	}
+	if hasLimit {
+		q = q.Limit(req.Limit)
+	}
+	if hasOffset {
+		q = q.Offset(req.Offset)
+	}
+	if hasMakes {
+		q = q.Where(device.MatchMakes(req.Makes...))
+	}
+	if hasLocations {
+		q = q.Where(device.MatchLocations(req.Locations...))
+	}
+	if hasModels {
+		q = q.Where(device.MatchModels(req.Models...))
+	}
+	if hasRacks {
+		q = q.Where(device.MatchRacks(req.Racks...))
+	}
+	var res RetrieveResponse
+	retErr := q.Entries(&res.Devices).Exec(ctx, tx)
 
-		if req.IncludeStatus {
-			statuses := make([]device.Status, 0, len(res.Devices))
-			if err := status.NewRetrieve[device.StatusDetails](s.status).
-				Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
-				Entries(&statuses).
-				Exec(ctx, tx); err != nil {
-				return err
-			}
-			for i, stat := range statuses {
-				res.Devices[i].Status = &stat
-			}
+	if req.IncludeStatus {
+		statuses := make([]device.Status, 0, len(res.Devices))
+		if err := status.NewRetrieve[device.StatusDetails](s.status).
+			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
+			Entries(&statuses).
+			Exec(ctx, tx); err != nil {
+			return RetrieveResponse{}, err
 		}
+		for i, stat := range statuses {
+			res.Devices[i].Status = &stat
+		}
+	}
 
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: device.OntologyIDsFromDevices(res.Devices),
-		}); err != nil {
-			return err
-		}
-		if retErr != nil && req.IgnoreNotFound {
-			retErr = errors.Skip(retErr, query.ErrNotFound)
-		}
-		if req.IncludeParent {
-			for i, d := range res.Devices {
-				var parent ontology.Resource
-				err := s.ontology.NewRetrieve().
-					WhereIDs(device.OntologyID(d.Key)).
-					TraverseTo(ontology.ParentsTraverser).
-					Limit(1).
-					ExcludeFieldData(true).
-					Entry(&parent).
-					Exec(ctx, tx)
-				if err != nil {
-					if !errors.Is(err, query.ErrNotFound) {
-						return err
-					}
-					continue
-				}
-				pid := ontology.ID(parent.ID)
-				res.Devices[i].Parent = &pid
-			}
-		}
-		return nil
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: device.OntologyIDsFromDevices(res.Devices),
 	}); err != nil {
 		return RetrieveResponse{}, err
+	}
+	if retErr != nil && req.IgnoreNotFound {
+		retErr = errors.Skip(retErr, query.ErrNotFound)
+	}
+	if req.IncludeParent {
+		for i, d := range res.Devices {
+			var parent ontology.Resource
+			err := s.ontology.NewRetrieve().
+				WhereIDs(device.OntologyID(d.Key)).
+				TraverseTo(ontology.ParentsTraverser).
+				Limit(1).
+				ExcludeFieldData(true).
+				Entry(&parent).
+				Exec(ctx, tx)
+			if err != nil {
+				if !errors.Is(err, query.ErrNotFound) {
+					return RetrieveResponse{}, err
+				}
+				continue
+			}
+			pid := ontology.ID(parent.ID)
+			res.Devices[i].Parent = &pid
+		}
 	}
 	if retErr != nil {
 		return RetrieveResponse{}, retErr
@@ -211,21 +198,23 @@ type DeleteRequest struct {
 	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: device.OntologyIDs(req.Keys),
-		}); err != nil {
-			return err
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: device.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	w := s.device.NewWriter(tx)
+	for _, k := range req.Keys {
+		if err := w.Delete(ctx, k); err != nil {
+			return types.Nil{}, err
 		}
-		w := s.device.NewWriter(tx)
-		for _, k := range req.Keys {
-			if err := w.Delete(ctx, k); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }

@@ -63,62 +63,56 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var res RetrieveResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		var resources []ontology.Resource
-		if req.SearchTerm != "" {
-			ids, err := s.search.Search(ctx, search.Request{Term: req.SearchTerm})
-			if err != nil {
-				return err
-			}
-			resources = make([]ontology.Resource, 0, len(ids))
-			err = s.ontology.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, tx)
-			if errors.Is(err, query.ErrNotFound) {
-				err = nil
-			}
-			if err != nil {
-				return err
-			}
-		} else {
-			q := s.ontology.NewRetrieve()
-			if len(req.IDs) > 0 {
-				q = q.WhereIDs(req.IDs...)
-			}
-			if req.Children {
-				q = q.TraverseTo(ontology.ChildrenTraverser)
-			}
-			if req.Parents {
-				q = q.TraverseTo(ontology.ParentsTraverser)
-			}
-			if len(req.Types) > 0 {
-				q = q.WhereTypes(req.Types...)
-			}
-			q.ExcludeFieldData(req.ExcludeFieldData)
-			if req.Limit > 0 {
-				q = q.Limit(req.Limit)
-			}
-			if req.Offset > 0 {
-				q = q.Offset(req.Offset)
-			}
-			if err := q.Entries(&resources).Exec(ctx, tx); err != nil {
-				return err
-			}
+	var resources []ontology.Resource
+	if req.SearchTerm != "" {
+		ids, err := s.search.Search(ctx, search.Request{Term: req.SearchTerm})
+		if err != nil {
+			return RetrieveResponse{}, err
 		}
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: ontology.ResourceIDs(resources),
-		}); err != nil {
-			return err
+		resources = make([]ontology.Resource, 0, len(ids))
+		err = s.ontology.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, tx)
+		if errors.Is(err, query.ErrNotFound) {
+			err = nil
 		}
-		res = RetrieveResponse{Resources: resources}
-		return nil
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+	} else {
+		q := s.ontology.NewRetrieve()
+		if len(req.IDs) > 0 {
+			q = q.WhereIDs(req.IDs...)
+		}
+		if req.Children {
+			q = q.TraverseTo(ontology.ChildrenTraverser)
+		}
+		if req.Parents {
+			q = q.TraverseTo(ontology.ParentsTraverser)
+		}
+		if len(req.Types) > 0 {
+			q = q.WhereTypes(req.Types...)
+		}
+		q.ExcludeFieldData(req.ExcludeFieldData)
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
+		if err := q.Entries(&resources).Exec(ctx, tx); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: ontology.ResourceIDs(resources),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, nil
+	return RetrieveResponse{Resources: resources}, nil
 }
 
 type AddChildrenRequest struct {
@@ -128,24 +122,23 @@ type AddChildrenRequest struct {
 
 func (s *Service) AddChildren(
 	ctx context.Context,
+	tx gorp.Tx,
 	req AddChildrenRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: append(req.Children, req.ID),
-		}); err != nil {
-			return err
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: append(req.Children, req.ID),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	w := s.ontology.NewWriter(tx)
+	for _, child := range req.Children {
+		if err := w.DefineRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
+			return types.Nil{}, err
 		}
-		w := s.ontology.NewWriter(tx)
-		for _, child := range req.Children {
-			if err := w.DefineRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }
 
 type RemoveChildrenRequest struct {
@@ -155,24 +148,23 @@ type RemoveChildrenRequest struct {
 
 func (s *Service) RemoveChildren(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RemoveChildrenRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: append(req.Children, req.ID),
-		}); err != nil {
-			return err
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: append(req.Children, req.ID),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	w := s.ontology.NewWriter(tx)
+	for _, child := range req.Children {
+		if err := w.DeleteRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
+			return types.Nil{}, err
 		}
-		w := s.ontology.NewWriter(tx)
-		for _, child := range req.Children {
-			if err := w.DeleteRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }
 
 type MoveChildrenRequest struct {
@@ -183,25 +175,24 @@ type MoveChildrenRequest struct {
 
 func (s *Service) MoveChildren(
 	ctx context.Context,
+	tx gorp.Tx,
 	req MoveChildrenRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: append(req.Children, req.From, req.To),
-		}); err != nil {
-			return err
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: append(req.Children, req.From, req.To),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	w := s.ontology.NewWriter(tx)
+	for _, child := range req.Children {
+		if err := w.DeleteRelationship(ctx, req.From, ontology.RelationshipTypeParentOf, child); err != nil {
+			return types.Nil{}, err
 		}
-		w := s.ontology.NewWriter(tx)
-		for _, child := range req.Children {
-			if err := w.DeleteRelationship(ctx, req.From, ontology.RelationshipTypeParentOf, child); err != nil {
-				return err
-			}
-			if err := w.DefineRelationship(ctx, req.To, ontology.RelationshipTypeParentOf, child); err != nil {
-				return err
-			}
+		if err := w.DefineRelationship(ctx, req.To, ontology.RelationshipTypeParentOf, child); err != nil {
+			return types.Nil{}, err
 		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }

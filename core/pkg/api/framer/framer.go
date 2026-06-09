@@ -76,6 +76,7 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
 	var (
@@ -95,17 +96,14 @@ func (s *Service) Delete(
 	if hasNames {
 		q = q.Where(channel.MatchNames(req.Names...))
 	}
-	var keys channel.Keys
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := q.Exec(ctx, tx); err != nil {
-			return err
-		}
-		keys = channel.KeysFromChannels(resChannels)
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: framer.OntologyIDs(keys),
-		})
+	if err := q.Exec(ctx, tx); err != nil {
+		return types.Nil{}, err
+	}
+	keys := channel.KeysFromChannels(resChannels)
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: framer.OntologyIDs(keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}

@@ -52,28 +52,25 @@ type CreateResponse struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
 }
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeLineplot}},
-		}); err != nil {
-			return err
-		}
-		for i, lp := range req.LinePlots {
-			if err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &lp); err != nil {
-				return err
-			}
-			req.LinePlots[i] = lp
-		}
-		res.LinePlots = req.LinePlots
-		return nil
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeLineplot}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	for i, lp := range req.LinePlots {
+		if err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &lp); err != nil {
+			return CreateResponse{}, err
+		}
+		req.LinePlots[i] = lp
+	}
+	return CreateResponse{LinePlots: req.LinePlots}, nil
 }
 
 type RenameRequest struct {
@@ -81,17 +78,19 @@ type RenameRequest struct {
 	Key  lineplot.Key `json:"key" msgpack:"key"`
 }
 
-func (s *Service) Rename(ctx context.Context, req RenameRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
+func (s *Service) Rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RenameRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type SetDataRequest struct {
@@ -99,17 +98,19 @@ type SetDataRequest struct {
 	Key  lineplot.Key      `json:"key" msgpack:"key"`
 }
 
-func (s *Service) SetData(ctx context.Context, req SetDataRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
-	})
+func (s *Service) SetData(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetDataRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
 }
 
 // DispatchRequest carries an action sequence to apply to a single line plot.
@@ -121,18 +122,17 @@ type DispatchRequest = actions.DispatchRequest[lineplot.Key, lineplot.Action]
 // to the line plot action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	})
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -144,18 +144,20 @@ type (
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewRetrieve().
-			Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).Exec(ctx, tx); err != nil {
-			return err
-		}
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: lineplot.OntologyIDsFromLinePlots(res.LinePlots),
-		})
+	if err := s.internal.NewRetrieve().
+		Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).Exec(ctx, tx); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: lineplot.OntologyIDsFromLinePlots(res.LinePlots),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -166,15 +168,17 @@ type DeleteRequest struct {
 	Keys []lineplot.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: lineplot.OntologyIDs(req.Keys),
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: lineplot.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

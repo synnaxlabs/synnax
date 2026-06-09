@@ -53,28 +53,25 @@ type (
 	}
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (CreateResponse, error) {
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeLog}},
-		}); err != nil {
-			return err
-		}
-		for i, l := range req.Logs {
-			if err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &l); err != nil {
-				return err
-			}
-			req.Logs[i] = l
-		}
-		res.Logs = req.Logs
-		return nil
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeLog}},
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	for i, l := range req.Logs {
+		if err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &l); err != nil {
+			return CreateResponse{}, err
+		}
+		req.Logs[i] = l
+	}
+	return CreateResponse{Logs: req.Logs}, nil
 }
 
 type SetDataRequest struct {
@@ -82,17 +79,19 @@ type SetDataRequest struct {
 	Key  log.Key `json:"key" msgpack:"key"`
 }
 
-func (s *Service) SetData(ctx context.Context, req SetDataRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{log.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
-	})
+func (s *Service) SetData(
+	ctx context.Context,
+	tx gorp.Tx,
+	req SetDataRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{log.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
 }
 
 // DispatchRequest carries an action sequence to apply to a single log. DispatchKey
@@ -104,19 +103,18 @@ type DispatchRequest = actions.DispatchRequest[log.Key, log.Action]
 // log action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DispatchRequest,
 ) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{log.OntologyID(req.Key)},
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).
-			Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	})
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{log.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -128,18 +126,20 @@ type (
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveResponse, error) {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	tx gorp.Tx,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.internal.NewRetrieve().
-			Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, tx); err != nil {
-			return err
-		}
-		return s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: log.OntologyIDsFromLogs(res.Logs),
-		})
+	if err := s.internal.NewRetrieve().
+		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, tx); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: log.OntologyIDsFromLogs(res.Logs),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -150,15 +150,17 @@ type DeleteRequest struct {
 	Keys []log.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionDelete,
-			Objects: log.OntologyIDs(req.Keys),
-		}); err != nil {
-			return err
-		}
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: log.OntologyIDs(req.Keys),
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
