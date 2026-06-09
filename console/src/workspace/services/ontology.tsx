@@ -99,8 +99,8 @@ const useCreateLog = ({
   const { update } = PLog.useCreate({
     afterSuccess: async ({ data }) => {
       const { workspace, ...log } = data;
-      await maybeChangeWorkspace(workspace);
-      placeLayout(Log.create({ ...Log.stateFromLog(log), name: log.name }));
+      if (workspace != null) await maybeChangeWorkspace(workspace);
+      placeLayout(Log.create({ key: log.key, name: log.name }));
     },
   });
   return useCallback(
