@@ -15,10 +15,10 @@ import { Workspace } from "@/workspace";
 
 export const useCreate = Workspace.createUseCreate({
   useCreate: LinePlot.useCreate,
-  createLayout: ({ key, name }) => create({ key, name }),
+  createSessionState: create,
   defaultName: "Line Plot",
-  useDefaults: () => {
-    const activeRange = Range.useSelectActiveKey() ?? Range.RECENT_RANGE_KEY;
-    return { ranges: { x1: [activeRange], x2: [] } };
+  defaults: (store) => {
+    const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
+    return { ranges: { x1: [activeRange] } };
   },
 });

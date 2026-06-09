@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Store } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
 import { type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
+import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
+import { type RootState } from "@/store";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { useMaybeChange } from "@/workspace/useMaybeChange";
 
@@ -35,11 +38,11 @@ export interface CreateUseCreateArgs<Input, Output extends CreatedRecord> {
   // useCreate is the Pluto flux hook that persists the record on the server.
   useCreate: UseFluxCreate<Input, Output>;
   // createLayout builds the layout placed once the record exists on the server.
-  createLayout: (record: Pick<Output, "key" | "name">) => Layout.Creator;
+  createSessionState: (record: Pick<Output, "key" | "name">) => Layout.Creator;
   // defaultName is applied when the caller does not supply a name.
   defaultName: string;
   // useDefaults supplies per-render default fields merged beneath caller overrides.
-  useDefaults?: () => Partial<Input>;
+  defaults?: (store: Store<RootState>) => Partial<Input>;
 }
 
 // createUseCreate builds a useCreate hook for a workspace-scoped layout resource. The
@@ -52,26 +55,26 @@ export const createUseCreate =
     Output extends CreatedRecord,
   >({
     useCreate,
-    createLayout,
+    createSessionState,
     defaultName,
-    useDefaults,
+    defaults,
   }: CreateUseCreateArgs<Input, Output>) =>
   ({ workspace }: UseCreateProps): ((init?: Partial<Input>) => void) => {
     const activeWorkspace = useSelectActiveKey();
     const maybeChangeWorkspace = useMaybeChange();
     const placeLayout = Layout.usePlacer();
-    const defaults = useDefaults?.();
+    const store = useStore<RootState>();
     const { update } = useCreate({
       afterSuccess: async ({ data: { workspace, key, name } }) => {
         if (workspace != null) await maybeChangeWorkspace(workspace);
-        placeLayout(createLayout({ key, name }));
+        placeLayout(createSessionState({ key, name }));
       },
     });
     return useCallback(
       (init) =>
         update({
           name: defaultName,
-          ...defaults,
+          ...defaults?.(store),
           ...init,
           workspace: workspace ?? activeWorkspace ?? undefined,
         } as Input),

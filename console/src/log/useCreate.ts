@@ -14,6 +14,6 @@ import { Workspace } from "@/workspace";
 
 export const useCreate = Workspace.createUseCreate({
   useCreate: Log.useCreate,
-  createLayout: ({ key, name }) => create({ key, name }),
+  createSessionState: create,
   defaultName: "Log",
 });

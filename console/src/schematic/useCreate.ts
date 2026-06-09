@@ -14,6 +14,6 @@ import { Workspace } from "@/workspace";
 
 export const useCreate = Workspace.createUseCreate({
   useCreate: Schematic.useCreate,
-  createLayout: ({ key, name }) => create({ key, name, editable: true }),
+  createSessionState: ({ key, name }) => create({ key, name, editable: true }),
   defaultName: "Schematic",
 });

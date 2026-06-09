@@ -129,7 +129,6 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-
 	Describe("Dispatch", func() {
 		Describe("per-action semantics", func() {
 			It("Should apply Rename", func(ctx SpecContext) {
