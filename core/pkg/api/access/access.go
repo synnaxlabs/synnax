@@ -296,5 +296,6 @@ func (s *Service) UnassignRole(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.Role.NewWriter(tx, true).UnassignRole(ctx, userID, req.Role)
+	return types.Nil{}, s.internal.Role.NewWriter(tx, allowInternal).
+		UnassignRole(ctx, userID, req.Role)
 }
