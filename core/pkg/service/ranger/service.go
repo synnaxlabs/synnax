@@ -152,6 +152,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		label:     s.cfg.Label,
 		table:     s.table,
 	}
 }

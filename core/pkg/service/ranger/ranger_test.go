@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -260,6 +261,54 @@ var _ = Describe("Ranger", Ordered, func() {
 					Expect(w.Create(ctx, &p)).To(Succeed())
 					Expect(svc.RetrieveParentKey(ctx, p.Key, tx)).Error().To(MatchError(query.ErrNotFound))
 				})
+			})
+		})
+		Context("Label Management", func() {
+			It("Should define LabeledBy relationships for labels on the range", func(ctx SpecContext) {
+				l1 := &label.Label{Name: "L1"}
+				l2 := &label.Label{Name: "L2"}
+				Expect(labelSvc.NewWriter(tx).Create(ctx, l1)).To(Succeed())
+				Expect(labelSvc.NewWriter(tx).Create(ctx, l2)).To(Succeed())
+				r := &ranger.Range{
+					Name:      "Labeled",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Labels:    []label.Label{*l1, *l2},
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				resolved := MustSucceed(labelSvc.RetrieveFor(ctx, r.OntologyID(), tx))
+				resolvedKeys := lo.Map(resolved, func(l label.Label, _ int) label.Key { return l.Key })
+				Expect(resolvedKeys).To(ConsistOf(l1.Key, l2.Key))
+			})
+			It("Should leave label relationships untouched when r.Labels is empty", func(ctx SpecContext) {
+				l := &label.Label{Name: "Existing"}
+				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				Expect(labelSvc.NewWriter(tx).Label(ctx, r.OntologyID(), []label.Key{l.Key})).To(Succeed())
+				Expect(w.Create(ctx, r)).To(Succeed())
+				resolved := MustSucceed(labelSvc.RetrieveFor(ctx, r.OntologyID(), tx))
+				Expect(resolved).To(HaveLen(1))
+				Expect(resolved[0].Key).To(Equal(l.Key))
+			})
+			It("Should add to existing label relationships when a range is re-created with new labels", func(ctx SpecContext) {
+				l1 := &label.Label{Name: "First"}
+				l2 := &label.Label{Name: "Second"}
+				Expect(labelSvc.NewWriter(tx).Create(ctx, l1)).To(Succeed())
+				Expect(labelSvc.NewWriter(tx).Create(ctx, l2)).To(Succeed())
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Labels:    []label.Label{*l1},
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				r.Labels = []label.Label{*l2}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				resolved := MustSucceed(labelSvc.RetrieveFor(ctx, r.OntologyID(), tx))
+				keys := lo.Map(resolved, func(l label.Label, _ int) label.Key { return l.Key })
+				Expect(keys).To(ConsistOf(l1.Key, l2.Key))
 			})
 		})
 	})

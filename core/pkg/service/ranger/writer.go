@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -26,14 +27,17 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
+	label     *label.Service
 	table     *gorp.Table[Key, Range]
 }
 
 // Create creates or updates the given range. If r.Parent is non-nil, the range is
 // parented to that range; otherwise its parent relationship is left unchanged on update
-// and left undefined on create. If the range does not already have a key, a new key
-// will be assigned. If the range already exists and r.Parent is non-nil, the existing
-// parent relationship will be replaced.
+// and left undefined on create. If r.Labels is non-empty, a LabeledBy relationship is
+// defined from the range to each label; existing relationships are preserved.
+// If the range does not already have a key, a new key will be assigned. If the range
+// already exists and r.Parent is non-nil, the existing parent relationship will be
+// replaced.
 func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
@@ -54,6 +58,12 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	otgID := OntologyID(r.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
+	}
+	if len(r.Labels) > 0 {
+		labelKeys := lo.Map(r.Labels, func(l label.Label, _ int) label.Key { return l.Key })
+		if err = w.label.NewWriter(w.tx).Label(ctx, otgID, labelKeys); err != nil {
+			return err
+		}
 	}
 	if r.Parent == nil {
 		return nil
