@@ -79,6 +79,7 @@ class LogLifecycle(ConsoleCase):
         self.test_no_channel_configured(log)
         self.test_no_data_received(log)
         self.test_channel_streaming(log)
+        self.test_timestamp_channel_streaming(log)
         self.test_rename_from_tab(log)
         self.test_copy_link(log)
         self.test_pause_resume_scrolling(log)
@@ -146,6 +147,33 @@ class LogLifecycle(ConsoleCase):
         assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
         assert not log.is_waiting_for_data(), "Log should not be waiting for data"
+
+    def test_timestamp_channel_streaming(self, log: Log) -> None:
+        """Test that a log displaying an index (timestamp) channel renders new
+        entries. A TIMESTAMP-typed channel must stream like any other channel;
+        a regression in the worker render path froze the log when one was added.
+        """
+        self.log("Testing timestamp (index) channel streaming")
+
+        log.clear_channels()
+        log.set_channel(self.idx_name)
+        assert log.wait_until_waiting_for_data(), (
+            "Log should wait for data on the timestamp channel"
+        )
+
+        for i in range(5):
+            self.writer.write(
+                {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
+            )
+            sy.sleep(0.1)
+
+        assert log.wait_until_streaming(), (
+            "Log should stream entries from a timestamp channel"
+        )
+        count = log.wait_for_entry_count(5)
+        assert count >= 5, (
+            f"Log should render the 5 timestamp entries written, got {count}"
+        )
 
     def test_virtual_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a virtual channel and that log data

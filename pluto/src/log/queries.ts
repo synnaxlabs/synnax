@@ -7,20 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type channel,
-  log,
-  NotFoundError,
-  ontology,
-  type workspace,
-} from "@synnaxlabs/client";
+import { type channel, log, NotFoundError, type workspace } from "@synnaxlabs/client";
 import { array, compare, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "logs";
 const RESOURCE_NAME = "log";
@@ -61,15 +54,8 @@ export const {
 } = Flux.createRetrieve<RetrieveQuery, log.Log, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
+  mountListeners: ({ store, query: { key }, onChange }) =>
     store.logs.onSet(onChange, key),
-    // TODO: Using the ontology resources store to propagate name changes is a bit
-    // hacky, and should be removed once visualizations are strongly typed.
-    store.resources.onSet(
-      (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
-      ontology.idToString(log.ontologyID(key)),
-    ),
-  ],
 });
 
 export const useRetrieveObservableName = ({
@@ -249,7 +235,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   update: async ({ client, data, store, rollbacks }) => {
     data.key ??= uuid.create();
     const { workspace, ...rest } = data;
-    rollbacks.push(store.logs.set(data.key, data as log.Log));
+    const optimistic = log.logZ.parse(rest);
+    rollbacks.push(store.logs.set(optimistic.key, optimistic));
     const l = await client.logs.create(workspace ?? uuid.ZERO, rest);
     store.logs.set(l.key, l);
     return { ...l, workspace };
