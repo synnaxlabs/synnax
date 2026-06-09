@@ -11,6 +11,7 @@ package imex_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -46,7 +47,19 @@ func sampleResource(name string) testResource {
 }
 
 func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
-	return MustSucceed(imex.Encode(sampleResource(name), testVersion, typ))
+	return wireRoundTrip(MustSucceed(imex.Encode(sampleResource(name), testVersion, typ)))
+}
+
+// wireRoundTrip marshals env to JSON and unmarshals it back, simulating the HTTP
+// path so the result has the JSON codec bound on it. Tests that hand an envelope
+// from Encode straight to a decoder (or to a registered Importer that decodes it)
+// must go through this helper — Decode[T] no longer falls back when the envelope
+// has no codec.
+func wireRoundTrip(env imex.Envelope) imex.Envelope {
+	b := MustSucceed(json.Marshal(env))
+	var out imex.Envelope
+	Expect(json.Unmarshal(b, &out)).To(Succeed())
+	return out
 }
 
 type testEntry struct {

@@ -175,12 +175,6 @@ var _ = Describe("ImEx", func() {
 				)
 			})
 
-			It("Should fail when the envelope has no body to decode", func(ctx SpecContext) {
-				env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-				Expect(imex.Decode[wirePayload](ctx, env)).Error().To(
-					MatchError(ContainSubstring("no body to decode")),
-				)
-			})
 		})
 
 		Describe("Encode", func() {

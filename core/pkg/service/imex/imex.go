@@ -153,10 +153,11 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 }
 
 // Decode materializes the envelope body as T using the encoding.Codec bound by the
-// UnmarshalX method that produced this envelope. For envelopes built by Encode (export
-// path) or constructed by hand without a wire round-trip, the body map is re-serialized
-// through xjson.Codec. The flat wire shape means T may simply name the fields it cares
-// about — unknown headers (version, type, name) are ignored by the bound codec.
+// UnmarshalX method that produced this envelope. The flat wire shape means T may
+// simply name the fields it cares about — unknown headers (version, type, name) are
+// ignored by the bound codec. Envelopes built by Encode without a wire round-trip
+// have no codec bound; callers that need to decode an Encode-side envelope must
+// Marshal it and unmarshal back through one of the UnmarshalX methods first.
 //
 // ctx is forwarded to the codec; xjson.Codec ignores it, but other in-tree codecs
 // (msgpack, future YAML/TOML) may use it for tracing or cancellation.
@@ -165,22 +166,7 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // (e Envelope) Decode[T](ctx) when the language does.
 func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 	var t T
-	codec := e.codec
-	if codec == nil {
-		codec = xjson.Codec
-	}
-	src := e.raw
-	if src == nil {
-		if e.body == nil {
-			return t, errors.New("envelope has no body to decode")
-		}
-		b, err := json.Marshal(e.body)
-		if err != nil {
-			return t, errors.Wrap(err, "decode envelope body")
-		}
-		src = b
-	}
-	if err := codec.Decode(ctx, src, &t); err != nil {
+	if err := e.codec.Decode(ctx, e.raw, &t); err != nil {
 		var zero T
 		return zero, errors.Wrap(err, "decode envelope body")
 	}

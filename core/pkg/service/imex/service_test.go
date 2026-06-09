@@ -180,7 +180,7 @@ var _ = Describe("Service", func() {
 			Expect(env.Version).To(Equal(testVersion))
 			Expect(env.Type).To(Equal(string(testResourceType)))
 			Expect(env.Name).To(Equal("Round Trip"))
-			roundTripped := MustSucceed(imex.Decode[testResource](ctx, env))
+			roundTripped := MustSucceed(imex.Decode[testResource](ctx, wireRoundTrip(env)))
 			Expect(roundTripped.FieldOne).To(Equal("value"))
 			Expect(roundTripped.FieldTwo).To(Equal(42))
 		})
