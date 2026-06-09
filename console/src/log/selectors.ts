@@ -9,6 +9,7 @@
 
 import { useMemoSelect } from "@/hooks";
 import {
+  type PendingUpload,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -49,10 +50,10 @@ export const selectVersion = (state: StoreState, key: string): string | undefine
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((s: StoreState) => selectVersion(s, key), [key]);
 
-export const selectIsRemoteCreated = (
+export const selectPendingUpload = (
   state: StoreState,
   key: string,
-): boolean | undefined => selectOptional(state, key)?.remoteCreated;
+): PendingUpload | undefined => selectOptional(state, key)?.pendingUpload;
 
-export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
-  useMemoSelect((s: StoreState) => selectIsRemoteCreated(s, key), [key]);
+export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
+  useMemoSelect((s: StoreState) => selectPendingUpload(s, key), [key]);

@@ -563,6 +563,18 @@ describe("Series", () => {
       });
       expect(series.min).toBe(offset);
     });
+
+    it("stringifies as an integer in asString when sampleOffset is a bigint", () => {
+      const offset = 1778020940471336960n;
+      const series = new Series({
+        data: new Float32Array([0, 1, 2]),
+        dataType: DataType.FLOAT32,
+        sampleOffset: offset,
+      });
+      expect(series.asString(0, true)).toBe(offset.toString());
+      expect(series.asString(1, true)).toBe((offset + 1n).toString());
+      expect(series.asString(2, true)).toBe((offset + 2n).toString());
+    });
   });
 
   describe("slice", () => {
