@@ -110,14 +110,6 @@ var _ = Describe("Channel Tests", func() {
 				keys := MustSucceed(channel.KeysFromOntologyIDs(ids))
 				Expect(keys).To(Equal(channel.Keys{1, 2}))
 			})
-			It("Should skip any ontology IDs that are not of the correct type", func() {
-				ids := []ontology.ID{
-					{Type: "channel", Key: "1"},
-					{Type: "not_channel", Key: "2"},
-				}
-				keys := MustSucceed(channel.KeysFromOntologyIDs(ids))
-				Expect(keys).To(Equal(channel.Keys{1}))
-			})
 			It("Should return an error if the key cannot be parsed", func() {
 				ids := []ontology.ID{
 					{Type: "channel", Key: "1"},

@@ -86,21 +86,11 @@ func KeysFromUint32(keys []uint32) Keys {
 	return unsafe.ReinterpretSlice[uint32, Key](keys)
 }
 
-// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs. This
-// function will skip any ontology.IDs that are not of the correct type.
+// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
-	keys := make(Keys, 0, len(ids))
-	for _, id := range ids {
-		if id.Type != ontology.ResourceTypeChannel {
-			continue
-		}
-		key, err := ParseKey(id.Key)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, key)
-	}
-	return keys, nil
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return ParseKey(id.Key)
+	})
 }
 
 // Storage returns the storage layer representation of the channel keys.
