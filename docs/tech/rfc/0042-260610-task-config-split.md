@@ -32,10 +32,6 @@ server-side migration chain that runs once per cluster at startup.
   provider keep. Identical to today's behavior.
 - **Resolved Field** - A field present on a type and on the wire but excluded from the
   storage codec, filled by the API layer (RFC 0041 §4.2). `Task.Config` becomes one.
-- **Bootstrap Migration** - The one-time startup migration that copies embedded config
-  blobs into typed config tables.
-- **Dual-Write** - The transitional release in which config writes update both the typed
-  record and the legacy embedded blob, keeping server downgrades safe.
 
 # 2 - Motivation
 
@@ -125,9 +121,6 @@ Config records have their own keys, independent of the task key. Independent ide
 keeps config lifecycle decoupled from task lifecycle: snapshots, history, and templated
 configs become representable later without schema surgery.
 
-Config writes validate against the generated schema at the write seam, so a malformed
-config is rejected at create time instead of surfacing as a driver error.
-
 ## 4.2 - The Provider Registry
 
 The task service exposes a registry mapping task-type prefixes to config providers:
@@ -214,6 +207,40 @@ The rollout spans three releases, each independently safe:
   leftover blobs from migrated task types, and delete the Console's client-side config
   transforms.
 
+## 4.7 - Workflows
+
+### 4.7.0 - Task Creation
+
+A create request is unchanged on the wire: `{name, type, config}`. The API layer strips
+the config; the task writer allocates the rack-encoded key, writes the envelope, sets
+status, and dispatches on the type prefix. A matching provider normalizes the config
+through the `vN` chain, validates it against the generated schema, and writes the typed
+record; the writer defines the parent relationship. Without a provider, the blob is
+stored on the task as today. The whole flow is one transaction, so a malformed config
+rejects the create with a structured error the Console can surface in the form, instead
+of being accepted and failing minutes later as a driver task status. Downstream is
+untouched: `sy_task_set` carries keys, the driver re-fetches, and retrieve composes a
+byte-compatible payload.
+
+### 4.7.1 - Import and Export
+
+The Console's current file format (`{...config, type}`) keeps working: export reads the
+composed payload, and an imported file is ordinary wire input, normalized on write like
+any other create. Old exported files therefore continue to import correctly even after
+Stage 2 deletes the Console's client-side transforms.
+
+Long term, server-side import/export (RFC 0039) registers each task subtype as its own
+importer and one task exporter covering all subtypes. The split supplies the two pieces
+tasks are missing for that design: a schema to validate `env.Data` against and a
+meaningful per-resource `version` to dispatch on. The flat envelope
+`{version, type, name, ...fields}` maps directly onto the config record plus the task
+name, and import walks the same `vN` chain as storage migration and normalize-on-write.
+RFC 0039's goal of importing a task config while the target driver is offline becomes
+real, because the server validates instead of the driver. One interaction is flagged for
+that RFC: imex import takes no parent ontology ID, but task keys encode their rack, so a
+task importer must be handed one; resolved alongside RFC 0039's container-association
+question.
+
 # 5 - Resolved Design Decisions
 
 | #   | Decision                                     | Rationale                                                            |
@@ -268,6 +295,3 @@ schema must not be forked.
   between fields (port uniqueness, scale monotonicity, stream-rate bounds). These checks
   stay hand-written in the Console for form UX; whether to duplicate them at the server
   write seam (RFC 0041 §4.5) is left to the NI service implementation.
-- **Remaining integrations.** OPC UA, LabJack, Modbus, EtherCAT, and sequence tasks
-  follow NI under the same provider pattern. Ordering and whether sequence/Arc tasks
-  warrant typed configs at all are deferred.
