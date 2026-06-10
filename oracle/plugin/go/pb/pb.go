@@ -306,7 +306,9 @@ func (p *Plugin) generateFile(
 	for _, u := range unions {
 		form, ok := u.Form.(resolution.UnionForm)
 		if !ok {
-			continue
+			return nil, errors.Newf(
+				"union %s has unexpected form %T in the resolution table", u.Name, u.Form,
+			)
 		}
 		ut, err := p.processUnionForTranslation(u, form, data)
 		if err != nil {
@@ -452,7 +454,7 @@ func (p *Plugin) processUnionForTranslation(
 func protocOneofGoName(value string) string {
 	name := lo.PascalCase(casing.FieldSnake(value))
 	switch name {
-	case "Reset", "String", "ProtoMessage", "Descriptor":
+	case "Reset", "String", "ProtoMessage", "ProtoReflect", "Descriptor":
 		return name + "_"
 	}
 	return name
