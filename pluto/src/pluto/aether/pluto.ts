@@ -12,6 +12,7 @@ import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos"
 import { access } from "@/access/aether";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { channel } from "@/channel/aether";
 import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
@@ -39,12 +40,14 @@ import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
 const STORE_CONFIG: flux.StoreConfig<{
+  [channel.FLUX_STORE_KEY]: channel.FluxStore;
   [ranger.FLUX_STORE_KEY]: ranger.FluxStore;
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RelationshipFluxStore;
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.ResourceFluxStore;
   [access.policy.FLUX_STORE_KEY]: access.policy.FluxStore;
   [access.role.FLUX_STORE_KEY]: access.role.FluxStore;
 }> = {
+  [channel.FLUX_STORE_KEY]: channel.FLUX_STORE_CONFIG,
   [ranger.FLUX_STORE_KEY]: ranger.FLUX_STORE_CONFIG,
   [ontology.RELATIONSHIPS_FLUX_STORE_KEY]: ontology.RELATIONSHIP_FLUX_STORE_CONFIG,
   [ontology.RESOURCES_FLUX_STORE_KEY]: ontology.RESOURCE_FLUX_STORE_CONFIG,

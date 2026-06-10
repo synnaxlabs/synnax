@@ -164,7 +164,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) BindHandler(
-	handler func(context.Context, RQ) (RS, error),
+	handler freighter.UnaryHandler[RQ, RS],
 ) {
 	u.handler = handler
 }

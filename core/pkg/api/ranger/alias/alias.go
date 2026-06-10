@@ -28,7 +28,6 @@ import (
 )
 
 type Service struct {
-	db     *gorp.DB
 	access *rbac.Service
 	alias  *alias.Service
 }
@@ -39,7 +38,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
 		access: cfg.Service.RBAC,
 		alias:  cfg.Service.Alias,
 	}, nil
@@ -52,25 +50,24 @@ type SetRequest struct {
 
 func (s *Service) Set(
 	ctx context.Context,
+	tx gorp.Tx,
 	req SetRequest,
 ) (types.Nil, error) {
 	keys := lo.Keys(req.Aliases)
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: alias.OntologyIDs(req.Range, keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.alias.NewWriter(tx)
-		for k, v := range req.Aliases {
-			if err := w.Set(ctx, req.Range, k, v); err != nil {
-				return err
-			}
+	w := s.alias.NewWriter(tx)
+	for k, v := range req.Aliases {
+		if err := w.Set(ctx, req.Range, k, v); err != nil {
+			return types.Nil{}, err
 		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }
 
 type (
@@ -99,7 +96,7 @@ func (s *Service) Resolve(
 		}
 	}
 	keys := lo.Values(aliases)
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: alias.OntologyIDs(req.Range, keys),
@@ -116,24 +113,23 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: alias.OntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.alias.NewWriter(tx)
-		for _, ch := range req.Channels {
-			if err := w.Delete(ctx, req.Range, ch); err != nil {
-				return err
-			}
+	w := s.alias.NewWriter(tx)
+	for _, ch := range req.Channels {
+		if err := w.Delete(ctx, req.Range, ch); err != nil {
+			return types.Nil{}, err
 		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }
 
 type (
@@ -155,7 +151,7 @@ func (s *Service) List(
 		return ListResponse{}, err
 	}
 	keys := lo.Keys(aliases)
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: alias.OntologyIDs(req.Range, keys),
@@ -179,7 +175,7 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: alias.OntologyIDs(req.Range, req.Channels),

@@ -23,7 +23,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *imex.Service
 }
@@ -34,7 +33,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		internal: cfg.Service.ImEx,
 		access:   cfg.Service.RBAC,
 	}, nil
@@ -49,26 +47,22 @@ type (
 
 func (s *Service) Import(
 	ctx context.Context,
+	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
 	resourceType, err := s.internal.ImporterType(req.Type)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	var key string
-	if err = s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		if err = s.access.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionCreate,
-			Objects: []ontology.ID{{Type: resourceType, Key: ""}},
-		}); err != nil {
-			return err
-		}
-		if key, err = s.internal.Import(ctx, tx, req); err != nil {
-			return err
-		}
-		return nil
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
+		return ImportResponse{}, err
+	}
+	key, err := s.internal.Import(ctx, tx, req)
+	if err != nil {
 		return ImportResponse{}, err
 	}
 	return ImportResponse{Key: key}, nil
@@ -84,18 +78,15 @@ func (s *Service) Export(
 	req ExportRequest,
 ) (ExportResponse, error) {
 	var env imex.Envelope
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.access.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionRetrieve,
-			Objects: []ontology.ID{req},
-		})
-		if err != nil {
-			return err
-		}
-		env, err = s.internal.Export(ctx, tx, req)
-		return err
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: []ontology.ID{req},
 	}); err != nil {
+		return ExportResponse{}, err
+	}
+	env, err := s.internal.Export(ctx, nil, req)
+	if err != nil {
 		return ExportResponse{}, err
 	}
 	return env, nil
