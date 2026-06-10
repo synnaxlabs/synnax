@@ -861,9 +861,9 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface Type {`))
-			Expect(content).To(ContainSubstring(`export const typeZ: z.ZodType<Type> = z.object({`))
+			Expect(content).To(ContainSubstring(`export const typeZ = z.object({`))
 			Expect(content).To(ContainSubstring(`kind: kindZ`))
-			Expect(content).To(ContainSubstring(`get elem() {`))
+			Expect(content).To(ContainSubstring(`get elem(): z.ZodOptional<typeof typeZ> {`))
 			Expect(content).To(ContainSubstring(`return typeZ.optional()`))
 		})
 
@@ -888,8 +888,8 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface Node {`))
-			Expect(content).To(ContainSubstring(`export const nodeZ: z.ZodType<Node> = z.object({`))
-			Expect(content).To(ContainSubstring(`get children() {`))
+			Expect(content).To(ContainSubstring(`export const nodeZ = z.object({`))
+			Expect(content).To(ContainSubstring(`get children(): ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof nodeZ>>> {`))
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(nodeZ.array())`))
 		})
 
@@ -910,8 +910,8 @@ var _ = Describe("TS Types Plugin", func() {
 				ToContain(
 					`export interface A {`,
 					`export interface B {`,
-					`export const aZ: z.ZodType<A> = z.object({`,
-					`export const bZ: z.ZodType<B> = z.object({`,
+					`export const aZ = z.object({`,
+					`export const bZ = z.object({`,
 				).
 				ToNotContain(
 					`extends z.infer<typeof aZ>`,
@@ -938,8 +938,8 @@ var _ = Describe("TS Types Plugin", func() {
 				ToContain(
 					`export interface A {`,
 					`export interface B {`,
-					`export const aZ: z.ZodType<A> = z.object({`,
-					`export const bZ: z.ZodType<B> = z.object({`,
+					`export const aZ = z.object({`,
+					`export const bZ = z.object({`,
 				).
 				ToNotContain(
 					`extends z.infer<typeof aZ>`,
@@ -969,10 +969,10 @@ var _ = Describe("TS Types Plugin", func() {
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface MosaicNode {`))
-			Expect(content).To(ContainSubstring(`export const mosaicNodeZ: z.ZodType<MosaicNode> = z.object({`))
-			Expect(content).To(ContainSubstring(`get first() {`))
+			Expect(content).To(ContainSubstring(`export const mosaicNodeZ = z.object({`))
+			Expect(content).To(ContainSubstring(`get first(): z.ZodOptional<typeof mosaicNodeZ> {`))
 			Expect(content).To(ContainSubstring(`return mosaicNodeZ.optional()`))
-			Expect(content).To(ContainSubstring(`get last() {`))
+			Expect(content).To(ContainSubstring(`get last(): z.ZodOptional<typeof mosaicNodeZ> {`))
 		})
 
 		It("Should generate getter for generic recursive struct with single param", func(ctx SpecContext) {

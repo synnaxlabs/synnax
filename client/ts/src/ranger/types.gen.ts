@@ -30,7 +30,7 @@ export interface Base {
   labels?: label.Label[];
   parent?: Base;
 }
-export const baseZ: z.ZodType<Base> = z.object({
+export const baseZ = z.object({
   /** key is the unique identifier for this range. */
   key: keyZ,
   /** name is a human-readable name for the range. */
@@ -56,7 +56,7 @@ export const baseZ: z.ZodType<Base> = z.object({
    * can be nested within other ranges. Resolved on retrieval when
    * requested; not persisted on the range record itself.
    */
-  get parent() {
+  get parent(): z.ZodOptional<typeof baseZ> {
     return baseZ.optional();
   },
 });
