@@ -50,12 +50,10 @@ type Range struct {
 	// interfaces.
 	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
 	// labels contains optional labels attached to this range for categorization and
-	// filtering. Resolved on retrieval when requested; not persisted on the range record
-	// itself.
+	// filtering.
 	Labels []*pb2.Label `protobuf:"bytes,5,rep,name=labels,proto3" json:"labels,omitempty"`
 	// parent is an optional parent range for hierarchical organization. Ranges can be
-	// nested within other ranges. Resolved on retrieval when requested; not persisted on
-	// the range record itself.
+	// nested within other ranges.
 	Parent        *Range `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

@@ -49,13 +49,11 @@ struct Range {
     ::x::color::Color color;
     /// @brief labels contains optional labels attached to this range for categorization
     /// and
-    /// filtering. Resolved on retrieval when requested; not persisted on the range
-    /// record itself.
+    /// filtering.
     std::vector<::x::label::Label> labels;
     /// @brief parent is an optional parent range for hierarchical organization. Ranges
     /// can
-    /// be nested within other ranges. Resolved on retrieval when requested; not
-    /// persisted on the range record itself.
+    /// be nested within other ranges.
     x::mem::indirect<Range> parent;
 
     static Range parse(x::json::Parser parser);

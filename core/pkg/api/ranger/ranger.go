@@ -35,12 +35,10 @@ type (
 func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(ranges))
 	for _, r := range ranges {
-		ids = append(ids, r.OntologyID())
-		if r.Parent != nil {
-			ids = append(ids, r.Parent.OntologyID())
+		for cur := &r; cur != nil; cur = cur.Parent {
+			ids = append(ids, cur.OntologyID())
+			ids = append(ids, label.OntologyIDsFromLabels(cur.Labels)...)
 		}
-		labels := label.OntologyIDsFromLabels(r.Labels)
-		ids = append(ids, labels...)
 	}
 	return ids
 }

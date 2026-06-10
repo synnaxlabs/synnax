@@ -46,16 +46,14 @@ Range struct {
     labels     label.Label[]?  {
         @doc value  """
             contains optional labels attached to this range for categorization
-            and filtering. Resolved on retrieval when requested; not persisted
-            on the range record itself.
+            and filtering.
         """
         @go marshal omit
     }
     parent     Range??         {
         @doc value  """
             is an optional parent range for hierarchical organization. Ranges
-            can be nested within other ranges. Resolved on retrieval when
-            requested; not persisted on the range record itself.
+            can be nested within other ranges.
         """
         @go marshal omit
     }

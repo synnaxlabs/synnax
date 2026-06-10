@@ -33,11 +33,9 @@ message Range {
   // interfaces.
   .x.color.pb.Color color = 4;
   // labels contains optional labels attached to this range for categorization and
-  // filtering. Resolved on retrieval when requested; not persisted on the range record
-  // itself.
+  // filtering.
   repeated .x.label.pb.Label labels = 5;
   // parent is an optional parent range for hierarchical organization. Ranges can be
-  // nested within other ranges. Resolved on retrieval when requested; not persisted on
-  // the range record itself.
+  // nested within other ranges.
   optional Range parent = 6;
 }

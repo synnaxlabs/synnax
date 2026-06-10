@@ -37,11 +37,9 @@ class Base(BaseModel):
         color: Is an optional display color for visual identification of the range
             in user interfaces.
         labels: Contains optional labels attached to this range for categorization
-            and filtering. Resolved on retrieval when requested; not persisted
-            on the range record itself.
+            and filtering.
         parent: Is an optional parent range for hierarchical organization. Ranges
-            can be nested within other ranges. Resolved on retrieval when
-            requested; not persisted on the range record itself.
+            can be nested within other ranges.
     """
 
     key: Key

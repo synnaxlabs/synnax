@@ -34,11 +34,9 @@ type Range struct {
 	// interfaces.
 	Color color.Color `json:"color" msgpack:"color"`
 	// Labels contains optional labels attached to this range for categorization and
-	// filtering. Resolved on retrieval when requested; not persisted on the range record
-	// itself.
+	// filtering.
 	Labels []label.Label `json:"labels" msgpack:"labels"`
 	// Parent is an optional parent range for hierarchical organization. Ranges can be
-	// nested within other ranges. Resolved on retrieval when requested; not persisted on
-	// the range record itself.
+	// nested within other ranges.
 	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }

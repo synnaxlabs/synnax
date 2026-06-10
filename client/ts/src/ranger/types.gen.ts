@@ -47,14 +47,12 @@ export const baseZ = z.object({
   color: color.colorZ.optional(),
   /**
    * labels contains optional labels attached to this range for categorization
-   * and filtering. Resolved on retrieval when requested; not persisted
-   * on the range record itself.
+   * and filtering.
    */
   labels: zod.nullToUndefined(label.labelZ.array()),
   /**
    * parent is an optional parent range for hierarchical organization. Ranges
-   * can be nested within other ranges. Resolved on retrieval when
-   * requested; not persisted on the range record itself.
+   * can be nested within other ranges.
    */
   get parent(): z.ZodOptional<typeof baseZ> {
     return baseZ.optional();
