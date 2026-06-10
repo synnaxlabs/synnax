@@ -234,6 +234,74 @@ func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 	return result, nil
 }
 {{- end}}
+{{- range .UnionTranslators}}
+
+// {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &{{.PBType}}{}
+	switch v := r.Variant.(type) {
+{{- range .Variants}}
+	case {{.GoVariantType}}:
+		inner, err := {{.PayloadToPB}}(v.{{.PayloadGoField}})
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &{{.PBWrapper}}{{"{"}}{{.PBField}}: inner}
+{{- end}}
+	default:
+		return nil, errors.Newf("{{.Name}}: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
+	var r {{.GoType}}
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+{{- range .Variants}}
+	case *{{.PBWrapper}}:
+		inner, err := {{.PayloadFromPB}}(v.{{.PBField}})
+		if err != nil {
+			return r, err
+		}
+		r.Variant = {{.GoVariantType}}{{"{"}}{{.PayloadGoField}}: inner}
+{{- end}}
+	}
+	return r, nil
+}
+
+// {{pluralize .Name}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
+	result := make([]*{{.PBType}}, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = {{.Name}}ToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// {{pluralize .Name}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
+	result := make([]{{.GoType}}, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = {{.Name}}FromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+{{- end}}
 {{- range .EnumTranslators}}
 
 // {{.Name}}ToPB converts {{.GoType}} to {{.PBType}}.
