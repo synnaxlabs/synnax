@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
-import { strings, uuid } from "@synnaxlabs/x";
+import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
@@ -36,7 +36,7 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
         store.dispatch(add({ ranges: fromClientRange(data) }));
         const names = data.map(({ name }) => name);
         const keys = data.map(({ key }) => key);
-        const project = Project.selectActiveKey(store.getState()) ?? uuid.ZERO;
+        const project = Project.selectActiveKey(store.getState());
         handleError(async () => {
           const { key, name } = await client.lineplots.create(project, {
             name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,

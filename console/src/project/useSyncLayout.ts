@@ -35,7 +35,6 @@ export const useSyncLayout = (): void => {
     beforeUpdate: useCallback(async () => {
       const s = store.getState();
       const key = selectActiveKey(s);
-      if (key == null) return false;
       if (
         !Access.updateGranted({
           id: project.ontologyID(key),

@@ -89,7 +89,7 @@ export const Selector = (): ReactElement | null => {
           weight={400}
         >
           <Icon.Project key="project" />
-          {active?.name ?? "No project"}
+          {active.name}
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Flex.Box pack rounded>

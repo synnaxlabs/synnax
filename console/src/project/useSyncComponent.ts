@@ -42,7 +42,6 @@ export const createSyncComponent = (
       const { store, layoutKey } = data;
       if (layoutKey == null || client == null) return false;
       const ws = selectActiveKey(store.getState());
-      if (ws == null) return false;
       await save({ key: layoutKey, project: ws, store, fluxStore, client });
       return data;
     },

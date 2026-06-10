@@ -52,11 +52,18 @@ const SideEffect = (): null => {
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
   Range.useListenForChanges();
-  Project.useSyncLayout();
   Project.useCheckCore();
   Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
+  return null;
+};
+
+// ProjectSideEffect holds effects that only make sense with an active project. It is
+// rendered inside Project.Guard, so it mounts only once a project is active - layout
+// sync and the file-drop importer never run against the select-or-create screen.
+const ProjectSideEffect = (): null => {
+  Project.useSyncLayout();
   Layout.useDropOutside();
   return null;
 };
@@ -74,6 +81,7 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Auth.Guard>
       <Project.Guard>
+        <ProjectSideEffect />
         <Nav.Top />
         <Flex.Box
           x

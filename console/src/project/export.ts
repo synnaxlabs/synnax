@@ -39,10 +39,10 @@ export const export_ = (
     const storeState = store.getState();
     const active = selectActive(storeState);
     let toExport: Layout.SliceState;
-    if (active?.key === key || key == null) {
+    if (active.key === key || key == null) {
       const file = Layout.selectSliceState(storeState);
       toExport = purgeExcludedLayouts(file);
-      if (active?.key != null) name = active.name;
+      name = active.name;
     } else {
       if (client == null) throw new DisconnectedError();
       const ws = await client.projects.retrieve(key);

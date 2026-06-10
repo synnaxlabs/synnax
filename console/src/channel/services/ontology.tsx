@@ -22,7 +22,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { id, primitive, status, uuid } from "@synnaxlabs/x";
+import { id, primitive, status } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -65,7 +65,7 @@ const handleSelect: Ontology.HandleSelect = ({
       break;
     }
     default: {
-      const project = Project.selectActiveKey(state) ?? uuid.ZERO;
+      const project = Project.selectActiveKey(state);
       const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_KEY;
       handleError(async () => {
         const { key, name } = await client.lineplots.create(project, {
