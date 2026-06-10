@@ -433,7 +433,7 @@ func (p *Plugin) processUnionForTranslation(
 			return nil, errors.Newf("union %s variant %q: unresolved payload type", u.Name, v.Name)
 		}
 		prefix, payloadName := p.resolvePBTranslatorInfo(payload, data)
-		pbField := lo.PascalCase(casing.FieldSnake(v.Name))
+		pbField := protocOneofGoName(v.Name)
 		ut.Variants = append(ut.Variants, unionVariantTranslatorData{
 			GoVariantType:  fmt.Sprintf("%s.%s", data.parentAlias, casing.VariantTypeName(goName, v.Name)),
 			PBWrapper:      fmt.Sprintf("%s_%s", pbName, pbField),
@@ -444,6 +444,18 @@ func (p *Plugin) processUnionForTranslation(
 		})
 	}
 	return ut, nil
+}
+
+// protocOneofGoName mirrors protoc-gen-go's naming for oneof member fields:
+// the CamelCase field name gains a trailing underscore when it collides with a
+// method protoc generates on every message.
+func protocOneofGoName(value string) string {
+	name := lo.PascalCase(casing.FieldSnake(value))
+	switch name {
+	case "Reset", "String", "ProtoMessage", "Descriptor":
+		return name + "_"
+	}
+	return name
 }
 
 // resolveUnionTranslatorName returns the package prefix and function base name
@@ -1495,6 +1507,15 @@ func (p *Plugin) generateArrayConversion(
 		return goField, pbField, false, false
 	}
 
+	if elemType.Name == "record" {
+		data.NeedsRecordArrayHelpers = true
+		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+		data.imports.AddExternal("github.com/synnaxlabs/x/encoding/msgpack")
+		return fmt.Sprintf("recordsToPB(%s)", goField),
+			fmt.Sprintf("recordsFromPB(%s)", pbField),
+			true, false
+	}
+
 	elemResolved, ok := elemType.Resolve(data.table)
 	if ok {
 		if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
@@ -1921,6 +1942,9 @@ type templateData struct {
 	GenericTranslators    []genericTranslatorData
 	Translators           []translatorData
 	UnionTranslators      []unionTranslatorData
+	// NeedsRecordArrayHelpers reports whether any field converts a []record,
+	// requiring the shared recordsToPB/recordsFromPB helpers.
+	NeedsRecordArrayHelpers bool
 }
 
 // HasImports returns true if any imports are needed.

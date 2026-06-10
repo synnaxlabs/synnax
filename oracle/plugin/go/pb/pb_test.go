@@ -134,6 +134,46 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
+			It("Should suffix oneof wrapper names that collide with protoc methods", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Sink union on value_type {
+						string Spec
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"pb.Variant = &Sink_String_{String_: inner}",
+						"case *Sink_String_:",
+					)
+			})
+
+			It("Should convert record array fields through shared helpers", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Config struct {
+						overrides record[]?
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"overridesVal, err := recordsToPB(r.Overrides)",
+						"r.Overrides = recordsFromPB(pb.Overrides)",
+						"func recordsToPB(rs []msgpack.EncodedJSON) ([]*structpb.Struct, error)",
+						"func recordsFromPB(pbs []*structpb.Struct) []msgpack.EncodedJSON",
+					)
+			})
+
 			It("Should reject pb unions that use extends", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/schematic"
