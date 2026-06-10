@@ -14,9 +14,8 @@ configuration through a `parent` ontology relationship.
 
 The wire format does not change: the API layer composes the typed configuration back
 into the task payload as a resolved field (RFC 0041 §4.2), so the Console, the Python
-client, and the driver are unaffected. The split is a storage, validation, and migration
-change. Configuration migrations move from N independent client implementations to one
-server-side migration chain that runs once per cluster at startup.
+client, and the driver are unaffected. Configuration migrations move from N independent
+client implementations to one server-side chain that runs once per cluster at startup.
 
 # 1 - Vocabulary
 
@@ -49,8 +48,8 @@ The core never parses it, so three problems compound as task schemas evolve:
 3. **The server-side migration system cannot reach configs.** RFC 0033 built startup
    migrations for Oracle-managed types, and RFC 0041 §4.3 standardized the versioned
    type layout, but a config embedded in an envelope as untyped JSON has no schema, no
-   version chain, and no migration path. RFC 0033 §7.2 explicitly anticipates moving
-   client-side schema evolution to the server; tasks are the largest remaining case.
+   version chain, and no migration path. RFC 0033 §7.2 anticipates moving schema
+   evolution server-side; tasks are the largest remaining case.
 
 The status field already moved off the task record into the status service, and RFC 0041
 §4.2 collapses `Labels`/`Parent`/`Status` into resolved fields. Configuration is the
@@ -81,9 +80,8 @@ resolution.
 
 ## 3.2 - Typed Configs Are Opt-In Per Task Type
 
-A task type without a registered config provider behaves exactly as today. Integrations
-adopt typed configs one service at a time, and third-party or experimental task types
-never require core changes to exist.
+A task type without a registered provider behaves exactly as today. Integrations adopt
+typed configs one at a time; third-party task types never require core changes to exist.
 
 ## 3.3 - Copy, Then Cut
 
@@ -229,17 +227,17 @@ status, and dispatches on the task type. A matching provider normalizes the conf
 through the `vN` chain, validates it against the generated schema, and writes the typed
 record; the writer defines the parent relationship. Without a provider, the blob is
 stored on the task as today. The whole flow is one transaction, so a malformed config
-rejects the create with a structured error the Console can surface in the form, instead
-of being accepted and failing minutes later as a driver task status. Downstream is
-untouched: `sy_task_set` carries keys, the driver re-fetches, and retrieve composes a
+rejects the create with a structured error the Console can surface in the form rather
+than failing minutes later as a driver task status. Downstream is untouched:
+`sy_task_set` carries keys, the driver re-fetches, and retrieve composes a
 byte-compatible payload.
 
 ### 4.7.1 - Import and Export
 
 The Console's current file format (`{...config, type}`) keeps working: export reads the
 composed payload, and an imported file is ordinary wire input, normalized on write like
-any other create. Old exported files therefore continue to import correctly even after
-Stage 2 deletes the Console's client-side transforms.
+any other create. Old exports keep importing even after Stage 2 deletes the Console's
+transforms.
 
 Long term, server-side import/export (RFC 0039) registers each task subtype as its own
 importer and one task exporter covering all subtypes. The split supplies the two pieces
@@ -292,11 +290,10 @@ schema must not be forked.
 
 # 7 - Open Questions
 
-- **Config versions on the wire.** Normalize-on-write currently shape-detects by
-  attempting decodes newest-to-oldest. Stamping an explicit config version into task
-  payloads (mirroring imex's `{version, type}` peek) would make detection exact, but
-  requires clients to echo the version back. Deferred until shape detection proves
-  insufficient.
+- **Config versions on the wire.** Normalize-on-write shape-detects by attempting
+  decodes newest-to-oldest. Stamping an explicit config version into task payloads
+  (imex's `{version, type}` peek) would make detection exact but requires clients to
+  echo the version back; deferred until shape detection proves insufficient.
 - **Cross-field validation placement.** Oracle validates shape, not relationships
   between fields (port uniqueness, scale monotonicity, stream-rate bounds). These checks
   stay hand-written in the Console for form UX; whether to duplicate them at the server
