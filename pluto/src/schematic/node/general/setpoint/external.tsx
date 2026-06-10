@@ -16,8 +16,6 @@ import { SetpointForm } from "@/schematic/node/general/setpoint/Form";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/setpoint/config";
@@ -30,16 +28,6 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   size: "small",
   label: Label.defaultConfig("Setpoint"),
   control: { show: true },
-  source: telem.sourcePipeline("number", {
-    connections: [],
-    segments: { valueStream: telem.streamChannelValue({ channel: 0 }) },
-    outlet: "valueStream",
-  }),
-  sink: telem.sinkPipeline("number", {
-    connections: [],
-    segments: { setter: control.setChannelValue({ channel: 0 }) },
-    inlet: "setter",
-  }),
 });
 
 const Preview = ({ ...rest }: Config): ReactElement => (

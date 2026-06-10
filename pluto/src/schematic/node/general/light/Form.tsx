@@ -7,68 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
+import * as CommonTelem from "@/schematic/node/common/telem";
 import { Tabs } from "@/tabs";
-import { telem } from "@/telem/aether";
-import { type Toggle } from "@/vis/toggle";
-interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
+type LightTelemFormT = Pick<schematic.NodeConfigLight, "channel" | "threshold">;
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<LightTelemFormT>(path);
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
-    sourceP.segments.valueStream.props,
-  );
-  const threshold = telem.withinBoundsProps.parse(sourceP.segments.threshold.props);
+  const threshold = value.threshold ?? CommonTelem.DEFAULT_THRESHOLD;
 
-  const handleSourceChange = (v: channel.Key | null): void => {
-    v ??= 0;
-    const t = telem.sourcePipeline("boolean", {
-      connections: [{ from: "valueStream", to: "threshold" }],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: v }),
-        threshold: telem.withinBounds({ trueBound: threshold.trueBound }),
-      },
-      outlet: "threshold",
-    });
-    onChange({ ...value, source: t });
-  };
+  const handleSourceChange = (v: channel.Key | null): void =>
+    onChange({ ...value, channel: v ?? undefined });
 
-  const handleThresholdChange = (bounds: { lower: number; upper: number }): void => {
-    const t = telem.sourcePipeline("boolean", {
-      connections: [{ from: "valueStream", to: "threshold" }],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: source.channel }),
-        threshold: telem.withinBounds({ trueBound: bounds }),
-      },
-      outlet: "threshold",
-    });
-    onChange({ ...value, source: t });
-  };
-  if (typeof source.channel !== "number")
-    throw new Error("Channel key must be used for light telemetry");
+  const handleThresholdChange = (bounds: { lower: number; upper: number }): void =>
+    onChange({ ...value, threshold: bounds });
 
   return (
     <Form.Wrapper x align="stretch">
       <Input.Item label="Input channel" grow>
-        <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
+        <Channel.SelectSingle
+          value={value.channel ?? 0}
+          onChange={handleSourceChange}
+        />
       </Input.Item>
       <Input.Item label="Lower threshold">
         <Input.Numeric
-          value={threshold.trueBound.lower ?? 0.9}
-          onChange={(v) => handleThresholdChange({ ...threshold.trueBound, lower: v })}
+          value={threshold.lower ?? 0.9}
+          onChange={(v) => handleThresholdChange({ ...threshold, lower: v })}
         />
       </Input.Item>
       <Input.Item label="Upper threshold">
         <Input.Numeric
-          value={threshold.trueBound.upper ?? 1.1}
-          onChange={(v) => handleThresholdChange({ ...threshold.trueBound, upper: v })}
+          value={threshold.upper ?? 1.1}
+          onChange={(v) => handleThresholdChange({ ...threshold, upper: v })}
         />
       </Input.Item>
     </Form.Wrapper>

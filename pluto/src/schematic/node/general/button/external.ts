@@ -13,8 +13,6 @@ import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { Symbol } from "@/schematic/node/general/button/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/button/config";
@@ -27,14 +25,6 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   color: t.colors.primary.z,
   label: Label.defaultConfig(NAME),
   control: { show: true },
-  sink: telem.sinkPipeline("boolean", {
-    connections: [{ from: "setpoint", to: "setter" }],
-    segments: {
-      setter: control.setChannelValue({ channel: 0 }),
-      setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
-    },
-    inlet: "setpoint",
-  }),
   mode: "fire",
   onClickDelay: 0,
 });

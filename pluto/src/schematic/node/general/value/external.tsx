@@ -16,7 +16,6 @@ import { ValueForm } from "@/schematic/node/general/value/Form";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
@@ -33,18 +32,6 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   label: Label.defaultConfig("Value"),
   stalenessTimeout: 5,
   stalenessColor: t.colors.warning.m1,
-  telem: telem.sourcePipeline("string", {
-    connections: [
-      { from: "valueStream", to: "rollingAverage" },
-      { from: "rollingAverage", to: "stringifier" },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-      rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-      stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
-    },
-    outlet: "stringifier",
-  }),
   redline: BaseValue.ZERO_READLINE,
 });
 

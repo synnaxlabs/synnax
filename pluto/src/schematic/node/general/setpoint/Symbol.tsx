@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import * as CommonTelem from "@/schematic/node/common/telem";
 import { type Config } from "@/schematic/node/general/setpoint/config";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -26,17 +27,23 @@ export const Symbol = ({
     orientation = "left",
     control,
     units,
-    source,
-    sink,
+    stateChannel,
+    commandChannel,
     color,
     size,
     disabled,
   },
 }: NodeProps<Config>): ReactElement => {
+  const source = useMemo(() => CommonTelem.numberSource(stateChannel), [stateChannel]);
+  const sink = useMemo(() => CommonTelem.numberSink(commandChannel), [commandChannel]);
   const { value, set } = BaseSetpoint.use({ aetherKey: nodeKey, source, sink });
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
-      <Control.State config={control} onChange={onConfigChange} />
+      <Control.State
+        config={control}
+        channel={commandChannel}
+        onChange={onConfigChange}
+      />
       <Label.Label config={label} onChange={onConfigChange} />
       <Setpoint
         value={value}

@@ -13,6 +13,7 @@ import { type ReactElement, useMemo } from "react";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import * as CommonTelem from "@/schematic/node/common/telem";
 import { type Config } from "@/schematic/node/general/gauge/config";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
@@ -32,11 +33,26 @@ export const Symbol = ({
   position,
   onConfigChange,
   selected,
-  config: { label, level = "p", color, telem, units, notation, bounds, barWidth },
+  config: {
+    label,
+    level = "p",
+    color,
+    channel,
+    rollingAverage,
+    precision,
+    units,
+    notation,
+    bounds,
+    barWidth,
+  },
 }: NodeProps<Config>): ReactElement => {
   const dims = useMemo(
     () => dimensions.construct(GAUGE_SIZE_MULTIPLIER[level] ?? 100),
     [level],
+  );
+  const telem = useMemo(
+    () => CommonTelem.stringSource({ channel, rollingAverage, precision, notation }),
+    [channel, rollingAverage, precision, notation],
   );
   BaseGauge.use({
     aetherKey: nodeKey,

@@ -8,41 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type FC, memo, type ReactElement } from "react";
+import { type FC, memo, type ReactElement, useMemo } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import * as CommonTelem from "@/schematic/node/common/telem";
 import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
 import { type NodeProps } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
 import { Toggle as Base } from "@/vis/toggle";
 
 export const toggleConfigZ = schematic.toggleConfigZ;
 export type ToggleConfig = schematic.ToggleConfig;
 
-export const ZERO_BOOLEAN_SOURCE = telem.sourcePipeline("boolean", {
-  connections: [{ from: "valueStream", to: "threshold" }],
-  segments: {
-    valueStream: telem.streamChannelValue({ channel: 0 }),
-    threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
-  },
-  outlet: "threshold",
-});
-
-export const ZERO_BOOLEAN_SINK = telem.sinkPipeline("boolean", {
-  connections: [{ from: "setpoint", to: "setter" }],
-  segments: {
-    setter: control.setChannelValue({ channel: 0 }),
-    setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
-  },
-  inlet: "setpoint",
-});
-
 export const ZERO_TOGGLE_DEFAULTS: Partial<ToggleConfig> = {
-  source: ZERO_BOOLEAN_SOURCE,
-  sink: ZERO_BOOLEAN_SINK,
   control: { show: true },
   onClickDelay: 0,
 };
@@ -68,14 +47,22 @@ export const createToggle = <C extends ToggleConfig>(
     selected,
     config: {
       control,
-      source,
-      sink,
+      stateChannel,
+      commandChannel,
       label,
       orientation = "left",
       onClickDelay,
       ...rest
     },
   }: NodeProps<ToggleConfig>): ReactElement => {
+    const source = useMemo(
+      () => CommonTelem.booleanSource(stateChannel),
+      [stateChannel],
+    );
+    const sink = useMemo(
+      () => CommonTelem.booleanSink(commandChannel),
+      [commandChannel],
+    );
     const { enabled, toggle } = Base.use({ aetherKey: nodeKey, source, sink });
     return (
       <Grid.Grid
@@ -86,7 +73,11 @@ export const createToggle = <C extends ToggleConfig>(
         {...overrides?.grid}
       >
         <Label.Label config={label} onChange={onConfigChange} />
-        <Control.State config={control} onChange={onConfigChange} />
+        <Control.State
+          config={control}
+          channel={commandChannel}
+          onChange={onConfigChange}
+        />
         <Sym
           enabled={enabled}
           onClick={toggle}

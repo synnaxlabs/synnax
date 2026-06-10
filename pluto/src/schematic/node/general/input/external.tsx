@@ -16,8 +16,6 @@ import { InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/input/config";
@@ -29,11 +27,6 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   size: "small",
   label: Label.defaultConfig("Input"),
   control: { show: true },
-  sink: telem.sinkPipeline("string", {
-    connections: [],
-    segments: { setter: control.setChannelValue({ channel: 0 }) },
-    inlet: "setter",
-  }),
 });
 
 const Preview = ({ color }: Config): ReactElement => (

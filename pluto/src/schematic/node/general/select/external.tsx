@@ -16,8 +16,6 @@ import { SelectForm } from "@/schematic/node/general/select/Form";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/select/config";
@@ -31,11 +29,6 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   options: [],
   label: Label.defaultConfig("Select"),
   control: { show: true },
-  sink: telem.sinkPipeline("number", {
-    connections: [],
-    segments: { setter: control.setChannelValue({ channel: 0 }) },
-    inlet: "setter",
-  }),
 });
 
 const Preview = ({ color }: Config): ReactElement => (

@@ -12,6 +12,7 @@ import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import * as CommonTelem from "@/schematic/node/common/telem";
 import { type Config } from "@/schematic/node/general/value/config";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -32,7 +33,9 @@ export const Symbol = ({
     level = "p",
     textColor,
     color,
-    telem: t,
+    channel,
+    rollingAverage,
+    precision,
     units,
     inlineSize = 70,
     notation,
@@ -43,8 +46,12 @@ export const Symbol = ({
 }: NodeProps<Config>): ReactElement => {
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
+  const t = useMemo(
+    () => CommonTelem.stringSource({ channel, rollingAverage, precision, notation }),
+    [channel, rollingAverage, precision, notation],
+  );
   const backgroundTelem = useMemo(() => {
-    if (t == null || redline == null) return undefined;
+    if (redline == null) return undefined;
     const { bounds, gradient } = redline;
     return telem.sourcePipeline("color", {
       connections: [

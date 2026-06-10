@@ -7,65 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
 import { Input } from "@/input";
-import { type Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Tabs } from "@/tabs";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
 import { Button as BaseButton } from "@/vis/button";
 
-type ButtonTelemFormT = Omit<BaseButton.UseProps, "aetherKey"> & {
-  control: Control.StateProps;
-};
+type ButtonTelemFormT = Pick<
+  schematic.NodeConfigButton,
+  "commandChannel" | "control" | "mode"
+>;
 
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
-  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
-  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
-
-  const handleSinkChange = (v: channel.Key): void => {
-    v ??= 0;
-    const t = telem.sinkPipeline("boolean", {
-      connections: [{ from: "setpoint", to: "setter" }],
-      segments: {
-        setter: control.setChannelValue({ channel: v }),
-        setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
-      },
-      inlet: "setpoint",
-    });
-
-    const authSource = control.authoritySource({ channel: v });
-
-    const controlChipSink = control.acquireChannelControl({
-      channel: v,
-      authority: 255,
-    });
-
+  const handleSinkChange = (v: channel.Key): void =>
     onChange({
       ...value,
-      sink: t,
-      control: {
-        ...value.control,
-        showChip: true,
-        chip: { sink: controlChipSink, source: authSource },
-        showIndicator: true,
-        indicator: { statusSource: authSource },
-      },
+      commandChannel: v,
+      control: { ...value.control, showChip: true, showIndicator: true },
     });
-  };
 
   return (
     <Form.Wrapper y empty>
       <Flex.Box x>
         <Input.Item label="Output channel" grow padHelpText={false}>
-          <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+          <Channel.SelectSingle
+            value={value.commandChannel ?? 0}
+            onChange={handleSinkChange}
+          />
         </Input.Item>
         <Form.ActivationDelayField />
         <Form.ControlChipField />

@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import * as CommonTelem from "@/schematic/node/common/telem";
 import { type Config } from "@/schematic/node/general/light/config";
 import { Light } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -20,8 +21,12 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, source, orientation = "left", ...rest },
+  config: { label, channel, threshold, orientation = "left", ...rest },
 }: NodeProps<Config>): ReactElement => {
+  const source = useMemo(
+    () => CommonTelem.booleanSource(channel, threshold),
+    [channel, threshold],
+  );
   const { enabled } = BaseLight.use({ aetherKey: nodeKey, source });
   return (
     <Grid.Grid

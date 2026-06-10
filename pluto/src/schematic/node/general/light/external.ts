@@ -15,7 +15,6 @@ import { LightForm } from "@/schematic/node/general/light/Form";
 import { Light } from "@/schematic/node/general/light/Primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
 
 export * from "@/schematic/node/general/light/config";
 
@@ -25,14 +24,6 @@ export const defaultConfig = (): Config => ({
   scale: 1,
   color: color.ZERO,
   label: Label.defaultConfig("Light"),
-  source: telem.sourcePipeline("boolean", {
-    connections: [{ from: "valueStream", to: "threshold" }],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: 0 }),
-      threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
-    },
-    outlet: "threshold",
-  }),
 });
 
 export const spec: Spec<typeof VARIANT, Config> = {

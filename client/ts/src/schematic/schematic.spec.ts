@@ -73,23 +73,12 @@ describe("Schematic", () => {
   });
 
   describe("config case preservation", () => {
-    test("preserves element key casing and telem prop contents", async () => {
+    test("preserves element key casing and round-trips telem args", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
       const schem = await client.schematics.create(ws.key, {
         name: "CaseTest",
         configs: {
-          myNode_A1: {
-            variant: "value",
-            telem: {
-              type: "source-pipeline",
-              variant: "source",
-              valueType: "string",
-              props: {
-                connections: [{ from: "valueStream", to: "rollingAverage" }],
-                outlet: "rollingAverage",
-              },
-            },
-          },
+          myNode_A1: { variant: "value", channel: 42, rollingAverage: 5 },
         },
       });
       const retrieved = await client.schematics.retrieve({ key: schem.key });
@@ -97,11 +86,8 @@ describe("Schematic", () => {
       const config = retrieved.configs.myNode_A1;
       expect(config.variant).toBe("value");
       if (config.variant !== "value") return;
-      expect(config.telem?.valueType).toBe("string");
-      expect(config.telem?.props.outlet).toBe("rollingAverage");
-      expect(config.telem?.props.connections).toEqual([
-        { from: "valueStream", to: "rollingAverage" },
-      ]);
+      expect(config.channel).toBe(42);
+      expect(config.rollingAverage).toBe(5);
     });
   });
 
@@ -304,34 +290,21 @@ describe("Schematic", () => {
       expect(res.nodes[0].position).toEqual({ x: 29, y: 58 });
     });
 
-    test("preserves telem prop contents through dispatch", async () => {
+    test("round-trips telem args through dispatch", async () => {
       const { schem } = await newWorkspaceSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setConfig({
-          key: "valueNode_B2",
-          config: {
-            variant: "value",
-            telem: {
-              type: "source-pipeline",
-              variant: "source",
-              valueType: "string",
-              props: {
-                connections: [{ from: "valueStream", to: "rollingAverage" }],
-                outlet: "rollingAverage",
-              },
-            },
-          },
+          key: "valveNode_B2",
+          config: { variant: "valve", stateChannel: 12, commandChannel: 13 },
         }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
-      expect(res.configs).toHaveProperty("valueNode_B2");
-      const config = res.configs.valueNode_B2;
-      expect(config.variant).toBe("value");
-      if (config.variant !== "value") return;
-      const props = config.telem?.props as Record<string, unknown>;
-      expect(props.connections).toEqual([
-        { from: "valueStream", to: "rollingAverage" },
-      ]);
+      expect(res.configs).toHaveProperty("valveNode_B2");
+      const config = res.configs.valveNode_B2;
+      expect(config.variant).toBe("valve");
+      if (config.variant !== "valve") return;
+      expect(config.stateChannel).toBe(12);
+      expect(config.commandChannel).toBe(13);
     });
   });
 });
