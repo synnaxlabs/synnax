@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { type z } from "zod";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
@@ -47,10 +46,6 @@ export interface DummyToggleConfig<V extends schematic.NodeConfigType>
   variant: V;
 }
 
-const resolveConfigZ = <C extends { variant: schematic.NodeConfigType }>(
-  variant: C["variant"],
-): z.ZodType<C> => schematic.NODE_CONFIG_SCHEMAS[variant] as z.ZodType<C>;
-
 /// createStatic builds a non-interactive labeled symbol: a styled SVG with a label,
 /// color, and scale, edited via the shared StyleForm. This is the most common archetype
 /// (meters, fittings, safety, process, vessels).
@@ -61,7 +56,6 @@ export const createStatic = <V extends schematic.NodeConfigType>({
   Primitive,
   zIndex = 4,
 }: SymbolArgs<V>) => {
-  const configZ = resolveConfigZ<StaticConfig<V>>(variant);
   type Config = StaticConfig<V>;
   const defaultConfig = (): Config => ({
     variant,
@@ -78,7 +72,7 @@ export const createStatic = <V extends schematic.NodeConfigType>({
     defaultConfig,
     zIndex,
   };
-  return { configZ, spec };
+  return { spec };
 };
 
 interface ToggleArgs<V extends schematic.NodeConfigType> extends SymbolArgs<V> {
@@ -99,7 +93,6 @@ export const createToggle = <V extends schematic.NodeConfigType>({
   zIndex = 4,
   node = "toggle",
 }: ToggleArgs<V>) => {
-  const configZ = resolveConfigZ<ToggleSymbolConfig<V>>(variant);
   type Config = ToggleSymbolConfig<V>;
   const defaultConfig = (): Config => ({
     variant,
@@ -120,7 +113,7 @@ export const createToggle = <V extends schematic.NodeConfigType>({
     defaultConfig,
     zIndex,
   };
-  return { configZ, spec };
+  return { spec };
 };
 
 /// createDummyToggle builds a symbol that toggles its appearance purely from local
@@ -133,7 +126,6 @@ export const createDummyToggle = <V extends schematic.NodeConfigType>({
   Primitive,
   zIndex = 4,
 }: SymbolArgs<V>) => {
-  const configZ = resolveConfigZ<DummyToggleConfig<V>>(variant);
   type Config = DummyToggleConfig<V>;
   const defaultConfig = (): Config => ({
     variant,
@@ -151,5 +143,5 @@ export const createDummyToggle = <V extends schematic.NodeConfigType>({
     defaultConfig,
     zIndex,
   };
-  return { configZ, spec };
+  return { spec };
 };

@@ -98,9 +98,8 @@ describe("Schematic", () => {
       expect(config.variant).toBe("value");
       if (config.variant !== "value") return;
       expect(config.telem?.valueType).toBe("string");
-      const props = config.telem?.props as Record<string, unknown>;
-      expect(props.outlet).toBe("rollingAverage");
-      expect(props.connections).toEqual([
+      expect(config.telem?.props.outlet).toBe("rollingAverage");
+      expect(config.telem?.props.connections).toEqual([
         { from: "valueStream", to: "rollingAverage" },
       ]);
     });

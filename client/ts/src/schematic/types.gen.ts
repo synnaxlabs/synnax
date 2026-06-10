@@ -207,10 +207,9 @@ export const booleanSourceSpecZ = z.discriminatedUnion("valueType", [
 ]);
 export type BooleanSourceSpec = z.infer<typeof booleanSourceSpecZ>;
 
-export const BOOLEAN_SOURCE_SPEC_SCHEMAS: Record<
-  BooleanSourceSpecType,
-  z.ZodType<BooleanSourceSpec>
-> = {
+export const BOOLEAN_SOURCE_SPEC_SCHEMAS: {
+  [K in BooleanSourceSpecType]: z.ZodType<Extract<BooleanSourceSpec, { valueType: K }>>;
+} = {
   boolean: booleanSourceSpecBooleanZ,
 };
 
@@ -231,10 +230,9 @@ export const numberSourceSpecZ = z.discriminatedUnion("valueType", [
 ]);
 export type NumberSourceSpec = z.infer<typeof numberSourceSpecZ>;
 
-export const NUMBER_SOURCE_SPEC_SCHEMAS: Record<
-  NumberSourceSpecType,
-  z.ZodType<NumberSourceSpec>
-> = {
+export const NUMBER_SOURCE_SPEC_SCHEMAS: {
+  [K in NumberSourceSpecType]: z.ZodType<Extract<NumberSourceSpec, { valueType: K }>>;
+} = {
   number: numberSourceSpecNumberZ,
 };
 
@@ -255,10 +253,9 @@ export const stringSourceSpecZ = z.discriminatedUnion("valueType", [
 ]);
 export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
 
-export const STRING_SOURCE_SPEC_SCHEMAS: Record<
-  StringSourceSpecType,
-  z.ZodType<StringSourceSpec>
-> = {
+export const STRING_SOURCE_SPEC_SCHEMAS: {
+  [K in StringSourceSpecType]: z.ZodType<Extract<StringSourceSpec, { valueType: K }>>;
+} = {
   string: stringSourceSpecStringZ,
 };
 
@@ -277,10 +274,9 @@ export const colorSourceSpecZ = z.discriminatedUnion("valueType", [
 ]);
 export type ColorSourceSpec = z.infer<typeof colorSourceSpecZ>;
 
-export const COLOR_SOURCE_SPEC_SCHEMAS: Record<
-  ColorSourceSpecType,
-  z.ZodType<ColorSourceSpec>
-> = {
+export const COLOR_SOURCE_SPEC_SCHEMAS: {
+  [K in ColorSourceSpecType]: z.ZodType<Extract<ColorSourceSpec, { valueType: K }>>;
+} = {
   color: colorSourceSpecColorZ,
 };
 
@@ -301,10 +297,9 @@ export const statusSourceSpecZ = z.discriminatedUnion("valueType", [
 ]);
 export type StatusSourceSpec = z.infer<typeof statusSourceSpecZ>;
 
-export const STATUS_SOURCE_SPEC_SCHEMAS: Record<
-  StatusSourceSpecType,
-  z.ZodType<StatusSourceSpec>
-> = {
+export const STATUS_SOURCE_SPEC_SCHEMAS: {
+  [K in StatusSourceSpecType]: z.ZodType<Extract<StatusSourceSpec, { valueType: K }>>;
+} = {
   status: statusSourceSpecStatusZ,
 };
 
@@ -325,10 +320,9 @@ export const booleanSinkSpecZ = z.discriminatedUnion("valueType", [
 ]);
 export type BooleanSinkSpec = z.infer<typeof booleanSinkSpecZ>;
 
-export const BOOLEAN_SINK_SPEC_SCHEMAS: Record<
-  BooleanSinkSpecType,
-  z.ZodType<BooleanSinkSpec>
-> = {
+export const BOOLEAN_SINK_SPEC_SCHEMAS: {
+  [K in BooleanSinkSpecType]: z.ZodType<Extract<BooleanSinkSpec, { valueType: K }>>;
+} = {
   boolean: booleanSinkSpecBooleanZ,
 };
 
@@ -347,10 +341,9 @@ export const numberSinkSpecZ = z.discriminatedUnion("valueType", [
 ]);
 export type NumberSinkSpec = z.infer<typeof numberSinkSpecZ>;
 
-export const NUMBER_SINK_SPEC_SCHEMAS: Record<
-  NumberSinkSpecType,
-  z.ZodType<NumberSinkSpec>
-> = {
+export const NUMBER_SINK_SPEC_SCHEMAS: {
+  [K in NumberSinkSpecType]: z.ZodType<Extract<NumberSinkSpec, { valueType: K }>>;
+} = {
   number: numberSinkSpecNumberZ,
 };
 
@@ -369,10 +362,9 @@ export const stringSinkSpecZ = z.discriminatedUnion("valueType", [
 ]);
 export type StringSinkSpec = z.infer<typeof stringSinkSpecZ>;
 
-export const STRING_SINK_SPEC_SCHEMAS: Record<
-  StringSinkSpecType,
-  z.ZodType<StringSinkSpec>
-> = {
+export const STRING_SINK_SPEC_SCHEMAS: {
+  [K in StringSinkSpecType]: z.ZodType<Extract<StringSinkSpec, { valueType: K }>>;
+} = {
   string: stringSinkSpecStringZ,
 };
 
@@ -485,7 +477,9 @@ export const edgeConfigZ = z.discriminatedUnion("variant", [
 ]);
 export type EdgeConfig = z.infer<typeof edgeConfigZ>;
 
-export const EDGE_CONFIG_SCHEMAS: Record<EdgeConfigType, z.ZodType<EdgeConfig>> = {
+export const EDGE_CONFIG_SCHEMAS: {
+  [K in EdgeConfigType]: z.ZodType<Extract<EdgeConfig, { variant: K }>>;
+} = {
   pipe: edgeConfigPipeZ,
   electric: edgeConfigElectricZ,
   secondary: edgeConfigSecondaryZ,
@@ -1555,7 +1549,9 @@ export const nodeConfigZ = z.discriminatedUnion("variant", [
 ]);
 export type NodeConfig = z.infer<typeof nodeConfigZ>;
 
-export const NODE_CONFIG_SCHEMAS: Record<NodeConfigType, z.ZodType<NodeConfig>> = {
+export const NODE_CONFIG_SCHEMAS: {
+  [K in NodeConfigType]: z.ZodType<Extract<NodeConfig, { variant: K }>>;
+} = {
   cap: nodeConfigCapZ,
   filter: nodeConfigFilterZ,
   flowStraightener: nodeConfigFlowStraightenerZ,
@@ -2577,10 +2573,9 @@ export const elementConfigZ = z.discriminatedUnion("variant", [
 ]);
 export type ElementConfig = z.infer<typeof elementConfigZ>;
 
-export const ELEMENT_CONFIG_SCHEMAS: Record<
-  ElementConfigType,
-  z.ZodType<ElementConfig>
-> = {
+export const ELEMENT_CONFIG_SCHEMAS: {
+  [K in ElementConfigType]: z.ZodType<Extract<ElementConfig, { variant: K }>>;
+} = {
   cap: elementConfigCapZ,
   filter: elementConfigFilterZ,
   flowStraightener: elementConfigFlowStraightenerZ,

@@ -11,20 +11,18 @@ import { schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-export interface Config<V extends schematic.EdgeConfigType = schematic.EdgeConfigType>
-  extends schematic.SegmentedEdgeConfig {
-  variant: V;
-}
+export type Config<V extends schematic.EdgeConfigType = schematic.EdgeConfigType> =
+  Extract<schematic.EdgeConfig, { variant: V }>;
 
 export const createConfigZ = <V extends schematic.EdgeConfigType>(
   variant: V,
-): z.ZodType<Config<V>> =>
-  schematic.EDGE_CONFIG_SCHEMAS[variant] as z.ZodType<Config<V>>;
+): z.ZodType<Config<V>> => schematic.EDGE_CONFIG_SCHEMAS[variant];
 
 export const createDefaultConfig = <V extends schematic.EdgeConfigType>(
   variant: V,
-): Config<V> => ({
-  variant,
-  color: color.ZERO,
-  segments: [],
-});
+): Config<V> =>
+  schematic.EDGE_CONFIG_SCHEMAS[variant].parse({
+    variant,
+    color: color.ZERO,
+    segments: [],
+  });

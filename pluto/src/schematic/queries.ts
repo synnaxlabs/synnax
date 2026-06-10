@@ -125,8 +125,7 @@ export const useSelectElementConfig = Flux.createSelector<
   ElementConfig
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, elKey }) =>
-    requireSchematic(store, key).configs[elKey] as ElementConfig,
+  select: (store, { key, elKey }) => requireSchematic(store, key).configs[elKey],
 });
 
 export interface SelectEdgeArgs {
@@ -163,7 +162,7 @@ export const useSelectConfigs = Flux.createSelector<
     if (s == null || keys.length === 0) return result;
     for (const elKey of keys) {
       const cfg = s.configs?.[elKey];
-      if (cfg != null) result.set(elKey, cfg as ElementConfig);
+      if (cfg != null) result.set(elKey, cfg);
     }
     return result;
   },
