@@ -39,7 +39,7 @@ var _ = Describe("Service", func() {
 	Describe("Create", func() {
 		It("Should register users and their credentials in a single call", func(ctx SpecContext) {
 			username := uuid.NewString()
-			res := MustSucceed(apiSvc.Create(rootCtx(ctx), apiuser.CreateRequest{
+			res := MustSucceed(apiSvc.Create(rootCtx(ctx), db, apiuser.CreateRequest{
 				Users: []apiuser.NewUser{{
 					Credentials: auth.Credentials{Username: username, Password: "p"},
 					FirstName:   "First",
@@ -57,7 +57,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should deny access when the subject lacks create permission", func(ctx SpecContext) {
 			fctx, _ := nonRootCtx(ctx)
-			Expect(apiSvc.Create(fctx, apiuser.CreateRequest{
+			Expect(apiSvc.Create(fctx, db, apiuser.CreateRequest{
 				Users: []apiuser.NewUser{{
 					Credentials: auth.Credentials{
 						Username: "should-not-exist-" + uuid.NewString(),
@@ -72,7 +72,8 @@ var _ = Describe("Service", func() {
 			// returns auth.ErrRepeatedUsername, which must roll back the first auth
 			// row.
 			username := "rollback-" + uuid.NewString()
-			Expect(apiSvc.Create(rootCtx(ctx), apiuser.CreateRequest{
+			tx := DeferClose(db.OpenTx())
+			Expect(apiSvc.Create(rootCtx(ctx), tx, apiuser.CreateRequest{
 				Users: []apiuser.NewUser{
 					{Credentials: auth.Credentials{Username: username, Password: "p"}},
 					{Credentials: auth.Credentials{Username: username, Password: "p"}},
@@ -125,7 +126,7 @@ var _ = Describe("Service", func() {
 			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 				Username: "rename-" + uuid.NewString(),
 			}))
-			Expect(apiSvc.Rename(rootCtx(ctx), apiuser.RenameRequest{
+			Expect(apiSvc.Rename(rootCtx(ctx), db, apiuser.RenameRequest{
 				Key:       u.Key,
 				FirstName: "Renamed",
 				LastName:  "User",
@@ -141,7 +142,7 @@ var _ = Describe("Service", func() {
 				Username: "rename-denied-" + uuid.NewString(),
 			}))
 			fctx, _ := nonRootCtx(ctx)
-			Expect(apiSvc.Rename(fctx, apiuser.RenameRequest{
+			Expect(apiSvc.Rename(fctx, db, apiuser.RenameRequest{
 				Key:       u.Key,
 				FirstName: "Should",
 				LastName:  "NotApply",
@@ -160,7 +161,7 @@ var _ = Describe("Service", func() {
 				Username: oldName, Password: "p",
 			})).To(Succeed())
 
-			Expect(apiSvc.ChangeUsername(rootCtx(ctx), apiuser.ChangeUsernameRequest{
+			Expect(apiSvc.ChangeUsername(rootCtx(ctx), db, apiuser.ChangeUsernameRequest{
 				Key:      u.Key,
 				Username: newName,
 			})).Error().To(Not(HaveOccurred()))
@@ -181,20 +182,20 @@ var _ = Describe("Service", func() {
 			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 				Username: username,
 			}))
-			Expect(apiSvc.ChangeUsername(rootCtx(ctx), apiuser.ChangeUsernameRequest{
+			Expect(apiSvc.ChangeUsername(rootCtx(ctx), db, apiuser.ChangeUsernameRequest{
 				Key:      u.Key,
 				Username: username,
 			})).Error().To(Not(HaveOccurred()))
 		})
 		It("Should reject a self-rename through the user service", func(ctx SpecContext) {
 			fctx, subject := nonRootCtx(ctx)
-			Expect(apiSvc.ChangeUsername(fctx, apiuser.ChangeUsernameRequest{
+			Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
 				Key:      subject.Key,
 				Username: "anything",
 			})).Error().To(MatchError(ContainSubstring("change your own username")))
 		})
 		It("Should return an error when the target user does not exist", func(ctx SpecContext) {
-			Expect(apiSvc.ChangeUsername(rootCtx(ctx), apiuser.ChangeUsernameRequest{
+			Expect(apiSvc.ChangeUsername(rootCtx(ctx), db, apiuser.ChangeUsernameRequest{
 				Key:      uuid.New(),
 				Username: "does-not-matter-" + uuid.NewString(),
 			})).Error().To(HaveOccurred())
@@ -204,7 +205,7 @@ var _ = Describe("Service", func() {
 				Username: "change-username-denied-" + uuid.NewString(),
 			}))
 			fctx, _ := nonRootCtx(ctx)
-			Expect(apiSvc.ChangeUsername(fctx, apiuser.ChangeUsernameRequest{
+			Expect(apiSvc.ChangeUsername(fctx, db, apiuser.ChangeUsernameRequest{
 				Key:      u.Key,
 				Username: "should-not-apply-" + uuid.NewString(),
 			})).Error().To(MatchError(access.ErrDenied))
@@ -217,7 +218,7 @@ var _ = Describe("Service", func() {
 			target := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 				Username: "change-username-collide-" + uuid.NewString(),
 			}))
-			Expect(apiSvc.ChangeUsername(rootCtx(ctx), apiuser.ChangeUsernameRequest{
+			Expect(apiSvc.ChangeUsername(rootCtx(ctx), db, apiuser.ChangeUsernameRequest{
 				Key:      target.Key,
 				Username: taken,
 			})).Error().To(MatchError(auth.ErrRepeatedUsername))
@@ -226,7 +227,7 @@ var _ = Describe("Service", func() {
 
 	Describe("Delete", func() {
 		It("Should be a no-op when none of the supplied keys exist", func(ctx SpecContext) {
-			Expect(apiSvc.Delete(rootCtx(ctx), apiuser.DeleteRequest{Keys: []user.Key{uuid.New()}})).
+			Expect(apiSvc.Delete(rootCtx(ctx), db, apiuser.DeleteRequest{Keys: []user.Key{uuid.New()}})).
 				Error().To(Not(HaveOccurred()))
 		})
 		It("Should delete existing users and ignore unknown keys in the same call", func(ctx SpecContext) {
@@ -238,6 +239,7 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			Expect(apiSvc.Delete(
 				rootCtx(ctx),
+				db,
 				apiuser.DeleteRequest{Keys: []user.Key{created.Key, uuid.New()}},
 			)).Error().To(Not(HaveOccurred()))
 			Expect(userSvc.NewRetrieve().Where(user.MatchKeys(created.Key)).Exists(ctx, nil)).
@@ -252,7 +254,7 @@ var _ = Describe("Service", func() {
 				Username: "delete-denied-" + uuid.NewString(),
 			}))
 			fctx, _ := nonRootCtx(ctx)
-			Expect(apiSvc.Delete(fctx, apiuser.DeleteRequest{Keys: []user.Key{u.Key}})).
+			Expect(apiSvc.Delete(fctx, db, apiuser.DeleteRequest{Keys: []user.Key{u.Key}})).
 				Error().To(MatchError(access.ErrDenied))
 			Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).Exists(ctx, nil)).
 				To(BeTrue())

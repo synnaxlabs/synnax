@@ -122,20 +122,15 @@ func (w Writer[D]) SetManyWithParent(
 	return nil
 }
 
-// Delete deletes the status with the given key. Delete is idempotent.
-func (w Writer[D]) Delete(ctx context.Context, key string) error {
+// Delete deletes the statuses with the given keys. Delete is idempotent.
+func (w Writer[D]) Delete(ctx context.Context, keys ...string) error {
 	if err := gorp.NewDelete[string, status.Status[D]]().
-		Where(gorp.MatchKeys[string, status.Status[D]](key)).
+		Where(gorp.MatchKeys[string, status.Status[D]](keys...)).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	return w.otgWriter.DeleteResource(ctx, OntologyID(key))
-}
-
-// DeleteMany deletes multiple statuses with the given keys. DeleteMany is idempotent.
-func (w Writer[D]) DeleteMany(ctx context.Context, keys ...string) error {
 	for _, key := range keys {
-		if err := w.Delete(ctx, key); err != nil {
+		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

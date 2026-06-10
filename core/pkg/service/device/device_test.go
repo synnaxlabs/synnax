@@ -344,6 +344,32 @@ var _ = Describe("Device", func() {
 			Expect(*module.Parent).To(Equal(chassisID))
 		})
 	})
+	Describe("CreateMany", func() {
+		It("Should create multiple devices", func(ctx SpecContext) {
+			devices := []device.Device{
+				{
+					Key:      "device-many-1",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "loc-1",
+					Name:     "Device 1",
+				},
+				{
+					Key:      "device-many-2",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "loc-2",
+					Name:     "Device 2",
+				},
+			}
+			Expect(w.CreateMany(ctx, &devices)).To(Succeed())
+
+			var retrieved []device.Device
+			Expect(svc.NewRetrieve().Where(device.MatchKeys(
+				devices[0].Key,
+				devices[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
 	Describe("Parent Ontology Relationship", func() {
 		It("Should parent a device to another device via ontology ID", func(ctx SpecContext) {
 			chassis := device.Device{

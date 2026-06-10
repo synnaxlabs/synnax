@@ -117,9 +117,7 @@ var _ = Describe("View", func() {
 			It("Should be idempotent", func(ctx SpecContext) {
 				Expect(w.Delete(ctx, uuid.New())).To(Succeed())
 			})
-		})
 
-		Describe("DeleteMany", func() {
 			It("Should delete multiple views", func(ctx SpecContext) {
 				views := []view.View{
 					{
@@ -134,7 +132,7 @@ var _ = Describe("View", func() {
 					},
 				}
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
-				Expect(w.DeleteMany(ctx, views[0].Key, views[1].Key)).To(Succeed())
+				Expect(w.Delete(ctx, views[0].Key, views[1].Key)).To(Succeed())
 
 				Expect(svc.NewRetrieve().Where(view.MatchKeys(views[0].Key, views[1].Key)).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
@@ -218,7 +216,7 @@ var _ = Describe("View", func() {
 					for i, v := range views {
 						keys[i] = v.Key
 					}
-					Expect(svc.NewWriter(nil).DeleteMany(ctx, keys...)).To(Succeed())
+					Expect(svc.NewWriter(nil).Delete(ctx, keys...)).To(Succeed())
 				})
 				Expect(svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db)).To(Succeed())
 				Expect(len(resViews)).To(BeNumerically(">", 1))

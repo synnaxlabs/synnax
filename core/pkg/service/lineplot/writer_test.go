@@ -51,6 +51,23 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple line plots", func(ctx SpecContext) {
+			plots := []lineplot.LinePlot{
+				{Name: "plot-1"},
+				{Name: "plot-2"},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, ws.Key, &plots)).To(Succeed())
+
+			var retrieved []lineplot.LinePlot
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(
+				plots[0].Key,
+				plots[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("eager line creation", func() {
 		It("Should materialize a line per range when a channel is added", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{
