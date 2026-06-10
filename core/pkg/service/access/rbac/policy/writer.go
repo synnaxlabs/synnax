@@ -44,6 +44,21 @@ func (w Writer) Create(
 	return w.otg.DefineResource(ctx, OntologyID(p.Key))
 }
 
+// CreateMany creates the given policies. If policies with the same key already exist,
+// they will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	policies *[]Policy,
+) error {
+	for i, p := range *policies {
+		if err := w.Create(ctx, &p); err != nil {
+			return err
+		}
+		(*policies)[i] = p
+	}
+	return nil
+}
+
 // Delete removes policies with the given keys from the database.
 func (w Writer) Delete(
 	ctx context.Context,

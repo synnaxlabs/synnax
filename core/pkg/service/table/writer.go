@@ -68,6 +68,22 @@ func (w Writer) Create(
 	)
 }
 
+// CreateMany creates the given tables within the workspace provided. If tables with
+// the same key already exist, they will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	ws workspace.Key,
+	tables *[]Table,
+) error {
+	for i, t := range *tables {
+		if err := w.Create(ctx, ws, &t); err != nil {
+			return err
+		}
+		(*tables)[i] = t
+	}
+	return nil
+}
+
 // Dispatch applies a sequence of actions atomically to the table with the
 // given key. After a successful update the actions are notified to the
 // service-level observer so subscribers (cluster signals) can broadcast them.

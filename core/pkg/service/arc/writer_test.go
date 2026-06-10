@@ -47,6 +47,23 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple arcs", func(ctx SpecContext) {
+			arcs := []arc.Arc{
+				{Name: "arc-many-1"},
+				{Name: "arc-many-2"},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, &arcs)).To(Succeed())
+
+			var retrieved []arc.Arc
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(
+				arcs[0].Key,
+				arcs[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("Update", func() {
 		It("Should update an existing Arc", func(ctx SpecContext) {
 			key := uuid.New()

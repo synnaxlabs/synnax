@@ -64,13 +64,11 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	w := s.internal.NewWriter(tx)
-	for i, ws := range req.Workspaces {
-		ws.Author = userKey
-		if err := w.Create(ctx, &ws); err != nil {
-			return CreateResponse{}, err
-		}
-		req.Workspaces[i] = ws
+	for i := range req.Workspaces {
+		req.Workspaces[i].Author = userKey
+	}
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Workspaces); err != nil {
+		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
 }

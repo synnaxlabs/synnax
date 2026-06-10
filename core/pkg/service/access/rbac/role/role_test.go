@@ -109,6 +109,29 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple roles", func(ctx SpecContext) {
+			roles := []role.Role{
+				{
+					Name:        "role-many-1",
+					Description: "First role",
+				},
+				{
+					Name:        "role-many-2",
+					Description: "Second role",
+				},
+			}
+			Expect(w.CreateMany(ctx, &roles)).To(Succeed())
+
+			var retrieved []role.Role
+			Expect(svc.NewRetrieve().Where(role.MatchKeys(
+				roles[0].Key,
+				roles[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("Delete", func() {
 		var roles []role.Role
 		BeforeEach(func(ctx SpecContext) {

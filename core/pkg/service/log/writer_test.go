@@ -87,6 +87,22 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal("second"))
 		})
 	})
+	Describe("CreateMany", func() {
+		It("Should create multiple logs", func(ctx SpecContext) {
+			logs := []log.Log{
+				{Name: "log-1"},
+				{Name: "log-2"},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, ws.Key, &logs)).To(Succeed())
+
+			var retrieved []log.Log
+			Expect(svc.NewRetrieve().Where(log.MatchKeys(
+				logs[0].Key,
+				logs[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
 	Describe("Delete", func() {
 		It("Should delete a Log so it is no longer retrievable", func(ctx SpecContext) {
 			l := log.Log{Name: "to-delete"}

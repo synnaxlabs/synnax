@@ -63,6 +63,22 @@ func (w Writer) Create(
 	return w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID)
 }
 
+// CreateMany creates the given symbols as children of the ontology.Resource with the
+// given parent ID. If symbols with the same key already exist, they will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	symbols *[]Symbol,
+	parent ontology.ID,
+) error {
+	for i, s := range *symbols {
+		if err := w.Create(ctx, &s, parent); err != nil {
+			return err
+		}
+		(*symbols)[i] = s
+	}
+	return nil
+}
+
 // Rename renames the symbol with the given key to the provided name.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.table.NewUpdate().Where(MatchKeys(key)).Change(func(_ gorp.Context, s Symbol) Symbol {

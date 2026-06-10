@@ -63,11 +63,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	for i, l := range req.Logs {
-		if err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &l); err != nil {
-			return CreateResponse{}, err
-		}
-		req.Logs[i] = l
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Workspace, &req.Logs); err != nil {
+		return CreateResponse{}, err
 	}
 	return CreateResponse{Logs: req.Logs}, nil
 }

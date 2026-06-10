@@ -59,6 +59,21 @@ func (w Writer) Create(
 	return err
 }
 
+// CreateMany creates the given workspaces. If workspaces with the same key already
+// exist, they will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	workspaces *[]Workspace,
+) error {
+	for i, ws := range *workspaces {
+		if err := w.Create(ctx, &ws); err != nil {
+			return err
+		}
+		(*workspaces)[i] = ws
+	}
+	return nil
+}
+
 func (w Writer) Rename(
 	ctx context.Context,
 	key Key,

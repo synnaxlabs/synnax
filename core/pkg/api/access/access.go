@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -27,9 +26,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Service struct {
-	internal *rbac.Service
-}
+type Service struct{ internal *rbac.Service }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
@@ -60,18 +57,11 @@ func (s *Service) CreatePolicy(
 	}); err != nil {
 		return CreatePolicyRequest{}, err
 	}
-	results := make([]policy.Policy, len(req.Policies))
 	w := s.internal.Policy.NewWriter(tx, allowInternal)
-	for i, p := range req.Policies {
-		if p.Key == uuid.Nil {
-			p.Key = uuid.New()
-		}
-		if err := w.Create(ctx, &p); err != nil {
-			return CreatePolicyRequest{}, err
-		}
-		results[i] = p
+	if err := w.CreateMany(ctx, &req.Policies); err != nil {
+		return CreatePolicyRequest{}, err
 	}
-	return CreatePolicyResponse{Policies: results}, nil
+	return CreatePolicyResponse(req), nil
 }
 
 type RetrievePolicyRequest struct {
@@ -92,9 +82,7 @@ func (s *Service) RetrievePolicy(
 ) (RetrievePolicyResponse, error) {
 	q := s.internal.Policy.NewRetrieve()
 	if len(req.Subjects) > 0 {
-		subjectKeys, err := s.internal.Policy.ResolveSubjects(
-			ctx, nil, req.Subjects...,
-		)
+		subjectKeys, err := s.internal.Policy.ResolveSubjects(ctx, nil, req.Subjects...)
 		if err != nil {
 			return RetrievePolicyResponse{}, err
 		}
@@ -144,7 +132,8 @@ func (s *Service) DeletePolicy(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.Policy.NewWriter(tx, allowInternal).Delete(ctx, req.Keys...)
+	return types.Nil{}, s.internal.Policy.NewWriter(tx, allowInternal).
+		Delete(ctx, req.Keys...)
 }
 
 type (
@@ -168,18 +157,11 @@ func (s *Service) CreateRole(
 	}); err != nil {
 		return CreateRoleResponse{}, err
 	}
-	results := make([]role.Role, len(req.Roles))
 	w := s.internal.Role.NewWriter(tx, allowInternal)
-	for i, r := range req.Roles {
-		if r.Key == uuid.Nil {
-			r.Key = uuid.New()
-		}
-		if err := w.Create(ctx, &r); err != nil {
-			return CreateRoleResponse{}, err
-		}
-		results[i] = r
+	if err := w.CreateMany(ctx, &req.Roles); err != nil {
+		return CreateRoleResponse{}, err
 	}
-	return CreateRoleResponse{Roles: results}, nil
+	return CreateRoleResponse(req), nil
 }
 
 type (

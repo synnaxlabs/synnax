@@ -384,171 +384,171 @@ func (l *Layer) BindTo(t Transport) {
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
 	t.AuthChangePassword.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Auth.ChangePassword),
+		fgorp.CreateUnaryWriteHandler(db, l.Auth.ChangePassword),
 	)
 
 	// USER
-	t.UserRename.BindHandler(fgorp.CreateUnaryHandler(db, l.User.Rename))
+	t.UserRename.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.User.Rename))
 	t.UserChangeUsername.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.User.ChangeUsername),
+		fgorp.CreateUnaryWriteHandler(db, l.User.ChangeUsername),
 	)
-	t.UserCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.User.Create))
-	t.UserDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.User.Delete))
+	t.UserCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.User.Create))
+	t.UserDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.User.Delete))
 	t.UserRetrieve.BindHandler(l.User.Retrieve)
 
 	// CHANNEL
-	t.ChannelCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Channel.Create))
+	t.ChannelCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Channel.Create))
 	t.ChannelRetrieve.BindHandler(l.Channel.Retrieve)
 	t.ConnectivityCheck.BindHandler(l.Connectivity.Check)
-	t.ChannelDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Channel.Delete))
-	t.ChannelRename.BindHandler(fgorp.CreateUnaryHandler(db, l.Channel.Rename))
+	t.ChannelDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Channel.Delete))
+	t.ChannelRename.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Channel.Rename))
 	t.ChannelRetrieveGroup.BindHandler(l.Channel.RetrieveGroup)
 
 	// FRAME
 	t.FrameWriter.BindHandler(l.Framer.Write)
 	t.FrameIterator.BindHandler(l.Framer.Iterate)
 	t.FrameStreamer.BindHandler(l.Framer.Stream)
-	t.FrameDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Framer.Delete))
+	t.FrameDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Framer.Delete))
 
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(l.Ontology.Retrieve)
 	t.OntologyAddChildren.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Ontology.AddChildren),
+		fgorp.CreateUnaryWriteHandler(db, l.Ontology.AddChildren),
 	)
 	t.OntologyRemoveChildren.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Ontology.RemoveChildren),
+		fgorp.CreateUnaryWriteHandler(db, l.Ontology.RemoveChildren),
 	)
 	t.OntologyMoveChildren.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Ontology.MoveChildren),
+		fgorp.CreateUnaryWriteHandler(db, l.Ontology.MoveChildren),
 	)
 
 	// GROUP
-	t.GroupCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Group.Create))
-	t.GroupDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Group.Delete))
-	t.GroupRename.BindHandler(fgorp.CreateUnaryHandler(db, l.Group.Rename))
+	t.GroupCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Group.Create))
+	t.GroupDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Group.Delete))
+	t.GroupRename.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Group.Rename))
 
 	// RANGE
 	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
-	t.RangeCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Range.Create))
-	t.RangeDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Range.Delete))
-	t.RangeRename.BindHandler(fgorp.CreateUnaryHandler(db, l.Range.Rename))
+	t.RangeCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Range.Create))
+	t.RangeDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Range.Delete))
+	t.RangeRename.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Range.Rename))
 
 	// KV
 	t.KVGet.BindHandler(l.KV.Get)
-	t.KVSet.BindHandler(fgorp.CreateUnaryHandler(db, l.KV.Set))
-	t.KVDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.KV.Delete))
+	t.KVSet.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.KV.Set))
+	t.KVDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.KV.Delete))
 
 	// ALIAS
-	t.AliasSet.BindHandler(fgorp.CreateUnaryHandler(db, l.Alias.Set))
+	t.AliasSet.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Alias.Set))
 	t.AliasResolve.BindHandler(l.Alias.Resolve)
 	t.AliasRetrieve.BindHandler(l.Alias.Retrieve)
 	t.AliasList.BindHandler(l.Alias.List)
-	t.AliasDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Alias.Delete))
+	t.AliasDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Alias.Delete))
 
 	// WORKSPACE
-	t.WorkspaceCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Workspace.Create))
-	t.WorkspaceDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Workspace.Delete))
+	t.WorkspaceCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Workspace.Create))
+	t.WorkspaceDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Workspace.Delete))
 	t.WorkspaceRetrieve.BindHandler(l.Workspace.Retrieve)
-	t.WorkspaceRename.BindHandler(fgorp.CreateUnaryHandler(db, l.Workspace.Rename))
-	t.WorkspaceSetLayout.BindHandler(fgorp.CreateUnaryHandler(db, l.Workspace.SetLayout))
+	t.WorkspaceRename.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Workspace.Rename))
+	t.WorkspaceSetLayout.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Workspace.SetLayout))
 
 	// SCHEMATIC
-	t.SchematicCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Schematic.Create))
+	t.SchematicCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Schematic.Create))
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
-	t.SchematicDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Schematic.Delete))
-	t.SchematicDispatch.BindHandler(fgorp.CreateUnaryHandler(db, l.Schematic.Dispatch))
-	t.SchematicCopy.BindHandler(fgorp.CreateUnaryHandler(db, l.Schematic.Copy))
+	t.SchematicDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Schematic.Delete))
+	t.SchematicDispatch.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Schematic.Dispatch))
+	t.SchematicCopy.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Schematic.Copy))
 
 	// SCHEMATIC SYMBOL
 	t.SchematicCreateSymbol.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Schematic.CreateSymbol))
+		fgorp.CreateUnaryWriteHandler(db, l.Schematic.CreateSymbol))
 	t.SchematicRetrieveSymbol.BindHandler(l.Schematic.RetrieveSymbol)
 	t.SchematicDeleteSymbol.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Schematic.DeleteSymbol),
+		fgorp.CreateUnaryWriteHandler(db, l.Schematic.DeleteSymbol),
 	)
 	t.SchematicRenameSymbol.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Schematic.RenameSymbol),
+		fgorp.CreateUnaryWriteHandler(db, l.Schematic.RenameSymbol),
 	)
 	t.SchematicRetrieveSymbolGroup.BindHandler(l.Schematic.RetrieveSymbolGroup)
 
 	// LINE PLOT
-	t.LinePlotCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.LinePlot.Create))
-	t.LinePlotDispatch.BindHandler(fgorp.CreateUnaryHandler(db, l.LinePlot.Dispatch))
+	t.LinePlotCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.LinePlot.Create))
+	t.LinePlotDispatch.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.LinePlot.Dispatch))
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
-	t.LinePlotDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.LinePlot.Delete))
+	t.LinePlotDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.LinePlot.Delete))
 
 	// LOG
-	t.LogCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Log.Create))
+	t.LogCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Log.Create))
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
-	t.LogDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Log.Delete))
-	t.LogDispatch.BindHandler(fgorp.CreateUnaryHandler(db, l.Log.Dispatch))
+	t.LogDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Log.Delete))
+	t.LogDispatch.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Log.Dispatch))
 
 	// TABLE
-	t.TableCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Table.Create))
+	t.TableCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Table.Create))
 	t.TableRetrieve.BindHandler(l.Table.Retrieve)
-	t.TableDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Table.Delete))
-	t.TableDispatch.BindHandler(fgorp.CreateUnaryHandler(db, l.Table.Dispatch))
+	t.TableDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Table.Delete))
+	t.TableDispatch.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Table.Dispatch))
 
 	// LABEL
-	t.LabelCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Label.Create))
+	t.LabelCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Label.Create))
 	t.LabelRetrieve.BindHandler(l.Label.Retrieve)
-	t.LabelDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Label.Delete))
-	t.LabelAdd.BindHandler(fgorp.CreateUnaryHandler(db, l.Label.Add))
-	t.LabelRemove.BindHandler(fgorp.CreateUnaryHandler(db, l.Label.Remove))
+	t.LabelDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Label.Delete))
+	t.LabelAdd.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Label.Add))
+	t.LabelRemove.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Label.Remove))
 
 	// RACK
-	t.RackCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Rack.Create))
+	t.RackCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Rack.Create))
 	t.RackRetrieve.BindHandler(l.Rack.Retrieve)
-	t.RackDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Rack.Delete))
+	t.RackDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Rack.Delete))
 
 	// TASK
-	t.TaskCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Task.Create))
+	t.TaskCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Task.Create))
 	t.TaskRetrieve.BindHandler(l.Task.Retrieve)
-	t.TaskDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Task.Delete))
-	t.TaskCopy.BindHandler(fgorp.CreateUnaryHandler(db, l.Task.Copy))
+	t.TaskDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Task.Delete))
+	t.TaskCopy.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Task.Copy))
 
 	// DEVICE
-	t.DeviceCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Device.Create))
+	t.DeviceCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Device.Create))
 	t.DeviceRetrieve.BindHandler(l.Device.Retrieve)
-	t.DeviceDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Device.Delete))
+	t.DeviceDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Device.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Access.CreatePolicy),
+		fgorp.CreateUnaryWriteHandler(db, l.Access.CreatePolicy),
 	)
 	t.AccessDeletePolicy.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Access.DeletePolicy),
+		fgorp.CreateUnaryWriteHandler(db, l.Access.DeletePolicy),
 	)
 	t.AccessRetrievePolicy.BindHandler(l.Access.RetrievePolicy)
-	t.AccessCreateRole.BindHandler(fgorp.CreateUnaryHandler(db, l.Access.CreateRole))
-	t.AccessDeleteRole.BindHandler(fgorp.CreateUnaryHandler(db, l.Access.DeleteRole))
+	t.AccessCreateRole.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Access.CreateRole))
+	t.AccessDeleteRole.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Access.DeleteRole))
 	t.AccessRetrieveRole.BindHandler(l.Access.RetrieveRole)
-	t.AccessAssignRole.BindHandler(fgorp.CreateUnaryHandler(db, l.Access.AssignRole))
+	t.AccessAssignRole.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Access.AssignRole))
 	t.AccessUnassignRole.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Access.UnassignRole),
+		fgorp.CreateUnaryWriteHandler(db, l.Access.UnassignRole),
 	)
 
 	// STATUS
-	t.StatusSet.BindHandler(fgorp.CreateUnaryHandler(db, l.Status.Set))
+	t.StatusSet.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Status.Set))
 	t.StatusRetrieve.BindHandler(l.Status.Retrieve)
-	t.StatusDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Status.Delete))
+	t.StatusDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Status.Delete))
 	t.StatusSetByKeyOrName.BindHandler(
-		fgorp.CreateUnaryHandler(db, l.Status.SetByKeyOrName),
+		fgorp.CreateUnaryWriteHandler(db, l.Status.SetByKeyOrName),
 	)
 
 	// VIEW
-	t.ViewCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.View.Create))
+	t.ViewCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.View.Create))
 	t.ViewRetrieve.BindHandler(l.View.Retrieve)
-	t.ViewDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.View.Delete))
+	t.ViewDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.View.Delete))
 
 	// ARC
-	t.ArcCreate.BindHandler(fgorp.CreateUnaryHandler(db, l.Arc.Create))
-	t.ArcDelete.BindHandler(fgorp.CreateUnaryHandler(db, l.Arc.Delete))
+	t.ArcCreate.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Arc.Create))
+	t.ArcDelete.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.Arc.Delete))
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT
-	t.ImExImport.BindHandler(fgorp.CreateUnaryHandler(db, l.ImEx.Import))
+	t.ImExImport.BindHandler(fgorp.CreateUnaryWriteHandler(db, l.ImEx.Import))
 	t.ImExExport.BindHandler(l.ImEx.Export)
 }
 

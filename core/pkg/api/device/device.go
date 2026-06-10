@@ -68,11 +68,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	w := s.device.NewWriter(tx)
-	for i := range req.Devices {
-		if err := w.Create(ctx, &req.Devices[i]); err != nil {
-			return CreateResponse{}, err
-		}
+	if err := s.device.NewWriter(tx).CreateMany(ctx, &req.Devices); err != nil {
+		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
 }

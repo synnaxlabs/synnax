@@ -70,6 +70,18 @@ func (w Writer) Create(ctx context.Context, ws workspace.Key, l *Log) error {
 	)
 }
 
+// CreateMany creates the given logs within the workspace provided. If logs with the
+// same key already exist, they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, ws workspace.Key, logs *[]Log) error {
+	for i, l := range *logs {
+		if err := w.Create(ctx, ws, &l); err != nil {
+			return err
+		}
+		(*logs)[i] = l
+	}
+	return nil
+}
+
 // Dispatch applies a sequence of actions atomically to the log with the given key.
 // After a successful update the actions are notified to the service-level observer so
 // subscribers (cluster signals) can broadcast them. dispatchKey is a client-generated

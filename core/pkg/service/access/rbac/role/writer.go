@@ -48,6 +48,21 @@ func (w Writer) Create(
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, r.OntologyID())
 }
 
+// CreateMany creates the given roles. If roles with the same key already exist, they
+// will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	roles *[]Role,
+) error {
+	for i, r := range *roles {
+		if err := w.Create(ctx, &r); err != nil {
+			return err
+		}
+		(*roles)[i] = r
+	}
+	return nil
+}
+
 // Delete removes a role from the database. It will fail if the role is builtin
 // or if any users are assigned to the role.
 func (w Writer) Delete(ctx context.Context, key Key) error {

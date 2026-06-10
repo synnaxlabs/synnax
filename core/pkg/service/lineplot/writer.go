@@ -64,6 +64,22 @@ func (w Writer) Create(
 	)
 }
 
+// CreateMany creates the given line plots within the workspace provided. If line plots
+// with the same key already exist, they will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	ws workspace.Key,
+	plots *[]LinePlot,
+) error {
+	for i, p := range *plots {
+		if err := w.Create(ctx, ws, &p); err != nil {
+			return err
+		}
+		(*plots)[i] = p
+	}
+	return nil
+}
+
 // Dispatch applies a sequence of actions atomically to the line plot with the
 // given key. After a successful update the actions are notified to the
 // service-level observer so subscribers (cluster signals) can broadcast them.

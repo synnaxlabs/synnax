@@ -18,16 +18,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// CreateUnaryHandler wraps a unary handler that needs to execute inside a single
+// CreateUnaryWriteHandler wraps a unary handler that needs to execute inside a single
 // [gorp.Tx] to a [freighter.UnaryHandler]. The transaction is committed when handle
 // returns nil and rolled back otherwise. On any error a zero RS is returned.
-//
-// Use this for handlers that perform any persistent writes. Pure read handlers
-// should be bound directly to the transport without going through this
-// wrapper, since pebble's indexed batch reads the live DB rather than a pinned
-// sequence number and therefore provides no read isolation in exchange for
-// the per-request batch allocation.
-func CreateUnaryHandler[RQ, RS freighter.Payload](
+func CreateUnaryWriteHandler[RQ, RS freighter.Payload](
 	db *gorp.DB,
 	handle func(context.Context, gorp.Tx, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {

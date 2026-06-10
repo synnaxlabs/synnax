@@ -76,12 +76,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	w := s.rack.NewWriter(tx)
-	for i, r := range req.Racks {
-		if err := w.Create(ctx, &r); err != nil {
-			return CreateResponse{}, err
-		}
-		req.Racks[i] = r
+	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
+		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
 }

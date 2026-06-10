@@ -69,12 +69,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	w := s.task.NewWriter(tx)
-	for i, m := range req.Tasks {
-		if err := w.Create(ctx, &m); err != nil {
-			return CreateResponse{}, err
-		}
-		req.Tasks[i] = m
+	if err := s.task.NewWriter(tx).CreateMany(ctx, &req.Tasks); err != nil {
+		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
 }

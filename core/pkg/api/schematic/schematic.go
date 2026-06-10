@@ -65,11 +65,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	for i, sch := range req.Schematics {
-		if err := s.internal.NewWriter(tx).Create(ctx, req.Workspace, &sch); err != nil {
-			return CreateResponse{}, err
-		}
-		req.Schematics[i] = sch
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Workspace, &req.Schematics); err != nil {
+		return CreateResponse{}, err
 	}
 	return CreateResponse{Schematics: req.Schematics}, nil
 }
@@ -215,11 +212,8 @@ func (s *Service) CreateSymbol(
 		}
 	}
 	writer := s.internal.Symbol.NewWriter(tx)
-	for i, sym := range req.Symbols {
-		if err := writer.Create(ctx, &sym, req.Parent); err != nil {
-			return CreateSymbolResponse{}, err
-		}
-		req.Symbols[i] = sym
+	if err := writer.CreateMany(ctx, &req.Symbols, req.Parent); err != nil {
+		return CreateSymbolResponse{}, err
 	}
 	return CreateSymbolResponse{Symbols: req.Symbols}, nil
 }

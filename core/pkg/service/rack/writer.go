@@ -85,6 +85,18 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
 }
 
+// CreateMany creates the given racks. If racks with the same key already exist, they
+// will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, racks *[]Rack) error {
+	for i, r := range *racks {
+		if err := w.Create(ctx, &r); err != nil {
+			return err
+		}
+		(*racks)[i] = r
+	}
+	return nil
+}
+
 // Delete deletes the rack with the provided key and its associated status. Delete is
 // idempotent, and deleting a non-existent rack will not return an error.
 func (w Writer) Delete(ctx context.Context, key Key) error {
