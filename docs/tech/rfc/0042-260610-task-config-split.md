@@ -193,7 +193,12 @@ the bootstrap and the write path.
 The rollout spans three releases, each independently safe:
 
 - **Stage 0 (inert).** The provider registry, relationship wiring, and API composition
-  ship with no providers registered. No behavior change.
+  ship with no providers registered. No behavior change. Config resource types enter the
+  ontology schema, so `oracle sync` regenerates the client resource-type enums, and the
+  Console's resource tree learns to skip resource types it has no registered service
+  for. Both must ship a release before Stage 1: Consoles in the field validate ontology
+  IDs against a closed generated enum and crash on unknown types in the relationship
+  stream otherwise.
 - **Stage 1 (copy + dual-write).** The NI service ships with a bootstrap migration in
   its startup chain. For each task with an `ni_` type prefix: decode the embedded blob
   through the version chain, write the typed record, define the parent relationship, and
@@ -288,9 +293,6 @@ schema must not be forked.
   payloads (mirroring imex's `{version, type}` peek) would make detection exact, but
   requires clients to echo the version back. Deferred until shape detection proves
   insufficient.
-- **Access control granularity.** Config resources enter the ontology, so RBAC rules
-  could target them directly. Whether config access should ever diverge from access to
-  the owning task is undecided; until then, the API enforces access on the task only.
 - **Cross-field validation placement.** Oracle validates shape, not relationships
   between fields (port uniqueness, scale monotonicity, stream-rate bounds). These checks
   stay hand-written in the Console for form UX; whether to duplicate them at the server
