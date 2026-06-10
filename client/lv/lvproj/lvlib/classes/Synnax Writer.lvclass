@@ -73,7 +73,7 @@
 					<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-					<Property Name="NI.ClassItem.State" Type="Int">268967952</Property>
+					<Property Name="NI.ClassItem.State" Type="Int">41943056</Property>
 				</Item>
 				<Item Name="Write NCh 1Samp (DBL).vi" Type="VI" URL="../Writer/Private/Writes/DBL/Write NCh 1Samp (DBL).vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -202,7 +202,7 @@
 					<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-					<Property Name="NI.ClassItem.State" Type="Int">794644</Property>
+					<Property Name="NI.ClassItem.State" Type="Int">41943056</Property>
 				</Item>
 				<Item Name="Write NCh 1Samp (I32).vi" Type="VI" URL="../Writer/Private/Writes/I32/Write NCh 1Samp (I32).vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -245,7 +245,7 @@
 					<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-					<Property Name="NI.ClassItem.State" Type="Int">8396816</Property>
+					<Property Name="NI.ClassItem.State" Type="Int">268967952</Property>
 				</Item>
 				<Item Name="Write NCh 1Samp (I64).vi" Type="VI" URL="../Writer/Private/Writes/I64/Write NCh 1Samp (I64).vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -288,7 +288,7 @@
 					<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-					<Property Name="NI.ClassItem.State" Type="Int">8658960</Property>
+					<Property Name="NI.ClassItem.State" Type="Int">269230096</Property>
 				</Item>
 				<Item Name="Write NCh 1Samp (SGL).vi" Type="VI" URL="../Writer/Private/Writes/SGL/Write NCh 1Samp (SGL).vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -307,17 +307,8 @@
 					<Property Name="NI.ClassItem.State" Type="Int">8658960</Property>
 				</Item>
 			</Item>
-			<Item Name="String" Type="Folder">
-				<Item Name="Write Base String.vi" Type="VI" URL="../Writer/Private/Writes/String/Write Base String.vi">
-					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
-					<Property Name="NI.ClassItem.Flags" Type="Int">150995072</Property>
-					<Property Name="NI.ClassItem.InvokeUsage" Type="UInt">0</Property>
-					<Property Name="NI.ClassItem.MethodScope" Type="UInt">1</Property>
-					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
-					<Property Name="NI.ClassItem.State" Type="Int">9183248</Property>
-				</Item>
-			</Item>
 			<Item Name="Timestamp" Type="Folder">
+				<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
 				<Item Name="Write 1Ch 1Samp (Timestamp).vi" Type="VI" URL="../Writer/Private/Writes/Timestamp/Write 1Ch 1Samp (Timestamp).vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
 					<Property Name="NI.ClassItem.Flags" Type="Int">150995072</Property>
@@ -325,7 +316,6 @@
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
 					<Property Name="NI.ClassItem.State" Type="Int">269230096</Property>
-					<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
 				</Item>
 				<Item Name="Write 1Ch NSamp (Timestamp).vi" Type="VI" URL="../Writer/Private/Writes/Timestamp/Write 1Ch NSamp (Timestamp).vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -334,7 +324,6 @@
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
 					<Property Name="NI.ClassItem.State" Type="Int">269230096</Property>
-					<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
 				</Item>
 				<Item Name="Write Base Timestamp.vi" Type="VI" URL="../Writer/Private/Writes/Timestamp/Write Base Timestamp.vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -343,7 +332,6 @@
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
 					<Property Name="NI.ClassItem.State" Type="Int">41943056</Property>
-					<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
 				</Item>
 				<Item Name="Write NCh 1Samp (Timestamp).vi" Type="VI" URL="../Writer/Private/Writes/Timestamp/Write NCh 1Samp (Timestamp).vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -352,7 +340,6 @@
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
 					<Property Name="NI.ClassItem.State" Type="Int">269230096</Property>
-					<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
 				</Item>
 				<Item Name="Write NCh NSamp (Timestamp).vi" Type="VI" URL="../Writer/Private/Writes/Timestamp/Write NCh NSamp (Timestamp).vi">
 					<Property Name="NI.ClassItem.ExecutionSystem" Type="Int">-1</Property>
@@ -361,7 +348,6 @@
 					<Property Name="NI.ClassItem.MethodScope" Type="UInt">2</Property>
 					<Property Name="NI.ClassItem.Priority" Type="Int">1</Property>
 					<Property Name="NI.ClassItem.State" Type="Int">269230096</Property>
-					<Property Name="NI.LibItem.Scope" Type="Int">2</Property>
 				</Item>
 			</Item>
 			<Item Name="U8" Type="Folder">
