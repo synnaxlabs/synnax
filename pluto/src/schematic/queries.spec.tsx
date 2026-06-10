@@ -479,7 +479,10 @@ describe("schematic queries", () => {
 
     it("adjusts a connected edge's stored segments when its source node moves", async () => {
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: SEGMENTS } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: SEGMENTS },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
 
@@ -507,7 +510,10 @@ describe("schematic queries", () => {
 
     it("leaves edge segments alone when source and target move by equal deltas", async () => {
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: SEGMENTS } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: SEGMENTS },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
 
@@ -533,7 +539,7 @@ describe("schematic queries", () => {
       await waitFor(() =>
         expect(getEdgeCfg()).toMatchObject({
           variant: "pipe",
-          color: "#ff00ff",
+          color: [255, 0, 255, 1],
           segments: SEGMENTS,
         }),
       );
@@ -544,7 +550,7 @@ describe("schematic queries", () => {
       await waitFor(() => {
         const cfg = getEdgeCfg();
         expect(cfg?.variant).toBe("pipe");
-        expect(cfg?.color).toBe("#ff00ff");
+        expect(cfg?.color).toEqual([255, 0, 255, 1]);
         expect(cfg?.segments?.[0]).toEqual({ direction: "x", length: 30 });
       });
     });
@@ -602,7 +608,10 @@ describe("schematic queries", () => {
       ];
 
       await dispatch(
-        schematic.setConfig({ key: "e1", config: { segments: longSegments } }),
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: longSegments },
+        }),
       );
       await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(longSegments));
 

@@ -1024,7 +1024,12 @@
   ],
   "configs": {
     "0DfbZ8yiwSP": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Fuel PT 1",
         "level": "p",
@@ -1074,54 +1079,62 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_pt_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "0KHm9MFPXRw": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 0
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 0
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 0
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 0
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
         "label": "OX Fill",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -1153,7 +1166,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -1188,13 +1201,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "0KwRzIrJ4ii": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "label": {
         "label": "Purge PT",
         "level": "p",
@@ -1244,29 +1262,40 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["pneumatics_pt"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "0jdKiNGUXdE": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "tJunction"
     },
     "1Ajh5kZyqzw": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -1280,10 +1309,15 @@
       "variant": "pipe"
     },
     "2VVcUzshHsS": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 145
+        "width": 145,
+        "height": 200
       },
       "label": {
         "label": "Supply",
@@ -1294,7 +1328,12 @@
       "variant": "tank"
     },
     "2i094l8SRqF": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Fuel TC 2",
         "level": "p",
@@ -1344,21 +1383,28 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_tc_2"],
       "units": "°C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "2tj3wwbNsVf": {
-      "color": [28, 28, 28, 1],
+      "color": {
+        "r": 28,
+        "g": 28,
+        "b": 28,
+        "a": 1
+      },
       "label": {
         "label": "Solenoid Valve",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -1390,7 +1436,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -1425,25 +1471,29 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "3BOalGA2TlR": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -1486,29 +1536,36 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_pt_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "3mJa8YZ6QW4": {
-      "color": [55, 116, 208, 1],
+      "color": {
+        "r": 55,
+        "g": 116,
+        "b": 208,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Button",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "onClickDelay": 0,
+      "on_click_delay": 0,
       "orientation": "left",
-      "scale": null,
       "sink": {
         "props": {
           "connections": [
@@ -1539,71 +1596,82 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "variant": "button"
     },
     "4NlCnochhRU": {
-      "color": [5, 5, 5, 1],
+      "color": {
+        "r": 5,
+        "g": 5,
+        "b": 5,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Nozzle",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "top",
       "scale": 1,
       "variant": "nozzle"
     },
     "5lnJLvZggVN": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048583
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048583
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048583
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048583
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
-        "align": "center",
-        "direction": "y",
         "label": "OX TPC 1",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "left"
+        "orientation": "left",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
       "sink": {
@@ -1636,7 +1704,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -1671,24 +1739,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "6N2uycrsxNb": {
-      "color": [5, 5, 5, 1],
+      "color": {
+        "r": 5,
+        "g": 5,
+        "b": 5,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "right"
+        "orientation": "right",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
+      "on_click_delay": 0,
       "orientation": "bottom",
       "scale": 1,
       "sink": {
@@ -1721,7 +1797,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -1756,30 +1832,40 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "valve"
     },
     "7yLD0xOFddf": {
-      "color": "#ffa800",
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
       "scale": 1,
       "variant": "tJunction"
     },
     "80031njI5Uo": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "dimensions": {
-        "height": 250,
-        "width": 150
+        "width": 150,
+        "height": 250
       },
       "label": {
         "label": "",
@@ -1791,48 +1877,53 @@
     },
     "8uYMBpb8zmt": {
       "color": {
-        "rgba255": [5, 5, 5, 1]
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0
       },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048666
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048666
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048666
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048666
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
         "label": "GB ISO 2",
         "level": "p",
         "orientation": "left"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "sink": {
         "props": {
@@ -1864,7 +1955,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -1899,52 +1990,59 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "AEjPdKnWFcT": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 0
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 0
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 0
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 0
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
         "label": "Gas Booster",
         "level": "p",
         "orientation": "right"
       },
+      "on_click_delay": 0,
       "orientation": "top",
       "sink": {
         "props": {
@@ -1976,7 +2074,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -2011,13 +2109,20 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "pistonPump"
     },
     "BLMwEwSkGNS": {
-      "color": "#004ad6",
+      "clickable": false,
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
+      "enabled": false,
       "label": {
         "label": "",
         "level": "p",
@@ -2027,10 +2132,15 @@
       "variant": "reliefValve"
     },
     "CST75HX7oD1": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "dimensions": {
-        "height": 250,
-        "width": 150
+        "width": 150,
+        "height": 250
       },
       "label": {
         "label": "",
@@ -2041,47 +2151,54 @@
       "variant": "tank"
     },
     "D2jnA2ygsRn": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048597
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048597
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048597
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048597
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
         "label": "Fuel Vent",
         "level": "p",
         "orientation": "bottom"
       },
-      "normallyOpen": true,
+      "normally_open": true,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "sink": {
         "props": {
@@ -2113,7 +2230,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -2148,13 +2265,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "DeJ4iOHodtz": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "label": {
         "label": "Press TC 1",
         "level": "p",
@@ -2204,53 +2326,61 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["press_tc_1"],
       "units": "°C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "EssNNAH7Oq9": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 0
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 0
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 0
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 0
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
         "label": "Purge Valve",
         "level": "p",
         "orientation": "bottom"
       },
+      "on_click_delay": 0,
       "orientation": "bottom",
       "sink": {
         "props": {
@@ -2282,7 +2412,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -2317,53 +2447,60 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "threeWayValve"
     },
     "FV9nUNS95MO": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048650
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048650
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048650
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048650
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
         "label": "OX MPV",
         "level": "p",
         "orientation": "left"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "top",
       "sink": {
         "props": {
@@ -2395,7 +2532,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -2430,25 +2567,29 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "FblmMlBenHA": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -2491,54 +2632,62 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_tc_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "FiMLXRwc4xJ": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048648
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048648
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048648
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048648
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
         "label": "OX TPC 2",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -2570,7 +2719,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -2605,25 +2754,33 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "GJ2YKKP0Z6y": {
-      "color": [5, 5, 5, 1],
+      "color": {
+        "r": 5,
+        "g": 5,
+        "b": 5,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Solenoid Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
       "sink": {
@@ -2656,7 +2813,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -2691,13 +2848,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "GXakOVjitf5": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Fuel TC 1",
         "level": "p",
@@ -2747,15 +2909,21 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_tc_1"],
       "units": "°C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "GivrZPeMCEw": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "label": {
         "label": "OX TC 1",
         "level": "p",
@@ -2805,29 +2973,40 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_tc_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "HH9i7jrQ0rH": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
       "scale": 1,
       "variant": "tJunction"
     },
     "HNeMkVQJMZZ": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "label": {
         "label": "Value",
         "level": "p",
@@ -2877,27 +3056,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["supply_pt"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "HUushIhVDc6": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -2940,18 +3124,24 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_tc_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "IoFGQ3ntavy": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "dimensions": {
-        "height": 250,
-        "width": 150
+        "width": 150,
+        "height": 250
       },
       "label": {
         "label": "",
@@ -2962,51 +3152,57 @@
       "variant": "tank"
     },
     "IpSylSnCSc3": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048585
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048585
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048585
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048585
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
-        "align": "center",
-        "direction": "y",
         "label": "Purge",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "left"
+        "orientation": "left",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
       "sink": {
@@ -3039,7 +3235,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -3074,13 +3270,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "K9nj3YBK0KG": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "label": {
         "label": "Press PT 2",
         "level": "p",
@@ -3130,59 +3331,66 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["press_pt_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "KWwYAhIaXR1": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048585
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048585
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048585
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048585
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
-        "align": "center",
-        "direction": "y",
         "label": "OX MPV",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "left"
+        "orientation": "left",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
       "sink": {
@@ -3215,7 +3423,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -3250,25 +3458,29 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "KnJjTf7CJv9": {
-      "color": "#004ad6",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "OX TC 1",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -3311,54 +3523,62 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_tc_1"],
       "units": "°C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "L0MCB6oJASM": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048593
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048593
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048593
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048593
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
         "label": "Fuel Pre-Valve",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -3390,7 +3610,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -3425,13 +3645,20 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "M4YDBbNwtI5": {
-      "color": [28, 28, 28, 1],
+      "clickable": false,
+      "color": {
+        "r": 28,
+        "g": 28,
+        "b": 28,
+        "a": 1
+      },
+      "enabled": false,
       "label": {
         "label": "Angled Relief Valve",
         "level": "p",
@@ -3441,19 +3668,23 @@
       "variant": "angledReliefValve"
     },
     "MEfIDo71Css": {
-      "color": "#004ad6",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "OX TC 2",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -3496,55 +3727,63 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_tc_2"],
       "units": "°C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "MN7bYyk3QeZ": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048658
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048658
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048658
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048658
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "left",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "left"
       },
       "label": {
         "label": "Fuel MPV",
         "level": "p",
         "orientation": "right"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "sink": {
         "props": {
@@ -3576,7 +3815,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -3611,13 +3850,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "NGZToy6pCHe": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "label": {
         "label": "OX TC 2",
         "level": "p",
@@ -3667,15 +3911,21 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_tc_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "PYidicujg8Q": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Fuel TC 1",
         "level": "p",
@@ -3725,15 +3975,21 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_tc_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "Px7l7pDawuy": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Fuel PT 2",
         "level": "p",
@@ -3790,15 +4046,21 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_pt_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "Q6Ru747fTlZ": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3812,51 +4074,57 @@
       "variant": "pipe"
     },
     "QLFXTKWz3DJ": {
-      "color": "#ffa800",
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048601
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048601
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048601
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048601
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
-        "align": "center",
-        "direction": "y",
         "label": "Gas Booster ISO",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "left"
+        "orientation": "left",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
       "sink": {
@@ -3889,7 +4157,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -3924,53 +4192,60 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "QPKzX2O2699": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048656
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048656
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048656
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048656
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "left",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "left"
       },
       "label": {
         "label": "Fuel TPC 1",
         "level": "p",
         "orientation": "right"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "sink": {
         "props": {
@@ -4002,7 +4277,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -4037,14 +4312,17 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "Qt13TVgVdZD": {
       "color": {
-        "rgba255": [5, 5, 5, 1]
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0
       },
       "label": {
         "label": "Accumulator PT",
@@ -4095,15 +4373,21 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["pneumatics_pt"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "SKO1UjHj1o3": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "label": {
         "label": "Purge Reg",
         "level": "p",
@@ -4113,7 +4397,12 @@
       "variant": "regulator"
     },
     "T7tp2FvVzzl": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "label": {
         "label": "OX PT 2",
         "level": "p",
@@ -4163,27 +4452,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_pt_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "UN8NV3qxaz7": {
-      "color": "#004ad6",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "OX PT 1",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -4226,27 +4520,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_pt_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "Uf71mmzzyez": {
-      "color": "#b300ff",
-      "inlineSize": 90,
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 90,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Supply PT",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -4289,27 +4588,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["supply_pt"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "Uhas206b5VS": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -4352,82 +4656,112 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["press_tc_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "VcyomMLraaN": {
-      "backgroundColor": [250, 250, 250, 0],
-      "borderRadius": {
-        "x": 50,
-        "y": 10
+      "background_color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 0
       },
-      "color": "#004ad6",
+      "border_radius": {
+        "top_left": {
+          "x": 50,
+          "y": 10
+        },
+        "top_right": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_left": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_right": {
+          "x": 50,
+          "y": 10
+        }
+      },
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "dimensions": {
-        "height": 250,
-        "width": 150
+        "width": 150,
+        "height": 250
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "scale": 1,
       "variant": "tank"
     },
     "VeRfM4LedsR": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048593
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048593
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048593
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048593
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "left",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "left"
       },
       "label": {
-        "align": "center",
-        "direction": "y",
         "label": "Fuel MPV",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "right"
+        "orientation": "right",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "scale": 1,
       "sink": {
@@ -4460,7 +4794,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -4495,13 +4829,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "VmLXT8TtVfn": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Fuel PT 1",
         "level": "p",
@@ -4551,37 +4890,48 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_pt_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "W1dSGKqGk1f": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "top",
       "scale": 1,
       "variant": "tJunction"
     },
     "WjNhadY8bYt": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
@@ -4592,9 +4942,13 @@
         },
         "gradient": []
       },
-      "scale": 1,
-      "stalenessColor": [194, 157, 10, 1],
-      "stalenessTimeout": 5,
+      "staleness_color": {
+        "r": 194,
+        "g": 157,
+        "b": 10,
+        "a": 1
+      },
+      "staleness_timeout": 5,
       "telem": {
         "props": {
           "connections": [
@@ -4637,29 +4991,40 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_pt_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "WubiiPZ6MyL": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
       "scale": 1,
       "variant": "tJunction"
     },
     "XHvgACsGqDW": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "label": {
         "label": "OX PT 1",
         "level": "p",
@@ -4709,58 +5074,65 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_pt_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "YtBdiWNERfU": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048587
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048587
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048587
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048587
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "OX Press Iso",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "bottom"
+        "orientation": "bottom",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
       "sink": {
@@ -4793,7 +5165,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -4828,24 +5200,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "YwDKMURj1vp": {
-      "color": [5, 5, 5, 1],
+      "color": {
+        "r": 5,
+        "g": 5,
+        "b": 5,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Angled Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
+      "on_click_delay": 0,
       "orientation": "right",
       "scale": 1,
       "sink": {
@@ -4878,7 +5258,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -4913,19 +5293,25 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "angledValve"
     },
     "ZXOfFkiBk9R": {
-      "color": [28, 28, 28, 1],
+      "color": {
+        "r": 28,
+        "g": 28,
+        "b": 28,
+        "a": 1
+      },
       "label": {
         "label": "Solenoid Valve",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -4957,7 +5343,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -4992,25 +5378,29 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "a8tAqnEJba0": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -5053,27 +5443,36 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["press_pt_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "c6BIYnWmuQX": {
-      "color": [5, 5, 5, 1],
+      "color": {
+        "r": 5,
+        "g": 5,
+        "b": 5,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Solenoid Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "scale": 1,
       "sink": {
@@ -5106,7 +5505,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -5141,16 +5540,21 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "dkPgXB2tjWf": {
-      "color": "#ffa800",
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 125
+        "width": 125,
+        "height": 200
       },
       "label": {
         "label": "",
@@ -5161,10 +5565,15 @@
       "variant": "tank"
     },
     "dlptAUF47pk": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "dimensions": {
-        "height": 250,
-        "width": 150
+        "width": 150,
+        "height": 250
       },
       "label": {
         "label": "",
@@ -5175,10 +5584,15 @@
       "variant": "tank"
     },
     "dofQxFOyrpw": {
-      "color": [28, 28, 28, 1],
+      "color": {
+        "r": 28,
+        "g": 28,
+        "b": 28,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
         "label": "Tank",
@@ -5189,7 +5603,12 @@
       "variant": "tank"
     },
     "dsiLFWHbVAK": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Value",
         "level": "p",
@@ -5238,35 +5657,47 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": [""],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "e4JtXVcg02b": {
-      "color": [250, 250, 250, 1],
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 2.25,
       "variant": "nozzle"
     },
     "e6edPu5g4WW": {
-      "color": [28, 28, 28, 1],
+      "color": {
+        "r": 28,
+        "g": 28,
+        "b": 28,
+        "a": 1
+      },
       "label": {
         "label": "Solenoid Valve",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -5298,7 +5729,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -5333,52 +5764,59 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "ed2fKMvty6b": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048595
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048595
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048595
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048595
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
         "label": "Fuel Press ISO",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -5410,7 +5848,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -5445,24 +5883,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "f1ENRWs0FIf": {
-      "color": [250, 250, 250, 1],
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Three Way Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
       "sink": {
@@ -5495,7 +5941,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -5530,25 +5976,29 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "threeWayValve"
     },
     "gskjCS25iAe": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -5591,18 +6041,24 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_tc_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "juGKtTasf2m": {
-      "color": [28, 28, 28, 1],
+      "color": {
+        "r": 28,
+        "g": 28,
+        "b": 28,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
         "label": "Tank",
@@ -5613,52 +6069,56 @@
       "variant": "tank"
     },
     "k9XCuVYxOzB": {
-      "color": [55, 116, 208, 1],
+      "color": {
+        "r": 55,
+        "g": 116,
+        "b": 208,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048618
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048618
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048618
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048618
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Start Sequence",
         "level": "h4",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "onClickDelay": 0,
+      "on_click_delay": 0,
       "orientation": "left",
-      "scale": null,
       "sink": {
         "props": {
           "connections": [
@@ -5689,13 +6149,18 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "variant": "button"
     },
     "kbJw2Oi5Ueu": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "label": {
         "label": "",
         "level": "p",
@@ -5705,15 +6170,20 @@
       "variant": "regulator"
     },
     "mDHz94NwfKE": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
@@ -5724,7 +6194,6 @@
         },
         "gradient": []
       },
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -5767,15 +6236,21 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_tc_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "mJ0fxQiPaDP": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Fuel TC 2",
         "level": "p",
@@ -5825,57 +6300,63 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_tc_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "mRrQTum99UZ": {
       "color": {
-        "rgba255": [5, 5, 5, 1]
+        "r": 0,
+        "g": 0,
+        "b": 0,
+        "a": 0
       },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048666
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048666
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048666
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048666
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
         "label": "GB ISO 1",
         "level": "p",
         "orientation": "left"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "sink": {
         "props": {
@@ -5907,7 +6388,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -5942,52 +6423,59 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "n4pmPCUcMaw": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048585
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048585
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048585
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048585
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
         "label": "OX Pre-Valve",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -6019,7 +6507,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -6054,52 +6542,59 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "nDyx6eSCxsX": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048648
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048648
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048648
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048648
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
-        },
-        "showChip": true,
-        "showIndicator": true
+        }
       },
       "label": {
         "label": "OX TPC 1",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -6131,7 +6626,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -6166,57 +6661,63 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "nikWEdQSwLr": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048591
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048591
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048591
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048591
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "left",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "left"
       },
       "label": {
-        "align": "center",
-        "direction": "y",
         "label": "Fuel TPC 1",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "right"
+        "orientation": "right",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "scale": 1,
       "sink": {
@@ -6249,7 +6750,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -6284,53 +6785,60 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "oB0skpbvoqc": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048664
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048664
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048664
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048664
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "left",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "left"
       },
       "label": {
         "label": "OX Press ISO",
         "level": "p",
         "orientation": "right"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "top",
       "sink": {
         "props": {
@@ -6362,7 +6870,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -6397,13 +6905,20 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "ojXq08A1bLP": {
-      "color": "#ff005f",
+      "clickable": false,
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
+      "enabled": false,
       "label": {
         "label": "",
         "level": "p",
@@ -6413,51 +6928,57 @@
       "variant": "angledReliefValve"
     },
     "p2dLrZf6mMv": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048591
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048591
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048591
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048591
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
-        "align": "center",
-        "direction": "y",
         "label": "Fuel TPC 2",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "left"
+        "orientation": "left",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
       "sink": {
@@ -6490,7 +7011,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -6525,13 +7046,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "ptsh5LVBq2y": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "label": {
         "label": "Value",
         "level": "p",
@@ -6580,26 +7106,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "q2BvScO3Tvx": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -6642,27 +7174,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_pt_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "qKNvIK45GCK": {
-      "color": "#004ad6",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "OX PT 2",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -6705,59 +7242,66 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_pt_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "qUGRcDkaBIx": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": true,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048583
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048583
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048583
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048583
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "left",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "left"
       },
       "label": {
-        "align": "center",
-        "direction": "y",
         "label": "OX TPC 2",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "right"
+        "orientation": "right",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "scale": 1,
       "sink": {
@@ -6790,7 +7334,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -6825,53 +7369,60 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "qo0xVKkc4oR": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048589
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048589
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048589
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048589
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "left",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "left"
       },
       "label": {
         "label": "OX Vent",
         "level": "p",
         "orientation": "bottom"
       },
-      "normallyOpen": true,
+      "normally_open": true,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "sink": {
         "props": {
@@ -6903,7 +7454,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -6938,13 +7489,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "rCUKZktR3sZ": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "label": {
         "label": "Press PT 1",
         "level": "p",
@@ -6994,52 +7550,86 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["press_pt_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "rJ8HEDBlxlw": {
-      "backgroundColor": [255, 0, 255, 0.01],
-      "borderRadius": {
-        "x": 50,
-        "y": 25
+      "background_color": {
+        "r": 255,
+        "g": 0,
+        "b": 255,
+        "a": 0.01
       },
-      "color": "#b300ff",
+      "border_radius": {
+        "top_left": {
+          "x": 50,
+          "y": 25
+        },
+        "top_right": {
+          "x": 50,
+          "y": 25
+        },
+        "bottom_left": {
+          "x": 50,
+          "y": 25
+        },
+        "bottom_right": {
+          "x": 50,
+          "y": 25
+        }
+      },
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 139
+        "width": 139,
+        "height": 200
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "scale": 1,
       "variant": "tank"
     },
     "rTobk1G30ly": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
       "scale": 1,
       "variant": "tJunction"
     },
     "reactflow__edge-SKO1UjHj1o32-0KwRzIrJ4ii1": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7053,13 +7643,19 @@
       "variant": "pneumatic"
     },
     "sXCSKGCQGy2": {
-      "color": "#EDEDED",
+      "color": {
+        "r": 237,
+        "g": 237,
+        "b": 237,
+        "a": 1
+      },
       "label": {
         "label": "Solenoid Valve",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -7091,7 +7687,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -7126,24 +7722,32 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "solQ4AaAaWx": {
-      "color": [5, 5, 5, 1],
+      "color": {
+        "r": 5,
+        "g": 5,
+        "b": 5,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
       "sink": {
@@ -7176,7 +7780,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -7211,25 +7815,33 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "valve"
     },
     "tKyeVybyb2Z": {
-      "color": "#b300ff",
-      "control": {
-        "orientation": "right",
-        "show": true
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
       },
-      "label": {
-        "align": "center",
-        "direction": "y",
-        "label": "Gas Booster",
-        "level": "p",
-        "maxInlineSize": 150,
+      "control": {
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false,
         "orientation": "right"
       },
+      "label": {
+        "label": "Gas Booster",
+        "level": "p",
+        "orientation": "right",
+        "direction": "y",
+        "max_inline_size": 150,
+        "align": "center"
+      },
+      "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
       "sink": {
@@ -7262,7 +7874,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -7297,13 +7909,18 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "pistonPump"
     },
     "tcY77CQT5aV": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
         "label": "Fuel PT 2",
         "level": "p",
@@ -7353,21 +7970,28 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["fuel_pt_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "tqDmVLRLuXg": {
-      "color": [28, 28, 28, 1],
+      "color": {
+        "r": 28,
+        "g": 28,
+        "b": 28,
+        "a": 1
+      },
       "label": {
         "label": "Solenoid Valve",
         "level": "p",
         "orientation": "top"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "sink": {
         "props": {
@@ -7399,7 +8023,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -7434,53 +8058,60 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "vITJzpd1U32": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "control": {
+        "show": false,
+        "show_chip": true,
+        "show_indicator": true,
         "chip": {
+          "source": {
+            "props": {
+              "channel": 1048656
+            },
+            "type": "controlled-status-source",
+            "value_type": "status",
+            "variant": "source"
+          },
           "sink": {
             "props": {
               "authority": 255,
               "channel": 1048656
             },
             "type": "acquire-channel-control",
-            "valueType": "boolean",
+            "value_type": "boolean",
             "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": 1048656
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
           }
         },
         "indicator": {
-          "statusSource": {
+          "status_source": {
             "props": {
               "channel": 1048656
             },
             "type": "controlled-status-source",
-            "valueType": "status",
+            "value_type": "status",
             "variant": "source"
           }
         },
-        "orientation": "right",
-        "showChip": true,
-        "showIndicator": true
+        "orientation": "right"
       },
       "label": {
         "label": "Fuel TPC 2",
         "level": "p",
         "orientation": "left"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "bottom",
       "sink": {
         "props": {
@@ -7512,7 +8143,7 @@
           }
         },
         "type": "sink-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "sink"
       },
       "source": {
@@ -7547,25 +8178,29 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "solenoidValve"
     },
     "vKY6rgCFLAP": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -7608,15 +8243,21 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["ox_tc_2"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "vVP5HNMj1sk": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "label": {
         "label": "Press TC 2",
         "level": "p",
@@ -7666,29 +8307,40 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["press_tc_2"],
       "units": "°C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "wGdFMnYeLk8": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "tJunction"
     },
     "xy-edge__0jdKiNGUXdE1-5lnJLvZggVN1": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7702,7 +8354,12 @@
       "variant": "pipe"
     },
     "xy-edge__0jdKiNGUXdE2-qUGRcDkaBIx2": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7716,12 +8373,22 @@
       "variant": "pipe"
     },
     "xy-edge__0jdKiNGUXdE3-VcyomMLraaN1": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [],
       "variant": "pipe"
     },
     "xy-edge__7yLD0xOFddf1-VeRfM4LedsR5": {
-      "color": "#ffa800",
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7735,7 +8402,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__7yLD0xOFddf2-dkPgXB2tjWf4": {
-      "color": "#ffa800",
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7749,7 +8421,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__7yLD0xOFddf3-KWwYAhIaXR13": {
-      "color": "#ff8700",
+      "color": {
+        "r": 255,
+        "g": 135,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7767,7 +8444,12 @@
       "variant": "pipe"
     },
     "xy-edge__BLMwEwSkGNS2-VcyomMLraaN2": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7781,7 +8463,12 @@
       "variant": "pipe"
     },
     "xy-edge__CST75HX7oD13-W1dSGKqGk1f1": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7791,7 +8478,12 @@
       "variant": "pipe"
     },
     "xy-edge__HH9i7jrQ0rH1-nikWEdQSwLr1": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7805,7 +8497,12 @@
       "variant": "pipe"
     },
     "xy-edge__HH9i7jrQ0rH2-p2dLrZf6mMv2": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7819,7 +8516,12 @@
       "variant": "pipe"
     },
     "xy-edge__IpSylSnCSc31-0KwRzIrJ4ii3": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7837,7 +8539,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__IpSylSnCSc32-WubiiPZ6MyL3": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7851,7 +8558,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__KWwYAhIaXR11-e4JtXVcg02b1": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7865,7 +8577,12 @@
       "variant": "jacketed"
     },
     "xy-edge__L0MCB6oJASM1-VeRfM4LedsR1": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7887,7 +8604,12 @@
       "variant": "jacketed"
     },
     "xy-edge__L0MCB6oJASM2-dlptAUF47pk4": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7901,7 +8623,12 @@
       "variant": "jacketed"
     },
     "xy-edge__QLFXTKWz3DJ2-tKyeVybyb2Z3": {
-      "color": "#ffa800",
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7915,7 +8642,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__VcyomMLraaN4-n4pmPCUcMaw1": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7929,7 +8661,12 @@
       "variant": "jacketed"
     },
     "xy-edge__VeRfM4LedsR2-e4JtXVcg02b3": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7943,7 +8680,12 @@
       "variant": "jacketed"
     },
     "xy-edge__W1dSGKqGk1f2-ed2fKMvty6b1": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -7957,7 +8699,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__WubiiPZ6MyL1-VeRfM4LedsR1": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7971,7 +8718,12 @@
       "variant": "pipe"
     },
     "xy-edge__WubiiPZ6MyL2-KWwYAhIaXR12": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7985,7 +8737,12 @@
       "variant": "pipe"
     },
     "xy-edge__YtBdiWNERfU1-W1dSGKqGk1f3": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -7995,7 +8752,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__YtBdiWNERfU2-rTobk1G30ly3": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -8005,7 +8767,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__dkPgXB2tjWf1-QLFXTKWz3DJ1": {
-      "color": "#ffa800",
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8015,7 +8782,12 @@
       "variant": "pipe"
     },
     "xy-edge__dkPgXB2tjWf8-kbJw2Oi5Ueu1": {
-      "color": "#ffa800",
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -8033,7 +8805,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__dlptAUF47pk3-D2jnA2ygsRn1": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8051,7 +8828,12 @@
       "variant": "pipe"
     },
     "xy-edge__dlptAUF47pk3-ojXq08A1bLP1": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8065,7 +8847,12 @@
       "variant": "pipe"
     },
     "xy-edge__ed2fKMvty6b2-HH9i7jrQ0rH3": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -8079,7 +8866,12 @@
       "variant": "pneumatic"
     },
     "xy-edge__kbJw2Oi5Ueu2-rJ8HEDBlxlw7": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -8089,7 +8881,12 @@
       "variant": "pipe"
     },
     "xy-edge__n4pmPCUcMaw2-KWwYAhIaXR12": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8103,7 +8900,12 @@
       "variant": "jacketed"
     },
     "xy-edge__nikWEdQSwLr2-wGdFMnYeLk82": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8117,7 +8919,12 @@
       "variant": "pipe"
     },
     "xy-edge__p2dLrZf6mMv1-wGdFMnYeLk81": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8131,7 +8938,12 @@
       "variant": "pipe"
     },
     "xy-edge__qo0xVKkc4oR1-VcyomMLraaN2": {
-      "color": "#004ad6",
+      "color": {
+        "r": 0,
+        "g": 74,
+        "b": 214,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8145,7 +8957,12 @@
       "variant": "pipe"
     },
     "xy-edge__rJ8HEDBlxlw1-tKyeVybyb2Z1": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8163,7 +8980,12 @@
       "variant": "pipe"
     },
     "xy-edge__rJ8HEDBlxlw4-SKO1UjHj1o31": {
-      "color": "#00d623",
+      "color": {
+        "r": 0,
+        "g": 214,
+        "b": 35,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -8177,29 +8999,43 @@
       "variant": "pneumatic"
     },
     "xy-edge__tKyeVybyb2Z2-CST75HX7oD14": {
-      "color": "#b300ff",
+      "color": {
+        "r": 179,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
       "segments": [],
       "variant": "pipe"
     },
     "xy-edge__wGdFMnYeLk83-dlptAUF47pk1": {
-      "color": "#ff005f",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 95,
+        "a": 1
+      },
       "segments": [],
       "variant": "pipe"
     },
     "yAfA5biPqIA": {
-      "color": "#ffa800",
-      "inlineSize": 78,
+      "color": {
+        "r": 255,
+        "g": 168,
+        "b": 0,
+        "a": 1
+      },
+      "inline_size": 78,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Accumulator PT",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
-      "scale": 1,
       "telem": {
         "props": {
           "connections": [
@@ -8242,11 +9078,12 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["pneumatics_pt"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     }
   }

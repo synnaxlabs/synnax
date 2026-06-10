@@ -624,7 +624,7 @@ export interface UpdateSegmentsForPositionChangesProps {
     source: { node: string };
     target: { node: string };
   }>;
-  props: Record<string, { segments?: Segment[] } | undefined>;
+  props: Record<string, schematic.ElementConfig | undefined>;
   changes: NodePositionChange[];
 }
 
@@ -651,7 +651,8 @@ export const updateSegmentsForPositionChanges = ({
       xy.equals(sourceDelta, targetDelta, 0.001)
     )
       continue;
-    let segments = props[edge.key]?.segments ?? [];
+    const cfg = props[edge.key];
+    let segments = (cfg != null && "segments" in cfg ? cfg.segments : undefined) ?? [];
     if (segments.length === 0) continue;
     if (sourceDelta != null && !xy.equals(sourceDelta, xy.ZERO))
       segments = moveSourceNode({ delta: sourceDelta, segments });

@@ -114,6 +114,14 @@ func nonZeroV0() v0.Data {
 	}
 }
 
+// cfgFields returns a typed element config's wire fields for shape assertions.
+func cfgFields(cfg schematic.ElementConfig) map[string]any {
+	b := MustSucceed(json.Marshal(cfg))
+	var m map[string]any
+	Expect(json.Unmarshal(b, &m)).To(Succeed())
+	return m
+}
+
 var _ = Describe("MigrateSchematic", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured production fixture. Run with UPDATE_MIGRATED=1 to regenerate
@@ -181,7 +189,7 @@ var _ = Describe("MigrateSchematic", func() {
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "outlet"}))
-			Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
+			Expect(cfgFields(got.Configs["n1"])["variant"]).To(Equal("tank"))
 		})
 
 		It("Should chain a legacy v0 blob through every migration step on retrieve", func(ctx SpecContext) {
@@ -194,7 +202,7 @@ var _ = Describe("MigrateSchematic", func() {
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "out"}))
-			Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
+			Expect(cfgFields(got.Configs["n1"])["variant"]).To(Equal("valve"))
 		})
 	})
 
@@ -233,9 +241,10 @@ var _ = Describe("MigrateSchematic", func() {
 					}]
 				}`),
 			}))
-			Expect(out.Configs["e1"]).To(SatisfyAll(
+			Expect(cfgFields(out.Configs["e1"])).To(SatisfyAll(
 				HaveKeyWithValue("variant", "pipe"),
-				HaveKeyWithValue("color", "#0000ff"),
+				HaveKeyWithValue("color",
+					map[string]any{"r": 0.0, "g": 0.0, "b": 255.0, "a": 1.0}),
 				HaveKey("segments"),
 			))
 		})
@@ -259,7 +268,7 @@ var _ = Describe("MigrateSchematic", func() {
 					}]
 				}`),
 			}))
-			Expect(out.Configs["e1"]["segments"]).To(Equal([]any{
+			Expect(cfgFields(out.Configs["e1"])["segments"]).To(Equal([]any{
 				map[string]any{"direction": "y", "length": -281.7166395035551},
 				map[string]any{"direction": "x", "length": 140.06190790464655},
 			}))
@@ -277,7 +286,7 @@ var _ = Describe("MigrateSchematic", func() {
 						"data": {"segments": [{"direction": "y", "length": 11.88}], "variant": "pipe"}}]
 				}`),
 			}))
-			Expect(out.Configs["e1"]["segments"]).To(Equal([]any{}))
+			Expect(cfgFields(out.Configs["e1"])["segments"]).To(Equal([]any{}))
 		})
 
 		It("Should default edge-prop variant to pipe when edge.data is non-null but empty", func(ctx SpecContext) {
@@ -289,7 +298,7 @@ var _ = Describe("MigrateSchematic", func() {
 					"edges": [{"key": "e1", "source": "n1", "target": "n2", "data": {}}]
 				}`),
 			}))
-			Expect(out.Configs["e1"]["variant"]).To(Equal("pipe"))
+			Expect(cfgFields(out.Configs["e1"])["variant"]).To(Equal("pipe"))
 		})
 
 		It("Should produce no edge-prop entry when edge.data is missing or null", func(ctx SpecContext) {
@@ -310,16 +319,17 @@ var _ = Describe("MigrateSchematic", func() {
 
 		It("Should rename node-prop key to variant", func(ctx SpecContext) {
 			out := migrateV5(ctx, `"props": {"n1": {"key": "valve", "color": "#ff0000"}}`)
-			Expect(out.Configs["n1"]).To(SatisfyAll(
+			Expect(cfgFields(out.Configs["n1"])).To(SatisfyAll(
 				HaveKeyWithValue("variant", "valve"),
-				HaveKeyWithValue("color", "#ff0000"),
+				HaveKeyWithValue("color",
+					map[string]any{"r": 255.0, "g": 0.0, "b": 0.0, "a": 1.0}),
 				Not(HaveKey("key")),
 			))
 		})
 
 		It("Should overwrite an existing variant with the v0 key field per console v6 contract", func(ctx SpecContext) {
 			out := migrateV5(ctx, `"props": {"n1": {"key": "tank", "variant": "stale"}}`)
-			Expect(out.Configs["n1"]["variant"]).To(Equal("tank"))
+			Expect(cfgFields(out.Configs["n1"])["variant"]).To(Equal("tank"))
 		})
 
 		It("Should preserve user-set zIndex on nodes", func(ctx SpecContext) {

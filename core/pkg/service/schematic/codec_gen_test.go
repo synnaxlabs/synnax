@@ -21,8 +21,9 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 )
 
 var _ = Describe("Codec", func() {
@@ -119,7 +120,37 @@ var _ = Describe("Codec", func() {
 						Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 					},
 				},
-				Configs: map[string]msgpack.EncodedJSON{"test_21": {"key_21": "value_21"}},
+				Configs: map[string]schematic.ElementConfig{
+					"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: schematic.StaticSymbolConfig{
+						LabeledConfig: schematic.LabeledConfig{
+							Label: func() *schematic.LabelConfig {
+								v := schematic.LabelConfig{
+									Label:         "test_23",
+									Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+									Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+									Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+									MaxInlineSize: func() *float64 { v := float64(27.5); return &v }(),
+									Align: func() *schematic.FlexAlignment {
+										v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+										return &v
+									}(),
+								}
+								return &v
+							}(),
+							Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+						},
+						Color: func() *color.Color {
+							v := color.Color{
+								R: 32,
+								G: 33,
+								B: 34,
+								A: 34.5,
+							}
+							return &v
+						}(),
+						Scale: func() *float64 { v := float64(35.5); return &v }(),
+					}}},
+				},
 			}),
 			Entry("zero values", schematic.Schematic{
 				Key:      uuid.Nil,
@@ -135,7 +166,7 @@ var _ = Describe("Codec", func() {
 				Snapshot: true,
 				Nodes:    []schematic.Node{},
 				Edges:    []schematic.Edge{},
-				Configs:  map[string]msgpack.EncodedJSON{},
+				Configs:  map[string]schematic.ElementConfig{},
 			}),
 		)
 	})
@@ -221,7 +252,37 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 			},
 		},
-		Configs: map[string]msgpack.EncodedJSON{"test_21": {"key_21": "value_21"}},
+		Configs: map[string]schematic.ElementConfig{
+			"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: schematic.StaticSymbolConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_23",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(27.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 32,
+						G: 33,
+						B: 34,
+						A: 34.5,
+					}
+					return &v
+				}(),
+				Scale: func() *float64 { v := float64(35.5); return &v }(),
+			}}},
+		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -415,7 +476,37 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 				},
 			},
-			Configs: map[string]msgpack.EncodedJSON{"test_21": {"key_21": "value_21"}},
+			Configs: map[string]schematic.ElementConfig{
+				"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: schematic.StaticSymbolConfig{
+					LabeledConfig: schematic.LabeledConfig{
+						Label: func() *schematic.LabelConfig {
+							v := schematic.LabelConfig{
+								Label:         "test_23",
+								Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+								Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+								Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+								MaxInlineSize: func() *float64 { v := float64(27.5); return &v }(),
+								Align: func() *schematic.FlexAlignment {
+									v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+									return &v
+								}(),
+							}
+							return &v
+						}(),
+						Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+					},
+					Color: func() *color.Color {
+						v := color.Color{
+							R: 32,
+							G: 33,
+							B: 34,
+							A: 34.5,
+						}
+						return &v
+					}(),
+					Scale: func() *float64 { v := float64(35.5); return &v }(),
+				}}},
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -445,7 +536,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Snapshot: true,
 			Nodes:    []schematic.Node{},
 			Edges:    []schematic.Edge{},
-			Configs:  map[string]msgpack.EncodedJSON{},
+			Configs:  map[string]schematic.ElementConfig{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

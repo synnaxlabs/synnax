@@ -51,12 +51,15 @@ func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error)
 	for i, n := range d.Nodes {
 		out.Nodes[i] = migrateNode(n)
 	}
-	out.Configs, err = migrateProps(d.Props)
+	props, err := migrateProps(d.Props)
 	if err != nil {
 		return Schematic{}, err
 	}
-	if out.Configs == nil {
-		out.Configs = make(map[string]msgpack.EncodedJSON)
+	out.Configs = make(map[string]ElementConfig, len(props))
+	for k, raw := range props {
+		if cfg, ok := migrateConfigEntry(raw); ok {
+			out.Configs[k] = cfg
+		}
 	}
 	out.Edges = make([]Edge, len(d.Edges))
 	for i, e := range d.Edges {
@@ -66,7 +69,9 @@ func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error)
 		}
 		out.Edges[i] = edge
 		if edgeProps != nil {
-			out.Configs[edge.Key] = edgeProps
+			if cfg, ok := migrateConfigEntry(edgeProps); ok {
+				out.Configs[edge.Key] = cfg
+			}
 		}
 	}
 	return out, nil
@@ -223,6 +228,18 @@ func segmentsToRaw(segs []segment) []any {
 		out[i] = map[string]any{"direction": s.direction, "length": s.length}
 	}
 	return out
+}
+
+// migrateConfigEntry converts a legacy stored config (camelCase keys, written
+// verbatim by the Console) into the typed element config. ok is false when the
+// entry does not conform to any known variant; such entries are dropped rather
+// than failing the whole schematic migration.
+func migrateConfigEntry(raw msgpack.EncodedJSON) (ElementConfig, bool) {
+	cfg, err := decodeElementConfig(normalizeConfigKeys(raw))
+	if err != nil {
+		return ElementConfig{}, false
+	}
+	return cfg, true
 }
 
 // migrateProps decodes each opaque prop entry from raw JSON bytes into the

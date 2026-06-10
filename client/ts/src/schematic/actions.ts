@@ -22,6 +22,7 @@ import {
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
+import { elementConfigZ } from "@/schematic/types.gen";
 
 const handlers: Handlers = {
   rename: (state, payload) => {
@@ -57,7 +58,8 @@ const handlers: Handlers = {
     const idx = state.nodes.findIndex((n) => n.key === payload.node.key);
     if (idx === -1) {
       state.nodes.push(payload.node);
-      if (payload.config != null) state.configs[payload.node.key] = payload.config;
+      if (payload.config != null)
+        state.configs[payload.node.key] = elementConfigZ.parse(payload.config);
       return {
         inverse: [removeNode({ key: payload.node.key })],
         targets: [payload.node.key],
@@ -68,7 +70,8 @@ const handlers: Handlers = {
     const oldConfig =
       oldConfigRaw != null ? actions.snapshotDraft(oldConfigRaw) : undefined;
     state.nodes[idx] = payload.node;
-    if (payload.config != null) state.configs[payload.node.key] = payload.config;
+    if (payload.config != null)
+      state.configs[payload.node.key] = elementConfigZ.parse(payload.config);
     return {
       inverse: [
         setNode(
@@ -129,11 +132,14 @@ const handlers: Handlers = {
   setConfig: (state, payload) => {
     const existingRaw = state.configs[payload.key];
     if (existingRaw != null) {
-      const existing = actions.snapshotDraft(existingRaw);
+      const existing: record.Unknown = actions.snapshotDraft(existingRaw);
       const restoreFields: record.Unknown = {};
       for (const k of Object.keys(payload.config))
         if (existing[k] !== undefined) restoreFields[k] = existing[k];
-      state.configs[payload.key] = { ...existing, ...payload.config };
+      state.configs[payload.key] = elementConfigZ.parse({
+        ...existing,
+        ...payload.config,
+      });
       if (Object.keys(restoreFields).length === 0)
         return { inverse: [], targets: [payload.key] };
       return {
@@ -150,7 +156,7 @@ const handlers: Handlers = {
       if (srcCfg?.color != null && !color.isZero(srcCfg.color))
         cfg = { ...cfg, color: srcCfg.color };
     }
-    state.configs[payload.key] = cfg;
+    state.configs[payload.key] = elementConfigZ.parse(cfg);
     return { inverse: [], targets: [payload.key] };
   },
 };

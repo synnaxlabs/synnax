@@ -31,15 +31,20 @@
   "edges": [],
   "configs": {
     "NCVBmjVavN6": {
-      "color": [250, 250, 250, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Value",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
@@ -50,9 +55,13 @@
         },
         "gradient": []
       },
-      "scale": 1,
-      "stalenessColor": [194, 157, 10, 1],
-      "stalenessTimeout": 5,
+      "staleness_color": {
+        "r": 194,
+        "g": 157,
+        "b": 10,
+        "a": 1
+      },
+      "staleness_timeout": 5,
       "telem": {
         "props": {
           "connections": [
@@ -95,22 +104,28 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "string",
+        "value_type": "string",
         "variant": "source"
       },
       "tooltip": ["stream_write_data_1"],
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "cJXBL6uIOmB": {
-      "color": [250, 250, 250, 1],
+      "color": {
+        "r": 250,
+        "g": 250,
+        "b": 250,
+        "a": 1
+      },
       "label": {
-        "align": "center",
-        "direction": "x",
         "label": "Light",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "direction": "x",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
@@ -146,7 +161,7 @@
           }
         },
         "type": "source-pipeline",
-        "valueType": "boolean",
+        "value_type": "boolean",
         "variant": "source"
       },
       "variant": "light"

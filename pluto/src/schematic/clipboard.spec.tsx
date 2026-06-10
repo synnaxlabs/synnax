@@ -68,9 +68,9 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
       },
     ],
     configs: {
-      n1: { variant: "tank", label: "Pump" },
-      n2: { variant: "tank", label: "Valve" },
-      n3: { variant: "tank", label: "Tank" },
+      n1: { variant: "tank", label: { label: "Pump" } },
+      n2: { variant: "tank", label: { label: "Valve" } },
+      n3: { variant: "tank", label: { label: "Tank" } },
       e1: { variant: "pipe" },
     },
   });
@@ -128,8 +128,8 @@ describe("schematic clipboard", () => {
         "n2",
       ]);
       expect(payload.edges.map((e: schematic.Edge) => e.key)).toEqual(["e1"]);
-      expect(payload.configs.n1).toEqual({ variant: "tank", label: "Pump" });
-      expect(payload.configs.e1).toEqual({ variant: "pipe" });
+      expect(payload.configs.n1).toEqual({ variant: "tank", label: { label: "Pump" } });
+      expect(payload.configs.e1).toEqual({ variant: "pipe", segments: [] });
       // Centroid of n1 (0,0) and n2 (100,100) = (50,50).
       expect(payload.anchor).toEqual({ x: 50, y: 50 });
       expect(event.preventDefault).toHaveBeenCalled();

@@ -540,7 +540,7 @@ func (x *Segment) GetLength() float64 {
 type SegmentedEdgeConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// color is the stroke color of the edge.
-	Color *pb1.Color `protobuf:"bytes,1,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,1,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// segments is the ordered list of orthogonal runs that trace the connector path from
 	// the source handle to the target handle.
 	Segments      []*Segment `protobuf:"bytes,2,rep,name=segments,proto3" json:"segments,omitempty"`
@@ -732,15 +732,15 @@ type LabelConfig struct {
 	// label is the text content of the label.
 	Label string `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
 	// level is the typography level of the label text.
-	Level pb2.Level `protobuf:"varint,2,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	Level *pb2.Level `protobuf:"varint,2,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// orientation is the placement of the label relative to the symbol.
-	Orientation pb.Location `protobuf:"varint,3,opt,name=orientation,proto3,enum=x.spatial.pb.Location" json:"orientation,omitempty"`
+	Orientation *pb.Location `protobuf:"varint,3,opt,name=orientation,proto3,enum=x.spatial.pb.Location,oneof" json:"orientation,omitempty"`
 	// direction is the axis along which the label text flows.
-	Direction pb.Direction `protobuf:"varint,4,opt,name=direction,proto3,enum=x.spatial.pb.Direction" json:"direction,omitempty"`
+	Direction *pb.Direction `protobuf:"varint,4,opt,name=direction,proto3,enum=x.spatial.pb.Direction,oneof" json:"direction,omitempty"`
 	// max_inline_size is the maximum inline size of the label in pixels before wrapping.
-	MaxInlineSize float64 `protobuf:"fixed64,5,opt,name=max_inline_size,json=maxInlineSize,proto3" json:"max_inline_size,omitempty"`
+	MaxInlineSize *float64 `protobuf:"fixed64,5,opt,name=max_inline_size,json=maxInlineSize,proto3,oneof" json:"max_inline_size,omitempty"`
 	// align is the alignment of the label text within its box.
-	Align         FlexAlignment `protobuf:"varint,6,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment" json:"align,omitempty"`
+	Align         *FlexAlignment `protobuf:"varint,6,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment,oneof" json:"align,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -783,36 +783,36 @@ func (x *LabelConfig) GetLabel() string {
 }
 
 func (x *LabelConfig) GetLevel() pb2.Level {
-	if x != nil {
-		return x.Level
+	if x != nil && x.Level != nil {
+		return *x.Level
 	}
 	return pb2.Level(0)
 }
 
 func (x *LabelConfig) GetOrientation() pb.Location {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.Location(0)
 }
 
 func (x *LabelConfig) GetDirection() pb.Direction {
-	if x != nil {
-		return x.Direction
+	if x != nil && x.Direction != nil {
+		return *x.Direction
 	}
 	return pb.Direction(0)
 }
 
 func (x *LabelConfig) GetMaxInlineSize() float64 {
-	if x != nil {
-		return x.MaxInlineSize
+	if x != nil && x.MaxInlineSize != nil {
+		return *x.MaxInlineSize
 	}
 	return 0
 }
 
 func (x *LabelConfig) GetAlign() FlexAlignment {
-	if x != nil {
-		return x.Align
+	if x != nil && x.Align != nil {
+		return *x.Align
 	}
 	return FlexAlignment_FLEX_ALIGNMENT_START
 }
@@ -821,9 +821,9 @@ func (x *LabelConfig) GetAlign() FlexAlignment {
 type LabeledConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation   pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation   *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -866,8 +866,8 @@ func (x *LabeledConfig) GetLabel() *LabelConfig {
 }
 
 func (x *LabeledConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -876,9 +876,9 @@ func (x *LabeledConfig) GetOrientation() pb.OuterLocation {
 type ChipConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// source is the status source displayed by the control chip.
-	Source *StatusSourceSpec `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	Source *StatusSourceSpec `protobuf:"bytes,1,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// sink is the sink used to acquire and release control authority.
-	Sink          *BooleanSinkSpec `protobuf:"bytes,2,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink          *BooleanSinkSpec `protobuf:"bytes,2,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -931,9 +931,9 @@ func (x *ChipConfig) GetSink() *BooleanSinkSpec {
 type IndicatorConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// status_source is the status source driving the indicator state.
-	StatusSource *StatusSourceSpec `protobuf:"bytes,1,opt,name=status_source,json=statusSource,proto3" json:"status_source,omitempty"`
+	StatusSource *StatusSourceSpec `protobuf:"bytes,1,opt,name=status_source,json=statusSource,proto3,oneof" json:"status_source,omitempty"`
 	// color_source is the color source driving the indicator tint.
-	ColorSource   *ColorSourceSpec `protobuf:"bytes,2,opt,name=color_source,json=colorSource,proto3" json:"color_source,omitempty"`
+	ColorSource   *ColorSourceSpec `protobuf:"bytes,2,opt,name=color_source,json=colorSource,proto3,oneof" json:"color_source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -993,11 +993,11 @@ type ControlStateConfig struct {
 	// show_indicator indicates whether the state indicator is visible.
 	ShowIndicator bool `protobuf:"varint,3,opt,name=show_indicator,json=showIndicator,proto3" json:"show_indicator,omitempty"`
 	// chip is the authority chip configuration.
-	Chip *ChipConfig `protobuf:"bytes,4,opt,name=chip,proto3" json:"chip,omitempty"`
+	Chip *ChipConfig `protobuf:"bytes,4,opt,name=chip,proto3,oneof" json:"chip,omitempty"`
 	// indicator is the indicator configuration.
-	Indicator *IndicatorConfig `protobuf:"bytes,5,opt,name=indicator,proto3" json:"indicator,omitempty"`
+	Indicator *IndicatorConfig `protobuf:"bytes,5,opt,name=indicator,proto3,oneof" json:"indicator,omitempty"`
 	// orientation is the placement of the control state widget relative to the symbol.
-	Orientation   pb.Location `protobuf:"varint,6,opt,name=orientation,proto3,enum=x.spatial.pb.Location" json:"orientation,omitempty"`
+	Orientation   *pb.Location `protobuf:"varint,6,opt,name=orientation,proto3,enum=x.spatial.pb.Location,oneof" json:"orientation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1068,8 +1068,8 @@ func (x *ControlStateConfig) GetIndicator() *IndicatorConfig {
 }
 
 func (x *ControlStateConfig) GetOrientation() pb.Location {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.Location(0)
 }
@@ -1079,15 +1079,15 @@ func (x *ControlStateConfig) GetOrientation() pb.Location {
 type ToggleConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// source is the boolean source that drives the symbol's active state.
-	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// sink is the boolean sink that receives actuation commands.
-	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	// control is the control state display configuration.
-	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3" json:"control,omitempty"`
+	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay  float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1132,8 +1132,8 @@ func (x *ToggleConfig) GetLabel() *LabelConfig {
 }
 
 func (x *ToggleConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -1170,13 +1170,13 @@ func (x *ToggleConfig) GetOnClickDelay() float64 {
 type StaticSymbolConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale         float64 `protobuf:"fixed64,4,opt,name=scale,proto3" json:"scale,omitempty"`
+	Scale         *float64 `protobuf:"fixed64,4,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1219,8 +1219,8 @@ func (x *StaticSymbolConfig) GetLabel() *LabelConfig {
 }
 
 func (x *StaticSymbolConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -1233,8 +1233,8 @@ func (x *StaticSymbolConfig) GetColor() *pb1.Color {
 }
 
 func (x *StaticSymbolConfig) GetScale() float64 {
-	if x != nil {
-		return x.Scale
+	if x != nil && x.Scale != nil {
+		return *x.Scale
 	}
 	return 0
 }
@@ -1243,21 +1243,21 @@ func (x *StaticSymbolConfig) GetScale() float64 {
 type ToggleSymbolConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// source is the boolean source that drives the symbol's active state.
-	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// sink is the boolean sink that receives actuation commands.
-	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	// control is the control state display configuration.
-	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3" json:"control,omitempty"`
+	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
 	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale         float64 `protobuf:"fixed64,8,opt,name=scale,proto3" json:"scale,omitempty"`
+	Scale         *float64 `protobuf:"fixed64,8,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1300,8 +1300,8 @@ func (x *ToggleSymbolConfig) GetLabel() *LabelConfig {
 }
 
 func (x *ToggleSymbolConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -1342,8 +1342,8 @@ func (x *ToggleSymbolConfig) GetColor() *pb1.Color {
 }
 
 func (x *ToggleSymbolConfig) GetScale() float64 {
-	if x != nil {
-		return x.Scale
+	if x != nil && x.Scale != nil {
+		return *x.Scale
 	}
 	return 0
 }
@@ -1353,17 +1353,17 @@ func (x *ToggleSymbolConfig) GetScale() float64 {
 type DummyToggleSymbolConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// enabled indicates whether the symbol renders in its active state.
 	Enabled bool `protobuf:"varint,3,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// clickable indicates whether clicking the symbol toggles its state.
 	Clickable bool `protobuf:"varint,4,opt,name=clickable,proto3" json:"clickable,omitempty"`
 	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale         float64 `protobuf:"fixed64,6,opt,name=scale,proto3" json:"scale,omitempty"`
+	Scale         *float64 `protobuf:"fixed64,6,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1406,8 +1406,8 @@ func (x *DummyToggleSymbolConfig) GetLabel() *LabelConfig {
 }
 
 func (x *DummyToggleSymbolConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -1434,8 +1434,8 @@ func (x *DummyToggleSymbolConfig) GetColor() *pb1.Color {
 }
 
 func (x *DummyToggleSymbolConfig) GetScale() float64 {
-	if x != nil {
-		return x.Scale
+	if x != nil && x.Scale != nil {
+		return *x.Scale
 	}
 	return 0
 }
@@ -1444,21 +1444,21 @@ func (x *DummyToggleSymbolConfig) GetScale() float64 {
 type SolenoidValveConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// source is the boolean source that drives the symbol's active state.
-	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// sink is the boolean sink that receives actuation commands.
-	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	// control is the control state display configuration.
-	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3" json:"control,omitempty"`
+	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
 	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale float64 `protobuf:"fixed64,8,opt,name=scale,proto3" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,8,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// normally_open indicates whether the valve is open when unpowered.
 	NormallyOpen  bool `protobuf:"varint,9,opt,name=normally_open,json=normallyOpen,proto3" json:"normally_open,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1503,8 +1503,8 @@ func (x *SolenoidValveConfig) GetLabel() *LabelConfig {
 }
 
 func (x *SolenoidValveConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -1545,8 +1545,8 @@ func (x *SolenoidValveConfig) GetColor() *pb1.Color {
 }
 
 func (x *SolenoidValveConfig) GetScale() float64 {
-	if x != nil {
-		return x.Scale
+	if x != nil && x.Scale != nil {
+		return *x.Scale
 	}
 	return 0
 }
@@ -1568,7 +1568,7 @@ type StateMapping struct {
 	// value is the channel value this state corresponds to.
 	Value float64 `protobuf:"fixed64,3,opt,name=value,proto3" json:"value,omitempty"`
 	// color is the display color associated with this state.
-	Color         *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color         *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1690,19 +1690,19 @@ func (x *Redline) GetGradient() []*pb1.Stop {
 type BoxConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the box's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the box within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// color is the border color of the box.
-	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the box.
-	BackgroundColor *pb1.Color `protobuf:"bytes,4,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,4,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	// dimensions is the rendered size of the box in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// border_radius is the uniform corner radius of the box in pixels.
-	BorderRadius float64 `protobuf:"fixed64,6,opt,name=border_radius,json=borderRadius,proto3" json:"border_radius,omitempty"`
+	BorderRadius *float64 `protobuf:"fixed64,6,opt,name=border_radius,json=borderRadius,proto3,oneof" json:"border_radius,omitempty"`
 	// stroke_width is the border stroke width in pixels.
-	StrokeWidth   float64 `protobuf:"fixed64,7,opt,name=stroke_width,json=strokeWidth,proto3" json:"stroke_width,omitempty"`
+	StrokeWidth   *float64 `protobuf:"fixed64,7,opt,name=stroke_width,json=strokeWidth,proto3,oneof" json:"stroke_width,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1745,8 +1745,8 @@ func (x *BoxConfig) GetLabel() *LabelConfig {
 }
 
 func (x *BoxConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -1773,15 +1773,15 @@ func (x *BoxConfig) GetDimensions() *pb.Dimensions {
 }
 
 func (x *BoxConfig) GetBorderRadius() float64 {
-	if x != nil {
-		return x.BorderRadius
+	if x != nil && x.BorderRadius != nil {
+		return *x.BorderRadius
 	}
 	return 0
 }
 
 func (x *BoxConfig) GetStrokeWidth() float64 {
-	if x != nil {
-		return x.StrokeWidth
+	if x != nil && x.StrokeWidth != nil {
+		return *x.StrokeWidth
 	}
 	return 0
 }
@@ -1790,23 +1790,23 @@ func (x *BoxConfig) GetStrokeWidth() float64 {
 type ButtonConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// size is the rendered size preset of the button.
-	Size ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize" json:"size,omitempty"`
+	Size *ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
 	// level is the typography level of the button text.
-	Level pb2.Level `protobuf:"varint,4,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	Level *pb2.Level `protobuf:"varint,4,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `protobuf:"fixed64,5,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
 	// sink is the boolean sink that receives button presses.
-	Sink *BooleanSinkSpec `protobuf:"bytes,6,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink *BooleanSinkSpec `protobuf:"bytes,6,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	// mode is the actuation behavior of the button.
-	Mode ButtonMode `protobuf:"varint,7,opt,name=mode,proto3,enum=service.schematic.pb.ButtonMode" json:"mode,omitempty"`
+	Mode *ButtonMode `protobuf:"varint,7,opt,name=mode,proto3,enum=service.schematic.pb.ButtonMode,oneof" json:"mode,omitempty"`
 	// color is the background color of the button.
-	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// control is the control state display configuration.
-	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3" json:"control,omitempty"`
+	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1849,22 +1849,22 @@ func (x *ButtonConfig) GetLabel() *LabelConfig {
 }
 
 func (x *ButtonConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
 
 func (x *ButtonConfig) GetSize() ComponentSize {
-	if x != nil {
-		return x.Size
+	if x != nil && x.Size != nil {
+		return *x.Size
 	}
 	return ComponentSize_COMPONENT_SIZE_TINY
 }
 
 func (x *ButtonConfig) GetLevel() pb2.Level {
-	if x != nil {
-		return x.Level
+	if x != nil && x.Level != nil {
+		return *x.Level
 	}
 	return pb2.Level(0)
 }
@@ -1884,8 +1884,8 @@ func (x *ButtonConfig) GetSink() *BooleanSinkSpec {
 }
 
 func (x *ButtonConfig) GetMode() ButtonMode {
-	if x != nil {
-		return x.Mode
+	if x != nil && x.Mode != nil {
+		return *x.Mode
 	}
 	return ButtonMode_BUTTON_MODE_FIRE
 }
@@ -1908,17 +1908,17 @@ func (x *ButtonConfig) GetControl() *ControlStateConfig {
 type CircleConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// radius is the radius of the circle in pixels.
 	Radius float64 `protobuf:"fixed64,3,opt,name=radius,proto3" json:"radius,omitempty"`
 	// color is the border color of the circle.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the circle.
-	BackgroundColor *pb1.Color `protobuf:"bytes,5,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,5,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	// stroke_width is the border stroke width in pixels.
-	StrokeWidth   float64 `protobuf:"fixed64,6,opt,name=stroke_width,json=strokeWidth,proto3" json:"stroke_width,omitempty"`
+	StrokeWidth   *float64 `protobuf:"fixed64,6,opt,name=stroke_width,json=strokeWidth,proto3,oneof" json:"stroke_width,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1961,8 +1961,8 @@ func (x *CircleConfig) GetLabel() *LabelConfig {
 }
 
 func (x *CircleConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -1989,8 +1989,8 @@ func (x *CircleConfig) GetBackgroundColor() *pb1.Color {
 }
 
 func (x *CircleConfig) GetStrokeWidth() float64 {
-	if x != nil {
-		return x.StrokeWidth
+	if x != nil && x.StrokeWidth != nil {
+		return *x.StrokeWidth
 	}
 	return 0
 }
@@ -1999,35 +1999,35 @@ func (x *CircleConfig) GetStrokeWidth() float64 {
 type GaugeConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// position is the offset of the gauge contents within the symbol.
-	Position *pb.XY `protobuf:"bytes,3,opt,name=position,proto3" json:"position,omitempty"`
+	Position *pb.XY `protobuf:"bytes,3,opt,name=position,proto3,oneof" json:"position,omitempty"`
 	// color is the accent color of the gauge arc.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// bounds is the numeric range displayed by the gauge.
-	Bounds *pb.Bounds `protobuf:"bytes,5,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	Bounds *pb.Bounds `protobuf:"bytes,5,opt,name=bounds,proto3,oneof" json:"bounds,omitempty"`
 	// bar_width is the thickness of the gauge arc in pixels.
-	BarWidth float64 `protobuf:"fixed64,6,opt,name=bar_width,json=barWidth,proto3" json:"bar_width,omitempty"`
+	BarWidth *float64 `protobuf:"fixed64,6,opt,name=bar_width,json=barWidth,proto3,oneof" json:"bar_width,omitempty"`
 	// telem is the string source that supplies the displayed value.
-	Telem *StringSourceSpec `protobuf:"bytes,7,opt,name=telem,proto3" json:"telem,omitempty"`
+	Telem *StringSourceSpec `protobuf:"bytes,7,opt,name=telem,proto3,oneof" json:"telem,omitempty"`
 	// background_telem is the color source that drives the gauge background.
-	BackgroundTelem *ColorSourceSpec `protobuf:"bytes,8,opt,name=background_telem,json=backgroundTelem,proto3" json:"background_telem,omitempty"`
+	BackgroundTelem *ColorSourceSpec `protobuf:"bytes,8,opt,name=background_telem,json=backgroundTelem,proto3,oneof" json:"background_telem,omitempty"`
 	// precision is the number of decimal places shown.
-	Precision float64 `protobuf:"fixed64,9,opt,name=precision,proto3" json:"precision,omitempty"`
+	Precision *float64 `protobuf:"fixed64,9,opt,name=precision,proto3,oneof" json:"precision,omitempty"`
 	// min_width is the minimum rendered width of the value in pixels.
-	MinWidth float64 `protobuf:"fixed64,10,opt,name=min_width,json=minWidth,proto3" json:"min_width,omitempty"`
+	MinWidth *float64 `protobuf:"fixed64,10,opt,name=min_width,json=minWidth,proto3,oneof" json:"min_width,omitempty"`
 	// width is the rendered width of the gauge in pixels.
-	Width float64 `protobuf:"fixed64,11,opt,name=width,proto3" json:"width,omitempty"`
+	Width *float64 `protobuf:"fixed64,11,opt,name=width,proto3,oneof" json:"width,omitempty"`
 	// notation is the numeric notation used to format the value.
-	Notation pb3.Notation `protobuf:"varint,12,opt,name=notation,proto3,enum=x.notation.pb.Notation" json:"notation,omitempty"`
+	Notation *pb3.Notation `protobuf:"varint,12,opt,name=notation,proto3,enum=x.notation.pb.Notation,oneof" json:"notation,omitempty"`
 	// location is the anchor of the value within the gauge.
-	Location *pb.LocationXY `protobuf:"bytes,13,opt,name=location,proto3" json:"location,omitempty"`
+	Location *pb.LocationXY `protobuf:"bytes,13,opt,name=location,proto3,oneof" json:"location,omitempty"`
 	// units is the unit suffix displayed after the value.
 	Units string `protobuf:"bytes,14,opt,name=units,proto3" json:"units,omitempty"`
 	// level is the typography level of the displayed value.
-	Level         pb2.Level `protobuf:"varint,15,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	Level         *pb2.Level `protobuf:"varint,15,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2070,8 +2070,8 @@ func (x *GaugeConfig) GetLabel() *LabelConfig {
 }
 
 func (x *GaugeConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -2098,8 +2098,8 @@ func (x *GaugeConfig) GetBounds() *pb.Bounds {
 }
 
 func (x *GaugeConfig) GetBarWidth() float64 {
-	if x != nil {
-		return x.BarWidth
+	if x != nil && x.BarWidth != nil {
+		return *x.BarWidth
 	}
 	return 0
 }
@@ -2119,29 +2119,29 @@ func (x *GaugeConfig) GetBackgroundTelem() *ColorSourceSpec {
 }
 
 func (x *GaugeConfig) GetPrecision() float64 {
-	if x != nil {
-		return x.Precision
+	if x != nil && x.Precision != nil {
+		return *x.Precision
 	}
 	return 0
 }
 
 func (x *GaugeConfig) GetMinWidth() float64 {
-	if x != nil {
-		return x.MinWidth
+	if x != nil && x.MinWidth != nil {
+		return *x.MinWidth
 	}
 	return 0
 }
 
 func (x *GaugeConfig) GetWidth() float64 {
-	if x != nil {
-		return x.Width
+	if x != nil && x.Width != nil {
+		return *x.Width
 	}
 	return 0
 }
 
 func (x *GaugeConfig) GetNotation() pb3.Notation {
-	if x != nil {
-		return x.Notation
+	if x != nil && x.Notation != nil {
+		return *x.Notation
 	}
 	return pb3.Notation(0)
 }
@@ -2161,8 +2161,8 @@ func (x *GaugeConfig) GetUnits() string {
 }
 
 func (x *GaugeConfig) GetLevel() pb2.Level {
-	if x != nil {
-		return x.Level
+	if x != nil && x.Level != nil {
+		return *x.Level
 	}
 	return pb2.Level(0)
 }
@@ -2171,21 +2171,21 @@ func (x *GaugeConfig) GetLevel() pb2.Level {
 type InputConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// size is the rendered size preset of the input.
-	Size ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize" json:"size,omitempty"`
+	Size *ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
 	// sink is the string sink that receives submitted values.
-	Sink *StringSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink *StringSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	// dimensions is the rendered size of the input in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// color is the accent color of the input.
-	Color *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// disabled indicates whether the input rejects interaction.
 	Disabled bool `protobuf:"varint,7,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	// control is the control state display configuration.
-	Control       *ControlStateConfig `protobuf:"bytes,8,opt,name=control,proto3" json:"control,omitempty"`
+	Control       *ControlStateConfig `protobuf:"bytes,8,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2228,15 +2228,15 @@ func (x *InputConfig) GetLabel() *LabelConfig {
 }
 
 func (x *InputConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
 
 func (x *InputConfig) GetSize() ComponentSize {
-	if x != nil {
-		return x.Size
+	if x != nil && x.Size != nil {
+		return *x.Size
 	}
 	return ComponentSize_COMPONENT_SIZE_TINY
 }
@@ -2280,15 +2280,15 @@ func (x *InputConfig) GetControl() *ControlStateConfig {
 type LightConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// source is the boolean source that drives the light's on state.
-	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// color is the illuminated color of the light.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale         float64 `protobuf:"fixed64,5,opt,name=scale,proto3" json:"scale,omitempty"`
+	Scale         *float64 `protobuf:"fixed64,5,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2331,8 +2331,8 @@ func (x *LightConfig) GetLabel() *LabelConfig {
 }
 
 func (x *LightConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -2352,8 +2352,8 @@ func (x *LightConfig) GetColor() *pb1.Color {
 }
 
 func (x *LightConfig) GetScale() float64 {
-	if x != nil {
-		return x.Scale
+	if x != nil && x.Scale != nil {
+		return *x.Scale
 	}
 	return 0
 }
@@ -2362,13 +2362,13 @@ func (x *LightConfig) GetScale() float64 {
 type OffPageReferenceConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// orientation is the direction the reference arrow points.
-	Orientation pb.OuterLocation `protobuf:"varint,1,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,1,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// label is the label displayed inside the reference.
 	Label *LabelConfig `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
 	// level is the typography level of the reference text.
-	Level pb2.Level `protobuf:"varint,3,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	Level *pb2.Level `protobuf:"varint,3,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// color is the fill color of the reference.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// page is the key of the schematic this reference links to.
 	Page string `protobuf:"bytes,5,opt,name=page,proto3" json:"page,omitempty"`
 	// dbl_click_nav indicates whether double-clicking navigates to the linked schematic.
@@ -2408,8 +2408,8 @@ func (*OffPageReferenceConfig) Descriptor() ([]byte, []int) {
 }
 
 func (x *OffPageReferenceConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -2422,8 +2422,8 @@ func (x *OffPageReferenceConfig) GetLabel() *LabelConfig {
 }
 
 func (x *OffPageReferenceConfig) GetLevel() pb2.Level {
-	if x != nil {
-		return x.Level
+	if x != nil && x.Level != nil {
+		return *x.Level
 	}
 	return pb2.Level(0)
 }
@@ -2453,23 +2453,23 @@ func (x *OffPageReferenceConfig) GetDblClickNav() bool {
 type PolygonConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// num_sides is the number of sides of the polygon.
 	NumSides float64 `protobuf:"fixed64,3,opt,name=num_sides,json=numSides,proto3" json:"num_sides,omitempty"`
 	// side_length is the length of each side in pixels.
 	SideLength float64 `protobuf:"fixed64,4,opt,name=side_length,json=sideLength,proto3" json:"side_length,omitempty"`
 	// rotation is the rotation of the polygon in degrees.
-	Rotation float64 `protobuf:"fixed64,5,opt,name=rotation,proto3" json:"rotation,omitempty"`
+	Rotation *float64 `protobuf:"fixed64,5,opt,name=rotation,proto3,oneof" json:"rotation,omitempty"`
 	// corner_rounding is the corner rounding radius in pixels.
-	CornerRounding float64 `protobuf:"fixed64,6,opt,name=corner_rounding,json=cornerRounding,proto3" json:"corner_rounding,omitempty"`
+	CornerRounding *float64 `protobuf:"fixed64,6,opt,name=corner_rounding,json=cornerRounding,proto3,oneof" json:"corner_rounding,omitempty"`
 	// color is the border color of the polygon.
-	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the polygon.
-	BackgroundColor *pb1.Color `protobuf:"bytes,8,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,8,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	// stroke_width is the border stroke width in pixels.
-	StrokeWidth   float64 `protobuf:"fixed64,9,opt,name=stroke_width,json=strokeWidth,proto3" json:"stroke_width,omitempty"`
+	StrokeWidth   *float64 `protobuf:"fixed64,9,opt,name=stroke_width,json=strokeWidth,proto3,oneof" json:"stroke_width,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2512,8 +2512,8 @@ func (x *PolygonConfig) GetLabel() *LabelConfig {
 }
 
 func (x *PolygonConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -2533,15 +2533,15 @@ func (x *PolygonConfig) GetSideLength() float64 {
 }
 
 func (x *PolygonConfig) GetRotation() float64 {
-	if x != nil {
-		return x.Rotation
+	if x != nil && x.Rotation != nil {
+		return *x.Rotation
 	}
 	return 0
 }
 
 func (x *PolygonConfig) GetCornerRounding() float64 {
-	if x != nil {
-		return x.CornerRounding
+	if x != nil && x.CornerRounding != nil {
+		return *x.CornerRounding
 	}
 	return 0
 }
@@ -2561,8 +2561,8 @@ func (x *PolygonConfig) GetBackgroundColor() *pb1.Color {
 }
 
 func (x *PolygonConfig) GetStrokeWidth() float64 {
-	if x != nil {
-		return x.StrokeWidth
+	if x != nil && x.StrokeWidth != nil {
+		return *x.StrokeWidth
 	}
 	return 0
 }
@@ -2571,23 +2571,23 @@ func (x *PolygonConfig) GetStrokeWidth() float64 {
 type SelectConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// size is the rendered size preset of the select.
-	Size ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize" json:"size,omitempty"`
+	Size *ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
 	// sink is the numeric sink that receives the selected value.
-	Sink *NumberSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink *NumberSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	// color is the accent color of the select.
-	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// inline_size is the inline size of the select in pixels.
-	InlineSize float64 `protobuf:"fixed64,6,opt,name=inline_size,json=inlineSize,proto3" json:"inline_size,omitempty"`
+	InlineSize *float64 `protobuf:"fixed64,6,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
 	// options is the set of selectable states.
 	Options []*StateMapping `protobuf:"bytes,7,rep,name=options,proto3" json:"options,omitempty"`
 	// disabled indicates whether the select rejects interaction.
 	Disabled bool `protobuf:"varint,8,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	// control is the control state display configuration.
-	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3" json:"control,omitempty"`
+	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2630,15 +2630,15 @@ func (x *SelectConfig) GetLabel() *LabelConfig {
 }
 
 func (x *SelectConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
 
 func (x *SelectConfig) GetSize() ComponentSize {
-	if x != nil {
-		return x.Size
+	if x != nil && x.Size != nil {
+		return *x.Size
 	}
 	return ComponentSize_COMPONENT_SIZE_TINY
 }
@@ -2658,8 +2658,8 @@ func (x *SelectConfig) GetColor() *pb1.Color {
 }
 
 func (x *SelectConfig) GetInlineSize() float64 {
-	if x != nil {
-		return x.InlineSize
+	if x != nil && x.InlineSize != nil {
+		return *x.InlineSize
 	}
 	return 0
 }
@@ -2689,25 +2689,25 @@ func (x *SelectConfig) GetControl() *ControlStateConfig {
 type SetpointConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// size is the rendered size preset of the setpoint.
-	Size ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize" json:"size,omitempty"`
+	Size *ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
 	// source is the numeric source displaying the current value.
-	Source *NumberSourceSpec `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
+	Source *NumberSourceSpec `protobuf:"bytes,4,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// sink is the numeric sink that receives submitted setpoints.
-	Sink *NumberSinkSpec `protobuf:"bytes,5,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink *NumberSinkSpec `protobuf:"bytes,5,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	// dimensions is the rendered size of the setpoint in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,6,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,6,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// color is the accent color of the setpoint.
-	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// units is the unit suffix displayed after the value.
 	Units string `protobuf:"bytes,8,opt,name=units,proto3" json:"units,omitempty"`
 	// disabled indicates whether the setpoint rejects interaction.
 	Disabled bool `protobuf:"varint,9,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	// control is the control state display configuration.
-	Control       *ControlStateConfig `protobuf:"bytes,10,opt,name=control,proto3" json:"control,omitempty"`
+	Control       *ControlStateConfig `protobuf:"bytes,10,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2750,15 +2750,15 @@ func (x *SetpointConfig) GetLabel() *LabelConfig {
 }
 
 func (x *SetpointConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
 
 func (x *SetpointConfig) GetSize() ComponentSize {
-	if x != nil {
-		return x.Size
+	if x != nil && x.Size != nil {
+		return *x.Size
 	}
 	return ComponentSize_COMPONENT_SIZE_TINY
 }
@@ -2816,15 +2816,15 @@ func (x *SetpointConfig) GetControl() *ControlStateConfig {
 type StateIndicatorConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// source is the numeric source whose value selects the displayed state.
-	Source *NumberSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Source *NumberSourceSpec `protobuf:"bytes,3,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// color is the fallback color when no state matches.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// inline_size is the inline size of the indicator in pixels.
-	InlineSize float64 `protobuf:"fixed64,5,opt,name=inline_size,json=inlineSize,proto3" json:"inline_size,omitempty"`
+	InlineSize *float64 `protobuf:"fixed64,5,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
 	// options is the set of displayable states.
 	Options       []*StateMapping `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2869,8 +2869,8 @@ func (x *StateIndicatorConfig) GetLabel() *LabelConfig {
 }
 
 func (x *StateIndicatorConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -2890,8 +2890,8 @@ func (x *StateIndicatorConfig) GetColor() *pb1.Color {
 }
 
 func (x *StateIndicatorConfig) GetInlineSize() float64 {
-	if x != nil {
-		return x.InlineSize
+	if x != nil && x.InlineSize != nil {
+		return *x.InlineSize
 	}
 	return 0
 }
@@ -2907,19 +2907,19 @@ func (x *StateIndicatorConfig) GetOptions() []*StateMapping {
 type TextBoxConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// color is the text color.
-	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// width is the rendered width of the text box in pixels.
-	Width float64 `protobuf:"fixed64,4,opt,name=width,proto3" json:"width,omitempty"`
+	Width *float64 `protobuf:"fixed64,4,opt,name=width,proto3,oneof" json:"width,omitempty"`
 	// align is the alignment of the text within the box.
-	Align FlexAlignment `protobuf:"varint,5,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment" json:"align,omitempty"`
+	Align *FlexAlignment `protobuf:"varint,5,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment,oneof" json:"align,omitempty"`
 	// auto_fit indicates whether the box resizes to fit its content.
 	AutoFit bool `protobuf:"varint,6,opt,name=auto_fit,json=autoFit,proto3" json:"auto_fit,omitempty"`
 	// level is the typography level of the text.
-	Level pb2.Level `protobuf:"varint,7,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	Level *pb2.Level `protobuf:"varint,7,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// value is the text content of the box.
 	Value         string `protobuf:"bytes,8,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2964,8 +2964,8 @@ func (x *TextBoxConfig) GetLabel() *LabelConfig {
 }
 
 func (x *TextBoxConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -2978,15 +2978,15 @@ func (x *TextBoxConfig) GetColor() *pb1.Color {
 }
 
 func (x *TextBoxConfig) GetWidth() float64 {
-	if x != nil {
-		return x.Width
+	if x != nil && x.Width != nil {
+		return *x.Width
 	}
 	return 0
 }
 
 func (x *TextBoxConfig) GetAlign() FlexAlignment {
-	if x != nil {
-		return x.Align
+	if x != nil && x.Align != nil {
+		return *x.Align
 	}
 	return FlexAlignment_FLEX_ALIGNMENT_START
 }
@@ -2999,8 +2999,8 @@ func (x *TextBoxConfig) GetAutoFit() bool {
 }
 
 func (x *TextBoxConfig) GetLevel() pb2.Level {
-	if x != nil {
-		return x.Level
+	if x != nil && x.Level != nil {
+		return *x.Level
 	}
 	return pb2.Level(0)
 }
@@ -3016,49 +3016,49 @@ func (x *TextBoxConfig) GetValue() string {
 type ValueConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// position is the offset of the value contents within the symbol.
-	Position *pb.XY `protobuf:"bytes,3,opt,name=position,proto3" json:"position,omitempty"`
+	Position *pb.XY `protobuf:"bytes,3,opt,name=position,proto3,oneof" json:"position,omitempty"`
 	// color is the background color of the value.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// text_color is the color of the displayed text.
-	TextColor *pb1.Color `protobuf:"bytes,5,opt,name=text_color,json=textColor,proto3" json:"text_color,omitempty"`
+	TextColor *pb1.Color `protobuf:"bytes,5,opt,name=text_color,json=textColor,proto3,oneof" json:"text_color,omitempty"`
 	// tooltip is the list of tooltip lines shown on hover.
 	Tooltip []string `protobuf:"bytes,6,rep,name=tooltip,proto3" json:"tooltip,omitempty"`
 	// redline is the bounds-to-gradient mapping applied to the background.
-	Redline *Redline `protobuf:"bytes,7,opt,name=redline,proto3" json:"redline,omitempty"`
+	Redline *Redline `protobuf:"bytes,7,opt,name=redline,proto3,oneof" json:"redline,omitempty"`
 	// units is the unit suffix displayed after the value.
 	Units string `protobuf:"bytes,8,opt,name=units,proto3" json:"units,omitempty"`
 	// inline_size is the inline size of the value in pixels.
-	InlineSize float64 `protobuf:"fixed64,9,opt,name=inline_size,json=inlineSize,proto3" json:"inline_size,omitempty"`
+	InlineSize *float64 `protobuf:"fixed64,9,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
 	// telem is the string source that supplies the displayed value.
-	Telem *StringSourceSpec `protobuf:"bytes,10,opt,name=telem,proto3" json:"telem,omitempty"`
+	Telem *StringSourceSpec `protobuf:"bytes,10,opt,name=telem,proto3,oneof" json:"telem,omitempty"`
 	// background_telem is the color source that drives the background.
-	BackgroundTelem *ColorSourceSpec `protobuf:"bytes,11,opt,name=background_telem,json=backgroundTelem,proto3" json:"background_telem,omitempty"`
+	BackgroundTelem *ColorSourceSpec `protobuf:"bytes,11,opt,name=background_telem,json=backgroundTelem,proto3,oneof" json:"background_telem,omitempty"`
 	// level is the typography level of the displayed value.
-	Level pb2.Level `protobuf:"varint,12,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	Level *pb2.Level `protobuf:"varint,12,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// precision is the number of decimal places shown.
-	Precision float64 `protobuf:"fixed64,13,opt,name=precision,proto3" json:"precision,omitempty"`
+	Precision *float64 `protobuf:"fixed64,13,opt,name=precision,proto3,oneof" json:"precision,omitempty"`
 	// staleness_timeout is the duration in seconds after which the value is considered
 	// stale.
-	StalenessTimeout float64 `protobuf:"fixed64,14,opt,name=staleness_timeout,json=stalenessTimeout,proto3" json:"staleness_timeout,omitempty"`
+	StalenessTimeout *float64 `protobuf:"fixed64,14,opt,name=staleness_timeout,json=stalenessTimeout,proto3,oneof" json:"staleness_timeout,omitempty"`
 	// staleness_color is the color applied when the value is stale.
-	StalenessColor *pb1.Color `protobuf:"bytes,15,opt,name=staleness_color,json=stalenessColor,proto3" json:"staleness_color,omitempty"`
+	StalenessColor *pb1.Color `protobuf:"bytes,15,opt,name=staleness_color,json=stalenessColor,proto3,oneof" json:"staleness_color,omitempty"`
 	// min_width is the minimum rendered width of the value in pixels.
-	MinWidth float64 `protobuf:"fixed64,16,opt,name=min_width,json=minWidth,proto3" json:"min_width,omitempty"`
+	MinWidth *float64 `protobuf:"fixed64,16,opt,name=min_width,json=minWidth,proto3,oneof" json:"min_width,omitempty"`
 	// notation is the numeric notation used to format the value.
-	Notation pb3.Notation `protobuf:"varint,17,opt,name=notation,proto3,enum=x.notation.pb.Notation" json:"notation,omitempty"`
+	Notation *pb3.Notation `protobuf:"varint,17,opt,name=notation,proto3,enum=x.notation.pb.Notation,oneof" json:"notation,omitempty"`
 	// location is the anchor of the value within the symbol.
-	Location *pb.LocationXY `protobuf:"bytes,18,opt,name=location,proto3" json:"location,omitempty"`
+	Location *pb.LocationXY `protobuf:"bytes,18,opt,name=location,proto3,oneof" json:"location,omitempty"`
 	// use_width_for_background indicates whether the background spans the full configured
 	// width.
 	UseWidthForBackground bool `protobuf:"varint,19,opt,name=use_width_for_background,json=useWidthForBackground,proto3" json:"use_width_for_background,omitempty"`
 	// value_background_shift is the offset applied to the value background.
-	ValueBackgroundShift *pb.XY `protobuf:"bytes,20,opt,name=value_background_shift,json=valueBackgroundShift,proto3" json:"value_background_shift,omitempty"`
+	ValueBackgroundShift *pb.XY `protobuf:"bytes,20,opt,name=value_background_shift,json=valueBackgroundShift,proto3,oneof" json:"value_background_shift,omitempty"`
 	// value_background_over_scan is the extra padding applied around the value background.
-	ValueBackgroundOverScan *pb.XY `protobuf:"bytes,21,opt,name=value_background_over_scan,json=valueBackgroundOverScan,proto3" json:"value_background_over_scan,omitempty"`
+	ValueBackgroundOverScan *pb.XY `protobuf:"bytes,21,opt,name=value_background_over_scan,json=valueBackgroundOverScan,proto3,oneof" json:"value_background_over_scan,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -3101,8 +3101,8 @@ func (x *ValueConfig) GetLabel() *LabelConfig {
 }
 
 func (x *ValueConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -3150,8 +3150,8 @@ func (x *ValueConfig) GetUnits() string {
 }
 
 func (x *ValueConfig) GetInlineSize() float64 {
-	if x != nil {
-		return x.InlineSize
+	if x != nil && x.InlineSize != nil {
+		return *x.InlineSize
 	}
 	return 0
 }
@@ -3171,22 +3171,22 @@ func (x *ValueConfig) GetBackgroundTelem() *ColorSourceSpec {
 }
 
 func (x *ValueConfig) GetLevel() pb2.Level {
-	if x != nil {
-		return x.Level
+	if x != nil && x.Level != nil {
+		return *x.Level
 	}
 	return pb2.Level(0)
 }
 
 func (x *ValueConfig) GetPrecision() float64 {
-	if x != nil {
-		return x.Precision
+	if x != nil && x.Precision != nil {
+		return *x.Precision
 	}
 	return 0
 }
 
 func (x *ValueConfig) GetStalenessTimeout() float64 {
-	if x != nil {
-		return x.StalenessTimeout
+	if x != nil && x.StalenessTimeout != nil {
+		return *x.StalenessTimeout
 	}
 	return 0
 }
@@ -3199,15 +3199,15 @@ func (x *ValueConfig) GetStalenessColor() *pb1.Color {
 }
 
 func (x *ValueConfig) GetMinWidth() float64 {
-	if x != nil {
-		return x.MinWidth
+	if x != nil && x.MinWidth != nil {
+		return *x.MinWidth
 	}
 	return 0
 }
 
 func (x *ValueConfig) GetNotation() pb3.Notation {
-	if x != nil {
-		return x.Notation
+	if x != nil && x.Notation != nil {
+		return *x.Notation
 	}
 	return pb3.Notation(0)
 }
@@ -3244,17 +3244,17 @@ func (x *ValueConfig) GetValueBackgroundOverScan() *pb.XY {
 type TankConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// color is the border color of the tank.
-	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the tank.
-	BackgroundColor *pb1.Color `protobuf:"bytes,4,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,4,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	// dimensions is the rendered size of the tank in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// border_radius is the corner radius of the tank.
-	BorderRadius  *pb4.Radius `protobuf:"bytes,6,opt,name=border_radius,json=borderRadius,proto3" json:"border_radius,omitempty"`
+	BorderRadius  *pb4.Radius `protobuf:"bytes,6,opt,name=border_radius,json=borderRadius,proto3,oneof" json:"border_radius,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3297,8 +3297,8 @@ func (x *TankConfig) GetLabel() *LabelConfig {
 }
 
 func (x *TankConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -3335,17 +3335,17 @@ func (x *TankConfig) GetBorderRadius() *pb4.Radius {
 type CylinderConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// dimensions is the rendered size of the cylinder in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,3,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,3,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// border_radius is the corner radius of the cylinder.
-	BorderRadius *pb4.Radius `protobuf:"bytes,4,opt,name=border_radius,json=borderRadius,proto3" json:"border_radius,omitempty"`
+	BorderRadius *pb4.Radius `protobuf:"bytes,4,opt,name=border_radius,json=borderRadius,proto3,oneof" json:"border_radius,omitempty"`
 	// color is the border color of the cylinder.
-	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the cylinder.
-	BackgroundColor *pb1.Color `protobuf:"bytes,6,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,6,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -3388,8 +3388,8 @@ func (x *CylinderConfig) GetLabel() *LabelConfig {
 }
 
 func (x *CylinderConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -3426,23 +3426,23 @@ func (x *CylinderConfig) GetBackgroundColor() *pb1.Color {
 type CustomActuatorConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// source is the boolean source that drives the symbol's active state.
-	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// sink is the boolean sink that receives actuation commands.
-	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3,oneof" json:"sink,omitempty"`
 	// control is the control state display configuration.
-	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3" json:"control,omitempty"`
+	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
 	// spec_key is the key of the custom symbol spec this instance renders.
 	SpecKey string `protobuf:"bytes,7,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
 	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale float64 `protobuf:"fixed64,9,opt,name=scale,proto3" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,9,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// state_overrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
@@ -3489,8 +3489,8 @@ func (x *CustomActuatorConfig) GetLabel() *LabelConfig {
 }
 
 func (x *CustomActuatorConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -3538,8 +3538,8 @@ func (x *CustomActuatorConfig) GetColor() *pb1.Color {
 }
 
 func (x *CustomActuatorConfig) GetScale() float64 {
-	if x != nil {
-		return x.Scale
+	if x != nil && x.Scale != nil {
+		return *x.Scale
 	}
 	return 0
 }
@@ -3555,15 +3555,15 @@ func (x *CustomActuatorConfig) GetStateOverrides() []*structpb.Struct {
 type CustomStaticConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
-	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
 	// spec_key is the key of the custom symbol spec this instance renders.
 	SpecKey string `protobuf:"bytes,3,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
 	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale float64 `protobuf:"fixed64,5,opt,name=scale,proto3" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,5,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// state_overrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
@@ -3610,8 +3610,8 @@ func (x *CustomStaticConfig) GetLabel() *LabelConfig {
 }
 
 func (x *CustomStaticConfig) GetOrientation() pb.OuterLocation {
-	if x != nil {
-		return x.Orientation
+	if x != nil && x.Orientation != nil {
+		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
 }
@@ -3631,8 +3631,8 @@ func (x *CustomStaticConfig) GetColor() *pb1.Color {
 }
 
 func (x *CustomStaticConfig) GetScale() float64 {
-	if x != nil {
-		return x.Scale
+	if x != nil && x.Scale != nil {
+		return *x.Scale
 	}
 	return 0
 }
@@ -3659,10 +3659,9 @@ type Schematic struct {
 	Nodes []*Node `protobuf:"bytes,4,rep,name=nodes,proto3" json:"nodes,omitempty"`
 	// edges contains all connections between nodes.
 	Edges []*Edge `protobuf:"bytes,5,rep,name=edges,proto3" json:"edges,omitempty"`
-	// configs contains per-element configuration keyed by node or edge key. The shape of
-	// each value is determined by the element's variant; the wire format intentionally
-	// stores it as an opaque record.
-	Configs       map[string]*structpb.Struct `protobuf:"bytes,6,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// configs contains per-element configuration keyed by node or edge key. The variant of
+	// each value selects the symbol or edge style it configures.
+	Configs       map[string]*ElementConfig `protobuf:"bytes,6,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3732,7 +3731,7 @@ func (x *Schematic) GetEdges() []*Edge {
 	return nil
 }
 
-func (x *Schematic) GetConfigs() map[string]*structpb.Struct {
+func (x *Schematic) GetConfigs() map[string]*ElementConfig {
 	if x != nil {
 		return x.Configs
 	}
@@ -6091,6 +6090,1770 @@ func (*NodeConfig_CustomActuator) isNodeConfig_Variant() {}
 
 func (*NodeConfig_CustomStatic) isNodeConfig_Variant() {}
 
+// ElementConfig is the per-element configuration stored in the schematic configs map: a
+// node config or an edge config, discriminated by variant.
+type ElementConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*ElementConfig_Cap
+	//	*ElementConfig_Filter
+	//	*ElementConfig_FlowStraightener
+	//	*ElementConfig_HeaterElement
+	//	*ElementConfig_IsoCap
+	//	*ElementConfig_IsoFilter
+	//	*ElementConfig_Nozzle
+	//	*ElementConfig_Orifice
+	//	*ElementConfig_OrificePlate
+	//	*ElementConfig_Strainer
+	//	*ElementConfig_StrainerCone
+	//	*ElementConfig_Thruster
+	//	*ElementConfig_Vent
+	//	*ElementConfig_FlowmeterGeneral
+	//	*ElementConfig_FlowmeterElectromagnetic
+	//	*ElementConfig_FlowmeterVariableArea
+	//	*ElementConfig_FlowmeterCoriolis
+	//	*ElementConfig_FlowmeterNozzle
+	//	*ElementConfig_FlowmeterVenturi
+	//	*ElementConfig_FlowmeterRingPiston
+	//	*ElementConfig_FlowmeterPositiveDisplacement
+	//	*ElementConfig_FlowmeterTurbine
+	//	*ElementConfig_FlowmeterPulse
+	//	*ElementConfig_FlowmeterFloatSensor
+	//	*ElementConfig_FlowmeterOrifice
+	//	*ElementConfig_Box
+	//	*ElementConfig_Button
+	//	*ElementConfig_Circle
+	//	*ElementConfig_Gauge
+	//	*ElementConfig_Input
+	//	*ElementConfig_Light
+	//	*ElementConfig_OffPageReference
+	//	*ElementConfig_Polygon
+	//	*ElementConfig_Select
+	//	*ElementConfig_Setpoint
+	//	*ElementConfig_StateIndicator
+	//	*ElementConfig_Switch
+	//	*ElementConfig_TextBox
+	//	*ElementConfig_Value
+	//	*ElementConfig_Agitator
+	//	*ElementConfig_CrossBeamAgitator
+	//	*ElementConfig_FlatBladeAgitator
+	//	*ElementConfig_HeatExchangerGeneral
+	//	*ElementConfig_HeatExchangerM
+	//	*ElementConfig_HeatExchangerStraightTube
+	//	*ElementConfig_HelicalAgitator
+	//	*ElementConfig_PaddleAgitator
+	//	*ElementConfig_PropellerAgitator
+	//	*ElementConfig_RotaryMixer
+	//	*ElementConfig_StaticMixer
+	//	*ElementConfig_CavityPump
+	//	*ElementConfig_CentrifugalCompressor
+	//	*ElementConfig_Compressor
+	//	*ElementConfig_DiaphragmPump
+	//	*ElementConfig_EjectionPump
+	//	*ElementConfig_EjectorCompressor
+	//	*ElementConfig_LiquidRingCompressor
+	//	*ElementConfig_PistonPump
+	//	*ElementConfig_Pump
+	//	*ElementConfig_RollerVaneCompressor
+	//	*ElementConfig_ScrewPump
+	//	*ElementConfig_TurboCompressor
+	//	*ElementConfig_VacuumPump
+	//	*ElementConfig_BurstDisc
+	//	*ElementConfig_FlameArrestor
+	//	*ElementConfig_FlameArrestorDetonation
+	//	*ElementConfig_FlameArrestorExplosion
+	//	*ElementConfig_FlameArrestorFireRes
+	//	*ElementConfig_FlameArrestorFireResDetonation
+	//	*ElementConfig_IsoBurstDisc
+	//	*ElementConfig_AngledValve
+	//	*ElementConfig_AngledReliefValve
+	//	*ElementConfig_AngledSpringLoadedReliefValve
+	//	*ElementConfig_BallValve
+	//	*ElementConfig_BreatherValve
+	//	*ElementConfig_ButterflyValveOne
+	//	*ElementConfig_ButterflyValveTwo
+	//	*ElementConfig_CheckValve
+	//	*ElementConfig_CheckValveWithArrow
+	//	*ElementConfig_ElectricRegulator
+	//	*ElementConfig_ElectricRegulatorMotorized
+	//	*ElementConfig_FourWayValve
+	//	*ElementConfig_GateValve
+	//	*ElementConfig_IsoCheckValve
+	//	*ElementConfig_ManualValve
+	//	*ElementConfig_NeedleValve
+	//	*ElementConfig_Regulator
+	//	*ElementConfig_RegulatorManual
+	//	*ElementConfig_ReliefValve
+	//	*ElementConfig_SolenoidValve
+	//	*ElementConfig_SpringLoadedReliefValve
+	//	*ElementConfig_ThreeWayValve
+	//	*ElementConfig_ThreeWayBallValve
+	//	*ElementConfig_Valve
+	//	*ElementConfig_CrossJunction
+	//	*ElementConfig_Cylinder
+	//	*ElementConfig_Tank
+	//	*ElementConfig_TJunction
+	//	*ElementConfig_CustomActuator
+	//	*ElementConfig_CustomStatic
+	//	*ElementConfig_Pipe
+	//	*ElementConfig_Electric
+	//	*ElementConfig_Secondary
+	//	*ElementConfig_Jacketed
+	//	*ElementConfig_Hydraulic
+	//	*ElementConfig_Pneumatic
+	//	*ElementConfig_Data
+	Variant       isElementConfig_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ElementConfig) Reset() {
+	*x = ElementConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ElementConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ElementConfig) ProtoMessage() {}
+
+func (x *ElementConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ElementConfig.ProtoReflect.Descriptor instead.
+func (*ElementConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *ElementConfig) GetVariant() isElementConfig_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCap() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Cap); ok {
+			return x.Cap
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFilter() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Filter); ok {
+			return x.Filter
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowStraightener() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowStraightener); ok {
+			return x.FlowStraightener
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetHeaterElement() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_HeaterElement); ok {
+			return x.HeaterElement
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetIsoCap() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_IsoCap); ok {
+			return x.IsoCap
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetIsoFilter() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_IsoFilter); ok {
+			return x.IsoFilter
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetNozzle() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Nozzle); ok {
+			return x.Nozzle
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetOrifice() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Orifice); ok {
+			return x.Orifice
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetOrificePlate() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_OrificePlate); ok {
+			return x.OrificePlate
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetStrainer() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Strainer); ok {
+			return x.Strainer
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetStrainerCone() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_StrainerCone); ok {
+			return x.StrainerCone
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetThruster() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Thruster); ok {
+			return x.Thruster
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetVent() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Vent); ok {
+			return x.Vent
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterGeneral() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterGeneral); ok {
+			return x.FlowmeterGeneral
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterElectromagnetic() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterElectromagnetic); ok {
+			return x.FlowmeterElectromagnetic
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterVariableArea() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterVariableArea); ok {
+			return x.FlowmeterVariableArea
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterCoriolis() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterCoriolis); ok {
+			return x.FlowmeterCoriolis
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterNozzle() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterNozzle); ok {
+			return x.FlowmeterNozzle
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterVenturi() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterVenturi); ok {
+			return x.FlowmeterVenturi
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterRingPiston() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterRingPiston); ok {
+			return x.FlowmeterRingPiston
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterPositiveDisplacement() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterPositiveDisplacement); ok {
+			return x.FlowmeterPositiveDisplacement
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterTurbine() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterTurbine); ok {
+			return x.FlowmeterTurbine
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterPulse() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterPulse); ok {
+			return x.FlowmeterPulse
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterFloatSensor() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterFloatSensor); ok {
+			return x.FlowmeterFloatSensor
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlowmeterOrifice() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlowmeterOrifice); ok {
+			return x.FlowmeterOrifice
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetBox() *BoxConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Box); ok {
+			return x.Box
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetButton() *ButtonConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Button); ok {
+			return x.Button
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCircle() *CircleConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Circle); ok {
+			return x.Circle
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetGauge() *GaugeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Gauge); ok {
+			return x.Gauge
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetInput() *InputConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Input); ok {
+			return x.Input
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetLight() *LightConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Light); ok {
+			return x.Light
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetOffPageReference() *OffPageReferenceConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_OffPageReference); ok {
+			return x.OffPageReference
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetPolygon() *PolygonConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Polygon); ok {
+			return x.Polygon
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetSelect() *SelectConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Select); ok {
+			return x.Select
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetSetpoint() *SetpointConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Setpoint); ok {
+			return x.Setpoint
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetStateIndicator() *StateIndicatorConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_StateIndicator); ok {
+			return x.StateIndicator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetSwitch() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Switch); ok {
+			return x.Switch
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetTextBox() *TextBoxConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_TextBox); ok {
+			return x.TextBox
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetValue() *ValueConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Value); ok {
+			return x.Value
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Agitator); ok {
+			return x.Agitator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCrossBeamAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_CrossBeamAgitator); ok {
+			return x.CrossBeamAgitator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlatBladeAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlatBladeAgitator); ok {
+			return x.FlatBladeAgitator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetHeatExchangerGeneral() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_HeatExchangerGeneral); ok {
+			return x.HeatExchangerGeneral
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetHeatExchangerM() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_HeatExchangerM); ok {
+			return x.HeatExchangerM
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetHeatExchangerStraightTube() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_HeatExchangerStraightTube); ok {
+			return x.HeatExchangerStraightTube
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetHelicalAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_HelicalAgitator); ok {
+			return x.HelicalAgitator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetPaddleAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_PaddleAgitator); ok {
+			return x.PaddleAgitator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetPropellerAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_PropellerAgitator); ok {
+			return x.PropellerAgitator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetRotaryMixer() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_RotaryMixer); ok {
+			return x.RotaryMixer
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetStaticMixer() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_StaticMixer); ok {
+			return x.StaticMixer
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCavityPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_CavityPump); ok {
+			return x.CavityPump
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCentrifugalCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_CentrifugalCompressor); ok {
+			return x.CentrifugalCompressor
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Compressor); ok {
+			return x.Compressor
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetDiaphragmPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_DiaphragmPump); ok {
+			return x.DiaphragmPump
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetEjectionPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_EjectionPump); ok {
+			return x.EjectionPump
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetEjectorCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_EjectorCompressor); ok {
+			return x.EjectorCompressor
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetLiquidRingCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_LiquidRingCompressor); ok {
+			return x.LiquidRingCompressor
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetPistonPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_PistonPump); ok {
+			return x.PistonPump
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Pump); ok {
+			return x.Pump
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetRollerVaneCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_RollerVaneCompressor); ok {
+			return x.RollerVaneCompressor
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetScrewPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ScrewPump); ok {
+			return x.ScrewPump
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetTurboCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_TurboCompressor); ok {
+			return x.TurboCompressor
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetVacuumPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_VacuumPump); ok {
+			return x.VacuumPump
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetBurstDisc() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_BurstDisc); ok {
+			return x.BurstDisc
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlameArrestor() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlameArrestor); ok {
+			return x.FlameArrestor
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlameArrestorDetonation() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlameArrestorDetonation); ok {
+			return x.FlameArrestorDetonation
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlameArrestorExplosion() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlameArrestorExplosion); ok {
+			return x.FlameArrestorExplosion
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlameArrestorFireRes() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlameArrestorFireRes); ok {
+			return x.FlameArrestorFireRes
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFlameArrestorFireResDetonation() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FlameArrestorFireResDetonation); ok {
+			return x.FlameArrestorFireResDetonation
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetIsoBurstDisc() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_IsoBurstDisc); ok {
+			return x.IsoBurstDisc
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetAngledValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_AngledValve); ok {
+			return x.AngledValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetAngledReliefValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_AngledReliefValve); ok {
+			return x.AngledReliefValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetAngledSpringLoadedReliefValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_AngledSpringLoadedReliefValve); ok {
+			return x.AngledSpringLoadedReliefValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetBallValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_BallValve); ok {
+			return x.BallValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetBreatherValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_BreatherValve); ok {
+			return x.BreatherValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetButterflyValveOne() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ButterflyValveOne); ok {
+			return x.ButterflyValveOne
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetButterflyValveTwo() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ButterflyValveTwo); ok {
+			return x.ButterflyValveTwo
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCheckValve() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_CheckValve); ok {
+			return x.CheckValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCheckValveWithArrow() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_CheckValveWithArrow); ok {
+			return x.CheckValveWithArrow
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetElectricRegulator() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ElectricRegulator); ok {
+			return x.ElectricRegulator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetElectricRegulatorMotorized() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ElectricRegulatorMotorized); ok {
+			return x.ElectricRegulatorMotorized
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetFourWayValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_FourWayValve); ok {
+			return x.FourWayValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetGateValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_GateValve); ok {
+			return x.GateValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetIsoCheckValve() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_IsoCheckValve); ok {
+			return x.IsoCheckValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetManualValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ManualValve); ok {
+			return x.ManualValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetNeedleValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_NeedleValve); ok {
+			return x.NeedleValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetRegulator() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Regulator); ok {
+			return x.Regulator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetRegulatorManual() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_RegulatorManual); ok {
+			return x.RegulatorManual
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetReliefValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ReliefValve); ok {
+			return x.ReliefValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetSolenoidValve() *SolenoidValveConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_SolenoidValve); ok {
+			return x.SolenoidValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetSpringLoadedReliefValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_SpringLoadedReliefValve); ok {
+			return x.SpringLoadedReliefValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetThreeWayValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ThreeWayValve); ok {
+			return x.ThreeWayValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetThreeWayBallValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_ThreeWayBallValve); ok {
+			return x.ThreeWayBallValve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Valve); ok {
+			return x.Valve
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCrossJunction() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_CrossJunction); ok {
+			return x.CrossJunction
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCylinder() *CylinderConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Cylinder); ok {
+			return x.Cylinder
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetTank() *TankConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Tank); ok {
+			return x.Tank
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetTJunction() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_TJunction); ok {
+			return x.TJunction
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCustomActuator() *CustomActuatorConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_CustomActuator); ok {
+			return x.CustomActuator
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetCustomStatic() *CustomStaticConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_CustomStatic); ok {
+			return x.CustomStatic
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetPipe() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Pipe); ok {
+			return x.Pipe
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetElectric() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Electric); ok {
+			return x.Electric
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetSecondary() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Secondary); ok {
+			return x.Secondary
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetJacketed() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Jacketed); ok {
+			return x.Jacketed
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetHydraulic() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Hydraulic); ok {
+			return x.Hydraulic
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetPneumatic() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Pneumatic); ok {
+			return x.Pneumatic
+		}
+	}
+	return nil
+}
+
+func (x *ElementConfig) GetData() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*ElementConfig_Data); ok {
+			return x.Data
+		}
+	}
+	return nil
+}
+
+type isElementConfig_Variant interface {
+	isElementConfig_Variant()
+}
+
+type ElementConfig_Cap struct {
+	Cap *StaticSymbolConfig `protobuf:"bytes,1,opt,name=cap,proto3,oneof"`
+}
+
+type ElementConfig_Filter struct {
+	Filter *StaticSymbolConfig `protobuf:"bytes,2,opt,name=filter,proto3,oneof"`
+}
+
+type ElementConfig_FlowStraightener struct {
+	FlowStraightener *StaticSymbolConfig `protobuf:"bytes,3,opt,name=flow_straightener,json=flowStraightener,proto3,oneof"`
+}
+
+type ElementConfig_HeaterElement struct {
+	HeaterElement *StaticSymbolConfig `protobuf:"bytes,4,opt,name=heater_element,json=heaterElement,proto3,oneof"`
+}
+
+type ElementConfig_IsoCap struct {
+	IsoCap *StaticSymbolConfig `protobuf:"bytes,5,opt,name=iso_cap,json=isoCap,proto3,oneof"`
+}
+
+type ElementConfig_IsoFilter struct {
+	IsoFilter *StaticSymbolConfig `protobuf:"bytes,6,opt,name=iso_filter,json=isoFilter,proto3,oneof"`
+}
+
+type ElementConfig_Nozzle struct {
+	Nozzle *StaticSymbolConfig `protobuf:"bytes,7,opt,name=nozzle,proto3,oneof"`
+}
+
+type ElementConfig_Orifice struct {
+	Orifice *StaticSymbolConfig `protobuf:"bytes,8,opt,name=orifice,proto3,oneof"`
+}
+
+type ElementConfig_OrificePlate struct {
+	OrificePlate *StaticSymbolConfig `protobuf:"bytes,9,opt,name=orifice_plate,json=orificePlate,proto3,oneof"`
+}
+
+type ElementConfig_Strainer struct {
+	Strainer *StaticSymbolConfig `protobuf:"bytes,10,opt,name=strainer,proto3,oneof"`
+}
+
+type ElementConfig_StrainerCone struct {
+	StrainerCone *StaticSymbolConfig `protobuf:"bytes,11,opt,name=strainer_cone,json=strainerCone,proto3,oneof"`
+}
+
+type ElementConfig_Thruster struct {
+	Thruster *ToggleSymbolConfig `protobuf:"bytes,12,opt,name=thruster,proto3,oneof"`
+}
+
+type ElementConfig_Vent struct {
+	Vent *StaticSymbolConfig `protobuf:"bytes,13,opt,name=vent,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterGeneral struct {
+	FlowmeterGeneral *StaticSymbolConfig `protobuf:"bytes,14,opt,name=flowmeter_general,json=flowmeterGeneral,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterElectromagnetic struct {
+	FlowmeterElectromagnetic *StaticSymbolConfig `protobuf:"bytes,15,opt,name=flowmeter_electromagnetic,json=flowmeterElectromagnetic,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterVariableArea struct {
+	FlowmeterVariableArea *StaticSymbolConfig `protobuf:"bytes,16,opt,name=flowmeter_variable_area,json=flowmeterVariableArea,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterCoriolis struct {
+	FlowmeterCoriolis *StaticSymbolConfig `protobuf:"bytes,17,opt,name=flowmeter_coriolis,json=flowmeterCoriolis,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterNozzle struct {
+	FlowmeterNozzle *StaticSymbolConfig `protobuf:"bytes,18,opt,name=flowmeter_nozzle,json=flowmeterNozzle,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterVenturi struct {
+	FlowmeterVenturi *StaticSymbolConfig `protobuf:"bytes,19,opt,name=flowmeter_venturi,json=flowmeterVenturi,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterRingPiston struct {
+	FlowmeterRingPiston *StaticSymbolConfig `protobuf:"bytes,20,opt,name=flowmeter_ring_piston,json=flowmeterRingPiston,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterPositiveDisplacement struct {
+	FlowmeterPositiveDisplacement *StaticSymbolConfig `protobuf:"bytes,21,opt,name=flowmeter_positive_displacement,json=flowmeterPositiveDisplacement,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterTurbine struct {
+	FlowmeterTurbine *StaticSymbolConfig `protobuf:"bytes,22,opt,name=flowmeter_turbine,json=flowmeterTurbine,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterPulse struct {
+	FlowmeterPulse *StaticSymbolConfig `protobuf:"bytes,23,opt,name=flowmeter_pulse,json=flowmeterPulse,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterFloatSensor struct {
+	FlowmeterFloatSensor *StaticSymbolConfig `protobuf:"bytes,24,opt,name=flowmeter_float_sensor,json=flowmeterFloatSensor,proto3,oneof"`
+}
+
+type ElementConfig_FlowmeterOrifice struct {
+	FlowmeterOrifice *StaticSymbolConfig `protobuf:"bytes,25,opt,name=flowmeter_orifice,json=flowmeterOrifice,proto3,oneof"`
+}
+
+type ElementConfig_Box struct {
+	Box *BoxConfig `protobuf:"bytes,26,opt,name=box,proto3,oneof"`
+}
+
+type ElementConfig_Button struct {
+	Button *ButtonConfig `protobuf:"bytes,27,opt,name=button,proto3,oneof"`
+}
+
+type ElementConfig_Circle struct {
+	Circle *CircleConfig `protobuf:"bytes,28,opt,name=circle,proto3,oneof"`
+}
+
+type ElementConfig_Gauge struct {
+	Gauge *GaugeConfig `protobuf:"bytes,29,opt,name=gauge,proto3,oneof"`
+}
+
+type ElementConfig_Input struct {
+	Input *InputConfig `protobuf:"bytes,30,opt,name=input,proto3,oneof"`
+}
+
+type ElementConfig_Light struct {
+	Light *LightConfig `protobuf:"bytes,31,opt,name=light,proto3,oneof"`
+}
+
+type ElementConfig_OffPageReference struct {
+	OffPageReference *OffPageReferenceConfig `protobuf:"bytes,32,opt,name=off_page_reference,json=offPageReference,proto3,oneof"`
+}
+
+type ElementConfig_Polygon struct {
+	Polygon *PolygonConfig `protobuf:"bytes,33,opt,name=polygon,proto3,oneof"`
+}
+
+type ElementConfig_Select struct {
+	Select *SelectConfig `protobuf:"bytes,34,opt,name=select,proto3,oneof"`
+}
+
+type ElementConfig_Setpoint struct {
+	Setpoint *SetpointConfig `protobuf:"bytes,35,opt,name=setpoint,proto3,oneof"`
+}
+
+type ElementConfig_StateIndicator struct {
+	StateIndicator *StateIndicatorConfig `protobuf:"bytes,36,opt,name=state_indicator,json=stateIndicator,proto3,oneof"`
+}
+
+type ElementConfig_Switch struct {
+	Switch *ToggleSymbolConfig `protobuf:"bytes,37,opt,name=switch,proto3,oneof"`
+}
+
+type ElementConfig_TextBox struct {
+	TextBox *TextBoxConfig `protobuf:"bytes,38,opt,name=text_box,json=textBox,proto3,oneof"`
+}
+
+type ElementConfig_Value struct {
+	Value *ValueConfig `protobuf:"bytes,39,opt,name=value,proto3,oneof"`
+}
+
+type ElementConfig_Agitator struct {
+	Agitator *ToggleSymbolConfig `protobuf:"bytes,40,opt,name=agitator,proto3,oneof"`
+}
+
+type ElementConfig_CrossBeamAgitator struct {
+	CrossBeamAgitator *ToggleSymbolConfig `protobuf:"bytes,41,opt,name=cross_beam_agitator,json=crossBeamAgitator,proto3,oneof"`
+}
+
+type ElementConfig_FlatBladeAgitator struct {
+	FlatBladeAgitator *ToggleSymbolConfig `protobuf:"bytes,42,opt,name=flat_blade_agitator,json=flatBladeAgitator,proto3,oneof"`
+}
+
+type ElementConfig_HeatExchangerGeneral struct {
+	HeatExchangerGeneral *StaticSymbolConfig `protobuf:"bytes,43,opt,name=heat_exchanger_general,json=heatExchangerGeneral,proto3,oneof"`
+}
+
+type ElementConfig_HeatExchangerM struct {
+	HeatExchangerM *StaticSymbolConfig `protobuf:"bytes,44,opt,name=heat_exchanger_m,json=heatExchangerM,proto3,oneof"`
+}
+
+type ElementConfig_HeatExchangerStraightTube struct {
+	HeatExchangerStraightTube *StaticSymbolConfig `protobuf:"bytes,45,opt,name=heat_exchanger_straight_tube,json=heatExchangerStraightTube,proto3,oneof"`
+}
+
+type ElementConfig_HelicalAgitator struct {
+	HelicalAgitator *ToggleSymbolConfig `protobuf:"bytes,46,opt,name=helical_agitator,json=helicalAgitator,proto3,oneof"`
+}
+
+type ElementConfig_PaddleAgitator struct {
+	PaddleAgitator *ToggleSymbolConfig `protobuf:"bytes,47,opt,name=paddle_agitator,json=paddleAgitator,proto3,oneof"`
+}
+
+type ElementConfig_PropellerAgitator struct {
+	PropellerAgitator *ToggleSymbolConfig `protobuf:"bytes,48,opt,name=propeller_agitator,json=propellerAgitator,proto3,oneof"`
+}
+
+type ElementConfig_RotaryMixer struct {
+	RotaryMixer *ToggleSymbolConfig `protobuf:"bytes,49,opt,name=rotary_mixer,json=rotaryMixer,proto3,oneof"`
+}
+
+type ElementConfig_StaticMixer struct {
+	StaticMixer *StaticSymbolConfig `protobuf:"bytes,50,opt,name=static_mixer,json=staticMixer,proto3,oneof"`
+}
+
+type ElementConfig_CavityPump struct {
+	CavityPump *ToggleSymbolConfig `protobuf:"bytes,51,opt,name=cavity_pump,json=cavityPump,proto3,oneof"`
+}
+
+type ElementConfig_CentrifugalCompressor struct {
+	CentrifugalCompressor *ToggleSymbolConfig `protobuf:"bytes,52,opt,name=centrifugal_compressor,json=centrifugalCompressor,proto3,oneof"`
+}
+
+type ElementConfig_Compressor struct {
+	Compressor *ToggleSymbolConfig `protobuf:"bytes,53,opt,name=compressor,proto3,oneof"`
+}
+
+type ElementConfig_DiaphragmPump struct {
+	DiaphragmPump *ToggleSymbolConfig `protobuf:"bytes,54,opt,name=diaphragm_pump,json=diaphragmPump,proto3,oneof"`
+}
+
+type ElementConfig_EjectionPump struct {
+	EjectionPump *ToggleSymbolConfig `protobuf:"bytes,55,opt,name=ejection_pump,json=ejectionPump,proto3,oneof"`
+}
+
+type ElementConfig_EjectorCompressor struct {
+	EjectorCompressor *ToggleSymbolConfig `protobuf:"bytes,56,opt,name=ejector_compressor,json=ejectorCompressor,proto3,oneof"`
+}
+
+type ElementConfig_LiquidRingCompressor struct {
+	LiquidRingCompressor *ToggleSymbolConfig `protobuf:"bytes,57,opt,name=liquid_ring_compressor,json=liquidRingCompressor,proto3,oneof"`
+}
+
+type ElementConfig_PistonPump struct {
+	PistonPump *ToggleSymbolConfig `protobuf:"bytes,58,opt,name=piston_pump,json=pistonPump,proto3,oneof"`
+}
+
+type ElementConfig_Pump struct {
+	Pump *ToggleSymbolConfig `protobuf:"bytes,59,opt,name=pump,proto3,oneof"`
+}
+
+type ElementConfig_RollerVaneCompressor struct {
+	RollerVaneCompressor *ToggleSymbolConfig `protobuf:"bytes,60,opt,name=roller_vane_compressor,json=rollerVaneCompressor,proto3,oneof"`
+}
+
+type ElementConfig_ScrewPump struct {
+	ScrewPump *ToggleSymbolConfig `protobuf:"bytes,61,opt,name=screw_pump,json=screwPump,proto3,oneof"`
+}
+
+type ElementConfig_TurboCompressor struct {
+	TurboCompressor *ToggleSymbolConfig `protobuf:"bytes,62,opt,name=turbo_compressor,json=turboCompressor,proto3,oneof"`
+}
+
+type ElementConfig_VacuumPump struct {
+	VacuumPump *ToggleSymbolConfig `protobuf:"bytes,63,opt,name=vacuum_pump,json=vacuumPump,proto3,oneof"`
+}
+
+type ElementConfig_BurstDisc struct {
+	BurstDisc *StaticSymbolConfig `protobuf:"bytes,64,opt,name=burst_disc,json=burstDisc,proto3,oneof"`
+}
+
+type ElementConfig_FlameArrestor struct {
+	FlameArrestor *StaticSymbolConfig `protobuf:"bytes,65,opt,name=flame_arrestor,json=flameArrestor,proto3,oneof"`
+}
+
+type ElementConfig_FlameArrestorDetonation struct {
+	FlameArrestorDetonation *StaticSymbolConfig `protobuf:"bytes,66,opt,name=flame_arrestor_detonation,json=flameArrestorDetonation,proto3,oneof"`
+}
+
+type ElementConfig_FlameArrestorExplosion struct {
+	FlameArrestorExplosion *StaticSymbolConfig `protobuf:"bytes,67,opt,name=flame_arrestor_explosion,json=flameArrestorExplosion,proto3,oneof"`
+}
+
+type ElementConfig_FlameArrestorFireRes struct {
+	FlameArrestorFireRes *StaticSymbolConfig `protobuf:"bytes,68,opt,name=flame_arrestor_fire_res,json=flameArrestorFireRes,proto3,oneof"`
+}
+
+type ElementConfig_FlameArrestorFireResDetonation struct {
+	FlameArrestorFireResDetonation *StaticSymbolConfig `protobuf:"bytes,69,opt,name=flame_arrestor_fire_res_detonation,json=flameArrestorFireResDetonation,proto3,oneof"`
+}
+
+type ElementConfig_IsoBurstDisc struct {
+	IsoBurstDisc *StaticSymbolConfig `protobuf:"bytes,70,opt,name=iso_burst_disc,json=isoBurstDisc,proto3,oneof"`
+}
+
+type ElementConfig_AngledValve struct {
+	AngledValve *ToggleSymbolConfig `protobuf:"bytes,71,opt,name=angled_valve,json=angledValve,proto3,oneof"`
+}
+
+type ElementConfig_AngledReliefValve struct {
+	AngledReliefValve *DummyToggleSymbolConfig `protobuf:"bytes,72,opt,name=angled_relief_valve,json=angledReliefValve,proto3,oneof"`
+}
+
+type ElementConfig_AngledSpringLoadedReliefValve struct {
+	AngledSpringLoadedReliefValve *DummyToggleSymbolConfig `protobuf:"bytes,73,opt,name=angled_spring_loaded_relief_valve,json=angledSpringLoadedReliefValve,proto3,oneof"`
+}
+
+type ElementConfig_BallValve struct {
+	BallValve *ToggleSymbolConfig `protobuf:"bytes,74,opt,name=ball_valve,json=ballValve,proto3,oneof"`
+}
+
+type ElementConfig_BreatherValve struct {
+	BreatherValve *DummyToggleSymbolConfig `protobuf:"bytes,75,opt,name=breather_valve,json=breatherValve,proto3,oneof"`
+}
+
+type ElementConfig_ButterflyValveOne struct {
+	ButterflyValveOne *ToggleSymbolConfig `protobuf:"bytes,76,opt,name=butterfly_valve_one,json=butterflyValveOne,proto3,oneof"`
+}
+
+type ElementConfig_ButterflyValveTwo struct {
+	ButterflyValveTwo *ToggleSymbolConfig `protobuf:"bytes,77,opt,name=butterfly_valve_two,json=butterflyValveTwo,proto3,oneof"`
+}
+
+type ElementConfig_CheckValve struct {
+	CheckValve *StaticSymbolConfig `protobuf:"bytes,78,opt,name=check_valve,json=checkValve,proto3,oneof"`
+}
+
+type ElementConfig_CheckValveWithArrow struct {
+	CheckValveWithArrow *StaticSymbolConfig `protobuf:"bytes,79,opt,name=check_valve_with_arrow,json=checkValveWithArrow,proto3,oneof"`
+}
+
+type ElementConfig_ElectricRegulator struct {
+	ElectricRegulator *StaticSymbolConfig `protobuf:"bytes,80,opt,name=electric_regulator,json=electricRegulator,proto3,oneof"`
+}
+
+type ElementConfig_ElectricRegulatorMotorized struct {
+	ElectricRegulatorMotorized *StaticSymbolConfig `protobuf:"bytes,81,opt,name=electric_regulator_motorized,json=electricRegulatorMotorized,proto3,oneof"`
+}
+
+type ElementConfig_FourWayValve struct {
+	FourWayValve *ToggleSymbolConfig `protobuf:"bytes,82,opt,name=four_way_valve,json=fourWayValve,proto3,oneof"`
+}
+
+type ElementConfig_GateValve struct {
+	GateValve *ToggleSymbolConfig `protobuf:"bytes,83,opt,name=gate_valve,json=gateValve,proto3,oneof"`
+}
+
+type ElementConfig_IsoCheckValve struct {
+	IsoCheckValve *StaticSymbolConfig `protobuf:"bytes,84,opt,name=iso_check_valve,json=isoCheckValve,proto3,oneof"`
+}
+
+type ElementConfig_ManualValve struct {
+	ManualValve *DummyToggleSymbolConfig `protobuf:"bytes,85,opt,name=manual_valve,json=manualValve,proto3,oneof"`
+}
+
+type ElementConfig_NeedleValve struct {
+	NeedleValve *DummyToggleSymbolConfig `protobuf:"bytes,86,opt,name=needle_valve,json=needleValve,proto3,oneof"`
+}
+
+type ElementConfig_Regulator struct {
+	Regulator *StaticSymbolConfig `protobuf:"bytes,87,opt,name=regulator,proto3,oneof"`
+}
+
+type ElementConfig_RegulatorManual struct {
+	RegulatorManual *StaticSymbolConfig `protobuf:"bytes,88,opt,name=regulator_manual,json=regulatorManual,proto3,oneof"`
+}
+
+type ElementConfig_ReliefValve struct {
+	ReliefValve *DummyToggleSymbolConfig `protobuf:"bytes,89,opt,name=relief_valve,json=reliefValve,proto3,oneof"`
+}
+
+type ElementConfig_SolenoidValve struct {
+	SolenoidValve *SolenoidValveConfig `protobuf:"bytes,90,opt,name=solenoid_valve,json=solenoidValve,proto3,oneof"`
+}
+
+type ElementConfig_SpringLoadedReliefValve struct {
+	SpringLoadedReliefValve *DummyToggleSymbolConfig `protobuf:"bytes,91,opt,name=spring_loaded_relief_valve,json=springLoadedReliefValve,proto3,oneof"`
+}
+
+type ElementConfig_ThreeWayValve struct {
+	ThreeWayValve *ToggleSymbolConfig `protobuf:"bytes,92,opt,name=three_way_valve,json=threeWayValve,proto3,oneof"`
+}
+
+type ElementConfig_ThreeWayBallValve struct {
+	ThreeWayBallValve *ToggleSymbolConfig `protobuf:"bytes,93,opt,name=three_way_ball_valve,json=threeWayBallValve,proto3,oneof"`
+}
+
+type ElementConfig_Valve struct {
+	Valve *ToggleSymbolConfig `protobuf:"bytes,94,opt,name=valve,proto3,oneof"`
+}
+
+type ElementConfig_CrossJunction struct {
+	CrossJunction *StaticSymbolConfig `protobuf:"bytes,95,opt,name=cross_junction,json=crossJunction,proto3,oneof"`
+}
+
+type ElementConfig_Cylinder struct {
+	Cylinder *CylinderConfig `protobuf:"bytes,96,opt,name=cylinder,proto3,oneof"`
+}
+
+type ElementConfig_Tank struct {
+	Tank *TankConfig `protobuf:"bytes,97,opt,name=tank,proto3,oneof"`
+}
+
+type ElementConfig_TJunction struct {
+	TJunction *StaticSymbolConfig `protobuf:"bytes,98,opt,name=t_junction,json=tJunction,proto3,oneof"`
+}
+
+type ElementConfig_CustomActuator struct {
+	CustomActuator *CustomActuatorConfig `protobuf:"bytes,99,opt,name=custom_actuator,json=customActuator,proto3,oneof"`
+}
+
+type ElementConfig_CustomStatic struct {
+	CustomStatic *CustomStaticConfig `protobuf:"bytes,100,opt,name=custom_static,json=customStatic,proto3,oneof"`
+}
+
+type ElementConfig_Pipe struct {
+	Pipe *SegmentedEdgeConfig `protobuf:"bytes,101,opt,name=pipe,proto3,oneof"`
+}
+
+type ElementConfig_Electric struct {
+	Electric *SegmentedEdgeConfig `protobuf:"bytes,102,opt,name=electric,proto3,oneof"`
+}
+
+type ElementConfig_Secondary struct {
+	Secondary *SegmentedEdgeConfig `protobuf:"bytes,103,opt,name=secondary,proto3,oneof"`
+}
+
+type ElementConfig_Jacketed struct {
+	Jacketed *SegmentedEdgeConfig `protobuf:"bytes,104,opt,name=jacketed,proto3,oneof"`
+}
+
+type ElementConfig_Hydraulic struct {
+	Hydraulic *SegmentedEdgeConfig `protobuf:"bytes,105,opt,name=hydraulic,proto3,oneof"`
+}
+
+type ElementConfig_Pneumatic struct {
+	Pneumatic *SegmentedEdgeConfig `protobuf:"bytes,106,opt,name=pneumatic,proto3,oneof"`
+}
+
+type ElementConfig_Data struct {
+	Data *SegmentedEdgeConfig `protobuf:"bytes,107,opt,name=data,proto3,oneof"`
+}
+
+func (*ElementConfig_Cap) isElementConfig_Variant() {}
+
+func (*ElementConfig_Filter) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowStraightener) isElementConfig_Variant() {}
+
+func (*ElementConfig_HeaterElement) isElementConfig_Variant() {}
+
+func (*ElementConfig_IsoCap) isElementConfig_Variant() {}
+
+func (*ElementConfig_IsoFilter) isElementConfig_Variant() {}
+
+func (*ElementConfig_Nozzle) isElementConfig_Variant() {}
+
+func (*ElementConfig_Orifice) isElementConfig_Variant() {}
+
+func (*ElementConfig_OrificePlate) isElementConfig_Variant() {}
+
+func (*ElementConfig_Strainer) isElementConfig_Variant() {}
+
+func (*ElementConfig_StrainerCone) isElementConfig_Variant() {}
+
+func (*ElementConfig_Thruster) isElementConfig_Variant() {}
+
+func (*ElementConfig_Vent) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterGeneral) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterElectromagnetic) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterVariableArea) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterCoriolis) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterNozzle) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterVenturi) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterRingPiston) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterPositiveDisplacement) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterTurbine) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterPulse) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterFloatSensor) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlowmeterOrifice) isElementConfig_Variant() {}
+
+func (*ElementConfig_Box) isElementConfig_Variant() {}
+
+func (*ElementConfig_Button) isElementConfig_Variant() {}
+
+func (*ElementConfig_Circle) isElementConfig_Variant() {}
+
+func (*ElementConfig_Gauge) isElementConfig_Variant() {}
+
+func (*ElementConfig_Input) isElementConfig_Variant() {}
+
+func (*ElementConfig_Light) isElementConfig_Variant() {}
+
+func (*ElementConfig_OffPageReference) isElementConfig_Variant() {}
+
+func (*ElementConfig_Polygon) isElementConfig_Variant() {}
+
+func (*ElementConfig_Select) isElementConfig_Variant() {}
+
+func (*ElementConfig_Setpoint) isElementConfig_Variant() {}
+
+func (*ElementConfig_StateIndicator) isElementConfig_Variant() {}
+
+func (*ElementConfig_Switch) isElementConfig_Variant() {}
+
+func (*ElementConfig_TextBox) isElementConfig_Variant() {}
+
+func (*ElementConfig_Value) isElementConfig_Variant() {}
+
+func (*ElementConfig_Agitator) isElementConfig_Variant() {}
+
+func (*ElementConfig_CrossBeamAgitator) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlatBladeAgitator) isElementConfig_Variant() {}
+
+func (*ElementConfig_HeatExchangerGeneral) isElementConfig_Variant() {}
+
+func (*ElementConfig_HeatExchangerM) isElementConfig_Variant() {}
+
+func (*ElementConfig_HeatExchangerStraightTube) isElementConfig_Variant() {}
+
+func (*ElementConfig_HelicalAgitator) isElementConfig_Variant() {}
+
+func (*ElementConfig_PaddleAgitator) isElementConfig_Variant() {}
+
+func (*ElementConfig_PropellerAgitator) isElementConfig_Variant() {}
+
+func (*ElementConfig_RotaryMixer) isElementConfig_Variant() {}
+
+func (*ElementConfig_StaticMixer) isElementConfig_Variant() {}
+
+func (*ElementConfig_CavityPump) isElementConfig_Variant() {}
+
+func (*ElementConfig_CentrifugalCompressor) isElementConfig_Variant() {}
+
+func (*ElementConfig_Compressor) isElementConfig_Variant() {}
+
+func (*ElementConfig_DiaphragmPump) isElementConfig_Variant() {}
+
+func (*ElementConfig_EjectionPump) isElementConfig_Variant() {}
+
+func (*ElementConfig_EjectorCompressor) isElementConfig_Variant() {}
+
+func (*ElementConfig_LiquidRingCompressor) isElementConfig_Variant() {}
+
+func (*ElementConfig_PistonPump) isElementConfig_Variant() {}
+
+func (*ElementConfig_Pump) isElementConfig_Variant() {}
+
+func (*ElementConfig_RollerVaneCompressor) isElementConfig_Variant() {}
+
+func (*ElementConfig_ScrewPump) isElementConfig_Variant() {}
+
+func (*ElementConfig_TurboCompressor) isElementConfig_Variant() {}
+
+func (*ElementConfig_VacuumPump) isElementConfig_Variant() {}
+
+func (*ElementConfig_BurstDisc) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlameArrestor) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlameArrestorDetonation) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlameArrestorExplosion) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlameArrestorFireRes) isElementConfig_Variant() {}
+
+func (*ElementConfig_FlameArrestorFireResDetonation) isElementConfig_Variant() {}
+
+func (*ElementConfig_IsoBurstDisc) isElementConfig_Variant() {}
+
+func (*ElementConfig_AngledValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_AngledReliefValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_AngledSpringLoadedReliefValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_BallValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_BreatherValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_ButterflyValveOne) isElementConfig_Variant() {}
+
+func (*ElementConfig_ButterflyValveTwo) isElementConfig_Variant() {}
+
+func (*ElementConfig_CheckValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_CheckValveWithArrow) isElementConfig_Variant() {}
+
+func (*ElementConfig_ElectricRegulator) isElementConfig_Variant() {}
+
+func (*ElementConfig_ElectricRegulatorMotorized) isElementConfig_Variant() {}
+
+func (*ElementConfig_FourWayValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_GateValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_IsoCheckValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_ManualValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_NeedleValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_Regulator) isElementConfig_Variant() {}
+
+func (*ElementConfig_RegulatorManual) isElementConfig_Variant() {}
+
+func (*ElementConfig_ReliefValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_SolenoidValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_SpringLoadedReliefValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_ThreeWayValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_ThreeWayBallValve) isElementConfig_Variant() {}
+
+func (*ElementConfig_Valve) isElementConfig_Variant() {}
+
+func (*ElementConfig_CrossJunction) isElementConfig_Variant() {}
+
+func (*ElementConfig_Cylinder) isElementConfig_Variant() {}
+
+func (*ElementConfig_Tank) isElementConfig_Variant() {}
+
+func (*ElementConfig_TJunction) isElementConfig_Variant() {}
+
+func (*ElementConfig_CustomActuator) isElementConfig_Variant() {}
+
+func (*ElementConfig_CustomStatic) isElementConfig_Variant() {}
+
+func (*ElementConfig_Pipe) isElementConfig_Variant() {}
+
+func (*ElementConfig_Electric) isElementConfig_Variant() {}
+
+func (*ElementConfig_Secondary) isElementConfig_Variant() {}
+
+func (*ElementConfig_Jacketed) isElementConfig_Variant() {}
+
+func (*ElementConfig_Hydraulic) isElementConfig_Variant() {}
+
+func (*ElementConfig_Pneumatic) isElementConfig_Variant() {}
+
+func (*ElementConfig_Data) isElementConfig_Variant() {}
+
 var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
@@ -6110,10 +7873,11 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"X\n" +
 	"\aSegment\x125\n" +
 	"\tdirection\x18\x01 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12\x16\n" +
-	"\x06length\x18\x02 \x01(\x01R\x06length\"y\n" +
-	"\x13SegmentedEdgeConfig\x12'\n" +
-	"\x05color\x18\x01 \x01(\v2\x11.x.color.pb.ColorR\x05color\x129\n" +
-	"\bsegments\x18\x02 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegments\"\x90\x01\n" +
+	"\x06length\x18\x02 \x01(\x01R\x06length\"\x88\x01\n" +
+	"\x13SegmentedEdgeConfig\x12,\n" +
+	"\x05color\x18\x01 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x129\n" +
+	"\bsegments\x18\x02 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegmentsB\b\n" +
+	"\x06_color\"\x90\x01\n" +
 	"\x0fSourceTelemSpec\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x12:\n" +
 	"\avariant\x18\x02 \x01(\x0e2 .service.schematic.pb.SourceRoleR\avariant\x12-\n" +
@@ -6121,271 +7885,454 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\rSinkTelemSpec\x12\x12\n" +
 	"\x04type\x18\x01 \x01(\tR\x04type\x128\n" +
 	"\avariant\x18\x02 \x01(\x0e2\x1e.service.schematic.pb.SinkRoleR\avariant\x12-\n" +
-	"\x05props\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05props\"\x9f\x02\n" +
+	"\x05props\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05props\"\xfe\x02\n" +
 	"\vLabelConfig\x12\x14\n" +
-	"\x05label\x18\x01 \x01(\tR\x05label\x12&\n" +
-	"\x05level\x18\x02 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x128\n" +
-	"\vorientation\x18\x03 \x01(\x0e2\x16.x.spatial.pb.LocationR\vorientation\x125\n" +
-	"\tdirection\x18\x04 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12&\n" +
-	"\x0fmax_inline_size\x18\x05 \x01(\x01R\rmaxInlineSize\x129\n" +
-	"\x05align\x18\x06 \x01(\x0e2#.service.schematic.pb.FlexAlignmentR\x05align\"\x87\x01\n" +
-	"\rLabeledConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\"\x87\x01\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12+\n" +
+	"\x05level\x18\x02 \x01(\x0e2\x10.x.text.pb.LevelH\x00R\x05level\x88\x01\x01\x12=\n" +
+	"\vorientation\x18\x03 \x01(\x0e2\x16.x.spatial.pb.LocationH\x01R\vorientation\x88\x01\x01\x12:\n" +
+	"\tdirection\x18\x04 \x01(\x0e2\x17.x.spatial.pb.DirectionH\x02R\tdirection\x88\x01\x01\x12+\n" +
+	"\x0fmax_inline_size\x18\x05 \x01(\x01H\x03R\rmaxInlineSize\x88\x01\x01\x12>\n" +
+	"\x05align\x18\x06 \x01(\x0e2#.service.schematic.pb.FlexAlignmentH\x04R\x05align\x88\x01\x01B\b\n" +
+	"\x06_levelB\x0e\n" +
+	"\f_orientationB\f\n" +
 	"\n" +
-	"ChipConfig\x12>\n" +
-	"\x06source\x18\x01 \x01(\v2&.service.schematic.pb.StatusSourceSpecR\x06source\x129\n" +
-	"\x04sink\x18\x02 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\"\xa8\x01\n" +
-	"\x0fIndicatorConfig\x12K\n" +
-	"\rstatus_source\x18\x01 \x01(\v2&.service.schematic.pb.StatusSourceSpecR\fstatusSource\x12H\n" +
-	"\fcolor_source\x18\x02 \x01(\v2%.service.schematic.pb.ColorSourceSpecR\vcolorSource\"\xa1\x02\n" +
+	"_directionB\x12\n" +
+	"\x10_max_inline_sizeB\b\n" +
+	"\x06_align\"\xab\x01\n" +
+	"\rLabeledConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientation\"\xa5\x01\n" +
+	"\n" +
+	"ChipConfig\x12C\n" +
+	"\x06source\x18\x01 \x01(\v2&.service.schematic.pb.StatusSourceSpecH\x00R\x06source\x88\x01\x01\x12>\n" +
+	"\x04sink\x18\x02 \x01(\v2%.service.schematic.pb.BooleanSinkSpecH\x01R\x04sink\x88\x01\x01B\t\n" +
+	"\a_sourceB\a\n" +
+	"\x05_sink\"\xd5\x01\n" +
+	"\x0fIndicatorConfig\x12P\n" +
+	"\rstatus_source\x18\x01 \x01(\v2&.service.schematic.pb.StatusSourceSpecH\x00R\fstatusSource\x88\x01\x01\x12M\n" +
+	"\fcolor_source\x18\x02 \x01(\v2%.service.schematic.pb.ColorSourceSpecH\x01R\vcolorSource\x88\x01\x01B\x10\n" +
+	"\x0e_status_sourceB\x0f\n" +
+	"\r_color_source\"\xd7\x02\n" +
 	"\x12ControlStateConfig\x12\x12\n" +
 	"\x04show\x18\x01 \x01(\bR\x04show\x12\x1b\n" +
 	"\tshow_chip\x18\x02 \x01(\bR\bshowChip\x12%\n" +
-	"\x0eshow_indicator\x18\x03 \x01(\bR\rshowIndicator\x124\n" +
-	"\x04chip\x18\x04 \x01(\v2 .service.schematic.pb.ChipConfigR\x04chip\x12C\n" +
-	"\tindicator\x18\x05 \x01(\v2%.service.schematic.pb.IndicatorConfigR\tindicator\x128\n" +
-	"\vorientation\x18\x06 \x01(\x0e2\x16.x.spatial.pb.LocationR\vorientation\"\xec\x02\n" +
-	"\fToggleConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
-	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x129\n" +
-	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x12B\n" +
-	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\x12$\n" +
-	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\"\xcb\x01\n" +
-	"\x12StaticSymbolConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12'\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
-	"\x05scale\x18\x04 \x01(\x01R\x05scale\"\xb1\x03\n" +
-	"\x12ToggleSymbolConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
-	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x129\n" +
-	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x12B\n" +
-	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\x12$\n" +
-	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12'\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
-	"\x05scale\x18\b \x01(\x01R\x05scale\"\x88\x02\n" +
-	"\x17DummyToggleSymbolConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12\x18\n" +
+	"\x0eshow_indicator\x18\x03 \x01(\bR\rshowIndicator\x129\n" +
+	"\x04chip\x18\x04 \x01(\v2 .service.schematic.pb.ChipConfigH\x00R\x04chip\x88\x01\x01\x12H\n" +
+	"\tindicator\x18\x05 \x01(\v2%.service.schematic.pb.IndicatorConfigH\x01R\tindicator\x88\x01\x01\x12=\n" +
+	"\vorientation\x18\x06 \x01(\x0e2\x16.x.spatial.pb.LocationH\x02R\vorientation\x88\x01\x01B\a\n" +
+	"\x05_chipB\f\n" +
+	"\n" +
+	"_indicatorB\x0e\n" +
+	"\f_orientation\"\xbf\x03\n" +
+	"\fToggleConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12D\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecH\x02R\x06source\x88\x01\x01\x12>\n" +
+	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecH\x03R\x04sink\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x04R\acontrol\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelayB\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\t\n" +
+	"\a_sourceB\a\n" +
+	"\x05_sinkB\n" +
+	"\n" +
+	"\b_control\"\x8d\x02\n" +
+	"\x12StaticSymbolConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x04 \x01(\x01H\x03R\x05scale\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\b\n" +
+	"\x06_colorB\b\n" +
+	"\x06_scale\"\xa2\x04\n" +
+	"\x12ToggleSymbolConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12D\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecH\x02R\x06source\x88\x01\x01\x12>\n" +
+	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecH\x03R\x04sink\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x04R\acontrol\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12,\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\b \x01(\x01H\x06R\x05scale\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\t\n" +
+	"\a_sourceB\a\n" +
+	"\x05_sinkB\n" +
+	"\n" +
+	"\b_controlB\b\n" +
+	"\x06_colorB\b\n" +
+	"\x06_scale\"\xca\x02\n" +
+	"\x17DummyToggleSymbolConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x18\n" +
 	"\aenabled\x18\x03 \x01(\bR\aenabled\x12\x1c\n" +
-	"\tclickable\x18\x04 \x01(\bR\tclickable\x12'\n" +
-	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
-	"\x05scale\x18\x06 \x01(\x01R\x05scale\"\xd7\x03\n" +
-	"\x13SolenoidValveConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
-	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x129\n" +
-	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x12B\n" +
-	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\x12$\n" +
-	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12'\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
-	"\x05scale\x18\b \x01(\x01R\x05scale\x12#\n" +
-	"\rnormally_open\x18\t \x01(\bR\fnormallyOpen\"s\n" +
+	"\tclickable\x18\x04 \x01(\bR\tclickable\x12,\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x06 \x01(\x01H\x03R\x05scale\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\b\n" +
+	"\x06_colorB\b\n" +
+	"\x06_scale\"\xc8\x04\n" +
+	"\x13SolenoidValveConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12D\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecH\x02R\x06source\x88\x01\x01\x12>\n" +
+	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecH\x03R\x04sink\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x04R\acontrol\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12,\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\b \x01(\x01H\x06R\x05scale\x88\x01\x01\x12#\n" +
+	"\rnormally_open\x18\t \x01(\bR\fnormallyOpenB\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\t\n" +
+	"\a_sourceB\a\n" +
+	"\x05_sinkB\n" +
+	"\n" +
+	"\b_controlB\b\n" +
+	"\x06_colorB\b\n" +
+	"\x06_scale\"\x82\x01\n" +
 	"\fStateMapping\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\x01R\x05value\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\"e\n" +
+	"\x05value\x18\x03 \x01(\x01R\x05value\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01B\b\n" +
+	"\x06_color\"e\n" +
 	"\aRedline\x12,\n" +
 	"\x06bounds\x18\x01 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12,\n" +
-	"\bgradient\x18\x02 \x03(\v2\x10.x.color.pb.StopR\bgradient\"\xec\x02\n" +
-	"\tBoxConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12'\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
-	"\x10background_color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\x128\n" +
+	"\bgradient\x18\x02 \x03(\v2\x10.x.color.pb.StopR\bgradient\"\xfa\x03\n" +
+	"\tBoxConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x0fbackgroundColor\x88\x01\x01\x12=\n" +
 	"\n" +
-	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
-	"dimensions\x12#\n" +
-	"\rborder_radius\x18\x06 \x01(\x01R\fborderRadius\x12!\n" +
-	"\fstroke_width\x18\a \x01(\x01R\vstrokeWidth\"\xeb\x03\n" +
-	"\fButtonConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
-	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeR\x04size\x12&\n" +
-	"\x05level\x18\x04 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12$\n" +
-	"\x0eon_click_delay\x18\x05 \x01(\x01R\fonClickDelay\x129\n" +
-	"\x04sink\x18\x06 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x124\n" +
-	"\x04mode\x18\a \x01(\x0e2 .service.schematic.pb.ButtonModeR\x04mode\x12'\n" +
-	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorR\x05color\x12B\n" +
-	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\"\xa8\x02\n" +
-	"\fCircleConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12\x16\n" +
-	"\x06radius\x18\x03 \x01(\x01R\x06radius\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
-	"\x10background_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\x12!\n" +
-	"\fstroke_width\x18\x06 \x01(\x01R\vstrokeWidth\"\xb1\x05\n" +
-	"\vGaugeConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12,\n" +
-	"\bposition\x18\x03 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12,\n" +
-	"\x06bounds\x18\x05 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12\x1b\n" +
-	"\tbar_width\x18\x06 \x01(\x01R\bbarWidth\x12<\n" +
-	"\x05telem\x18\a \x01(\v2&.service.schematic.pb.StringSourceSpecR\x05telem\x12P\n" +
-	"\x10background_telem\x18\b \x01(\v2%.service.schematic.pb.ColorSourceSpecR\x0fbackgroundTelem\x12\x1c\n" +
-	"\tprecision\x18\t \x01(\x01R\tprecision\x12\x1b\n" +
+	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsH\x04R\n" +
+	"dimensions\x88\x01\x01\x12(\n" +
+	"\rborder_radius\x18\x06 \x01(\x01H\x05R\fborderRadius\x88\x01\x01\x12&\n" +
+	"\fstroke_width\x18\a \x01(\x01H\x06R\vstrokeWidth\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\b\n" +
+	"\x06_colorB\x13\n" +
+	"\x11_background_colorB\r\n" +
+	"\v_dimensionsB\x10\n" +
+	"\x0e_border_radiusB\x0f\n" +
+	"\r_stroke_width\"\xe8\x04\n" +
+	"\fButtonConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12<\n" +
+	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x02R\x04size\x88\x01\x01\x12+\n" +
+	"\x05level\x18\x04 \x01(\x0e2\x10.x.text.pb.LevelH\x03R\x05level\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\x05 \x01(\x01R\fonClickDelay\x12>\n" +
+	"\x04sink\x18\x06 \x01(\v2%.service.schematic.pb.BooleanSinkSpecH\x04R\x04sink\x88\x01\x01\x129\n" +
+	"\x04mode\x18\a \x01(\x0e2 .service.schematic.pb.ButtonModeH\x05R\x04mode\x88\x01\x01\x12,\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigH\aR\acontrol\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\a\n" +
+	"\x05_sizeB\b\n" +
+	"\x06_levelB\a\n" +
+	"\x05_sinkB\a\n" +
+	"\x05_modeB\b\n" +
+	"\x06_colorB\n" +
+	"\n" +
+	"\b_control\"\x8b\x03\n" +
+	"\fCircleConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x16\n" +
+	"\x06radius\x18\x03 \x01(\x01R\x06radius\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x03R\x0fbackgroundColor\x88\x01\x01\x12&\n" +
+	"\fstroke_width\x18\x06 \x01(\x01H\x04R\vstrokeWidth\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\b\n" +
+	"\x06_colorB\x13\n" +
+	"\x11_background_colorB\x0f\n" +
+	"\r_stroke_width\"\xaa\a\n" +
+	"\vGaugeConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x121\n" +
+	"\bposition\x18\x03 \x01(\v2\x10.x.spatial.pb.XYH\x02R\bposition\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x121\n" +
+	"\x06bounds\x18\x05 \x01(\v2\x14.x.spatial.pb.BoundsH\x04R\x06bounds\x88\x01\x01\x12 \n" +
+	"\tbar_width\x18\x06 \x01(\x01H\x05R\bbarWidth\x88\x01\x01\x12A\n" +
+	"\x05telem\x18\a \x01(\v2&.service.schematic.pb.StringSourceSpecH\x06R\x05telem\x88\x01\x01\x12U\n" +
+	"\x10background_telem\x18\b \x01(\v2%.service.schematic.pb.ColorSourceSpecH\aR\x0fbackgroundTelem\x88\x01\x01\x12!\n" +
+	"\tprecision\x18\t \x01(\x01H\bR\tprecision\x88\x01\x01\x12 \n" +
 	"\tmin_width\x18\n" +
-	" \x01(\x01R\bminWidth\x12\x14\n" +
-	"\x05width\x18\v \x01(\x01R\x05width\x123\n" +
-	"\bnotation\x18\f \x01(\x0e2\x17.x.notation.pb.NotationR\bnotation\x124\n" +
-	"\blocation\x18\r \x01(\v2\x18.x.spatial.pb.LocationXYR\blocation\x12\x14\n" +
-	"\x05units\x18\x0e \x01(\tR\x05units\x12&\n" +
-	"\x05level\x18\x0f \x01(\x0e2\x10.x.text.pb.LevelR\x05level\"\xbb\x03\n" +
-	"\vInputConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
-	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeR\x04size\x128\n" +
-	"\x04sink\x18\x04 \x01(\v2$.service.schematic.pb.StringSinkSpecR\x04sink\x128\n" +
+	" \x01(\x01H\tR\bminWidth\x88\x01\x01\x12\x19\n" +
+	"\x05width\x18\v \x01(\x01H\n" +
+	"R\x05width\x88\x01\x01\x128\n" +
+	"\bnotation\x18\f \x01(\x0e2\x17.x.notation.pb.NotationH\vR\bnotation\x88\x01\x01\x129\n" +
+	"\blocation\x18\r \x01(\v2\x18.x.spatial.pb.LocationXYH\fR\blocation\x88\x01\x01\x12\x14\n" +
+	"\x05units\x18\x0e \x01(\tR\x05units\x12+\n" +
+	"\x05level\x18\x0f \x01(\x0e2\x10.x.text.pb.LevelH\rR\x05level\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\v\n" +
+	"\t_positionB\b\n" +
+	"\x06_colorB\t\n" +
+	"\a_boundsB\f\n" +
 	"\n" +
-	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
-	"dimensions\x12'\n" +
-	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x1a\n" +
-	"\bdisabled\x18\a \x01(\bR\bdisabled\x12B\n" +
-	"\acontrol\x18\b \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\"\x85\x02\n" +
-	"\vLightConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
-	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
-	"\x05scale\x18\x05 \x01(\x01R\x05scale\"\x99\x02\n" +
-	"\x16OffPageReferenceConfig\x12=\n" +
-	"\vorientation\x18\x01 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
-	"\x05label\x18\x02 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12&\n" +
-	"\x05level\x18\x03 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x12\n" +
+	"_bar_widthB\b\n" +
+	"\x06_telemB\x13\n" +
+	"\x11_background_telemB\f\n" +
+	"\n" +
+	"_precisionB\f\n" +
+	"\n" +
+	"_min_widthB\b\n" +
+	"\x06_widthB\v\n" +
+	"\t_notationB\v\n" +
+	"\t_locationB\b\n" +
+	"\x06_level\"\xaf\x04\n" +
+	"\vInputConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12<\n" +
+	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x02R\x04size\x88\x01\x01\x12=\n" +
+	"\x04sink\x18\x04 \x01(\v2$.service.schematic.pb.StringSinkSpecH\x03R\x04sink\x88\x01\x01\x12=\n" +
+	"\n" +
+	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsH\x04R\n" +
+	"dimensions\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12\x1a\n" +
+	"\bdisabled\x18\a \x01(\bR\bdisabled\x12G\n" +
+	"\acontrol\x18\b \x01(\v2(.service.schematic.pb.ControlStateConfigH\x06R\acontrol\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\a\n" +
+	"\x05_sizeB\a\n" +
+	"\x05_sinkB\r\n" +
+	"\v_dimensionsB\b\n" +
+	"\x06_colorB\n" +
+	"\n" +
+	"\b_control\"\xd7\x02\n" +
+	"\vLightConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12D\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecH\x02R\x06source\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x05 \x01(\x01H\x04R\x05scale\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\t\n" +
+	"\a_sourceB\b\n" +
+	"\x06_colorB\b\n" +
+	"\x06_scale\"\xcc\x02\n" +
+	"\x16OffPageReferenceConfig\x12B\n" +
+	"\vorientation\x18\x01 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x00R\vorientation\x88\x01\x01\x127\n" +
+	"\x05label\x18\x02 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12+\n" +
+	"\x05level\x18\x03 \x01(\x0e2\x10.x.text.pb.LevelH\x01R\x05level\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x12\n" +
 	"\x04page\x18\x05 \x01(\tR\x04page\x12\"\n" +
-	"\rdbl_click_nav\x18\x06 \x01(\bR\vdblClickNav\"\x94\x03\n" +
-	"\rPolygonConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12\x1b\n" +
+	"\rdbl_click_nav\x18\x06 \x01(\bR\vdblClickNavB\x0e\n" +
+	"\f_orientationB\b\n" +
+	"\x06_levelB\b\n" +
+	"\x06_color\"\xa2\x04\n" +
+	"\rPolygonConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x1b\n" +
 	"\tnum_sides\x18\x03 \x01(\x01R\bnumSides\x12\x1f\n" +
 	"\vside_length\x18\x04 \x01(\x01R\n" +
-	"sideLength\x12\x1a\n" +
-	"\brotation\x18\x05 \x01(\x01R\brotation\x12'\n" +
-	"\x0fcorner_rounding\x18\x06 \x01(\x01R\x0ecornerRounding\x12'\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
-	"\x10background_color\x18\b \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\x12!\n" +
-	"\fstroke_width\x18\t \x01(\x01R\vstrokeWidth\"\xe1\x03\n" +
-	"\fSelectConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
-	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeR\x04size\x128\n" +
-	"\x04sink\x18\x04 \x01(\v2$.service.schematic.pb.NumberSinkSpecR\x04sink\x12'\n" +
-	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x1f\n" +
-	"\vinline_size\x18\x06 \x01(\x01R\n" +
-	"inlineSize\x12<\n" +
+	"sideLength\x12\x1f\n" +
+	"\brotation\x18\x05 \x01(\x01H\x02R\brotation\x88\x01\x01\x12,\n" +
+	"\x0fcorner_rounding\x18\x06 \x01(\x01H\x03R\x0ecornerRounding\x88\x01\x01\x12,\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x05R\x0fbackgroundColor\x88\x01\x01\x12&\n" +
+	"\fstroke_width\x18\t \x01(\x01H\x06R\vstrokeWidth\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\v\n" +
+	"\t_rotationB\x12\n" +
+	"\x10_corner_roundingB\b\n" +
+	"\x06_colorB\x13\n" +
+	"\x11_background_colorB\x0f\n" +
+	"\r_stroke_width\"\xd6\x04\n" +
+	"\fSelectConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12<\n" +
+	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x02R\x04size\x88\x01\x01\x12=\n" +
+	"\x04sink\x18\x04 \x01(\v2$.service.schematic.pb.NumberSinkSpecH\x03R\x04sink\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x12$\n" +
+	"\vinline_size\x18\x06 \x01(\x01H\x05R\n" +
+	"inlineSize\x88\x01\x01\x12<\n" +
 	"\aoptions\x18\a \x03(\v2\".service.schematic.pb.StateMappingR\aoptions\x12\x1a\n" +
-	"\bdisabled\x18\b \x01(\bR\bdisabled\x12B\n" +
-	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\"\x94\x04\n" +
-	"\x0eSetpointConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
-	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeR\x04size\x12>\n" +
-	"\x06source\x18\x04 \x01(\v2&.service.schematic.pb.NumberSourceSpecR\x06source\x128\n" +
-	"\x04sink\x18\x05 \x01(\v2$.service.schematic.pb.NumberSinkSpecR\x04sink\x128\n" +
+	"\bdisabled\x18\b \x01(\bR\bdisabled\x12G\n" +
+	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigH\x06R\acontrol\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\a\n" +
+	"\x05_sizeB\a\n" +
+	"\x05_sinkB\b\n" +
+	"\x06_colorB\x0e\n" +
+	"\f_inline_sizeB\n" +
 	"\n" +
-	"dimensions\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
-	"dimensions\x12'\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\b_control\"\x98\x05\n" +
+	"\x0eSetpointConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12<\n" +
+	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x02R\x04size\x88\x01\x01\x12C\n" +
+	"\x06source\x18\x04 \x01(\v2&.service.schematic.pb.NumberSourceSpecH\x03R\x06source\x88\x01\x01\x12=\n" +
+	"\x04sink\x18\x05 \x01(\v2$.service.schematic.pb.NumberSinkSpecH\x04R\x04sink\x88\x01\x01\x12=\n" +
+	"\n" +
+	"dimensions\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsH\x05R\n" +
+	"dimensions\x88\x01\x01\x12,\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12\x14\n" +
 	"\x05units\x18\b \x01(\tR\x05units\x12\x1a\n" +
-	"\bdisabled\x18\t \x01(\bR\bdisabled\x12B\n" +
+	"\bdisabled\x18\t \x01(\bR\bdisabled\x12G\n" +
 	"\acontrol\x18\n" +
-	" \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\"\xd6\x02\n" +
-	"\x14StateIndicatorConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12>\n" +
-	"\x06source\x18\x03 \x01(\v2&.service.schematic.pb.NumberSourceSpecR\x06source\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x1f\n" +
-	"\vinline_size\x18\x05 \x01(\x01R\n" +
-	"inlineSize\x12<\n" +
-	"\aoptions\x18\x06 \x03(\v2\".service.schematic.pb.StateMappingR\aoptions\"\xda\x02\n" +
-	"\rTextBoxConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12'\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
-	"\x05width\x18\x04 \x01(\x01R\x05width\x129\n" +
-	"\x05align\x18\x05 \x01(\x0e2#.service.schematic.pb.FlexAlignmentR\x05align\x12\x19\n" +
-	"\bauto_fit\x18\x06 \x01(\bR\aautoFit\x12&\n" +
-	"\x05level\x18\a \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12\x14\n" +
-	"\x05value\x18\b \x01(\tR\x05value\"\xaf\b\n" +
-	"\vValueConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12,\n" +
-	"\bposition\x18\x03 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x120\n" +
+	" \x01(\v2(.service.schematic.pb.ControlStateConfigH\aR\acontrol\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\a\n" +
+	"\x05_sizeB\t\n" +
+	"\a_sourceB\a\n" +
+	"\x05_sinkB\r\n" +
+	"\v_dimensionsB\b\n" +
+	"\x06_colorB\n" +
 	"\n" +
-	"text_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\ttextColor\x12\x18\n" +
-	"\atooltip\x18\x06 \x03(\tR\atooltip\x127\n" +
-	"\aredline\x18\a \x01(\v2\x1d.service.schematic.pb.RedlineR\aredline\x12\x14\n" +
-	"\x05units\x18\b \x01(\tR\x05units\x12\x1f\n" +
-	"\vinline_size\x18\t \x01(\x01R\n" +
-	"inlineSize\x12<\n" +
+	"\b_control\"\xae\x03\n" +
+	"\x14StateIndicatorConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12C\n" +
+	"\x06source\x18\x03 \x01(\v2&.service.schematic.pb.NumberSourceSpecH\x02R\x06source\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12$\n" +
+	"\vinline_size\x18\x05 \x01(\x01H\x04R\n" +
+	"inlineSize\x88\x01\x01\x12<\n" +
+	"\aoptions\x18\x06 \x03(\v2\".service.schematic.pb.StateMappingR\aoptionsB\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\t\n" +
+	"\a_sourceB\b\n" +
+	"\x06_colorB\x0e\n" +
+	"\f_inline_size\"\xba\x03\n" +
+	"\rTextBoxConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05width\x18\x04 \x01(\x01H\x03R\x05width\x88\x01\x01\x12>\n" +
+	"\x05align\x18\x05 \x01(\x0e2#.service.schematic.pb.FlexAlignmentH\x04R\x05align\x88\x01\x01\x12\x19\n" +
+	"\bauto_fit\x18\x06 \x01(\bR\aautoFit\x12+\n" +
+	"\x05level\x18\a \x01(\x0e2\x10.x.text.pb.LevelH\x05R\x05level\x88\x01\x01\x12\x14\n" +
+	"\x05value\x18\b \x01(\tR\x05valueB\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\b\n" +
+	"\x06_colorB\b\n" +
+	"\x06_widthB\b\n" +
+	"\x06_alignB\b\n" +
+	"\x06_level\"\xa8\v\n" +
+	"\vValueConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x121\n" +
+	"\bposition\x18\x03 \x01(\v2\x10.x.spatial.pb.XYH\x02R\bposition\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x125\n" +
+	"\n" +
+	"text_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\ttextColor\x88\x01\x01\x12\x18\n" +
+	"\atooltip\x18\x06 \x03(\tR\atooltip\x12<\n" +
+	"\aredline\x18\a \x01(\v2\x1d.service.schematic.pb.RedlineH\x05R\aredline\x88\x01\x01\x12\x14\n" +
+	"\x05units\x18\b \x01(\tR\x05units\x12$\n" +
+	"\vinline_size\x18\t \x01(\x01H\x06R\n" +
+	"inlineSize\x88\x01\x01\x12A\n" +
 	"\x05telem\x18\n" +
-	" \x01(\v2&.service.schematic.pb.StringSourceSpecR\x05telem\x12P\n" +
-	"\x10background_telem\x18\v \x01(\v2%.service.schematic.pb.ColorSourceSpecR\x0fbackgroundTelem\x12&\n" +
-	"\x05level\x18\f \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12\x1c\n" +
-	"\tprecision\x18\r \x01(\x01R\tprecision\x12+\n" +
-	"\x11staleness_timeout\x18\x0e \x01(\x01R\x10stalenessTimeout\x12:\n" +
-	"\x0fstaleness_color\x18\x0f \x01(\v2\x11.x.color.pb.ColorR\x0estalenessColor\x12\x1b\n" +
-	"\tmin_width\x18\x10 \x01(\x01R\bminWidth\x123\n" +
-	"\bnotation\x18\x11 \x01(\x0e2\x17.x.notation.pb.NotationR\bnotation\x124\n" +
-	"\blocation\x18\x12 \x01(\v2\x18.x.spatial.pb.LocationXYR\blocation\x127\n" +
-	"\x18use_width_for_background\x18\x13 \x01(\bR\x15useWidthForBackground\x12F\n" +
-	"\x16value_background_shift\x18\x14 \x01(\v2\x10.x.spatial.pb.XYR\x14valueBackgroundShift\x12M\n" +
-	"\x1avalue_background_over_scan\x18\x15 \x01(\v2\x10.x.spatial.pb.XYR\x17valueBackgroundOverScan\"\xdf\x02\n" +
+	" \x01(\v2&.service.schematic.pb.StringSourceSpecH\aR\x05telem\x88\x01\x01\x12U\n" +
+	"\x10background_telem\x18\v \x01(\v2%.service.schematic.pb.ColorSourceSpecH\bR\x0fbackgroundTelem\x88\x01\x01\x12+\n" +
+	"\x05level\x18\f \x01(\x0e2\x10.x.text.pb.LevelH\tR\x05level\x88\x01\x01\x12!\n" +
+	"\tprecision\x18\r \x01(\x01H\n" +
+	"R\tprecision\x88\x01\x01\x120\n" +
+	"\x11staleness_timeout\x18\x0e \x01(\x01H\vR\x10stalenessTimeout\x88\x01\x01\x12?\n" +
+	"\x0fstaleness_color\x18\x0f \x01(\v2\x11.x.color.pb.ColorH\fR\x0estalenessColor\x88\x01\x01\x12 \n" +
+	"\tmin_width\x18\x10 \x01(\x01H\rR\bminWidth\x88\x01\x01\x128\n" +
+	"\bnotation\x18\x11 \x01(\x0e2\x17.x.notation.pb.NotationH\x0eR\bnotation\x88\x01\x01\x129\n" +
+	"\blocation\x18\x12 \x01(\v2\x18.x.spatial.pb.LocationXYH\x0fR\blocation\x88\x01\x01\x127\n" +
+	"\x18use_width_for_background\x18\x13 \x01(\bR\x15useWidthForBackground\x12K\n" +
+	"\x16value_background_shift\x18\x14 \x01(\v2\x10.x.spatial.pb.XYH\x10R\x14valueBackgroundShift\x88\x01\x01\x12R\n" +
+	"\x1avalue_background_over_scan\x18\x15 \x01(\v2\x10.x.spatial.pb.XYH\x11R\x17valueBackgroundOverScan\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\v\n" +
+	"\t_positionB\b\n" +
+	"\x06_colorB\r\n" +
+	"\v_text_colorB\n" +
 	"\n" +
-	"TankConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12'\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
-	"\x10background_color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\x128\n" +
+	"\b_redlineB\x0e\n" +
+	"\f_inline_sizeB\b\n" +
+	"\x06_telemB\x13\n" +
+	"\x11_background_telemB\b\n" +
+	"\x06_levelB\f\n" +
 	"\n" +
-	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
-	"dimensions\x128\n" +
-	"\rborder_radius\x18\x06 \x01(\v2\x13.x.border.pb.RadiusR\fborderRadius\"\xe3\x02\n" +
-	"\x0eCylinderConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x128\n" +
+	"_precisionB\x14\n" +
+	"\x12_staleness_timeoutB\x12\n" +
+	"\x10_staleness_colorB\f\n" +
 	"\n" +
-	"dimensions\x18\x03 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
-	"dimensions\x128\n" +
-	"\rborder_radius\x18\x04 \x01(\v2\x13.x.border.pb.RadiusR\fborderRadius\x12'\n" +
-	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
-	"\x10background_color\x18\x06 \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\"\x90\x04\n" +
-	"\x14CustomActuatorConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
-	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x129\n" +
-	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x12B\n" +
-	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\x12$\n" +
+	"_min_widthB\v\n" +
+	"\t_notationB\v\n" +
+	"\t_locationB\x19\n" +
+	"\x17_value_background_shiftB\x1d\n" +
+	"\x1b_value_background_over_scan\"\xd7\x03\n" +
+	"\n" +
+	"TankConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x0fbackgroundColor\x88\x01\x01\x12=\n" +
+	"\n" +
+	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsH\x04R\n" +
+	"dimensions\x88\x01\x01\x12=\n" +
+	"\rborder_radius\x18\x06 \x01(\v2\x13.x.border.pb.RadiusH\x05R\fborderRadius\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\b\n" +
+	"\x06_colorB\x13\n" +
+	"\x11_background_colorB\r\n" +
+	"\v_dimensionsB\x10\n" +
+	"\x0e_border_radius\"\xdb\x03\n" +
+	"\x0eCylinderConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12=\n" +
+	"\n" +
+	"dimensions\x18\x03 \x01(\v2\x18.x.spatial.pb.DimensionsH\x02R\n" +
+	"dimensions\x88\x01\x01\x12=\n" +
+	"\rborder_radius\x18\x04 \x01(\v2\x13.x.border.pb.RadiusH\x03R\fborderRadius\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x0fbackgroundColor\x88\x01\x01B\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\r\n" +
+	"\v_dimensionsB\x10\n" +
+	"\x0e_border_radiusB\b\n" +
+	"\x06_colorB\x13\n" +
+	"\x11_background_color\"\x81\x05\n" +
+	"\x14CustomActuatorConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12D\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecH\x02R\x06source\x88\x01\x01\x12>\n" +
+	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecH\x03R\x04sink\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x04R\acontrol\x88\x01\x01\x12$\n" +
 	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12\x19\n" +
-	"\bspec_key\x18\a \x01(\tR\aspecKey\x12'\n" +
-	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
-	"\x05scale\x18\t \x01(\x01R\x05scale\x12@\n" +
+	"\bspec_key\x18\a \x01(\tR\aspecKey\x12,\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\t \x01(\x01H\x06R\x05scale\x88\x01\x01\x12@\n" +
 	"\x0fstate_overrides\x18\n" +
-	" \x03(\v2\x17.google.protobuf.StructR\x0estateOverrides\"\xa8\x02\n" +
-	"\x12CustomStaticConfig\x127\n" +
-	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12\x19\n" +
-	"\bspec_key\x18\x03 \x01(\tR\aspecKey\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
-	"\x05scale\x18\x05 \x01(\x01R\x05scale\x12@\n" +
-	"\x0fstate_overrides\x18\x06 \x03(\v2\x17.google.protobuf.StructR\x0estateOverrides\"\xce\x02\n" +
+	" \x03(\v2\x17.google.protobuf.StructR\x0estateOverridesB\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\t\n" +
+	"\a_sourceB\a\n" +
+	"\x05_sinkB\n" +
+	"\n" +
+	"\b_controlB\b\n" +
+	"\x06_colorB\b\n" +
+	"\x06_scale\"\xea\x02\n" +
+	"\x12CustomStaticConfig\x12<\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\bspec_key\x18\x03 \x01(\tR\aspecKey\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x05 \x01(\x01H\x03R\x05scale\x88\x01\x01\x12@\n" +
+	"\x0fstate_overrides\x18\x06 \x03(\v2\x17.google.protobuf.StructR\x0estateOverridesB\b\n" +
+	"\x06_labelB\x0e\n" +
+	"\f_orientationB\b\n" +
+	"\x06_colorB\b\n" +
+	"\x06_scale\"\xda\x02\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\x120\n" +
 	"\x05nodes\x18\x04 \x03(\v2\x1a.service.schematic.pb.NodeR\x05nodes\x120\n" +
 	"\x05edges\x18\x05 \x03(\v2\x1a.service.schematic.pb.EdgeR\x05edges\x12F\n" +
-	"\aconfigs\x18\x06 \x03(\v2,.service.schematic.pb.Schematic.ConfigsEntryR\aconfigs\x1aS\n" +
+	"\aconfigs\x18\x06 \x03(\v2,.service.schematic.pb.Schematic.ConfigsEntryR\aconfigs\x1a_\n" +
 	"\fConfigsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
-	"\x05value\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05value:\x028\x01\"\x8c\x04\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x129\n" +
+	"\x05value\x18\x02 \x01(\v2#.service.schematic.pb.ElementConfigR\x05value:\x028\x01\"\x8c\x04\n" +
 	"\n" +
 	"EdgeConfig\x12?\n" +
 	"\x04pipe\x18\x01 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\x04pipe\x12G\n" +
@@ -6535,6 +8482,128 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"t_junction\x18b \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\ttJunction\x12U\n" +
 	"\x0fcustom_actuator\x18c \x01(\v2*.service.schematic.pb.CustomActuatorConfigH\x00R\x0ecustomActuator\x12O\n" +
 	"\rcustom_static\x18d \x01(\v2(.service.schematic.pb.CustomStaticConfigH\x00R\fcustomStaticB\t\n" +
+	"\avariant\"\xf2D\n" +
+	"\rElementConfig\x12<\n" +
+	"\x03cap\x18\x01 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x03cap\x12B\n" +
+	"\x06filter\x18\x02 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x06filter\x12W\n" +
+	"\x11flow_straightener\x18\x03 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowStraightener\x12Q\n" +
+	"\x0eheater_element\x18\x04 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\rheaterElement\x12C\n" +
+	"\aiso_cap\x18\x05 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x06isoCap\x12I\n" +
+	"\n" +
+	"iso_filter\x18\x06 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\tisoFilter\x12B\n" +
+	"\x06nozzle\x18\a \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x06nozzle\x12D\n" +
+	"\aorifice\x18\b \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\aorifice\x12O\n" +
+	"\rorifice_plate\x18\t \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\forificePlate\x12F\n" +
+	"\bstrainer\x18\n" +
+	" \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\bstrainer\x12O\n" +
+	"\rstrainer_cone\x18\v \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\fstrainerCone\x12F\n" +
+	"\bthruster\x18\f \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\bthruster\x12>\n" +
+	"\x04vent\x18\r \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x04vent\x12W\n" +
+	"\x11flowmeter_general\x18\x0e \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowmeterGeneral\x12g\n" +
+	"\x19flowmeter_electromagnetic\x18\x0f \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x18flowmeterElectromagnetic\x12b\n" +
+	"\x17flowmeter_variable_area\x18\x10 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x15flowmeterVariableArea\x12Y\n" +
+	"\x12flowmeter_coriolis\x18\x11 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x11flowmeterCoriolis\x12U\n" +
+	"\x10flowmeter_nozzle\x18\x12 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x0fflowmeterNozzle\x12W\n" +
+	"\x11flowmeter_venturi\x18\x13 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowmeterVenturi\x12^\n" +
+	"\x15flowmeter_ring_piston\x18\x14 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x13flowmeterRingPiston\x12r\n" +
+	"\x1fflowmeter_positive_displacement\x18\x15 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x1dflowmeterPositiveDisplacement\x12W\n" +
+	"\x11flowmeter_turbine\x18\x16 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowmeterTurbine\x12S\n" +
+	"\x0fflowmeter_pulse\x18\x17 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x0eflowmeterPulse\x12`\n" +
+	"\x16flowmeter_float_sensor\x18\x18 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x14flowmeterFloatSensor\x12W\n" +
+	"\x11flowmeter_orifice\x18\x19 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowmeterOrifice\x123\n" +
+	"\x03box\x18\x1a \x01(\v2\x1f.service.schematic.pb.BoxConfigH\x00R\x03box\x12<\n" +
+	"\x06button\x18\x1b \x01(\v2\".service.schematic.pb.ButtonConfigH\x00R\x06button\x12<\n" +
+	"\x06circle\x18\x1c \x01(\v2\".service.schematic.pb.CircleConfigH\x00R\x06circle\x129\n" +
+	"\x05gauge\x18\x1d \x01(\v2!.service.schematic.pb.GaugeConfigH\x00R\x05gauge\x129\n" +
+	"\x05input\x18\x1e \x01(\v2!.service.schematic.pb.InputConfigH\x00R\x05input\x129\n" +
+	"\x05light\x18\x1f \x01(\v2!.service.schematic.pb.LightConfigH\x00R\x05light\x12\\\n" +
+	"\x12off_page_reference\x18  \x01(\v2,.service.schematic.pb.OffPageReferenceConfigH\x00R\x10offPageReference\x12?\n" +
+	"\apolygon\x18! \x01(\v2#.service.schematic.pb.PolygonConfigH\x00R\apolygon\x12<\n" +
+	"\x06select\x18\" \x01(\v2\".service.schematic.pb.SelectConfigH\x00R\x06select\x12B\n" +
+	"\bsetpoint\x18# \x01(\v2$.service.schematic.pb.SetpointConfigH\x00R\bsetpoint\x12U\n" +
+	"\x0fstate_indicator\x18$ \x01(\v2*.service.schematic.pb.StateIndicatorConfigH\x00R\x0estateIndicator\x12B\n" +
+	"\x06switch\x18% \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x06switch\x12@\n" +
+	"\btext_box\x18& \x01(\v2#.service.schematic.pb.TextBoxConfigH\x00R\atextBox\x129\n" +
+	"\x05value\x18' \x01(\v2!.service.schematic.pb.ValueConfigH\x00R\x05value\x12F\n" +
+	"\bagitator\x18( \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\bagitator\x12Z\n" +
+	"\x13cross_beam_agitator\x18) \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11crossBeamAgitator\x12Z\n" +
+	"\x13flat_blade_agitator\x18* \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11flatBladeAgitator\x12`\n" +
+	"\x16heat_exchanger_general\x18+ \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x14heatExchangerGeneral\x12T\n" +
+	"\x10heat_exchanger_m\x18, \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x0eheatExchangerM\x12k\n" +
+	"\x1cheat_exchanger_straight_tube\x18- \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x19heatExchangerStraightTube\x12U\n" +
+	"\x10helical_agitator\x18. \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x0fhelicalAgitator\x12S\n" +
+	"\x0fpaddle_agitator\x18/ \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x0epaddleAgitator\x12Y\n" +
+	"\x12propeller_agitator\x180 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11propellerAgitator\x12M\n" +
+	"\frotary_mixer\x181 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\vrotaryMixer\x12M\n" +
+	"\fstatic_mixer\x182 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\vstaticMixer\x12K\n" +
+	"\vcavity_pump\x183 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\n" +
+	"cavityPump\x12a\n" +
+	"\x16centrifugal_compressor\x184 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x15centrifugalCompressor\x12J\n" +
+	"\n" +
+	"compressor\x185 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\n" +
+	"compressor\x12Q\n" +
+	"\x0ediaphragm_pump\x186 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\rdiaphragmPump\x12O\n" +
+	"\rejection_pump\x187 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\fejectionPump\x12Y\n" +
+	"\x12ejector_compressor\x188 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11ejectorCompressor\x12`\n" +
+	"\x16liquid_ring_compressor\x189 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x14liquidRingCompressor\x12K\n" +
+	"\vpiston_pump\x18: \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\n" +
+	"pistonPump\x12>\n" +
+	"\x04pump\x18; \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x04pump\x12`\n" +
+	"\x16roller_vane_compressor\x18< \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x14rollerVaneCompressor\x12I\n" +
+	"\n" +
+	"screw_pump\x18= \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\tscrewPump\x12U\n" +
+	"\x10turbo_compressor\x18> \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x0fturboCompressor\x12K\n" +
+	"\vvacuum_pump\x18? \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\n" +
+	"vacuumPump\x12I\n" +
+	"\n" +
+	"burst_disc\x18@ \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\tburstDisc\x12Q\n" +
+	"\x0eflame_arrestor\x18A \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\rflameArrestor\x12f\n" +
+	"\x19flame_arrestor_detonation\x18B \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x17flameArrestorDetonation\x12d\n" +
+	"\x18flame_arrestor_explosion\x18C \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x16flameArrestorExplosion\x12a\n" +
+	"\x17flame_arrestor_fire_res\x18D \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x14flameArrestorFireRes\x12v\n" +
+	"\"flame_arrestor_fire_res_detonation\x18E \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x1eflameArrestorFireResDetonation\x12P\n" +
+	"\x0eiso_burst_disc\x18F \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\fisoBurstDisc\x12M\n" +
+	"\fangled_valve\x18G \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\vangledValve\x12_\n" +
+	"\x13angled_relief_valve\x18H \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\x11angledReliefValve\x12y\n" +
+	"!angled_spring_loaded_relief_valve\x18I \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\x1dangledSpringLoadedReliefValve\x12I\n" +
+	"\n" +
+	"ball_valve\x18J \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\tballValve\x12V\n" +
+	"\x0ebreather_valve\x18K \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\rbreatherValve\x12Z\n" +
+	"\x13butterfly_valve_one\x18L \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11butterflyValveOne\x12Z\n" +
+	"\x13butterfly_valve_two\x18M \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11butterflyValveTwo\x12K\n" +
+	"\vcheck_valve\x18N \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\n" +
+	"checkValve\x12_\n" +
+	"\x16check_valve_with_arrow\x18O \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x13checkValveWithArrow\x12Y\n" +
+	"\x12electric_regulator\x18P \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x11electricRegulator\x12l\n" +
+	"\x1celectric_regulator_motorized\x18Q \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x1aelectricRegulatorMotorized\x12P\n" +
+	"\x0efour_way_valve\x18R \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\ffourWayValve\x12I\n" +
+	"\n" +
+	"gate_valve\x18S \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\tgateValve\x12R\n" +
+	"\x0fiso_check_valve\x18T \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\risoCheckValve\x12R\n" +
+	"\fmanual_valve\x18U \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\vmanualValve\x12R\n" +
+	"\fneedle_valve\x18V \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\vneedleValve\x12H\n" +
+	"\tregulator\x18W \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\tregulator\x12U\n" +
+	"\x10regulator_manual\x18X \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x0fregulatorManual\x12R\n" +
+	"\frelief_valve\x18Y \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\vreliefValve\x12R\n" +
+	"\x0esolenoid_valve\x18Z \x01(\v2).service.schematic.pb.SolenoidValveConfigH\x00R\rsolenoidValve\x12l\n" +
+	"\x1aspring_loaded_relief_valve\x18[ \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\x17springLoadedReliefValve\x12R\n" +
+	"\x0fthree_way_valve\x18\\ \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\rthreeWayValve\x12[\n" +
+	"\x14three_way_ball_valve\x18] \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11threeWayBallValve\x12@\n" +
+	"\x05valve\x18^ \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x05valve\x12Q\n" +
+	"\x0ecross_junction\x18_ \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\rcrossJunction\x12B\n" +
+	"\bcylinder\x18` \x01(\v2$.service.schematic.pb.CylinderConfigH\x00R\bcylinder\x126\n" +
+	"\x04tank\x18a \x01(\v2 .service.schematic.pb.TankConfigH\x00R\x04tank\x12I\n" +
+	"\n" +
+	"t_junction\x18b \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\ttJunction\x12U\n" +
+	"\x0fcustom_actuator\x18c \x01(\v2*.service.schematic.pb.CustomActuatorConfigH\x00R\x0ecustomActuator\x12O\n" +
+	"\rcustom_static\x18d \x01(\v2(.service.schematic.pb.CustomStaticConfigH\x00R\fcustomStatic\x12?\n" +
+	"\x04pipe\x18e \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\x04pipe\x12G\n" +
+	"\belectric\x18f \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\belectric\x12I\n" +
+	"\tsecondary\x18g \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\tsecondary\x12G\n" +
+	"\bjacketed\x18h \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\bjacketed\x12I\n" +
+	"\thydraulic\x18i \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\thydraulic\x12I\n" +
+	"\tpneumatic\x18j \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\tpneumatic\x12?\n" +
+	"\x04data\x18k \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\x04dataB\t\n" +
 	"\avariant*$\n" +
 	"\n" +
 	"SourceRole\x12\x16\n" +
@@ -6572,7 +8641,7 @@ func file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_schematic_pb_schematic_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
+var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 49)
 var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	(SourceRole)(0),                 // 0: service.schematic.pb.SourceRole
 	(SinkRole)(0),                   // 1: service.schematic.pb.SinkRole
@@ -6626,183 +8695,184 @@ var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	(*NumberSinkSpec)(nil),          // 49: service.schematic.pb.NumberSinkSpec
 	(*StringSinkSpec)(nil),          // 50: service.schematic.pb.StringSinkSpec
 	(*NodeConfig)(nil),              // 51: service.schematic.pb.NodeConfig
-	nil,                             // 52: service.schematic.pb.Schematic.ConfigsEntry
-	(*pb.XY)(nil),                   // 53: x.spatial.pb.XY
-	(*pb.Dimensions)(nil),           // 54: x.spatial.pb.Dimensions
-	(pb.Direction)(0),               // 55: x.spatial.pb.Direction
-	(*pb1.Color)(nil),               // 56: x.color.pb.Color
-	(*structpb.Struct)(nil),         // 57: google.protobuf.Struct
-	(pb2.Level)(0),                  // 58: x.text.pb.Level
-	(pb.Location)(0),                // 59: x.spatial.pb.Location
-	(pb.OuterLocation)(0),           // 60: x.spatial.pb.OuterLocation
-	(*pb.Bounds)(nil),               // 61: x.spatial.pb.Bounds
-	(*pb1.Stop)(nil),                // 62: x.color.pb.Stop
-	(pb3.Notation)(0),               // 63: x.notation.pb.Notation
-	(*pb.LocationXY)(nil),           // 64: x.spatial.pb.LocationXY
-	(*pb4.Radius)(nil),              // 65: x.border.pb.Radius
+	(*ElementConfig)(nil),           // 52: service.schematic.pb.ElementConfig
+	nil,                             // 53: service.schematic.pb.Schematic.ConfigsEntry
+	(*pb.XY)(nil),                   // 54: x.spatial.pb.XY
+	(*pb.Dimensions)(nil),           // 55: x.spatial.pb.Dimensions
+	(pb.Direction)(0),               // 56: x.spatial.pb.Direction
+	(*pb1.Color)(nil),               // 57: x.color.pb.Color
+	(*structpb.Struct)(nil),         // 58: google.protobuf.Struct
+	(pb2.Level)(0),                  // 59: x.text.pb.Level
+	(pb.Location)(0),                // 60: x.spatial.pb.Location
+	(pb.OuterLocation)(0),           // 61: x.spatial.pb.OuterLocation
+	(*pb.Bounds)(nil),               // 62: x.spatial.pb.Bounds
+	(*pb1.Stop)(nil),                // 63: x.color.pb.Stop
+	(pb3.Notation)(0),               // 64: x.notation.pb.Notation
+	(*pb.LocationXY)(nil),           // 65: x.spatial.pb.LocationXY
+	(*pb4.Radius)(nil),              // 66: x.border.pb.Radius
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
-	53,  // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
-	54,  // 1: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
+	54,  // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
+	55,  // 1: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
 	6,   // 2: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
 	6,   // 3: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
-	55,  // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
-	56,  // 5: service.schematic.pb.SegmentedEdgeConfig.color:type_name -> x.color.pb.Color
+	56,  // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
+	57,  // 5: service.schematic.pb.SegmentedEdgeConfig.color:type_name -> x.color.pb.Color
 	8,   // 6: service.schematic.pb.SegmentedEdgeConfig.segments:type_name -> service.schematic.pb.Segment
 	0,   // 7: service.schematic.pb.SourceTelemSpec.variant:type_name -> service.schematic.pb.SourceRole
-	57,  // 8: service.schematic.pb.SourceTelemSpec.props:type_name -> google.protobuf.Struct
+	58,  // 8: service.schematic.pb.SourceTelemSpec.props:type_name -> google.protobuf.Struct
 	1,   // 9: service.schematic.pb.SinkTelemSpec.variant:type_name -> service.schematic.pb.SinkRole
-	57,  // 10: service.schematic.pb.SinkTelemSpec.props:type_name -> google.protobuf.Struct
-	58,  // 11: service.schematic.pb.LabelConfig.level:type_name -> x.text.pb.Level
-	59,  // 12: service.schematic.pb.LabelConfig.orientation:type_name -> x.spatial.pb.Location
-	55,  // 13: service.schematic.pb.LabelConfig.direction:type_name -> x.spatial.pb.Direction
+	58,  // 10: service.schematic.pb.SinkTelemSpec.props:type_name -> google.protobuf.Struct
+	59,  // 11: service.schematic.pb.LabelConfig.level:type_name -> x.text.pb.Level
+	60,  // 12: service.schematic.pb.LabelConfig.orientation:type_name -> x.spatial.pb.Location
+	56,  // 13: service.schematic.pb.LabelConfig.direction:type_name -> x.spatial.pb.Direction
 	2,   // 14: service.schematic.pb.LabelConfig.align:type_name -> service.schematic.pb.FlexAlignment
 	12,  // 15: service.schematic.pb.LabeledConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 16: service.schematic.pb.LabeledConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 16: service.schematic.pb.LabeledConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	47,  // 17: service.schematic.pb.ChipConfig.source:type_name -> service.schematic.pb.StatusSourceSpec
 	48,  // 18: service.schematic.pb.ChipConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
 	47,  // 19: service.schematic.pb.IndicatorConfig.status_source:type_name -> service.schematic.pb.StatusSourceSpec
 	46,  // 20: service.schematic.pb.IndicatorConfig.color_source:type_name -> service.schematic.pb.ColorSourceSpec
 	14,  // 21: service.schematic.pb.ControlStateConfig.chip:type_name -> service.schematic.pb.ChipConfig
 	15,  // 22: service.schematic.pb.ControlStateConfig.indicator:type_name -> service.schematic.pb.IndicatorConfig
-	59,  // 23: service.schematic.pb.ControlStateConfig.orientation:type_name -> x.spatial.pb.Location
+	60,  // 23: service.schematic.pb.ControlStateConfig.orientation:type_name -> x.spatial.pb.Location
 	12,  // 24: service.schematic.pb.ToggleConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 25: service.schematic.pb.ToggleConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 25: service.schematic.pb.ToggleConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	43,  // 26: service.schematic.pb.ToggleConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
 	48,  // 27: service.schematic.pb.ToggleConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
 	16,  // 28: service.schematic.pb.ToggleConfig.control:type_name -> service.schematic.pb.ControlStateConfig
 	12,  // 29: service.schematic.pb.StaticSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 30: service.schematic.pb.StaticSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	56,  // 31: service.schematic.pb.StaticSymbolConfig.color:type_name -> x.color.pb.Color
+	61,  // 30: service.schematic.pb.StaticSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 31: service.schematic.pb.StaticSymbolConfig.color:type_name -> x.color.pb.Color
 	12,  // 32: service.schematic.pb.ToggleSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 33: service.schematic.pb.ToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 33: service.schematic.pb.ToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	43,  // 34: service.schematic.pb.ToggleSymbolConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
 	48,  // 35: service.schematic.pb.ToggleSymbolConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
 	16,  // 36: service.schematic.pb.ToggleSymbolConfig.control:type_name -> service.schematic.pb.ControlStateConfig
-	56,  // 37: service.schematic.pb.ToggleSymbolConfig.color:type_name -> x.color.pb.Color
+	57,  // 37: service.schematic.pb.ToggleSymbolConfig.color:type_name -> x.color.pb.Color
 	12,  // 38: service.schematic.pb.DummyToggleSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 39: service.schematic.pb.DummyToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	56,  // 40: service.schematic.pb.DummyToggleSymbolConfig.color:type_name -> x.color.pb.Color
+	61,  // 39: service.schematic.pb.DummyToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 40: service.schematic.pb.DummyToggleSymbolConfig.color:type_name -> x.color.pb.Color
 	12,  // 41: service.schematic.pb.SolenoidValveConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 42: service.schematic.pb.SolenoidValveConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 42: service.schematic.pb.SolenoidValveConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	43,  // 43: service.schematic.pb.SolenoidValveConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
 	48,  // 44: service.schematic.pb.SolenoidValveConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
 	16,  // 45: service.schematic.pb.SolenoidValveConfig.control:type_name -> service.schematic.pb.ControlStateConfig
-	56,  // 46: service.schematic.pb.SolenoidValveConfig.color:type_name -> x.color.pb.Color
-	56,  // 47: service.schematic.pb.StateMapping.color:type_name -> x.color.pb.Color
-	61,  // 48: service.schematic.pb.Redline.bounds:type_name -> x.spatial.pb.Bounds
-	62,  // 49: service.schematic.pb.Redline.gradient:type_name -> x.color.pb.Stop
+	57,  // 46: service.schematic.pb.SolenoidValveConfig.color:type_name -> x.color.pb.Color
+	57,  // 47: service.schematic.pb.StateMapping.color:type_name -> x.color.pb.Color
+	62,  // 48: service.schematic.pb.Redline.bounds:type_name -> x.spatial.pb.Bounds
+	63,  // 49: service.schematic.pb.Redline.gradient:type_name -> x.color.pb.Stop
 	12,  // 50: service.schematic.pb.BoxConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 51: service.schematic.pb.BoxConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	56,  // 52: service.schematic.pb.BoxConfig.color:type_name -> x.color.pb.Color
-	56,  // 53: service.schematic.pb.BoxConfig.background_color:type_name -> x.color.pb.Color
-	54,  // 54: service.schematic.pb.BoxConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	61,  // 51: service.schematic.pb.BoxConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 52: service.schematic.pb.BoxConfig.color:type_name -> x.color.pb.Color
+	57,  // 53: service.schematic.pb.BoxConfig.background_color:type_name -> x.color.pb.Color
+	55,  // 54: service.schematic.pb.BoxConfig.dimensions:type_name -> x.spatial.pb.Dimensions
 	12,  // 55: service.schematic.pb.ButtonConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 56: service.schematic.pb.ButtonConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 56: service.schematic.pb.ButtonConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	3,   // 57: service.schematic.pb.ButtonConfig.size:type_name -> service.schematic.pb.ComponentSize
-	58,  // 58: service.schematic.pb.ButtonConfig.level:type_name -> x.text.pb.Level
+	59,  // 58: service.schematic.pb.ButtonConfig.level:type_name -> x.text.pb.Level
 	48,  // 59: service.schematic.pb.ButtonConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
 	4,   // 60: service.schematic.pb.ButtonConfig.mode:type_name -> service.schematic.pb.ButtonMode
-	56,  // 61: service.schematic.pb.ButtonConfig.color:type_name -> x.color.pb.Color
+	57,  // 61: service.schematic.pb.ButtonConfig.color:type_name -> x.color.pb.Color
 	16,  // 62: service.schematic.pb.ButtonConfig.control:type_name -> service.schematic.pb.ControlStateConfig
 	12,  // 63: service.schematic.pb.CircleConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 64: service.schematic.pb.CircleConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	56,  // 65: service.schematic.pb.CircleConfig.color:type_name -> x.color.pb.Color
-	56,  // 66: service.schematic.pb.CircleConfig.background_color:type_name -> x.color.pb.Color
+	61,  // 64: service.schematic.pb.CircleConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 65: service.schematic.pb.CircleConfig.color:type_name -> x.color.pb.Color
+	57,  // 66: service.schematic.pb.CircleConfig.background_color:type_name -> x.color.pb.Color
 	12,  // 67: service.schematic.pb.GaugeConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 68: service.schematic.pb.GaugeConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	53,  // 69: service.schematic.pb.GaugeConfig.position:type_name -> x.spatial.pb.XY
-	56,  // 70: service.schematic.pb.GaugeConfig.color:type_name -> x.color.pb.Color
-	61,  // 71: service.schematic.pb.GaugeConfig.bounds:type_name -> x.spatial.pb.Bounds
+	61,  // 68: service.schematic.pb.GaugeConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	54,  // 69: service.schematic.pb.GaugeConfig.position:type_name -> x.spatial.pb.XY
+	57,  // 70: service.schematic.pb.GaugeConfig.color:type_name -> x.color.pb.Color
+	62,  // 71: service.schematic.pb.GaugeConfig.bounds:type_name -> x.spatial.pb.Bounds
 	45,  // 72: service.schematic.pb.GaugeConfig.telem:type_name -> service.schematic.pb.StringSourceSpec
 	46,  // 73: service.schematic.pb.GaugeConfig.background_telem:type_name -> service.schematic.pb.ColorSourceSpec
-	63,  // 74: service.schematic.pb.GaugeConfig.notation:type_name -> x.notation.pb.Notation
-	64,  // 75: service.schematic.pb.GaugeConfig.location:type_name -> x.spatial.pb.LocationXY
-	58,  // 76: service.schematic.pb.GaugeConfig.level:type_name -> x.text.pb.Level
+	64,  // 74: service.schematic.pb.GaugeConfig.notation:type_name -> x.notation.pb.Notation
+	65,  // 75: service.schematic.pb.GaugeConfig.location:type_name -> x.spatial.pb.LocationXY
+	59,  // 76: service.schematic.pb.GaugeConfig.level:type_name -> x.text.pb.Level
 	12,  // 77: service.schematic.pb.InputConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 78: service.schematic.pb.InputConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 78: service.schematic.pb.InputConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	3,   // 79: service.schematic.pb.InputConfig.size:type_name -> service.schematic.pb.ComponentSize
 	50,  // 80: service.schematic.pb.InputConfig.sink:type_name -> service.schematic.pb.StringSinkSpec
-	54,  // 81: service.schematic.pb.InputConfig.dimensions:type_name -> x.spatial.pb.Dimensions
-	56,  // 82: service.schematic.pb.InputConfig.color:type_name -> x.color.pb.Color
+	55,  // 81: service.schematic.pb.InputConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	57,  // 82: service.schematic.pb.InputConfig.color:type_name -> x.color.pb.Color
 	16,  // 83: service.schematic.pb.InputConfig.control:type_name -> service.schematic.pb.ControlStateConfig
 	12,  // 84: service.schematic.pb.LightConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 85: service.schematic.pb.LightConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 85: service.schematic.pb.LightConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	43,  // 86: service.schematic.pb.LightConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
-	56,  // 87: service.schematic.pb.LightConfig.color:type_name -> x.color.pb.Color
-	60,  // 88: service.schematic.pb.OffPageReferenceConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 87: service.schematic.pb.LightConfig.color:type_name -> x.color.pb.Color
+	61,  // 88: service.schematic.pb.OffPageReferenceConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	12,  // 89: service.schematic.pb.OffPageReferenceConfig.label:type_name -> service.schematic.pb.LabelConfig
-	58,  // 90: service.schematic.pb.OffPageReferenceConfig.level:type_name -> x.text.pb.Level
-	56,  // 91: service.schematic.pb.OffPageReferenceConfig.color:type_name -> x.color.pb.Color
+	59,  // 90: service.schematic.pb.OffPageReferenceConfig.level:type_name -> x.text.pb.Level
+	57,  // 91: service.schematic.pb.OffPageReferenceConfig.color:type_name -> x.color.pb.Color
 	12,  // 92: service.schematic.pb.PolygonConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 93: service.schematic.pb.PolygonConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	56,  // 94: service.schematic.pb.PolygonConfig.color:type_name -> x.color.pb.Color
-	56,  // 95: service.schematic.pb.PolygonConfig.background_color:type_name -> x.color.pb.Color
+	61,  // 93: service.schematic.pb.PolygonConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 94: service.schematic.pb.PolygonConfig.color:type_name -> x.color.pb.Color
+	57,  // 95: service.schematic.pb.PolygonConfig.background_color:type_name -> x.color.pb.Color
 	12,  // 96: service.schematic.pb.SelectConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 97: service.schematic.pb.SelectConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 97: service.schematic.pb.SelectConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	3,   // 98: service.schematic.pb.SelectConfig.size:type_name -> service.schematic.pb.ComponentSize
 	49,  // 99: service.schematic.pb.SelectConfig.sink:type_name -> service.schematic.pb.NumberSinkSpec
-	56,  // 100: service.schematic.pb.SelectConfig.color:type_name -> x.color.pb.Color
+	57,  // 100: service.schematic.pb.SelectConfig.color:type_name -> x.color.pb.Color
 	22,  // 101: service.schematic.pb.SelectConfig.options:type_name -> service.schematic.pb.StateMapping
 	16,  // 102: service.schematic.pb.SelectConfig.control:type_name -> service.schematic.pb.ControlStateConfig
 	12,  // 103: service.schematic.pb.SetpointConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 104: service.schematic.pb.SetpointConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 104: service.schematic.pb.SetpointConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	3,   // 105: service.schematic.pb.SetpointConfig.size:type_name -> service.schematic.pb.ComponentSize
 	44,  // 106: service.schematic.pb.SetpointConfig.source:type_name -> service.schematic.pb.NumberSourceSpec
 	49,  // 107: service.schematic.pb.SetpointConfig.sink:type_name -> service.schematic.pb.NumberSinkSpec
-	54,  // 108: service.schematic.pb.SetpointConfig.dimensions:type_name -> x.spatial.pb.Dimensions
-	56,  // 109: service.schematic.pb.SetpointConfig.color:type_name -> x.color.pb.Color
+	55,  // 108: service.schematic.pb.SetpointConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	57,  // 109: service.schematic.pb.SetpointConfig.color:type_name -> x.color.pb.Color
 	16,  // 110: service.schematic.pb.SetpointConfig.control:type_name -> service.schematic.pb.ControlStateConfig
 	12,  // 111: service.schematic.pb.StateIndicatorConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 112: service.schematic.pb.StateIndicatorConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 112: service.schematic.pb.StateIndicatorConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	44,  // 113: service.schematic.pb.StateIndicatorConfig.source:type_name -> service.schematic.pb.NumberSourceSpec
-	56,  // 114: service.schematic.pb.StateIndicatorConfig.color:type_name -> x.color.pb.Color
+	57,  // 114: service.schematic.pb.StateIndicatorConfig.color:type_name -> x.color.pb.Color
 	22,  // 115: service.schematic.pb.StateIndicatorConfig.options:type_name -> service.schematic.pb.StateMapping
 	12,  // 116: service.schematic.pb.TextBoxConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 117: service.schematic.pb.TextBoxConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	56,  // 118: service.schematic.pb.TextBoxConfig.color:type_name -> x.color.pb.Color
+	61,  // 117: service.schematic.pb.TextBoxConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 118: service.schematic.pb.TextBoxConfig.color:type_name -> x.color.pb.Color
 	2,   // 119: service.schematic.pb.TextBoxConfig.align:type_name -> service.schematic.pb.FlexAlignment
-	58,  // 120: service.schematic.pb.TextBoxConfig.level:type_name -> x.text.pb.Level
+	59,  // 120: service.schematic.pb.TextBoxConfig.level:type_name -> x.text.pb.Level
 	12,  // 121: service.schematic.pb.ValueConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 122: service.schematic.pb.ValueConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	53,  // 123: service.schematic.pb.ValueConfig.position:type_name -> x.spatial.pb.XY
-	56,  // 124: service.schematic.pb.ValueConfig.color:type_name -> x.color.pb.Color
-	56,  // 125: service.schematic.pb.ValueConfig.text_color:type_name -> x.color.pb.Color
+	61,  // 122: service.schematic.pb.ValueConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	54,  // 123: service.schematic.pb.ValueConfig.position:type_name -> x.spatial.pb.XY
+	57,  // 124: service.schematic.pb.ValueConfig.color:type_name -> x.color.pb.Color
+	57,  // 125: service.schematic.pb.ValueConfig.text_color:type_name -> x.color.pb.Color
 	23,  // 126: service.schematic.pb.ValueConfig.redline:type_name -> service.schematic.pb.Redline
 	45,  // 127: service.schematic.pb.ValueConfig.telem:type_name -> service.schematic.pb.StringSourceSpec
 	46,  // 128: service.schematic.pb.ValueConfig.background_telem:type_name -> service.schematic.pb.ColorSourceSpec
-	58,  // 129: service.schematic.pb.ValueConfig.level:type_name -> x.text.pb.Level
-	56,  // 130: service.schematic.pb.ValueConfig.staleness_color:type_name -> x.color.pb.Color
-	63,  // 131: service.schematic.pb.ValueConfig.notation:type_name -> x.notation.pb.Notation
-	64,  // 132: service.schematic.pb.ValueConfig.location:type_name -> x.spatial.pb.LocationXY
-	53,  // 133: service.schematic.pb.ValueConfig.value_background_shift:type_name -> x.spatial.pb.XY
-	53,  // 134: service.schematic.pb.ValueConfig.value_background_over_scan:type_name -> x.spatial.pb.XY
+	59,  // 129: service.schematic.pb.ValueConfig.level:type_name -> x.text.pb.Level
+	57,  // 130: service.schematic.pb.ValueConfig.staleness_color:type_name -> x.color.pb.Color
+	64,  // 131: service.schematic.pb.ValueConfig.notation:type_name -> x.notation.pb.Notation
+	65,  // 132: service.schematic.pb.ValueConfig.location:type_name -> x.spatial.pb.LocationXY
+	54,  // 133: service.schematic.pb.ValueConfig.value_background_shift:type_name -> x.spatial.pb.XY
+	54,  // 134: service.schematic.pb.ValueConfig.value_background_over_scan:type_name -> x.spatial.pb.XY
 	12,  // 135: service.schematic.pb.TankConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 136: service.schematic.pb.TankConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	56,  // 137: service.schematic.pb.TankConfig.color:type_name -> x.color.pb.Color
-	56,  // 138: service.schematic.pb.TankConfig.background_color:type_name -> x.color.pb.Color
-	54,  // 139: service.schematic.pb.TankConfig.dimensions:type_name -> x.spatial.pb.Dimensions
-	65,  // 140: service.schematic.pb.TankConfig.border_radius:type_name -> x.border.pb.Radius
+	61,  // 136: service.schematic.pb.TankConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 137: service.schematic.pb.TankConfig.color:type_name -> x.color.pb.Color
+	57,  // 138: service.schematic.pb.TankConfig.background_color:type_name -> x.color.pb.Color
+	55,  // 139: service.schematic.pb.TankConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	66,  // 140: service.schematic.pb.TankConfig.border_radius:type_name -> x.border.pb.Radius
 	12,  // 141: service.schematic.pb.CylinderConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 142: service.schematic.pb.CylinderConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	54,  // 143: service.schematic.pb.CylinderConfig.dimensions:type_name -> x.spatial.pb.Dimensions
-	65,  // 144: service.schematic.pb.CylinderConfig.border_radius:type_name -> x.border.pb.Radius
-	56,  // 145: service.schematic.pb.CylinderConfig.color:type_name -> x.color.pb.Color
-	56,  // 146: service.schematic.pb.CylinderConfig.background_color:type_name -> x.color.pb.Color
+	61,  // 142: service.schematic.pb.CylinderConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	55,  // 143: service.schematic.pb.CylinderConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	66,  // 144: service.schematic.pb.CylinderConfig.border_radius:type_name -> x.border.pb.Radius
+	57,  // 145: service.schematic.pb.CylinderConfig.color:type_name -> x.color.pb.Color
+	57,  // 146: service.schematic.pb.CylinderConfig.background_color:type_name -> x.color.pb.Color
 	12,  // 147: service.schematic.pb.CustomActuatorConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 148: service.schematic.pb.CustomActuatorConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	61,  // 148: service.schematic.pb.CustomActuatorConfig.orientation:type_name -> x.spatial.pb.OuterLocation
 	43,  // 149: service.schematic.pb.CustomActuatorConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
 	48,  // 150: service.schematic.pb.CustomActuatorConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
 	16,  // 151: service.schematic.pb.CustomActuatorConfig.control:type_name -> service.schematic.pb.ControlStateConfig
-	56,  // 152: service.schematic.pb.CustomActuatorConfig.color:type_name -> x.color.pb.Color
-	57,  // 153: service.schematic.pb.CustomActuatorConfig.state_overrides:type_name -> google.protobuf.Struct
+	57,  // 152: service.schematic.pb.CustomActuatorConfig.color:type_name -> x.color.pb.Color
+	58,  // 153: service.schematic.pb.CustomActuatorConfig.state_overrides:type_name -> google.protobuf.Struct
 	12,  // 154: service.schematic.pb.CustomStaticConfig.label:type_name -> service.schematic.pb.LabelConfig
-	60,  // 155: service.schematic.pb.CustomStaticConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	56,  // 156: service.schematic.pb.CustomStaticConfig.color:type_name -> x.color.pb.Color
-	57,  // 157: service.schematic.pb.CustomStaticConfig.state_overrides:type_name -> google.protobuf.Struct
+	61,  // 155: service.schematic.pb.CustomStaticConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	57,  // 156: service.schematic.pb.CustomStaticConfig.color:type_name -> x.color.pb.Color
+	58,  // 157: service.schematic.pb.CustomStaticConfig.state_overrides:type_name -> google.protobuf.Struct
 	5,   // 158: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
 	7,   // 159: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	52,  // 160: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
+	53,  // 160: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
 	9,   // 161: service.schematic.pb.EdgeConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
 	9,   // 162: service.schematic.pb.EdgeConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
 	9,   // 163: service.schematic.pb.EdgeConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
@@ -6918,12 +8988,119 @@ var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
 	18,  // 273: service.schematic.pb.NodeConfig.t_junction:type_name -> service.schematic.pb.StaticSymbolConfig
 	39,  // 274: service.schematic.pb.NodeConfig.custom_actuator:type_name -> service.schematic.pb.CustomActuatorConfig
 	40,  // 275: service.schematic.pb.NodeConfig.custom_static:type_name -> service.schematic.pb.CustomStaticConfig
-	57,  // 276: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> google.protobuf.Struct
-	277, // [277:277] is the sub-list for method output_type
-	277, // [277:277] is the sub-list for method input_type
-	277, // [277:277] is the sub-list for extension type_name
-	277, // [277:277] is the sub-list for extension extendee
-	0,   // [0:277] is the sub-list for field type_name
+	18,  // 276: service.schematic.pb.ElementConfig.cap:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 277: service.schematic.pb.ElementConfig.filter:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 278: service.schematic.pb.ElementConfig.flow_straightener:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 279: service.schematic.pb.ElementConfig.heater_element:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 280: service.schematic.pb.ElementConfig.iso_cap:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 281: service.schematic.pb.ElementConfig.iso_filter:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 282: service.schematic.pb.ElementConfig.nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 283: service.schematic.pb.ElementConfig.orifice:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 284: service.schematic.pb.ElementConfig.orifice_plate:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 285: service.schematic.pb.ElementConfig.strainer:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 286: service.schematic.pb.ElementConfig.strainer_cone:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 287: service.schematic.pb.ElementConfig.thruster:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 288: service.schematic.pb.ElementConfig.vent:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 289: service.schematic.pb.ElementConfig.flowmeter_general:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 290: service.schematic.pb.ElementConfig.flowmeter_electromagnetic:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 291: service.schematic.pb.ElementConfig.flowmeter_variable_area:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 292: service.schematic.pb.ElementConfig.flowmeter_coriolis:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 293: service.schematic.pb.ElementConfig.flowmeter_nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 294: service.schematic.pb.ElementConfig.flowmeter_venturi:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 295: service.schematic.pb.ElementConfig.flowmeter_ring_piston:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 296: service.schematic.pb.ElementConfig.flowmeter_positive_displacement:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 297: service.schematic.pb.ElementConfig.flowmeter_turbine:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 298: service.schematic.pb.ElementConfig.flowmeter_pulse:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 299: service.schematic.pb.ElementConfig.flowmeter_float_sensor:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 300: service.schematic.pb.ElementConfig.flowmeter_orifice:type_name -> service.schematic.pb.StaticSymbolConfig
+	24,  // 301: service.schematic.pb.ElementConfig.box:type_name -> service.schematic.pb.BoxConfig
+	25,  // 302: service.schematic.pb.ElementConfig.button:type_name -> service.schematic.pb.ButtonConfig
+	26,  // 303: service.schematic.pb.ElementConfig.circle:type_name -> service.schematic.pb.CircleConfig
+	27,  // 304: service.schematic.pb.ElementConfig.gauge:type_name -> service.schematic.pb.GaugeConfig
+	28,  // 305: service.schematic.pb.ElementConfig.input:type_name -> service.schematic.pb.InputConfig
+	29,  // 306: service.schematic.pb.ElementConfig.light:type_name -> service.schematic.pb.LightConfig
+	30,  // 307: service.schematic.pb.ElementConfig.off_page_reference:type_name -> service.schematic.pb.OffPageReferenceConfig
+	31,  // 308: service.schematic.pb.ElementConfig.polygon:type_name -> service.schematic.pb.PolygonConfig
+	32,  // 309: service.schematic.pb.ElementConfig.select:type_name -> service.schematic.pb.SelectConfig
+	33,  // 310: service.schematic.pb.ElementConfig.setpoint:type_name -> service.schematic.pb.SetpointConfig
+	34,  // 311: service.schematic.pb.ElementConfig.state_indicator:type_name -> service.schematic.pb.StateIndicatorConfig
+	19,  // 312: service.schematic.pb.ElementConfig.switch:type_name -> service.schematic.pb.ToggleSymbolConfig
+	35,  // 313: service.schematic.pb.ElementConfig.text_box:type_name -> service.schematic.pb.TextBoxConfig
+	36,  // 314: service.schematic.pb.ElementConfig.value:type_name -> service.schematic.pb.ValueConfig
+	19,  // 315: service.schematic.pb.ElementConfig.agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 316: service.schematic.pb.ElementConfig.cross_beam_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 317: service.schematic.pb.ElementConfig.flat_blade_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 318: service.schematic.pb.ElementConfig.heat_exchanger_general:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 319: service.schematic.pb.ElementConfig.heat_exchanger_m:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 320: service.schematic.pb.ElementConfig.heat_exchanger_straight_tube:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 321: service.schematic.pb.ElementConfig.helical_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 322: service.schematic.pb.ElementConfig.paddle_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 323: service.schematic.pb.ElementConfig.propeller_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 324: service.schematic.pb.ElementConfig.rotary_mixer:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 325: service.schematic.pb.ElementConfig.static_mixer:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 326: service.schematic.pb.ElementConfig.cavity_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 327: service.schematic.pb.ElementConfig.centrifugal_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 328: service.schematic.pb.ElementConfig.compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 329: service.schematic.pb.ElementConfig.diaphragm_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 330: service.schematic.pb.ElementConfig.ejection_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 331: service.schematic.pb.ElementConfig.ejector_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 332: service.schematic.pb.ElementConfig.liquid_ring_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 333: service.schematic.pb.ElementConfig.piston_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 334: service.schematic.pb.ElementConfig.pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 335: service.schematic.pb.ElementConfig.roller_vane_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 336: service.schematic.pb.ElementConfig.screw_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 337: service.schematic.pb.ElementConfig.turbo_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 338: service.schematic.pb.ElementConfig.vacuum_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 339: service.schematic.pb.ElementConfig.burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 340: service.schematic.pb.ElementConfig.flame_arrestor:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 341: service.schematic.pb.ElementConfig.flame_arrestor_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 342: service.schematic.pb.ElementConfig.flame_arrestor_explosion:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 343: service.schematic.pb.ElementConfig.flame_arrestor_fire_res:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 344: service.schematic.pb.ElementConfig.flame_arrestor_fire_res_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 345: service.schematic.pb.ElementConfig.iso_burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 346: service.schematic.pb.ElementConfig.angled_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	20,  // 347: service.schematic.pb.ElementConfig.angled_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	20,  // 348: service.schematic.pb.ElementConfig.angled_spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	19,  // 349: service.schematic.pb.ElementConfig.ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	20,  // 350: service.schematic.pb.ElementConfig.breather_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	19,  // 351: service.schematic.pb.ElementConfig.butterfly_valve_one:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 352: service.schematic.pb.ElementConfig.butterfly_valve_two:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 353: service.schematic.pb.ElementConfig.check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 354: service.schematic.pb.ElementConfig.check_valve_with_arrow:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 355: service.schematic.pb.ElementConfig.electric_regulator:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 356: service.schematic.pb.ElementConfig.electric_regulator_motorized:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 357: service.schematic.pb.ElementConfig.four_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 358: service.schematic.pb.ElementConfig.gate_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 359: service.schematic.pb.ElementConfig.iso_check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
+	20,  // 360: service.schematic.pb.ElementConfig.manual_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	20,  // 361: service.schematic.pb.ElementConfig.needle_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	18,  // 362: service.schematic.pb.ElementConfig.regulator:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 363: service.schematic.pb.ElementConfig.regulator_manual:type_name -> service.schematic.pb.StaticSymbolConfig
+	20,  // 364: service.schematic.pb.ElementConfig.relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	21,  // 365: service.schematic.pb.ElementConfig.solenoid_valve:type_name -> service.schematic.pb.SolenoidValveConfig
+	20,  // 366: service.schematic.pb.ElementConfig.spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	19,  // 367: service.schematic.pb.ElementConfig.three_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 368: service.schematic.pb.ElementConfig.three_way_ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 369: service.schematic.pb.ElementConfig.valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 370: service.schematic.pb.ElementConfig.cross_junction:type_name -> service.schematic.pb.StaticSymbolConfig
+	38,  // 371: service.schematic.pb.ElementConfig.cylinder:type_name -> service.schematic.pb.CylinderConfig
+	37,  // 372: service.schematic.pb.ElementConfig.tank:type_name -> service.schematic.pb.TankConfig
+	18,  // 373: service.schematic.pb.ElementConfig.t_junction:type_name -> service.schematic.pb.StaticSymbolConfig
+	39,  // 374: service.schematic.pb.ElementConfig.custom_actuator:type_name -> service.schematic.pb.CustomActuatorConfig
+	40,  // 375: service.schematic.pb.ElementConfig.custom_static:type_name -> service.schematic.pb.CustomStaticConfig
+	9,   // 376: service.schematic.pb.ElementConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 377: service.schematic.pb.ElementConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 378: service.schematic.pb.ElementConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 379: service.schematic.pb.ElementConfig.jacketed:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 380: service.schematic.pb.ElementConfig.hydraulic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 381: service.schematic.pb.ElementConfig.pneumatic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 382: service.schematic.pb.ElementConfig.data:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	52,  // 383: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> service.schematic.pb.ElementConfig
+	384, // [384:384] is the sub-list for method output_type
+	384, // [384:384] is the sub-list for method input_type
+	384, // [384:384] is the sub-list for extension type_name
+	384, // [384:384] is the sub-list for extension extendee
+	0,   // [0:384] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }
@@ -6931,6 +9108,35 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 	if File_core_pkg_service_schematic_pb_schematic_proto != nil {
 		return
 	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[7].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[8].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[9].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[10].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[11].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[12].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[13].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[14].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[15].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[16].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[17].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[19].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[20].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[21].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[22].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[23].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[24].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[25].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[26].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[27].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[28].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[29].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[30].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[31].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[32].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35].OneofWrappers = []any{}
 	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[37].OneofWrappers = []any{
 		(*EdgeConfig_Pipe)(nil),
 		(*EdgeConfig_Electric)(nil),
@@ -7066,13 +9272,122 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 		(*NodeConfig_CustomActuator)(nil),
 		(*NodeConfig_CustomStatic)(nil),
 	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[47].OneofWrappers = []any{
+		(*ElementConfig_Cap)(nil),
+		(*ElementConfig_Filter)(nil),
+		(*ElementConfig_FlowStraightener)(nil),
+		(*ElementConfig_HeaterElement)(nil),
+		(*ElementConfig_IsoCap)(nil),
+		(*ElementConfig_IsoFilter)(nil),
+		(*ElementConfig_Nozzle)(nil),
+		(*ElementConfig_Orifice)(nil),
+		(*ElementConfig_OrificePlate)(nil),
+		(*ElementConfig_Strainer)(nil),
+		(*ElementConfig_StrainerCone)(nil),
+		(*ElementConfig_Thruster)(nil),
+		(*ElementConfig_Vent)(nil),
+		(*ElementConfig_FlowmeterGeneral)(nil),
+		(*ElementConfig_FlowmeterElectromagnetic)(nil),
+		(*ElementConfig_FlowmeterVariableArea)(nil),
+		(*ElementConfig_FlowmeterCoriolis)(nil),
+		(*ElementConfig_FlowmeterNozzle)(nil),
+		(*ElementConfig_FlowmeterVenturi)(nil),
+		(*ElementConfig_FlowmeterRingPiston)(nil),
+		(*ElementConfig_FlowmeterPositiveDisplacement)(nil),
+		(*ElementConfig_FlowmeterTurbine)(nil),
+		(*ElementConfig_FlowmeterPulse)(nil),
+		(*ElementConfig_FlowmeterFloatSensor)(nil),
+		(*ElementConfig_FlowmeterOrifice)(nil),
+		(*ElementConfig_Box)(nil),
+		(*ElementConfig_Button)(nil),
+		(*ElementConfig_Circle)(nil),
+		(*ElementConfig_Gauge)(nil),
+		(*ElementConfig_Input)(nil),
+		(*ElementConfig_Light)(nil),
+		(*ElementConfig_OffPageReference)(nil),
+		(*ElementConfig_Polygon)(nil),
+		(*ElementConfig_Select)(nil),
+		(*ElementConfig_Setpoint)(nil),
+		(*ElementConfig_StateIndicator)(nil),
+		(*ElementConfig_Switch)(nil),
+		(*ElementConfig_TextBox)(nil),
+		(*ElementConfig_Value)(nil),
+		(*ElementConfig_Agitator)(nil),
+		(*ElementConfig_CrossBeamAgitator)(nil),
+		(*ElementConfig_FlatBladeAgitator)(nil),
+		(*ElementConfig_HeatExchangerGeneral)(nil),
+		(*ElementConfig_HeatExchangerM)(nil),
+		(*ElementConfig_HeatExchangerStraightTube)(nil),
+		(*ElementConfig_HelicalAgitator)(nil),
+		(*ElementConfig_PaddleAgitator)(nil),
+		(*ElementConfig_PropellerAgitator)(nil),
+		(*ElementConfig_RotaryMixer)(nil),
+		(*ElementConfig_StaticMixer)(nil),
+		(*ElementConfig_CavityPump)(nil),
+		(*ElementConfig_CentrifugalCompressor)(nil),
+		(*ElementConfig_Compressor)(nil),
+		(*ElementConfig_DiaphragmPump)(nil),
+		(*ElementConfig_EjectionPump)(nil),
+		(*ElementConfig_EjectorCompressor)(nil),
+		(*ElementConfig_LiquidRingCompressor)(nil),
+		(*ElementConfig_PistonPump)(nil),
+		(*ElementConfig_Pump)(nil),
+		(*ElementConfig_RollerVaneCompressor)(nil),
+		(*ElementConfig_ScrewPump)(nil),
+		(*ElementConfig_TurboCompressor)(nil),
+		(*ElementConfig_VacuumPump)(nil),
+		(*ElementConfig_BurstDisc)(nil),
+		(*ElementConfig_FlameArrestor)(nil),
+		(*ElementConfig_FlameArrestorDetonation)(nil),
+		(*ElementConfig_FlameArrestorExplosion)(nil),
+		(*ElementConfig_FlameArrestorFireRes)(nil),
+		(*ElementConfig_FlameArrestorFireResDetonation)(nil),
+		(*ElementConfig_IsoBurstDisc)(nil),
+		(*ElementConfig_AngledValve)(nil),
+		(*ElementConfig_AngledReliefValve)(nil),
+		(*ElementConfig_AngledSpringLoadedReliefValve)(nil),
+		(*ElementConfig_BallValve)(nil),
+		(*ElementConfig_BreatherValve)(nil),
+		(*ElementConfig_ButterflyValveOne)(nil),
+		(*ElementConfig_ButterflyValveTwo)(nil),
+		(*ElementConfig_CheckValve)(nil),
+		(*ElementConfig_CheckValveWithArrow)(nil),
+		(*ElementConfig_ElectricRegulator)(nil),
+		(*ElementConfig_ElectricRegulatorMotorized)(nil),
+		(*ElementConfig_FourWayValve)(nil),
+		(*ElementConfig_GateValve)(nil),
+		(*ElementConfig_IsoCheckValve)(nil),
+		(*ElementConfig_ManualValve)(nil),
+		(*ElementConfig_NeedleValve)(nil),
+		(*ElementConfig_Regulator)(nil),
+		(*ElementConfig_RegulatorManual)(nil),
+		(*ElementConfig_ReliefValve)(nil),
+		(*ElementConfig_SolenoidValve)(nil),
+		(*ElementConfig_SpringLoadedReliefValve)(nil),
+		(*ElementConfig_ThreeWayValve)(nil),
+		(*ElementConfig_ThreeWayBallValve)(nil),
+		(*ElementConfig_Valve)(nil),
+		(*ElementConfig_CrossJunction)(nil),
+		(*ElementConfig_Cylinder)(nil),
+		(*ElementConfig_Tank)(nil),
+		(*ElementConfig_TJunction)(nil),
+		(*ElementConfig_CustomActuator)(nil),
+		(*ElementConfig_CustomStatic)(nil),
+		(*ElementConfig_Pipe)(nil),
+		(*ElementConfig_Electric)(nil),
+		(*ElementConfig_Secondary)(nil),
+		(*ElementConfig_Jacketed)(nil),
+		(*ElementConfig_Hydraulic)(nil),
+		(*ElementConfig_Pneumatic)(nil),
+		(*ElementConfig_Data)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   48,
+			NumMessages:   49,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

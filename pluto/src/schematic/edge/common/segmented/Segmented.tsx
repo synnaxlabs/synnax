@@ -10,7 +10,7 @@
 import "@/schematic/edge/common/segmented/Segmented.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { box, direction, xy } from "@synnaxlabs/x";
+import { box, color, direction, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
   type DragEvent,
@@ -147,7 +147,7 @@ const create = <V extends schematic.EdgeConfigType>(
 
     return (
       <>
-        <Path points={points} color={edgeColor} />
+        <Path points={points} color={edgeColor ?? color.ZERO} />
         {selected &&
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;

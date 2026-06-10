@@ -73,36 +73,36 @@ describe("Schematic", () => {
   });
 
   describe("config case preservation", () => {
-    test("preserves arbitrary key casing within config values", async () => {
+    test("preserves element key casing and telem prop contents", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
       const schem = await client.schematics.create(ws.key, {
         name: "CaseTest",
         configs: {
-          n1: {
-            camelCaseKey: "value1",
-            PascalCaseKey: "value2",
-            snake_case_key: "value3",
-            nested: {
-              innerCamelCase: 123,
-              InnerPascalCase: { deepKey: true },
+          myNode_A1: {
+            variant: "value",
+            telem: {
+              type: "source-pipeline",
+              variant: "source",
+              valueType: "string",
+              props: {
+                connections: [{ from: "valueStream", to: "rollingAverage" }],
+                outlet: "rollingAverage",
+              },
             },
           },
         },
       });
       const retrieved = await client.schematics.retrieve({ key: schem.key });
-      const config = retrieved.configs.n1 as Record<string, unknown>;
-      expect(config.camelCaseKey).toEqual("value1");
-      expect(config.PascalCaseKey).toEqual("value2");
-      expect(config.snake_case_key).toEqual("value3");
-      expect((config.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
-      expect(
-        (
-          (config.nested as Record<string, unknown>).InnerPascalCase as Record<
-            string,
-            unknown
-          >
-        ).deepKey,
-      ).toEqual(true);
+      expect(retrieved.configs).toHaveProperty("myNode_A1");
+      const config = retrieved.configs.myNode_A1;
+      expect(config.variant).toBe("value");
+      if (config.variant !== "value") return;
+      expect(config.telem?.valueType).toBe("string");
+      const props = config.telem?.props as Record<string, unknown>;
+      expect(props.outlet).toBe("rollingAverage");
+      expect(props.connections).toEqual([
+        { from: "valueStream", to: "rollingAverage" },
+      ]);
     });
   });
 
@@ -166,13 +166,16 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
           node: { key: "n1", position: { x: 1, y: 2 } },
-          config: { label: "Pump" },
+          config: { variant: "tank", label: { label: "Pump" } },
         }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n1", position: { x: 1, y: 2 } });
-      expect(res.configs.n1.label).toBe("Pump");
+      expect(res.configs.n1).toMatchObject({
+        variant: "tank",
+        label: { label: "Pump" },
+      });
     });
 
     test("removeNode removes the node and drops its config", async () => {
@@ -180,11 +183,11 @@ describe("Schematic", () => {
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
           node: { key: "n1", position: { x: 0, y: 0 } },
-          config: { label: "Pump" },
+          config: { variant: "tank", label: { label: "Pump" } },
         }),
         schematic.setNode({
           node: { key: "n2", position: { x: 1, y: 1 } },
-          config: { label: "Tank" },
+          config: { variant: "tank", label: { label: "Tank" } },
         }),
       ]);
       await client.schematics.dispatch(schem.key, "sess-1", [
@@ -193,7 +196,11 @@ describe("Schematic", () => {
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n2", position: { x: 1, y: 1 } });
-      expect(res.configs).toEqual({ n2: { label: "Tank" } });
+      expect(Object.keys(res.configs)).toEqual(["n2"]);
+      expect(res.configs.n2).toMatchObject({
+        variant: "tank",
+        label: { label: "Tank" },
+      });
     });
 
     test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
@@ -246,11 +253,17 @@ describe("Schematic", () => {
     test("setConfig upserts config under the given key", async () => {
       const { schem } = await newWorkspaceSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.setConfig({ key: "n1", config: { label: "Original" } }),
-        schematic.setConfig({ key: "n1", config: { label: "Replaced" } }),
+        schematic.setConfig({
+          key: "n1",
+          config: { variant: "tank", label: { label: "Original" } },
+        }),
+        schematic.setConfig({ key: "n1", config: { label: { label: "Replaced" } } }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
-      expect(res.configs.n1.label).toBe("Replaced");
+      expect(res.configs.n1).toMatchObject({
+        variant: "tank",
+        label: { label: "Replaced" },
+      });
     });
 
     test("applies a multi-action sequence atomically", async () => {
@@ -265,12 +278,18 @@ describe("Schematic", () => {
             target: { node: "valve", param: "in" },
           },
         }),
-        schematic.setConfig({ key: "pump", config: { label: "Main Pump" } }),
+        schematic.setConfig({
+          key: "pump",
+          config: { variant: "tank", label: { label: "Main Pump" } },
+        }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.nodes).toHaveLength(2);
       expect(res.edges).toHaveLength(1);
-      expect(res.configs.pump.label).toBe("Main Pump");
+      expect(res.configs.pump).toMatchObject({
+        variant: "tank",
+        label: { label: "Main Pump" },
+      });
     });
 
     test("converges to the final position after a 30-action drag storm", async () => {
@@ -286,27 +305,34 @@ describe("Schematic", () => {
       expect(res.nodes[0].position).toEqual({ x: 29, y: 58 });
     });
 
-    test("preserves arbitrary key casing within config values through dispatch", async () => {
+    test("preserves telem prop contents through dispatch", async () => {
       const { schem } = await newWorkspaceSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setConfig({
-          key: "n1",
+          key: "valueNode_B2",
           config: {
-            camelCaseKey: "v1",
-            PascalCaseKey: "v2",
-            snake_case_key: "v3",
-            nested: { innerCamelCase: 1, InnerPascalCase: { deepKey: true } },
+            variant: "value",
+            telem: {
+              type: "source-pipeline",
+              variant: "source",
+              valueType: "string",
+              props: {
+                connections: [{ from: "valueStream", to: "rollingAverage" }],
+                outlet: "rollingAverage",
+              },
+            },
           },
         }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
-      const config = res.configs.n1;
-      expect(config.camelCaseKey).toBe("v1");
-      expect(config.PascalCaseKey).toBe("v2");
-      expect(config.snake_case_key).toBe("v3");
-      const nested = config.nested as Record<string, unknown>;
-      expect(nested.innerCamelCase).toBe(1);
-      expect((nested.InnerPascalCase as Record<string, unknown>).deepKey).toBe(true);
+      expect(res.configs).toHaveProperty("valueNode_B2");
+      const config = res.configs.valueNode_B2;
+      expect(config.variant).toBe("value");
+      if (config.variant !== "value") return;
+      const props = config.telem?.props as Record<string, unknown>;
+      expect(props.connections).toEqual([
+        { from: "valueStream", to: "rollingAverage" },
+      ]);
     });
   });
 });

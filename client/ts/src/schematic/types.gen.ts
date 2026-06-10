@@ -102,7 +102,7 @@ export const sourceTelemSpecZ = z.object({
    * by type and validated at runtime by the owning telem factory; the
    * wire format intentionally stores it as an opaque record.
    */
-  props: record.nullishToEmpty(),
+  props: caseconv.preserveCase(record.nullishToEmpty()),
 });
 export interface SourceTelemSpec extends z.infer<typeof sourceTelemSpecZ> {}
 
@@ -121,7 +121,7 @@ export const sinkTelemSpecZ = z.object({
    * by type and validated at runtime by the owning telem factory; the
    * wire format intentionally stores it as an opaque record.
    */
-  props: record.nullishToEmpty(),
+  props: caseconv.preserveCase(record.nullishToEmpty()),
 });
 export interface SinkTelemSpec extends z.infer<typeof sinkTelemSpecZ> {}
 
@@ -181,7 +181,7 @@ export interface Edge extends z.infer<typeof edgeZ> {}
 /** SegmentedEdgeConfig is the configuration shared by every segmented edge variant. */
 export const segmentedEdgeConfigZ = z.object({
   /** color is the stroke color of the edge. */
-  color: color.colorZ,
+  color: color.colorZ.optional(),
   /**
    * segments is the ordered list of orthogonal runs that trace the connector
    * path from the source handle to the target handle.
@@ -423,31 +423,6 @@ export interface OffPageReferenceConfig extends z.infer<
   typeof offPageReferenceConfigZ
 > {}
 
-/**
- * Schematic is a visual diagram editor component for drawing system schematics,
- * control flows, and process diagrams. Schematics support interactive
- * symbols, connection handles, and dynamic state visualization.
- */
-export const schematicZ = z.object({
-  /** key is the unique identifier for this schematic. */
-  key: keyZ,
-  /** name is a human-readable name for the schematic. */
-  name: z.string(),
-  /** snapshot indicates whether this schematic represents a saved snapshot state. */
-  snapshot: z.boolean().default(false),
-  /** nodes contains all diagram nodes in the schematic. */
-  nodes: array.nullishToEmpty(nodeZ),
-  /** edges contains all connections between nodes. */
-  edges: array.nullishToEmpty(edgeZ),
-  /**
-   * configs contains per-element configuration keyed by node or edge key. The
-   * shape of each value is determined by the element's variant; the
-   * wire format intentionally stores it as an opaque record.
-   */
-  configs: caseconv.preserveCase(record.nullishToEmpty(z.string(), record.unknownZ())),
-});
-export interface Schematic extends z.infer<typeof schematicZ> {}
-
 export const edgeConfigPipeZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
 });
@@ -523,18 +498,18 @@ export const EDGE_CONFIG_SCHEMAS: Record<EdgeConfigType, z.ZodType<EdgeConfig>> 
 /** IndicatorConfig is the control state indicator configuration. */
 export const indicatorConfigZ = z.object({
   /** statusSource is the status source driving the indicator state. */
-  statusSource: statusSourceSpecZ.optional(),
+  statusSource: zod.nullToUndefined(statusSourceSpecZ),
   /** colorSource is the color source driving the indicator tint. */
-  colorSource: colorSourceSpecZ.optional(),
+  colorSource: zod.nullToUndefined(colorSourceSpecZ),
 });
 export interface IndicatorConfig extends z.infer<typeof indicatorConfigZ> {}
 
 /** ChipConfig is the control authority chip configuration. */
 export const chipConfigZ = z.object({
   /** source is the status source displayed by the control chip. */
-  source: statusSourceSpecZ.optional(),
+  source: zod.nullToUndefined(statusSourceSpecZ),
   /** sink is the sink used to acquire and release control authority. */
-  sink: booleanSinkSpecZ.optional(),
+  sink: zod.nullToUndefined(booleanSinkSpecZ),
 });
 export interface ChipConfig extends z.infer<typeof chipConfigZ> {}
 
@@ -567,8 +542,8 @@ export const gaugeConfigZ = labeledConfigZ.extend({
   color: color.colorZ.optional(),
   bounds: spatial.boundsZ().optional(),
   barWidth: z.number().optional(),
-  telem: stringSourceSpecZ.optional(),
-  backgroundTelem: colorSourceSpecZ.optional(),
+  telem: zod.nullToUndefined(stringSourceSpecZ),
+  backgroundTelem: zod.nullToUndefined(colorSourceSpecZ),
   precision: z.number().optional(),
   minWidth: z.number().optional(),
   width: z.number().optional(),
@@ -580,7 +555,7 @@ export const gaugeConfigZ = labeledConfigZ.extend({
 export interface GaugeConfig extends z.infer<typeof gaugeConfigZ> {}
 
 export const lightConfigZ = labeledConfigZ.extend({
-  source: booleanSourceSpecZ.optional(),
+  source: zod.nullToUndefined(booleanSourceSpecZ),
   color: color.colorZ.optional(),
   scale: z.number().optional(),
 });
@@ -598,7 +573,7 @@ export const polygonConfigZ = labeledConfigZ.extend({
 export interface PolygonConfig extends z.infer<typeof polygonConfigZ> {}
 
 export const stateIndicatorConfigZ = labeledConfigZ.extend({
-  source: numberSourceSpecZ.optional(),
+  source: zod.nullToUndefined(numberSourceSpecZ),
   color: color.colorZ.optional(),
   inlineSize: z.number().optional(),
   options: array.nullishToEmpty(stateMappingZ),
@@ -623,8 +598,8 @@ export const valueConfigZ = labeledConfigZ.extend({
   redline: redlineZ.optional(),
   units: z.string().optional(),
   inlineSize: z.number().optional(),
-  telem: stringSourceSpecZ.optional(),
-  backgroundTelem: colorSourceSpecZ.optional(),
+  telem: zod.nullToUndefined(stringSourceSpecZ),
+  backgroundTelem: zod.nullToUndefined(colorSourceSpecZ),
   level: text.levelZ.optional(),
   precision: z.number().optional(),
   stalenessTimeout: z.number().optional(),
@@ -658,21 +633,9 @@ export const customStaticConfigZ = labeledConfigZ.extend({
   specKey: z.string(),
   color: color.colorZ.optional(),
   scale: z.number().optional(),
-  stateOverrides: zod.nullToUndefined(record.unknownZ().array()),
+  stateOverrides: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ().array())),
 });
 export interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> {}
-
-export const newZ = schematicZ
-  .omit({ key: true, nodes: true, edges: true, configs: true })
-  .extend({
-    key: keyZ.default(() => uuid.create()),
-    nodes: array.nullishToEmpty(nodeZ),
-    edges: array.nullishToEmpty(edgeZ),
-    configs: caseconv.preserveCase(
-      record.nullishToEmpty(z.string(), record.unknownZ()),
-    ),
-  });
-export interface New extends z.input<typeof newZ> {}
 
 /** ControlStateConfig is the control authority and state display configuration for actuated symbols. */
 export const controlStateConfigZ = z.object({
@@ -692,8 +655,8 @@ export const controlStateConfigZ = z.object({
 export interface ControlStateConfig extends z.infer<typeof controlStateConfigZ> {}
 
 export const toggleConfigZ = labeledConfigZ.extend({
-  source: booleanSourceSpecZ.optional(),
-  sink: booleanSinkSpecZ.optional(),
+  source: zod.nullToUndefined(booleanSourceSpecZ),
+  sink: zod.nullToUndefined(booleanSinkSpecZ),
   control: controlStateConfigZ.optional(),
   onClickDelay: z.number().optional(),
 });
@@ -703,7 +666,7 @@ export const buttonConfigZ = labeledConfigZ.extend({
   size: componentSizeZ.optional(),
   level: text.levelZ.optional(),
   onClickDelay: z.number().optional(),
-  sink: booleanSinkSpecZ.optional(),
+  sink: zod.nullToUndefined(booleanSinkSpecZ),
   mode: buttonModeZ.optional(),
   color: color.colorZ.optional(),
   control: controlStateConfigZ.optional(),
@@ -712,7 +675,7 @@ export interface ButtonConfig extends z.infer<typeof buttonConfigZ> {}
 
 export const inputConfigZ = labeledConfigZ.extend({
   size: componentSizeZ.optional(),
-  sink: stringSinkSpecZ.optional(),
+  sink: zod.nullToUndefined(stringSinkSpecZ),
   dimensions: spatial.dimensionsZ.optional(),
   color: color.colorZ.optional(),
   disabled: z.boolean().optional(),
@@ -722,7 +685,7 @@ export interface InputConfig extends z.infer<typeof inputConfigZ> {}
 
 export const selectConfigZ = labeledConfigZ.extend({
   size: componentSizeZ.optional(),
-  sink: numberSinkSpecZ.optional(),
+  sink: zod.nullToUndefined(numberSinkSpecZ),
   color: color.colorZ.optional(),
   inlineSize: z.number().optional(),
   options: array.nullishToEmpty(stateMappingZ),
@@ -733,8 +696,8 @@ export interface SelectConfig extends z.infer<typeof selectConfigZ> {}
 
 export const setpointConfigZ = labeledConfigZ.extend({
   size: componentSizeZ.optional(),
-  source: numberSourceSpecZ.optional(),
-  sink: numberSinkSpecZ.optional(),
+  source: zod.nullToUndefined(numberSourceSpecZ),
+  sink: zod.nullToUndefined(numberSinkSpecZ),
   dimensions: spatial.dimensionsZ.optional(),
   color: color.colorZ.optional(),
   units: z.string().optional(),
@@ -753,7 +716,7 @@ export const customActuatorConfigZ = toggleConfigZ.extend({
   specKey: z.string(),
   color: color.colorZ.optional(),
   scale: z.number().optional(),
-  stateOverrides: zod.nullToUndefined(record.unknownZ().array()),
+  stateOverrides: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ().array())),
 });
 export interface CustomActuatorConfig extends z.infer<typeof customActuatorConfigZ> {}
 
@@ -1694,6 +1657,1073 @@ export const NODE_CONFIG_SCHEMAS: Record<NodeConfigType, z.ZodType<NodeConfig>> 
   customActuator: nodeConfigCustomActuatorZ,
   customStatic: nodeConfigCustomStaticZ,
 };
+
+export const elementConfigCapZ = staticSymbolConfigZ.extend({
+  variant: z.literal("cap"),
+});
+export interface ElementConfigCap extends z.infer<typeof elementConfigCapZ> {}
+
+export const elementConfigFilterZ = staticSymbolConfigZ.extend({
+  variant: z.literal("filter"),
+});
+export interface ElementConfigFilter extends z.infer<typeof elementConfigFilterZ> {}
+
+export const elementConfigFlowStraightenerZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowStraightener"),
+});
+export interface ElementConfigFlowStraightener extends z.infer<
+  typeof elementConfigFlowStraightenerZ
+> {}
+
+export const elementConfigHeaterElementZ = staticSymbolConfigZ.extend({
+  variant: z.literal("heaterElement"),
+});
+export interface ElementConfigHeaterElement extends z.infer<
+  typeof elementConfigHeaterElementZ
+> {}
+
+export const elementConfigIsoCapZ = staticSymbolConfigZ.extend({
+  variant: z.literal("isoCap"),
+});
+export interface ElementConfigIsoCap extends z.infer<typeof elementConfigIsoCapZ> {}
+
+export const elementConfigIsoFilterZ = staticSymbolConfigZ.extend({
+  variant: z.literal("isoFilter"),
+});
+export interface ElementConfigIsoFilter extends z.infer<
+  typeof elementConfigIsoFilterZ
+> {}
+
+export const elementConfigNozzleZ = staticSymbolConfigZ.extend({
+  variant: z.literal("nozzle"),
+});
+export interface ElementConfigNozzle extends z.infer<typeof elementConfigNozzleZ> {}
+
+export const elementConfigOrificeZ = staticSymbolConfigZ.extend({
+  variant: z.literal("orifice"),
+});
+export interface ElementConfigOrifice extends z.infer<typeof elementConfigOrificeZ> {}
+
+export const elementConfigOrificePlateZ = staticSymbolConfigZ.extend({
+  variant: z.literal("orificePlate"),
+});
+export interface ElementConfigOrificePlate extends z.infer<
+  typeof elementConfigOrificePlateZ
+> {}
+
+export const elementConfigStrainerZ = staticSymbolConfigZ.extend({
+  variant: z.literal("strainer"),
+});
+export interface ElementConfigStrainer extends z.infer<typeof elementConfigStrainerZ> {}
+
+export const elementConfigStrainerConeZ = staticSymbolConfigZ.extend({
+  variant: z.literal("strainerCone"),
+});
+export interface ElementConfigStrainerCone extends z.infer<
+  typeof elementConfigStrainerConeZ
+> {}
+
+export const elementConfigThrusterZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("thruster"),
+});
+export interface ElementConfigThruster extends z.infer<typeof elementConfigThrusterZ> {}
+
+export const elementConfigVentZ = staticSymbolConfigZ.extend({
+  variant: z.literal("vent"),
+});
+export interface ElementConfigVent extends z.infer<typeof elementConfigVentZ> {}
+
+export const elementConfigFlowmeterGeneralZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterGeneral"),
+});
+export interface ElementConfigFlowmeterGeneral extends z.infer<
+  typeof elementConfigFlowmeterGeneralZ
+> {}
+
+export const elementConfigFlowmeterElectromagneticZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterElectromagnetic"),
+});
+export interface ElementConfigFlowmeterElectromagnetic extends z.infer<
+  typeof elementConfigFlowmeterElectromagneticZ
+> {}
+
+export const elementConfigFlowmeterVariableAreaZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterVariableArea"),
+});
+export interface ElementConfigFlowmeterVariableArea extends z.infer<
+  typeof elementConfigFlowmeterVariableAreaZ
+> {}
+
+export const elementConfigFlowmeterCoriolisZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterCoriolis"),
+});
+export interface ElementConfigFlowmeterCoriolis extends z.infer<
+  typeof elementConfigFlowmeterCoriolisZ
+> {}
+
+export const elementConfigFlowmeterNozzleZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterNozzle"),
+});
+export interface ElementConfigFlowmeterNozzle extends z.infer<
+  typeof elementConfigFlowmeterNozzleZ
+> {}
+
+export const elementConfigFlowmeterVenturiZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterVenturi"),
+});
+export interface ElementConfigFlowmeterVenturi extends z.infer<
+  typeof elementConfigFlowmeterVenturiZ
+> {}
+
+export const elementConfigFlowmeterRingPistonZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterRingPiston"),
+});
+export interface ElementConfigFlowmeterRingPiston extends z.infer<
+  typeof elementConfigFlowmeterRingPistonZ
+> {}
+
+export const elementConfigFlowmeterPositiveDisplacementZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterPositiveDisplacement"),
+});
+export interface ElementConfigFlowmeterPositiveDisplacement extends z.infer<
+  typeof elementConfigFlowmeterPositiveDisplacementZ
+> {}
+
+export const elementConfigFlowmeterTurbineZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterTurbine"),
+});
+export interface ElementConfigFlowmeterTurbine extends z.infer<
+  typeof elementConfigFlowmeterTurbineZ
+> {}
+
+export const elementConfigFlowmeterPulseZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterPulse"),
+});
+export interface ElementConfigFlowmeterPulse extends z.infer<
+  typeof elementConfigFlowmeterPulseZ
+> {}
+
+export const elementConfigFlowmeterFloatSensorZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterFloatSensor"),
+});
+export interface ElementConfigFlowmeterFloatSensor extends z.infer<
+  typeof elementConfigFlowmeterFloatSensorZ
+> {}
+
+export const elementConfigFlowmeterOrificeZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flowmeterOrifice"),
+});
+export interface ElementConfigFlowmeterOrifice extends z.infer<
+  typeof elementConfigFlowmeterOrificeZ
+> {}
+
+export const elementConfigBoxZ = boxConfigZ.extend({
+  variant: z.literal("box"),
+});
+export interface ElementConfigBox extends z.infer<typeof elementConfigBoxZ> {}
+
+export const elementConfigButtonZ = buttonConfigZ.extend({
+  variant: z.literal("button"),
+});
+export interface ElementConfigButton extends z.infer<typeof elementConfigButtonZ> {}
+
+export const elementConfigCircleZ = circleConfigZ.extend({
+  variant: z.literal("circle"),
+});
+export interface ElementConfigCircle extends z.infer<typeof elementConfigCircleZ> {}
+
+export const elementConfigGaugeZ = gaugeConfigZ.extend({
+  variant: z.literal("gauge"),
+});
+export interface ElementConfigGauge extends z.infer<typeof elementConfigGaugeZ> {}
+
+export const elementConfigInputZ = inputConfigZ.extend({
+  variant: z.literal("input"),
+});
+export interface ElementConfigInput extends z.infer<typeof elementConfigInputZ> {}
+
+export const elementConfigLightZ = lightConfigZ.extend({
+  variant: z.literal("light"),
+});
+export interface ElementConfigLight extends z.infer<typeof elementConfigLightZ> {}
+
+export const elementConfigOffPageReferenceZ = offPageReferenceConfigZ.extend({
+  variant: z.literal("offPageReference"),
+});
+export interface ElementConfigOffPageReference extends z.infer<
+  typeof elementConfigOffPageReferenceZ
+> {}
+
+export const elementConfigPolygonZ = polygonConfigZ.extend({
+  variant: z.literal("polygon"),
+});
+export interface ElementConfigPolygon extends z.infer<typeof elementConfigPolygonZ> {}
+
+export const elementConfigSelectZ = selectConfigZ.extend({
+  variant: z.literal("select"),
+});
+export interface ElementConfigSelect extends z.infer<typeof elementConfigSelectZ> {}
+
+export const elementConfigSetpointZ = setpointConfigZ.extend({
+  variant: z.literal("setpoint"),
+});
+export interface ElementConfigSetpoint extends z.infer<typeof elementConfigSetpointZ> {}
+
+export const elementConfigStateIndicatorZ = stateIndicatorConfigZ.extend({
+  variant: z.literal("stateIndicator"),
+});
+export interface ElementConfigStateIndicator extends z.infer<
+  typeof elementConfigStateIndicatorZ
+> {}
+
+export const elementConfigSwitchZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("switch"),
+});
+export interface ElementConfigSwitch extends z.infer<typeof elementConfigSwitchZ> {}
+
+export const elementConfigTextBoxZ = textBoxConfigZ.extend({
+  variant: z.literal("textBox"),
+});
+export interface ElementConfigTextBox extends z.infer<typeof elementConfigTextBoxZ> {}
+
+export const elementConfigValueZ = valueConfigZ.extend({
+  variant: z.literal("value"),
+});
+export interface ElementConfigValue extends z.infer<typeof elementConfigValueZ> {}
+
+export const elementConfigAgitatorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("agitator"),
+});
+export interface ElementConfigAgitator extends z.infer<typeof elementConfigAgitatorZ> {}
+
+export const elementConfigCrossBeamAgitatorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("crossBeamAgitator"),
+});
+export interface ElementConfigCrossBeamAgitator extends z.infer<
+  typeof elementConfigCrossBeamAgitatorZ
+> {}
+
+export const elementConfigFlatBladeAgitatorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("flatBladeAgitator"),
+});
+export interface ElementConfigFlatBladeAgitator extends z.infer<
+  typeof elementConfigFlatBladeAgitatorZ
+> {}
+
+export const elementConfigHeatExchangerGeneralZ = staticSymbolConfigZ.extend({
+  variant: z.literal("heatExchangerGeneral"),
+});
+export interface ElementConfigHeatExchangerGeneral extends z.infer<
+  typeof elementConfigHeatExchangerGeneralZ
+> {}
+
+export const elementConfigHeatExchangerMZ = staticSymbolConfigZ.extend({
+  variant: z.literal("heatExchangerM"),
+});
+export interface ElementConfigHeatExchangerM extends z.infer<
+  typeof elementConfigHeatExchangerMZ
+> {}
+
+export const elementConfigHeatExchangerStraightTubeZ = staticSymbolConfigZ.extend({
+  variant: z.literal("heatExchangerStraightTube"),
+});
+export interface ElementConfigHeatExchangerStraightTube extends z.infer<
+  typeof elementConfigHeatExchangerStraightTubeZ
+> {}
+
+export const elementConfigHelicalAgitatorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("helicalAgitator"),
+});
+export interface ElementConfigHelicalAgitator extends z.infer<
+  typeof elementConfigHelicalAgitatorZ
+> {}
+
+export const elementConfigPaddleAgitatorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("paddleAgitator"),
+});
+export interface ElementConfigPaddleAgitator extends z.infer<
+  typeof elementConfigPaddleAgitatorZ
+> {}
+
+export const elementConfigPropellerAgitatorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("propellerAgitator"),
+});
+export interface ElementConfigPropellerAgitator extends z.infer<
+  typeof elementConfigPropellerAgitatorZ
+> {}
+
+export const elementConfigRotaryMixerZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("rotaryMixer"),
+});
+export interface ElementConfigRotaryMixer extends z.infer<
+  typeof elementConfigRotaryMixerZ
+> {}
+
+export const elementConfigStaticMixerZ = staticSymbolConfigZ.extend({
+  variant: z.literal("staticMixer"),
+});
+export interface ElementConfigStaticMixer extends z.infer<
+  typeof elementConfigStaticMixerZ
+> {}
+
+export const elementConfigCavityPumpZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("cavityPump"),
+});
+export interface ElementConfigCavityPump extends z.infer<
+  typeof elementConfigCavityPumpZ
+> {}
+
+export const elementConfigCentrifugalCompressorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("centrifugalCompressor"),
+});
+export interface ElementConfigCentrifugalCompressor extends z.infer<
+  typeof elementConfigCentrifugalCompressorZ
+> {}
+
+export const elementConfigCompressorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("compressor"),
+});
+export interface ElementConfigCompressor extends z.infer<
+  typeof elementConfigCompressorZ
+> {}
+
+export const elementConfigDiaphragmPumpZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("diaphragmPump"),
+});
+export interface ElementConfigDiaphragmPump extends z.infer<
+  typeof elementConfigDiaphragmPumpZ
+> {}
+
+export const elementConfigEjectionPumpZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("ejectionPump"),
+});
+export interface ElementConfigEjectionPump extends z.infer<
+  typeof elementConfigEjectionPumpZ
+> {}
+
+export const elementConfigEjectorCompressorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("ejectorCompressor"),
+});
+export interface ElementConfigEjectorCompressor extends z.infer<
+  typeof elementConfigEjectorCompressorZ
+> {}
+
+export const elementConfigLiquidRingCompressorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("liquidRingCompressor"),
+});
+export interface ElementConfigLiquidRingCompressor extends z.infer<
+  typeof elementConfigLiquidRingCompressorZ
+> {}
+
+export const elementConfigPistonPumpZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("pistonPump"),
+});
+export interface ElementConfigPistonPump extends z.infer<
+  typeof elementConfigPistonPumpZ
+> {}
+
+export const elementConfigPumpZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("pump"),
+});
+export interface ElementConfigPump extends z.infer<typeof elementConfigPumpZ> {}
+
+export const elementConfigRollerVaneCompressorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("rollerVaneCompressor"),
+});
+export interface ElementConfigRollerVaneCompressor extends z.infer<
+  typeof elementConfigRollerVaneCompressorZ
+> {}
+
+export const elementConfigScrewPumpZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("screwPump"),
+});
+export interface ElementConfigScrewPump extends z.infer<
+  typeof elementConfigScrewPumpZ
+> {}
+
+export const elementConfigTurboCompressorZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("turboCompressor"),
+});
+export interface ElementConfigTurboCompressor extends z.infer<
+  typeof elementConfigTurboCompressorZ
+> {}
+
+export const elementConfigVacuumPumpZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("vacuumPump"),
+});
+export interface ElementConfigVacuumPump extends z.infer<
+  typeof elementConfigVacuumPumpZ
+> {}
+
+export const elementConfigBurstDiscZ = staticSymbolConfigZ.extend({
+  variant: z.literal("burstDisc"),
+});
+export interface ElementConfigBurstDisc extends z.infer<
+  typeof elementConfigBurstDiscZ
+> {}
+
+export const elementConfigFlameArrestorZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flameArrestor"),
+});
+export interface ElementConfigFlameArrestor extends z.infer<
+  typeof elementConfigFlameArrestorZ
+> {}
+
+export const elementConfigFlameArrestorDetonationZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flameArrestorDetonation"),
+});
+export interface ElementConfigFlameArrestorDetonation extends z.infer<
+  typeof elementConfigFlameArrestorDetonationZ
+> {}
+
+export const elementConfigFlameArrestorExplosionZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flameArrestorExplosion"),
+});
+export interface ElementConfigFlameArrestorExplosion extends z.infer<
+  typeof elementConfigFlameArrestorExplosionZ
+> {}
+
+export const elementConfigFlameArrestorFireResZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flameArrestorFireRes"),
+});
+export interface ElementConfigFlameArrestorFireRes extends z.infer<
+  typeof elementConfigFlameArrestorFireResZ
+> {}
+
+export const elementConfigFlameArrestorFireResDetonationZ = staticSymbolConfigZ.extend({
+  variant: z.literal("flameArrestorFireResDetonation"),
+});
+export interface ElementConfigFlameArrestorFireResDetonation extends z.infer<
+  typeof elementConfigFlameArrestorFireResDetonationZ
+> {}
+
+export const elementConfigIsoBurstDiscZ = staticSymbolConfigZ.extend({
+  variant: z.literal("isoBurstDisc"),
+});
+export interface ElementConfigIsoBurstDisc extends z.infer<
+  typeof elementConfigIsoBurstDiscZ
+> {}
+
+export const elementConfigAngledValveZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("angledValve"),
+});
+export interface ElementConfigAngledValve extends z.infer<
+  typeof elementConfigAngledValveZ
+> {}
+
+export const elementConfigAngledReliefValveZ = dummyToggleSymbolConfigZ.extend({
+  variant: z.literal("angledReliefValve"),
+});
+export interface ElementConfigAngledReliefValve extends z.infer<
+  typeof elementConfigAngledReliefValveZ
+> {}
+
+export const elementConfigAngledSpringLoadedReliefValveZ =
+  dummyToggleSymbolConfigZ.extend({
+    variant: z.literal("angledSpringLoadedReliefValve"),
+  });
+export interface ElementConfigAngledSpringLoadedReliefValve extends z.infer<
+  typeof elementConfigAngledSpringLoadedReliefValveZ
+> {}
+
+export const elementConfigBallValveZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("ballValve"),
+});
+export interface ElementConfigBallValve extends z.infer<
+  typeof elementConfigBallValveZ
+> {}
+
+export const elementConfigBreatherValveZ = dummyToggleSymbolConfigZ.extend({
+  variant: z.literal("breatherValve"),
+});
+export interface ElementConfigBreatherValve extends z.infer<
+  typeof elementConfigBreatherValveZ
+> {}
+
+export const elementConfigButterflyValveOneZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("butterflyValveOne"),
+});
+export interface ElementConfigButterflyValveOne extends z.infer<
+  typeof elementConfigButterflyValveOneZ
+> {}
+
+export const elementConfigButterflyValveTwoZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("butterflyValveTwo"),
+});
+export interface ElementConfigButterflyValveTwo extends z.infer<
+  typeof elementConfigButterflyValveTwoZ
+> {}
+
+export const elementConfigCheckValveZ = staticSymbolConfigZ.extend({
+  variant: z.literal("checkValve"),
+});
+export interface ElementConfigCheckValve extends z.infer<
+  typeof elementConfigCheckValveZ
+> {}
+
+export const elementConfigCheckValveWithArrowZ = staticSymbolConfigZ.extend({
+  variant: z.literal("checkValveWithArrow"),
+});
+export interface ElementConfigCheckValveWithArrow extends z.infer<
+  typeof elementConfigCheckValveWithArrowZ
+> {}
+
+export const elementConfigElectricRegulatorZ = staticSymbolConfigZ.extend({
+  variant: z.literal("electricRegulator"),
+});
+export interface ElementConfigElectricRegulator extends z.infer<
+  typeof elementConfigElectricRegulatorZ
+> {}
+
+export const elementConfigElectricRegulatorMotorizedZ = staticSymbolConfigZ.extend({
+  variant: z.literal("electricRegulatorMotorized"),
+});
+export interface ElementConfigElectricRegulatorMotorized extends z.infer<
+  typeof elementConfigElectricRegulatorMotorizedZ
+> {}
+
+export const elementConfigFourWayValveZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("fourWayValve"),
+});
+export interface ElementConfigFourWayValve extends z.infer<
+  typeof elementConfigFourWayValveZ
+> {}
+
+export const elementConfigGateValveZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("gateValve"),
+});
+export interface ElementConfigGateValve extends z.infer<
+  typeof elementConfigGateValveZ
+> {}
+
+export const elementConfigIsoCheckValveZ = staticSymbolConfigZ.extend({
+  variant: z.literal("isoCheckValve"),
+});
+export interface ElementConfigIsoCheckValve extends z.infer<
+  typeof elementConfigIsoCheckValveZ
+> {}
+
+export const elementConfigManualValveZ = dummyToggleSymbolConfigZ.extend({
+  variant: z.literal("manualValve"),
+});
+export interface ElementConfigManualValve extends z.infer<
+  typeof elementConfigManualValveZ
+> {}
+
+export const elementConfigNeedleValveZ = dummyToggleSymbolConfigZ.extend({
+  variant: z.literal("needleValve"),
+});
+export interface ElementConfigNeedleValve extends z.infer<
+  typeof elementConfigNeedleValveZ
+> {}
+
+export const elementConfigRegulatorZ = staticSymbolConfigZ.extend({
+  variant: z.literal("regulator"),
+});
+export interface ElementConfigRegulator extends z.infer<
+  typeof elementConfigRegulatorZ
+> {}
+
+export const elementConfigRegulatorManualZ = staticSymbolConfigZ.extend({
+  variant: z.literal("regulatorManual"),
+});
+export interface ElementConfigRegulatorManual extends z.infer<
+  typeof elementConfigRegulatorManualZ
+> {}
+
+export const elementConfigReliefValveZ = dummyToggleSymbolConfigZ.extend({
+  variant: z.literal("reliefValve"),
+});
+export interface ElementConfigReliefValve extends z.infer<
+  typeof elementConfigReliefValveZ
+> {}
+
+export const elementConfigSolenoidValveZ = solenoidValveConfigZ.extend({
+  variant: z.literal("solenoidValve"),
+});
+export interface ElementConfigSolenoidValve extends z.infer<
+  typeof elementConfigSolenoidValveZ
+> {}
+
+export const elementConfigSpringLoadedReliefValveZ = dummyToggleSymbolConfigZ.extend({
+  variant: z.literal("springLoadedReliefValve"),
+});
+export interface ElementConfigSpringLoadedReliefValve extends z.infer<
+  typeof elementConfigSpringLoadedReliefValveZ
+> {}
+
+export const elementConfigThreeWayValveZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("threeWayValve"),
+});
+export interface ElementConfigThreeWayValve extends z.infer<
+  typeof elementConfigThreeWayValveZ
+> {}
+
+export const elementConfigThreeWayBallValveZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("threeWayBallValve"),
+});
+export interface ElementConfigThreeWayBallValve extends z.infer<
+  typeof elementConfigThreeWayBallValveZ
+> {}
+
+export const elementConfigValveZ = toggleSymbolConfigZ.extend({
+  variant: z.literal("valve"),
+});
+export interface ElementConfigValve extends z.infer<typeof elementConfigValveZ> {}
+
+export const elementConfigCrossJunctionZ = staticSymbolConfigZ.extend({
+  variant: z.literal("crossJunction"),
+});
+export interface ElementConfigCrossJunction extends z.infer<
+  typeof elementConfigCrossJunctionZ
+> {}
+
+export const elementConfigCylinderZ = cylinderConfigZ.extend({
+  variant: z.literal("cylinder"),
+});
+export interface ElementConfigCylinder extends z.infer<typeof elementConfigCylinderZ> {}
+
+export const elementConfigTankZ = tankConfigZ.extend({
+  variant: z.literal("tank"),
+});
+export interface ElementConfigTank extends z.infer<typeof elementConfigTankZ> {}
+
+export const elementConfigTjunctionZ = staticSymbolConfigZ.extend({
+  variant: z.literal("tJunction"),
+});
+export interface ElementConfigTJunction extends z.infer<
+  typeof elementConfigTjunctionZ
+> {}
+
+export const elementConfigCustomActuatorZ = customActuatorConfigZ.extend({
+  variant: z.literal("customActuator"),
+});
+export interface ElementConfigCustomActuator extends z.infer<
+  typeof elementConfigCustomActuatorZ
+> {}
+
+export const elementConfigCustomStaticZ = customStaticConfigZ.extend({
+  variant: z.literal("customStatic"),
+});
+export interface ElementConfigCustomStatic extends z.infer<
+  typeof elementConfigCustomStaticZ
+> {}
+
+export const elementConfigPipeZ = segmentedEdgeConfigZ.extend({
+  variant: z.literal("pipe"),
+});
+export interface ElementConfigPipe extends z.infer<typeof elementConfigPipeZ> {}
+
+export const elementConfigElectricZ = segmentedEdgeConfigZ.extend({
+  variant: z.literal("electric"),
+});
+export interface ElementConfigElectric extends z.infer<typeof elementConfigElectricZ> {}
+
+export const elementConfigSecondaryZ = segmentedEdgeConfigZ.extend({
+  variant: z.literal("secondary"),
+});
+export interface ElementConfigSecondary extends z.infer<
+  typeof elementConfigSecondaryZ
+> {}
+
+export const elementConfigJacketedZ = segmentedEdgeConfigZ.extend({
+  variant: z.literal("jacketed"),
+});
+export interface ElementConfigJacketed extends z.infer<typeof elementConfigJacketedZ> {}
+
+export const elementConfigHydraulicZ = segmentedEdgeConfigZ.extend({
+  variant: z.literal("hydraulic"),
+});
+export interface ElementConfigHydraulic extends z.infer<
+  typeof elementConfigHydraulicZ
+> {}
+
+export const elementConfigPneumaticZ = segmentedEdgeConfigZ.extend({
+  variant: z.literal("pneumatic"),
+});
+export interface ElementConfigPneumatic extends z.infer<
+  typeof elementConfigPneumaticZ
+> {}
+
+export const elementConfigDataZ = segmentedEdgeConfigZ.extend({
+  variant: z.literal("data"),
+});
+export interface ElementConfigData extends z.infer<typeof elementConfigDataZ> {}
+
+export const ELEMENT_CONFIG_TYPES = [
+  "cap",
+  "filter",
+  "flowStraightener",
+  "heaterElement",
+  "isoCap",
+  "isoFilter",
+  "nozzle",
+  "orifice",
+  "orificePlate",
+  "strainer",
+  "strainerCone",
+  "thruster",
+  "vent",
+  "flowmeterGeneral",
+  "flowmeterElectromagnetic",
+  "flowmeterVariableArea",
+  "flowmeterCoriolis",
+  "flowmeterNozzle",
+  "flowmeterVenturi",
+  "flowmeterRingPiston",
+  "flowmeterPositiveDisplacement",
+  "flowmeterTurbine",
+  "flowmeterPulse",
+  "flowmeterFloatSensor",
+  "flowmeterOrifice",
+  "box",
+  "button",
+  "circle",
+  "gauge",
+  "input",
+  "light",
+  "offPageReference",
+  "polygon",
+  "select",
+  "setpoint",
+  "stateIndicator",
+  "switch",
+  "textBox",
+  "value",
+  "agitator",
+  "crossBeamAgitator",
+  "flatBladeAgitator",
+  "heatExchangerGeneral",
+  "heatExchangerM",
+  "heatExchangerStraightTube",
+  "helicalAgitator",
+  "paddleAgitator",
+  "propellerAgitator",
+  "rotaryMixer",
+  "staticMixer",
+  "cavityPump",
+  "centrifugalCompressor",
+  "compressor",
+  "diaphragmPump",
+  "ejectionPump",
+  "ejectorCompressor",
+  "liquidRingCompressor",
+  "pistonPump",
+  "pump",
+  "rollerVaneCompressor",
+  "screwPump",
+  "turboCompressor",
+  "vacuumPump",
+  "burstDisc",
+  "flameArrestor",
+  "flameArrestorDetonation",
+  "flameArrestorExplosion",
+  "flameArrestorFireRes",
+  "flameArrestorFireResDetonation",
+  "isoBurstDisc",
+  "angledValve",
+  "angledReliefValve",
+  "angledSpringLoadedReliefValve",
+  "ballValve",
+  "breatherValve",
+  "butterflyValveOne",
+  "butterflyValveTwo",
+  "checkValve",
+  "checkValveWithArrow",
+  "electricRegulator",
+  "electricRegulatorMotorized",
+  "fourWayValve",
+  "gateValve",
+  "isoCheckValve",
+  "manualValve",
+  "needleValve",
+  "regulator",
+  "regulatorManual",
+  "reliefValve",
+  "solenoidValve",
+  "springLoadedReliefValve",
+  "threeWayValve",
+  "threeWayBallValve",
+  "valve",
+  "crossJunction",
+  "cylinder",
+  "tank",
+  "tJunction",
+  "customActuator",
+  "customStatic",
+  "pipe",
+  "electric",
+  "secondary",
+  "jacketed",
+  "hydraulic",
+  "pneumatic",
+  "data",
+] as const;
+export const elementConfigTypeZ = z.enum(ELEMENT_CONFIG_TYPES);
+export type ElementConfigType = z.infer<typeof elementConfigTypeZ>;
+
+/**
+ * ElementConfig is the per-element configuration stored in the schematic configs map:
+ * a node config or an edge config, discriminated by variant.
+ */
+export const elementConfigZ = z.discriminatedUnion("variant", [
+  elementConfigCapZ,
+  elementConfigFilterZ,
+  elementConfigFlowStraightenerZ,
+  elementConfigHeaterElementZ,
+  elementConfigIsoCapZ,
+  elementConfigIsoFilterZ,
+  elementConfigNozzleZ,
+  elementConfigOrificeZ,
+  elementConfigOrificePlateZ,
+  elementConfigStrainerZ,
+  elementConfigStrainerConeZ,
+  elementConfigThrusterZ,
+  elementConfigVentZ,
+  elementConfigFlowmeterGeneralZ,
+  elementConfigFlowmeterElectromagneticZ,
+  elementConfigFlowmeterVariableAreaZ,
+  elementConfigFlowmeterCoriolisZ,
+  elementConfigFlowmeterNozzleZ,
+  elementConfigFlowmeterVenturiZ,
+  elementConfigFlowmeterRingPistonZ,
+  elementConfigFlowmeterPositiveDisplacementZ,
+  elementConfigFlowmeterTurbineZ,
+  elementConfigFlowmeterPulseZ,
+  elementConfigFlowmeterFloatSensorZ,
+  elementConfigFlowmeterOrificeZ,
+  elementConfigBoxZ,
+  elementConfigButtonZ,
+  elementConfigCircleZ,
+  elementConfigGaugeZ,
+  elementConfigInputZ,
+  elementConfigLightZ,
+  elementConfigOffPageReferenceZ,
+  elementConfigPolygonZ,
+  elementConfigSelectZ,
+  elementConfigSetpointZ,
+  elementConfigStateIndicatorZ,
+  elementConfigSwitchZ,
+  elementConfigTextBoxZ,
+  elementConfigValueZ,
+  elementConfigAgitatorZ,
+  elementConfigCrossBeamAgitatorZ,
+  elementConfigFlatBladeAgitatorZ,
+  elementConfigHeatExchangerGeneralZ,
+  elementConfigHeatExchangerMZ,
+  elementConfigHeatExchangerStraightTubeZ,
+  elementConfigHelicalAgitatorZ,
+  elementConfigPaddleAgitatorZ,
+  elementConfigPropellerAgitatorZ,
+  elementConfigRotaryMixerZ,
+  elementConfigStaticMixerZ,
+  elementConfigCavityPumpZ,
+  elementConfigCentrifugalCompressorZ,
+  elementConfigCompressorZ,
+  elementConfigDiaphragmPumpZ,
+  elementConfigEjectionPumpZ,
+  elementConfigEjectorCompressorZ,
+  elementConfigLiquidRingCompressorZ,
+  elementConfigPistonPumpZ,
+  elementConfigPumpZ,
+  elementConfigRollerVaneCompressorZ,
+  elementConfigScrewPumpZ,
+  elementConfigTurboCompressorZ,
+  elementConfigVacuumPumpZ,
+  elementConfigBurstDiscZ,
+  elementConfigFlameArrestorZ,
+  elementConfigFlameArrestorDetonationZ,
+  elementConfigFlameArrestorExplosionZ,
+  elementConfigFlameArrestorFireResZ,
+  elementConfigFlameArrestorFireResDetonationZ,
+  elementConfigIsoBurstDiscZ,
+  elementConfigAngledValveZ,
+  elementConfigAngledReliefValveZ,
+  elementConfigAngledSpringLoadedReliefValveZ,
+  elementConfigBallValveZ,
+  elementConfigBreatherValveZ,
+  elementConfigButterflyValveOneZ,
+  elementConfigButterflyValveTwoZ,
+  elementConfigCheckValveZ,
+  elementConfigCheckValveWithArrowZ,
+  elementConfigElectricRegulatorZ,
+  elementConfigElectricRegulatorMotorizedZ,
+  elementConfigFourWayValveZ,
+  elementConfigGateValveZ,
+  elementConfigIsoCheckValveZ,
+  elementConfigManualValveZ,
+  elementConfigNeedleValveZ,
+  elementConfigRegulatorZ,
+  elementConfigRegulatorManualZ,
+  elementConfigReliefValveZ,
+  elementConfigSolenoidValveZ,
+  elementConfigSpringLoadedReliefValveZ,
+  elementConfigThreeWayValveZ,
+  elementConfigThreeWayBallValveZ,
+  elementConfigValveZ,
+  elementConfigCrossJunctionZ,
+  elementConfigCylinderZ,
+  elementConfigTankZ,
+  elementConfigTjunctionZ,
+  elementConfigCustomActuatorZ,
+  elementConfigCustomStaticZ,
+  elementConfigPipeZ,
+  elementConfigElectricZ,
+  elementConfigSecondaryZ,
+  elementConfigJacketedZ,
+  elementConfigHydraulicZ,
+  elementConfigPneumaticZ,
+  elementConfigDataZ,
+]);
+export type ElementConfig = z.infer<typeof elementConfigZ>;
+
+export const ELEMENT_CONFIG_SCHEMAS: Record<
+  ElementConfigType,
+  z.ZodType<ElementConfig>
+> = {
+  cap: elementConfigCapZ,
+  filter: elementConfigFilterZ,
+  flowStraightener: elementConfigFlowStraightenerZ,
+  heaterElement: elementConfigHeaterElementZ,
+  isoCap: elementConfigIsoCapZ,
+  isoFilter: elementConfigIsoFilterZ,
+  nozzle: elementConfigNozzleZ,
+  orifice: elementConfigOrificeZ,
+  orificePlate: elementConfigOrificePlateZ,
+  strainer: elementConfigStrainerZ,
+  strainerCone: elementConfigStrainerConeZ,
+  thruster: elementConfigThrusterZ,
+  vent: elementConfigVentZ,
+  flowmeterGeneral: elementConfigFlowmeterGeneralZ,
+  flowmeterElectromagnetic: elementConfigFlowmeterElectromagneticZ,
+  flowmeterVariableArea: elementConfigFlowmeterVariableAreaZ,
+  flowmeterCoriolis: elementConfigFlowmeterCoriolisZ,
+  flowmeterNozzle: elementConfigFlowmeterNozzleZ,
+  flowmeterVenturi: elementConfigFlowmeterVenturiZ,
+  flowmeterRingPiston: elementConfigFlowmeterRingPistonZ,
+  flowmeterPositiveDisplacement: elementConfigFlowmeterPositiveDisplacementZ,
+  flowmeterTurbine: elementConfigFlowmeterTurbineZ,
+  flowmeterPulse: elementConfigFlowmeterPulseZ,
+  flowmeterFloatSensor: elementConfigFlowmeterFloatSensorZ,
+  flowmeterOrifice: elementConfigFlowmeterOrificeZ,
+  box: elementConfigBoxZ,
+  button: elementConfigButtonZ,
+  circle: elementConfigCircleZ,
+  gauge: elementConfigGaugeZ,
+  input: elementConfigInputZ,
+  light: elementConfigLightZ,
+  offPageReference: elementConfigOffPageReferenceZ,
+  polygon: elementConfigPolygonZ,
+  select: elementConfigSelectZ,
+  setpoint: elementConfigSetpointZ,
+  stateIndicator: elementConfigStateIndicatorZ,
+  switch: elementConfigSwitchZ,
+  textBox: elementConfigTextBoxZ,
+  value: elementConfigValueZ,
+  agitator: elementConfigAgitatorZ,
+  crossBeamAgitator: elementConfigCrossBeamAgitatorZ,
+  flatBladeAgitator: elementConfigFlatBladeAgitatorZ,
+  heatExchangerGeneral: elementConfigHeatExchangerGeneralZ,
+  heatExchangerM: elementConfigHeatExchangerMZ,
+  heatExchangerStraightTube: elementConfigHeatExchangerStraightTubeZ,
+  helicalAgitator: elementConfigHelicalAgitatorZ,
+  paddleAgitator: elementConfigPaddleAgitatorZ,
+  propellerAgitator: elementConfigPropellerAgitatorZ,
+  rotaryMixer: elementConfigRotaryMixerZ,
+  staticMixer: elementConfigStaticMixerZ,
+  cavityPump: elementConfigCavityPumpZ,
+  centrifugalCompressor: elementConfigCentrifugalCompressorZ,
+  compressor: elementConfigCompressorZ,
+  diaphragmPump: elementConfigDiaphragmPumpZ,
+  ejectionPump: elementConfigEjectionPumpZ,
+  ejectorCompressor: elementConfigEjectorCompressorZ,
+  liquidRingCompressor: elementConfigLiquidRingCompressorZ,
+  pistonPump: elementConfigPistonPumpZ,
+  pump: elementConfigPumpZ,
+  rollerVaneCompressor: elementConfigRollerVaneCompressorZ,
+  screwPump: elementConfigScrewPumpZ,
+  turboCompressor: elementConfigTurboCompressorZ,
+  vacuumPump: elementConfigVacuumPumpZ,
+  burstDisc: elementConfigBurstDiscZ,
+  flameArrestor: elementConfigFlameArrestorZ,
+  flameArrestorDetonation: elementConfigFlameArrestorDetonationZ,
+  flameArrestorExplosion: elementConfigFlameArrestorExplosionZ,
+  flameArrestorFireRes: elementConfigFlameArrestorFireResZ,
+  flameArrestorFireResDetonation: elementConfigFlameArrestorFireResDetonationZ,
+  isoBurstDisc: elementConfigIsoBurstDiscZ,
+  angledValve: elementConfigAngledValveZ,
+  angledReliefValve: elementConfigAngledReliefValveZ,
+  angledSpringLoadedReliefValve: elementConfigAngledSpringLoadedReliefValveZ,
+  ballValve: elementConfigBallValveZ,
+  breatherValve: elementConfigBreatherValveZ,
+  butterflyValveOne: elementConfigButterflyValveOneZ,
+  butterflyValveTwo: elementConfigButterflyValveTwoZ,
+  checkValve: elementConfigCheckValveZ,
+  checkValveWithArrow: elementConfigCheckValveWithArrowZ,
+  electricRegulator: elementConfigElectricRegulatorZ,
+  electricRegulatorMotorized: elementConfigElectricRegulatorMotorizedZ,
+  fourWayValve: elementConfigFourWayValveZ,
+  gateValve: elementConfigGateValveZ,
+  isoCheckValve: elementConfigIsoCheckValveZ,
+  manualValve: elementConfigManualValveZ,
+  needleValve: elementConfigNeedleValveZ,
+  regulator: elementConfigRegulatorZ,
+  regulatorManual: elementConfigRegulatorManualZ,
+  reliefValve: elementConfigReliefValveZ,
+  solenoidValve: elementConfigSolenoidValveZ,
+  springLoadedReliefValve: elementConfigSpringLoadedReliefValveZ,
+  threeWayValve: elementConfigThreeWayValveZ,
+  threeWayBallValve: elementConfigThreeWayBallValveZ,
+  valve: elementConfigValveZ,
+  crossJunction: elementConfigCrossJunctionZ,
+  cylinder: elementConfigCylinderZ,
+  tank: elementConfigTankZ,
+  tJunction: elementConfigTjunctionZ,
+  customActuator: elementConfigCustomActuatorZ,
+  customStatic: elementConfigCustomStaticZ,
+  pipe: elementConfigPipeZ,
+  electric: elementConfigElectricZ,
+  secondary: elementConfigSecondaryZ,
+  jacketed: elementConfigJacketedZ,
+  hydraulic: elementConfigHydraulicZ,
+  pneumatic: elementConfigPneumaticZ,
+  data: elementConfigDataZ,
+};
+
+/**
+ * Schematic is a visual diagram editor component for drawing system schematics,
+ * control flows, and process diagrams. Schematics support interactive
+ * symbols, connection handles, and dynamic state visualization.
+ */
+export const schematicZ = z.object({
+  /** key is the unique identifier for this schematic. */
+  key: keyZ,
+  /** name is a human-readable name for the schematic. */
+  name: z.string(),
+  /** snapshot indicates whether this schematic represents a saved snapshot state. */
+  snapshot: z.boolean().default(false),
+  /** nodes contains all diagram nodes in the schematic. */
+  nodes: array.nullishToEmpty(nodeZ),
+  /** edges contains all connections between nodes. */
+  edges: array.nullishToEmpty(edgeZ),
+  /**
+   * configs contains per-element configuration keyed by node or edge key. The
+   * variant of each value selects the symbol or edge style it
+   * configures.
+   */
+  configs: caseconv.preserveKeys(record.nullishToEmpty(z.string(), elementConfigZ)),
+});
+export interface Schematic extends z.infer<typeof schematicZ> {}
+
+export const newZ = schematicZ
+  .omit({ key: true, nodes: true, edges: true, configs: true })
+  .extend({
+    key: keyZ.default(() => uuid.create()),
+    nodes: array.nullishToEmpty(nodeZ),
+    edges: array.nullishToEmpty(edgeZ),
+    configs: caseconv.preserveKeys(record.nullishToEmpty(z.string(), elementConfigZ)),
+  });
+export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("schematic");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

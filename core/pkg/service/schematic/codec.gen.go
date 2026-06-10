@@ -14,7 +14,6 @@ package schematic
 import (
 	"encoding/json"
 
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -185,10 +184,10 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.Configs = make(map[string]msgpack.EncodedJSON, n)
+			s.Configs = make(map[string]ElementConfig, n)
 			for range n {
 				var key string
-				var val msgpack.EncodedJSON
+				var val ElementConfig
 				if key, err = r.String(); err != nil {
 					return err
 				}
