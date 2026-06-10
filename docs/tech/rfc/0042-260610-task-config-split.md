@@ -75,8 +75,7 @@ libraries, the Console, and the driver.
 
 The task-to-config link is an ontology relationship because relationships are the
 platform's mechanism for reference queries and traversal. Config data is always fetched
-through the owning service's typed retrieve, never through `ontology.Resource` data
-resolution.
+through the owning service's typed retrieve, never via `ontology.Resource`.
 
 ## 3.2 - Typed Configs Are Opt-In Per Task Type
 
@@ -112,8 +111,8 @@ Each integration gets a config service following the standard service anatomy (R
 a writer, a retrieve builder, ontology registration, and a `types/vN/` version chain.
 Types are generated from the integration's Oracle schema (`schemas/current/ni.oracle`)
 by adding a core Go output and migration generation to the schema that already generates
-the TS, Python, and C++ client types. One schema is the source of truth for the server,
-all clients, and (eventually) the driver.
+the TS, Python, and C++ client types: one source of truth for the server, all clients,
+and (eventually) the driver.
 
 Config records have their own keys, independent of the task key. Independent identity
 keeps config lifecycle decoupled from task lifecycle: snapshots, history, and templated
