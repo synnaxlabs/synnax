@@ -64,7 +64,6 @@ var _ = Describe("MigrateLog", func() {
 		out := MustSucceed(log.MigrateLog(ctx, old))
 		Expect(out.Key).To(Equal(old.Key))
 		Expect(out.Name).To(Equal("my-log"))
-		Expect(out.RemoteCreated).To(BeTrue())
 		Expect(out.TimestampPrecision).To(Equal(int32(2)))
 		Expect(out.ShowChannelNames).To(BeFalse())
 		Expect(out.ShowReceiptTimestamp).To(BeTrue())
@@ -241,7 +240,6 @@ var _ = Describe("MigrateLog", func() {
 			Expect(out.Channels[1].Channel).To(Equal(channel.Key(2)))
 			Expect(out.Channels[2].Channel).To(Equal(channel.Key(3)))
 			Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
-			Expect(out.RemoteCreated).To(BeTrue())
 		})
 
 		DescribeTable("Should keep Key and Name but yield no channels for an undecodable body",

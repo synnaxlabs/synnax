@@ -64,7 +64,6 @@ func logFromV1(d v1.Data) Log {
 	}
 	return Log{
 		Channels:             channels,
-		RemoteCreated:        d.RemoteCreated,
 		TimestampPrecision:   d.TimestampPrecision,
 		ShowChannelNames:     d.ShowChannelNames,
 		ShowReceiptTimestamp: d.ShowReceiptTimestamp,

@@ -117,15 +117,12 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
 	t.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, types.Nil]{}
-	t.LinePlotRename = noop.UnaryServer[lineplot.RenameRequest, types.Nil]{}
-	t.LinePlotSetData = noop.UnaryServer[lineplot.SetDataRequest, types.Nil]{}
 	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, types.Nil]{}
 
 	// LOG
 	t.LogCreate = noop.UnaryServer[log.CreateRequest, log.CreateResponse]{}
 	t.LogRetrieve = noop.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]{}
 	t.LogDelete = noop.UnaryServer[log.DeleteRequest, types.Nil]{}
-	t.LogSetData = noop.UnaryServer[log.SetDataRequest, types.Nil]{}
 	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, types.Nil]{}
 
 	// TABLE

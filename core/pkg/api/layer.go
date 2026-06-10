@@ -122,7 +122,6 @@ type Transport struct {
 	LogCreate   freighter.UnaryServer[log.CreateRequest, log.CreateResponse]
 	LogRetrieve freighter.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]
 	LogDelete   freighter.UnaryServer[log.DeleteRequest, types.Nil]
-	LogSetData  freighter.UnaryServer[log.SetDataRequest, types.Nil]
 	LogDispatch freighter.UnaryServer[log.DispatchRequest, types.Nil]
 	// TABLE
 	TableCreate   freighter.UnaryServer[table.CreateRequest, table.CreateResponse]
@@ -133,8 +132,6 @@ type Transport struct {
 	LinePlotCreate   freighter.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
 	LinePlotDelete   freighter.UnaryServer[lineplot.DeleteRequest, types.Nil]
-	LinePlotRename   freighter.UnaryServer[lineplot.RenameRequest, types.Nil]
-	LinePlotSetData  freighter.UnaryServer[lineplot.SetDataRequest, types.Nil]
 	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, types.Nil]
 	// LABEL
 	LabelCreate   freighter.UnaryServer[label.CreateRequest, label.CreateResponse]
@@ -309,8 +306,6 @@ func (l *Layer) BindTo(t Transport) {
 
 		// LINE PLOT
 		t.LinePlotCreate,
-		t.LinePlotRename,
-		t.LinePlotSetData,
 		t.LinePlotDispatch,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
@@ -319,7 +314,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.LogCreate,
 		t.LogRetrieve,
 		t.LogDelete,
-		t.LogSetData,
 		t.LogDispatch,
 
 		// TABLE
@@ -459,8 +453,6 @@ func (l *Layer) BindTo(t Transport) {
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(l.LinePlot.Create)
-	t.LinePlotRename.BindHandler(l.LinePlot.Rename)
-	t.LinePlotSetData.BindHandler(l.LinePlot.SetData)
 	t.LinePlotDispatch.BindHandler(l.LinePlot.Dispatch)
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(l.LinePlot.Delete)
@@ -469,7 +461,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.LogCreate.BindHandler(l.Log.Create)
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
 	t.LogDelete.BindHandler(l.Log.Delete)
-	t.LogSetData.BindHandler(l.Log.SetData)
 	t.LogDispatch.BindHandler(l.Log.Dispatch)
 
 	// TABLE

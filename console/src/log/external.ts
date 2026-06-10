@@ -20,6 +20,7 @@ export * from "@/log/Selectable";
 export * from "@/log/selectors";
 export * from "@/log/slice";
 export * from "@/log/toolbar/Toolbar";
+export * from "@/log/useCreate";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

@@ -70,7 +70,7 @@ const handleSelect: Ontology.HandleSelect = ({
     }
     default: {
       const workspace = Workspace.selectActiveKey(state) ?? uuid.ZERO;
-      const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_RANGE_KEY;
+      const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_KEY;
       handleError(async () => {
         const { key, name } = await client.lineplots.create(workspace, {
           name: "Line Plot",
