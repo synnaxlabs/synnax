@@ -70,11 +70,11 @@ func (w Writer) CreateMany(
 	symbols *[]Symbol,
 	parent ontology.ID,
 ) error {
-	for i, s := range *symbols {
-		if err := w.Create(ctx, &s, parent); err != nil {
+	items := *symbols
+	for i := range items {
+		if err := w.Create(ctx, &items[i], parent); err != nil {
 			return err
 		}
-		(*symbols)[i] = s
 	}
 	return nil
 }

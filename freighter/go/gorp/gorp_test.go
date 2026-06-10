@@ -31,9 +31,9 @@ func (entry) SetOptions() []any { return nil }
 
 var errBoom = errors.New("boom")
 
-var _ = Describe("CreateUnaryWriteHandler", func() {
+var _ = Describe("CreateWriteUnaryHandler", func() {
 	It("Should commit the transaction when the handler returns nil", func(ctx SpecContext) {
-		handler := gorp.CreateUnaryWriteHandler(
+		handler := gorp.CreateWriteUnaryHandler(
 			db,
 			func(ctx context.Context, tx xgorp.Tx, req entry) (entry, error) {
 				if err := xgorp.NewCreate[string, entry]().
@@ -55,7 +55,7 @@ var _ = Describe("CreateUnaryWriteHandler", func() {
 	})
 
 	It("Should roll back the transaction when the handler returns an error", func(ctx SpecContext) {
-		handler := gorp.CreateUnaryWriteHandler(
+		handler := gorp.CreateWriteUnaryHandler(
 			db,
 			func(ctx context.Context, tx xgorp.Tx, req entry) (entry, error) {
 				if err := xgorp.NewCreate[string, entry]().Entry(&req).
@@ -73,7 +73,7 @@ var _ = Describe("CreateUnaryWriteHandler", func() {
 	})
 
 	It("Should return a zero RS on error", func(ctx SpecContext) {
-		handler := gorp.CreateUnaryWriteHandler(
+		handler := gorp.CreateWriteUnaryHandler(
 			db,
 			func(context.Context, xgorp.Tx, entry) (entry, error) {
 				return entry{ID: "leaked", Data: "leaked"}, errBoom
@@ -82,7 +82,7 @@ var _ = Describe("CreateUnaryWriteHandler", func() {
 	})
 
 	It("Should propagate the request to the handler unchanged", func(ctx SpecContext) {
-		handler := gorp.CreateUnaryWriteHandler(
+		handler := gorp.CreateWriteUnaryHandler(
 			db,
 			func(_ context.Context, _ xgorp.Tx, req entry) (entry, error) {
 				return req, nil

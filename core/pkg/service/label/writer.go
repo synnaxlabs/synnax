@@ -45,11 +45,11 @@ func (w Writer) CreateMany(
 	ctx context.Context,
 	ls *[]Label,
 ) (err error) {
-	for i, l := range *ls {
-		if err = w.Create(ctx, &l); err != nil {
+	items := *ls
+	for i := range items {
+		if err = w.Create(ctx, &items[i]); err != nil {
 			return
 		}
-		(*ls)[i] = l
 	}
 	return err
 }

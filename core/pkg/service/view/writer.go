@@ -59,11 +59,11 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 // CreateMany creates or updates multiple views within the DB. If any of the views
 // already exist, they will be updated.
 func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
-	for i, view := range *views {
-		if err := w.Create(ctx, &view); err != nil {
+	items := *views
+	for i := range items {
+		if err := w.Create(ctx, &items[i]); err != nil {
 			return err
 		}
-		(*views)[i] = view
 	}
 	return nil
 }

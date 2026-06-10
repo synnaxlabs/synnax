@@ -61,27 +61,21 @@ func (w Writer) Create(
 	return nil
 }
 
-// CreateMany creates the given arcs. If arcs with the same key already exist, they
-// will be overwritten.
-func (w Writer) CreateMany(
-	ctx context.Context,
-	arcs *[]Arc,
-) error {
-	for i, a := range *arcs {
-		if err := w.Create(ctx, &a); err != nil {
+// CreateMany creates the given Arcs. If Arcs with the same key already exist, they will
+// be overwritten.
+func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
+	items := *arcs
+	for i := range items {
+		if err := w.Create(ctx, &items[i]); err != nil {
 			return err
 		}
-		(*arcs)[i] = a
 	}
 	return nil
 }
 
-// Delete deletes the arcs with the given keys. If the arc has child tasks, those
-// tasks will also be deleted.
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...Key,
-) error {
+// Delete deletes the arcs with the given keys. If the Arc has child tasks, those tasks
+// will also be deleted.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	for _, key := range keys {
 		if err := w.deleteChildTasks(ctx, key); err != nil {
 			return err

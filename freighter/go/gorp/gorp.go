@@ -18,10 +18,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// CreateUnaryWriteHandler wraps a unary handler that needs to execute inside a single
+// CreateWriteUnaryHandler wraps a unary handler that needs to execute inside a single
 // [gorp.Tx] to a [freighter.UnaryHandler]. The transaction is committed when handle
 // returns nil and rolled back otherwise. On any error a zero RS is returned.
-func CreateUnaryWriteHandler[RQ, RS freighter.Payload](
+func CreateWriteUnaryHandler[RQ, RS freighter.Payload](
 	db *gorp.DB,
 	handle func(context.Context, gorp.Tx, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {

@@ -71,11 +71,11 @@ func (w Writer) CreateMany(
 	ws workspace.Key,
 	plots *[]LinePlot,
 ) error {
-	for i, p := range *plots {
-		if err := w.Create(ctx, ws, &p); err != nil {
+	items := *plots
+	for i := range items {
+		if err := w.Create(ctx, ws, &items[i]); err != nil {
 			return err
 		}
-		(*plots)[i] = p
 	}
 	return nil
 }

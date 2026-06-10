@@ -130,11 +130,11 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 // CreateMany creates or updates the given devices. If devices with the same key
 // already exist, they will be overwritten.
 func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
-	for i, d := range *devices {
-		if err := w.Create(ctx, &d); err != nil {
+	items := *devices
+	for i := range items {
+		if err := w.Create(ctx, &items[i]); err != nil {
 			return err
 		}
-		(*devices)[i] = d
 	}
 	return nil
 }

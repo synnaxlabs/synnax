@@ -75,11 +75,11 @@ func (w Writer) CreateMany(
 	ws workspace.Key,
 	tables *[]Table,
 ) error {
-	for i, t := range *tables {
-		if err := w.Create(ctx, ws, &t); err != nil {
+	items := *tables
+	for i := range items {
+		if err := w.Create(ctx, ws, &items[i]); err != nil {
 			return err
 		}
-		(*tables)[i] = t
 	}
 	return nil
 }
