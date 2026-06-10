@@ -48,21 +48,15 @@ type ServiceConfig struct {
 	// Label is the label service used to attach, remove, and query labels related to
 	// changes.
 	Label *label.Service
-	// ForceMigration will force all migrations to run, regardless of whether they have
-	// already been run.
-	ForceMigration *bool
 	// Search is the search index for fuzzy searching ranges.
+	//
 	// [REQUIRED]
 	Search *search.Index
 	// Instrumentation for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a range service.
-	DefaultServiceConfig = ServiceConfig{ForceMigration: new(false)}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
@@ -71,7 +65,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "label", c.Label)
-	validate.NotNil(v, "force_migration", c.ForceMigration)
 	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
@@ -85,7 +78,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
 	return c
 }
 
@@ -101,7 +93,7 @@ type Service struct {
 // nil, the services is ready for use and must be closed by calling Close to prevent
 // resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +105,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Instrumentation: cfg.Instrumentation,
 	})
-	if s.table, err = gorp.OpenTable[Key, Range](ctx, gorp.TableConfig[Key, Range]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Range]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
@@ -167,8 +159,8 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-// RetrieveParentKey returns the parent range key for the given range key.
-// Returns query.ErrNotFound if the range has no parent.
+// RetrieveParentKey returns the parent range key for the given range key. Returns
+// query.ErrNotFound if the range has no parent.
 func (s *Service) RetrieveParentKey(
 	ctx context.Context,
 	key Key,
