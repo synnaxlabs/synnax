@@ -47,7 +47,7 @@ func (fp *FieldProcessor) ProcessField(
 	parentType resolution.Type,
 ) FieldData {
 	p := New(DefaultOptions())
-	return p.processField(field, parentType, fp.Request.Resolutions, fp.data(), false, false)
+	return p.processField(field, parentType, fp.Request.Resolutions, fp.data(), false)
 }
 
 // CollectTypeImports walks ref and adds a zod import for every same-namespace

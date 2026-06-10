@@ -160,7 +160,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // on non-primitive types (i.e., references other schema types that need to be
 // declared before this type). This is used to determine whether a distinct type
 // should be included in topological sorting.
-func hasNonPrimitiveDependency(typ resolution.Type, table *resolution.Table) bool {
+func hasNonPrimitiveDependency(typ resolution.Type) bool {
 	var checkRef func(ref resolution.TypeRef) bool
 	checkRef = func(ref resolution.TypeRef) bool {
 		if ref.Name == "" || ref.IsTypeParam() {
@@ -224,7 +224,7 @@ func (p *Plugin) generateFile(
 		case resolution.AliasForm:
 			dependentTypeDefs = append(dependentTypeDefs, td)
 		case resolution.DistinctForm:
-			if hasNonPrimitiveDependency(td, req.Resolutions) {
+			if hasNonPrimitiveDependency(td) {
 				dependentTypeDefs = append(dependentTypeDefs, td)
 			} else {
 				primitiveTypeDefs = append(primitiveTypeDefs, td)
@@ -528,7 +528,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			return sd
 		}
 		for _, tp := range aliasForm.TypeParams {
-			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table))
 		}
 		for _, tp := range sd.TypeParams {
 			if tp.IsJSON || strings.Contains(tp.Constraint, "record.") || strings.Contains(tp.Default, "record.") {
@@ -597,7 +597,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		return sd
 	}
 	for _, tp := range form.TypeParams {
-		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table))
 	}
 	for _, tp := range sd.TypeParams {
 		if tp.IsJSON || strings.Contains(tp.Constraint, "record.") || strings.Contains(tp.Default, "record.") {
@@ -706,10 +706,10 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: camelCase(field.Name)})
 					} else {
 						sd.OmittedFields = append(sd.OmittedFields, camelCase(field.Name))
-						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
+						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.ConcreteTypes))
 					}
 				} else {
-					sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
+					sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.ConcreteTypes))
 				}
 			}
 
@@ -733,7 +733,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	}
 
 	for _, field := range allFields {
-		fd := p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes)
+		fd := p.processField(field, entry, table, data, sd.ConcreteTypes)
 		sd.Fields = append(sd.Fields, fd)
 
 		if sd.ConcreteTypes && field.Type.IsTypeParam() &&
@@ -930,7 +930,7 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	return result
 }
 
-func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table, data *templateData) typeParamData {
+func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table) typeParamData {
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
 		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "record" {
@@ -1113,7 +1113,7 @@ func isForwardReference(t resolution.TypeRef, data *templateData, table *resolut
 	return checkRef(t)
 }
 
-func (p *Plugin) processField(field resolution.Field, parentType resolution.Type, table *resolution.Table, data *templateData, useInput bool, needsTypeImports bool) fieldData {
+func (p *Plugin) processField(field resolution.Field, parentType resolution.Type, table *resolution.Table, data *templateData, needsTypeImports bool) fieldData {
 	isArray := field.Type.Name == "Array"
 	needsGetter := isSelfReference(field.Type, parentType) || isForwardReference(field.Type, data, table)
 
