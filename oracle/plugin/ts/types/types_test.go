@@ -2501,6 +2501,26 @@ var _ = Describe("TS Union Generation", func() {
 			)
 	})
 
+	It("Should camelize multi-word discriminators in the generated schemas", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Spec struct { type string }
+
+			Source union on value_type {
+				boolean Spec
+				number Spec
+			}
+		`
+		resp := MustGenerate(ctx, source, "telem", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`valueType: z.literal("boolean"),`,
+				`export const sourceZ = z.discriminatedUnion("valueType", [`,
+			).
+			ToNotContain(`value_type`)
+	})
+
 	It("Should generate a discriminator enum and per-variant interfaces", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
