@@ -67,6 +67,24 @@ func example() {
 	_, _, err = returnsTwoValErr() // want "can be replaced with MustSucceed2"
 	Expect(err).ToNot(HaveOccurred())
 
+	// Pattern F: assignment and Expect(err) separated by an intervening statement
+	// that does not reference err.
+	t1, err := returnsValErr() // want "can be replaced with MustSucceed"
+	_ = t1 + 1
+	Expect(err).ToNot(HaveOccurred())
+
+	// Pattern G: err-only assignment with an intervening statement.
+	err = returnsErr() // want "can be replaced with Expect"
+	_ = 42
+	Expect(err).ToNot(HaveOccurred())
+
+	// Should NOT match: intervening statement reads err — removing the binding
+	// would break that read.
+	v2, err := returnsValErr()
+	_ = err
+	Expect(err).ToNot(HaveOccurred())
+	_ = v2
+
 	// Should NOT match: no preceding assignment
 	Expect(err).ToNot(HaveOccurred())
 
