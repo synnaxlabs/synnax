@@ -76,7 +76,7 @@ func (p *Plugin) processUnion(entry resolution.Type, table *resolution.Table, da
 	ud := unionData{
 		TSName:         tsName,
 		SchemaName:     camelCase(tsName) + "Z",
-		Discriminator:  form.Discriminator,
+		Discriminator:  camelCase(form.Discriminator),
 		Doc:            doc.Get(entry.Domains),
 		TypesConst:     screaming + "_TYPES",
 		TypeSchemaName: camelCase(tsName) + "TypeZ",
