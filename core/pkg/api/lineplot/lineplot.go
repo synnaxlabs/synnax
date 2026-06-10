@@ -26,7 +26,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *lineplot.Service
 }
@@ -37,7 +36,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		internal: cfg.Service.LinePlot,
 		access:   cfg.Service.RBAC,
 	}, nil
@@ -52,45 +50,44 @@ type CreateResponse struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
 }
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: lineplot.OntologyIDsFromLinePlots(req.LinePlots),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeLineplot}},
 	}); err != nil {
-		return res, err
+		return CreateResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, lp := range req.LinePlots {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &lp); err != nil {
-				return err
-			}
-			req.LinePlots[i] = lp
-		}
-		res.LinePlots = req.LinePlots
-		return nil
-	})
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Workspace, &req.LinePlots); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse{LinePlots: req.LinePlots}, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single line plot.
-// DispatchKey identifies the originating client's batch so cluster broadcasts
-// can be deduplicated against the local optimistic update.
+// DispatchKey identifies the originating client's batch so cluster broadcasts can be
+// deduplicated against the local optimistic update.
 type DispatchRequest = actions.DispatchRequest[lineplot.Key, lineplot.Action]
 
-// Dispatch applies the action sequence to the target line plot atomically.
-// Subscribers to the line plot action signals receive the sequence after the
-// transaction commits.
-func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+// Dispatch applies the action sequence to the target line plot atomically. Subscribers
+// to the line plot action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{lineplot.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -102,16 +99,20 @@ type (
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	if err := s.internal.NewRetrieve().
+		Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: lineplot.OntologyIDs(req.Keys),
+		Objects: lineplot.OntologyIDsFromLinePlots(res.LinePlots),
 	}); err != nil {
-		return res, err
-	}
-	if err = s.internal.NewRetrieve().Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).
-		Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -121,15 +122,17 @@ type DeleteRequest struct {
 	Keys []lineplot.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: lineplot.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

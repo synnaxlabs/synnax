@@ -98,14 +98,10 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 // they will be updated. Each range's Parent field, if non-nil, is used to set its
 // parent relationship.
 func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
-	if ranges == nil {
-		return nil
-	}
-	for i, r := range *ranges {
-		if err := w.Create(ctx, &r); err != nil {
+	for i := range *ranges {
+		if err := w.Create(ctx, &(*ranges)[i]); err != nil {
 			return err
 		}
-		(*ranges)[i] = r
 	}
 	return nil
 }

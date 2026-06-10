@@ -42,15 +42,9 @@ func KeyFromOntologyID(id ontology.ID) (Key, error) { return uuid.Parse(id.Key) 
 // KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys, returning an
 // error if any of the IDs are invalid.
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	keys := make([]Key, len(ids))
-	var err error
-	for i, id := range ids {
-		keys[i], err = KeyFromOntologyID(id)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return KeyFromOntologyID(id)
+	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

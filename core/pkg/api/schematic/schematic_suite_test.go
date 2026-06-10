@@ -85,7 +85,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	apiSvc = &Service{db: db, internal: schematicSvc, access: rbacSvc}
+	apiSvc = &Service{internal: schematicSvc, access: rbacSvc}
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",
 	}))
