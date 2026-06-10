@@ -210,7 +210,7 @@ describe("caseconv", () => {
       const result = caseconv.camelToSnake(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.nodeA1).toBeDefined();
-      const value = configs.nodeA1 as R;
+      const value = configs.nodeA1;
       expect(value.background_color).toBe("#fff");
       expect(value.stroke_width).toBe(2);
       expect(value.backgroundColor).toBeUndefined();
@@ -232,7 +232,7 @@ describe("caseconv", () => {
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.edge_b2).toBeDefined();
-      expect((configs.edge_b2 as R).textColor).toBe("#000");
+      expect((configs.edge_b2).textColor).toBe("#000");
     });
   });
 
