@@ -82,18 +82,9 @@ type Envelope struct {
 	// enforces that the input value carries a top-level string `name` field.
 	Name string
 
-	// codec is the encoding.Codec bound by the UnmarshalX method that produced this
-	// envelope, and is what Decode[T] uses to interpret raw.
 	codec encoding.Codec
-	// raw holds the original wire bytes of an import payload, captured by the matching
-	// UnmarshalX method. Decode[T] feeds these straight into the requested type via
-	// codec, so the body is parsed once, in the right shape, with no untyped
-	// intermediate.
-	raw []byte
-	// body holds the export-side representation: the typed value reduced to a
-	// codec-independent map by Encode, with the headers merged in. Marshalling emits it
-	// directly; nil for import-side envelopes.
-	body map[string]any
+	raw   []byte
+	body  map[string]any
 }
 
 // MarshalJSON emits the body built by Encode. Hand-constructed envelopes (no Encode
@@ -129,13 +120,11 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 // unmarshal is the codec-agnostic tail shared by every UnmarshalX method on Envelope.
 // Given the body already decoded as a flat map, the original wire bytes, and the codec
 // that produced them, it promotes the {version, type, name} headers onto the receiver
-// and stashes raw + codec for the later typed decode via Decode[T]. A nil m (e.g. a
-// JSON `null` payload) is treated as a zero envelope: no headers, no codec binding, so
-// Decode[T] surfaces the "no body to decode" path rather than silently succeeding.
+// and stashes raw + codec for the later typed decode via Decode[T]. Both `type` and
+// `name` are required headers — an envelope that omits either, or that carries an
+// empty string for either, is rejected so the failure surfaces at the transport
+// boundary instead of routing to a no-op handler.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
-	if m == nil {
-		return nil
-	}
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
 		if err != nil {
@@ -150,6 +139,9 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 		}
 		e.Type = s
 	}
+	if e.Type == "" {
+		return errors.New("type must be a non-empty string")
+	}
 	if v, ok := m["name"]; ok {
 		s, ok := v.(string)
 		if !ok {
@@ -157,23 +149,26 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 		}
 		e.Name = s
 	}
+	if e.Name == "" {
+		return errors.New("name must be a non-empty string")
+	}
 	e.codec = codec
 	e.raw = raw
 	return nil
 }
 
 // Decode materializes the envelope body as T using the encoding.Codec bound by the
-// UnmarshalX method that produced this envelope. The flat wire shape means T may
-// simply name the fields it cares about — unknown headers (version, type, name) are
-// ignored by the bound codec. Envelopes built by Encode without a wire round-trip
-// have no codec bound; callers that need to decode an Encode-side envelope must
-// Marshal it and unmarshal back through one of the UnmarshalX methods first.
+// UnmarshalX method that produced this envelope. The flat wire shape means T may simply
+// name the fields it cares about — unknown headers (version, type, name) are ignored by
+// the bound codec. Envelopes built by Encode without a wire round-trip have no codec
+// bound; callers that need to decode an Encode-side envelope must Marshal it and
+// unmarshal back through one of the UnmarshalX methods first.
 //
 // ctx is forwarded to the codec; xjson.Codec ignores it, but other in-tree codecs
 // (msgpack, future YAML/TOML) may use it for tracing or cancellation.
 //
-// Decode is a free function because Go does not support generic methods; it becomes
-// (e Envelope) Decode[T](ctx) when the language does.
+// Decode is a free function because Go does not support generic methods; it becomes (e
+// Envelope) Decode[T](ctx) when the language does.
 func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 	var t T
 	if err := e.codec.Decode(ctx, e.raw, &t); err != nil {
@@ -184,13 +179,13 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 }
 
 // Encode is the symmetric inverse of Decode. The typed value is reduced to a
-// codec-independent map[string]any with encoding/json semantics (via structToMap),
-// the headers are merged in as flat top-level entries, and the resulting envelope is
-// ready to be handed to any of the MarshalX methods.
+// codec-independent map[string]any with encoding/json semantics (via structToMap), the
+// headers are merged in as flat top-level entries, and the resulting envelope is ready
+// to be handed to any of the MarshalX methods.
 //
-// Invariant: every imex-registered resource carries a non-empty top-level string
-// `name` field on the wire. Encode enforces this so that a resource without a name
-// surfaces as a programmer bug at exporter-test time rather than at runtime.
+// Invariant: every imex-registered resource carries a non-empty top-level string `name`
+// field on the wire. Encode enforces this so that a resource without a name surfaces as
+// a programmer bug at exporter-test time rather than at runtime.
 func Encode[T any](
 	data T, version Version, typ ontology.ResourceType,
 ) (Envelope, error) {
@@ -299,8 +294,8 @@ type Importer interface {
 	Import(context.Context, gorp.Tx, Envelope) (Key, error)
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under
-	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is
-	// the resource type used for access control and ontology accounting.
+	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the
+	// resource type used for access control and ontology accounting.
 	Type() ontology.ResourceType
 }
 
@@ -314,8 +309,8 @@ type Exporter interface {
 	Type() ontology.ResourceType
 }
 
-// ImportExporter is a service that implements both Importer and Exporter under the
-// same ontology resource type and can be registered with Service.RegisterImportExporter.
+// ImportExporter is a service that implements both Importer and Exporter under the same
+// ontology resource type and can be registered with Service.RegisterImportExporter.
 type ImportExporter interface {
 	Importer
 	Exporter

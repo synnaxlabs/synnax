@@ -94,16 +94,33 @@ var _ = Describe("ImEx", func() {
 			})
 
 			It("Should error when name is not a string", func() {
+				// Provide a valid type so the unmarshal flow reaches the name
+				// type-assertion instead of short-circuiting on missing type.
 				var env imex.Envelope
-				Expect(json.Unmarshal([]byte(`{"name":[]}`), &env)).To(
-					MatchError(ContainSubstring("string")),
+				Expect(json.Unmarshal(
+					[]byte(`{"version":1,"type":"log","name":[]}`), &env,
+				)).To(MatchError(ContainSubstring("name must be a string")))
+			})
+
+			It("Should reject a null payload because type is missing", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`null`), &env)).To(
+					MatchError(ContainSubstring("type must be a non-empty string")),
 				)
 			})
 
-			It("Should yield a zero envelope on null", func() {
+			It("Should reject an empty type", func() {
 				var env imex.Envelope
-				Expect(json.Unmarshal([]byte(`null`), &env)).To(Succeed())
-				Expect(env).To(Equal(imex.Envelope{}))
+				Expect(json.Unmarshal(
+					[]byte(`{"version":1,"type":"","name":"n"}`), &env,
+				)).To(MatchError(ContainSubstring("type must be a non-empty string")))
+			})
+
+			It("Should reject an empty name", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(`{"version":1,"type":"log","name":""}`), &env,
+				)).To(MatchError(ContainSubstring("name must be a non-empty string")))
 			})
 
 			It("Should error when the input is a bare JSON number", func() {
@@ -269,6 +286,24 @@ var _ = Describe("ImEx", func() {
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
 				Expect(round).NotTo(HaveKey("Hidden"))
 				Expect(round).NotTo(HaveKey("-"))
+			})
+
+			It("Should skip unexported fields even when they carry a json tag", func() {
+				// Encode goes through structToMap, which only reflects over
+				// exported fields. An unexported field with a json tag should
+				// never reach the wire — calling Interface() on it would panic,
+				// and exposing it would leak private state.
+				type payload struct {
+					Name   string `json:"name"`
+					secret string `json:"secret"`
+				}
+				env := MustSucceed(imex.Encode(
+					payload{Name: "n", secret: "shh"}, 1, "log",
+				))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).NotTo(HaveKey("secret"))
 			})
 
 			It("Should skip exported fields that have no json tag", func() {
