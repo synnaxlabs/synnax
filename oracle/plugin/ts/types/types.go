@@ -810,6 +810,9 @@ func isFieldUnchanged(parent, child resolution.Field) bool {
 	if hasPreserveCase(parent) != hasPreserveCase(child) {
 		return false
 	}
+	if hasPreserveKeys(parent) != hasPreserveKeys(child) {
+		return false
+	}
 	if !sameDefault(parent.Default, child.Default) {
 		return false
 	}
@@ -873,6 +876,9 @@ func isOnlyOptionalityChange(parent, child resolution.Field) bool {
 	if hasPreserveCase(parent) != hasPreserveCase(child) {
 		return false
 	}
+	if hasPreserveKeys(parent) != hasPreserveKeys(child) {
+		return false
+	}
 	return sameBaseType(parent.Type, child.Type)
 }
 
@@ -881,15 +887,26 @@ func isArrayTypeRef(r resolution.TypeRef) bool {
 }
 
 func hasPreserveCase(field resolution.Field) bool {
+	return hasTSExpression(field, "preserve_case", "no_preserve_case")
+}
+
+// hasPreserveKeys reports whether a map field opts into key-only case
+// preservation: the map's keys stay verbatim while its values still undergo
+// wire case conversion.
+func hasPreserveKeys(field resolution.Field) bool {
+	return hasTSExpression(field, "preserve_keys", "no_preserve_keys")
+}
+
+func hasTSExpression(field resolution.Field, name, negation string) bool {
 	tsDomain, ok := field.Domains["ts"]
 	if !ok {
 		return false
 	}
 	for _, expr := range tsDomain.Expressions {
-		if expr.Name == "no_preserve_case" {
+		if expr.Name == negation {
 			return false
 		}
-		if expr.Name == "preserve_case" {
+		if expr.Name == name {
 			return true
 		}
 	}
@@ -1296,6 +1313,10 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	if hasPreserveCase(field) {
 		addXImport(data, xImport{name: "caseconv", submodule: "caseconv"})
 		fd.ZodType = fmt.Sprintf("caseconv.preserveCase(%s)", fd.ZodType)
+	}
+	if hasPreserveKeys(field) {
+		addXImport(data, xImport{name: "caseconv", submodule: "caseconv"})
+		fd.ZodType = fmt.Sprintf("caseconv.preserveKeys(%s)", fd.ZodType)
 	}
 	return fd
 }
