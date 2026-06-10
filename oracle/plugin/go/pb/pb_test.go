@@ -199,6 +199,27 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
+			It("Should deref hard-optional typedef fields for conversion", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key uint32 {
+						@doc value "is a channel key."
+					}
+
+					Config struct {
+						state_channel Key??
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"v := uint32(*r.StateChannel)",
+						"pb.StateChannel = &v",
+					)
+			})
+
 			It("Should reject pb unions that use extends", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/schematic"

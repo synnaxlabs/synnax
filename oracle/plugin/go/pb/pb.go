@@ -562,6 +562,20 @@ func (p *Plugin) processFieldForTranslation(
 		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(typeRef.Name, goFieldDeref, pbFieldDeref, data)
 	}
 
+	// Hard optional typedefs over primitives (e.g. *channel.Key <-> *uint32)
+	// need the same deref-convert-readdress treatment.
+	if isHardOptional && !resolution.IsPrimitive(typeRef.Name) {
+		if resolved, ok := typeRef.Resolve(data.table); ok {
+			if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct &&
+				resolution.IsPrimitive(form.Base.Name) {
+				fd.NeedsPtrConversion = true
+				fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generateTypeDefConversion(
+					typeRef, resolved, form, data, "*r."+goName, "*pb."+pbName,
+				)
+			}
+		}
+	}
+
 	// Maps whose value type does not survive a direct copy (numeric primitives that
 	// widen, opaque records that bridge through structpb.Struct, struct values that
 	// have their own pb translator) require element-wise conversion loops. Force
