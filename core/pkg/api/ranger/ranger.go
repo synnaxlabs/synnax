@@ -90,7 +90,7 @@ func (s *Service) Create(
 		if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Ranges); err != nil {
 			return err
 		}
-		res = CreateResponse{Ranges: req.Ranges}
+		res = CreateResponse(req)
 		return nil
 	}); err != nil {
 		return CreateResponse{}, err
