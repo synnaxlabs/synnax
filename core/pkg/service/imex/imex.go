@@ -202,29 +202,33 @@ func Encode[T any](env *Envelope, data T) error {
 	if err != nil {
 		return errors.Wrap(err, "encode envelope")
 	}
+	typ := env.Type
 	if v, ok := body["type"]; ok {
 		s, ok := v.(string)
 		if !ok {
 			return errors.Newf("encode envelope: type must be a string, got %T", v)
 		}
-		env.Type = s
+		typ = s
 	}
-	if env.Type == "" {
+	if typ == "" {
 		return errors.New("encode envelope: type must be a non-empty string")
 	}
+	name := env.Name
 	if v, ok := body["name"]; ok {
 		s, ok := v.(string)
 		if !ok {
 			return errors.Newf("encode envelope: name must be a string, got %T", v)
 		}
-		env.Name = s
+		name = s
 	}
-	if env.Name == "" {
+	if name == "" {
 		return errors.New("encode envelope: name must be a non-empty string")
 	}
 	body["version"] = env.Version
-	body["type"] = env.Type
-	body["name"] = env.Name
+	body["type"] = typ
+	body["name"] = name
+	env.Type = typ
+	env.Name = name
 	env.body = body
 	return nil
 }

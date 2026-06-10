@@ -285,6 +285,32 @@ var _ = Describe("ImEx", func() {
 				)).To(MatchError(ContainSubstring("name")))
 			})
 
+			It("Should leave the envelope untouched when the data's name field is empty", func() {
+				type payload struct {
+					Name string `json:"name"`
+					Type string `json:"type"`
+				}
+				env := imex.Envelope{Version: 1, Type: "env_type", Name: "env_name"}
+				Expect(imex.Encode(
+					&env, payload{Name: "", Type: "data_type"},
+				)).To(MatchError(ContainSubstring("name must be a non-empty string")))
+				Expect(env.Type).To(Equal("env_type"))
+				Expect(env.Name).To(Equal("env_name"))
+			})
+
+			It("Should leave the envelope untouched when the data's type field is empty", func() {
+				type payload struct {
+					Name string `json:"name"`
+					Type string `json:"type"`
+				}
+				env := imex.Envelope{Version: 1, Type: "env_type", Name: "env_name"}
+				Expect(imex.Encode(
+					&env, payload{Name: "data_name", Type: ""},
+				)).To(MatchError(ContainSubstring("type must be a non-empty string")))
+				Expect(env.Type).To(Equal("env_type"))
+				Expect(env.Name).To(Equal("env_name"))
+			})
+
 			It("Should fail when a field tagged json:\"-\" hides the name field", func() {
 				type hidden struct {
 					Name string `json:"-"`
