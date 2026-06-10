@@ -39,8 +39,7 @@ import {
 
 const KEY = "log-1";
 
-const PENDING: PendingUpload = log.logZ.omit({ name: true }).parse({
-  key: "11111111-1111-4111-8111-111111111111",
+const PENDING: PendingUpload = log.newZ.omit({ name: true }).parse({
   channels: [log.channelEntryZ.parse({ channel: 42, color: color.ZERO })],
 });
 

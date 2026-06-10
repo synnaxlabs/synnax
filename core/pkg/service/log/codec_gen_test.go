@@ -102,16 +102,14 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				RemoteCreated:        false,
-				TimestampPrecision:   18,
-				ShowChannelNames:     false,
-				ShowReceiptTimestamp: true,
+				TimestampPrecision:   17,
+				ShowChannelNames:     true,
+				ShowReceiptTimestamp: false,
 			}),
 			Entry("zero values", log.Log{
 				Key:                  uuid.Nil,
 				Name:                 "",
 				Channels:             nil,
-				RemoteCreated:        false,
 				TimestampPrecision:   0,
 				ShowChannelNames:     false,
 				ShowReceiptTimestamp: false,
@@ -120,10 +118,9 @@ var _ = Describe("Codec", func() {
 				Key:                  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:                 "test_2",
 				Channels:             []log.ChannelEntry{},
-				RemoteCreated:        false,
-				TimestampPrecision:   6,
-				ShowChannelNames:     false,
-				ShowReceiptTimestamp: true,
+				TimestampPrecision:   5,
+				ShowChannelNames:     true,
+				ShowReceiptTimestamp: false,
 			}),
 		)
 	})
@@ -201,10 +198,9 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 				},
 			},
 		},
-		RemoteCreated:        false,
-		TimestampPrecision:   18,
-		ShowChannelNames:     false,
-		ShowReceiptTimestamp: true,
+		TimestampPrecision:   17,
+		ShowChannelNames:     true,
+		ShowReceiptTimestamp: false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -337,10 +333,9 @@ func FuzzDecodeLog(f *testing.F) {
 					},
 				},
 			},
-			RemoteCreated:        false,
-			TimestampPrecision:   18,
-			ShowChannelNames:     false,
-			ShowReceiptTimestamp: true,
+			TimestampPrecision:   17,
+			ShowChannelNames:     true,
+			ShowReceiptTimestamp: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -353,7 +348,6 @@ func FuzzDecodeLog(f *testing.F) {
 			Key:                  uuid.Nil,
 			Name:                 "",
 			Channels:             nil,
-			RemoteCreated:        false,
 			TimestampPrecision:   0,
 			ShowChannelNames:     false,
 			ShowReceiptTimestamp: false,
@@ -369,10 +363,9 @@ func FuzzDecodeLog(f *testing.F) {
 			Key:                  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:                 "test_2",
 			Channels:             []log.ChannelEntry{},
-			RemoteCreated:        false,
-			TimestampPrecision:   6,
-			ShowChannelNames:     false,
-			ShowReceiptTimestamp: true,
+			TimestampPrecision:   5,
+			ShowChannelNames:     true,
+			ShowReceiptTimestamp: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
