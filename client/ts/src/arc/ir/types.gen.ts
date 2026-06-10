@@ -142,14 +142,14 @@ export interface Member {
   nodeKey?: string;
   scope?: Scope;
 }
-export const memberZ: z.ZodType<Member> = z.object({
+export const memberZ = z.object({
   /**
    * nodeKey is the key of the referenced node in IR.nodes. Null when this
    * member is a nested scope.
    */
   nodeKey: z.string().optional(),
   /** scope is set when this member is a nested scope. */
-  get scope() {
+  get scope(): z.ZodOptional<typeof scopeZ> {
     return scopeZ.optional();
   },
 });
@@ -169,7 +169,7 @@ export interface Scope {
   steps: Members;
   transitions: Transition[];
 }
-export const scopeZ: z.ZodType<Scope> = z.object({
+export const scopeZ = z.object({
   /** key is the scope identifier. */
   key: z.string(),
   /** mode defines whether this scope runs steps in parallel or sequentially. */
@@ -182,11 +182,11 @@ export const scopeZ: z.ZodType<Scope> = z.object({
    * strata contains stratified execution layers for parallel scopes. Empty
    * for sequential scopes. Stratum N depends only on strata 0 to N-1.
    */
-  get strata() {
+  get strata(): ReturnType<typeof array.nullishToEmpty<z.ZodType>> {
     return array.nullishToEmpty(membersZ);
   },
   /** steps contains ordered steps for sequential scopes. Empty for parallel scopes. */
-  get steps() {
+  get steps(): z.ZodType {
     return membersZ;
   },
   /** transitions contains state-transition rules for sequential scopes. Empty for parallel scopes. */
