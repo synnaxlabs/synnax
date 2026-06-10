@@ -24,6 +24,7 @@ ResourceType enum {
     lineplot         = "lineplot"
     log              = "log"
     node             = "node"
+    panel            = "panel"
     policy           = "policy"
     rack             = "rack"
     range            = "range"

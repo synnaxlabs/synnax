@@ -46,19 +46,20 @@ const (
 	ResourceType_RESOURCE_TYPE_LINEPLOT         ResourceType = 7
 	ResourceType_RESOURCE_TYPE_LOG              ResourceType = 8
 	ResourceType_RESOURCE_TYPE_NODE             ResourceType = 9
-	ResourceType_RESOURCE_TYPE_POLICY           ResourceType = 10
-	ResourceType_RESOURCE_TYPE_RACK             ResourceType = 11
-	ResourceType_RESOURCE_TYPE_RANGE            ResourceType = 12
-	ResourceType_RESOURCE_TYPE_RANGE_ALIAS      ResourceType = 13
-	ResourceType_RESOURCE_TYPE_ROLE             ResourceType = 14
-	ResourceType_RESOURCE_TYPE_SCHEMATIC        ResourceType = 15
-	ResourceType_RESOURCE_TYPE_SCHEMATIC_SYMBOL ResourceType = 16
-	ResourceType_RESOURCE_TYPE_STATUS           ResourceType = 17
-	ResourceType_RESOURCE_TYPE_TABLE            ResourceType = 18
-	ResourceType_RESOURCE_TYPE_TASK             ResourceType = 19
-	ResourceType_RESOURCE_TYPE_USER             ResourceType = 20
-	ResourceType_RESOURCE_TYPE_VIEW             ResourceType = 21
-	ResourceType_RESOURCE_TYPE_WORKSPACE        ResourceType = 22
+	ResourceType_RESOURCE_TYPE_PANEL            ResourceType = 10
+	ResourceType_RESOURCE_TYPE_POLICY           ResourceType = 11
+	ResourceType_RESOURCE_TYPE_RACK             ResourceType = 12
+	ResourceType_RESOURCE_TYPE_RANGE            ResourceType = 13
+	ResourceType_RESOURCE_TYPE_RANGE_ALIAS      ResourceType = 14
+	ResourceType_RESOURCE_TYPE_ROLE             ResourceType = 15
+	ResourceType_RESOURCE_TYPE_SCHEMATIC        ResourceType = 16
+	ResourceType_RESOURCE_TYPE_SCHEMATIC_SYMBOL ResourceType = 17
+	ResourceType_RESOURCE_TYPE_STATUS           ResourceType = 18
+	ResourceType_RESOURCE_TYPE_TABLE            ResourceType = 19
+	ResourceType_RESOURCE_TYPE_TASK             ResourceType = 20
+	ResourceType_RESOURCE_TYPE_USER             ResourceType = 21
+	ResourceType_RESOURCE_TYPE_VIEW             ResourceType = 22
+	ResourceType_RESOURCE_TYPE_WORKSPACE        ResourceType = 23
 )
 
 // Enum value maps for ResourceType.
@@ -74,19 +75,20 @@ var (
 		7:  "RESOURCE_TYPE_LINEPLOT",
 		8:  "RESOURCE_TYPE_LOG",
 		9:  "RESOURCE_TYPE_NODE",
-		10: "RESOURCE_TYPE_POLICY",
-		11: "RESOURCE_TYPE_RACK",
-		12: "RESOURCE_TYPE_RANGE",
-		13: "RESOURCE_TYPE_RANGE_ALIAS",
-		14: "RESOURCE_TYPE_ROLE",
-		15: "RESOURCE_TYPE_SCHEMATIC",
-		16: "RESOURCE_TYPE_SCHEMATIC_SYMBOL",
-		17: "RESOURCE_TYPE_STATUS",
-		18: "RESOURCE_TYPE_TABLE",
-		19: "RESOURCE_TYPE_TASK",
-		20: "RESOURCE_TYPE_USER",
-		21: "RESOURCE_TYPE_VIEW",
-		22: "RESOURCE_TYPE_WORKSPACE",
+		10: "RESOURCE_TYPE_PANEL",
+		11: "RESOURCE_TYPE_POLICY",
+		12: "RESOURCE_TYPE_RACK",
+		13: "RESOURCE_TYPE_RANGE",
+		14: "RESOURCE_TYPE_RANGE_ALIAS",
+		15: "RESOURCE_TYPE_ROLE",
+		16: "RESOURCE_TYPE_SCHEMATIC",
+		17: "RESOURCE_TYPE_SCHEMATIC_SYMBOL",
+		18: "RESOURCE_TYPE_STATUS",
+		19: "RESOURCE_TYPE_TABLE",
+		20: "RESOURCE_TYPE_TASK",
+		21: "RESOURCE_TYPE_USER",
+		22: "RESOURCE_TYPE_VIEW",
+		23: "RESOURCE_TYPE_WORKSPACE",
 	}
 	ResourceType_value = map[string]int32{
 		"RESOURCE_TYPE_ARC":              0,
@@ -99,19 +101,20 @@ var (
 		"RESOURCE_TYPE_LINEPLOT":         7,
 		"RESOURCE_TYPE_LOG":              8,
 		"RESOURCE_TYPE_NODE":             9,
-		"RESOURCE_TYPE_POLICY":           10,
-		"RESOURCE_TYPE_RACK":             11,
-		"RESOURCE_TYPE_RANGE":            12,
-		"RESOURCE_TYPE_RANGE_ALIAS":      13,
-		"RESOURCE_TYPE_ROLE":             14,
-		"RESOURCE_TYPE_SCHEMATIC":        15,
-		"RESOURCE_TYPE_SCHEMATIC_SYMBOL": 16,
-		"RESOURCE_TYPE_STATUS":           17,
-		"RESOURCE_TYPE_TABLE":            18,
-		"RESOURCE_TYPE_TASK":             19,
-		"RESOURCE_TYPE_USER":             20,
-		"RESOURCE_TYPE_VIEW":             21,
-		"RESOURCE_TYPE_WORKSPACE":        22,
+		"RESOURCE_TYPE_PANEL":            10,
+		"RESOURCE_TYPE_POLICY":           11,
+		"RESOURCE_TYPE_RACK":             12,
+		"RESOURCE_TYPE_RANGE":            13,
+		"RESOURCE_TYPE_RANGE_ALIAS":      14,
+		"RESOURCE_TYPE_ROLE":             15,
+		"RESOURCE_TYPE_SCHEMATIC":        16,
+		"RESOURCE_TYPE_SCHEMATIC_SYMBOL": 17,
+		"RESOURCE_TYPE_STATUS":           18,
+		"RESOURCE_TYPE_TABLE":            19,
+		"RESOURCE_TYPE_TASK":             20,
+		"RESOURCE_TYPE_USER":             21,
+		"RESOURCE_TYPE_VIEW":             22,
+		"RESOURCE_TYPE_WORKSPACE":        23,
 	}
 )
 
@@ -212,7 +215,7 @@ const file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc = "" +
 	"0core/pkg/distribution/ontology/pb/ontology.proto\x12\x18distribution.ontology.pb\"R\n" +
 	"\x02ID\x12:\n" +
 	"\x04type\x18\x01 \x01(\x0e2&.distribution.ontology.pb.ResourceTypeR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\xe7\x04\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\x80\x05\n" +
 	"\fResourceType\x12\x15\n" +
 	"\x11RESOURCE_TYPE_ARC\x10\x00\x12\x19\n" +
 	"\x15RESOURCE_TYPE_BUILTIN\x10\x01\x12\x19\n" +
@@ -223,21 +226,22 @@ const file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc = "" +
 	"\x13RESOURCE_TYPE_LABEL\x10\x06\x12\x1a\n" +
 	"\x16RESOURCE_TYPE_LINEPLOT\x10\a\x12\x15\n" +
 	"\x11RESOURCE_TYPE_LOG\x10\b\x12\x16\n" +
-	"\x12RESOURCE_TYPE_NODE\x10\t\x12\x18\n" +
-	"\x14RESOURCE_TYPE_POLICY\x10\n" +
-	"\x12\x16\n" +
-	"\x12RESOURCE_TYPE_RACK\x10\v\x12\x17\n" +
-	"\x13RESOURCE_TYPE_RANGE\x10\f\x12\x1d\n" +
-	"\x19RESOURCE_TYPE_RANGE_ALIAS\x10\r\x12\x16\n" +
-	"\x12RESOURCE_TYPE_ROLE\x10\x0e\x12\x1b\n" +
-	"\x17RESOURCE_TYPE_SCHEMATIC\x10\x0f\x12\"\n" +
-	"\x1eRESOURCE_TYPE_SCHEMATIC_SYMBOL\x10\x10\x12\x18\n" +
-	"\x14RESOURCE_TYPE_STATUS\x10\x11\x12\x17\n" +
-	"\x13RESOURCE_TYPE_TABLE\x10\x12\x12\x16\n" +
-	"\x12RESOURCE_TYPE_TASK\x10\x13\x12\x16\n" +
-	"\x12RESOURCE_TYPE_USER\x10\x14\x12\x16\n" +
-	"\x12RESOURCE_TYPE_VIEW\x10\x15\x12\x1b\n" +
-	"\x17RESOURCE_TYPE_WORKSPACE\x10\x16B\xea\x01\n" +
+	"\x12RESOURCE_TYPE_NODE\x10\t\x12\x17\n" +
+	"\x13RESOURCE_TYPE_PANEL\x10\n" +
+	"\x12\x18\n" +
+	"\x14RESOURCE_TYPE_POLICY\x10\v\x12\x16\n" +
+	"\x12RESOURCE_TYPE_RACK\x10\f\x12\x17\n" +
+	"\x13RESOURCE_TYPE_RANGE\x10\r\x12\x1d\n" +
+	"\x19RESOURCE_TYPE_RANGE_ALIAS\x10\x0e\x12\x16\n" +
+	"\x12RESOURCE_TYPE_ROLE\x10\x0f\x12\x1b\n" +
+	"\x17RESOURCE_TYPE_SCHEMATIC\x10\x10\x12\"\n" +
+	"\x1eRESOURCE_TYPE_SCHEMATIC_SYMBOL\x10\x11\x12\x18\n" +
+	"\x14RESOURCE_TYPE_STATUS\x10\x12\x12\x17\n" +
+	"\x13RESOURCE_TYPE_TABLE\x10\x13\x12\x16\n" +
+	"\x12RESOURCE_TYPE_TASK\x10\x14\x12\x16\n" +
+	"\x12RESOURCE_TYPE_USER\x10\x15\x12\x16\n" +
+	"\x12RESOURCE_TYPE_VIEW\x10\x16\x12\x1b\n" +
+	"\x17RESOURCE_TYPE_WORKSPACE\x10\x17B\xea\x01\n" +
 	"\x1ccom.distribution.ontology.pbB\rOntologyProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb\xa2\x02\x03DOP\xaa\x02\x18Distribution.Ontology.Pb\xca\x02\x18Distribution\\Ontology\\Pb\xe2\x02$Distribution\\Ontology\\Pb\\GPBMetadata\xea\x02\x1aDistribution::Ontology::Pbb\x06proto3"
 
 var (

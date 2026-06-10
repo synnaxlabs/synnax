@@ -22,6 +22,7 @@ export const RESOURCE_TYPES = [
   "lineplot",
   "log",
   "node",
+  "panel",
   "policy",
   "rack",
   "range",

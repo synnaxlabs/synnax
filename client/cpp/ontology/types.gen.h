@@ -23,6 +23,7 @@ constexpr const char *RESOURCE_TYPE_LABEL = "label";
 constexpr const char *RESOURCE_TYPE_LINEPLOT = "lineplot";
 constexpr const char *RESOURCE_TYPE_LOG = "log";
 constexpr const char *RESOURCE_TYPE_NODE = "node";
+constexpr const char *RESOURCE_TYPE_PANEL = "panel";
 constexpr const char *RESOURCE_TYPE_POLICY = "policy";
 constexpr const char *RESOURCE_TYPE_RACK = "rack";
 constexpr const char *RESOURCE_TYPE_RANGE = "range";
