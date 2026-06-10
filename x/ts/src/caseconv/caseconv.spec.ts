@@ -236,6 +236,63 @@ describe("caseconv", () => {
     });
   });
 
+  describe("preserveKeys traversal", () => {
+    const configZ = z.object({ strokeWidth: z.number().optional() });
+
+    it("should resolve the value schema through optional wrappers", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), configZ).optional()),
+      });
+      const input = { configs: { node_a1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1.strokeWidth).toBe(2);
+    });
+
+    it("should resolve the value schema through pipes", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(
+          z.record(z.string(), configZ).transform((v) => v),
+        ),
+      });
+      const input = { configs: { node_a1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1.strokeWidth).toBe(2);
+    });
+
+    it("should resolve the value schema through unions, skipping non-records", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(
+          z.union([z.null(), z.record(z.string(), configZ)]),
+        ),
+      });
+      const input = { configs: { node_a1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1.strokeWidth).toBe(2);
+    });
+
+    it("should preserve keys with primitive record values", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), z.number())),
+      });
+      const input = { configs: { node_a1: 5 } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      expect((result.configs as Record<string, number>).node_a1).toBe(5);
+    });
+
+    it("should preserve keys when no value schema is resolvable", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.unknown()),
+      });
+      const input = { configs: { node_a1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1).toBeDefined();
+    });
+  });
+
   describe("preserveCase", () => {
     describe("with ZodRecord", () => {
       it("should preserve case for record keys marked with preserveCase", () => {
