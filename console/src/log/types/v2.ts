@@ -60,10 +60,9 @@ const buildPendingUpload = (state: v1.State): PendingUpload => ({
     ...entry,
     color: migrateColor(entry.color),
   })),
-  remoteCreated: state.remoteCreated,
-  timestampPrecision: state.timestampPrecision,
   showChannelNames: state.showChannelNames,
   showReceiptTimestamp: state.showReceiptTimestamp,
+  timestampPrecision: state.timestampPrecision,
 });
 
 // Parks v1's body in pendingUpload when the log is not yet remoteCreated. remoteCreated

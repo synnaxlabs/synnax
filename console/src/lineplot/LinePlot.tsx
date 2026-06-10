@@ -37,6 +37,7 @@ import {
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
+  clearPendingUpload,
   internalCreate,
   setActiveToolbarTab,
   setControlState,
@@ -48,9 +49,16 @@ import {
   ZERO_STATE,
 } from "@/lineplot/slice";
 import { type DownloadLine, useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
-import { useAutoUpload } from "@/lineplot/useUpload";
 import { Range } from "@/range";
 import { type RootState } from "@/store";
+import { createUseAutoUpload } from "@/vis/useAutoUpload";
+
+const useAutoUpload = createUseAutoUpload({
+  useSelectPendingUpload,
+  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
+  useCreate: PLinePlot.useCreate,
+  clearPendingUpload,
+});
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];

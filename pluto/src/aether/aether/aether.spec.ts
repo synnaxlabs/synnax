@@ -177,10 +177,7 @@ class InvokeLeaf
   incrementSpy = vi.fn((n: number) => n + 1);
   greetSpy = vi.fn((args: { name: string }) => `Hello, ${args.name}!`);
   noArgsSpy = vi.fn(() => {});
-  asyncMethodSpy = vi.fn(async (n: number) => {
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    return n * 2;
-  });
+  asyncMethodSpy = vi.fn(async (n: number) => n * 2);
   throwErrorSpy = vi.fn(() => {
     throw new Error("Test error");
   });
@@ -597,7 +594,7 @@ describe("Aether Worker", () => {
           method: "asyncMethod",
         });
 
-        await new Promise((resolve) => setTimeout(resolve, 20));
+        await scheduler.flushTaskQueue();
 
         expect(leaf.asyncMethodSpy).toHaveBeenCalledWith(10);
         expect(MockSender.send).toHaveBeenCalledWith({

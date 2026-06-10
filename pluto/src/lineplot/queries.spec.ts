@@ -245,7 +245,7 @@ describe("lineplot queries", () => {
   });
 
   describe("useDispatch", () => {
-    const seedPlot = async () => {
+    const createPlot = async () => {
       const ws = await client.workspaces.create({
         name: `dispatch_ws_${uuid.create()}`,
         layout: {},
@@ -260,14 +260,14 @@ describe("lineplot queries", () => {
     };
 
     it("applies a rename dispatch and updates the cached plot", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.rename({ name: "after_dispatch" })],
         });
       });
@@ -277,17 +277,17 @@ describe("lineplot queries", () => {
     });
 
     it("restores prior axis bounds after undoing a setAxis dispatch", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
-        undo: LinePlot.useUndo({ key: seeded.key }),
+        undo: LinePlot.useUndo({ key: created.key }),
       }));
       await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
       const original = result.current.retrieve.data!.axes.x1;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setAxisBounds({
               key: original.key,
@@ -309,18 +309,18 @@ describe("lineplot queries", () => {
     });
 
     it("re-applies an axis change after undo then redo", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
-        undo: LinePlot.useUndo({ key: seeded.key }),
-        redo: LinePlot.useRedo({ key: seeded.key }),
+        undo: LinePlot.useUndo({ key: created.key }),
+        redo: LinePlot.useRedo({ key: created.key }),
       }));
       await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
       const original = result.current.retrieve.data!.axes.x1;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setAxisBounds({
               key: original.key,
@@ -346,18 +346,18 @@ describe("lineplot queries", () => {
     });
 
     it("coalesces a stream of setAxis on the same axis into a single undo step", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
-        undo: LinePlot.useUndo({ key: seeded.key }),
+        undo: LinePlot.useUndo({ key: created.key }),
       }));
       await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
       const original = result.current.retrieve.data!.axes.x1;
       for (const upper of [20, 30, 40])
         await act(async () => {
           await result.current.dispatch.dispatchAsync({
-            key: seeded.key,
+            key: created.key,
             actions: [
               lineplotClient.setAxisBounds({
                 key: original.key,
@@ -379,18 +379,18 @@ describe("lineplot queries", () => {
     });
 
     it("does not coalesce setAxis across different axes", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
-        undo: LinePlot.useUndo({ key: seeded.key }),
+        undo: LinePlot.useUndo({ key: created.key }),
       }));
       await waitFor(() => expect(result.current.retrieve.data?.axes.x1).toBeDefined());
       const x1Orig = result.current.retrieve.data!.axes.x1;
       const x2Orig = result.current.retrieve.data!.axes.x2;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setAxisBounds({
               key: x1Orig.key,
@@ -402,7 +402,7 @@ describe("lineplot queries", () => {
       });
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setAxisBounds({
               key: x2Orig.key,
@@ -427,16 +427,16 @@ describe("lineplot queries", () => {
     });
 
     it("keeps setLine creates out of the undo stack so Cmd+Z never silently no-ops", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: LinePlot.useRetrieve({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
-        undo: LinePlot.useUndo({ key: seeded.key }),
+        undo: LinePlot.useUndo({ key: created.key }),
       }));
       // Establish a baseline undoable entry that undo MUST be able to revert.
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setTitle({ title: { level: "h4", visible: true } })],
         });
       });
@@ -446,7 +446,7 @@ describe("lineplot queries", () => {
       // setLine create — should NOT push to the undo stack.
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLine({
               line: {
@@ -475,7 +475,7 @@ describe("lineplot queries", () => {
   });
 
   describe("selectors", () => {
-    const seedPlot = async () => {
+    const createPlot = async () => {
       const ws = await client.workspaces.create({
         name: `selector_ws_${uuid.create()}`,
         layout: {},
@@ -490,15 +490,15 @@ describe("lineplot queries", () => {
     };
 
     it("useSelectName returns the name and updates after a rename", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        name: LinePlot.useSelectName({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        name: LinePlot.useSelectName({ key: created.key }),
         rename: LinePlot.useRename(),
       }));
       expect(result.current.name).toEqual("selector_test");
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: seeded.key,
+          key: created.key,
           name: "selector_renamed",
         });
       });
@@ -506,15 +506,15 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectTitle returns the title and updates after a setTitle dispatch", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        title: LinePlot.useSelectTitle({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        title: LinePlot.useSelectTitle({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.title.visible).toBe(false);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setTitle({ title: { level: "h3", visible: true } })],
         });
       });
@@ -525,15 +525,15 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectLegend updates after a setLegend dispatch", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        legend: LinePlot.useSelectLegend({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        legend: LinePlot.useSelectLegend({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const original = result.current.legend;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setLegendVisible({ visible: !original.visible })],
         });
       });
@@ -543,16 +543,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectRanges updates after addRange", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        ranges: LinePlot.useSelectRanges({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        ranges: LinePlot.useSelectRanges({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.ranges.x1).toEqual([]);
       const rangeKey = uuid.create();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.addRange({ axisKey: "x1", range: rangeKey })],
         });
       });
@@ -560,15 +560,15 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectYAxisChannels returns one axis's channels and updates after setChannels", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        channels: LinePlot.useSelectYAxisChannels({ key: seeded.key, axisKey: "y1" }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        channels: LinePlot.useSelectYAxisChannels({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.channels).toEqual([]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setChannels({ axisKey: "y1", channels: [1, 2] })],
         });
       });
@@ -576,15 +576,15 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectXAxisChannel returns the single x channel and updates after setXChannel", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        channel: LinePlot.useSelectXAxisChannel({ key: seeded.key, axisKey: "x1" }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        channel: LinePlot.useSelectXAxisChannel({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.channel).toEqual(0);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setXChannel({ axisKey: "x1", channel: 99 })],
         });
       });
@@ -592,16 +592,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectXAxisRanges returns one axis's ranges and updates after setRanges", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        ranges: LinePlot.useSelectXAxisRanges({ key: seeded.key, axisKey: "x1" }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        ranges: LinePlot.useSelectXAxisRanges({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.ranges).toEqual([]);
       const rangeKey = uuid.create();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setRanges({ axisKey: "x1", ranges: [rangeKey] })],
         });
       });
@@ -609,15 +609,15 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectAxisKeys returns displayed axes and updates as channels appear", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        axisKeys: LinePlot.useSelectAxisKeys({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        axisKeys: LinePlot.useSelectAxisKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.axisKeys).toEqual(["x1", "y1"]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setChannels({ axisKey: "y2", channels: [7] })],
         });
       });
@@ -625,17 +625,17 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectAxes / useSelectAxis return per-axis data and update on dispatch", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        axes: LinePlot.useSelectAxes({ key: seeded.key }),
-        axis: LinePlot.useSelectAxis({ key: seeded.key, axisKey: "y1" }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        axes: LinePlot.useSelectAxes({ key: created.key }),
+        axis: LinePlot.useSelectAxis({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.axis.key).toEqual("y1");
       expect(result.current.axes.y1.key).toEqual("y1");
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setAxisLabel({
               key: result.current.axis.key,
@@ -651,17 +651,17 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectLines / useSelectLine / useSelectLineKeys reflect setLine", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        lines: LinePlot.useSelectLines({ key: seeded.key }),
-        keys: LinePlot.useSelectLineKeys({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        lines: LinePlot.useSelectLines({ key: created.key }),
+        keys: LinePlot.useSelectLineKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.lines).toEqual([]);
       expect(result.current.keys).toEqual([]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLine({
               line: {
@@ -681,22 +681,22 @@ describe("lineplot queries", () => {
       });
 
       const { result: line } = renderHook(
-        () => LinePlot.useSelectLine({ key: seeded.key, lineKey: "ln-1" }),
+        () => LinePlot.useSelectLine({ key: created.key, lineKey: "ln-1" }),
         { wrapper },
       );
       expect(line.current.color).toEqual(color.construct("#00aaff"));
     });
 
     it("useSelectRules / useSelectRule reflect setRule and removeRule", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        rules: LinePlot.useSelectRules({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        rules: LinePlot.useSelectRules({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.rules).toEqual([]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setRule({
               rule: {
@@ -716,7 +716,7 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.rules).toHaveLength(1));
 
       const { result: rule, unmount } = renderHook(
-        () => LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-1" }),
+        () => LinePlot.useSelectRule({ key: created.key, ruleKey: "rl-1" }),
         { wrapper },
       );
       expect(rule.current.position).toEqual(4.5);
@@ -724,7 +724,7 @@ describe("lineplot queries", () => {
 
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.removeRule({ key: "rl-1" })],
         });
       });
@@ -732,14 +732,14 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectRule resolves a palette color for a rule with no stored color", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        rules: LinePlot.useSelectRules({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        rules: LinePlot.useSelectRules({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setRule({
               rule: {
@@ -758,22 +758,22 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.rules).toHaveLength(1));
 
       const { result: rule } = renderHook(
-        () => LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-1" }),
+        () => LinePlot.useSelectRule({ key: created.key, ruleKey: "rl-1" }),
         { wrapper },
       );
       expect(rule.current.color).toBeDefined();
     });
 
     it("useSelectLineCount reflects the number of lines", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        count: LinePlot.useSelectLineCount({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        count: LinePlot.useSelectLineCount({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.count).toEqual(0);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLine({
               line: {
@@ -791,17 +791,17 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectXAxisKeys / useSelectYAxisKeys reflect the displayed axes", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        xKeys: LinePlot.useSelectXAxisKeys({ key: seeded.key }),
-        yKeys: LinePlot.useSelectYAxisKeys({ key: seeded.key }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        xKeys: LinePlot.useSelectXAxisKeys({ key: created.key }),
+        yKeys: LinePlot.useSelectYAxisKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xKeys).toEqual(["x1"]);
       expect(result.current.yKeys).toEqual(["y1"]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setXChannel({ axisKey: "x2", channel: 9 }),
             lineplotClient.addChannel({ axisKey: "y2", channel: 11 }),
@@ -815,9 +815,9 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectXAxis returns a resolved axis config and updates on dispatch", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        xAxis: LinePlot.useSelectXAxis({ key: seeded.key, axisKey: "x1" }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        xAxis: LinePlot.useSelectXAxis({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xAxis.key).toEqual("x1");
@@ -825,7 +825,7 @@ describe("lineplot queries", () => {
       expect(result.current.xAxis.type).toEqual("time");
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setAxisLabel({ key: "x1", label: "Time" })],
         });
       });
@@ -844,15 +844,15 @@ describe("lineplot queries", () => {
         dataType: DataType.FLOAT32,
         index: index.key,
       });
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        xAxis: LinePlot.useSelectXAxis({ key: seeded.key, axisKey: "x1" }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        xAxis: LinePlot.useSelectXAxis({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xAxis.type).toEqual("time");
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setXChannel({ axisKey: "x1", channel: data.key })],
         });
       });
@@ -860,7 +860,7 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectYAxis returns axis, channels, and lineKeys", async () => {
-      const seeded = await seedPlot();
+      const created = await createPlot();
       const lineKey = lineplotClient.lineKey({
         yAxis: "y1",
         xAxis: "x1",
@@ -868,8 +868,8 @@ describe("lineplot queries", () => {
         xChannel: 3,
         yChannel: 5,
       });
-      const { result } = await loadAndUse(seeded.key, () => ({
-        yAxis: LinePlot.useSelectYAxis({ key: seeded.key, axisKey: "y1" }),
+      const { result } = await loadAndUse(created.key, () => ({
+        yAxis: LinePlot.useSelectYAxis({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.yAxis.axis.key).toEqual("y1");
@@ -877,7 +877,7 @@ describe("lineplot queries", () => {
       expect(result.current.yAxis.lineKeys).toEqual([]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.addChannel({ axisKey: "y1", channel: 5 }),
             lineplotClient.setLine({
@@ -899,16 +899,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectAxisRuleKeys returns the keys of rules on the given axis", async () => {
-      const seeded = await seedPlot();
-      const { result } = await loadAndUse(seeded.key, () => ({
-        y1Keys: LinePlot.useSelectAxisRuleKeys({ key: seeded.key, axisKey: "y1" }),
-        y2Keys: LinePlot.useSelectAxisRuleKeys({ key: seeded.key, axisKey: "y2" }),
+      const created = await createPlot();
+      const { result } = await loadAndUse(created.key, () => ({
+        y1Keys: LinePlot.useSelectAxisRuleKeys({ key: created.key, axisKey: "y1" }),
+        y2Keys: LinePlot.useSelectAxisRuleKeys({ key: created.key, axisKey: "y2" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.y1Keys).toEqual([]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setRule({
               rule: {
@@ -931,7 +931,7 @@ describe("lineplot queries", () => {
   });
 
   describe("selector stability", () => {
-    const seedPlot = async () => {
+    const createPlot = async () => {
       const ws = await client.workspaces.create({
         name: `stability_ws_${uuid.create()}`,
         layout: {},
@@ -954,16 +954,16 @@ describe("lineplot queries", () => {
     };
 
     it("useSelectTitle keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        title: LinePlot.useSelectTitle({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        title: LinePlot.useSelectTitle({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstTitle = result.current.title;
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 99 })],
         });
       });
@@ -972,9 +972,9 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectYAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        yKeys: LinePlot.useSelectYAxisKeys({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        yKeys: LinePlot.useSelectYAxisKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.yKeys).toEqual(["y1"]);
@@ -982,7 +982,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
         });
       });
@@ -991,14 +991,14 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectLineKeys stays stable when a line's style changes", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        keys: LinePlot.useSelectLineKeys({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        keys: LinePlot.useSelectLineKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLine({
               line: {
@@ -1017,7 +1017,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLineColor({
               key: "ln-stable",
@@ -1031,14 +1031,14 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectAxisRuleKeys stays stable when a rule's position changes", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        keys: LinePlot.useSelectAxisRuleKeys({ key: seeded.key, axisKey: "y1" }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        keys: LinePlot.useSelectAxisRuleKeys({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setRule({
               rule: {
@@ -1060,7 +1060,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setRulePosition({ key: "rule-stable", position: 9.9 }),
           ],
@@ -1071,16 +1071,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectName stays stable across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        name: LinePlot.useSelectName({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        name: LinePlot.useSelectName({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstName = result.current.name;
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
         });
       });
@@ -1089,16 +1089,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectLegend keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        legend: LinePlot.useSelectLegend({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        legend: LinePlot.useSelectLegend({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstLegend = result.current.legend;
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 7 })],
         });
       });
@@ -1107,16 +1107,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectRanges keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        ranges: LinePlot.useSelectRanges({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        ranges: LinePlot.useSelectRanges({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstRanges = result.current.ranges;
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
         });
       });
@@ -1125,16 +1125,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectAxes keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        axes: LinePlot.useSelectAxes({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        axes: LinePlot.useSelectAxes({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstAxes = result.current.axes;
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
         });
       });
@@ -1143,16 +1143,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectAxis keeps a stable reference when a different axis changes", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        axis: LinePlot.useSelectAxis({ key: seeded.key, axisKey: "y1" }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        axis: LinePlot.useSelectAxis({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstAxis = result.current.axis;
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setAxisLabel({ key: "x1", label: "Time" })],
         });
       });
@@ -1161,9 +1161,9 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectXAxisKeys stays stable when a channel is added to an already-displayed axis", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        xKeys: LinePlot.useSelectXAxisKeys({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        xKeys: LinePlot.useSelectXAxisKeys({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xKeys).toEqual(["x1"]);
@@ -1171,7 +1171,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
         });
       });
@@ -1180,9 +1180,9 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectXAxis keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        xAxis: LinePlot.useSelectXAxis({ key: seeded.key, axisKey: "x1" }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        xAxis: LinePlot.useSelectXAxis({ key: created.key, axisKey: "x1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       expect(result.current.xAxis.type).toEqual("time");
@@ -1190,7 +1190,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.addChannel({ axisKey: "y1", channel: 42 })],
         });
       });
@@ -1199,16 +1199,16 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectYAxis keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        yAxis: LinePlot.useSelectYAxis({ key: seeded.key, axisKey: "y1" }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        yAxis: LinePlot.useSelectYAxis({ key: created.key, axisKey: "y1" }),
         dispatch: LinePlot.useDispatch(),
       }));
       const firstYAxis = result.current.yAxis;
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
         });
       });
@@ -1217,14 +1217,14 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectLineCount stays stable across an edit that does not change the count", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        count: LinePlot.useSelectLineCount({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        count: LinePlot.useSelectLineCount({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLine({
               line: {
@@ -1242,7 +1242,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLineColor({
               key: "ln-count-stable",
@@ -1256,14 +1256,14 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectLines keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        lines: LinePlot.useSelectLines({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        lines: LinePlot.useSelectLines({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLine({
               line: {
@@ -1282,7 +1282,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
         });
       });
@@ -1291,14 +1291,14 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectRules keeps a stable reference across an unrelated edit", async () => {
-      const seeded = await seedPlot();
-      const { result, renderCount } = await loadAndCount(seeded.key, () => ({
-        rules: LinePlot.useSelectRules({ key: seeded.key }),
+      const created = await createPlot();
+      const { result, renderCount } = await loadAndCount(created.key, () => ({
+        rules: LinePlot.useSelectRules({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setRule({
               rule: {
@@ -1320,7 +1320,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount();
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
         });
       });
@@ -1360,10 +1360,10 @@ describe("lineplot queries", () => {
         xChannel: index.key,
         yChannel: chB.key,
       });
-      const seeded = await seedPlot();
+      const created = await createPlot();
       const setup = renderHook(
         () => ({
-          retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+          retrieve: LinePlot.useRetrieve({ key: created.key }),
           dispatch: LinePlot.useDispatch(),
         }),
         { wrapper },
@@ -1373,7 +1373,7 @@ describe("lineplot queries", () => {
       );
       await act(async () => {
         await setup.result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLine({
               line: {
@@ -1401,7 +1401,7 @@ describe("lineplot queries", () => {
         () => {
           renderCount++;
           return {
-            line: LinePlot.useSelectLine({ key: seeded.key, lineKey: lineA }),
+            line: LinePlot.useSelectLine({ key: created.key, lineKey: lineA }),
             dispatch: LinePlot.useDispatch(),
           };
         },
@@ -1414,7 +1414,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setLineColor({
               key: lineB,
@@ -1428,10 +1428,10 @@ describe("lineplot queries", () => {
     });
 
     it("useSelectRule keeps a stable reference when a different rule changes", async () => {
-      const seeded = await seedPlot();
+      const created = await createPlot();
       const setup = renderHook(
         () => ({
-          retrieve: LinePlot.useRetrieve({ key: seeded.key }),
+          retrieve: LinePlot.useRetrieve({ key: created.key }),
           dispatch: LinePlot.useDispatch(),
         }),
         { wrapper },
@@ -1441,7 +1441,7 @@ describe("lineplot queries", () => {
       );
       await act(async () => {
         await setup.result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             lineplotClient.setRule({
               rule: {
@@ -1475,7 +1475,7 @@ describe("lineplot queries", () => {
         () => {
           renderCount++;
           return {
-            rule: LinePlot.useSelectRule({ key: seeded.key, ruleKey: "rl-a" }),
+            rule: LinePlot.useSelectRule({ key: created.key, ruleKey: "rl-a" }),
             dispatch: LinePlot.useDispatch(),
           };
         },
@@ -1486,7 +1486,7 @@ describe("lineplot queries", () => {
       const countBefore = renderCount;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [lineplotClient.setRulePosition({ key: "rl-b", position: 9 })],
         });
       });
@@ -1501,7 +1501,7 @@ describe("lineplot queries", () => {
         name: `obs_name_ws_${uuid.create()}`,
         layout: {},
       });
-      const seeded = await client.lineplots.create(ws.key, {
+      const created = await client.lineplots.create(ws.key, {
         name: "obs_initial",
       });
       const seen: string[] = [];
@@ -1515,12 +1515,12 @@ describe("lineplot queries", () => {
         { wrapper },
       );
       await act(async () => {
-        await result.current.obs.retrieveAsync({ key: seeded.key });
+        await result.current.obs.retrieveAsync({ key: created.key });
       });
       await waitFor(() => expect(seen).toContain("obs_initial"));
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: seeded.key,
+          key: created.key,
           name: "obs_renamed",
         });
       });

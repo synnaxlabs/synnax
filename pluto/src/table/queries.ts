@@ -169,14 +169,7 @@ export interface CreateParams extends table.New {
   workspace?: workspace.Key;
 }
 
-export interface CreateOutput extends table.Table {
-  workspace?: workspace.Key;
-}
-
-// seedDefaultLayout returns a fresh 2x2 grid of empty text cells so a caller
-// that creates a table with no structural data opens onto a usable starter
-// layout instead of a blank canvas.
-const seedDefaultLayout = (
+const createDefaultLayout = (
   theme: ReturnType<typeof Theming.use>,
 ): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
@@ -196,18 +189,17 @@ const seedDefaultLayout = (
 const { useUpdate: useCreateBase } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
-  CreateOutput
+  table.Table
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const { workspace, ...rest } = data;
-    rest.key ??= uuid.create();
-    const created = table.tableZ.parse(rest);
-    rollbacks.push(store.tables.set(created.key, created));
-    const t = await client.tables.create(workspace ?? uuid.ZERO, created);
-    store.tables.set(t);
-    return { ...t, workspace };
+    const optimistic = table.newZ.parse(data);
+    rollbacks.push(store.tables.set(optimistic));
+    const workspace = data.workspace ?? uuid.ZERO;
+    const created = await client.tables.create(workspace, optimistic);
+    store.tables.set(created);
+    return created;
   },
 });
 
@@ -218,20 +210,20 @@ export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
   const themeRef = useSyncedRef(Theming.use());
-  const seed = useCallback(
+  const withDefaultLayout = useCallback(
     (data: CreateParams): CreateParams =>
       (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
-        ? { ...data, ...seedDefaultLayout(themeRef.current) }
+        ? { ...data, ...createDefaultLayout(themeRef.current) }
         : data,
     [],
   );
   const update = useCallback<typeof base.update>(
-    (data, opts) => baseRef.current.update(seed(data), opts),
-    [seed],
+    (data, opts) => baseRef.current.update(withDefaultLayout(data), opts),
+    [withDefaultLayout],
   );
   const updateAsync = useCallback<typeof base.updateAsync>(
-    (data, opts) => baseRef.current.updateAsync(seed(data), opts),
-    [seed],
+    (data, opts) => baseRef.current.updateAsync(withDefaultLayout(data), opts),
+    [withDefaultLayout],
   );
   return { ...base, update, updateAsync };
 };

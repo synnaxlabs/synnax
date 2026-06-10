@@ -131,7 +131,7 @@ export interface CreateConsoleWrapperArgs {
  * returned wrapper mounts the same provider stack as renderWithConsole (Aether, status,
  * Synnax, flux, and the Redux store) but routes flux retrieves and dispatches through
  * the given client, so components exercise the production query infrastructure against
- * a running cluster rather than reading pre-seeded state. Awaits flux store
+ * a running cluster rather than reading pre-populated state. Awaits flux store
  * initialization before returning so listeners are live.
  */
 export const createConsoleWrapper = async ({

@@ -817,12 +817,19 @@ func collectValidation(
 			if defaultVal.IdentValue == "now" && isTimeStampType(typeRef, table) {
 				constraints = append(constraints, "default_factory=telem.TimeStamp.now")
 			}
-			// Handle "create" for auto-generating string keys
-			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`
+			// Handle "create" for auto-generating keys. uuid keys generate a UUID
+			// object; string keys generate a stringified UUID. uuid is a string
+			// primitive, so check it first.
+			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`.
 			primitive := key.ResolvePrimitive(typeRef, table)
-			if defaultVal.IdentValue == "create" && (isString || primitive == "string") {
-				data.imports.addUUID("uuid4")
-				constraints = append(constraints, "default_factory=lambda: str(uuid4())")
+			if defaultVal.IdentValue == "create" {
+				if primitive == "uuid" {
+					data.imports.addUUID("uuid4")
+					constraints = append(constraints, "default_factory=uuid4")
+				} else if isString || primitive == "string" {
+					data.imports.addUUID("uuid4")
+					constraints = append(constraints, "default_factory=lambda: str(uuid4())")
+				}
 			}
 			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
 				variantRef := enumVariantToPython(ev, table, data)
