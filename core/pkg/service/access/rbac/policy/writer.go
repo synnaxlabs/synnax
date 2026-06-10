@@ -28,10 +28,7 @@ type Writer struct {
 }
 
 // Create creates a new policy in the database.
-func (w Writer) Create(
-	ctx context.Context,
-	p *Policy,
-) error {
+func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
 	}
@@ -44,20 +41,29 @@ func (w Writer) Create(
 	return w.otg.DefineResource(ctx, OntologyID(p.Key))
 }
 
+// CreateMany creates the given policies. If policies with the same key already exist,
+// they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, policies *[]Policy) error {
+	for i := range *policies {
+		if err := w.Create(ctx, &(*policies)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Delete removes policies with the given keys from the database.
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...Key,
-) error {
-	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Policy](keys...)).Exec(ctx, w.tx)
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Policy](keys...)).
+		Exec(ctx, w.tx)
 }
 
 func (w Writer) SetOnRole(
 	ctx context.Context,
 	roleKey role.Key,
-	policyKeys ...Key,
+	policies ...Key,
 ) error {
-	policyIDs := OntologyIDs(policyKeys)
+	policyIDs := OntologyIDs(policies)
 	for _, p := range policyIDs {
 		if err := w.otg.DefineRelationship(ctx, role.OntologyID(roleKey), ontology.RelationshipTypeParentOf, p); err != nil {
 			return err

@@ -31,6 +31,22 @@ var _ = Describe("Writer", func() {
 			Expect(s.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
+	Describe("CreateMany", func() {
+		It("Should create multiple schematics", func(ctx SpecContext) {
+			schematics := []schematic.Schematic{
+				{Name: "schematic-1"},
+				{Name: "schematic-2"},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, ws.Key, &schematics)).To(Succeed())
+
+			var retrieved []schematic.Schematic
+			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(
+				schematics[0].Key,
+				schematics[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
 	Describe("Dispatch", func() {
 		It("Should apply a single SetNodePosition action", func(ctx SpecContext) {
 			s := schematic.Schematic{

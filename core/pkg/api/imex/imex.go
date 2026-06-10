@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
@@ -31,7 +32,10 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Service.ImEx, access: cfg.Service.RBAC}, nil
+	return &Service{
+		internal: cfg.Service.ImEx,
+		access:   cfg.Service.RBAC,
+	}, nil
 }
 
 type (
@@ -43,13 +47,14 @@ type (
 
 func (s *Service) Import(
 	ctx context.Context,
+	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
 	resourceType, err := s.internal.ImporterType(req.Type)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
@@ -72,7 +77,7 @@ func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{req},

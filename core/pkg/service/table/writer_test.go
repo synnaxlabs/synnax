@@ -63,6 +63,23 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple tables", func(ctx SpecContext) {
+			tables := []table.Table{
+				{Name: "table-1"},
+				{Name: "table-2"},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, ws.Key, &tables)).To(Succeed())
+
+			var retrieved []table.Table
+			Expect(svc.NewRetrieve().Where(table.MatchKeys(
+				tables[0].Key,
+				tables[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("Dispatch", func() {
 		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Name: "test"}

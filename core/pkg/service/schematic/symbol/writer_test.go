@@ -115,6 +115,29 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple Symbols", func(ctx SpecContext) {
+			symbols := []symbol.Symbol{
+				{
+					Name: "symbol-1",
+					Data: map[string]any{"svg": "<svg>1</svg>"},
+				},
+				{
+					Name: "symbol-2",
+					Data: map[string]any{"svg": "<svg>2</svg>"},
+				},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, &symbols, ws.OntologyID())).To(Succeed())
+
+			var retrieved []symbol.Symbol
+			Expect(svc.NewRetrieve().Where(symbol.MatchKeys(
+				symbols[0].Key,
+				symbols[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("Rename", func() {
 		It("Should rename a Symbol", func(ctx SpecContext) {
 			sym := symbol.Symbol{
