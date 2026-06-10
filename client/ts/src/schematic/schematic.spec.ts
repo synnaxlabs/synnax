@@ -17,7 +17,6 @@ import { createTestClient } from "@/testutil/client";
 const newWorkspaceSchematic = async (client: ReturnType<typeof createTestClient>) => {
   const ws = await client.workspaces.create({ name: "dispatch", layout: {} });
   const schem = await client.schematics.create(ws.key, {
-    ...schematic.ZERO_NEW,
     name: "dispatch",
   });
   return { ws, schem };
@@ -33,7 +32,6 @@ describe("Schematic", () => {
         layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
         name: "Schematic",
       });
       expect(schem.name).toEqual("Schematic");
@@ -50,7 +48,6 @@ describe("Schematic", () => {
         layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
         name: "Schematic",
       });
       await client.schematics.rename(schem.key, "Schematic2");
@@ -66,7 +63,6 @@ describe("Schematic", () => {
         layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
         name: "Schematic",
       });
       await client.schematics.delete(schem.key);
@@ -80,7 +76,7 @@ describe("Schematic", () => {
     test("preserves arbitrary key casing within config values", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
+        name: "CaseTest",
         configs: {
           n1: {
             camelCaseKey: "value1",
@@ -117,7 +113,6 @@ describe("Schematic", () => {
         layout: { one: 1 },
       });
       const schem = await client.schematics.create(ws.key, {
-        ...schematic.ZERO_NEW,
         name: "Schematic",
       });
       const schem2 = await client.schematics.copy({
@@ -136,7 +131,6 @@ describe("Schematic", () => {
           layout: { one: 1 },
         });
         const schem = await client.schematics.create(ws.key, {
-          ...schematic.ZERO_NEW,
           name: "Schematic",
         });
         const schem2 = await client.schematics.copy({

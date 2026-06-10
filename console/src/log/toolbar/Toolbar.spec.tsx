@@ -58,7 +58,7 @@ describe("log/toolbar/Toolbar", () => {
       const key = uuid.create();
       const { container } = renderWithConsole(<Toolbar layoutKey={key} />, {
         preloadedState: preloadedState(key, "Pending", {
-          pendingUpload: log.logZ.omit({ name: true }).parse({ key }),
+          pendingUpload: log.newZ.omit({ name: true }).parse({ key }),
         }),
       });
       expect(container.firstChild).toBeNull();

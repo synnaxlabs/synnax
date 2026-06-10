@@ -1169,19 +1169,6 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			}
 		}
 	}
-	if key.HasGenerate(field) {
-		primitive := key.ResolvePrimitive(field.Type, table)
-		switch primitive {
-		case "string":
-			addXImport(data, xImport{name: "id", submodule: "id"})
-			fd.ZodType = fmt.Sprintf("%s.default(() => id.create())", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
-		case "uuid":
-			addXImport(data, xImport{name: "uuid", submodule: "uuid"})
-			fd.ZodType = fmt.Sprintf("%s.default(() => uuid.create())", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
-		}
-	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	typeOverride := getFieldTypeOverride(field, "ts")
 	isJSON := field.Type.Name == "record" || typeOverride == "record"
@@ -1794,12 +1781,19 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
 			}
-			// Handle "create" for auto-generating string keys
-			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`
+			// Handle "create" for auto-generating keys. uuid keys generate a UUID
+			// via uuid.create(); string keys generate a short id via id.create().
+			// uuid is a string primitive, so check it first.
+			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`.
 			primitive := key.ResolvePrimitive(typeRef, table)
-			if defaultVal.IdentValue == "create" && (isString || primitive == "string") {
-				addXImport(data, xImport{name: "id", submodule: "id"})
-				zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
+			if defaultVal.IdentValue == "create" {
+				if primitive == "uuid" {
+					addXImport(data, xImport{name: "uuid", submodule: "uuid"})
+					zodType = fmt.Sprintf("%s.default(() => uuid.create())", zodType)
+				} else if isString || primitive == "string" {
+					addXImport(data, xImport{name: "id", submodule: "id"})
+					zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
+				}
 			}
 			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))

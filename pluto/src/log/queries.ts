@@ -221,25 +221,20 @@ export interface CreateParams extends log.New {
   workspace?: workspace.Key;
 }
 
-export interface CreateOutput extends log.Log {
-  workspace?: workspace.Key;
-}
-
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
-  CreateOutput
+  log.Log
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    data.key ??= uuid.create();
-    const { workspace, ...rest } = data;
-    const optimistic = log.logZ.parse(rest);
-    rollbacks.push(store.logs.set(optimistic.key, optimistic));
-    const l = await client.logs.create(workspace ?? uuid.ZERO, rest);
-    store.logs.set(l.key, l);
-    return { ...l, workspace };
+    const optimistic = log.newZ.parse(data);
+    rollbacks.push(store.logs.set(optimistic));
+    const workspace = data.workspace ?? uuid.ZERO;
+    const created = await client.logs.create(workspace, optimistic);
+    store.logs.set(created);
+    return created;
   },
 });
 

@@ -57,8 +57,6 @@ type Log struct {
 	Name string `json:"name" msgpack:"name"`
 	// Channels are the channels displayed in this log, in order.
 	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
-	// RemoteCreated indicates whether the log was created on a remote client.
-	RemoteCreated bool `json:"remote_created" msgpack:"remote_created"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// ShowChannelNames controls whether channel names are displayed.

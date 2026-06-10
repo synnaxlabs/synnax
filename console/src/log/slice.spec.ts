@@ -23,8 +23,7 @@ import {
 } from "@/log/slice";
 import { stateZ } from "@/log/types";
 
-const PENDING: PendingUpload = log.logZ.omit({ name: true }).parse({
-  key: "11111111-1111-4111-8111-111111111111",
+const PENDING: PendingUpload = log.newZ.omit({ name: true }).parse({
   channels: [log.channelEntryZ.parse({ channel: 42, color: color.ZERO })],
 });
 
@@ -83,12 +82,12 @@ describe("Log Slice", () => {
 
   describe("clearPendingUpload", () => {
     it("should clear a pending upload", () => {
-      const seeded = storeWith({
+      const store = storeWith({
         ...ZERO_SLICE_STATE,
         logs: { "log-1": { ...ZERO_STATE, key: "log-1", pendingUpload: PENDING } },
       });
-      seeded.dispatch(actions.clearPendingUpload({ key: "log-1" }));
-      expect(seeded.getState()[SLICE_NAME].logs["log-1"].pendingUpload).toBeUndefined();
+      store.dispatch(actions.clearPendingUpload({ key: "log-1" }));
+      expect(store.getState()[SLICE_NAME].logs["log-1"].pendingUpload).toBeUndefined();
     });
 
     it("should be a no-op when the log does not exist", () => {

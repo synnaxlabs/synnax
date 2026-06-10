@@ -16,13 +16,20 @@ import { useDispatch, useStore } from "react-redux";
 import { ContextMenu, EmptyAction } from "@/components";
 import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
-import { useSelectExists } from "@/log/selectors";
-import { internalCreate, setActiveToolbarTab } from "@/log/slice";
-import { useAutoUpload } from "@/log/useUpload";
+import { useSelectExists, useSelectPendingUpload } from "@/log/selectors";
+import { clearPendingUpload, internalCreate, setActiveToolbarTab } from "@/log/slice";
 import { type RootState } from "@/store";
+import { createUseAutoUpload } from "@/vis/useAutoUpload";
 import { Workspace } from "@/workspace";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/log/layout";
+
+const useAutoUpload = createUseAutoUpload({
+  useSelectPendingUpload,
+  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
+  useCreate: PLog.useCreate,
+  clearPendingUpload,
+});
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
