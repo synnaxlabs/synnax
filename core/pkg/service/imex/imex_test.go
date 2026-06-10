@@ -170,8 +170,8 @@ var _ = Describe("ImEx", func() {
 				// accidentally returns an empty Envelope surfaces the bug at the
 				// transport boundary rather than over the wire.
 				env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
-				_, err := json.Marshal(env)
-				Expect(err).To(MatchError(ContainSubstring("envelope has no body")))
+				Expect(json.Marshal(env)).Error().
+					To(MatchError(ContainSubstring("envelope has no body")))
 			})
 		})
 

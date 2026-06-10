@@ -77,7 +77,6 @@ func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	var env imex.Envelope
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
