@@ -14,42 +14,15 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// ServiceConfig is the configuration for opening an import/export Service.
-type ServiceConfig struct {
-	// DB is the database the registry uses to validate the config and that callers pass
-	// to Import / Export through their own transactions.
-	//
-	// [REQUIRED]
-	DB *gorp.DB
-}
-
-var _ config.Config[ServiceConfig] = ServiceConfig{}
-
-// Override implements config.Config.
-func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.DB = override.Nil(c.DB, other.DB)
-	return c
-}
-
-// Validate implements config.Config.
-func (c ServiceConfig) Validate() error {
-	v := validate.New("imex")
-	validate.NotNil(v, "db", c.DB)
-	return v.Error()
-}
 
 // Service is the central import/export registry. Handlers are registered via
 // RegisterImportExporter, RegisterImporter, or RegisterExporter, and Import and Export
 // route to them by Type. Service is safe for concurrent registration and lookup.
 type Service struct {
-	cfg       ServiceConfig
 	mu        sync.RWMutex
 	importers map[string]Importer
 	exporters map[ontology.ResourceType]Exporter
@@ -58,16 +31,11 @@ type Service struct {
 // NewService creates a new, empty import/export registry. Handlers register themselves
 // via RegisterImportExporter, RegisterImporter, or RegisterExporter at their own
 // startup time, typically by accepting the Service in their own service config.
-func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
-	if err != nil {
-		return nil, err
-	}
+func NewService() *Service {
 	return &Service{
-		cfg:       cfg,
 		importers: make(map[string]Importer),
 		exporters: make(map[ontology.ResourceType]Exporter),
-	}, nil
+	}
 }
 
 // RegisterImportExporter registers a single handler for both halves under its own Type.
@@ -81,18 +49,18 @@ func (s *Service) RegisterImportExporter(ie ImportExporter) {
 	s.exporters[t] = ie
 }
 
-// RegisterImporter adds an Importer for the given resource type. Use this for services
-// with asymmetric registration — for example, a task service that imports under
-// fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a single
-// coarse type ("task").
+// RegisterImporter adds an [Importer] for the given resource type. Use this for
+// services with asymmetric registration — for example, a task service that imports
+// under fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a
+// single coarse type ("task").
 func (s *Service) RegisterImporter(t string, i Importer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.importers[t] = i
 }
 
-// RegisterExporter adds an Exporter for the given resource type. See RegisterImporter
-// for the asymmetric-registration use case.
+// RegisterExporter adds an [Exporter] for the given resource type. See
+// [Service.RegisterImporter] for the asymmetric-registration use case.
 func (s *Service) RegisterExporter(e Exporter) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -116,8 +84,8 @@ func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
 }
 
 // notFoundError builds the validation error returned when Import or Export is called
-// with a Type that has no registered handler. kind is "importer" or "exporter"; path
-// is the JSON path the API layer surfaces the error against (always "type" today).
+// with a Type that has no registered handler. kind is "importer" or "exporter"; path is
+// the JSON path the API layer surfaces the error against (always "type" today).
 func notFoundError(t any, path, kind string) error {
 	return validate.PathedError(
 		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, t),
@@ -125,8 +93,8 @@ func notFoundError(t any, path, kind string) error {
 	)
 }
 
-// Import routes envelope to the importer registered under envelope.Type, persists it
-// on tx, and returns the newly-assigned key. Returns a validation error scoped to the
+// Import routes envelope to the importer registered under envelope.Type, persists it on
+// tx, and returns the newly-assigned key. Returns a validation error scoped to the
 // "type" field if no importer is registered for envelope.Type. Callers that need
 // multi-envelope atomicity should wrap several Import calls in db.WithTx.
 func (s *Service) Import(

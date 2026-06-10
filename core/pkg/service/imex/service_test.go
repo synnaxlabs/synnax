@@ -10,58 +10,179 @@
 package imex_test
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+const (
+	testResourceType  ontology.ResourceType = "imex_test"
+	errorResourceType ontology.ResourceType = "imex_test_error"
+	testVersion       imex.Version          = 1
+)
+
+type testResource struct {
+	Name     string `json:"name"`
+	FieldOne string `json:"field_one"`
+	FieldTwo int    `json:"field_two"`
+}
+
+func sampleResource(name string) testResource {
+	return testResource{Name: name, FieldOne: "value", FieldTwo: 42}
+}
+
+func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
+	return wireRoundTrip(MustSucceed(imex.Encode(sampleResource(name), testVersion, typ)))
+}
+
+// wireRoundTrip marshals env to JSON and unmarshals it back, simulating the HTTP
+// path so the result has the JSON codec bound on it. Tests that hand an envelope
+// from Encode straight to a decoder (or to a registered Importer that decodes it)
+// must go through this helper — Decode[T] no longer falls back when the envelope
+// has no codec.
+func wireRoundTrip(env imex.Envelope) imex.Envelope {
+	b := MustSucceed(json.Marshal(env))
+	var out imex.Envelope
+	Expect(json.Unmarshal(b, &out)).To(Succeed())
+	return out
+}
+
+type testEntry struct {
+	Key      string `json:"key" msgpack:"key"`
+	Name     string `json:"name" msgpack:"name"`
+	FieldOne string `json:"field_one" msgpack:"field_one"`
+	FieldTwo int    `json:"field_two" msgpack:"field_two"`
+}
+
+var _ gorp.Entry[string] = testEntry{}
+
+func (e testEntry) GorpKey() string { return e.Key }
+func (testEntry) SetOptions() []any { return nil }
+
+// testService is a minimal in-memory ImportExporter used to exercise the ImEx registry
+// without depending on any concrete service. Imports decode the typed payload, allocate
+// a fresh key, and persist through the provided transaction; exports look up by key and
+// re-encode through Encode.
+type testService struct {
+	db    *gorp.DB
+	table *gorp.Table[string, testEntry]
+}
+
+func openTestService(ctx context.Context, db *gorp.DB) *testService {
+	table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, testEntry]{DB: db}))
+	return &testService{db: db, table: table}
+}
+
+func (*testService) Type() ontology.ResourceType { return testResourceType }
+
+func (s *testService) Import(
+	ctx context.Context,
+	tx gorp.Tx,
+	env imex.Envelope,
+) (imex.Key, error) {
+	r, err := imex.Decode[testResource](ctx, env)
+	if err != nil {
+		return "", err
+	}
+	key := uuid.NewString()
+	e := testEntry{Key: key, Name: r.Name, FieldOne: r.FieldOne, FieldTwo: r.FieldTwo}
+	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
+		return "", err
+	}
+	return key, nil
+}
+
+func (s *testService) Export(
+	ctx context.Context,
+	tx gorp.Tx,
+	key imex.Key,
+) (imex.Envelope, error) {
+	var e testEntry
+	if err := s.table.NewRetrieve().
+		Where(gorp.MatchKeys[string, testEntry](key)).
+		Entry(&e).
+		Exec(ctx, tx); err != nil {
+		return imex.Envelope{}, err
+	}
+	return imex.Encode(
+		testResource{Name: e.Name, FieldOne: e.FieldOne, FieldTwo: e.FieldTwo},
+		testVersion,
+		testResourceType,
+	)
+}
+
+func (s *testService) Retrieve(ctx context.Context, name string) (testEntry, error) {
+	var e testEntry
+	if err := s.table.NewRetrieve().
+		Where(gorp.Match(func(_ gorp.Context, e *testEntry) (bool, error) {
+			return e.Name == name, nil
+		})).
+		Entry(&e).
+		Exec(ctx, s.db); err != nil {
+		return testEntry{}, err
+	}
+	return e, nil
+}
+
+func (s *testService) Close() error { return s.table.Close() }
+
+// errorService is an ImportExporter whose Import and Export methods always return an
+// error. It exists to verify that the registry surfaces handler-side failures verbatim.
+type errorService struct{}
+
+func (errorService) Type() ontology.ResourceType { return errorResourceType }
+
+func (errorService) Import(context.Context, gorp.Tx, imex.Envelope) (imex.Key, error) {
+	return "", errors.New("importer error: forced failure")
+}
+
+func (errorService) Export(context.Context, gorp.Tx, imex.Key) (imex.Envelope, error) {
+	return imex.Envelope{}, errors.New("exporter error: forced failure")
+}
+
+// noopImporter is a minimal Importer that always succeeds without persisting anything.
+// Its Type is configurable so callers can exercise asymmetric registration.
+type noopImporter struct{ typ ontology.ResourceType }
+
+func (n noopImporter) Type() ontology.ResourceType { return n.typ }
+
+func (noopImporter) Import(context.Context, gorp.Tx, imex.Envelope) (imex.Key, error) {
+	return "noop-key", nil
+}
+
+// noopExporter is a minimal Exporter that returns a fixed envelope under its Type.
+type noopExporter struct{ typ ontology.ResourceType }
+
+func (n noopExporter) Type() ontology.ResourceType { return n.typ }
+
+func (n noopExporter) Export(
+	context.Context,
+	gorp.Tx,
+	imex.Key,
+) (imex.Envelope, error) {
+	return imex.Encode(testResource{Name: "noop"}, testVersion, n.typ)
+}
+
 var _ = Describe("Service", func() {
-	Describe("ServiceConfig", func() {
-		Describe("Validate", func() {
-			It("Should fail when DB is nil", func() {
-				cfg := imex.ServiceConfig{}
-				Expect(cfg.Validate()).To(MatchError(ContainSubstring("db")))
-			})
-
-			It("Should succeed when DB is set", func() {
-				cfg := imex.ServiceConfig{DB: db}
-				Expect(cfg.Validate()).To(Succeed())
-			})
-		})
-
-		Describe("Override", func() {
-			It("Should prefer the other config's DB when set", func() {
-				initial := imex.ServiceConfig{}
-				other := imex.ServiceConfig{DB: db}
-				merged := initial.Override(other)
-				Expect(merged.DB).To(BeIdenticalTo(other.DB))
-			})
-
-			It("Should keep the receiver's DB when other's is nil", func() {
-				initial := imex.ServiceConfig{DB: db}
-				merged := initial.Override(imex.ServiceConfig{})
-				Expect(merged.DB).To(BeIdenticalTo(db))
-			})
-		})
-	})
-
-	Describe("NewService", func() {
-		It("Should fail when no DB is provided", func() {
-			Expect(imex.NewService(imex.ServiceConfig{})).Error().To(
-				MatchError(ContainSubstring("db")),
-			)
-		})
-
-		It("Should succeed when a DB is provided", func() {
-			Expect(imex.NewService(imex.ServiceConfig{DB: db})).ToNot(BeNil())
-		})
+	var (
+		svc *imex.Service
+		ts  *testService
+	)
+	BeforeEach(func(ctx SpecContext) {
+		ts = DeferClose(openTestService(ctx, db))
+		svc.RegisterImportExporter(ts)
+		svc.RegisterImportExporter(errorService{})
 	})
 
 	Describe("ImporterType", func() {
@@ -80,7 +201,7 @@ var _ = Describe("Service", func() {
 
 	Describe("RegisterImporter", func() {
 		It("Should register an importer under a narrow type string", func() {
-			s := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
+			s := imex.NewService()
 			s.RegisterImporter("narrow", noopImporter{typ: "broad"})
 			Expect(s.ImporterType("narrow")).To(Equal(ontology.ResourceType("broad")))
 		})
@@ -88,7 +209,7 @@ var _ = Describe("Service", func() {
 		It(
 			"Should map the narrow type to the importer's broader Type for access control",
 			func(ctx SpecContext) {
-				s := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
+				s := imex.NewService()
 				s.RegisterImporter("http_read", noopImporter{typ: "task"})
 				s.RegisterImporter("opc_scan", noopImporter{typ: "task"})
 				Expect(s.ImporterType("http_read")).To(Equal(ontology.ResourceType("task")))
@@ -109,7 +230,7 @@ var _ = Describe("Service", func() {
 
 	Describe("RegisterExporter", func() {
 		It("Should register an exporter under its own Type", func(ctx SpecContext) {
-			s := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
+			s := imex.NewService()
 			s.RegisterExporter(noopExporter{typ: "noop_export"})
 			env := MustSucceed(s.Export(ctx, db, ontology.ID{
 				Type: "noop_export",
@@ -211,7 +332,7 @@ var _ = Describe("Service", func() {
 			// Under `go test -race` a missing lock would surface as a data race; under
 			// a normal run it just verifies that every concurrent registration
 			// eventually resolves.
-			s := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
+			s := imex.NewService()
 			const N = 64
 			types := make([]string, N)
 			for i := range types {
