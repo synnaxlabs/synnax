@@ -211,6 +211,40 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))
 			})
+			It("Should recursively create parent and grandparent ranges in a single Create call", func(ctx SpecContext) {
+				grandparent := ranger.Range{
+					Name:      "GrandParent",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+				}
+				parent := ranger.Range{
+					Name:      "Parent",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    &grandparent,
+				}
+				r := &ranger.Range{
+					Name:      "Range",
+					TimeRange: telem.SecondTS.SpanRange(telem.Second),
+					Parent:    &parent,
+				}
+				Expect(w.Create(ctx, r)).To(Succeed())
+				Expect(grandparent.Key).ToNot(Equal(uuid.Nil))
+				Expect(parent.Key).ToNot(Equal(uuid.Nil))
+				Expect(r.Key).ToNot(Equal(uuid.Nil))
+				var parentChild ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(parent.OntologyID()).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entry(&parentChild).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(parentChild.ID.Key).To(Equal(r.Key.String()))
+				var grandparentChild ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(grandparent.OntologyID()).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entry(&grandparentChild).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(grandparentChild.ID.Key).To(Equal(parent.Key.String()))
+			})
 			Context("RetrieveParent", func() {
 				It("Should get the parent of the range", func(ctx SpecContext) {
 					parent := ranger.Range{
@@ -581,6 +615,32 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewWriter(tx).Delete(ctx, parent.Key)).To(Succeed())
 			var retrieveR ranger.Range
 			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
+		})
+		It("Should delete multiple ranges in a single Delete call", func(ctx SpecContext) {
+			r1 := ranger.Range{
+				Name:      "Range1",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			r2 := ranger.Range{
+				Name:      "Range2",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			r3 := ranger.Range{
+				Name:      "Range3",
+				TimeRange: telem.SecondTS.SpanRange(telem.Second),
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, &[]ranger.Range{r1, r2, r3})).
+				To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, r1.Key, r2.Key, r3.Key)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r1.Key)).Exists(ctx, tx)).
+				To(BeFalse())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r2.Key)).Exists(ctx, tx)).
+				To(BeFalse())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r3.Key)).Exists(ctx, tx)).
+				To(BeFalse())
+		})
+		It("Should be a no-op when called with no keys", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Delete(ctx)).To(Succeed())
 		})
 		It("Should recursively delete grandchild ranges when a range is deleted", func(ctx SpecContext) {
 			grandparent := ranger.Range{

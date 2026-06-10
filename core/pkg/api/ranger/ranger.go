@@ -217,11 +217,5 @@ func (s *Service) Delete(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	w := s.internal.NewWriter(tx)
-	for _, key := range req.Keys {
-		if err := w.Delete(ctx, key); err != nil {
-			return types.Nil{}, err
-		}
-	}
-	return types.Nil{}, nil
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -33,12 +34,19 @@ type Writer struct {
 
 // Create creates or updates the given range. If r.Parent is non-nil, the range is
 // parented to that range; otherwise its parent relationship is left unchanged on update
-// and left undefined on create. If r.Labels is non-empty, a LabeledBy relationship is
-// defined from the range to each label; existing relationships are preserved.
-// If the range does not already have a key, a new key will be assigned. If the range
-// already exists and r.Parent is non-nil, the existing parent relationship will be
-// replaced.
+// and left undefined on create. If r.Parent points to a range that does not yet exist,
+// it (and any of its own ancestors via Parent) is created first, so an arbitrarily deep
+// ancestry chain can be persisted in a single call. If r.Labels is non-empty, a
+// LabeledBy relationship is defined from the range to each label; existing
+// relationships are preserved. If the range does not already have a key, a new key will
+// be assigned. If the range already exists and r.Parent is non-nil, the existing parent
+// relationship will be replaced.
 func (w Writer) Create(ctx context.Context, r *Range) error {
+	if r.Parent != nil {
+		if err := w.Create(ctx, r.Parent); err != nil {
+			return err
+		}
+	}
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
 	}
@@ -49,7 +57,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		NewRetrieve().
 		Where(gorp.MatchKeys[Key, Range](r.Key)).
 		Exists(ctx, w.tx)
-	if err != nil && !errors.Is(err, query.ErrNotFound) {
+	if err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
@@ -60,7 +68,9 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		return err
 	}
 	if len(r.Labels) > 0 {
-		labelKeys := lo.Map(r.Labels, func(l label.Label, _ int) label.Key { return l.Key })
+		labelKeys := lo.Map(r.Labels, func(l label.Label, _ int) label.Key {
+			return l.Key
+		})
 		if err = w.label.NewWriter(w.tx).Label(ctx, otgID, labelKeys); err != nil {
 			return err
 		}
@@ -115,46 +125,56 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		Exec(ctx, w.tx)
 }
 
-// Delete deletes the range with the given key. Delete will also delete all children of
-// the range. Delete is idempotent.
-func (w Writer) Delete(ctx context.Context, key Key) error {
-	// Query the ontology to find all children of the range and delete them as well
-	var children []ontology.Resource
-	if err := w.
-		otgWriter.
-		NewRetrieve().
-		WhereIDs(OntologyID(key)).
-		TraverseTo(ontology.ChildrenTraverser).
-		Entries(&children).
-		ExcludeFieldData(true).
-		// The check for query.ErrNotFound is necessary because the child may have
-		// already been deleted, and delete is idempotent.
-		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
+// Delete deletes the ranges with the given keys. Delete also recursively removes every
+// descendant range (via the parent-of relationship). Delete is idempotent: missing keys
+// are silently ignored. The full subtree is collected in a single batched breadth-first
+// sweep over the ontology — one query per tree level rather than one per node — and the
+// underlying gorp and ontology deletes are issued as bulk operations.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if len(keys) == 0 {
+		return nil
 	}
-	keys := lo.FilterMap(children, func(r ontology.Resource, _ int) (string, bool) {
-		// Don't delete anything that's not a child range
-		if r.ID.Type != ontology.ResourceTypeRange {
-			return "", false
-		}
-		return r.ID.Key, true
-	})
-	for _, k := range keys {
-		uK, err := uuid.Parse(k)
-		if err != nil {
+	toDelete := set.New(keys...)
+	frontier := keys
+	for len(frontier) > 0 {
+		var children []ontology.Resource
+		if err := w.otgWriter.
+			NewRetrieve().
+			WhereIDs(OntologyIDs(frontier)...).
+			TraverseTo(ontology.ChildrenTraverser).
+			Entries(&children).
+			ExcludeFieldData(true).
+			// The check for query.ErrNotFound is necessary because the range may
+			// already have been deleted, and delete is idempotent.
+			Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
-		if err = w.Delete(ctx, uK); err != nil {
-			return err
+		nextFrontier := make([]Key, 0, len(children))
+		for _, c := range children {
+			// Don't traverse into anything that's not a child range.
+			if c.ID.Type != ontology.ResourceTypeRange {
+				continue
+			}
+			k, err := KeyFromOntologyID(c.ID)
+			if err != nil {
+				return err
+			}
+			if toDelete.Contains(k) {
+				continue
+			}
+			toDelete.Add(k)
+			nextFrontier = append(nextFrontier, k)
 		}
+		frontier = nextFrontier
 	}
+	allKeys := toDelete.Slice()
 	if err := w.table.
 		NewDelete().
-		Where(gorp.MatchKeys[Key, Range](key)).
+		Where(gorp.MatchKeys[Key, Range](allKeys...)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteResource(ctx, OntologyID(key))
+	return w.otgWriter.DeleteManyResources(ctx, OntologyIDs(allKeys))
 }
 
 func (w Writer) validate(r Range) error {
