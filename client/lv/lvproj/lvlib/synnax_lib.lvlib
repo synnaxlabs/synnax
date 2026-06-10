@@ -23,7 +23,8 @@
 	</Item>
 	<Item Name="private" Type="Folder">
 		<Item Name="sy_err.vi" Type="VI" URL="../private/sy_err.vi"/>
-		<Item Name="Timestamp Conversion Array.vi" Type="VI" URL="../private/Timestamp Conversion Array.vi"/>
+		<Item Name="Timestamp Conversion 1D Array.vi" Type="VI" URL="../private/Timestamp Conversion 1D Array.vi"/>
+		<Item Name="Timestamp Conversion 2D Array.vi" Type="VI" URL="../private/Timestamp Conversion 2D Array.vi"/>
 		<Item Name="Timestamp Conversion Single.vi" Type="VI" URL="../private/Timestamp Conversion Single.vi"/>
 	</Item>
 	<Item Name="public" Type="Folder">
