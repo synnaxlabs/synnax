@@ -14,6 +14,9 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Key is a unique identifier for a symbol, represented as a UUID.
+type Key = uuid.UUID
+
 // Symbol represents a schematic symbol specification with its visual states and regions.
 type Symbol struct {
 	// Data is JSON-encoded data containing SVG, states and regions for the symbol.
@@ -21,13 +24,13 @@ type Symbol struct {
 	// Name is a human-readable name for the symbol.
 	Name string `json:"name" msgpack:"name"`
 	// Key is a unique identifier for the symbol.
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key Key `json:"key" msgpack:"key"`
 }
 
-var _ gorp.Entry[uuid.UUID] = Symbol{}
+var _ gorp.Entry[Key] = Symbol{}
 
 // GorpKey implements gorp.Entry.
-func (s Symbol) GorpKey() uuid.UUID { return s.Key }
+func (s Symbol) GorpKey() Key { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (s Symbol) SetOptions() []any { return nil }
