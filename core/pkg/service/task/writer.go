@@ -17,18 +17,21 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Writer struct {
-	tx     gorp.Tx
-	otg    ontology.Writer
-	rack   rack.Writer
-	group  group.Group
-	status status.Writer[StatusDetails]
-	table  *gorp.Table[Key, Task]
+	tx        gorp.Tx
+	otg       ontology.Writer
+	rack      rack.Writer
+	group     group.Group
+	status    status.Writer[StatusDetails]
+	table     *gorp.Table[Key, Task]
+	providers *configProviders
 }
 
 func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Status[StatusDetails] {
@@ -60,11 +63,13 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	}
 	providedStatus := (*status.Status[StatusDetails])(t.Status) // Preserve before clearing for gorp
 	t.Status = nil                                              // Status stored separately, not in gorp
+	cfg := t.Config
 	if err := w.table.NewCreate().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {
 				creating.Config = existing.Config
 			}
+			cfg = creating.Config
 			return creating, nil
 		}).
 		Entry(t).
@@ -81,28 +86,62 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	}
 	otgID := OntologyID(t.Key)
 	exists, err := w.otg.HasResource(ctx, otgID)
-	if err != nil || exists {
+	if err != nil {
 		return err
 	}
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	if !exists {
+		if err = w.otg.DefineResource(ctx, otgID); err != nil {
+			return err
+		}
+		if err = w.otg.DefineRelationship(
+			ctx,
+			w.group.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			otgID,
+		); err != nil {
+			return err
+		}
+	}
+	p, ok := w.providers.get(t.Type)
+	if !ok {
+		return nil
+	}
+	configID, err := p.Create(ctx, w.tx, t.Key, t.Type, cfg)
+	if err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(
 		ctx,
-		w.group.OntologyID(),
-		ontology.RelationshipTypeParentOf,
 		otgID,
+		ontology.RelationshipTypeParentOf,
+		configID,
 	)
 }
 
-// Delete deletes the task with the given key and its associated status.
+// Delete deletes the task with the given key, its associated status, and any config
+// record held by the task type's registered config provider.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	if err := w.table.NewDelete().
+	var t Task
+	err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Task](key)).
+		Entry(&t).
+		Exec(ctx, w.tx)
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		return err
+	}
+	if err == nil && !t.Internal {
+		if p, ok := w.providers.get(t.Type); ok {
+			if err = p.Delete(ctx, w.tx, key); err != nil {
+				return err
+			}
+		}
+	}
+	if err = w.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Task](key)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+	if err = w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())
@@ -133,6 +172,25 @@ func (w Writer) Copy(
 		return Task{}, err
 	}
 	if err = w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
+		return Task{}, err
+	}
+	if res.Internal {
+		return res, nil
+	}
+	p, ok := w.providers.get(res.Type)
+	if !ok {
+		return res, nil
+	}
+	configID, err := p.Copy(ctx, w.tx, key, newKey)
+	if err != nil {
+		return Task{}, err
+	}
+	if err = w.otg.DefineRelationship(
+		ctx,
+		OntologyID(newKey),
+		ontology.RelationshipTypeParentOf,
+		configID,
+	); err != nil {
 		return Task{}, err
 	}
 	return res, nil

@@ -147,6 +147,9 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return res, err
 	}
+	if err = s.task.ResolveConfigs(ctx, nil, res.Tasks); err != nil {
+		return res, err
+	}
 
 	if req.IncludeStatus {
 		statuses := make([]task.Status, 0, len(res.Tasks))
