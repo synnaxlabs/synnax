@@ -153,6 +153,60 @@ var _ = Describe("Writer", func() {
 					[]ontology.ID{idOne},
 				)).Error().To(MatchError(graph.ErrCyclicDependency))
 			})
+			It("Should return an error if one of the targets creates a transitive cycle", func(ctx SpecContext) {
+				idThree := newSampleType("baz")
+				Expect(w.DefineResource(ctx, idThree)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idThree)).To(Succeed())
+				Expect(w.DefineFromOneToManyRelationships(
+					ctx,
+					idThree,
+					ontology.RelationshipTypeParentOf,
+					[]ontology.ID{idOne},
+				)).Error().To(MatchError(graph.ErrCyclicDependency))
+			})
+			It("Should be idempotent when called twice with the same arguments", func(ctx SpecContext) {
+				Expect(w.DefineFromOneToManyRelationships(
+					ctx,
+					idOne,
+					ontology.RelationshipTypeParentOf,
+					[]ontology.ID{idTwo},
+				)).To(Succeed())
+				Expect(w.DefineFromOneToManyRelationships(
+					ctx,
+					idOne,
+					ontology.RelationshipTypeParentOf,
+					[]ontology.ID{idTwo},
+				)).To(Succeed())
+				var res []ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(idOne).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].ID).To(Equal(idTwo))
+			})
+			It("Should skip already-existing relationships and create only the new ones", func(ctx SpecContext) {
+				idThree := newSampleType("baz")
+				Expect(w.DefineResource(ctx, idThree)).To(Succeed())
+				Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
+				Expect(w.DefineFromOneToManyRelationships(
+					ctx,
+					idOne,
+					ontology.RelationshipTypeParentOf,
+					[]ontology.ID{idTwo, idThree},
+				)).To(Succeed())
+				var res []ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(idOne).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(2))
+				gotIDs := []ontology.ID{res[0].ID, res[1].ID}
+				Expect(gotIDs).To(ConsistOf(idTwo, idThree))
+			})
 		})
 		Describe("Deleting a Relationship", func() {
 			It("Should delete a relationship by its ID", func(ctx SpecContext) {

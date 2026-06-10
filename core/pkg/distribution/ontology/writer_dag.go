@@ -109,21 +109,33 @@ func (d dagWriter) DefineRelationship(ctx context.Context, from ID, t Relationsh
 
 // DefineFromOneToManyRelationships implements the Writer interface.
 func (d dagWriter) DefineFromOneToManyRelationships(ctx context.Context, from ID, t RelationshipType, to []ID) error {
-	rels := lo.Map(to, func(id ID, _ int) Relationship { return Relationship{From: from, To: id, Type: t} })
 	if err := d.validateResourcesExist(ctx, from); err != nil {
 		return err
 	}
 	if err := d.validateResourcesExist(ctx, to...); err != nil {
 		return err
 	}
-	for _, rel := range rels {
-		descendants, err := d.retrieveDescendants(ctx, rel.To)
+	rels := make([]Relationship, 0, len(to))
+	for _, id := range to {
+		rel := Relationship{From: from, To: id, Type: t}
+		exists, err := d.checkRelationshipExists(ctx, rel)
 		if err != nil {
 			return err
 		}
-		if _, exists := descendants[from]; exists {
+		if exists {
+			continue
+		}
+		descendants, err := d.retrieveDescendants(ctx, id)
+		if err != nil {
+			return err
+		}
+		if _, cyclic := descendants[from]; cyclic {
 			return graph.ErrCyclicDependency
 		}
+		rels = append(rels, rel)
+	}
+	if len(rels) == 0 {
+		return nil
 	}
 	return d.relationshipTable.NewCreate().Entries(&rels).Exec(ctx, d.tx)
 }
