@@ -12,6 +12,8 @@ package panel_test
 import (
 	"context"
 	"iter"
+	"slices"
+	"sync"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -74,20 +76,27 @@ var _ = Describe("Ontology", func() {
 		})
 
 		It("Should emit a Set change when a panel is created", func(ctx SpecContext) {
-			var changes []ontology.Change
+			var (
+				mu      sync.Mutex
+				changes []ontology.Change
+			)
 			DeferCleanup(svc.OnChange(func(_ context.Context, seq iter.Seq[ontology.Change]) {
-				for c := range seq {
-					changes = append(changes, c)
-				}
+				mu.Lock()
+				defer mu.Unlock()
+				changes = append(changes, slices.Collect(seq)...)
 			}))
 			p := panel.Panel{Name: "observed"}
 			Expect(svc.NewWriter(nil).Create(ctx, &p, parentID)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) { Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed()) })
-			Expect(changes).To(ContainElement(SatisfyAll(
-				HaveField("Variant", Equal(change.VariantSet)),
-				HaveField("Key", Equal(panel.OntologyID(p.Key).String())),
-				HaveField("Value.Name", Equal("observed")),
-			)))
+			Eventually(func(g Gomega) {
+				mu.Lock()
+				defer mu.Unlock()
+				g.Expect(changes).To(ContainElement(SatisfyAll(
+					HaveField("Variant", Equal(change.VariantSet)),
+					HaveField("Key", Equal(panel.OntologyID(p.Key).String())),
+					HaveField("Value.Name", Equal("observed")),
+				)))
+			}).Should(Succeed())
 		})
 
 		It("Should iterate existing panels via OpenNexter", func(ctx SpecContext) {
