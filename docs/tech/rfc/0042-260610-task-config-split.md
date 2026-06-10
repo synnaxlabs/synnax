@@ -28,8 +28,8 @@ server-side migration chain that runs once per cluster at startup.
   and migration chain for one integration's config types (e.g. `service/ni`).
 - **Config Provider** - The interface a config service implements to plug into the task
   service: validate, store, load, copy, and delete configs for a set of task types.
-- **Fallback Path** - The embedded-JSON behavior that task types without a registered
-  provider keep. Identical to today's behavior.
+- **Fallback Path** - The embedded-JSON behavior (identical to today's) that task types
+  without a registered provider keep.
 - **Resolved Field** - A field present on a type and on the wire but excluded from the
   storage codec, filled by the API layer (RFC 0041 §4.2). `Task.Config` becomes one.
 
