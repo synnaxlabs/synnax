@@ -2747,9 +2747,11 @@ var _ = Describe("TS Union Field & Variant Coverage", func() {
 			)
 	})
 
-	It("Should resolve an optional union-typed field", func(ctx SpecContext) {
+	It("Should resolve an optional union-typed field as null-tolerant", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale?"), "ni", loader, typesPlugin)
-		ExpectContent(resp, "types.gen.ts").ToContain(`customScale: scaleZ.optional(),`)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`customScale: zod.nullToUndefined(scaleZ),`,
+		)
 	})
 
 	It("Should resolve an array-of-union field", func(ctx SpecContext) {

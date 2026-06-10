@@ -674,6 +674,9 @@ type {{.Name}} struct {
 }
 
 func (u {{.Name}}) MarshalJSON() ([]byte, error) {
+	if u.Variant == nil {
+		return []byte("null"), nil
+	}
 	var t {{.DiscType}}
 	switch u.Variant.(type) {
 {{- range .Variants}}
@@ -700,6 +703,10 @@ func (u {{.Name}}) MarshalJSON() ([]byte, error) {
 }
 
 func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		u.Variant = nil
+		return nil
+	}
 	var disc struct {
 		Type {{.DiscType}} ` + "`" + `json:"{{.DiscJSONName}}"` + "`" + `
 	}
