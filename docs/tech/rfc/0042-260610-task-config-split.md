@@ -42,7 +42,7 @@ The core never parses it, so three problems compound as task schemas evolve:
    (e.g. NI analog read moved `device` from the task level onto each channel), the
    Console grows a hand-written zod union-transform that must live forever, the Python
    client gets nothing and silently misreads old configs, and the driver fails to parse
-   them. The same transform is reimplemented per language or skipped.
+   them.
 2. **Validation happens at the wrong time.** The server accepts any blob; a malformed
    config surfaces minutes later as a driver task-configuration error rather than at
    write time.
@@ -152,6 +152,11 @@ semantics (config preserved when updating a snapshot task) and task copy route t
 `Copy`. All provider methods receive the writer's `gorp.Tx`, so a task and its config
 are created, copied, or deleted in one transaction.
 
+One restriction follows, correctable later: drivers learn of config changes via
+`sy_task_set`, which fires on task-envelope writes, so every config mutation must flow
+through the task writer. A future direct config API must also rewrite the envelope in
+the same transaction (or publish its own signal the driver subscribes to).
+
 ## 4.3 - Linkage via Parent Relationship
 
 The task is the ontology parent of its config: `task:<key> -> parent -> <config-id>`. No
@@ -160,9 +165,8 @@ children and filtering by resource type, the same pattern ranger uses; the confi
 resource type also identifies which service and table own the record. `DeleteResource`
 cascades the relationship on either end.
 
-Relationship management here is hand-written in the writers, consistent with RFC 0041
-§4.2.3. When the follow-up relationship-management RFC (RFC 0041 §7) lands schema-level
-relationship declarations, the task-to-config link is a candidate for generation.
+Relationship management is hand-written in the writers (RFC 0041 §4.2.3); the link is a
+candidate for generation once the relationship-management RFC (RFC 0041 §7) lands.
 
 ## 4.4 - Wire Composition
 
@@ -243,10 +247,10 @@ tasks are missing for that design: a schema to validate `env.Data` against and a
 meaningful per-resource `version` to dispatch on. The flat envelope
 `{version, type, name, ...fields}` maps directly onto the config record plus the task
 name, and import walks the same `vN` chain as storage migration and normalize-on-write.
-RFC 0039's goal of importing a task config while the target driver is offline becomes
-real, because the server validates instead of the driver. One flag for that RFC: imex
-import takes no parent ontology ID, but task keys encode their rack, so a task importer
-must be handed one (the container-association question).
+Importing a task config while its driver is offline becomes real: the server validates
+instead of the driver. One flag for that RFC: imex import takes no parent ontology ID,
+but task keys encode their rack, so a task importer must be handed one (the
+container-association question).
 
 # 5 - Resolved Design Decisions
 
