@@ -10,17 +10,13 @@
 package table_test
 
 import (
-	"context"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
-
-type scopedAction = actions.Scoped[table.Key, table.Action]
 
 var _ = Describe("Writer", func() {
 	// seed creates a 2x2 table named "test" with cells a,b across row 0 and
@@ -106,17 +102,15 @@ var _ = Describe("Writer", func() {
 
 		It("Should notify the action observer once per Dispatch with monotonic seq", func(ctx SpecContext) {
 			s := seed(ctx)
-			var received []scopedAction
-			disconnect := svc.OnAction(func(_ context.Context, sa scopedAction) {
-				received = append(received, sa)
-			})
-			defer disconnect()
+			rec := &Recorder[table.Key, table.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
 				table.NewRenameAction(table.RenamePayload{Name: "first"}),
 			})).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-2", []table.Action{
 				table.NewRenameAction(table.RenamePayload{Name: "second"}),
 			})).To(Succeed())
+			received := rec.Snapshot()
 			Expect(received).To(HaveLen(2))
 			Expect(received[0].DispatchKey).To(Equal("dk-1"))
 			Expect(received[1].DispatchKey).To(Equal("dk-2"))

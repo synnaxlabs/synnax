@@ -1,0 +1,54 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "client/ts/src/framer"
+
+WriterCommand enum {
+    Open         = 0
+    Write        = 1
+    Commit       = 2
+    SetAuthority = 3
+
+    @doc value """
+        defines commands controlling the lifecycle of frame write operations in
+        the Synnax framer protocol. Writers follow a strict sequence:
+        Open → Write+ → Commit → Close.
+    """
+}
+
+IteratorCommand enum {
+    Open      = 0
+    Next      = 1
+    Prev      = 2
+    SeekFirst = 3
+    SeekLast  = 4
+    SeekLE    = 5
+    SeekGE    = 6
+    Valid     = 7
+    Error     = 8
+
+    @doc value """
+        defines commands driving an iterator's traversal of a time range.
+        Open initializes the iterator with the requested keys, bounds, and
+        chunk size; the seek commands position the cursor without yielding
+        data; Next/Prev advance through the range and emit data frames.
+    """
+}
+
+IteratorResponseVariant enum {
+    None = 0
+    Ack  = 1
+    Data = 2
+
+    @doc value """
+        distinguishes iterator response messages: Ack acknowledges a request
+        completion and carries the success boolean, while Data carries a
+        frame of telemetry produced by the iterator.
+    """
+}

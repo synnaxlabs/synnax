@@ -23,7 +23,6 @@ export * from "@/table/slice";
 export * from "@/table/Table";
 export * from "@/table/Toolbar";
 export * from "@/table/useCreate";
-export * from "@/table/useUpload";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

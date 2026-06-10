@@ -85,8 +85,6 @@ export { Diagram } from "@/vis/diagram";
 export { Eraser } from "@/vis/eraser";
 export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
-export { Measure } from "@/vis/measure";
-export { Rule } from "@/vis/rule";
 export { Value } from "@/vis/value";
 export { Workspace } from "@/workspace";
 export {

@@ -142,11 +142,13 @@ export const omit = <T, K extends keyof T>(obj: T, ...keys: K[]): Omit<T, K> => 
 };
 
 export interface NullishToEmpty {
-  (): z.ZodType<Unknown>;
+  (): z.ZodDefault<z.ZodType<Unknown, Unknown | null>>;
   <K extends z.ZodType<Key>, V extends z.ZodType>(
     key: K,
     value: V,
-  ): z.ZodType<Record<z.infer<K>, z.infer<V>>>;
+  ): z.ZodDefault<
+    z.ZodType<Record<z.infer<K>, z.infer<V>>, Record<z.infer<K>, z.input<V>> | null>
+  >;
 }
 
 /**

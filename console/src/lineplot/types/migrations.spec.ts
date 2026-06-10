@@ -7,16 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type lineplot } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import {
   anyStateZ,
-  fromWire,
   migrateSlice,
   migrateState,
   stateZ,
-  toWire,
   ZERO_ANNOTATIONS_STATE,
   ZERO_SLICE_STATE,
   ZERO_STATE,
@@ -26,6 +23,7 @@ import * as v1 from "@/lineplot/types/v1";
 import * as v2 from "@/lineplot/types/v2";
 import * as v3 from "@/lineplot/types/v3";
 import * as v4 from "@/lineplot/types/v4";
+import * as v5 from "@/lineplot/types/v5";
 
 describe("migrations", () => {
   describe("state", () => {
@@ -35,13 +33,46 @@ describe("migrations", () => {
       v2.ZERO_STATE,
       v3.ZERO_STATE,
       v4.ZERO_STATE,
+      v5.ZERO_STATE,
     ];
     STATES.forEach((state) => {
       it(`should migrate state from ${state.version} to latest`, () => {
-        expect(migrateState(state)).toEqual(ZERO_STATE);
+        const migrated = migrateState(state);
+        expect(migrated.version).toBe(ZERO_STATE.version);
+        expect(migrated.selectedRules).toEqual([]);
+        expect(migrated.viewport).toBeDefined();
+        expect(migrated.toolbar).toBeDefined();
       });
     });
+
+    it("should park v4 body into pendingUpload when remoteCreated is false", () => {
+      const migrated = migrateState({ ...v4.ZERO_STATE, remoteCreated: false });
+      expect(migrated.pendingUpload).toBeDefined();
+      expect(migrated.pendingUpload?.title).toBeDefined();
+      expect(migrated.pendingUpload?.legend).toBeDefined();
+      expect(migrated.pendingUpload?.axes).toBeDefined();
+    });
+
+    it("should leave pendingUpload undefined when remoteCreated is true", () => {
+      const migrated = migrateState({ ...v4.ZERO_STATE, remoteCreated: true });
+      expect(migrated.pendingUpload).toBeUndefined();
+    });
+
+    it("should lift selected rules into selectedRules on v4 to v5 migration", () => {
+      const state: v4.State = {
+        ...v4.ZERO_STATE,
+        remoteCreated: true,
+        rules: [
+          { ...v0.ZERO_RULE_STATE, key: "r1", selected: true },
+          { ...v0.ZERO_RULE_STATE, key: "r2", selected: false },
+          { ...v0.ZERO_RULE_STATE, key: "r3", selected: true },
+        ],
+      };
+      const migrated = migrateState(state);
+      expect(migrated.selectedRules).toEqual(["r1", "r3"]);
+    });
   });
+
   describe("slice", () => {
     const STATES = [
       v0.ZERO_SLICE_STATE,
@@ -49,46 +80,26 @@ describe("migrations", () => {
       v2.ZERO_SLICE_STATE,
       v3.ZERO_SLICE_STATE,
       v4.ZERO_SLICE_STATE,
+      v5.ZERO_SLICE_STATE,
     ];
     STATES.forEach((state) => {
       it(`should migrate slice from ${state.version} to latest`, () => {
-        expect(migrateSlice(state)).toEqual(ZERO_SLICE_STATE);
+        const migrated = migrateSlice(state);
+        expect(migrated.version).toBe(ZERO_SLICE_STATE.version);
+        expect(migrated.plots).toEqual({});
       });
     });
   });
+
   describe("v4 annotations backward compatibility", () => {
     it("should fill annotations with default when absent from a persisted v4 state", () => {
-      const { annotations: _omit, ...persisted } = ZERO_STATE;
-      expect(stateZ.parse(persisted).annotations).toEqual(ZERO_ANNOTATIONS_STATE);
+      const { annotations: _omit, ...persisted } = v4.ZERO_STATE;
+      expect(v4.stateZ.parse(persisted).annotations).toEqual(ZERO_ANNOTATIONS_STATE);
     });
-    it("should load a persisted v4 state without annotations via anyStateZ", () => {
-      const { annotations: _omit, ...persisted } = ZERO_STATE;
-      expect(anyStateZ.parse(persisted)).toEqual(ZERO_STATE);
-    });
-  });
-  describe("wire projection", () => {
-    it("should drop UI-only fields when projecting a State to the server body", () => {
-      const wire = toWire(ZERO_STATE);
-      expect(wire).toEqual({
-        title: ZERO_STATE.title,
-        legend: ZERO_STATE.legend,
-        channels: ZERO_STATE.channels,
-        ranges: ZERO_STATE.ranges,
-        axes: ZERO_STATE.axes.axes,
-        lines: ZERO_STATE.lines,
-        rules: ZERO_STATE.rules,
-      });
-      expect(wire).not.toHaveProperty("key");
-      expect(wire).not.toHaveProperty("version");
-      expect(wire).not.toHaveProperty("annotations");
-    });
-    it("should hydrate a server body into a remote-created State", () => {
-      const lp: lineplot.LinePlot = { ...toWire(ZERO_STATE), key: "plot-1", name: "n" };
-      expect(fromWire(lp)).toEqual({
-        ...ZERO_STATE,
-        key: "plot-1",
-        remoteCreated: true,
-      });
+
+    it("should load a persisted v5 state via anyStateZ", () => {
+      expect(stateZ.parse(ZERO_STATE)).toEqual(ZERO_STATE);
+      expect(anyStateZ.parse(ZERO_STATE)).toEqual(ZERO_STATE);
     });
   });
 });

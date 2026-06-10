@@ -9,19 +9,18 @@
 
 import { lineplot } from "@synnaxlabs/client";
 import { Access, LinePlot as PLinePlot } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { LinePlot } from "@/lineplot";
 import { Palette } from "@/palette";
 
 const CreateCommand: Palette.Command = ({ placeLayout, ...listProps }) => {
-  const handleSelect = useCallback(() => placeLayout(LinePlot.create()), [placeLayout]);
+  const create = LinePlot.useCreate({});
   return (
     <Palette.CommandListItem
       {...listProps}
       name="Create a line plot"
       icon={<PLinePlot.CreateIcon />}
-      onSelect={handleSelect}
+      onSelect={create}
     />
   );
 };

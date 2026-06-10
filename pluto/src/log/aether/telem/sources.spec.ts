@@ -723,23 +723,23 @@ describe("StreamMultiChannelLog", () => {
       expect(log.value()).toHaveLength(3);
 
       // Add channel B — this restarts the stream. The mock's stream() will
-      // call c.streamHandler again with a seed. Simulate the seed containing
+      // call c.streamHandler again with an initial batch. Simulate the batch containing
       // the existing cache data for channel A.
       c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
-        // Simulate the seed: channel A has cached data we already consumed.
-        const seedA = new Series({ data: new Float32Array([1, 2, 3]) });
-        handler(new Map([[c.channelA.key, new MultiSeries([seedA])]]));
+        // Simulate the initial batch: channel A has cached data we already consumed.
+        const initialA = new Series({ data: new Float32Array([1, 2, 3]) });
+        handler(new Map([[c.channelA.key, new MultiSeries([initialA])]]));
       });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
-      // Channel A entries should NOT be duplicated (skipSeed should have fired)
+      // Channel A entries should NOT be duplicated (skipInitialBatch should have fired)
       const entries = log.value();
       const channelAEntries = entries.filter((e) => e.channelKey === c.channelA.key);
       expect(channelAEntries).toHaveLength(3);
     });
 
-    it("should skip seed data for newly-added channels on restart", async () => {
+    it("should skip the initial batch for newly-added channels on restart", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
         timeSpan: TimeSpan.seconds(30),
@@ -751,22 +751,22 @@ describe("StreamMultiChannelLog", () => {
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
       expect(log.value()).toHaveLength(1);
 
-      // Add channel B. Simulate the seed delivering cached data for channel B
+      // Add channel B. Simulate the initial batch delivering cached data for channel B
       // that was accumulated by another component — we should NOT dump it.
       c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
-        const seedB = new Series({ data: new Float32Array([10, 20, 30]) });
-        handler(new Map([[c.channelB.key, new MultiSeries([seedB])]]));
+        const initialB = new Series({ data: new Float32Array([10, 20, 30]) });
+        handler(new Map([[c.channelB.key, new MultiSeries([initialB])]]));
       });
       log.setChannels([c.channelA.key, c.channelB.key]);
       await waitForResolve(log);
 
-      // Channel B seed data should be skipped — only channel A's entry remains
+      // Channel B initial-batch data should be skipped — only channel A's entry remains
       const entries = log.value();
       expect(entries).toHaveLength(1);
       expect(entries[0].channelKey).toBe(c.channelA.key);
     });
 
-    it("should accept new data after skipping the seed", async () => {
+    it("should accept new data after skipping the initial batch", async () => {
       const props: StreamMultiChannelLogProps = {
         channels: [c.channelA.key],
         timeSpan: TimeSpan.seconds(30),
@@ -777,14 +777,14 @@ describe("StreamMultiChannelLog", () => {
       const series = new Series({ data: new Float32Array([1]) });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
 
-      // Restart with channel B added; seed is skipped
+      // Restart with channel B added; the initial batch is skipped
       c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
-        const seedA = new Series({ data: new Float32Array([1]) });
-        const seedB = new Series({ data: new Float32Array([10]) });
+        const initialA = new Series({ data: new Float32Array([1]) });
+        const initialB = new Series({ data: new Float32Array([10]) });
         handler(
           new Map([
-            [c.channelA.key, new MultiSeries([seedA])],
-            [c.channelB.key, new MultiSeries([seedB])],
+            [c.channelA.key, new MultiSeries([initialA])],
+            [c.channelB.key, new MultiSeries([initialB])],
           ]),
         );
       });
@@ -792,7 +792,7 @@ describe("StreamMultiChannelLog", () => {
       await waitForResolve(log);
       expect(log.value()).toHaveLength(1); // only the original entry
 
-      // Now new data arrives AFTER the seed — should be accepted normally
+      // Now new data arrives AFTER the initial batch — should be accepted normally
       const newA = new Series({ data: new Float32Array([2]) });
       const newB = new Series({ data: new Float32Array([20]) });
       c.streamHandler?.(
@@ -809,11 +809,11 @@ describe("StreamMultiChannelLog", () => {
       expect(entries[2].value).toBe("20");
     });
 
-    it("should allow seed data on initial start (not a restart)", async () => {
-      // Simulate a client that seeds data on the first stream() call
+    it("should allow initial-batch data on first start (not a restart)", async () => {
+      // Simulate a client that delivers an initial batch on the first stream() call
       c.streamF = vi.fn((handler: client.StreamHandler, _keys: channel.Key[]) => {
-        const seed = new Series({ data: new Float32Array([10, 20]) });
-        handler(new Map([[c.channelA.key, new MultiSeries([seed])]]));
+        const initial = new Series({ data: new Float32Array([10, 20]) });
+        handler(new Map([[c.channelA.key, new MultiSeries([initial])]]));
       });
 
       const props: StreamMultiChannelLogProps = {
@@ -823,7 +823,7 @@ describe("StreamMultiChannelLog", () => {
       const log = new StreamMultiChannelLog(c, props);
       await waitForResolve(log);
 
-      // Seed data should be accepted on initial start
+      // The initial batch should be accepted on first start
       const entries = log.value();
       expect(entries).toHaveLength(2);
       expect(entries[0].value).toBe("10");
