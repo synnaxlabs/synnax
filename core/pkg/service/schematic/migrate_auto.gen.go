@@ -13,13 +13,47 @@ package schematic
 
 import (
 	"context"
-	schematicv55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
+	schematicv56 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v56"
+	spatial "github.com/synnaxlabs/x/spatial"
 )
 
-func AutoMigrateSchematic(_ context.Context, old schematicv55.Schematic) (Schematic, error) {
+func AutoMigrateSchematic(ctx context.Context, old schematicv56.Schematic) (Schematic, error) {
+	nodes := make([]Node, len(old.Nodes))
+	for i, v := range old.Nodes {
+		var err error
+		if nodes[i], err = AutoMigrateNode(ctx, v); err != nil {
+			return Schematic{}, err
+		}
+	}
+	edges := make([]Edge, len(old.Edges))
+	for i, v := range old.Edges {
+		var err error
+		if edges[i], err = AutoMigrateEdge(ctx, v); err != nil {
+			return Schematic{}, err
+		}
+	}
 	return Schematic{
 		Key:      Key(old.Key),
 		Name:     old.Name,
 		Snapshot: old.Snapshot,
+		Nodes:    nodes,
+		Edges:    edges,
+	}, nil
+}
+
+func AutoMigrateNode(_ context.Context, old schematicv56.Node) (Node, error) {
+	return Node{
+		Key:      old.Key,
+		Position: spatial.XY(old.Position),
+		ZIndex:   old.ZIndex,
+		Measured: spatial.Dimensions(old.Measured),
+	}, nil
+}
+
+func AutoMigrateEdge(_ context.Context, old schematicv56.Edge) (Edge, error) {
+	return Edge{
+		Key:    old.Key,
+		Source: Handle(old.Source),
+		Target: Handle(old.Target),
 	}, nil
 }
