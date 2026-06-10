@@ -7,14 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/panel/Mosaic.css";
+
 import { type ontology, panel } from "@synnaxlabs/client";
-import { Errors, Panel as Base, Tabs } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import {
+  Breadcrumb,
+  Button,
+  Dialog,
+  Errors,
+  Icon,
+  type Menu,
+  Nav,
+  Panel as Base,
+  Tabs,
+} from "@synnaxlabs/pluto";
+import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { SELECTABLES } from "@/layouts/Selector";
+import { ContextMenu } from "@/panel/ContextMenu";
+import { TabName } from "@/panel/TabName";
 import { Selector } from "@/selector";
 
 export interface MosaicProps {
@@ -36,6 +49,86 @@ interface RendererContentProps {
   visible: boolean;
 }
 
+// FocusFrame wraps a tab's content in the fullscreen-focus dialog (Ctrl+L). The
+// frame is always mounted (visibility-toggled) so focusing never remounts the
+// content; the bar's children are conditionally rendered to keep the unfocused
+// DOM footprint small.
+interface FocusFrameProps extends PropsWithChildren {
+  tabKey: string;
+  type: string;
+  layoutKey: string;
+  view?: panel.TabView;
+}
+
+const FocusFrame = ({
+  tabKey,
+  type,
+  layoutKey,
+  view,
+  children,
+}: FocusFrameProps): ReactElement => {
+  const dispatch = useDispatch();
+  const { windowKey, focused: focusedKey } = Layout.useSelectFocused();
+  const renderers = Layout.useRenderers();
+  const focused = focusedKey === tabKey;
+  const handleClose = useCallback(() => {
+    if (windowKey != null) dispatch(Layout.setFocus({ windowKey, key: null }));
+  }, [dispatch, windowKey]);
+  return (
+    <Dialog.Frame
+      onVisibleChange={handleClose}
+      visible={focused}
+      full
+      modalPosition="slammed"
+      variant="modal"
+      background={focused ? 0 : undefined}
+    >
+      <Dialog.Dialog passthrough full className={CSS.B("panel-focus")}>
+        <Nav.Bar
+          location="top"
+          size="5rem"
+          bordered
+          className={CSS(
+            CSS.B("panel-focus-bar"),
+            focused && CSS.BM("panel-focus-bar", "focused"),
+          )}
+        >
+          {focused && (
+            <>
+              <Nav.Bar.Start>
+                <Breadcrumb.Breadcrumb>
+                  <Breadcrumb.Segment>
+                    {renderers[type]?.icon}
+                    {view != null ? (
+                      (view.name ?? "")
+                    ) : (
+                      <TabName
+                        type={type}
+                        nameKey={layoutKey}
+                        tabKey={tabKey}
+                        name=""
+                        level="h5"
+                        selected={false}
+                        editable={false}
+                      />
+                    )}
+                  </Breadcrumb.Segment>
+                </Breadcrumb.Breadcrumb>
+              </Nav.Bar.Start>
+              <Nav.Bar.End pack>
+                <Button.Button onClick={handleClose} size="small" textColor={9}>
+                  <Icon.Subtract />
+                </Button.Button>
+              </Nav.Bar.End>
+            </>
+          )}
+        </Nav.Bar>
+        {children}
+      </Dialog.Dialog>
+    </Dialog.Frame>
+  );
+};
+
 // RendererContent mounts the layout renderer registered for the content's type, keyed
 // by layoutKey — the resource key for a resource tab, the tab key for a view tab.
 // Resource renderers self-load their state from core; view renderers read their args
@@ -51,8 +144,13 @@ const RendererContent = ({
 }: RendererContentProps): ReactElement => {
   const Renderer = Layout.useRenderer(type);
   const { dispatch } = Base.useDispatch();
-  const { layoutKey: activeTabKey, blurred } = Layout.useSelectActiveMosaicTabState();
-  const active = (activeTabKey != null ? tabKey === activeTabKey : visible) && !blurred;
+  const { tabKey: activeTabKey, blurred } = Layout.useSelectActiveTabState();
+  const { focused: focusedKey } = Layout.useSelectFocused();
+  const isFocused = focusedKey === tabKey;
+  const active =
+    (activeTabKey != null ? tabKey === activeTabKey : visible) &&
+    !blurred &&
+    (focusedKey == null || isFocused);
   const handleClose = useCallback(
     () => dispatch({ key: panelKey, actions: [panel.removeTab({ key: tabKey })] }),
     [dispatch, panelKey, tabKey],
@@ -72,18 +170,29 @@ const RendererContent = ({
                   panel.setTabView({ key: tabKey, view: { ...view, ...patch } }),
                 ],
               }),
+            resolve: (resolved) =>
+              dispatch({
+                key: panelKey,
+                actions: [
+                  "resource" in resolved
+                    ? panel.setTabResource({ key: tabKey, resource: resolved.resource })
+                    : panel.setTabView({ key: tabKey, view: resolved.view }),
+                ],
+              }),
           },
     [view, tabKey, panelKey, dispatch],
   );
   const rendered = (
-    <Renderer
-      key={layoutKey}
-      layoutKey={layoutKey}
-      onClose={handleClose}
-      visible={visible}
-      focused={false}
-      active={active}
-    />
+    <FocusFrame tabKey={tabKey} type={type} layoutKey={layoutKey} view={view}>
+      <Renderer
+        key={layoutKey}
+        layoutKey={layoutKey}
+        onClose={handleClose}
+        visible={visible || isFocused}
+        focused={isFocused}
+        active={active}
+      />
+    </FocusFrame>
   );
   return (
     <Errors.SuspenseBoundary>
@@ -109,9 +218,7 @@ interface SelectorContentProps {
 // such as task forms — keeping the tab's identity and position.
 const SelectorContent = ({ panelKey, tabKey }: SelectorContentProps): ReactElement => {
   const { dispatch } = Base.useDispatch();
-  // A stable key for the resource the selector may create, so re-renders don't churn
-  // it. onResolved hands back the created content (resource or view).
-  const resourceKey = useMemo(() => uuid.create(), [tabKey]);
+  const selectables = Selector.useSelectables();
   const handleResolved = useCallback(
     (resolved: Selector.ResolvedContent) =>
       dispatch({
@@ -126,9 +233,8 @@ const SelectorContent = ({ panelKey, tabKey }: SelectorContentProps): ReactEleme
   );
   return (
     <Selector.Selector
-      layoutKey={resourceKey}
       text="Select a Component Type"
-      selectables={SELECTABLES}
+      selectables={selectables}
       onResolved={handleResolved}
     />
   );
@@ -214,6 +320,7 @@ const ViewTabName = ({
 export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement => {
   const dispatch = useDispatch();
   const activeTab = Layout.useSelectActiveTabKey();
+  const recentTabs = Layout.useSelectActiveTabHistory();
   const renderers = Layout.useRenderers();
   const unsaved = Layout.useSelectTabUnsavedChanges();
   const handleSelect = useCallback(
@@ -243,12 +350,16 @@ export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement => {
   // renderTabName resolves a tab's display name from its content union. A resource tab
   // resolves its name through the backing resource's name hook; a view tab from the
   // view's own name; an empty tab shows a placeholder until the user picks a component.
+  const renderContextMenu = useCallback(
+    (props: Menu.ContextMenuMenuProps) => (
+      <ContextMenu {...props} panelKey={panelKey} />
+    ),
+    [panelKey],
+  );
   const renderTabName = useCallback(
     ({ resource, view, ...props }: Base.MosaicTabNameProps): ReactElement => {
       if (resource != null)
-        return (
-          <Layout.TabName type={resource.type} nameKey={resource.key} {...props} />
-        );
+        return <TabName type={resource.type} nameKey={resource.key} {...props} />;
       if (view != null)
         return <ViewTabName panelKey={panelKey} view={view} {...props} />;
       return <Tabs.DefaultName {...props} name={NEW_TAB_NAME} />;
@@ -259,9 +370,11 @@ export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement => {
     <Base.Mosaic
       panelKey={panelKey}
       activeTab={activeTab ?? undefined}
+      recentTabs={recentTabs}
       onSelect={handleSelect}
       tabName={renderTabName}
       tabInfo={tabInfo}
+      contextMenu={renderContextMenu}
       rounded={1}
       bordered
       borderColor={5}

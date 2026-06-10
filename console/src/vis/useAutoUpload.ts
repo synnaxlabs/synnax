@@ -23,7 +23,10 @@ export interface ClearPendingUploadPayload {
 
 export interface UploadFields {
   key: string;
-  name: string;
+  // name is the hosting layout's name, when the upload is hosted by a window or
+  // modal layout. Panel tabs have no layout-slice entry, so the staged body's own
+  // name is used as-is.
+  name?: string;
   project?: project.Key;
 }
 
@@ -79,8 +82,14 @@ export const createUseAutoUpload =
     useEffect(() => {
       if (pendingUpload == null || startedRef.current) return;
       startedRef.current = true;
-      const name = Layout.selectRequiredName(store.getState(), key);
-      create(toCreateParams(pendingUpload, { key, name, project }));
+      const name = Layout.select(store.getState(), key)?.name;
+      create(
+        toCreateParams(pendingUpload, {
+          key,
+          project,
+          ...(name != null ? { name } : {}),
+        }),
+      );
     }, [pendingUpload, project, key, create, toCreateParams]);
     return pendingUpload == null;
   };

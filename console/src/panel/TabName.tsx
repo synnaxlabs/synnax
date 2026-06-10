@@ -20,9 +20,6 @@ export interface TabNameProps extends Tabs.NameProps {
   // nameKey is the key the name is resolved and renamed by — typically the backing
   // resource's key, which may differ from the tab's identity (tabKey).
   nameKey: string;
-  // onNameChange, when set, receives the resolved name whenever it changes, so
-  // consumers can mirror it into another store (e.g. the layout slice).
-  onNameChange?: (name: string) => void;
 }
 
 interface ResolvedTabNameProps extends Omit<TabNameProps, "type"> {
@@ -35,17 +32,10 @@ const ResolvedTabName = ({
   tabKey,
   name: initialName,
   onRename: externalRename,
-  onNameChange,
   ...rest
 }: ResolvedTabNameProps): ReactElement => {
   const [name, setName] = useState(initialName);
-  const handleResolved = useCallback(
-    (next: string) => {
-      setName(next);
-      onNameChange?.(next);
-    },
-    [onNameChange],
-  );
+  const handleResolved = useCallback((next: string) => setName(next), []);
   const { onRename, retrieve } = useName(nameKey, handleResolved);
   useEffect(() => {
     retrieve();

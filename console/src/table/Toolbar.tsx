@@ -31,7 +31,6 @@ import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Tb } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 import { useExport } from "@/table/export";
 import {
   useSelectEditable,
@@ -47,7 +46,7 @@ export interface ToolbarProps {
 
 const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   Base.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const name = Base.useSelectName({ key: layoutKey });
   const editable = useSelectEditable(layoutKey);
   const selectedCellKeys = useSelectSelectedCellKeys(layoutKey);
   const cellsByKey = Base.useSelectCells({

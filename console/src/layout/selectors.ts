@@ -62,12 +62,6 @@ export const selectArgs = <A>(state: StoreState, key: string): A => {
 export const useSelectArgs = <A>(key: string): A =>
   useMemoSelect((state: StoreState) => selectArgs(state, key), [key]);
 
-export const selectAltKey = (state: StoreState, key: string): string | undefined =>
-  selectSliceState(state).keyToAltKey[key];
-
-export const useSelectAltKey = (key: string): string | undefined =>
-  useMemoSelect((state: StoreState) => selectAltKey(state, key), [key]);
-
 const selectName = (state: StoreState, key: string): string | undefined =>
   select(state, key)?.name;
 
@@ -228,42 +222,33 @@ export const useSelectNavDrawer = (
     [loc],
   );
 
-export interface SelectActiveMosaicTabState {
-  layoutKey: string | null;
+// SelectActiveTabState is the window's active panel-tab cursor. tabKey is the
+// PANEL TAB key (not a layout/resource key — for a resource tab the two differ);
+// blurred reports whether a modal is covering the window, in which case keyboard
+// input should not reach the tab.
+export interface SelectActiveTabState {
+  tabKey: string | null;
   blurred: boolean;
 }
 
-export const selectActiveMosaicTabState = (
+export const selectActiveTabState = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
-): SelectActiveMosaicTabState => {
+): SelectActiveTabState => {
   const winKey = selectWindowKey(state, windowKey);
-  if (winKey == null) return { layoutKey: null, blurred: false };
+  if (winKey == null) return { tabKey: null, blurred: false };
   const sliceState = selectSliceState(state);
   const hasModals = Object.values(sliceState.layouts).some(
     (l) => l.location === "modal" && l.windowKey === winKey,
   );
   return {
-    layoutKey: sliceState.windowPanels[winKey]?.activeTab ?? null,
+    tabKey: sliceState.windowPanels[winKey]?.activeTab ?? null,
     blurred: hasModals,
   };
 };
 
-export const selectActiveMosaicTabKeyAndNotBlurred = (
-  state: StoreState & Drift.StoreState,
-  windowKey?: string,
-): string | null => {
-  const active = selectActiveMosaicTabState(state, windowKey);
-  if (active.layoutKey == null) return null;
-  if (active.blurred) return null;
-  return active.layoutKey;
-};
-
-export const useSelectActiveMosaicTabKeyAndNotBlurred = (): string | null =>
-  useMemoSelect(selectActiveMosaicTabKeyAndNotBlurred, []);
-
-export const useSelectActiveMosaicTabState = (): SelectActiveMosaicTabState =>
-  useMemoSelect(selectActiveMosaicTabState, []);
+export const useSelectActiveTabState = (): SelectActiveTabState =>
+  useMemoSelect(selectActiveTabState, []);
 
 export const selectHauling = (state: StoreState): Haul.DraggingState =>
   selectSliceState(state).hauling;
@@ -299,6 +284,19 @@ export const selectActivePanelKey = (
 export const useSelectActivePanelKey = (): string | null =>
   useMemoSelect(selectActivePanelKey, []);
 
+const EMPTY_HISTORY: string[] = [];
+
+export const selectActiveTabHistory = (
+  state: StoreState & Drift.StoreState,
+  windowKey?: string,
+): string[] => {
+  const wp = selectWindowPanels(state, windowKey);
+  return wp?.tabHistory ?? EMPTY_HISTORY;
+};
+
+export const useSelectActiveTabHistory = (): string[] =>
+  useMemoSelect(selectActiveTabHistory, []);
+
 export const selectActiveTabKey = (
   state: StoreState & Drift.StoreState,
   windowKey?: string,
@@ -310,9 +308,8 @@ export const selectActiveTabKey = (
 export const useSelectActiveTabKey = (): string | null =>
   useMemoSelect(selectActiveTabKey, []);
 
-export const selectTabUnsavedChanges = (
-  state: StoreState,
-): Record<string, boolean> => selectSliceState(state).tabUnsavedChanges;
+export const selectTabUnsavedChanges = (state: StoreState): Record<string, boolean> =>
+  selectSliceState(state).tabUnsavedChanges;
 
 export const useSelectTabUnsavedChanges = (): Record<string, boolean> =>
   useMemoSelect(selectTabUnsavedChanges, []);

@@ -10,7 +10,7 @@
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { ontology, panel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Flux, Panel, type Pluto } from "@synnaxlabs/pluto";
+import { Flux, Panel, type Pluto, Status } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { type Dispatch, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -41,23 +41,10 @@ export interface Placer<A = unknown> {
 }
 
 // activeLeafPath resolves the path-derived key of the leaf to insert into: the leaf
-// holding the active tab, falling back to the first leaf, then the root. Mirrors the
-// reducer's key scheme (root = 1, first child = 2k, last child = 2k + 1).
+// holding the active tab, falling back to the first leaf, then the root.
 const activeLeafPath = (root: panel.Node, activeTab: string | null): number => {
-  let firstLeaf: number | null = null;
-  const visit = (node: panel.Node | undefined | null, path: number): number | null => {
-    if (node == null) return null;
-    if (node.leaf != null) {
-      firstLeaf ??= path;
-      if (activeTab != null && node.leaf.tabs.some((t) => t.key === activeTab))
-        return path;
-      return null;
-    }
-    if (node.split != null)
-      return visit(node.split.first, path * 2) ?? visit(node.split.last, path * 2 + 1);
-    return null;
-  };
-  return visit(root, 1) ?? firstLeaf ?? 1;
+  const fromActive = activeTab != null ? panel.tabLeafPath(root, activeTab) : null;
+  return fromActive ?? panel.firstLeafPath(root) ?? panel.ROOT_PATH;
 };
 
 // tabFor builds the panel tab for a placed layout. A layout whose type is an ontology
@@ -96,6 +83,7 @@ export const usePlacer = <A = unknown>(): Placer<A> => {
   const store = useStore<RootState, RootAction>();
   const windowKey = useSelectWindowKey();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
+  const addStatus = Status.useAdder();
   const { dispatch: dispatchPanel } = Panel.useDispatch();
   return useCallback(
     (base) => {
@@ -106,26 +94,33 @@ export const usePlacer = <A = unknown>(): Placer<A> => {
       const full = { ...layout, windowKey, key };
       // Document content goes into the active panel. The active panel is read from
       // the session slice and its tree from the Flux cache, so no dependency on the
-      // panel module is needed. When no panel is active the content has no home yet
-      // (drafts handle that later); fall through to storing the layout.
+      // panel module is needed.
       if (layout.location === "mosaic") {
         const state = store.getState();
         const panelKey = selectActivePanelKey(state);
         const cached = panelKey != null ? fluxStore.panels.get(panelKey) : null;
-        if (panelKey != null && cached != null) {
-          const tab = tabFor(full);
-          const targetLeaf = activeLeafPath(cached.root, selectActiveTabKey(state));
-          dispatchPanel({
-            key: panelKey,
-            actions: [panel.insertTab({ tab, targetLeaf })],
+        if (panelKey == null || cached == null) {
+          // No active panel (or its tree has not loaded yet) means document content
+          // has nowhere to land. Surface the failure rather than storing a layout
+          // the session slice can never render.
+          addStatus({
+            variant: "warning",
+            message: `Cannot open ${full.name}: no active panel`,
           });
-          dispatch(setActiveTab({ windowKey, key: tab.key }));
           return { windowKey, key };
         }
+        const tab = tabFor(full);
+        const targetLeaf = activeLeafPath(cached.root, selectActiveTabKey(state));
+        dispatchPanel({
+          key: panelKey,
+          actions: [panel.insertTab({ tab, targetLeaf })],
+        });
+        dispatch(setActiveTab({ windowKey, key: tab.key }));
+        return { windowKey, key };
       }
       dispatch(place(full));
       return { windowKey, key };
     },
-    [dispatch, dispatchPanel, fluxStore, store, windowKey],
+    [dispatch, dispatchPanel, fluxStore, store, windowKey, addStatus],
   );
 };

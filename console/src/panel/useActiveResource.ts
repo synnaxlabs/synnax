@@ -7,29 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type panel, type Synnax } from "@synnaxlabs/client";
-import { Panel } from "@synnaxlabs/pluto";
+import { type ontology, panel } from "@synnaxlabs/client";
+import { Panel, type Pluto } from "@synnaxlabs/pluto";
 
 import { useSelectActivePanelKey, useSelectActiveTabKey } from "@/layout/selectors";
-
-const firstTab = (node?: panel.Node | null): panel.Tab | null => {
-  if (node == null) return null;
-  if (node.leaf != null) return node.leaf.tabs[0] ?? null;
-  if (node.split != null)
-    return firstTab(node.split.first) ?? firstTab(node.split.last);
-  return null;
-};
-
-const findTab = (
-  node: panel.Node | undefined | null,
-  key: string,
-): panel.Tab | null => {
-  if (node == null) return null;
-  if (node.leaf != null) return node.leaf.tabs.find((t) => t.key === key) ?? null;
-  if (node.split != null)
-    return findTab(node.split.first, key) ?? findTab(node.split.last, key);
-  return null;
-};
 
 // activeTab resolves the tab the user is currently working in: the explicitly
 // selected tab when one is set, otherwise the panel's first tab (mirroring the
@@ -38,8 +19,8 @@ const activeTab = (
   root: panel.Node | undefined,
   selected: string | null,
 ): panel.Tab | null => {
-  const tab = selected != null ? findTab(root, selected) : null;
-  return tab ?? firstTab(root);
+  const tab = selected != null ? panel.findTab(root, selected) : null;
+  return tab ?? panel.firstTab(root);
 };
 
 // useActiveResource resolves the ontology resource displayed by the active tab of
@@ -57,15 +38,17 @@ export const useActiveResource = (): ontology.ID | null => {
 };
 
 // getActiveResource is the imperative form of useActiveResource for callers outside
-// React render (e.g. ontology service handlers). It fetches the active panel from the
-// server, so prefer useActiveResource where a hook is usable. Returns null when there
-// is no active panel or the active tab is a view rather than a resource.
-export const getActiveResource = async (
-  client: Synnax,
+// React render (e.g. ontology service handlers). It reads the active panel from the
+// Flux cache; prefer useActiveResource where a hook is usable. Returns null when
+// there is no active panel (or it has not loaded) or the active tab is a view
+// rather than a resource.
+export const getActiveResource = (
+  fluxStore: Pluto.FluxStore,
   panelKey: panel.Key | null,
   selectedTab: string | null,
-): Promise<ontology.ID | null> => {
+): ontology.ID | null => {
   if (panelKey == null) return null;
-  const p = await client.panels.retrieve(panelKey);
+  const p = fluxStore.panels.get(panelKey);
+  if (p == null) return null;
   return activeTab(p.root, selectedTab)?.resource ?? null;
 };

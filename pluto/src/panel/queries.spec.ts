@@ -100,37 +100,6 @@ describe("Panel queries", () => {
     });
   });
 
-  describe("useForm", () => {
-    it("should create a new panel on submit", async () => {
-      const { result } = renderHook(() => Panel.useForm({ query: {} }), { wrapper });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "form-created");
-      });
-      await act(async () => {
-        result.current.save();
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const key = result.current.form.value().key;
-      expect(key).toBeTruthy();
-      const fetched = await client.panels.retrieve(key as string);
-      expect(fetched.name).toEqual("form-created");
-    });
-
-    it("should populate from an existing panel when a key is provided", async () => {
-      const target = await client.panels.create({ name: "existing-form" });
-      const { result } = renderHook(
-        () => Panel.useForm({ query: { key: target.key } }),
-        { wrapper },
-      );
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.value().name).toEqual("existing-form");
-      expect(result.current.form.value().key).toEqual(target.key);
-    });
-  });
-
   describe("reactive sync", () => {
     it("should propagate rename through the channel listener to useRetrieve", async () => {
       const target = await client.panels.create({ name: "reactive-before" });

@@ -9,25 +9,15 @@
 
 import "@/selector/Selector.css";
 
-import { type ontology, type panel } from "@synnaxlabs/client";
 import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Modals } from "@/modals";
 
-// ResolvedContent is what a selectable hands back when resolving into a panel tab: an
-// ontology-backed resource (for visualizations) or an inline view (for arg-driven
-// views such as task forms). The panel mosaic routes these to SetTabResource /
-// SetTabView respectively.
-export type ResolvedContent =
-  | { resource: ontology.ID }
-  | { view: panel.TabView };
+export type ResolvedContent = Layout.ResolvedContent;
 
 export interface SelectableProps {
-  layoutKey: string;
-  rename: Modals.PromptRename;
   onPlace: Layout.Placer;
   handleError: Status.ErrorHandler;
   // onResolved, when provided, switches selectables from placing a layout to resolving
@@ -42,20 +32,17 @@ export interface Selectable extends FC<SelectableProps> {
 }
 
 export interface SelectorProps {
-  layoutKey: string;
   text: string;
   selectables: Selectable[];
   onResolved?: (content: ResolvedContent) => void;
 }
 
 export const Selector = ({
-  layoutKey,
   selectables,
   text,
   onResolved,
 }: SelectorProps): ReactElement => {
   const place = Layout.usePlacer();
-  const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   return (
     <Eraser.Eraser>
@@ -80,8 +67,6 @@ export const Selector = ({
           {selectables.map((Selectable) => (
             <Selectable
               key={Selectable.type}
-              layoutKey={layoutKey}
-              rename={rename}
               onPlace={place}
               handleError={handleError}
               onResolved={onResolved}
@@ -93,13 +78,19 @@ export const Selector = ({
   );
 };
 
+// createSelector builds a layout renderer for a scoped picker view (e.g. the task-type
+// selector). Inside a panel view tab the picker resolves the chosen content into its
+// own tab through the RendererView; elsewhere it falls back to placing layouts.
 export const createSelector = (
   selectables: Selectable[],
   text: string,
 ): Layout.Renderer => {
-  const C: Layout.Renderer = (props) => (
-    <Selector {...props} selectables={selectables} text={text} />
-  );
+  const C: Layout.Renderer = () => {
+    const view = Layout.useRendererView();
+    return (
+      <Selector selectables={selectables} text={text} onResolved={view?.resolve} />
+    );
+  };
   C.displayName = "LayoutSelector";
   return C;
 };

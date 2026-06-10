@@ -9,7 +9,6 @@
 
 import { panel, type project } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
-import type z from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -122,18 +121,14 @@ export interface CreateParams extends panel.New {
   project?: project.Key;
 }
 
-export interface CreateOutput extends panel.Panel {
-  project?: project.Key;
-}
-
-// useCreate dispatches a panel create against the given project (or as a
-// project-less orphan when project is absent). The server parents the panel
-// to the project in the ontology, which is what drives project-scoped tab
-// listings.
+// useCreate dispatches a panel create against the given project (a project
+// panel) or, when project is absent, as a draft parented to the creating user.
+// The create is not optimistic: the server seeds the panel's initial tree
+// (panel.New has no root), so there is no complete record to stage locally.
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
-  CreateOutput
+  panel.Panel
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
@@ -141,7 +136,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const { project, ...rest } = data;
     const p = await client.panels.create(rest, project);
     store.panels.set(p.key, p);
-    return { ...p, project };
+    return p;
   },
 });
 
@@ -151,16 +146,16 @@ export interface RenameParams {
 }
 
 // Rename routes through Flux.createUpdate (not dispatch) because it has its own
-// REST endpoint and is the promotion-trigger gesture (draft → project panel),
-// which the writer handles transactionally on the server.
+// REST endpoint. Rename is also the intended draft → project promotion gesture;
+// the server-side reparent is not implemented yet (SY-4193 step 5).
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
-    await client.panels.rename(key, name);
     rollbacks.push(Flux.partialUpdate(store.panels, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, panel.ontologyID(key), name));
+    await client.panels.rename(key, name);
     return data;
   },
 });
@@ -192,29 +187,4 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   storeKey: FLUX_STORE_KEY,
   send: ({ client, key, actions, dispatchKey }) =>
     client.panels.dispatch(key, dispatchKey, actions),
-});
-
-export const formSchema = panel.panelZ.partial({ key: true, root: true });
-
-const INITIAL_VALUES: z.infer<typeof formSchema> = {
-  name: "",
-};
-
-export const useForm = Flux.createForm<
-  Partial<RetrieveQuery>,
-  typeof formSchema,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  schema: formSchema,
-  initialValues: INITIAL_VALUES,
-  retrieve: async ({ client, store, query: { key }, reset }) => {
-    if (key == null) return;
-    const res = await retrieveSingle({ client, store, query: { key } });
-    reset(res);
-  },
-  update: async ({ client, value, set }) => {
-    const res = await client.panels.create(value());
-    set("key", res.key);
-  },
 });

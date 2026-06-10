@@ -10,7 +10,6 @@
 import { type Layout } from "@/layout";
 import { Main, MAIN_LAYOUT_TYPE } from "@/layouts/Main";
 import { Mosaic, MOSAIC_LAYOUT_TYPE } from "@/layouts/Mosaic";
-import { Selector, SELECTOR_LAYOUT_TYPE } from "@/layouts/Selector";
 
 export * from "@/layouts/nav";
 export * from "@/layouts/Notifications";
@@ -18,6 +17,5 @@ export * from "@/layouts/useTriggers";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [MAIN_LAYOUT_TYPE]: Main,
-  [SELECTOR_LAYOUT_TYPE]: Selector,
   [MOSAIC_LAYOUT_TYPE]: Mosaic,
 };

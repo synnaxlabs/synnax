@@ -51,6 +51,7 @@ import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
+import { Selector } from "@/selector";
 import { SERVICES } from "@/services";
 import { Status } from "@/status";
 import { store } from "@/store";
@@ -77,17 +78,28 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Table.LAYOUTS,
   ...User.LAYOUTS,
   ...Version.LAYOUTS,
-  ...Vis.LAYOUTS,
   ...Project.LAYOUTS,
   ...Arc.LAYOUTS,
   ...Status.LAYOUTS,
   ...Access.LAYOUTS,
 };
 
-const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {
-  ...Schematic.CONTEXT_MENUS,
-  ...LinePlot.CONTEXT_MENUS,
-};
+// CONTEXT_MENU_RENDERERS lets a content type replace its panel tab's context
+// menu wholesale (Panel.ContextMenu falls back to the standard tab items). No
+// type currently registers one; the legacy schematic/lineplot entries were
+// trivial wrappers around the shared default items.
+const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {};
+
+// SELECTABLES is the app-wide "create a component" registry, served to the panel
+// empty-tab selector and the create affordances through Selector.Provider.
+const SELECTABLES: Selector.Selectable[] = [
+  ...LinePlot.SELECTABLES,
+  ...Schematic.SELECTABLES,
+  ...Log.SELECTABLES,
+  ...Table.SELECTABLES,
+  ...Hardware.SELECTABLES,
+  ...Arc.SELECTABLES,
+];
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
@@ -172,17 +184,19 @@ export const Console = (): ReactElement => (
     <Provider store={store}>
       <Errors.OverlayWithStore>
         <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-          <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-            <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
-              <Export.ExtractorsProvider extractors={EXTRACTORS}>
-                <Ontology.ServicesProvider services={SERVICES}>
-                  <Palette.CommandProvider commands={COMMANDS}>
-                    <MainUnderContext />
-                  </Palette.CommandProvider>
-                </Ontology.ServicesProvider>
-              </Export.ExtractorsProvider>
-            </Import.FileIngestersProvider>
-          </Layout.ContextMenuProvider>
+          <Selector.Provider value={SELECTABLES}>
+            <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+              <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
+                <Export.ExtractorsProvider extractors={EXTRACTORS}>
+                  <Ontology.ServicesProvider services={SERVICES}>
+                    <Palette.CommandProvider commands={COMMANDS}>
+                      <MainUnderContext />
+                    </Palette.CommandProvider>
+                  </Ontology.ServicesProvider>
+                </Export.ExtractorsProvider>
+              </Import.FileIngestersProvider>
+            </Layout.ContextMenuProvider>
+          </Selector.Provider>
         </Layout.RendererProvider>
       </Errors.OverlayWithStore>
     </Provider>

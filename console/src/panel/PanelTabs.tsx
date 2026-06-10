@@ -26,6 +26,7 @@ import { useDispatch } from "react-redux";
 import { ContextMenu as CMenu } from "@/components";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
+import { useCreatePanel } from "@/panel/useCreateTab";
 import { Project } from "@/project";
 
 interface PanelContextMenuProps extends Menu.ContextMenuMenuProps {
@@ -82,18 +83,19 @@ const PanelTabName = ({ tabKey, name, ...rest }: Tabs.NameProps): ReactElement =
   return <Tabs.DefaultName tabKey={tabKey} name={data?.name ?? name} {...rest} />;
 };
 
-// PanelTabs renders the project's panel tab strip in the top nav. Source of
-// truth is Flux (panel.useList); per-window active panel state lives in the
-// Redux layout slice. When there is no active project, the strip renders
-// nothing — the welcome / project-picker handles that case at the viewport
-// level.
+// PanelTabs renders the panel tab strip in the top nav. Source of truth is Flux
+// (panel.useList); per-window active panel state lives in the Redux layout
+// slice. The list is currently unscoped — project / per-user draft scoping in
+// the listing query lands with SY-4193 step 5. When there is no active project,
+// the strip renders nothing — the welcome / project-picker handles that case at
+// the viewport level.
 export const PanelTabs = (): ReactElement | null => {
   const dispatch = useDispatch();
   const windowKey = Drift.useSelectWindowKey();
   const activeProjectKey = Project.useSelectActiveKey();
   const activeKey = Layout.useSelectActivePanelKey();
   const { data, retrieve, getItem } = PlutoPanel.useList();
-  const { updateAsync: createAsync } = PlutoPanel.useCreate();
+  const createPanel = useCreatePanel();
   const { update: rename } = PlutoPanel.useRename();
   useEffect(() => retrieve({}), [retrieve]);
 
@@ -115,25 +117,18 @@ export const PanelTabs = (): ReactElement | null => {
     [dispatch, windowKey],
   );
 
-  const handleCreate = useCallback(() => {
-    if (windowKey == null || activeProjectKey == null) return;
-    // Fire and forget: the action channel listener surfaces the new panel
-    // into the Flux store, and the autoselect effect below picks it up.
-    void createAsync({ name: "Untitled", project: activeProjectKey });
-  }, [windowKey, activeProjectKey, createAsync]);
-
-  // Renaming a draft graduates it to a project panel (handled server-side); the
-  // Flux update keeps the store and ontology in sync.
   const handleRename = useCallback(
     (key: string, name: string) => rename({ key, name }),
     [rename],
   );
 
-  // Autoselect: when no panel is active but the project has at least one,
-  // select the first. Keeps the viewport from showing the empty-no-panel
-  // state once a project has content.
+  // Autoselect: the session's active-panel cursor must point at a real panel for
+  // imperative consumers (the placer, triggers) to work, so when the cursor is
+  // unset or dangling (panel deleted by another client) repoint it at the first
+  // listed panel.
   useEffect(() => {
-    if (windowKey == null || activeKey != null || tabs.length === 0) return;
+    if (windowKey == null || tabs.length === 0) return;
+    if (activeKey != null && tabs.some((t) => t.tabKey === activeKey)) return;
     dispatch(Layout.setActivePanel({ windowKey, key: tabs[0].tabKey }));
   }, [windowKey, activeKey, tabs, dispatch]);
 
@@ -148,11 +143,11 @@ export const PanelTabs = (): ReactElement | null => {
       selected: activeKey ?? undefined,
       closable: true,
       onSelect: handleSelect,
-      onCreate: handleCreate,
+      onCreate: createPanel,
       onRename: handleRename,
       Name: PanelTabName,
     }),
-    [tabs, activeKey, handleSelect, handleCreate, handleRename],
+    [tabs, activeKey, handleSelect, createPanel, handleRename],
   );
 
   if (windowKey == null || activeProjectKey == null) return null;

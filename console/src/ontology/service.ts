@@ -12,6 +12,7 @@ import {
   type Haul,
   type Icon,
   type List,
+  type Pluto,
   type Status,
   type Tree,
 } from "@synnaxlabs/pluto";
@@ -41,6 +42,9 @@ export interface TreeState {
 export interface BaseProps {
   client: Synnax;
   store: RootStore;
+  // fluxStore exposes the synchronous Flux caches (panels, resources, ...) so
+  // handlers can resolve server-backed state without a round-trip.
+  fluxStore: Pluto.FluxStore;
   placeLayout: Layout.Placer;
   removeLayout: Layout.Remover;
   services: Services;

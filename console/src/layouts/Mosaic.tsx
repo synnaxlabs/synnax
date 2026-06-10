@@ -15,11 +15,11 @@ import { Eraser, Flex, Text, Triggers } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { useSelectorVisible } from "@/layouts/Selector";
 import { Panel } from "@/panel";
+import { Selector } from "@/selector";
 
 const EmptyContent = (): ReactElement => {
-  const createComponentEnabled = useSelectorVisible();
+  const createComponentEnabled = Selector.useVisible();
   return (
     <Eraser.Eraser>
       <Flex.Box gap={5} center>

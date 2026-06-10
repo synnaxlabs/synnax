@@ -39,7 +39,7 @@ export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
 
 const useAutoUpload = createUseAutoUpload({
   useSelectPendingUpload,
-  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
+  toCreateParams: (pending, fields) => ({ name: "Table", ...pending, ...fields }),
   useCreate: Base.useCreate,
   clearPendingUpload,
 });

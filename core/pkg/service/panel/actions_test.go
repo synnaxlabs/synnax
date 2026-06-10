@@ -195,6 +195,23 @@ var _ = Describe("Actions", func() {
 			Expect(next.Root.Split.Last.Leaf.Tabs[1].Key).To(Equal(tab3))
 		})
 
+		It("Should move a tab into the empty side of a freshly split leaf", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
+			p = MustSucceed(panel.SplitLeafPayload{
+				Leaf:     1,
+				Location: spatial.LocationRight,
+				Size:     new(float64(0.5)),
+			}.Handle(p))
+			next := MustSucceed(panel.MoveTabPayload{
+				Key: tab2, TargetLeaf: 3, Index: new(int32(0)),
+			}.Handle(p))
+			Expect(next.Root.Split).ToNot(BeNil())
+			Expect(next.Root.Split.First.Leaf.Tabs).To(HaveLen(1))
+			Expect(next.Root.Split.First.Leaf.Tabs[0].Key).To(Equal(tab1))
+			Expect(next.Root.Split.Last.Leaf.Tabs).To(HaveLen(1))
+			Expect(next.Root.Split.Last.Leaf.Tabs[0].Key).To(Equal(tab2))
+		})
+
 		It("Should collapse the source split when moving the last tab out of a side", func() {
 			p := panel.Panel{Root: splitNode(
 				spatial.DirectionX, 0.5,

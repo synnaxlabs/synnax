@@ -18,7 +18,6 @@ import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/export";
 import {
   useSelectActiveToolbarTab,
@@ -56,7 +55,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   // canonical record is loaded so the surrounding error boundary doesn't tear
   // the toolbar down on first mount of a freshly placed plot.
   LinePlot.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const name = LinePlot.useSelectName({ key: layoutKey });
   const dispatch = useDispatch();
   const activeTab = useSelectActiveToolbarTab(layoutKey);
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));

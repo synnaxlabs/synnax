@@ -29,6 +29,7 @@ import { Layout } from "@/layout";
 import { LAYOUT_TYPE as LINE_PLOT_LAYOUT_TYPE } from "@/lineplot/layout";
 import { Link } from "@/link";
 import { useConfirmDelete } from "@/ontology/hooks";
+import { Panel } from "@/panel";
 import { createCreateLayout } from "@/range/Create";
 import { OVERVIEW_LAYOUT } from "@/range/overview/layout";
 import { select, useSelect, useSelectMultiple } from "@/range/selectors";
@@ -159,7 +160,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   };
 
   const rng = ranges.find((r) => r.key === key);
-  const activeResource = Layout.useActiveResource();
+  const activeResource = Panel.useActiveResource();
   const addToActivePlot = useAddToActivePlot();
   const addToNewPlot = useAddToNewPlot();
   const activeRange = useSelect();

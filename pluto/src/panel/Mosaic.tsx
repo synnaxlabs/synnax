@@ -61,6 +61,10 @@ export interface MosaicProps extends Pick<
   // session-level "what is the operator looking at" state lives outside the
   // server-synced panel document.
   activeTab?: string;
+  // recentTabs is the consumer's most-recently-active tab keys (most recent
+  // first). Each leaf selects the most recent of its tabs, so activating a tab
+  // in one leaf does not snap sibling leaves back to their first tab.
+  recentTabs?: string[];
   // onSelect fires when the operator clicks a tab. The panel-aware shell does
   // not persist this — consumers route it into their session-state store.
   onSelect?: (tabKey: string) => void;
@@ -102,8 +106,12 @@ interface AdaptResult {
 const adaptToMosaic = (
   root: panel.Node | undefined,
   activeTab: string | undefined,
+  recentTabs: string[] | undefined,
   tabInfo?: MosaicProps["tabInfo"],
 ): AdaptResult => {
+  // Selection preference per leaf: the active tab first, then the MRU.
+  const preference =
+    activeTab != null ? [activeTab, ...(recentTabs ?? [])] : (recentTabs ?? []);
   const contents = new Map<string, TabContent>();
   const visit = (node: panel.Node | undefined, key: number): Base.Node => {
     if (node == null) return { key };
@@ -112,8 +120,8 @@ const adaptToMosaic = (
         key,
         direction: node.split.direction,
         size: node.split.size,
-        first: visit(node.split.first, key * 2),
-        last: visit(node.split.last, key * 2 + 1),
+        first: visit(node.split.first, panel.childPath(key, "first")),
+        last: visit(node.split.last, panel.childPath(key, "last")),
       };
 
     if (node.leaf == null) return { key, tabs: [] };
@@ -133,12 +141,10 @@ const adaptToMosaic = (
       };
     });
     const selected =
-      activeTab != null && tabs.some((t) => t.tabKey === activeTab)
-        ? activeTab
-        : tabs[0]?.tabKey;
+      preference.find((key) => tabs.some((t) => t.tabKey === key)) ?? tabs[0]?.tabKey;
     return { key, tabs, selected };
   };
-  return { root: visit(root, 1), contents };
+  return { root: visit(root, panel.ROOT_PATH), contents };
 };
 
 // TabNameContext carries the per-tab content map and the consumer's tabName
@@ -185,6 +191,7 @@ const TabName: ComponentType<Tabs.NameProps> = (props) => {
 export const Mosaic = ({
   panelKey,
   activeTab,
+  recentTabs,
   onSelect,
   children,
   tabName,
@@ -195,27 +202,50 @@ export const Mosaic = ({
   const { dispatch } = useDispatch();
 
   const { root, contents } = useMemo(
-    () => adaptToMosaic(p?.root, activeTab, tabInfo),
-    [p?.root, activeTab, tabInfo],
+    () => adaptToMosaic(p?.root, activeTab, recentTabs, tabInfo),
+    [p?.root, activeTab, recentTabs, tabInfo],
   );
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
 
+  // handleDrop maps Base.Mosaic's drop gesture onto panel actions. A center drop
+  // moves (or reorders) the tab into the target leaf; an edge drop splits the leaf
+  // and moves the tab into the new sibling, mirroring handleCreate's composition.
   const handleDrop = useCallback(
-    (key: number, tabKey: string, _loc: location.Location, index?: number) => {
-      dispatch({
-        key: panelKey,
-        actions: [panel.moveTab({ key: tabKey, targetLeaf: key, index: index ?? 0 })],
-      });
+    (key: number, tabKey: string, loc: location.Location, index?: number) => {
+      const actions: panel.Action[] = [];
+      let targetLeaf = key;
+      if (loc !== "center") {
+        // Splitting a leaf against its own only tab is a degenerate gesture: the
+        // result would be the tab next to an empty pane. Treat it as a no-op.
+        const root = p?.root;
+        const sourceLeaf = root != null ? panel.tabLeafPath(root, tabKey) : null;
+        const sourceTabCount =
+          sourceLeaf != null
+            ? (panel.walkPath(root, sourceLeaf)?.leaf?.tabs.length ?? 0)
+            : 0;
+        if (sourceLeaf === key && sourceTabCount <= 1) return;
+        actions.push(panel.splitLeaf({ leaf: key, location: loc, size: 0.5 }));
+        const side = loc === "left" || loc === "top" ? "first" : "last";
+        targetLeaf = panel.childPath(key, side);
+      }
+      actions.push(panel.moveTab({ key: tabKey, targetLeaf, index: index ?? 0 }));
+      dispatch({ key: panelKey, actions });
     },
-    [dispatch, panelKey],
+    [dispatch, panelKey, p?.root],
   );
 
+  // Resize.useMultiple emits on mount as well as on drags, and a stale emission
+  // can land after the panel (and its tree shape) has changed. Only dispatch when
+  // the node is currently a split whose stored size actually changed, so mounts
+  // and panel switches never send invalid or no-op resizes to the server.
   const handleResize = useCallback(
     (key: number, size: number) => {
+      const node = panel.walkPath(p?.root, key);
+      if (node?.split == null || node.split.size === size) return;
       dispatch({ key: panelKey, actions: [panel.resizeSplit({ split: key, size })] });
     },
-    [dispatch, panelKey],
+    [dispatch, panelKey, p?.root],
   );
 
   const handleClose = useCallback(
@@ -232,6 +262,9 @@ export const Mosaic = ({
   //     content on that side.
   // A bare "+" (no dropped content) inserts a single resourceless tab — a real,
   // stored tab that renders the consumer's selector until SetTabResource fills it.
+  // Tabs append to the target leaf (insertTab without an index), and creating a
+  // tab selects it through the same onSelect seam as a click, so the consumer's
+  // session cursor lands on the new tab.
   const handleCreate = useCallback(
     (key: number, loc: location.Location, tabKeys?: string[]) => {
       const dropped = (tabKeys ?? []).flatMap((raw) => {
@@ -244,24 +277,18 @@ export const Mosaic = ({
       let targetLeaf = key;
       if (loc !== "center") {
         actions.push(panel.splitLeaf({ leaf: key, location: loc, size: 0.5 }));
-        targetLeaf = loc === "left" || loc === "top" ? key * 2 : key * 2 + 1;
+        const side = loc === "left" || loc === "top" ? "first" : "last";
+        targetLeaf = panel.childPath(key, side);
       }
-      if (dropped.length === 0)
-        actions.push(
-          panel.insertTab({ tab: { key: uuid.create() }, targetLeaf, index: 0 }),
-        );
-      else
-        for (const resource of dropped)
-          actions.push(
-            panel.insertTab({
-              tab: { key: uuid.create(), resource },
-              targetLeaf,
-              index: 0,
-            }),
-          );
+      const tabs: panel.Tab[] =
+        dropped.length === 0
+          ? [{ key: uuid.create() }]
+          : dropped.map((resource) => ({ key: uuid.create(), resource }));
+      for (const tab of tabs) actions.push(panel.insertTab({ tab, targetLeaf }));
       dispatch({ key: panelKey, actions });
+      onSelect?.(tabs[tabs.length - 1].key);
     },
-    [dispatch, panelKey],
+    [dispatch, panelKey, onSelect],
   );
 
   const [portalRef, portalNodes] = Base.usePortal({

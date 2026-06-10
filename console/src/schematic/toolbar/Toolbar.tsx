@@ -26,7 +26,6 @@ import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
 import {
   useSelectActiveToolbarTab,
@@ -55,7 +54,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
   const isSnapshot = PSchematic.useSelectSnapshot({ key: layoutKey }) ?? false;
   const isEditable = hasUpdatePermission && !isSnapshot;
-  const name = Layout.useSelectRequired(layoutKey).name;
+  const name = PSchematic.useSelectName({ key: layoutKey });
   return (
     <EmptyAction
       x
@@ -80,7 +79,7 @@ export interface ToolbarProps {
 
 const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   PSchematic.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const name = PSchematic.useSelectName({ key: layoutKey });
   const dispatch = useDispatch();
   const activeTab = useSelectActiveToolbarTab(layoutKey);
   const editMode = useSelectEditable(layoutKey);

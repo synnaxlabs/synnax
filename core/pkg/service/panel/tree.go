@@ -133,58 +133,59 @@ func findTabAt(n *Node, path int32, tabKey uuid.UUID) (*Leaf, int32, int, bool) 
 	return findTabAt(n.Split.Last, path*2+1, tabKey)
 }
 
-// removeTabReturning removes the tab with the given key from the tree, collapsing
-// any leaf that becomes empty into its sibling. Returns the (possibly new) root,
-// the removed tab, and ok=true. When the tab is not present, returns ok=false.
-func removeTabReturning(root *Node, tabKey uuid.UUID) (*Node, Tab, bool) {
-	return removeTabFromNode(root, tabKey)
-}
-
-func removeTabFromNode(n *Node, tabKey uuid.UUID) (*Node, Tab, bool) {
+// removeTab removes the tab with the given key from the tree, leaving any
+// emptied leaf in place. Collapsing empty leaves is the caller's responsibility
+// (collapseEmptyLeaves), deferred so that a composed action sequence (e.g.
+// SplitLeaf followed by MoveTab) can target a freshly created empty sibling
+// before the tree is tidied. Returns the removed tab and ok=true; ok=false when
+// the tab is not present.
+func removeTab(n *Node, tabKey uuid.UUID) (Tab, bool) {
 	if n == nil {
-		return n, Tab{}, false
+		return Tab{}, false
 	}
 	if n.Leaf != nil {
 		for i, t := range n.Leaf.Tabs {
 			if t.Key == tabKey {
 				n.Leaf.Tabs = append(n.Leaf.Tabs[:i], n.Leaf.Tabs[i+1:]...)
-				return n, t, true
+				return t, true
 			}
 		}
-		return n, Tab{}, false
+		return Tab{}, false
 	}
-	if next, removed, ok := removeTabFromNode(n.Split.First, tabKey); ok {
-		n.Split.First = next
-		return collapseIfEmptySide(n), removed, true
+	if n.Split == nil {
+		return Tab{}, false
 	}
-	if next, removed, ok := removeTabFromNode(n.Split.Last, tabKey); ok {
-		n.Split.Last = next
-		return collapseIfEmptySide(n), removed, true
+	if removed, ok := removeTab(n.Split.First, tabKey); ok {
+		return removed, true
 	}
-	return n, Tab{}, false
+	return removeTab(n.Split.Last, tabKey)
 }
 
-// collapseIfEmptySide returns the surviving child when one of a split's children
-// is an empty leaf. Otherwise returns the node unchanged. The split must have both
-// children populated as nodes; only the leaf-with-zero-tabs condition triggers
-// collapse.
-func collapseIfEmptySide(n *Node) *Node {
+// collapseEmptyLeaves rewrites the tree bottom-up, replacing every split that has
+// exactly one empty-leaf side with its surviving sibling subtree. The node is
+// rewritten in place so references held by callers stay attached to the tree.
+func collapseEmptyLeaves(n *Node) {
 	if n == nil || n.Split == nil {
-		return n
+		return
 	}
+	collapseEmptyLeaves(n.Split.First)
+	collapseEmptyLeaves(n.Split.Last)
 	firstEmpty := n.Split.First != nil &&
 		n.Split.First.Leaf != nil &&
 		len(n.Split.First.Tabs()) == 0
 	lastEmpty := n.Split.Last != nil &&
 		n.Split.Last.Leaf != nil &&
 		len(n.Split.Last.Tabs()) == 0
+	var survivor *Node
 	if firstEmpty && !lastEmpty {
-		return n.Split.Last
+		survivor = n.Split.Last
+	} else if lastEmpty && !firstEmpty {
+		survivor = n.Split.First
+	} else {
+		return
 	}
-	if lastEmpty && !firstEmpty {
-		return n.Split.First
-	}
-	return n
+	n.Leaf = survivor.Leaf
+	n.Split = survivor.Split
 }
 
 // Tabs is a leaf-only convenience returning the leaf's tabs or nil for split

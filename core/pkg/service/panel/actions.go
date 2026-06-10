@@ -44,30 +44,30 @@ func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
 // the sibling subtree takes the parent split's position in the tree. Returns
 // ErrTabNotFound when no tab matches the key.
 func (p RemoveTabPayload) Handle(state Panel) (Panel, error) {
-	next, _, ok := removeTabReturning(&state.Root, p.Key)
-	if !ok {
+	if _, ok := removeTab(&state.Root, p.Key); !ok {
 		return Panel{}, ErrTabNotFound
 	}
-	state.Root = *next
+	collapseEmptyLeaves(&state.Root)
 	return state, nil
 }
 
 // Handle moves a tab to a position within the panel. The target leaf is resolved
-// before the remove so that a source-leaf collapse (which shifts path keys) does
-// not invalidate the destination reference. Returns ErrTabNotFound when no tab
-// matches the key, ErrInvalidPath / ErrNotALeaf when the target path is bad, or
-// ErrIndexOutOfRange when index is outside [0, len(targetLeaf.Tabs)] after the
-// remove (the count may shrink by one when moving within the same leaf).
+// before the remove, and empty-leaf collapse is deferred until after the insert,
+// so the destination may be a leaf the source's removal would otherwise collapse
+// away (e.g. the empty sibling created by a preceding SplitLeaf). Returns
+// ErrTabNotFound when no tab matches the key, ErrInvalidPath / ErrNotALeaf when
+// the target path is bad, or ErrIndexOutOfRange when index is outside
+// [0, len(targetLeaf.Tabs)] after the remove (the count may shrink by one when
+// moving within the same leaf).
 func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 	target, err := walkLeaf(&state.Root, p.TargetLeaf)
 	if err != nil {
 		return Panel{}, err
 	}
-	next, removed, ok := removeTabReturning(&state.Root, p.Key)
+	removed, ok := removeTab(&state.Root, p.Key)
 	if !ok {
 		return Panel{}, ErrTabNotFound
 	}
-	state.Root = *next
 	idx := len(target.Tabs)
 	if p.Index != nil {
 		idx = int(*p.Index)
@@ -76,6 +76,7 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 		return Panel{}, ErrIndexOutOfRange
 	}
 	target.Tabs = append(target.Tabs[:idx], append([]Tab{removed}, target.Tabs[idx:]...)...)
+	collapseEmptyLeaves(&state.Root)
 	return state, nil
 }
 

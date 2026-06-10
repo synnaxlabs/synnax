@@ -16,7 +16,6 @@ import { useDispatch } from "react-redux";
 
 import { Controls as Base } from "@/components";
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
 import {
   useSelect,
@@ -32,6 +31,7 @@ import {
   setViewport,
   setViewportMode,
 } from "@/lineplot/slice";
+import { Panel } from "@/panel";
 
 export interface ControlsProps {
   layoutKey: string;
@@ -44,7 +44,7 @@ export const Controls = ({
 }: ControlsProps): ReactElement => {
   const control = useSelectControlState(layoutKey);
   const plot = useSelect(layoutKey);
-  const active = Layout.useActiveResource();
+  const active = Panel.useActiveResource();
   const vis = active?.type === LAYOUT_TYPE ? active.key : null;
   const mode = useSelectViewportMode(layoutKey);
   const measureMode = useSelectMeasureMode(layoutKey);

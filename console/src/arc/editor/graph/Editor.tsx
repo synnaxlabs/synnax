@@ -47,7 +47,7 @@ import {
   setViewportMode,
   type State,
 } from "@/arc/slice";
-import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
+import { Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
@@ -107,12 +107,6 @@ const NodeRenderer = ({
 const ArcDiagram = Base.create({
   node: Component.renderProp(NodeRenderer),
 });
-
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <CMenu.Menu>
-    <Layout.MenuItems layoutKey={layoutKey} />
-  </CMenu.Menu>
-);
 
 export const Editor: Layout.Renderer = ({ layoutKey, visible, active }) => {
   const state = useSelect(layoutKey);

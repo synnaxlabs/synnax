@@ -80,11 +80,6 @@ interface SetFocusPayload {
   windowKey: string;
 }
 
-interface SetAltKeyPayload {
-  key: string;
-  altKey: string;
-}
-
 interface SetUnsavedChangesPayload {
   key: string;
   unsavedChanges: boolean;
@@ -139,16 +134,12 @@ export interface SetActivePanelPayload {
   key: string;
 }
 
-const select = (state: SliceState, key: string): State | null => {
-  const layout = state.layouts[key];
-  if (layout == null) {
-    const altKey = state.altKeyToKey[key];
-    if (altKey == null) return null;
-    const altLayout = state.layouts[altKey];
-    return altLayout ?? null;
-  }
-  return layout;
-};
+const select = (state: SliceState, key: string): State | null =>
+  state.layouts[key] ?? null;
+
+// TAB_HISTORY_CAP bounds the per-window MRU of active tab keys; entries beyond it
+// only matter for panels with more leaves than this, which do not occur in practice.
+const TAB_HISTORY_CAP = 16;
 
 const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State> =>
   Object.fromEntries(
@@ -180,13 +171,6 @@ export const { actions, reducer } = createSlice({
         if (layout == null || layout.key == MAIN_WINDOW) return;
         delete state.layouts[layout.key];
       });
-    },
-    setAltKey: (
-      state,
-      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
-    ) => {
-      state.keyToAltKey[key] = altKey;
-      state.altKeyToKey[altKey] = key;
     },
     rename: (
       state,
@@ -376,10 +360,11 @@ export const { actions, reducer } = createSlice({
       const wp = (state.windowPanels[payload.windowKey] ??= {
         active: null,
         activeTab: null,
+        tabHistory: [],
       });
       wp.active = payload.key;
       // Tab focus is scoped to the active panel; reset on switch so the next
-      // panel's adapter falls back to its first tab.
+      // panel's adapter falls back to its most recent (or first) tab.
       wp.activeTab = null;
     },
     setActiveTab: (
@@ -389,8 +374,17 @@ export const { actions, reducer } = createSlice({
       const wp = (state.windowPanels[payload.windowKey] ??= {
         active: null,
         activeTab: null,
+        tabHistory: [],
       });
       wp.activeTab = payload.key;
+      if (payload.key == null) return;
+      // Persisted states from before tabHistory existed skip the schema's default
+      // (the migrator only parses on version changes), so tolerate its absence.
+      wp.tabHistory ??= [];
+      wp.tabHistory = [
+        payload.key,
+        ...wp.tabHistory.filter((k) => k !== payload.key),
+      ].slice(0, TAB_HISTORY_CAP);
     },
     // setTabUnsavedChanges records, per panel tab key, whether a view tab's form has
     // unsaved edits. Session-only (this operator's draft state); absent entries mean
@@ -419,7 +413,6 @@ export const {
   remove,
   toggleActiveTheme,
   setActiveTheme,
-  setAltKey,
   rename,
   setNavDrawer,
   resizeNavDrawer,
@@ -492,10 +485,9 @@ export interface NameHookResult {
 
 /**
  * A hook bound to a layout {@link Renderer} that owns the name read/write path
- * for the layout. The hook is responsible for invoking {@link NameHookProps.onChange}
- * whenever its source-of-truth name updates and for persisting user-initiated
- * renames via {@link NameHookResult.onRename}. Display name is always read from
- * the layout slice; the hook keeps the slice in sync via `onChange`.
+ * for layouts/resources of its type. The hook invokes `onChange` whenever its
+ * source-of-truth name updates (e.g. a Flux subscription) and persists
+ * user-initiated renames via {@link NameHookResult.onRename}.
  */
 export type UseName = (
   layoutKey: string,
@@ -515,7 +507,11 @@ export type Renderer = ComponentType<RendererProps> & {
 };
 
 export interface ContextMenuProps {
+  // layoutKey is the content's key: the backing resource's key for a resource
+  // tab, the tab key for a view tab.
   layoutKey: string;
+  // tabKey is the hosting panel tab's key.
+  tabKey: string;
 }
 
 export type ContextMenuRenderer = ComponentType<ContextMenuProps>;

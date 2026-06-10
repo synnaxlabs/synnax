@@ -35,12 +35,14 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
+import { Panel } from "@/panel";
 import { Project } from "@/project";
 import { Range } from "@/range";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
   store,
+  fluxStore,
   placeLayout,
   handleError,
   selection,
@@ -53,13 +55,11 @@ const handleSelect: Ontology.HandleSelect = ({
 
   if (nonVirtualSelection.length === 0) return;
 
-  // Add to the active line plot when one is active; otherwise create a new one. The
-  // active tab's resource is resolved against the server-backed panel tree, so the
-  // lookup is async — fall back to a new plot on failure.
+  // Add to the active line plot when one is active; otherwise create a new one.
   handleError(async () => {
     const state = store.getState();
-    const active = await Layout.getActiveResource(
-      client,
+    const active = Panel.getActiveResource(
+      fluxStore,
       Layout.selectActivePanelKey(state),
       Layout.selectActiveTabKey(state),
     );

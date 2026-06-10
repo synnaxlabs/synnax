@@ -96,6 +96,11 @@ const requireSchematic = (
   return schem;
 };
 
+export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key }) => requireSchematic(store, key).name,
+});
+
 export const useSelectAllNodes = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,

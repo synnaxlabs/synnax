@@ -12,12 +12,13 @@ import { type FC, type ReactElement } from "react";
 
 import { Arc } from "@/arc";
 import { EmptyAction, Toolbar } from "@/components";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
+import { Panel } from "@/panel";
 import { Schematic } from "@/schematic";
+import { Selector } from "@/selector";
 import { Table } from "@/table";
-import { createSelectorLayout, useSelectorVisible } from "@/vis/Selector";
 import { type LayoutType } from "@/vis/types";
 
 interface ToolbarProps {
@@ -33,11 +34,12 @@ const TOOLBARS: Record<LayoutType, FC<ToolbarProps>> = {
 };
 
 const NoVis = (): ReactElement => {
-  const placeLayout = Layout.usePlacer();
+  const createEmptyTab = Panel.useCreateEmptyTab();
+  const createPanel = Panel.useCreatePanel();
   const handleCreateNewVisualization = () => {
-    placeLayout(createSelectorLayout());
+    if (!createEmptyTab()) createPanel();
   };
-  const createComponentEnabled = useSelectorVisible();
+  const createComponentEnabled = Selector.useVisible();
   let message: string = "No visualization selected. Select a visualization";
   if (!createComponentEnabled) message += ".";
   else message += " or ";
@@ -59,7 +61,7 @@ const NoVis = (): ReactElement => {
 };
 
 const Content = (): ReactElement => {
-  const active = Layout.useActiveResource();
+  const active = Panel.useActiveResource();
   if (active == null) return <NoVis />;
   const Toolbar = TOOLBARS[active.type as LayoutType];
   if (Toolbar == null) return <NoVis />;

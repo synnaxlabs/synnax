@@ -18,7 +18,6 @@ import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
 import {
   useSelectActiveToolbarTab,
@@ -40,7 +39,7 @@ const TABS: Tabs.Tab[] = [
 
 const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   Log.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const name = Log.useSelectName({ key: layoutKey });
   const dispatch = useDispatch();
   const activeTab = useSelectActiveToolbarTab(layoutKey);
   const handleTabSelect = useCallback(

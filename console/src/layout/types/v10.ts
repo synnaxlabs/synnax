@@ -25,6 +25,11 @@ const GET_STARTED_TYPE = "getStarted";
 export const windowPanelsStateZ = z.object({
   active: z.string().nullable(),
   activeTab: z.string().nullable().default(null),
+  // tabHistory is the window's most-recently-active tab keys (most recent first).
+  // The mosaic adapter uses it to keep a per-leaf selection: each leaf shows the
+  // most recently active of its tabs, so selecting a tab in one leaf does not
+  // snap sibling leaves back to their first tab.
+  tabHistory: z.string().array().default([]),
 });
 
 export interface WindowPanelsState extends z.infer<typeof windowPanelsStateZ> {}
@@ -39,7 +44,7 @@ export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   ...v9.ZERO_SLICE_STATE,
   version: VERSION,
-  windowPanels: { main: { active: null, activeTab: null } },
+  windowPanels: { main: { active: null, activeTab: null, tabHistory: [] } },
 });
 
 export const sliceMigration: migrate.Migration<v9.SliceState, SliceState> =
@@ -56,7 +61,7 @@ export const sliceMigration: migrate.Migration<v9.SliceState, SliceState> =
       );
       const windowPanels: Record<string, WindowPanelsState> = {};
       for (const windowKey of Object.keys(nextMosaics))
-        windowPanels[windowKey] = { active: null, activeTab: null };
+        windowPanels[windowKey] = { active: null, activeTab: null, tabHistory: [] };
       return {
         ...rest,
         version: VERSION,

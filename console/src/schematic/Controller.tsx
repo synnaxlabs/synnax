@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Control, User } from "@synnaxlabs/pluto";
+import { Control, Schematic as PSchematic, User } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
-import { Layout } from "@/layout";
 import { setControlStatus } from "@/schematic/slice";
 
 export interface ControllerProps extends Omit<
@@ -22,7 +21,7 @@ export interface ControllerProps extends Omit<
 }
 
 export const Controller = ({ resourceKey, ...rest }: ControllerProps): ReactElement => {
-  const name = Layout.useSelectRequiredName(resourceKey);
+  const name = PSchematic.useSelectName({ key: resourceKey });
   const dispatch = useDispatch();
   const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
   const username = user?.username ?? "";

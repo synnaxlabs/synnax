@@ -39,7 +39,7 @@ export const createSimpleItem = ({
   layout,
   useVisible,
 }: SimpleItemProps): Selectable => {
-  const C: Selectable = ({ layoutKey, onPlace, onResolved }) => {
+  const C: Selectable = ({ onPlace, onResolved }) => {
     const visible = useVisible?.() ?? true;
     // In a panel the item resolves into the tab as an inline view (the layout's type
     // selects the renderer, its args/name seed the view); otherwise it places the
@@ -53,8 +53,8 @@ export const createSimpleItem = ({
             args: layout.args as panel.TabView["args"],
           },
         });
-      else onPlace({ ...layout, key: layoutKey });
-    }, [onPlace, onResolved, layoutKey]);
+      else onPlace(layout);
+    }, [onPlace, onResolved]);
     if (!visible) return null;
     return <Item title={title} icon={icon} onClick={handleClick} />;
   };

@@ -23,7 +23,7 @@ export { create, LAYOUT_TYPE, type LayoutType } from "@/log/layout";
 
 const useAutoUpload = createUseAutoUpload({
   useSelectPendingUpload,
-  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
+  toCreateParams: (pending, fields) => ({ name: "Log", ...pending, ...fields }),
   useCreate: PLog.useCreate,
   clearPendingUpload,
 });

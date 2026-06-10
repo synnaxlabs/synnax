@@ -15,7 +15,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   select,
   selectActiveThemeKey,
-  selectAltKey,
   selectArgs,
   selectColorContext,
   selectFocused,
@@ -32,7 +31,6 @@ import {
   rename,
   resizeNavDrawer,
   setActiveTheme,
-  setAltKey,
   setArgs,
   setColorContext,
   setFocus,
@@ -132,20 +130,6 @@ describe("Layout Slice", () => {
     it("should ignore an unknown key", () => {
       store.dispatch(rename({ key: "nope", name: "x" }));
       expect(select(state(), "nope")).toBeUndefined();
-    });
-  });
-
-  describe("setAltKey", () => {
-    it("should set an alt key for a layout", () => {
-      store.dispatch(setAltKey({ key: "real", altKey: "alt" }));
-      expect(selectAltKey(state(), "real")).toBe("alt");
-    });
-
-    it("should resolve a layout via its alt key", () => {
-      store.dispatch(place(mosaicLayout("real")));
-      store.dispatch(setAltKey({ key: "real", altKey: "alt" }));
-      store.dispatch(rename({ key: "alt", name: "Resolved" }));
-      expect(select(state(), "real")?.name).toBe("Resolved");
     });
   });
 

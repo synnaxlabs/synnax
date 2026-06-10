@@ -13,9 +13,9 @@ import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
-import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
 import { selectPendingUpload } from "@/lineplot/selectors";
+import { Panel } from "@/panel";
 import { add } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 import { type RootState } from "@/store";
@@ -27,7 +27,7 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const client = Synnax.use();
   // Resolved at render and captured by the callback so an add targets the plot the
   // user had active when they triggered it.
-  const active = Layout.useActiveResource();
+  const active = Panel.useActiveResource();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(
       ({ data, variant, status }) => {
