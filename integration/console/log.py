@@ -37,7 +37,13 @@ class Log(ConsolePage):
             self.set_channel(channel_name)
 
     def clear_channels(self) -> None:
-        """Remove all currently selected channels from the log."""
+        """Remove all currently selected channels from the log.
+
+        The remove buttons sit at the right edge of the bottom toolbar, directly
+        under the notification stack, so an open notification (e.g. a recurring
+        driver failure status) intercepts the click. Silence notifications
+        before each attempt and retry once on interception.
+        """
         self.layout.show_visualization_toolbar()
         toolbar = self.page.locator(".console-log-toolbar")
         while True:
@@ -46,7 +52,12 @@ class Log(ConsolePage):
             )
             if remove_btns.count() == 0:
                 break
-            remove_btns.first.click()
+            self.layout.notifications.close_all()
+            try:
+                remove_btns.first.click(timeout=5000)
+            except PlaywrightTimeoutError:
+                self.layout.notifications.close_all()
+                remove_btns.first.click()
 
     def set_channel(self, channel_name: str) -> None:
         """Add a channel to the log via the 'Add a channel...' row."""
