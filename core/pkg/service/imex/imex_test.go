@@ -454,6 +454,138 @@ var _ = Describe("ImEx", func() {
 				Expect(round["channels"]).To(HaveLen(3))
 				Expect(round["labels"]).To(HaveKeyWithValue("k", "v"))
 			})
+
+			It("Should promote the fields of an embedded struct to the top level", func() {
+				type base struct {
+					Name string `json:"name"`
+					Type string `json:"type"`
+				}
+				type payload struct {
+					base
+					Foo int `json:"foo"`
+				}
+				env := imex.Envelope{Version: 1}
+				Expect(imex.Encode(
+					&env, payload{base: base{Name: "n", Type: "log"}, Foo: 1},
+				)).To(Succeed())
+				Expect(env.Type).To(Equal("log"))
+				Expect(env.Name).To(Equal("n"))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).To(HaveKeyWithValue("name", "n"))
+				Expect(round).To(HaveKeyWithValue("type", "log"))
+				Expect(round).To(HaveKeyWithValue("foo", BeNumerically("==", 1)))
+				Expect(round).NotTo(HaveKey("base"))
+			})
+
+			It("Should promote the fields of a non-nil embedded pointer to a struct", func() {
+				type Base struct {
+					Name string `json:"name"`
+					Type string `json:"type"`
+				}
+				type payload struct {
+					*Base
+					Foo int `json:"foo"`
+				}
+				env := imex.Envelope{Version: 1}
+				Expect(imex.Encode(
+					&env, payload{Base: &Base{Name: "n", Type: "log"}, Foo: 1},
+				)).To(Succeed())
+				Expect(env.Type).To(Equal("log"))
+				Expect(env.Name).To(Equal("n"))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).To(HaveKeyWithValue("name", "n"))
+				Expect(round).To(HaveKeyWithValue("type", "log"))
+				Expect(round).To(HaveKeyWithValue("foo", BeNumerically("==", 1)))
+			})
+
+			It("Should skip a nil embedded pointer without panicking", func() {
+				type Base struct {
+					Extra string `json:"extra"`
+				}
+				type payload struct {
+					*Base
+					Name string `json:"name"`
+					Type string `json:"type"`
+				}
+				env := imex.Envelope{Version: 1}
+				Expect(imex.Encode(
+					&env, payload{Base: nil, Name: "n", Type: "log"},
+				)).To(Succeed())
+				Expect(env.Type).To(Equal("log"))
+				Expect(env.Name).To(Equal("n"))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).To(HaveKeyWithValue("name", "n"))
+				Expect(round).NotTo(HaveKey("extra"))
+			})
+
+			It("Should promote fields through a nested chain of embedded structs", func() {
+				type deep struct {
+					Name string `json:"name"`
+				}
+				type mid struct {
+					deep
+					Type string `json:"type"`
+				}
+				type payload struct {
+					mid
+					Foo int `json:"foo"`
+				}
+				env := imex.Envelope{Version: 1}
+				Expect(imex.Encode(
+					&env, payload{mid: mid{deep: deep{Name: "n"}, Type: "log"}, Foo: 1},
+				)).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).To(HaveKeyWithValue("name", "n"))
+				Expect(round).To(HaveKeyWithValue("type", "log"))
+				Expect(round).To(HaveKeyWithValue("foo", BeNumerically("==", 1)))
+			})
+
+			It("Should let a shallower field override a promoted embedded field of the same name", func() {
+				type base struct {
+					Name string `json:"name"`
+				}
+				type payload struct {
+					base
+					Name string `json:"name"`
+				}
+				env := imex.Envelope{Version: 1, Type: "log"}
+				Expect(imex.Encode(
+					&env, payload{base: base{Name: "embedded"}, Name: "outer"},
+				)).To(Succeed())
+				Expect(env.Name).To(Equal("outer"))
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).To(HaveKeyWithValue("name", "outer"))
+			})
+
+			It("Should nest, not promote, an embedded struct that carries its own json tag", func() {
+				type Wrapped struct {
+					Inner string `json:"inner"`
+				}
+				type payload struct {
+					Wrapped `json:"wrapped"`
+					Name    string `json:"name"`
+				}
+				env := imex.Envelope{Version: 1, Type: "log"}
+				Expect(imex.Encode(
+					&env, payload{Wrapped: Wrapped{Inner: "v"}, Name: "n"},
+				)).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).To(HaveKey("wrapped"))
+				Expect(round["wrapped"]).To(HaveKeyWithValue("inner", "v"))
+				Expect(round).NotTo(HaveKey("inner"))
+			})
 		})
 
 		Describe("Round-trip", func() {

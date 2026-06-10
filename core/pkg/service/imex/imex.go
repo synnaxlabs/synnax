@@ -278,15 +278,41 @@ func legacyToNumeric(s string) (Version, error) {
 // field's `json:"..."` struct tag. A field is emitted iff it carries a json tag whose
 // name component is non-empty and not "-". Fields without a tag, with `json:"-"`, or
 // with an empty tag name (e.g. `json:",omitempty"`) are skipped. Tag options after the
-// name are ignored. The map is the codec-independent intermediate Encode merges headers
-// into; it is never the wire output itself.
+// name are ignored. Embedded (anonymous, untagged) struct fields are promoted: their
+// fields are flattened into the top-level map, mirroring encoding/json. The map is the
+// codec-independent intermediate Encode merges headers into; it is never the wire
+// output itself.
 func structToMap(v any) (map[string]any, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Struct {
 		return nil, errors.Newf("expected struct, got %s", rv.Kind())
 	}
 	m := make(map[string]any)
+	flattenStruct(rv, m)
+	return m, nil
+}
+
+func flattenStruct(rv reflect.Value, m map[string]any) {
 	t := rv.Type()
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if !f.Anonymous {
+			continue
+		}
+		if _, ok := f.Tag.Lookup("json"); ok {
+			continue
+		}
+		fv := rv.Field(i)
+		if fv.Kind() == reflect.Pointer {
+			if fv.IsNil() {
+				continue
+			}
+			fv = fv.Elem()
+		}
+		if fv.Kind() == reflect.Struct {
+			flattenStruct(fv, m)
+		}
+	}
 	for i := range t.NumField() {
 		f := t.Field(i)
 		if !f.IsExported() {
@@ -302,7 +328,6 @@ func structToMap(v any) (map[string]any, error) {
 		}
 		m[name] = rv.Field(i).Interface()
 	}
-	return m, nil
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's
