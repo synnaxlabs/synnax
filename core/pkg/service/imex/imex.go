@@ -178,40 +178,48 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 	return t, nil
 }
 
-// Encode is the symmetric inverse of Decode. The typed value is reduced to a
-// codec-independent map[string]any with encoding/json semantics (via structToMap), the
-// headers are merged in as flat top-level entries, and the resulting envelope is ready
-// to be handed to any of the MarshalX methods.
+// Encode is the symmetric inverse of Decode. The caller supplies an envelope carrying
+// the desired Version, Type, and (optionally) Name headers; Encode reduces the typed
+// value to a codec-independent map[string]any via structToMap and stamps the merged
+// body onto the envelope. For both Type and Name, Encode treats data as the source of
+// truth: if the body map carries a `type` (or `name`) entry, it must be a string and it
+// overwrites the corresponding header on the envelope; otherwise the envelope's
+// existing value is kept. At the end, Type and Name must both be non-empty. On any
+// error the envelope is left untouched.
 //
 // Invariant: every imex-registered resource carries a non-empty top-level string `name`
 // field on the wire. Encode enforces this so that a resource without a name surfaces as
 // a programmer bug at exporter-test time rather than at runtime.
-func Encode[T any](
-	data T, version Version, typ ontology.ResourceType,
-) (Envelope, error) {
+func Encode[T any](env *Envelope, data T) error {
 	body, err := structToMap(data)
 	if err != nil {
-		return Envelope{}, errors.Wrap(err, "encode envelope")
+		return errors.Wrap(err, "encode envelope")
 	}
-	name, ok := body["name"].(string)
-	if !ok {
-		return Envelope{}, errors.New(
-			"encode envelope: data must carry a top-level string `name` field",
-		)
+	if v, ok := body["type"]; ok {
+		s, ok := v.(string)
+		if !ok {
+			return errors.Newf("encode envelope: type must be a string, got %T", v)
+		}
+		env.Type = s
 	}
-	if name == "" {
-		return Envelope{}, errors.New(
-			"encode envelope: top-level `name` field must not be empty",
-		)
+	if env.Type == "" {
+		return errors.New("encode envelope: type must be a non-empty string")
 	}
-	body["version"] = version
-	body["type"] = string(typ)
-	return Envelope{
-		Version: version,
-		Type:    string(typ),
-		Name:    name,
-		body:    body,
-	}, nil
+	if v, ok := body["name"]; ok {
+		s, ok := v.(string)
+		if !ok {
+			return errors.Newf("encode envelope: name must be a string, got %T", v)
+		}
+		env.Name = s
+	}
+	if env.Name == "" {
+		return errors.New("encode envelope: name must be a non-empty string")
+	}
+	body["version"] = env.Version
+	body["type"] = env.Type
+	body["name"] = env.Name
+	env.body = body
+	return nil
 }
 
 // versionFromAny converts a generic Go value (as produced by a UseNumber-mode decode

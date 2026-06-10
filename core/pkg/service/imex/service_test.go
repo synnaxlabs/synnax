@@ -43,9 +43,9 @@ func sampleResource(name string) testResource {
 }
 
 func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
-	return wireRoundTrip(
-		MustSucceed(imex.Encode(sampleResource(name), testVersion, typ)),
-	)
+	env := imex.Envelope{Version: testVersion, Type: string(typ)}
+	Expect(imex.Encode(&env, sampleResource(name))).To(Succeed())
+	return wireRoundTrip(env)
 }
 
 func wireRoundTrip(env imex.Envelope) imex.Envelope {
@@ -115,11 +115,14 @@ func (s *testService) Export(
 		Exec(ctx, tx); err != nil {
 		return imex.Envelope{}, err
 	}
-	return imex.Encode(
+	env := imex.Envelope{Version: testVersion, Type: string(testResourceType)}
+	if err := imex.Encode(
+		&env,
 		testResource{Name: e.Name, FieldOne: e.FieldOne, FieldTwo: e.FieldTwo},
-		testVersion,
-		testResourceType,
-	)
+	); err != nil {
+		return imex.Envelope{}, err
+	}
+	return env, nil
 }
 
 func (s *testService) Retrieve(ctx context.Context, name string) (testEntry, error) {
@@ -166,7 +169,11 @@ func (n noopExporter) Export(
 	gorp.Tx,
 	imex.Key,
 ) (imex.Envelope, error) {
-	return imex.Encode(testResource{Name: "noop"}, testVersion, n.typ)
+	env := imex.Envelope{Version: testVersion, Type: string(n.typ)}
+	if err := imex.Encode(&env, testResource{Name: "noop"}); err != nil {
+		return imex.Envelope{}, err
+	}
+	return env, nil
 }
 
 var _ = Describe("Service", func() {
