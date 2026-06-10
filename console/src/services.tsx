@@ -53,6 +53,7 @@ export const SERVICES: Ontology.Services = {
   policy: Access.Policy.ONTOLOGY_SERVICE,
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
+  panel: createEmptyService("panel"),
   status: createEmptyService("status", <Icon.Status />),
   arc: ArcServices.ONTOLOGY_SERVICE,
   view: createEmptyService("view"),
