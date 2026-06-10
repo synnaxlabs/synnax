@@ -55,6 +55,7 @@ import { createUseAutoUpload } from "@/vis/useAutoUpload";
 
 const useAutoUpload = createUseAutoUpload({
   useSelectPendingUpload,
+  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
   useCreate: PLinePlot.useCreate,
   clearPendingUpload,
 });

@@ -15,7 +15,11 @@ import { create } from "@/table/layout";
 
 export const useCreate = Project.createUseCreate({
   useCreate: PTable.useCreate,
+  toCreateParams: ({ overrides, project }) => ({
+    name: "Table",
+    ...overrides,
+    project,
+  }),
   createSessionState: ({ key, name }) => create({ key, name, editable: true }),
-  defaultName: "Table",
   ontologyID: table.ontologyID,
 });

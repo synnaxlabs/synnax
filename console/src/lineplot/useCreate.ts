@@ -16,11 +16,15 @@ import { Range } from "@/range";
 
 export const useCreate = Project.createUseCreate({
   useCreate: LinePlot.useCreate,
-  createSessionState: create,
-  defaultName: "Line Plot",
-  ontologyID: lineplot.ontologyID,
-  defaults: (store) => {
+  toCreateParams: ({ overrides, project, store }) => {
     const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
-    return { ranges: { x1: [activeRange] } };
+    return {
+      name: "Line Plot",
+      ranges: { x1: [activeRange] },
+      ...overrides,
+      project,
+    };
   },
+  createSessionState: create,
+  ontologyID: lineplot.ontologyID,
 });

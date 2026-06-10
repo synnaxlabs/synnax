@@ -15,7 +15,11 @@ import { Project } from "@/project";
 
 export const useCreate = Project.createUseCreate({
   useCreate: Log.useCreate,
+  toCreateParams: ({ overrides, project }) => ({
+    name: "Log",
+    ...overrides,
+    project,
+  }),
   createSessionState: create,
-  defaultName: "Log",
   ontologyID: log.ontologyID,
 });

@@ -15,7 +15,11 @@ import { create } from "@/schematic/layout";
 
 export const useCreate = Project.createUseCreate({
   useCreate: Schematic.useCreate,
+  toCreateParams: ({ overrides, project }) => ({
+    name: "Schematic",
+    ...overrides,
+    project,
+  }),
   createSessionState: ({ key, name }) => create({ key, name, editable: true }),
-  defaultName: "Schematic",
   ontologyID: schematic.ontologyID,
 });

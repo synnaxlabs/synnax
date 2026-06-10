@@ -49,7 +49,11 @@ describe("createUseCreate", () => {
     Project.createUseCreate<PLog.CreateParams, log.Log>({
       useCreate: PLog.useCreate,
       createSessionState: Log.create,
-      defaultName: "Log",
+      toCreateParams: ({ overrides, project }) => ({
+        name: "Log",
+        ...overrides,
+        project,
+      }),
       ontologyID: log.ontologyID,
       ...args,
     });
@@ -84,8 +88,12 @@ describe("createUseCreate", () => {
       preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate({
-      defaultName: "Default Log",
-      defaults: () => ({ name: "Defaults Log", showChannelNames: false }),
+      toCreateParams: ({ overrides, project }) => ({
+        name: "Default Log",
+        showChannelNames: false,
+        ...overrides,
+        project,
+      }),
     });
     const { result } = renderHook(() => useCreate({}), { wrapper });
 
