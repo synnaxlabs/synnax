@@ -275,9 +275,8 @@ schema must not be forked.
 - **Phase 2 - Wire-input decode helper (§4.5).** The per-payload decode-and-walk runner
   over a `types/vN/` chain, shared with the imex per-payload path where possible.
 - **Phase 3 - Union support in migration codegen.** The migrate plugin's auto-copy
-  generator handles struct, alias, and distinct forms but not unions
-  (`oracle/plugin/go/migrate/auto_copy.go`). NI configs are built from unions, so
-  auto-migrate generation for them is blocked until a `UnionForm` case exists.
+  generator handles struct, alias, and distinct forms but not unions; NI configs need a
+  `UnionForm` case before auto-migrate generation works.
 - **Phase 4 - `service/ni` (§4.1).** Core Go output and migration generation on the NI
   schema, the service, and provider registration. No bootstrap: new tasks get typed
   configs, existing tasks keep working through the fallback. A mixed-state cluster is a
