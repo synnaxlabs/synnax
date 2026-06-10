@@ -12,33 +12,33 @@
 		<Property Name="server.vi.callsEnabled" Type="Bool">true</Property>
 		<Property Name="server.vi.propertiesEnabled" Type="Bool">true</Property>
 		<Property Name="specify.custom.address" Type="Bool">false</Property>
-		<Item Name="synnax_clib.lvlib" Type="Library" URL="../../lvlib/synnax_clib.lvlib"/>
+		<Item Name="synnax_lib.lvlib" Type="Library" URL="../lvlib/synnax_lib.lvlib"/>
 		<Item Name="Dependencies" Type="Dependencies"/>
 		<Item Name="Build Specifications" Type="Build">
-			<Item Name="synnax_clib.lvlibp" Type="Packed Library">
-				<Property Name="Bld_autoIncrement" Type="Bool">true</Property>
+			<Item Name="synnax_lib.lvlibp" Type="Packed Library">
 				<Property Name="Bld_buildCacheID" Type="Str">{36C33AB3-40B3-48B2-865C-CF9D06E8BAD1}</Property>
-				<Property Name="Bld_buildSpecName" Type="Str">synnax_clib.lvlibp</Property>
+				<Property Name="Bld_buildSpecName" Type="Str">synnax_lib.lvlibp</Property>
 				<Property Name="Bld_excludeLibraryItems" Type="Bool">true</Property>
 				<Property Name="Bld_excludePolymorphicVIs" Type="Bool">true</Property>
-				<Property Name="Bld_localDestDir" Type="Path">../builds/NI_AB_PROJECTNAME/synnax_clib.lvlibp</Property>
-				<Property Name="Bld_localDestDirType" Type="Str">relativeToCommon</Property>
+				<Property Name="Bld_localDestDir" Type="Path">../builds/synnax_lib.lvlibp</Property>
+				<Property Name="Bld_localDestDirType" Type="Str">relativeToProject</Property>
 				<Property Name="Bld_modifyLibraryFile" Type="Bool">true</Property>
 				<Property Name="Bld_previewCacheID" Type="Str">{8C9EB914-64D5-4529-AAEE-674315A2D267}</Property>
-				<Property Name="Bld_version.build" Type="Int">7</Property>
 				<Property Name="Bld_version.major" Type="Int">1</Property>
-				<Property Name="Destination[0].destName" Type="Str">synnax_clib.lvlibp</Property>
-				<Property Name="Destination[0].path" Type="Path">../builds/NI_AB_PROJECTNAME/synnax_clib.lvlibp/synnax_clib.lvlibp</Property>
+				<Property Name="Destination[0].destName" Type="Str">synnax_lib.lvlibp</Property>
+				<Property Name="Destination[0].path" Type="Path">../builds/synnax_lib.lvlibp/synnax_lib.lvlibp</Property>
+				<Property Name="Destination[0].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="Destination[0].preserveHierarchy" Type="Bool">true</Property>
 				<Property Name="Destination[0].type" Type="Str">App</Property>
 				<Property Name="Destination[1].destName" Type="Str">Support Directory</Property>
-				<Property Name="Destination[1].path" Type="Path">../builds/NI_AB_PROJECTNAME/synnax_clib.lvlibp</Property>
+				<Property Name="Destination[1].path" Type="Path">../builds/synnax_lib.lvlibp</Property>
+				<Property Name="Destination[1].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="DestinationCount" Type="Int">2</Property>
 				<Property Name="PackedLib_callersAdapt" Type="Bool">true</Property>
-				<Property Name="Source[0].itemID" Type="Str">{AC7838BA-08F9-437C-B973-61D7B9D18EF7}</Property>
+				<Property Name="Source[0].itemID" Type="Str">{3CED31B1-E478-4DCE-B8F2-7F935AA97DB3}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].destinationIndex" Type="Int">0</Property>
-				<Property Name="Source[1].itemID" Type="Ref">/My Computer/synnax_clib.lvlib</Property>
+				<Property Name="Source[1].itemID" Type="Ref">/My Computer/synnax_lib.lvlib</Property>
 				<Property Name="Source[1].Library.allowMissingMembers" Type="Bool">true</Property>
 				<Property Name="Source[1].Library.atomicCopy" Type="Bool">true</Property>
 				<Property Name="Source[1].Library.LVLIBPtopLevel" Type="Bool">true</Property>
@@ -47,12 +47,12 @@
 				<Property Name="Source[1].type" Type="Str">Library</Property>
 				<Property Name="SourceCount" Type="Int">2</Property>
 				<Property Name="TgtF_companyName" Type="Str">Synnax Labs Inc.</Property>
-				<Property Name="TgtF_fileDescription" Type="Str">synnax_clib.lvlibp</Property>
-				<Property Name="TgtF_internalName" Type="Str">synnax_clib.lvlibp</Property>
+				<Property Name="TgtF_fileDescription" Type="Str">synnax_lib.lvlibp</Property>
+				<Property Name="TgtF_internalName" Type="Str">synnax_lib.lvlibp</Property>
 				<Property Name="TgtF_legalCopyright" Type="Str">Copyright © 2026 Synnax Labs Inc.</Property>
-				<Property Name="TgtF_productName" Type="Str">synnax_clib.lvlibp</Property>
+				<Property Name="TgtF_productName" Type="Str">synnax_lib.lvlibp</Property>
 				<Property Name="TgtF_targetfileGUID" Type="Str">{15676A33-51C1-42E6-9430-AB16465A3F92}</Property>
-				<Property Name="TgtF_targetfileName" Type="Str">synnax_clib.lvlibp</Property>
+				<Property Name="TgtF_targetfileName" Type="Str">synnax_lib.lvlibp</Property>
 				<Property Name="TgtF_versionIndependent" Type="Bool">true</Property>
 			</Item>
 		</Item>
