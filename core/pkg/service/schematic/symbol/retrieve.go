@@ -12,7 +12,6 @@ package symbol
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -23,22 +22,22 @@ import (
 // symbol.Service.
 type Retrieve struct {
 	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[uuid.UUID, Symbol]
+	gorp       gorp.Retrieve[Key, Symbol]
 	search     *search.Index
 	searchTerm string
 }
 
 // Where applies the provided filter to the query. To compose multiple filters,
 // chain Where calls or pass a combined filter via gorp.And / gorp.Or.
-func (r Retrieve) Where(filter gorp.Filter[uuid.UUID, Symbol]) Retrieve {
+func (r Retrieve) Where(filter gorp.Filter[Key, Symbol]) Retrieve {
 	r.gorp = r.gorp.Where(filter)
 	return r
 }
 
 // MatchKeys returns a filter that restricts results to symbols whose key
 // matches any of the provided values.
-func MatchKeys(keys ...uuid.UUID) gorp.Filter[uuid.UUID, Symbol] {
-	return gorp.MatchKeys[uuid.UUID, Symbol](keys...)
+func MatchKeys(keys ...Key) gorp.Filter[Key, Symbol] {
+	return gorp.MatchKeys[Key, Symbol](keys...)
 }
 
 // Search sets a fuzzy search term that Retrieve will use to filter results.

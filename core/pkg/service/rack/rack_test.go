@@ -180,6 +180,22 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(writer.Create(ctx, r)).Error().To(MatchError(ContainSubstring("name")))
 		})
 	})
+	Describe("CreateMany", func() {
+		It("Should create multiple racks", func(ctx SpecContext) {
+			racks := []rack.Rack{
+				{Name: "rack-many-1"},
+				{Name: "rack-many-2"},
+			}
+			Expect(writer.CreateMany(ctx, &racks)).To(Succeed())
+
+			var retrieved []rack.Rack
+			Expect(svc.NewRetrieve().Where(rack.MatchKeys(
+				racks[0].Key,
+				racks[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
 	Describe("Retrieve", func() {
 		It("Should retrieve a rack by its key", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack3"}
