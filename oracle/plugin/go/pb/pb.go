@@ -619,6 +619,18 @@ func (p *Plugin) buildMapValueConversion(
 	if !ok {
 		return nil
 	}
+	if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+		goValType := p.resolveGoTypeLiteral(valArg, data)
+		prefix, name := p.resolveUnionTranslatorName(resolved, data)
+		return &mapValueConversionData{
+			GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+			PBMapType:         fmt.Sprintf("map[%s]*%s%s", keyType, prefix, name),
+			ForwardValueExpr:  fmt.Sprintf("%s%sToPB(v)", prefix, name),
+			BackwardValueExpr: fmt.Sprintf("%s%sFromPB(v)", prefix, name),
+			ForwardHasError:   true,
+			BackwardHasError:  true,
+		}
+	}
 	if _, isStruct := resolved.Form.(resolution.StructForm); !isStruct {
 		return nil
 	}
