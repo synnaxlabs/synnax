@@ -2602,7 +2602,9 @@ export const {{ .SchemaName }} = z.discriminatedUnion("{{ .Discriminator }}", [
 export type {{ .TSName }} = z.infer<typeof {{ .SchemaName }}>;
 {{- end }}
 
-export const {{ .SchemasConst }}: Record<{{ .TypeName }}, z.ZodType<{{ .TSName }}>> = {
+export const {{ .SchemasConst }}: {
+  [K in {{ .TypeName }}]: z.ZodType<Extract<{{ .TSName }}, { {{ .Discriminator }}: K }>>;
+} = {
 {{- range .Variants }}
   {{ .Value }}: {{ .SchemaName }},
 {{- end }}
