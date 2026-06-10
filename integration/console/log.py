@@ -57,7 +57,7 @@ class Log(ConsolePage):
                 remove_btns.first.click(timeout=5000)
             except PlaywrightTimeoutError:
                 self.layout.notifications.close_all()
-                remove_btns.first.click()
+                remove_btns.first.click(timeout=5000)
 
     def set_channel(self, channel_name: str) -> None:
         """Add a channel to the log via the 'Add a channel...' row."""
