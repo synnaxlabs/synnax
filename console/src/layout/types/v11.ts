@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { migrate } from "@synnaxlabs/x";
+import { migrate, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type NavState } from "@/layout/types/v0";
@@ -22,35 +22,27 @@ export const sliceStateZ = v10.sliceStateZ
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
+const renameItem = (item: string): string => (item === "workspace" ? "project" : item);
+
 // renameWorkspaceNav replaces the legacy "workspace" nav menu-item key with
 // "project" across every drawer, preserving menu order and any user
 // customization. The workspace nav toolbar is registered under the "project"
 // key after the rename, so persisted menus that still reference "workspace"
 // would otherwise stop resolving.
 const renameWorkspaceNav = (nav: NavState): NavState =>
-  Object.fromEntries(
-    Object.entries(nav).map(([key, entry]) => [
-      key,
-      {
-        ...entry,
-        drawers: Object.fromEntries(
-          Object.entries(entry.drawers).map(([loc, drawer]) => [
-            loc,
-            drawer == null
-              ? drawer
-              : {
-                  ...drawer,
-                  activeItem:
-                    drawer.activeItem === "workspace" ? "project" : drawer.activeItem,
-                  menuItems: drawer.menuItems.map((item) =>
-                    item === "workspace" ? "project" : item,
-                  ),
-                },
-          ]),
-        ),
-      },
-    ]),
-  ) as NavState;
+  record.map(nav, (entry) => ({
+    ...entry,
+    drawers: record.map(entry.drawers, (drawer) =>
+      drawer == null
+        ? drawer
+        : {
+            ...drawer,
+            activeItem:
+              drawer.activeItem == null ? null : renameItem(drawer.activeItem),
+            menuItems: drawer.menuItems.map(renameItem),
+          },
+    ),
+  })) as NavState;
 
 export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
   ...v10.ZERO_SLICE_STATE,
