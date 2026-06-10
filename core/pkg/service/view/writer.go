@@ -59,28 +59,22 @@ func (w Writer) Create(ctx context.Context, view *View) error {
 // CreateMany creates or updates multiple views within the DB. If any of the views
 // already exist, they will be updated.
 func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
-	items := *views
-	for i := range items {
-		if err := w.Create(ctx, &items[i]); err != nil {
+	for i := range *views {
+		if err := w.Create(ctx, &(*views)[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// Delete deletes the view with the given key. Delete is idempotent.
-func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](key)).
+// Delete deletes the views with the given keys. Delete is idempotent.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, View](keys...)).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	return w.otgWriter.DeleteResource(ctx, OntologyID(key))
-}
-
-// DeleteMany deletes multiple views with the given keys. DeleteMany is idempotent.
-func (w Writer) DeleteMany(ctx context.Context, keys ...Key) error {
 	for _, key := range keys {
-		if err := w.Delete(ctx, key); err != nil {
+		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 	}

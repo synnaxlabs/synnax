@@ -71,9 +71,8 @@ func (w Writer) CreateMany(
 	ws workspace.Key,
 	plots *[]LinePlot,
 ) error {
-	items := *plots
-	for i := range items {
-		if err := w.Create(ctx, ws, &items[i]); err != nil {
+	for i := range *plots {
+		if err := w.Create(ctx, ws, &(*plots)[i]); err != nil {
 			return err
 		}
 	}

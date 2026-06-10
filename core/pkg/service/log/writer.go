@@ -73,9 +73,8 @@ func (w Writer) Create(ctx context.Context, ws workspace.Key, l *Log) error {
 // CreateMany creates the given logs within the workspace provided. If logs with the
 // same key already exist, they will be overwritten.
 func (w Writer) CreateMany(ctx context.Context, ws workspace.Key, logs *[]Log) error {
-	items := *logs
-	for i := range items {
-		if err := w.Create(ctx, ws, &items[i]); err != nil {
+	for i := range *logs {
+		if err := w.Create(ctx, ws, &(*logs)[i]); err != nil {
 			return err
 		}
 	}

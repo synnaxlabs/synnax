@@ -48,9 +48,8 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 // CreateMany creates the given roles. If roles with the same key already exist, they
 // will be overwritten.
 func (w Writer) CreateMany(ctx context.Context, roles *[]Role) error {
-	items := *roles
-	for i := range items {
-		if err := w.Create(ctx, &items[i]); err != nil {
+	for i := range *roles {
+		if err := w.Create(ctx, &(*roles)[i]); err != nil {
 			return err
 		}
 	}

@@ -21,8 +21,8 @@ import (
 
 // Writer is used to create, update, and delete tables within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly
-// on the database.
+// method. If no transaction is provided, the writer will execute operations directly on
+// the database.
 type Writer struct {
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
@@ -33,29 +33,28 @@ type Writer struct {
 
 // Create creates the given table within the workspace provided. If the table does not
 // have a key, a new key will be generated.
-func (w Writer) Create(
-	ctx context.Context,
-	ws workspace.Key,
-	s *Table,
-) (err error) {
-	var exists bool
-	if s.Key == uuid.Nil {
-		s.Key = uuid.New()
+func (w Writer) Create(ctx context.Context, ws workspace.Key, t *Table) error {
+	var (
+		exists bool
+		err    error
+	)
+	if t.Key == uuid.Nil {
+		t.Key = uuid.New()
 	} else {
-		exists, err = w.tbl.NewRetrieve().Where(gorp.MatchKeys[Key, Table](s.Key)).Exists(ctx, w.tx)
+		exists, err = w.tbl.NewRetrieve().Where(gorp.MatchKeys[Key, Table](t.Key)).Exists(ctx, w.tx)
 		if err != nil {
-			return
+			return err
 		}
 	}
-	if err = w.tbl.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
-		return
+	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
+		return err
 	}
 	if exists {
-		return
+		return nil
 	}
-	otgID := OntologyID(s.Key)
+	otgID := OntologyID(t.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return
+		return err
 	}
 	if ws == uuid.Nil {
 		return nil
@@ -68,29 +67,27 @@ func (w Writer) Create(
 	)
 }
 
-// CreateMany creates the given tables within the workspace provided. If tables with
-// the same key already exist, they will be overwritten.
+// CreateMany creates the given tables within the workspace provided. If tables with the
+// same key already exist, they will be overwritten.
 func (w Writer) CreateMany(
 	ctx context.Context,
 	ws workspace.Key,
 	tables *[]Table,
 ) error {
-	items := *tables
-	for i := range items {
-		if err := w.Create(ctx, ws, &items[i]); err != nil {
+	for i := range *tables {
+		if err := w.Create(ctx, ws, &(*tables)[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// Dispatch applies a sequence of actions atomically to the table with the
-// given key. After a successful update the actions are notified to the
-// service-level observer so subscribers (cluster signals) can broadcast them.
-// dispatchKey is a client-generated identifier carried verbatim onto the
-// broadcast so the originating client can match its own echo against the set
-// of outstanding local replays and skip a redundant reduce when no foreign
-// action interleaved.
+// Dispatch applies a sequence of actions atomically to the table with the given key.
+// After a successful update the actions are notified to the service-level observer so
+// subscribers (cluster signals) can broadcast them. dispatchKey is a client-generated
+// identifier carried verbatim onto the broadcast so the originating client can match
+// its own echo against the set of outstanding local replays and skip a redundant reduce
+// when no foreign action interleaved.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -108,17 +105,15 @@ func (w Writer) Dispatch(
 }
 
 // Delete deletes the tables with the given keys.
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...Key,
-) (err error) {
-	if err = w.tbl.NewDelete().Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx); err != nil {
-		return
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.tbl.NewDelete().
+		Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx); err != nil {
+		return err
 	}
 	for _, key := range keys {
-		if err = w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return
+		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+			return err
 		}
 	}
-	return
+	return nil
 }

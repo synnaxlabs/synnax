@@ -64,9 +64,8 @@ func (w Writer) Create(
 // CreateMany creates the given Arcs. If Arcs with the same key already exist, they will
 // be overwritten.
 func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
-	items := *arcs
-	for i := range items {
-		if err := w.Create(ctx, &items[i]); err != nil {
+	for i := range *arcs {
+		if err := w.Create(ctx, &(*arcs)[i]); err != nil {
 			return err
 		}
 	}

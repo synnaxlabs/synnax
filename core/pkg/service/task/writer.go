@@ -98,9 +98,8 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 // CreateMany creates the given tasks. If tasks with the same key already exist, they
 // will be overwritten.
 func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
-	items := *tasks
-	for i := range items {
-		if err := w.Create(ctx, &items[i]); err != nil {
+	for i := range *tasks {
+		if err := w.Create(ctx, &(*tasks)[i]); err != nil {
 			return err
 		}
 	}

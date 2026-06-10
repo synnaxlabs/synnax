@@ -77,9 +77,8 @@ func (w Writer) CreateMany(
 	ws workspace.Key,
 	schematics *[]Schematic,
 ) error {
-	items := *schematics
-	for i := range items {
-		if err := w.Create(ctx, ws, &items[i]); err != nil {
+	for i := range *schematics {
+		if err := w.Create(ctx, ws, &(*schematics)[i]); err != nil {
 			return err
 		}
 	}

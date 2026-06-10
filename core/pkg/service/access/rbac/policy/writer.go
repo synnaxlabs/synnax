@@ -44,9 +44,8 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 // CreateMany creates the given policies. If policies with the same key already exist,
 // they will be overwritten.
 func (w Writer) CreateMany(ctx context.Context, policies *[]Policy) error {
-	items := *policies
-	for i := range items {
-		if err := w.Create(ctx, &items[i]); err != nil {
+	for i := range *policies {
+		if err := w.Create(ctx, &(*policies)[i]); err != nil {
 			return err
 		}
 	}

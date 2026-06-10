@@ -65,9 +65,8 @@ func (w Writer) CreateMany(
 	ctx context.Context,
 	workspaces *[]Workspace,
 ) error {
-	items := *workspaces
-	for i := range items {
-		if err := w.Create(ctx, &items[i]); err != nil {
+	for i := range *workspaces {
+		if err := w.Create(ctx, &(*workspaces)[i]); err != nil {
 			return err
 		}
 	}

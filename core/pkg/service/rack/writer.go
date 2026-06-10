@@ -88,9 +88,8 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 // CreateMany creates the given racks. If racks with the same key already exist, they
 // will be overwritten.
 func (w Writer) CreateMany(ctx context.Context, racks *[]Rack) error {
-	items := *racks
-	for i := range items {
-		if err := w.Create(ctx, &items[i]); err != nil {
+	for i := range *racks {
+		if err := w.Create(ctx, &(*racks)[i]); err != nil {
 			return err
 		}
 	}
