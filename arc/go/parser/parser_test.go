@@ -906,7 +906,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 
 			It("Should report error for invalid operators", func() {
 				_, err := parser.ParseExpression("2 ** 3")
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("Should capture lexer errors for invalid tokens (regression)", func() {
@@ -1035,7 +1035,7 @@ func broken() {
 
 			It("Should return error for invalid expression", func() {
 				_, err := parser.ParseExpression("2 + + 3")
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(HaveOccurred())
 			})
 
 			It("Should handle empty expression", func() {
