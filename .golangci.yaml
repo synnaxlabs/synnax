@@ -1,6 +1,7 @@
 version: "2"
 linters:
   enable:
+    - ginkgolinter
     - modernize
     - revive
     - mustsucceedlint

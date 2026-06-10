@@ -234,7 +234,7 @@ func test{} () {}`)
 			prog := mustParseProgram(`authority ()`)
 			authBlock := prog.TopLevelItem(0).AuthorityBlock()
 			Expect(authBlock).NotTo(BeNil())
-			Expect(authBlock.AllAuthorityEntry()).To(HaveLen(0))
+			Expect(authBlock.AllAuthorityEntry()).To(BeEmpty())
 		})
 	})
 
@@ -676,7 +676,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				clause := forStmt.ForClause()
 				Expect(clause.Expression()).To(BeNil())
 				Expect(clause.DECLARE()).To(BeNil())
-				Expect(clause.AllIDENTIFIER()).To(HaveLen(0))
+				Expect(clause.AllIDENTIFIER()).To(BeEmpty())
 			})
 
 			It("Should parse break statement", func() {
@@ -869,7 +869,7 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				expr3 := mustParseExpression("data[:]")
 				slice3 := getPostfixExpression(expr3).IndexOrSlice(0)
 				Expect(slice3.COLON()).NotTo(BeNil())
-				Expect(slice3.AllExpression()).To(HaveLen(0)) // No expressions
+				Expect(slice3.AllExpression()).To(BeEmpty()) // No expressions
 			})
 		})
 
@@ -1236,7 +1236,7 @@ sensor -> demux{threshold=100} -> {
 
 				// First entry: high -> alarm{}
 				Expect(entries[0].IDENTIFIER(0).GetText()).To(Equal("high"))
-				Expect(entries[0].AllARROW()).To(HaveLen(0))
+				Expect(entries[0].AllARROW()).To(BeEmpty())
 				highTargets := entries[0].AllFlowNode()
 				Expect(highTargets).To(HaveLen(1))
 				Expect(highTargets[0].Function()).NotTo(BeNil())
@@ -1301,7 +1301,7 @@ processor -> splitter{} -> {
 				Expect(flow).NotTo(BeNil())
 
 				// Routing table should be optional (no routing tables)
-				Expect(flow.AllRoutingTable()).To(HaveLen(0))
+				Expect(flow.AllRoutingTable()).To(BeEmpty())
 			})
 
 			It("Should parse routing table with chained nodes", func() {

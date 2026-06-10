@@ -421,7 +421,7 @@ var _ = Describe("txn", func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(v).To(Equal([]byte("value3")))
 				g.Expect(closer.Close()).To(Succeed())
-			})
+			}).Should(Succeed())
 		})
 
 		It("Should persist digests during recovery so recovered keys can be deleted", func(ctx SpecContext) {
@@ -450,11 +450,9 @@ var _ = Describe("txn", func() {
 			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
 			kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Eventually(func(g Gomega) {
-				v, closer, err := kv2.Get(ctx, []byte("key"))
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(v).To(Equal([]byte("value")))
-				g.Expect(closer.Close()).To(Succeed())
-			})
+				g.Expect(kv2.Get(ctx, []byte("key"))).Error().
+					To(MatchError(query.ErrNotFound))
+			}).Should(Succeed())
 		})
 	})
 })

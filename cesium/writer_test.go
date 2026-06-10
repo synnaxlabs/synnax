@@ -1365,7 +1365,7 @@ var _ = Describe("Writer Behavior", func() {
 						ctx,
 						cesium.Channel{Key: idx, Name: "uneven 1", DataType: telem.TimeStampT, IsIndex: true},
 						cesium.Channel{Key: data, Name: "uneven 2", DataType: telem.Float32T, Index: idx},
-					))
+					)).To(Succeed())
 				})
 
 				Specify("Uneven Frame", func(ctx SpecContext) {

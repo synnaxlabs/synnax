@@ -121,7 +121,7 @@ var _ = Describe("Create", Ordered, func() {
 					g.Expect(channels).To(HaveLen(1))
 					g.Expect(channels[0].DataType).To(Equal(telem.JSONT))
 					g.Expect(channels[0].Virtual).To(BeTrue())
-				})
+				}).Should(Succeed())
 			})
 			It("Should create an index channel", func(ctx SpecContext) {
 				ch4 := &channel.Channel{
