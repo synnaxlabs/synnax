@@ -92,6 +92,18 @@ SYNNAX_EXPORT int32_t synnax_writer_write(
     SynnaxError err
 );
 
+SYNNAX_EXPORT int32_t synnax_writer_write_strings(
+    SynnaxWriter writer,
+    uint32_t index_channel,
+    const int64_t *timestamps,
+    const uint32_t *channels,
+    uint64_t channel_count,
+    const void *data,
+    uint64_t data_size,
+    uint64_t sample_count,
+    SynnaxError err
+);
+
 SYNNAX_EXPORT int32_t
 synnax_writer_commit(SynnaxWriter writer, int64_t *out_end_ts, SynnaxError err);
 

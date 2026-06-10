@@ -56,6 +56,7 @@ SYNNAX_EXPORT int32_t synnax_writer_open(
 
 /// @brief writes sample_count samples to each of channel_count channels (channel-major,
 /// data_type is a DataType name); also writes timestamps to index_channel when nonzero.
+/// Fixed-width types only; use synnax_writer_write_strings for the string type.
 SYNNAX_EXPORT int32_t synnax_writer_write(
     SynnaxWriter *writer,
     uint32_t index_channel,
@@ -65,6 +66,21 @@ SYNNAX_EXPORT int32_t synnax_writer_write(
     const void *data,
     size_t sample_count,
     const char *data_type,
+    SynnaxError *err
+);
+
+/// @brief writes sample_count string samples to each of channel_count channels. data is
+/// a uint32-LE length-prefixed buffer of channel_count*sample_count strings
+/// of byte length data_size; every read is bounds-checked against data_size.
+SYNNAX_EXPORT int32_t synnax_writer_write_strings(
+    SynnaxWriter *writer,
+    uint32_t index_channel,
+    const int64_t *timestamps,
+    const uint32_t *channels,
+    size_t channel_count,
+    const void *data,
+    size_t data_size,
+    size_t sample_count,
     SynnaxError *err
 );
 

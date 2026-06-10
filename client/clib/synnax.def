@@ -8,5 +8,6 @@ EXPORTS
     synnax_channel_retrieve_keys
     synnax_writer_open
     synnax_writer_write
+    synnax_writer_write_strings
     synnax_writer_commit
     synnax_writer_close

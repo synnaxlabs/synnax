@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <exception>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "client/clib/framer/framer.h"
 #include "client/clib/internal.h"
@@ -131,6 +133,100 @@ int32_t synnax_writer_write(
                     bytes + i * sample_count * dt.density(),
                     sample_count,
                     dt
+                )
+            );
+        const auto w_err = writer->writer.write(frame);
+        if (!w_err.ok()) {
+            set_err(err, CODE_ERROR, w_err.type, w_err.data);
+            return CODE_ERROR;
+        }
+        return CODE_OK;
+    } catch (const std::exception &e) {
+        set_err(err, CODE_INTERNAL, "sy.internal", e.what());
+        return CODE_INTERNAL;
+    } catch (...) {
+        set_err(err, CODE_INTERNAL, "sy.internal", "unknown exception");
+        return CODE_INTERNAL;
+    }
+}
+
+int32_t synnax_writer_write_strings(
+    SynnaxWriter *writer,
+    const uint32_t index_channel,
+    const int64_t *timestamps,
+    const uint32_t *channels,
+    const size_t channel_count,
+    const void *data,
+    const size_t data_size,
+    const size_t sample_count,
+    SynnaxError *err
+) {
+    clear_err(err);
+    if (writer == nullptr || channels == nullptr || data == nullptr) {
+        set_err(err, CODE_INTERNAL, "sy.validation", "null writer, channels, or data");
+        return CODE_INTERNAL;
+    }
+    try {
+        const bool has_index = index_channel != 0 && timestamps != nullptr;
+        x::telem::Frame frame(channel_count + (has_index ? 1 : 0));
+        if (has_index)
+            frame.emplace(
+                index_channel,
+                x::telem::Series(timestamps, sample_count, x::telem::TIMESTAMP_T)
+            );
+        // data is channel_count*sample_count records, channel-major (channel 0's
+        // samples, then channel 1's). Each record is a uint32-LE byte length then that
+        // many raw bytes; every read is bounds-checked against data_size to prevent
+        // over-reads.
+        const auto *bytes = static_cast<const uint8_t *>(data);
+        size_t offset = 0;
+        std::vector<std::string> all;
+        all.reserve(channel_count * sample_count);
+        for (size_t i = 0; i < channel_count * sample_count; i++) {
+            if (offset + 4 > data_size) {
+                set_err(
+                    err,
+                    CODE_INTERNAL,
+                    "sy.validation",
+                    "string buffer too small for length prefix"
+                );
+                return CODE_INTERNAL;
+            }
+            const uint32_t len = static_cast<uint32_t>(bytes[offset]) |
+                                 static_cast<uint32_t>(bytes[offset + 1]) << 8 |
+                                 static_cast<uint32_t>(bytes[offset + 2]) << 16 |
+                                 static_cast<uint32_t>(bytes[offset + 3]) << 24;
+            offset += 4;
+            if (offset + len > data_size) {
+                set_err(
+                    err,
+                    CODE_INTERNAL,
+                    "sy.validation",
+                    "string buffer too small for payload"
+                );
+                return CODE_INTERNAL;
+            }
+            all.emplace_back(reinterpret_cast<const char *>(bytes + offset), len);
+            offset += len;
+        }
+        if (offset != data_size) {
+            set_err(
+                err,
+                CODE_INTERNAL,
+                "sy.validation",
+                "string buffer has trailing bytes after the declared samples"
+            );
+            return CODE_INTERNAL;
+        }
+        for (size_t i = 0; i < channel_count; i++)
+            frame.emplace(
+                channels[i],
+                x::telem::Series(
+                    std::vector<std::string>(
+                        all.begin() + i * sample_count,
+                        all.begin() + (i + 1) * sample_count
+                    ),
+                    x::telem::STRING_T
                 )
             );
         const auto w_err = writer->writer.write(frame);
