@@ -107,14 +107,13 @@ describe("errorHandler", () => {
 
       handler(func, "async error message");
 
-      // Wait for the async operation to complete
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(mockAdder).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: "async error message",
-        }),
-      );
+      await vi.waitFor(() => {
+        expect(mockAdder).toHaveBeenCalledWith(
+          expect.objectContaining({
+            message: "async error message",
+          }),
+        );
+      });
     });
 
     it("should handle async functions that resolve", async () => {
@@ -126,9 +125,9 @@ describe("errorHandler", () => {
 
       handler(func);
 
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(mockAdder).not.toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(mockAdder).not.toHaveBeenCalled();
+      });
     });
 
     it("should not add status if error is skipped", () => {

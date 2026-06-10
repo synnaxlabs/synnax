@@ -579,7 +579,7 @@ LinePlot struct {
 }
 
 New struct extends LinePlot {
-    key?
+    key      = create
     title    = {}
     legend   = {}
     channels = {}

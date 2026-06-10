@@ -87,24 +87,20 @@ var _ = Describe("Writer", func() {
 			Expect(res.Name).To(Equal("second"))
 		})
 	})
-	Describe("SetData", func() {
-		It("Should replace every body field on the Log while preserving Key and Name", func(ctx SpecContext) {
-			l := log.Log{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, l.Key, log.Log{
-				Name: "ignored-name",
-				Channels: []log.ChannelEntry{
-					{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000")},
-				},
-				TimestampPrecision: 2,
-			})).To(Succeed())
-			var res log.Log
-			Expect(svc.NewRetrieve().
-				Where(log.MatchKeys(l.Key)).
-				Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Name).To(Equal("test"))
-			Expect(res.Channels).To(HaveLen(1))
-			Expect(res.TimestampPrecision).To(Equal(int32(2)))
+	Describe("CreateMany", func() {
+		It("Should create multiple logs", func(ctx SpecContext) {
+			logs := []log.Log{
+				{Name: "log-1"},
+				{Name: "log-2"},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, ws.Key, &logs)).To(Succeed())
+
+			var retrieved []log.Log
+			Expect(svc.NewRetrieve().Where(log.MatchKeys(
+				logs[0].Key,
+				logs[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
 		})
 	})
 	Describe("Delete", func() {

@@ -166,6 +166,19 @@ var _ = Describe("Validation Rules", func() {
 			ToContain(`.default(() => id.create())`)
 	})
 
+	It("Should emit uuid.create() default for uuid keys with create ident", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				key uuid = create
+			}
+		`
+		resp := MustGenerate(ctx, source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`.default(() => uuid.create())`)
+	})
+
 	It("Should rely on nullishToEmpty for an empty array default, not a misplaced element default", func(ctx SpecContext) {
 		source := `
 			@ts output "out"

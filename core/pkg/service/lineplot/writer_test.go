@@ -51,6 +51,23 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple line plots", func(ctx SpecContext) {
+			plots := []lineplot.LinePlot{
+				{Name: "plot-1"},
+				{Name: "plot-2"},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, ws.Key, &plots)).To(Succeed())
+
+			var retrieved []lineplot.LinePlot
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(
+				plots[0].Key,
+				plots[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("eager line creation", func() {
 		It("Should materialize a line per range when a channel is added", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{
@@ -126,45 +143,6 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 				To(Succeed())
 			Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---20---5"))
-		})
-	})
-
-	Describe("Update", func() {
-		It("Should rename a LinePlot", func(ctx SpecContext) {
-			plot := lineplot.LinePlot{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, plot.Key, "test2")).To(Succeed())
-			var res lineplot.LinePlot
-			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
-				To(Succeed())
-			Expect(res.Name).To(Equal("test2"))
-		})
-	})
-
-	Describe("SetData", func() {
-		It("Should replace the body of a LinePlot while preserving key and name", func(ctx SpecContext) {
-			plot := lineplot.LinePlot{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-			body := lineplot.LinePlot{
-				Title:  lineplot.Title{Level: text.LevelH4, Visible: true},
-				Legend: lineplot.Legend{Visible: true},
-				Lines: []lineplot.Line{{
-					Key:            "l1",
-					Color:          new(color.MustFromHex("#abcdef")),
-					StrokeWidth:    2,
-					Downsample:     1,
-					DownsampleMode: lineplot.DownsampleModeDecimate,
-				}},
-			}
-			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, body)).To(Succeed())
-			var res lineplot.LinePlot
-			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
-				To(Succeed())
-			Expect(res.Key).To(Equal(plot.Key))
-			Expect(res.Name).To(Equal("test"))
-			Expect(res.Title.Level).To(Equal(text.LevelH4))
-			Expect(res.Lines).To(HaveLen(1))
-			Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#abcdef"))))
 		})
 	})
 

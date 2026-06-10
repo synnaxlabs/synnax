@@ -26,30 +26,29 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-func (w Writer) Create(
-	ctx context.Context,
-	ws workspace.Key,
-	p *LinePlot,
-) (err error) {
-	var exists bool
-	if p.Key == uuid.Nil {
-		p.Key = uuid.New()
+func (w Writer) Create(ctx context.Context, ws workspace.Key, lp *LinePlot) error {
+	var (
+		exists bool
+		err    error
+	)
+	if lp.Key == uuid.Nil {
+		lp.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, LinePlot](p.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).Exists(ctx, w.tx)
 		if err != nil {
-			return
+			return err
 		}
 	}
-	// Materialize lines for any channel/range bindings supplied at creation so a
-	// plot created with channels and ranges but no lines is fully populated.
-	p.Lines = reconcileLines(*p)
-	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
-		return
+	// Materialize lines for any channel/range bindings supplied at creation so a plot
+	// created with channels and ranges but no lines is fully populated.
+	lp.Lines = reconcileLines(*lp)
+	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
+		return err
 	}
 	if exists {
-		return
+		return nil
 	}
-	otgID := OntologyID(p.Key)
+	otgID := OntologyID(lp.Key)
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
@@ -64,43 +63,27 @@ func (w Writer) Create(
 	)
 }
 
-func (w Writer) Rename(
+// CreateMany creates the given line plots within the workspace provided. If line plots
+// with the same key already exist, they will be overwritten.
+func (w Writer) CreateMany(
 	ctx context.Context,
-	key Key,
-	name string,
+	ws workspace.Key,
+	plots *[]LinePlot,
 ) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, LinePlot](key)).
-		Change(func(_ gorp.Context, p LinePlot) LinePlot {
-			p.Name = name
-			return p
-		}).Exec(ctx, w.tx)
+	for i := range *plots {
+		if err := w.Create(ctx, ws, &(*plots)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// SetData replaces the body of the line plot with the given key with the
-// provided value. Key and Name are preserved from the existing entry; every
-// other field on data overwrites the stored entry verbatim.
-func (w Writer) SetData(
-	ctx context.Context,
-	key Key,
-	data LinePlot,
-) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, LinePlot](key)).
-		Change(func(_ gorp.Context, p LinePlot) LinePlot {
-			data.Key = p.Key
-			data.Name = p.Name
-			return data
-		}).Exec(ctx, w.tx)
-}
-
-// Dispatch applies a sequence of actions atomically to the line plot with the
-// given key. After a successful update the actions are notified to the
-// service-level observer so subscribers (cluster signals) can broadcast them.
-// dispatchKey is a client-generated identifier carried verbatim onto the
-// broadcast so the originating client can match its own echo against the set
-// of outstanding local replays and skip a redundant reduce when no foreign
-// action interleaved.
+// Dispatch applies a sequence of actions atomically to the line plot with the given
+// key. After a successful update the actions are notified to the service-level observer
+// so subscribers (cluster signals) can broadcast them. dispatchKey is a
+// client-generated identifier carried verbatim onto the broadcast so the originating
+// client can match its own echo against the set of outstanding local replays and skip a
+// redundant reduce when no foreign action interleaved.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -117,12 +100,9 @@ func (w Writer) Dispatch(
 	return nil
 }
 
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...Key,
-) error {
-	err := w.table.NewDelete().Where(gorp.MatchKeys[Key, LinePlot](keys...)).Exec(ctx, w.tx)
-	if err != nil {
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, LinePlot](keys...)).
+		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

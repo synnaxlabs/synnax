@@ -70,25 +70,23 @@ func (w Writer) Create(ctx context.Context, ws workspace.Key, l *Log) error {
 	)
 }
 
-// SetData replaces the body of the log with the given key with the provided value. Key
-// and Name are preserved from the existing entry; every other field on data overwrites
-// the stored entry verbatim.
-func (w Writer) SetData(ctx context.Context, key Key, data Log) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Log](key)).
-		Change(func(_ gorp.Context, l Log) Log {
-			data.Key = l.Key
-			data.Name = l.Name
-			return data
-		}).Exec(ctx, w.tx)
+// CreateMany creates the given logs within the workspace provided. If logs with the
+// same key already exist, they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, ws workspace.Key, logs *[]Log) error {
+	for i := range *logs {
+		if err := w.Create(ctx, ws, &(*logs)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Dispatch applies a sequence of actions atomically to the log with the given key.
 // After a successful update the actions are notified to the service-level observer so
 // subscribers (cluster signals) can broadcast them. dispatchKey is a client-generated
 // identifier carried verbatim onto the broadcast so the originating client can match
-// its own echo against the set of outstanding local replays and skip a redundant
-// reduce when no foreign action interleaved.
+// its own echo against the set of outstanding local replays and skip a redundant reduce
+// when no foreign action interleaved.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
