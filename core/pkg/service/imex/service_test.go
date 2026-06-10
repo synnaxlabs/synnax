@@ -341,9 +341,14 @@ var _ = Describe("Service", func() {
 				}(t)
 			}
 			wg.Wait()
+			wg.Add(N)
 			for _, t := range types {
-				Expect(s.ImporterType(t)).To(Equal(ontology.ResourceType("task")))
+				go func(t string) {
+					defer wg.Done()
+					Expect(s.ImporterType(t)).To(Equal(ontology.ResourceType("task")))
+				}(t)
 			}
+			wg.Wait()
 		})
 	})
 })
