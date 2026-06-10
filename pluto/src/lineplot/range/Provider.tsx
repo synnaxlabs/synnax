@@ -15,7 +15,7 @@ import { type RenderProp } from "@/component/renderProp";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useContext, useGridEntry } from "@/lineplot/LinePlot";
+import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
 import { Menu } from "@/menu";
 

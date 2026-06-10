@@ -73,6 +73,18 @@ describe("Tabs", () => {
     fireEvent.dragEnd(getByText("Tab 1"));
     expect(handleDragEnd).toHaveBeenCalled();
   });
+  it("should make tabs draggable only when an onDragStart handler is provided", () => {
+    const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1" }];
+    const getTabButton = (container: HTMLElement): HTMLElement => {
+      const btn = container.querySelector<HTMLElement>(".pluto-tabs-selector__btn");
+      if (btn == null) throw new Error("tab button not found");
+      return btn;
+    };
+    const withHandler = render(<StaticTabs tabs={tabs} onDragStart={vi.fn()} />);
+    expect(getTabButton(withHandler.container).draggable).toBe(true);
+    const withoutHandler = render(<StaticTabs tabs={tabs} />);
+    expect(getTabButton(withoutHandler.container).draggable).toBe(false);
+  });
   it("should render a close button if an onClose prop is passed", () => {
     const onClose = vi.fn();
     const tabs = [

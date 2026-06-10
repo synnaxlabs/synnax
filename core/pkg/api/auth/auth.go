@@ -14,9 +14,9 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"

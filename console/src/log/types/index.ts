@@ -12,26 +12,24 @@ import { z } from "zod";
 
 import * as v0 from "@/log/types/v0";
 import * as v1 from "@/log/types/v1";
+import * as v2 from "@/log/types/v2";
 
-export const stateZ = v1.stateZ;
-export type State = v1.State;
-export type SliceState = v1.SliceState;
-export const ZERO_SLICE_STATE = v1.ZERO_SLICE_STATE;
-export const ZERO_STATE = v1.ZERO_STATE;
-export type ChannelConfig = v1.ChannelConfig;
-export const ZERO_CHANNEL_CONFIG = v1.ZERO_CHANNEL_CONFIG;
-export type ChannelEntry = v1.ChannelEntry;
-export const ZERO_CHANNEL_ENTRY = v1.ZERO_CHANNEL_ENTRY;
-export const channelEntryZ = v1.channelEntryZ;
-export type ToolbarTab = v1.ToolbarTab;
-export type ToolbarState = v1.ToolbarState;
-export const ZERO_TOOLBAR_STATE = v1.ZERO_TOOLBAR_STATE;
+export const stateZ = v2.stateZ;
+export type State = v2.State;
+export type SliceState = v2.SliceState;
+export const ZERO_SLICE_STATE = v2.ZERO_SLICE_STATE;
+export const ZERO_STATE = v2.ZERO_STATE;
+export type ToolbarTab = v2.ToolbarTab;
+export type ToolbarState = v2.ToolbarState;
+export const ZERO_TOOLBAR_STATE = v2.ZERO_TOOLBAR_STATE;
+export type PendingUpload = v2.PendingUpload;
 
-export type AnyState = v0.State | v1.State;
-export type AnySliceState = v0.SliceState | v1.SliceState;
+export type AnyState = v0.State | v1.State | v2.State;
+export type AnySliceState = v0.SliceState | v1.SliceState | v2.SliceState;
 
 export const STATE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.stateMigration,
+  [v1.VERSION]: v2.stateMigration,
 };
 
 export const migrateState = migrate.migrator<AnyState, State>({
@@ -42,6 +40,7 @@ export const migrateState = migrate.migrator<AnyState, State>({
 
 export const SLICE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.sliceMigration,
+  [v1.VERSION]: v2.sliceMigration,
 };
 
 export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
@@ -51,5 +50,5 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
 });
 
 export const anyStateZ = z
-  .union([v1.stateZ, v0.stateZ])
+  .union([v2.stateZ, v1.stateZ, v0.stateZ])
   .transform((state) => migrateState(state));

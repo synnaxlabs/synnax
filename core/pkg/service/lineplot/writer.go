@@ -53,45 +53,15 @@ func (w Writer) Create(
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if err := w.otg.DefineRelationship(
+	if ws == uuid.Nil {
+		return nil
+	}
+	return w.otg.DefineRelationship(
 		ctx,
 		workspace.OntologyID(ws),
 		ontology.RelationshipTypeParentOf,
 		otgID,
-	); err != nil {
-		return err
-	}
-	return err
-}
-
-func (w Writer) Rename(
-	ctx context.Context,
-	key Key,
-	name string,
-) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, LinePlot](key)).
-		Change(func(_ gorp.Context, p LinePlot) LinePlot {
-			p.Name = name
-			return p
-		}).Exec(ctx, w.tx)
-}
-
-// SetData replaces the body of the line plot with the given key with the
-// provided value. Key and Name are preserved from the existing entry; every
-// other field on data overwrites the stored entry verbatim.
-func (w Writer) SetData(
-	ctx context.Context,
-	key Key,
-	data LinePlot,
-) error {
-	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, LinePlot](key)).
-		Change(func(_ gorp.Context, p LinePlot) LinePlot {
-			data.Key = p.Key
-			data.Name = p.Name
-			return data
-		}).Exec(ctx, w.tx)
+	)
 }
 
 // Dispatch applies a sequence of actions atomically to the line plot with the

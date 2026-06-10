@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Ranger, Status } from "@synnaxlabs/pluto";
-import { strings } from "@synnaxlabs/x";
+import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
+import { strings, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
@@ -17,11 +17,14 @@ import { create as createLinePlot } from "@/lineplot/layout";
 import { add } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 import { type RootState } from "@/store";
+import { Workspace } from "@/workspace";
 
 export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   const store = useStore<RootState>();
   const placeLayout = Layout.usePlacer();
+  const client = Synnax.use();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(
       ({ data, variant, status }) => {
@@ -29,17 +32,20 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
           if (variant === "error") addStatus(status);
           return;
         }
+        if (client == null) return;
         store.dispatch(add({ ranges: fromClientRange(data) }));
         const names = data.map(({ name }) => name);
         const keys = data.map(({ key }) => key);
-        placeLayout(
-          createLinePlot({
+        const workspace = Workspace.selectActiveKey(store.getState()) ?? uuid.ZERO;
+        handleError(async () => {
+          const { key, name } = await client.lineplots.create(workspace, {
             name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
             ranges: { x1: keys, x2: [] },
-          }),
-        );
+          });
+          placeLayout(createLinePlot({ key, name }));
+        }, "Failed to create plot");
       },
-      [store, placeLayout],
+      [store, client, addStatus, handleError, placeLayout],
     ),
   });
   return useCallback((keys: string[]) => retrieve({ keys }), [retrieve]);

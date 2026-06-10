@@ -10,45 +10,17 @@
 package lineplot_test
 
 import (
-	"context"
-	"sync"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// scopedAction is a short local alias for the line plot's action envelope so
-// the test files don't have to spell out the generic parameters at every use.
-type scopedAction = actions.Scoped[lineplot.Key, lineplot.Action]
-
-// actionRecorder collects ScopedAction notifications emitted by the service's
-// action observer for assertions in tests.
-type actionRecorder struct {
-	mu      sync.Mutex
-	scopeds []scopedAction
-}
-
-func (r *actionRecorder) record(_ context.Context, sa scopedAction) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.scopeds = append(r.scopeds, sa)
-}
-
-func (r *actionRecorder) snapshot() []scopedAction {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	out := make([]scopedAction, len(r.scopeds))
-	copy(out, r.scopeds)
-	return out
-}
 
 func lineKeysOf(lines []lineplot.Line) []string {
 	keys := make([]string, len(lines))
@@ -154,45 +126,6 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 				To(Succeed())
 			Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---20---5"))
-		})
-	})
-
-	Describe("Update", func() {
-		It("Should rename a LinePlot", func(ctx SpecContext) {
-			plot := lineplot.LinePlot{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, plot.Key, "test2")).To(Succeed())
-			var res lineplot.LinePlot
-			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
-				To(Succeed())
-			Expect(res.Name).To(Equal("test2"))
-		})
-	})
-
-	Describe("SetData", func() {
-		It("Should replace the body of a LinePlot while preserving key and name", func(ctx SpecContext) {
-			plot := lineplot.LinePlot{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-			body := lineplot.LinePlot{
-				Title:  lineplot.Title{Level: text.LevelH4, Visible: true},
-				Legend: lineplot.Legend{Visible: true},
-				Lines: []lineplot.Line{{
-					Key:            "l1",
-					Color:          new(color.MustFromHex("#abcdef")),
-					StrokeWidth:    2,
-					Downsample:     1,
-					DownsampleMode: lineplot.DownsampleModeDecimate,
-				}},
-			}
-			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, body)).To(Succeed())
-			var res lineplot.LinePlot
-			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
-				To(Succeed())
-			Expect(res.Key).To(Equal(plot.Key))
-			Expect(res.Name).To(Equal("test"))
-			Expect(res.Title.Level).To(Equal(text.LevelH4))
-			Expect(res.Lines).To(HaveLen(1))
-			Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#abcdef"))))
 		})
 	})
 
@@ -317,6 +250,76 @@ var _ = Describe("Writer", func() {
 				Expect(res.Channels.Y3).To(ConsistOf(channel.Key(2)))
 			})
 
+			It("Should replace a y-axis's whole channel set via SetChannels", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{Y1: []channel.Key{1, 2, 3}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetChannelsAction(lineplot.SetChannelsPayload{
+						AxisKey: lineplot.YAxisKeyY1, Channels: []channel.Key{2, 4},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Channels.Y1).To(Equal([]channel.Key{2, 4}))
+			})
+
+			It("Should reconcile lines when SetChannels replaces the channel set", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetChannelsAction(lineplot.SetChannelsPayload{
+						AxisKey: lineplot.YAxisKeyY1, Channels: []channel.Key{6},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---10---6"))
+			})
+
+			It("Should preserve styling of surviving channels under SetChannels", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
+					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				keep := lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
+					Key:   "y1---x1---r1---10---5",
+					Color: new(color.MustFromHex("#ff0000")),
+				})
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{keep})).
+					To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetChannelsAction(lineplot.SetChannelsPayload{
+						AxisKey: lineplot.YAxisKeyY1, Channels: []channel.Key{5},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Lines).To(HaveLen(1))
+				Expect(res.Lines[0].Color).To(Equal(new(color.MustFromHex("#ff0000"))))
+			})
+
+			It("Should reject SetChannels targeting an x-axis with validate.ErrValidation", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetChannelsAction(lineplot.SetChannelsPayload{
+						AxisKey: lineplot.YAxisKey("x1"), Channels: []channel.Key{1},
+					}),
+				})).Error().To(MatchError(validate.ErrValidation))
+			})
+
 			It("Should replace the single channel bound to an x-axis via SetXChannel", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
@@ -369,6 +372,52 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddRangeAction(lineplot.AddRangePayload{
 						AxisKey: lineplot.XAxisKey("y1"), Range: uuid.NewString(),
+					}),
+				})).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should replace an x-axis's whole range set via SetRanges", func(ctx SpecContext) {
+				r1, r2, r3 := uuid.NewString(), uuid.NewString(), uuid.NewString()
+				plot := lineplot.LinePlot{
+					Name:   "test",
+					Ranges: lineplot.Ranges{X1: []string{r1, r2}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						AxisKey: lineplot.XAxisKeyX1, Ranges: []string{r2, r3},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(res.Ranges.X1).To(Equal([]string{r2, r3}))
+			})
+
+			It("Should reconcile lines when SetRanges replaces the range set", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{
+					Name:     "test",
+					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+				}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						AxisKey: lineplot.XAxisKeyX1, Ranges: []string{"r2"},
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
+				Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r2---10---5"))
+			})
+
+			It("Should reject SetRanges targeting a y-axis with validate.ErrValidation", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
+						AxisKey: lineplot.XAxisKey("y1"), Ranges: []string{uuid.NewString()},
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
 			})
@@ -563,8 +612,8 @@ var _ = Describe("Writer", func() {
 			It("Should notify subscribers with the dispatched ScopedAction on success", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "observed"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-				rec := &actionRecorder{}
-				DeferCleanup(svc.OnAction(rec.record))
+				rec := &Recorder[lineplot.Key, lineplot.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
 				actions := []lineplot.Action{
 					lineplot.NewRenameAction(lineplot.RenamePayload{Name: "broadcast"}),
 					lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
@@ -573,7 +622,7 @@ var _ = Describe("Writer", func() {
 				}
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "client-xyz", actions)).
 					To(Succeed())
-				seen := rec.snapshot()
+				seen := rec.Snapshot()
 				Expect(seen).To(HaveLen(1))
 				Expect(seen[0].Key).To(Equal(plot.Key))
 				Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
@@ -585,14 +634,14 @@ var _ = Describe("Writer", func() {
 			It("Should assign strictly monotonic Seq across successive dispatches", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "seq"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-				rec := &actionRecorder{}
-				DeferCleanup(svc.OnAction(rec.record))
+				rec := &Recorder[lineplot.Key, lineplot.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
 				for _, name := range []string{"a", "b", "c"} {
 					Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d", []lineplot.Action{
 						lineplot.NewRenameAction(lineplot.RenamePayload{Name: name}),
 					})).To(Succeed())
 				}
-				seen := rec.snapshot()
+				seen := rec.Snapshot()
 				Expect(seen).To(HaveLen(3))
 				Expect(seen[1].Seq).To(BeNumerically(">", seen[0].Seq))
 				Expect(seen[2].Seq).To(BeNumerically(">", seen[1].Seq))
@@ -601,14 +650,14 @@ var _ = Describe("Writer", func() {
 			It("Should not notify subscribers when Reduce rejects the action", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "rejected"}
 				Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
-				rec := &actionRecorder{}
-				DeferCleanup(svc.OnAction(rec.record))
+				rec := &Recorder[lineplot.Key, lineplot.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 					lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
 						AxisKey: lineplot.YAxisKey("x1"), Channel: 1,
 					}),
 				})).Error().To(MatchError(validate.ErrValidation))
-				Expect(rec.snapshot()).To(BeEmpty())
+				Expect(rec.Snapshot()).To(BeEmpty())
 			})
 		})
 	})

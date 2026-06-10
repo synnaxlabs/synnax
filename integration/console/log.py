@@ -68,6 +68,54 @@ class Log(ConsolePage):
                 return True
         return False
 
+    def copy_visible_entries(self) -> str:
+        """Drag-select the log and copy the selection via the context menu.
+
+        Log entries are drawn on a canvas, so they are not countable as DOM
+        nodes. A mouse drag (not the Ctrl+A trigger) sets the selection, and the
+        context-menu Copy item writes it through ``navigator.clipboard.write``
+        (the async clipboard API). Both avoid the focus-dependent native copy
+        event and the active-tab trigger gate, so the round-trip is reliable in
+        headless runs. Returns "" if the copy could not be performed.
+        """
+        self.layout.get_tab(self.page_name).click()
+        if not self.pane_locator:
+            return ""
+        bbox = self.pane_locator.bounding_box()
+        if bbox is None:
+            return ""
+        x = bbox["x"] + 40
+        self.page.mouse.move(x, bbox["y"] + 10)
+        self.page.mouse.down()
+        self.page.mouse.move(x, bbox["y"] + bbox["height"] - 10, steps=5)
+        self.page.mouse.up()
+        self.pane_locator.click(button="right", position={"x": 40, "y": 10})
+        menu = self.page.locator(".pluto-menu-context").first
+        try:
+            menu.wait_for(state="visible", timeout=3000)
+            menu.locator(".pluto-menu-item").filter(has_text="Copy").first.click(
+                timeout=2000
+            )
+        except PlaywrightTimeoutError:
+            self.page.keyboard.press("Escape")
+            return ""
+        return self.layout.read_clipboard()
+
+    def wait_for_copied_entries(self, retries: int = 20) -> list[str]:
+        """Poll the drag-select + context-menu copy until it yields entries.
+
+        Returns the non-empty copied lines (one per rendered entry), or an empty
+        list if nothing was copied within the retry budget.
+        """
+        lines: list[str] = []
+        for _ in range(retries):
+            text = self.copy_visible_entries()
+            lines = [ln for ln in text.split("\n") if ln.strip()]
+            if lines:
+                return lines
+            self.page.wait_for_timeout(250)
+        return lines
+
     def is_empty(self) -> bool:
         """Check if the log shows any empty state message."""
         if not self.pane_locator:

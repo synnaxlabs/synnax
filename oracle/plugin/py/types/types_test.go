@@ -564,6 +564,21 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
 		})
 
+		It("Should emit create defaults for string and uuid keys", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					str_key  string = create
+					uuid_key uuid   = create
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`str_key: str = Field(default_factory=lambda: str(uuid4()))`))
+			Expect(content).To(ContainSubstring(`uuid_key: UUID = Field(default_factory=uuid4)`))
+		})
+
 		It("Should emit struct defaults via default_factory", func(ctx SpecContext) {
 			source := `
 				@py output "out"

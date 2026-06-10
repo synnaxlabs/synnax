@@ -7,28 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, ontology, type workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { type channel, log, NotFoundError, type workspace } from "@synnaxlabs/client";
+import { array, compare, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, log.Key, log.Log> =
-  {
-    listeners: [],
-  };
 
 export const FLUX_STORE_KEY = "logs";
 const RESOURCE_NAME = "log";
 
-export interface FluxStore extends Flux.UnaryStore<log.Key, log.Log> {}
+export interface FluxStore extends Flux.UndoableUnaryStore<
+  log.Key,
+  log.Log,
+  log.Action
+> {}
 
 export type UseDeleteArgs = log.Key | log.Key[];
 
-interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -48,22 +46,16 @@ export const retrieveSingle = async ({
   return l;
 };
 
-export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
-  RetrieveQuery,
-  log.Log,
-  FluxSubStore
->({
+export const {
+  useRetrieve,
+  useRetrieveObservable,
+  useRetrieveSuspended,
+  useEnsureRetrieved,
+} = Flux.createRetrieve<RetrieveQuery, log.Log, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
+  mountListeners: ({ store, query: { key }, onChange }) =>
     store.logs.onSet(onChange, key),
-    // TODO: Using the ontology resources store to propagate name changes is a bit
-    // hacky, and shpuld be removed once visualizations are strongly typed.
-    store.resources.onSet(
-      (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
-      ontology.idToString(log.ontologyID(key)),
-    ),
-  ],
 });
 
 export const useRetrieveObservableName = ({
@@ -82,6 +74,135 @@ export const useRetrieveObservableName = ({
   });
 };
 
+export interface SelectKeyArgs {
+  key: log.Key;
+}
+
+const requireLog = (store: FluxSubStore, key: log.Key): log.Log => {
+  const l = store.logs.get(key);
+  if (l == null) throw new NotFoundError(`Log with key ${key} not found`);
+  return l;
+};
+
+export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+  select: (store, { key }) => requireLog(store, key).name,
+});
+
+export const useSelectChannels = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  log.ChannelEntry[]
+>({
+  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+  select: (store, { key }) => requireLog(store, key).channels,
+});
+
+// useSelectChannelKeys returns the ordered channel keys, re-rendering only when the
+// set or order of channels changes — not when an individual entry's display config
+// is edited. Iterate the toolbar list off this and read each row via
+// useSelectChannelEntry.
+export const useSelectChannelKeys = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  channel.Key[]
+>({
+  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+  select: (store, { key }) => requireLog(store, key).channels.map((e) => e.channel),
+  equal: compare.arraysEqual,
+});
+
+export interface SelectChannelEntryArgs extends SelectKeyArgs {
+  channel: channel.Key;
+}
+
+// useSelectChannelEntry returns the entry for a single channel, or null when the
+// channel has no entry. reduceAll's structural sharing keeps the entry reference
+// stable across dispatches that don't touch it, so editing one channel does not
+// re-render the rows of the others.
+export const useSelectChannelEntry = Flux.createSelector<
+  FluxSubStore,
+  SelectChannelEntryArgs,
+  log.ChannelEntry | null
+>({
+  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+  select: (store, { key, channel }) =>
+    requireLog(store, key).channels.find((e) => e.channel === channel) ?? null,
+});
+
+export const useSelectTimestampPrecision = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  number
+>({
+  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+  select: (store, { key }) => requireLog(store, key).timestampPrecision,
+});
+
+export const useSelectShowChannelNames = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  boolean
+>({
+  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+  select: (store, { key }) => requireLog(store, key).showChannelNames,
+});
+
+export const useSelectShowReceiptTimestamp = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  boolean
+>({
+  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+  select: (store, { key }) => requireLog(store, key).showReceiptTimestamp,
+});
+
+// kindOfTransaction keys single-channel edits by channel so rapid edits to one
+// channel's config coalesce into a single undoable, while edits to distinct
+// channels stay separate. Log-level edits (name, precision, flags) key by their
+// action type; multi-action batches collapse into one "transaction" undoable.
+const kindOfTransaction = (actions: log.Action[]): string => {
+  if (actions.length === 0) return "default";
+  if (actions.length > 1) return "transaction";
+  const a = actions[0];
+  switch (a.type) {
+    case "add_channel":
+      return `channel:${a.addChannel.channel}`;
+    case "remove_channel":
+      return `channel:${a.removeChannel.channel}`;
+    case "set_channel_entry":
+      return `channel:${a.setChannelEntry.entry.channel}`;
+    default:
+      return a.type;
+  }
+};
+
+export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
+  log.Key,
+  log.Log,
+  log.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  reduce: log.reduceAll,
+  channel: log.SET_CHANNEL_NAME,
+  schema: log.scopedActionZ,
+  kindOf: kindOfTransaction,
+});
+
+export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+  log.Key,
+  log.Log,
+  log.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  send: ({ client, key, actions, dispatchKey }) =>
+    client.logs.dispatch(key, dispatchKey, actions),
+});
+
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
@@ -90,31 +211,30 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
     const ids = log.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
+    rollbacks.push(store.logs.delete(keys));
     await client.logs.delete(data);
     return data;
   },
 });
 
 export interface CreateParams extends log.New {
-  workspace: workspace.Key;
-}
-
-export interface CreateOutput extends log.Log {
-  workspace: workspace.Key;
+  workspace?: workspace.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
-  CreateOutput
+  log.Log
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store }) => {
-    const { workspace, ...rest } = data;
-    const l = await client.logs.create(workspace, rest);
-    store.logs.set(l.key, l);
-    return { ...l, workspace };
+  update: async ({ client, data, store, rollbacks }) => {
+    const optimistic = log.newZ.parse(data);
+    rollbacks.push(store.logs.set(optimistic));
+    const workspace = data.workspace ?? uuid.ZERO;
+    const created = await client.logs.create(workspace, optimistic);
+    store.logs.set(created);
+    return created;
   },
 });
 
