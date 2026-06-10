@@ -10,7 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { nameZ } from "@/ranger/payload";
 import { keyZ, type New, newZ, type Payload, payloadZ } from "@/ranger/types.gen";
 
