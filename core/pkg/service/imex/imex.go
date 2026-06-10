@@ -25,6 +25,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -257,6 +258,37 @@ func legacyToNumeric(s string) (Version, error) {
 		return 0, errors.Newf("invalid version %q: only N.0.0 is supported", s)
 	}
 	return Version(major), nil
+}
+
+// structToMap reduces a struct value to a flat map[string]any keyed by the name in each
+// field's `json:"..."` struct tag. A field is emitted iff it carries a json tag whose
+// name component is non-empty and not "-". Fields without a tag, with `json:"-"`, or
+// with an empty tag name (e.g. `json:",omitempty"`) are skipped. Tag options after the
+// name are ignored. The map is the codec-independent intermediate Encode merges headers
+// into; it is never the wire output itself.
+func structToMap(v any) (map[string]any, error) {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Struct {
+		return nil, errors.Newf("expected struct, got %s", rv.Kind())
+	}
+	m := make(map[string]any)
+	t := rv.Type()
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		tag, ok := f.Tag.Lookup("json")
+		if !ok {
+			continue
+		}
+		name, _, _ := strings.Cut(tag, ",")
+		if name == "" || name == "-" {
+			continue
+		}
+		m[name] = rv.Field(i).Interface()
+	}
+	return m, nil
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's

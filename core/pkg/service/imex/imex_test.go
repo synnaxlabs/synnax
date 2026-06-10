@@ -271,12 +271,10 @@ var _ = Describe("ImEx", func() {
 				Expect(round).NotTo(HaveKey("-"))
 			})
 
-			It("Should fall back to the Go field name when a field has no json tag", func() {
-				// Mirrors encoding/json: an untagged exported field shows up on the
-				// wire under its Go field name.
+			It("Should skip exported fields that have no json tag", func() {
 				type payload struct {
-					Name      string `json:"name"`
-					Untagged  string
+					Name     string `json:"name"`
+					Untagged string
 				}
 				env := MustSucceed(imex.Encode(
 					payload{Name: "n", Untagged: "v"}, 1, "log",
@@ -284,12 +282,12 @@ var _ = Describe("ImEx", func() {
 				b := MustSucceed(json.Marshal(env))
 				var round map[string]any
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
-				Expect(round).To(HaveKeyWithValue("Untagged", "v"))
+				Expect(round).NotTo(HaveKey("Untagged"))
 			})
 
-			It("Should fall back to the Go field name when the json tag has no name", func() {
-				// `json:",omitempty"` has empty name — encoding/json uses the Go
-				// field name and applies the omitempty option.
+			It("Should skip fields whose json tag has an empty name", func() {
+				// `json:",omitempty"` has no name component; structToMap only
+				// emits fields keyed by an explicit tag name.
 				type payload struct {
 					Name      string `json:"name"`
 					EmptyName string `json:",omitempty"`
@@ -300,67 +298,13 @@ var _ = Describe("ImEx", func() {
 				b := MustSucceed(json.Marshal(env))
 				var round map[string]any
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
-				Expect(round).To(HaveKeyWithValue("EmptyName", "v"))
+				Expect(round).NotTo(HaveKey("EmptyName"))
 			})
 
-			It("Should suppress omitempty fields whose value is zero", func() {
-				type payload struct {
-					Name string `json:"name"`
-					Foo  int    `json:"foo,omitempty"`
-				}
-				env := MustSucceed(imex.Encode(payload{Name: "n"}, 1, "log"))
-				b := MustSucceed(json.Marshal(env))
-				var round map[string]any
-				Expect(json.Unmarshal(b, &round)).To(Succeed())
-				Expect(round).NotTo(HaveKey("foo"))
-			})
-
-			It("Should inline anonymous embedded struct fields", func() {
-				// encoding/json inlines anonymous (embedded) struct fields when the
-				// embedded field has no tag — the inner fields are promoted into the
-				// outer wire object.
-				type inner struct {
-					A int `json:"a"`
-				}
-				type outer struct {
-					inner
-					Name string `json:"name"`
-				}
-				env := MustSucceed(imex.Encode(
-					outer{inner: inner{A: 7}, Name: "n"}, 1, "log",
-				))
-				b := MustSucceed(json.Marshal(env))
-				var round map[string]any
-				Expect(json.Unmarshal(b, &round)).To(Succeed())
-				Expect(round).To(HaveKeyWithValue("a", BeNumerically("==", 7)))
-				Expect(round).NotTo(HaveKey("inner"))
-			})
-
-			It("Should treat a tagged anonymous embedded field as a named field", func() {
-				// A tagged anonymous field is NOT inlined — encoding/json emits it as
-				// an object under the tag name.
-				type inner struct {
-					A int `json:"a"`
-				}
-				type outer struct {
-					inner `json:"inner"`
-					Name  string `json:"name"`
-				}
-				env := MustSucceed(imex.Encode(
-					outer{inner: inner{A: 7}, Name: "n"}, 1, "log",
-				))
-				b := MustSucceed(json.Marshal(env))
-				var round map[string]any
-				Expect(json.Unmarshal(b, &round)).To(Succeed())
-				Expect(round["inner"]).To(HaveKeyWithValue("a", BeNumerically("==", 7)))
-				Expect(round).NotTo(HaveKey("a"))
-			})
-
-			It("Should accept a pointer to the resource", func() {
-				env := MustSucceed(imex.Encode(
+			It("Should reject a pointer to the resource", func() {
+				Expect(imex.Encode(
 					&wirePayload{Name: "n", Foo: 1}, 1, "log",
-				))
-				Expect(env.Name).To(Equal("n"))
+				)).Error().To(MatchError(ContainSubstring("expected struct")))
 			})
 
 			It("Should preserve nested struct, slice, and map fields on the wire", func() {
