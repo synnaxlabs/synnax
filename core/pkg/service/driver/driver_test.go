@@ -758,7 +758,7 @@ var _ = Describe("Driver", func() {
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
-			}, "100ms", "25ms").Should(Succeed())
+			}, time.Millisecond*100, time.Millisecond*25).Should(Succeed())
 		})
 	})
 
@@ -797,7 +797,7 @@ var _ = Describe("Driver", func() {
 			))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
-			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").
+			Consistently(func() bool { return execCalled.Load() }, time.Millisecond*200, time.Millisecond*50).
 				Should(BeFalse())
 		})
 
@@ -840,7 +840,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return execCalled.Load() }, time.Second*2).Should(BeTrue())
 			stored := receivedCmd.Load().(task.Command)
 			Expect(stored.Type).To(Equal("start"))
 			Expect(stored.Key).To(Equal("cmd-1"))
@@ -874,7 +874,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").Should(BeFalse())
+			Consistently(func() bool { return execCalled.Load() }, time.Millisecond*200, time.Millisecond*50).Should(BeFalse())
 		})
 
 		It("should ignore commands for tasks on other racks", func(ctx SpecContext) {
@@ -908,7 +908,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").Should(BeFalse())
+			Consistently(func() bool { return execCalled.Load() }, time.Millisecond*200, time.Millisecond*50).Should(BeFalse())
 		})
 
 		It("should handle command execution errors gracefully", func(ctx SpecContext) {
@@ -947,7 +947,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return execCalled.Load() }, time.Second*2).Should(BeTrue())
 		})
 
 		It("should not crash the process when a task's Exec panics", func(ctx SpecContext) {
@@ -985,10 +985,10 @@ var _ = Describe("Driver", func() {
 			Eventually(configReady).Should(BeClosed())
 
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "panic", Key: "cmd-panic"})
-			Eventually(func() bool { return panicExecCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return panicExecCalled.Load() }, time.Second*2).Should(BeTrue())
 
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-healthy"})
-			Eventually(func() bool { return healthyExecCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return healthyExecCalled.Load() }, time.Second*2).Should(BeTrue())
 		})
 
 		It("should log warning for unsupported command without crashing", func(ctx SpecContext) {
@@ -1027,7 +1027,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return execCalled.Load() }, time.Second*2).Should(BeTrue())
 		})
 	})
 
@@ -1067,7 +1067,7 @@ var _ = Describe("Driver", func() {
 			t := newTask(embeddedRackKey(ctx))
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 
-			Eventually(configureStarted, "1s").Should(BeClosed())
+			Eventually(configureStarted, time.Second).Should(BeClosed())
 			// The goroutine should receive context cancellation after the timeout.
 			Eventually(func() bool { return timedOut.Load() }).Should(BeTrue())
 		})

@@ -564,7 +564,7 @@ var _ = Describe("Writer Behavior", func() {
 							Eventually(func() error {
 								_, err := w.Write(cesium.Frame{})
 								return err
-							}, "1000s").Should(MatchError(validate.ErrValidation))
+							}, time.Minute*16+time.Second*40).Should(MatchError(validate.ErrValidation))
 
 							By("Checking that the first commit did not succeed")
 							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))

@@ -350,16 +350,16 @@ var _ = Describe("FS", func() {
 			})
 			Describe("Sub", func() {
 				It("Should make subdirectories", func() {
-					Expect(fs.Sub("sub1")).To(Not(BeNil()))
+					Expect(fs.Sub("sub1")).ToNot(BeNil())
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeFalse())
 
-					Expect(fs.Sub("sub2")).To(Not(BeNil()))
+					Expect(fs.Sub("sub2")).ToNot(BeNil())
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeTrue())
 				})
 				It("Should give FS of subdirectories", func() {
-					Expect(fs.Sub("sub1")).To(Not(BeNil()))
+					Expect(fs.Sub("sub1")).ToNot(BeNil())
 					Expect(fs.Exists("sub1")).To(BeTrue())
 					Expect(fs.Exists("sub2")).To(BeFalse())
 
@@ -372,7 +372,7 @@ var _ = Describe("FS", func() {
 					Expect(subFS.Exists("yum.txt")).To(BeTrue())
 				})
 				It("Should correctly interpret relative paths", func() {
-					Expect(fs.Sub("./sub1")).To(Not(BeNil()))
+					Expect(fs.Sub("./sub1")).ToNot(BeNil())
 					l := MustSucceed(fs.List(""))
 					Expect(l).To(HaveLen(1))
 					Expect(l[0].Name()).To(Equal("sub1"))
@@ -387,14 +387,14 @@ var _ = Describe("FS", func() {
 				})
 				It("Should return false if a directory does not exist and true if it does", func() {
 					Expect(fs.Exists("yum")).To(BeFalse())
-					Expect(fs.Sub("yum")).To(Not(BeNil()))
+					Expect(fs.Sub("yum")).ToNot(BeNil())
 					Expect(fs.Exists("yum")).To(BeTrue())
 				})
 			})
 			Describe("List", func() {
 				It("Should provide a list of all the files and directories", func() {
-					Expect(fs.Sub("sub1")).To(Not(BeNil()))
-					Expect(fs.Sub("sub2")).To(Not(BeNil()))
+					Expect(fs.Sub("sub1")).ToNot(BeNil())
+					Expect(fs.Sub("sub2")).ToNot(BeNil())
 					f := MustSucceed(fs.Open("file1.json", os.O_CREATE))
 					Expect(f.Close()).To(Succeed())
 
@@ -452,7 +452,7 @@ var _ = Describe("FS", func() {
 					Expect(fs.Exists("b.json")).To(BeTrue())
 				})
 				It("Should rename a directory for Mem FS", func() {
-					Expect(fs.Sub("a")).To(Not(BeNil()))
+					Expect(fs.Sub("a")).ToNot(BeNil())
 					Expect(fs.Rename("a", "b")).To(Succeed())
 					Expect(fs.Exists("a")).To(BeFalse())
 					Expect(fs.Exists("b")).To(BeTrue())
