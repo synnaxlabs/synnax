@@ -43,7 +43,9 @@ export class Writer {
 
   async create(ranges: New[], options?: CreateOptions): Promise<Payload[]> {
     const parent = options?.parent != null ? { key: options.parent.key } : undefined;
-    const stripped = ranges.map(({ parent: _ignored, ...r }: New & { parent?: unknown }) => r);
+    const stripped = ranges.map(
+      ({ parent: _ignored, ...r }: New & { parent?: unknown }) => r,
+    );
     const withParent =
       parent == null ? stripped : stripped.map((r) => ({ ...r, parent }));
     const res = await this.client.send(
