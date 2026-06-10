@@ -43,6 +43,8 @@ resource_type_to_pb(const std::string &cpp) {
             {RESOURCE_TYPE_NODE, ::distribution::ontology::pb::RESOURCE_TYPE_NODE},
             {RESOURCE_TYPE_PANEL, ::distribution::ontology::pb::RESOURCE_TYPE_PANEL},
             {RESOURCE_TYPE_POLICY, ::distribution::ontology::pb::RESOURCE_TYPE_POLICY},
+            {RESOURCE_TYPE_PROJECT,
+             ::distribution::ontology::pb::RESOURCE_TYPE_PROJECT},
             {RESOURCE_TYPE_RACK, ::distribution::ontology::pb::RESOURCE_TYPE_RACK},
             {RESOURCE_TYPE_RANGE, ::distribution::ontology::pb::RESOURCE_TYPE_RANGE},
             {RESOURCE_TYPE_RANGE_ALIAS,
@@ -57,8 +59,6 @@ resource_type_to_pb(const std::string &cpp) {
             {RESOURCE_TYPE_TASK, ::distribution::ontology::pb::RESOURCE_TYPE_TASK},
             {RESOURCE_TYPE_USER, ::distribution::ontology::pb::RESOURCE_TYPE_USER},
             {RESOURCE_TYPE_VIEW, ::distribution::ontology::pb::RESOURCE_TYPE_VIEW},
-            {RESOURCE_TYPE_WORKSPACE,
-             ::distribution::ontology::pb::RESOURCE_TYPE_WORKSPACE},
         };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -93,6 +93,8 @@ resource_type_from_pb(::distribution::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_PANEL, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_POLICY:
             return {RESOURCE_TYPE_POLICY, x::errors::NIL};
+        case ::distribution::ontology::pb::RESOURCE_TYPE_PROJECT:
+            return {RESOURCE_TYPE_PROJECT, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_RACK:
             return {RESOURCE_TYPE_RACK, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_RANGE:
@@ -115,8 +117,6 @@ resource_type_from_pb(::distribution::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_USER, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_VIEW:
             return {RESOURCE_TYPE_VIEW, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_WORKSPACE:
-            return {RESOURCE_TYPE_WORKSPACE, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ResourceType protobuf value")};
     }

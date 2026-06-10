@@ -86,7 +86,7 @@ export { Eraser } from "@/vis/eraser";
 export { Legend } from "@/vis/legend";
 export { Line } from "@/vis/line";
 export { Value } from "@/vis/value";
-export { Workspace } from "@/workspace";
+export { Project } from "@/project";
 export {
   type CrudeDataType,
   type CrudeDensity,

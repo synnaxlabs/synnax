@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -30,11 +30,11 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates the given log within the workspace provided. If the log does not have
+// Create creates the given log within the project provided. If the log does not have
 // a key, a new key will be generated. If ws is uuid.Nil, the log is created without a
-// workspace ParentOf relationship; this is used by the import path, which does not yet
-// wire workspace relationships.
-func (w Writer) Create(ctx context.Context, ws workspace.Key, l *Log) error {
+// project ParentOf relationship; this is used by the import path, which does not yet
+// wire project relationships.
+func (w Writer) Create(ctx context.Context, ws project.Key, l *Log) error {
 	var (
 		exists bool
 		err    error
@@ -64,7 +64,7 @@ func (w Writer) Create(ctx context.Context, ws workspace.Key, l *Log) error {
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
-		workspace.OntologyID(ws),
+		project.OntologyID(ws),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)

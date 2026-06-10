@@ -234,7 +234,7 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Copy", func() {
-		It("Should copy a Schematic with a new name under the same workspace", func(ctx SpecContext) {
+		It("Should copy a Schematic with a new name under the same project", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic

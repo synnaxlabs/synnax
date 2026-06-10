@@ -24,7 +24,7 @@ describe("table", () => {
         objects: [],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
         layout: {},
       });
@@ -42,7 +42,7 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: ["retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
         layout: {},
       });
@@ -62,7 +62,7 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: ["create"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
         layout: {},
       });
@@ -77,7 +77,7 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
         layout: {},
       });
@@ -94,7 +94,7 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
         layout: {},
       });
@@ -113,7 +113,7 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "test",
         layout: {},
       });

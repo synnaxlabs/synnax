@@ -14,7 +14,7 @@ import { z } from "zod";
 import { type Action, dispatchReqZ, rename as renameAction } from "@/log/actions.gen";
 import { type Key, keyZ, type Log, logZ, type New, newZ } from "@/log/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
+import { project } from "@/project";
 
 export const SET_CHANNEL_NAME = "sy_log_set";
 
@@ -32,7 +32,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ logs: array.nullishToEmpty(logZ) });
 
-const createReqZ = z.object({ workspace: workspace.keyZ, logs: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, logs: newZ.array() });
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
@@ -44,13 +44,13 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: workspace.Key, log: New): Promise<Log>;
-  async create(workspace: workspace.Key, logs: New[]): Promise<Log[]>;
-  async create(workspace: workspace.Key, logs: New | New[]): Promise<Log | Log[]> {
+  async create(project: project.Key, log: New): Promise<Log>;
+  async create(project: project.Key, logs: New[]): Promise<Log[]>;
+  async create(project: project.Key, logs: New | New[]): Promise<Log | Log[]> {
     const isMany = Array.isArray(logs);
     const res = await this.client.send(
       "/log/create",
-      { workspace, logs: array.toArray(logs) },
+      { project, logs: array.toArray(logs) },
       createReqZ,
       createResZ,
     );

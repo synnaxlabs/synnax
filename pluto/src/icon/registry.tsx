@@ -305,7 +305,7 @@ export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");
 export const Resources = wrapSVGIcon(AiFillFolder, "resources");
 export const Group = wrapSVGIcon(AiFillFolder, "group");
-export const Workspace = wrapSVGIcon(MdWorkspacesFilled, "workspace");
+export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
@@ -565,7 +565,7 @@ const icons = {
   Channel,
   Resources,
   Group,
-  Workspace,
+  Project,
   Box,
   Python,
   TypeScript,

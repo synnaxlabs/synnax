@@ -16,7 +16,7 @@ import {
   type ontology,
   ranger,
   user,
-  workspace,
+  project,
 } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -147,7 +147,7 @@ describe("Access Queries", () => {
     it("should ignore relationship changes that cannot affect permissions", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: id.create(),
-        objects: [ranger.TYPE_ONTOLOGY_ID, workspace.TYPE_ONTOLOGY_ID, ...baseObjects],
+        objects: [ranger.TYPE_ONTOLOGY_ID, project.TYPE_ONTOLOGY_ID, ...baseObjects],
         actions: ["retrieve", "create"],
       });
       let renders = 0;
@@ -166,16 +166,16 @@ describe("Access Queries", () => {
         expect(result.current.granted).toBe(true);
       });
       const rendersWhenSettled = renders;
-      // A workspace's group -> workspace link is not a role link, so the gate must
+      // A project's group -> project link is not a role link, so the gate must
       // drop it: no re-evaluation, no re-render.
-      const ws = await userClient.workspaces.create({
+      const ws = await userClient.projects.create({
         name: id.create(),
         layout: {},
       });
       // Wait until the link reaches the store (event delivered)...
       await waitFor(() => {
         const rels = result.current.store.relationships.get(
-          (rel) => rel.to.type === "workspace" && rel.to.key === ws.key,
+          (rel) => rel.to.type === "project" && rel.to.key === ws.key,
         );
         expect(rels.length).toBeGreaterThan(0);
       });

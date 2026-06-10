@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, table, type workspace } from "@synnaxlabs/client";
+import { NotFoundError, table, type project } from "@synnaxlabs/client";
 import { array, compare, id, uuid, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
@@ -166,7 +166,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
 });
 
 export interface CreateParams extends table.New {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 const createDefaultLayout = (
@@ -196,8 +196,8 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<
   update: async ({ client, data, store, rollbacks }) => {
     const optimistic = table.newZ.parse(data);
     rollbacks.push(store.tables.set(optimistic));
-    const workspace = data.workspace ?? uuid.ZERO;
-    const created = await client.tables.create(workspace, optimistic);
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.tables.create(project, optimistic);
     store.tables.set(created);
     return created;
   },

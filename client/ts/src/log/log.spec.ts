@@ -18,7 +18,7 @@ const client = createTestClient();
 describe("Log", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Log", layout: { one: 1 } });
       const log = await client.logs.create(ws.key, { name: "Log" });
       expect(log.name).toEqual("Log");
       expect(log.key).not.toEqual(uuid.ZERO);
@@ -27,7 +27,7 @@ describe("Log", () => {
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Log", layout: { one: 1 } });
       const log = await client.logs.create(ws.key, { name: "Log" });
       await client.logs.rename(log.key, "Log2");
       const res = await client.logs.retrieve({ key: log.key });
@@ -36,7 +36,7 @@ describe("Log", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({ name: "Log", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Log", layout: { one: 1 } });
       const log = await client.logs.create(ws.key, { name: "Log" });
       await client.logs.delete(log.key);
       await expect(client.logs.retrieve({ key: log.key })).rejects.toThrow(

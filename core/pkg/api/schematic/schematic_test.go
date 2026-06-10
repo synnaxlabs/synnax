@@ -28,7 +28,7 @@ import (
 // the test files don't have to spell out the generic parameters at every use.
 type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
 
-// createSchematic persists a fresh schematic owned by the suite workspace and
+// createSchematic persists a fresh schematic owned by the suite project and
 // returns it with its key populated. Writes commit immediately (nil tx) so
 // access-control reads can observe the new ontology resource.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {

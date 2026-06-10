@@ -32,7 +32,7 @@ describe("log queries", () => {
   });
 
   const createLog = async (overrides: Partial<log.New> = {}): Promise<log.Log> => {
-    const ws = await client.workspaces.create({
+    const ws = await client.projects.create({
       name: `log_ws_${uuid.create()}`,
       layout: {},
     });
@@ -226,8 +226,8 @@ describe("log queries", () => {
 
   describe("useCreate", () => {
     it("should create a new log and store it in the flux store", async () => {
-      const workspace = await client.workspaces.create({
-        name: "create_workspace",
+      const project = await client.projects.create({
+        name: "create_project",
         layout: {},
       });
       const { result } = renderHook(
@@ -238,7 +238,7 @@ describe("log queries", () => {
       await act(async () => {
         await result.current.create.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "created_log",
         });
       });

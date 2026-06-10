@@ -24,7 +24,7 @@ describe("log", () => {
         objects: [],
         actions: [],
       });
-      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const ws = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(ws.key, { name: "test" });
       await expect(userClient.logs.retrieve({ key: randomLog.key })).rejects.toThrow(
         AuthError,
@@ -37,7 +37,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["retrieve"],
       });
-      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const ws = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(ws.key, { name: "test" });
       const retrieved = await userClient.logs.retrieve({ key: randomLog.key });
       expect(retrieved.key).toBe(randomLog.key);
@@ -50,7 +50,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["create"],
       });
-      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const ws = await client.projects.create({ name: "test", layout: {} });
       await userClient.logs.create(ws.key, { name: "test" });
     });
 
@@ -60,7 +60,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const ws = await client.projects.create({ name: "test", layout: {} });
       await expect(userClient.logs.create(ws.key, { name: "test" })).rejects.toThrow(
         AuthError,
       );
@@ -72,7 +72,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const ws = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(ws.key, { name: "test" });
       await userClient.logs.delete(randomLog.key);
       await expect(userClient.logs.retrieve({ key: randomLog.key })).rejects.toThrow(
@@ -86,7 +86,7 @@ describe("log", () => {
         objects: [log.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({ name: "test", layout: {} });
+      const ws = await client.projects.create({ name: "test", layout: {} });
       const randomLog = await client.logs.create(ws.key, { name: "test" });
       await expect(userClient.logs.delete(randomLog.key)).rejects.toThrow(AuthError);
     });

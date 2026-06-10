@@ -19,7 +19,7 @@ const client = createTestClient();
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Table", layout: { one: 1 } });
       const t = await client.tables.create(ws.key, {
         name: "Table",
       });
@@ -32,7 +32,7 @@ describe("Table", () => {
 
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Table", layout: { one: 1 } });
       const t = await client.tables.create(ws.key, {
         name: "Table",
       });
@@ -44,7 +44,7 @@ describe("Table", () => {
 
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
+      const ws = await client.projects.create({ name: "Table", layout: { one: 1 } });
       const t = await client.tables.create(ws.key, {
         name: "Table",
       });
@@ -57,7 +57,7 @@ describe("Table", () => {
 
   describe("cell props case preservation", () => {
     test("preserves arbitrary key casing within cell props values", async () => {
-      const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
+      const ws = await client.projects.create({ name: "CaseTest", layout: {} });
       const t = await client.tables.create(ws.key, {
         name: "CaseTest",
         cells: {
@@ -98,7 +98,7 @@ describe("Table", () => {
 
   describe("dispatch", () => {
     const createTable = async () => {
-      const ws = await client.workspaces.create({ name: "Dispatch", layout: {} });
+      const ws = await client.projects.create({ name: "Dispatch", layout: {} });
       return await client.tables.create(ws.key, {
         name: "Dispatch",
         rows: [{ size: 30, cells: ["a", "b"] }],

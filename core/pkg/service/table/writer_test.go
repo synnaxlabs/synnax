@@ -56,7 +56,7 @@ var _ = Describe("Writer", func() {
 			Expect(t.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should create a Table without a workspace", func(ctx SpecContext) {
+		It("Should create a Table without a project", func(ctx SpecContext) {
 			t := table.Table{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil))

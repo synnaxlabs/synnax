@@ -18,7 +18,7 @@ const client = createTestClient();
 describe("LinePlot", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Line Plot",
         layout: { one: 1 },
       });
@@ -29,7 +29,7 @@ describe("LinePlot", () => {
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Line Plot",
         layout: { one: 1 },
       });
@@ -41,7 +41,7 @@ describe("LinePlot", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: "Line Plot",
         layout: { one: 1 },
       });

@@ -27,11 +27,11 @@ describe("table queries", () => {
 
   describe("useRetrieve", () => {
     it("should retrieve a table by key", async () => {
-      const workspace = await client.workspaces.create({
-        name: "test_workspace",
+      const project = await client.projects.create({
+        name: "test_project",
         layout: {},
       });
-      const created = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(project.key, {
         name: "retrieve_test",
       });
 
@@ -46,11 +46,11 @@ describe("table queries", () => {
     });
 
     it("should cache retrieved tables", async () => {
-      const workspace = await client.workspaces.create({
-        name: "cache_workspace",
+      const project = await client.projects.create({
+        name: "cache_project",
         layout: {},
       });
-      const created = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(project.key, {
         name: "cached_table",
       });
 
@@ -71,8 +71,8 @@ describe("table queries", () => {
 
   describe("useCreate", () => {
     it("should create a new table", async () => {
-      const workspace = await client.workspaces.create({
-        name: "create_workspace",
+      const project = await client.projects.create({
+        name: "create_project",
         layout: {},
       });
 
@@ -82,22 +82,22 @@ describe("table queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "created_table",
         });
       });
 
       expect(result.current.variant).toEqual("success");
       expect(result.current.data?.name).toEqual("created_table");
-      expect(result.current.data?.workspace).toEqual(workspace.key);
+      expect(result.current.data?.project).toEqual(project.key);
 
       const retrieved = await client.tables.retrieve({ key });
       expect(retrieved.name).toEqual("created_table");
     });
 
     it("should store created table in flux store", async () => {
-      const workspace = await client.workspaces.create({
-        name: "store_workspace",
+      const project = await client.projects.create({
+        name: "store_project",
         layout: {},
       });
 
@@ -109,7 +109,7 @@ describe("table queries", () => {
       await act(async () => {
         await createResult.current.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "stored_table",
         });
       });
@@ -122,8 +122,8 @@ describe("table queries", () => {
     });
 
     it("should initialize a 2x2 layout of empty text cells when rows and columns are empty", async () => {
-      const workspace = await client.workspaces.create({
-        name: "default_layout_workspace",
+      const project = await client.projects.create({
+        name: "default_layout_project",
         layout: {},
       });
 
@@ -133,7 +133,7 @@ describe("table queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "default_layout_table",
         });
       });
@@ -153,8 +153,8 @@ describe("table queries", () => {
     });
 
     it("should not apply defaults when rows are provided", async () => {
-      const workspace = await client.workspaces.create({
-        name: "explicit_layout_workspace",
+      const project = await client.projects.create({
+        name: "explicit_layout_project",
         layout: {},
       });
 
@@ -164,7 +164,7 @@ describe("table queries", () => {
       await act(async () => {
         await result.current.updateAsync({
           key,
-          workspace: workspace.key,
+          project: project.key,
           name: "explicit_layout",
           rows: [{ size: 40, cells: ["x"] }],
           columns: [{ size: 80 }],
@@ -184,11 +184,11 @@ describe("table queries", () => {
       const key = uuid.create();
       const { result } = renderHook(() => Table.useCreate(), { wrapper });
 
-      // Use a fake workspace key so the server-side ontology insert fails.
+      // Use a fake project key so the server-side ontology insert fails.
       await act(async () => {
         await result.current.updateAsync({
           key,
-          workspace: uuid.create(),
+          project: uuid.create(),
           name: "rollback_table",
         });
       });
@@ -199,11 +199,11 @@ describe("table queries", () => {
 
   describe("useRename", () => {
     it("should rename a table", async () => {
-      const workspace = await client.workspaces.create({
-        name: "rename_workspace",
+      const project = await client.projects.create({
+        name: "rename_project",
         layout: {},
       });
-      const created = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(project.key, {
         name: "original_name",
       });
 
@@ -231,11 +231,11 @@ describe("table queries", () => {
     });
 
     it("should update cached table after rename", async () => {
-      const workspace = await client.workspaces.create({
-        name: "rename_cache_workspace",
+      const project = await client.projects.create({
+        name: "rename_cache_project",
         layout: {},
       });
-      const created = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(project.key, {
         name: "cache_original",
       });
 
@@ -263,11 +263,11 @@ describe("table queries", () => {
 
   describe("useDelete", () => {
     it("should delete a single table", async () => {
-      const workspace = await client.workspaces.create({
-        name: "delete_workspace",
+      const project = await client.projects.create({
+        name: "delete_project",
         layout: {},
       });
-      const created = await client.tables.create(workspace.key, {
+      const created = await client.tables.create(project.key, {
         name: "delete_single",
       });
 
@@ -283,14 +283,14 @@ describe("table queries", () => {
     });
 
     it("should delete multiple tables", async () => {
-      const workspace = await client.workspaces.create({
-        name: "delete_multi_workspace",
+      const project = await client.projects.create({
+        name: "delete_multi_project",
         layout: {},
       });
-      const created1 = await client.tables.create(workspace.key, {
+      const created1 = await client.tables.create(project.key, {
         name: "delete_multi_1",
       });
-      const created2 = await client.tables.create(workspace.key, {
+      const created2 = await client.tables.create(project.key, {
         name: "delete_multi_2",
       });
 
@@ -313,7 +313,7 @@ describe("table queries", () => {
 
   describe("useDispatch", () => {
     const createTable = async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
         layout: {},
       });
@@ -543,7 +543,7 @@ describe("table queries", () => {
     };
 
     it("populates the store so downstream selectors resolve", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
         layout: {},
       });
@@ -563,7 +563,7 @@ describe("table queries", () => {
 
   describe("selectors", () => {
     const createTable = async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
         layout: {},
       });
@@ -801,7 +801,7 @@ describe("table queries", () => {
 
   describe("useRetrieveObservableName", () => {
     it("fires the callback with the initial name and with each rename", async () => {
-      const ws = await client.workspaces.create({
+      const ws = await client.projects.create({
         name: `obs_name_ws_${uuid.create()}`,
         layout: {},
       });

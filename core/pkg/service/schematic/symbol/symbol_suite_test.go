@@ -17,9 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,7 +33,7 @@ func TestSymbol(t *testing.T) {
 var (
 	db  *gorp.DB
 	otg *ontology.Ontology
-	ws  workspace.Workspace
+	ws  project.Project
 	svc *symbol.Service
 	tx  gorp.Tx
 )
@@ -49,7 +49,7 @@ var (
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
-			workspaceSvc = MustOpen(workspace.OpenService(ctx, workspace.ServiceConfig{
+			projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -72,7 +72,7 @@ var (
 			Username: "test",
 		}))
 		ws.Author = author.Key
-		Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
+		Expect(projectSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

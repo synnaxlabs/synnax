@@ -14,7 +14,7 @@ import { z } from "zod";
 import { type Action, dispatchReqZ, rename as renameAction } from "@/table/actions.gen";
 import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
+import { project } from "@/project";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 
@@ -32,7 +32,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
 
-const createReqZ = z.object({ workspace: workspace.keyZ, tables: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, tables: newZ.array() });
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
@@ -44,16 +44,13 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: workspace.Key, table: New): Promise<Table>;
-  async create(workspace: workspace.Key, tables: New[]): Promise<Table[]>;
-  async create(
-    workspace: workspace.Key,
-    tables: New | New[],
-  ): Promise<Table | Table[]> {
+  async create(project: project.Key, table: New): Promise<Table>;
+  async create(project: project.Key, tables: New[]): Promise<Table[]>;
+  async create(project: project.Key, tables: New | New[]): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
     const res = await this.client.send(
       "/table/create",
-      { workspace, tables: array.toArray(tables) },
+      { project, tables: array.toArray(tables) },
       createReqZ,
       createResZ,
     );

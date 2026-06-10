@@ -11,7 +11,7 @@ import {
   createTestClient,
   NotFoundError,
   schematic,
-  type workspace,
+  type project,
 } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
@@ -69,11 +69,11 @@ const loadSchematic = async (
 
 describe("schematic queries", () => {
   let Wrapper: FC<PropsWithChildren>;
-  let ws: workspace.Workspace;
+  let ws: project.Project;
   beforeAll(async () => {
     [Wrapper, ws] = await Promise.all([
       createAsyncSynnaxWrapper({ client }),
-      client.workspaces.create({ name: `ws_${uuid.create()}`, layout: {} }),
+      client.projects.create({ name: `ws_${uuid.create()}`, layout: {} }),
     ]);
   });
 
@@ -316,7 +316,7 @@ describe("schematic queries", () => {
         await result.current.create.updateAsync({
           key,
           name: "created_schematic",
-          workspace: ws.key,
+          project: ws.key,
         });
       });
 
@@ -324,7 +324,7 @@ describe("schematic queries", () => {
         expect(result.current.create.variant).toBe("success");
       });
       expect(result.current.create.data?.name).toBe("created_schematic");
-      expect(result.current.create.data?.workspace).toBe(ws.key);
+      expect(result.current.create.data?.project).toBe(ws.key);
 
       const stored = result.current.store.schematics.get(key);
       expect(stored).toBeDefined();

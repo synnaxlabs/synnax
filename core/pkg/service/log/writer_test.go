@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -40,23 +40,23 @@ var _ = Describe("Writer", func() {
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should establish a ParentOf relationship to the workspace", func(ctx SpecContext) {
+		It("Should establish a ParentOf relationship to the project", func(ctx SpecContext) {
 			l := log.Log{Name: "with-ws"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 			Expect(otg.NewWriter(tx).HasRelationship(
 				ctx,
-				workspace.OntologyID(ws.Key),
+				project.OntologyID(ws.Key),
 				ontology.RelationshipTypeParentOf,
 				log.OntologyID(l.Key),
 			)).To(BeTrue())
 		})
 
-		It("Should skip the workspace ParentOf relationship when ws is uuid.Nil", func(ctx SpecContext) {
+		It("Should skip the project ParentOf relationship when ws is uuid.Nil", func(ctx SpecContext) {
 			l := log.Log{Name: "no-ws"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
 			Expect(otg.NewWriter(tx).HasRelationship(
 				ctx,
-				workspace.OntologyID(ws.Key),
+				project.OntologyID(ws.Key),
 				ontology.RelationshipTypeParentOf,
 				log.OntologyID(l.Key),
 			)).To(BeFalse())

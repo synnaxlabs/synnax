@@ -20,9 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -48,7 +48,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
-		Workspace  workspace.Key         `json:"workspace" msgpack:"workspace"`
+		Project    project.Key           `json:"project" msgpack:"project"`
 	}
 	CreateResponse struct {
 		Schematics []schematic.Schematic `json:"schematics" msgpack:"schematics"`
@@ -65,7 +65,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
 		for i, sch := range req.Schematics {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Workspace, &sch); err != nil {
+			if err = s.internal.NewWriter(tx).Create(ctx, req.Project, &sch); err != nil {
 				return err
 			}
 			req.Schematics[i] = sch

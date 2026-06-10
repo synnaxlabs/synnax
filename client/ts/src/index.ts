@@ -52,7 +52,7 @@ export { createTestClientWithPolicy } from "@/testutil/access";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { view } from "@/view";
-export { workspace } from "@/workspace";
+export { project } from "@/project";
 export {
   type CrudeDataType,
   type CrudeDensity,

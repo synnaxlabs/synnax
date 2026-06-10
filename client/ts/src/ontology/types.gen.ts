@@ -24,6 +24,7 @@ export const RESOURCE_TYPES = [
   "node",
   "panel",
   "policy",
+  "project",
   "rack",
   "range",
   "range-alias",
@@ -35,7 +36,6 @@ export const RESOURCE_TYPES = [
   "task",
   "user",
   "view",
-  "workspace",
 ] as const;
 export const resourceTypeZ = z.enum(RESOURCE_TYPES);
 export type ResourceType = z.infer<typeof resourceTypeZ>;

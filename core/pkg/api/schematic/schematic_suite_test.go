@@ -24,9 +24,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +45,7 @@ var (
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *Service
-	ws           workspace.Workspace
+	ws           project.Project
 	author       user.User
 )
 
@@ -67,7 +67,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:            authSvc,
 		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 	}))
-	workspaceSvc := MustOpen(workspace.OpenService(ctx, workspace.ServiceConfig{
+	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -90,7 +90,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Username: "test",
 	}))
 	ws.Author = author.Key
-	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
+	Expect(projectSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
 })
 
 // authedCtx returns a freighter.Context derived from ctx with the given user

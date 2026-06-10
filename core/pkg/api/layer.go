@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
+	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
@@ -45,7 +46,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	"github.com/synnaxlabs/synnax/pkg/api/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
 )
 
@@ -101,12 +101,12 @@ type Transport struct {
 	GroupCreate freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
 	GroupDelete freighter.UnaryServer[group.DeleteRequest, types.Nil]
 	GroupRename freighter.UnaryServer[group.RenameRequest, types.Nil]
-	// WORKSPACE
-	WorkspaceCreate    freighter.UnaryServer[workspace.CreateRequest, workspace.CreateResponse]
-	WorkspaceRetrieve  freighter.UnaryServer[workspace.RetrieveRequest, workspace.RetrieveResponse]
-	WorkspaceDelete    freighter.UnaryServer[workspace.DeleteRequest, types.Nil]
-	WorkspaceRename    freighter.UnaryServer[workspace.RenameRequest, types.Nil]
-	WorkspaceSetLayout freighter.UnaryServer[workspace.SetLayoutRequest, types.Nil]
+	// PROJECT
+	ProjectCreate    freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
+	ProjectRetrieve  freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
+	ProjectDelete    freighter.UnaryServer[project.DeleteRequest, types.Nil]
+	ProjectRename    freighter.UnaryServer[project.RenameRequest, types.Nil]
+	ProjectSetLayout freighter.UnaryServer[project.SetLayoutRequest, types.Nil]
 	// SCHEMATIC
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
@@ -189,7 +189,7 @@ type Transport struct {
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
 // implementations should use this struct during instantiation.
 type Layer struct {
-	Workspace    *workspace.Service
+	Project      *project.Service
 	LinePlot     *lineplot.Service
 	User         *user.Service
 	Framer       *framer.Service
@@ -290,12 +290,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.AliasList,
 		t.AliasDelete,
 
-		// WORKSPACE
-		t.WorkspaceDelete,
-		t.WorkspaceCreate,
-		t.WorkspaceRetrieve,
-		t.WorkspaceRename,
-		t.WorkspaceSetLayout,
+		// PROJECT
+		t.ProjectDelete,
+		t.ProjectCreate,
+		t.ProjectRetrieve,
+		t.ProjectRename,
+		t.ProjectSetLayout,
 
 		// SCHEMATIC
 		t.SchematicCreate,
@@ -443,12 +443,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.AliasList.BindHandler(l.Alias.List)
 	t.AliasDelete.BindHandler(l.Alias.Delete)
 
-	// WORKSPACE
-	t.WorkspaceCreate.BindHandler(l.Workspace.Create)
-	t.WorkspaceDelete.BindHandler(l.Workspace.Delete)
-	t.WorkspaceRetrieve.BindHandler(l.Workspace.Retrieve)
-	t.WorkspaceRename.BindHandler(l.Workspace.Rename)
-	t.WorkspaceSetLayout.BindHandler(l.Workspace.SetLayout)
+	// PROJECT
+	t.ProjectCreate.BindHandler(l.Project.Create)
+	t.ProjectDelete.BindHandler(l.Project.Delete)
+	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
+	t.ProjectRename.BindHandler(l.Project.Rename)
+	t.ProjectSetLayout.BindHandler(l.Project.SetLayout)
 
 	// SCHEMATIC
 	t.SchematicCreate.BindHandler(l.Schematic.Create)
@@ -584,7 +584,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Group, err = group.NewService(cfg); err != nil {
 		return nil, err
 	}
-	if l.Workspace, err = workspace.NewService(cfg); err != nil {
+	if l.Project, err = project.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.Schematic, err = schematic.NewService(cfg); err != nil {

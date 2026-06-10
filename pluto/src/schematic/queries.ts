@@ -11,7 +11,7 @@ import {
   NotFoundError,
   type ontology,
   schematic,
-  type workspace,
+  type project,
 } from "@synnaxlabs/client";
 import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -236,7 +236,7 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
 });
 
 export interface UseCreateArgs extends schematic.New {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -249,8 +249,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   update: async ({ client, data, store, rollbacks }) => {
     const optimistic = schematic.newZ.parse(data);
     rollbacks.push(store.schematics.set(optimistic));
-    const workspace = data.workspace ?? uuid.ZERO;
-    const created = await client.schematics.create(workspace, optimistic);
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.schematics.create(project, optimistic);
     store.schematics.set(created);
     return created;
   },

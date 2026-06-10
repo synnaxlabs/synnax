@@ -57,7 +57,7 @@ describe("table clipboard", () => {
   });
 
   const createTable = async () => {
-    const ws = await client.workspaces.create({
+    const ws = await client.projects.create({
       name: `clipboard_ws_${uuid.create()}`,
       layout: {},
     });
