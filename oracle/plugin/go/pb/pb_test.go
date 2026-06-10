@@ -174,6 +174,31 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
+			It("Should convert union map values through union translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						sources map<string, Source>
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"SourceToPB(v)",
+						"SourceFromPB(v)",
+					)
+			})
+
 			It("Should reject pb unions that use extends", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/schematic"
