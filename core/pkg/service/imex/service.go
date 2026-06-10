@@ -110,13 +110,12 @@ func (s *Service) Import(
 	return key, nil
 }
 
-// Export routes resource to the [Exporter] registered under resource.Type, retrieves it
-// on tx, and returns the resulting envelope. The Exporter stamps its own per-schema
-// version on the envelope. Returns a validation error scoped to the "type" field if no
-// Exporter is registered for resource.Type.
+// Export routes resource to the [Exporter] registered under resource.Type and returns
+// the resulting envelope. The Exporter reads from its own storage handle and stamps its
+// per-schema version on the envelope. Returns a validation error scoped to the "type"
+// field if no Exporter is registered for resource.Type.
 func (s *Service) Export(
 	ctx context.Context,
-	tx gorp.Tx,
 	resource ontology.ID,
 ) (Envelope, error) {
 	s.mu.RLock()
@@ -125,7 +124,7 @@ func (s *Service) Export(
 	if !ok {
 		return Envelope{}, notFoundError(resource.Type, "exporter")
 	}
-	env, err := exporter.Export(ctx, tx, resource.Key)
+	env, err := exporter.Export(ctx, resource.Key)
 	if err != nil {
 		return Envelope{}, errors.Wrap(err, "export resource")
 	}

@@ -84,7 +84,7 @@ func (s *Service) Export(
 	}); err != nil {
 		return ExportResponse{}, err
 	}
-	env, err := s.internal.Export(ctx, nil, req)
+	env, err := s.internal.Export(ctx, req)
 	if err != nil {
 		return ExportResponse{}, err
 	}

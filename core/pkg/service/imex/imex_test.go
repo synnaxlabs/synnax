@@ -184,6 +184,15 @@ var _ = Describe("ImEx", func() {
 				Expect(p.Bar).To(Equal("x"))
 			})
 
+			It("Should error cleanly when called on an envelope with no codec bound", func(ctx SpecContext) {
+				// Encode-side and hand-constructed envelopes have no codec bound;
+				// Decode must return a descriptive error rather than panicking on a
+				// nil-interface dispatch.
+				env := imex.Envelope{Version: 1, Type: "log", Name: "n"}
+				Expect(imex.Decode[wirePayload](ctx, env)).Error().
+					To(MatchError(ContainSubstring("no codec bound")))
+			})
+
 			It("Should fail on a type mismatch in the body", func(ctx SpecContext) {
 				src := []byte(`{"version":1,"type":"log","name":"n","foo":"not a number"}`)
 				var env imex.Envelope

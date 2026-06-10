@@ -103,16 +103,12 @@ func (s *testService) Import(
 	return key, nil
 }
 
-func (s *testService) Export(
-	ctx context.Context,
-	tx gorp.Tx,
-	key imex.Key,
-) (imex.Envelope, error) {
+func (s *testService) Export(ctx context.Context, key imex.Key) (imex.Envelope, error) {
 	var e testEntry
 	if err := s.table.NewRetrieve().
 		Where(gorp.MatchKeys[string, testEntry](key)).
 		Entry(&e).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, s.db); err != nil {
 		return imex.Envelope{}, err
 	}
 	env := imex.Envelope{Version: testVersion, Type: string(testResourceType)}
@@ -148,7 +144,7 @@ func (errorService) Import(context.Context, gorp.Tx, imex.Envelope) (imex.Key, e
 	return "", errors.New("importer error: forced failure")
 }
 
-func (errorService) Export(context.Context, gorp.Tx, imex.Key) (imex.Envelope, error) {
+func (errorService) Export(context.Context, imex.Key) (imex.Envelope, error) {
 	return imex.Envelope{}, errors.New("exporter error: forced failure")
 }
 
@@ -164,11 +160,7 @@ type noopExporter struct{ typ ontology.ResourceType }
 
 func (n noopExporter) Type() ontology.ResourceType { return n.typ }
 
-func (n noopExporter) Export(
-	context.Context,
-	gorp.Tx,
-	imex.Key,
-) (imex.Envelope, error) {
+func (n noopExporter) Export(context.Context, imex.Key) (imex.Envelope, error) {
 	env := imex.Envelope{Version: testVersion, Type: string(n.typ)}
 	if err := imex.Encode(&env, testResource{Name: "noop"}); err != nil {
 		return imex.Envelope{}, err
@@ -237,7 +229,7 @@ var _ = Describe("Service", func() {
 		It("Should register an exporter under its own Type", func(ctx SpecContext) {
 			s := imex.NewService()
 			s.RegisterExporter(noopExporter{typ: "noop_export"})
-			env := MustSucceed(s.Export(ctx, db, ontology.ID{
+			env := MustSucceed(s.Export(ctx, ontology.ID{
 				Type: "noop_export",
 				Key:  "any",
 			}))
@@ -302,7 +294,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(svc.Import(
 				ctx, db, sampleEnvelope("Round Trip", testResourceType),
 			))
-			env := MustSucceed(svc.Export(ctx, db, ontology.ID{
+			env := MustSucceed(svc.Export(ctx, ontology.ID{
 				Type: testResourceType,
 				Key:  key,
 			}))
@@ -314,14 +306,14 @@ var _ = Describe("Service", func() {
 			Expect(roundTripped.FieldTwo).To(Equal(42))
 		})
 		It("Should pass errors from the exporter through verbatim", func(ctx SpecContext) {
-			Expect(svc.Export(ctx, db, ontology.ID{
+			Expect(svc.Export(ctx, ontology.ID{
 				Type: errorResourceType,
 				Key:  "any-key",
 			})).Error().To(MatchError(ContainSubstring("exporter error: forced failure")))
 		})
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
-			Expect(svc.Export(ctx, db, ontology.ID{
+			Expect(svc.Export(ctx, ontology.ID{
 				Type: "nonexistent",
 				Key:  "660e8400-e29b-41d4-a716-446655440000",
 			})).Error().To(SatisfyAll(

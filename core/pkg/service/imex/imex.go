@@ -171,6 +171,13 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 // Envelope) Decode[T](ctx) when the language does.
 func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 	var t T
+	if e.codec == nil {
+		return t, errors.New(
+			"decode envelope body: envelope has no codec bound; " +
+				"Encode-side envelopes must be marshaled and unmarshaled through " +
+				"one of the UnmarshalX methods before Decode",
+		)
+	}
 	if err := e.codec.Decode(ctx, e.raw, &t); err != nil {
 		var zero T
 		return zero, errors.Wrap(err, "decode envelope body")
@@ -310,9 +317,11 @@ type Importer interface {
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema
 // version on the returned value.
 type Exporter interface {
-	// Export retrieves the resource identified by key on tx and serializes it as an
-	// envelope, stamping the exporter's per-schema Version on the result.
-	Export(context.Context, gorp.Tx, Key) (Envelope, error)
+	// Export retrieves the resource identified by key and serializes it as an envelope,
+	// stamping the exporter's per-schema Version on the result. Exporters read directly
+	// from their own storage handle; the transactional Export path will return in a
+	// follow-up change once the API surface is settled.
+	Export(context.Context, Key) (Envelope, error)
 	// Type returns the ontology resource type this exporter handles.
 	Type() ontology.ResourceType
 }
