@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -123,6 +124,28 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		outputTypeDefs[outputPath] = append(outputTypeDefs[outputPath], entry)
 	}
 
+	outputUnions := make(map[string][]resolution.Type)
+	for _, entry := range req.Resolutions.UnionTypes() {
+		outputPath := output.GetPBPath(entry)
+		if outputPath == "" {
+			continue
+		}
+		if omit.IsType(entry, "pb") {
+			continue
+		}
+		if req.RepoRoot != "" {
+			if err := req.ValidateOutputPath(outputPath); err != nil {
+				return nil, errors.Wrapf(err, "invalid output path for union %s", entry.Name)
+			}
+		}
+		_, hasStruct := outputStructs[outputPath]
+		_, hasTypeDef := outputTypeDefs[outputPath]
+		if _, exists := outputUnions[outputPath]; !exists && !hasStruct && !hasTypeDef {
+			outputOrder = append(outputOrder, outputPath)
+		}
+		outputUnions[outputPath] = append(outputUnions[outputPath], entry)
+	}
+
 	// Register pb output paths for schemas that opt into @pb but declare
 	// only enums (no structs or distinct typedefs). Cross-namespace fields
 	// referencing these enums depend on the foreign translator existing;
@@ -143,6 +166,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if _, hasTypeDef := outputTypeDefs[outputPath]; hasTypeDef {
 			continue
 		}
+		if _, hasUnion := outputUnions[outputPath]; hasUnion {
+			continue
+		}
 		if _, alreadyRegistered := enumOnlyNamespace[outputPath]; alreadyRegistered {
 			continue
 		}
@@ -156,12 +182,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		typeDefs := outputTypeDefs[outputPath]
+		unions := outputUnions[outputPath]
 		var namespace string
 		switch {
 		case len(structs) > 0:
 			namespace = structs[0].Namespace
 		case len(typeDefs) > 0:
 			namespace = typeDefs[0].Namespace
+		case len(unions) > 0:
+			namespace = unions[0].Namespace
 		default:
 			namespace = enumOnlyNamespace[outputPath]
 		}
@@ -170,7 +199,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		// different schema that happens to share this namespace name does
 		// not bleed into this output.
 		enums := enum.CollectNamespaceEnums(namespace, outputPath, req.Resolutions, "pb", pbPathFunc)
-		content, err := p.generateFile(outputPath, structs, typeDefs, enums, req)
+		content, err := p.generateFile(outputPath, structs, typeDefs, unions, enums, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
@@ -206,6 +235,7 @@ func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Type,
 	typeDefs []resolution.Type,
+	unions []resolution.Type,
 	enums []resolution.Type,
 	req *plugin.Request,
 ) ([]byte, error) {
@@ -214,6 +244,8 @@ func (p *Plugin) generateFile(
 		namespace = structs[0].Namespace
 	} else if len(typeDefs) > 0 {
 		namespace = typeDefs[0].Namespace
+	} else if len(unions) > 0 {
+		namespace = unions[0].Namespace
 	}
 
 	parentGoPath := strings.TrimSuffix(outputPath, "/pb")
@@ -271,6 +303,21 @@ func (p *Plugin) generateFile(
 		}
 	}
 
+	for _, u := range unions {
+		form, ok := u.Form.(resolution.UnionForm)
+		if !ok {
+			continue
+		}
+		ut, err := p.processUnionForTranslation(u, form, data)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to process union %s", u.Name)
+		}
+		data.UnionTranslators = append(data.UnionTranslators, *ut)
+	}
+	if len(data.UnionTranslators) > 0 {
+		data.imports.AddExternal("github.com/synnaxlabs/x/errors")
+	}
+
 	for i := range enums {
 		e := enums[i]
 		if omit.IsType(e, "pb") {
@@ -316,7 +363,7 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 && len(data.EnumTranslators) == 0 && len(data.DelegationTranslators) == 0 {
+	if len(data.Translators) == 0 && len(data.GenericTranslators) == 0 && len(data.EnumTranslators) == 0 && len(data.DelegationTranslators) == 0 && len(data.UnionTranslators) == 0 {
 		return nil, nil
 	}
 
@@ -325,6 +372,100 @@ func (p *Plugin) generateFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// unionTranslatorData holds data for translating a discriminated union between
+// its Go sealed-interface form and its protobuf oneof wrapper message.
+type unionTranslatorData struct {
+	Name        string
+	GoType      string
+	PBType      string
+	GoTypeShort string
+	PBTypeShort string
+	// Variants lists every variant in declaration order.
+	Variants []unionVariantTranslatorData
+}
+
+// unionVariantTranslatorData holds data for one variant of a union translator.
+type unionVariantTranslatorData struct {
+	// GoVariantType is the qualified Go variant struct (e.g. "schematic.NodeConfigCap").
+	GoVariantType string
+	// PBWrapper is the protoc-generated oneof wrapper type (e.g. "NodeConfig_Cap").
+	PBWrapper string
+	// PBField is the field name inside the oneof wrapper (e.g. "Cap").
+	PBField string
+	// PayloadGoField is the embedded payload field on the Go variant struct.
+	PayloadGoField string
+	// PayloadToPB and PayloadFromPB are the payload struct's translator functions.
+	PayloadToPB   string
+	PayloadFromPB string
+}
+
+// processUnionForTranslation builds the translator view for a discriminated
+// union: a nil-variant-aware ToPB that switches on the Go variant type and
+// sets the corresponding protobuf oneof wrapper, and the inverse FromPB.
+func (p *Plugin) processUnionForTranslation(
+	u resolution.Type,
+	form resolution.UnionForm,
+	data *templateData,
+) (*unionTranslatorData, error) {
+	if len(form.Extends) > 0 {
+		return nil, errors.Newf(
+			"union %s: pb translators for unions with extends are not yet supported",
+			u.Name,
+		)
+	}
+	goName := naming.GetGoName(u)
+	pbName := getPBName(u)
+	if pbName == "" {
+		pbName = u.Name
+	}
+	ut := &unionTranslatorData{
+		Name:        pbName,
+		GoType:      fmt.Sprintf("%s.%s", data.parentAlias, goName),
+		PBType:      pbName,
+		GoTypeShort: goName,
+		PBTypeShort: pbName,
+	}
+	for _, v := range form.Variants {
+		payload, ok := v.Type.Resolve(data.table)
+		if !ok {
+			return nil, errors.Newf("union %s variant %q: unresolved payload type", u.Name, v.Name)
+		}
+		prefix, payloadName := p.resolvePBTranslatorInfo(payload, data)
+		pbField := lo.PascalCase(casing.FieldSnake(v.Name))
+		ut.Variants = append(ut.Variants, unionVariantTranslatorData{
+			GoVariantType:  fmt.Sprintf("%s.%s", data.parentAlias, casing.VariantTypeName(goName, v.Name)),
+			PBWrapper:      fmt.Sprintf("%s_%s", pbName, pbField),
+			PBField:        pbField,
+			PayloadGoField: naming.GetGoName(payload),
+			PayloadToPB:    prefix + payloadName + "ToPB",
+			PayloadFromPB:  prefix + payloadName + "FromPB",
+		})
+	}
+	return ut, nil
+}
+
+// resolveUnionTranslatorName returns the package prefix and function base name
+// for a union's pb translator, adding the cross-package import when the union
+// lives in a different proto package.
+func (p *Plugin) resolveUnionTranslatorName(
+	u resolution.Type,
+	data *templateData,
+) (prefix, name string) {
+	name = getPBName(u)
+	if name == "" {
+		name = u.Name
+	}
+	pbPath := output.GetPBPath(u)
+	if u.Namespace != data.Namespace || (pbPath != "" && pbPath != data.OutputPath) {
+		if importPath, err := resolveGoImportPath(pbPath, data.repoRoot); err == nil {
+			alias := strings.ToLower(u.Namespace) + "pb"
+			data.imports.AddInternal(alias, importPath)
+			prefix = alias + "."
+		}
+	}
+	return prefix, name
 }
 
 func (p *Plugin) processStructForTranslation(
@@ -379,7 +520,8 @@ func (p *Plugin) processFieldForTranslation(
 
 	isHardOptional := field.IsHardOptional
 	isOptional := isHardOptional
-	isOptionalStruct := isOptional && isStructType(field.Type, data.table)
+	isOptionalStruct := isOptional &&
+		(isStructType(field.Type, data.table) || isUnionType(field.Type, data.table))
 	isOptionalEnum := isOptional && isEnumType(field.Type, data.table)
 
 	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
@@ -904,6 +1046,18 @@ func (p *Plugin) generateFieldConversion(
 		return goFieldName, pbFieldName, "", false, false
 	}
 
+	if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+		prefix, name := p.resolveUnionTranslatorName(resolved, data)
+		if field.IsHardOptional {
+			return fmt.Sprintf("%s%sToPB(*%s)", prefix, name, goFieldName),
+				fmt.Sprintf("%s%sFromPB(%s)", prefix, name, pbFieldName),
+				"", true, true
+		}
+		return fmt.Sprintf("%s%sToPB(%s)", prefix, name, goFieldName),
+			fmt.Sprintf("%s%sFromPB(%s)", prefix, name, pbFieldName),
+			"", true, true
+	}
+
 	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
 		f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
 		return f, b, c, hasErr, hasErr
@@ -1343,6 +1497,13 @@ func (p *Plugin) generateArrayConversion(
 
 	elemResolved, ok := elemType.Resolve(data.table)
 	if ok {
+		if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
+			prefix, name := p.resolveUnionTranslatorName(elemResolved, data)
+			pluralName := pluralizeDistinct(name)
+			return fmt.Sprintf("%s%sToPB(%s)", prefix, pluralName, goField),
+				fmt.Sprintf("%s%sFromPB(%s)", prefix, pluralName, pbField),
+				true, true
+		}
 		if structForm, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 			translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(elemResolved, data)
 			pluralName := pluralizeDistinct(translatorStructName)
@@ -1679,6 +1840,17 @@ func toScreamingSnake(s string) string {
 	return strings.ToUpper(lo.SnakeCase(s))
 }
 
+// isUnionType reports whether the type reference resolves to a discriminated
+// union.
+func isUnionType(typeRef resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return false
+	}
+	_, isUnion := resolved.Form.(resolution.UnionForm)
+	return isUnion
+}
+
 func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
@@ -1748,6 +1920,7 @@ type templateData struct {
 	EnumTranslators       []enumTranslatorData
 	GenericTranslators    []genericTranslatorData
 	Translators           []translatorData
+	UnionTranslators      []unionTranslatorData
 }
 
 // HasImports returns true if any imports are needed.
