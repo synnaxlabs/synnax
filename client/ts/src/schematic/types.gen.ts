@@ -18,6 +18,7 @@ import {
   record,
   spatial,
   text,
+  uuid,
   zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -433,7 +434,7 @@ export const schematicZ = z.object({
   /** name is a human-readable name for the schematic. */
   name: z.string(),
   /** snapshot indicates whether this schematic represents a saved snapshot state. */
-  snapshot: z.boolean(),
+  snapshot: z.boolean().default(false),
   /** nodes contains all diagram nodes in the schematic. */
   nodes: array.nullishToEmpty(nodeZ),
   /** edges contains all connections between nodes. */
@@ -661,7 +662,16 @@ export const customStaticConfigZ = labeledConfigZ.extend({
 });
 export interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> {}
 
-export const newZ = schematicZ.partial({ key: true, snapshot: true });
+export const newZ = schematicZ
+  .omit({ key: true, nodes: true, edges: true, configs: true })
+  .extend({
+    key: keyZ.default(() => uuid.create()),
+    nodes: array.nullishToEmpty(nodeZ),
+    edges: array.nullishToEmpty(edgeZ),
+    configs: caseconv.preserveCase(
+      record.nullishToEmpty(z.string(), record.unknownZ()),
+    ),
+  });
 export interface New extends z.input<typeof newZ> {}
 
 /** ControlStateConfig is the control authority and state display configuration for actuated symbols. */
