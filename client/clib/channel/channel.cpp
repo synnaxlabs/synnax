@@ -24,6 +24,7 @@ int32_t synnax_channel_retrieve_keys(
     const char *names,
     const size_t name_count,
     uint32_t *out_keys,
+    uint32_t *out_index_keys,
     char *out_dtypes,
     const size_t out_dtypes_size,
     SynnaxError *err
@@ -74,10 +75,12 @@ int32_t synnax_channel_retrieve_keys(
             const auto it = by_name.find(req[i]);
             if (it == by_name.end()) {
                 out_keys[i] = 0;
+                if (out_index_keys != nullptr) out_index_keys[i] = 0;
                 if (!missing.empty()) missing += ", ";
                 missing += req[i];
             } else {
                 out_keys[i] = it->second->key;
+                if (out_index_keys != nullptr) out_index_keys[i] = it->second->index;
                 types += it->second->data_type.name();
             }
         }

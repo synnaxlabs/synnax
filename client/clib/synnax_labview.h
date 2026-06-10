@@ -56,6 +56,7 @@ SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     const char *names,
     uint64_t name_count,
     uint32_t *out_keys,
+    uint32_t *out_index_keys,
     char *out_dtypes,
     uint64_t out_dtypes_size,
     SynnaxError err
