@@ -250,16 +250,15 @@ must be handed one (the container-association question).
 
 # 5 - Resolved Design Decisions
 
-| #   | Decision                                     | Rationale                                                            |
-| --- | -------------------------------------------- | -------------------------------------------------------------------- |
-| 1   | Config composed into the wire payload        | No coordinated client/driver upgrade; split is invisible at the API. |
-| 2   | Standard `parent` relationship, no new type  | Traversal, indexes, and cascade already built around it.             |
-| 3   | Config records have independent keys         | Decouples config lifecycle; enables history/templates later.         |
-| 4   | One gorp table per config type               | Scoped migrations; `task.Type` already selects the table.            |
-| 5   | Fallback path for unregistered task types    | Preserves driver pluggability; typed configs adopt incrementally.    |
-| 6   | Copy-then-cut with one dual-write release    | No rollback exists in the migration system; downgrade stays safe.    |
-| 7   | Wire normalization reuses the `vN` chain     | One transform per schema change, shared by storage and write paths.  |
-| 8   | Config is always composed, no `Include` flag | Every existing consumer requires it; gating adds only failure modes. |
+| #   | Decision                                    | Rationale                                                            |
+| --- | ------------------------------------------- | -------------------------------------------------------------------- |
+| 1   | Config composed into the wire payload       | No coordinated client/driver upgrade; split is invisible at the API. |
+| 2   | Standard `parent` relationship, no new type | Traversal, indexes, and cascade already built around it.             |
+| 3   | Config records have independent keys        | Decouples config lifecycle; enables history/templates later.         |
+| 4   | One gorp table per config type              | Scoped migrations; `task.Type` already selects the table.            |
+| 5   | Fallback path for unregistered task types   | Preserves driver pluggability; typed configs adopt incrementally.    |
+| 6   | Copy-then-cut with one dual-write release   | No rollback exists in the migration system; downgrade stays safe.    |
+| 7   | Wire normalization reuses the `vN` chain    | One transform per schema change, shared by storage and write paths.  |
 
 # 6 - Implementation Phases
 
