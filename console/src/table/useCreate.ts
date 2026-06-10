@@ -14,6 +14,10 @@ import { Workspace } from "@/workspace";
 
 export const useCreate = Workspace.createUseCreate({
   useCreate: PTable.useCreate,
+  toCreateParams: ({ overrides, workspace }) => ({
+    name: "Table",
+    ...overrides,
+    workspace,
+  }),
   createSessionState: ({ key, name }) => create({ key, name, editable: true }),
-  defaultName: "Table",
 });

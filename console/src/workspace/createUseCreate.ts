@@ -33,15 +33,26 @@ interface UseFluxCreate<Input, Output extends CreatedRecord> {
   }): { update: (data: Input) => void };
 }
 
+// Everything toCreateParams needs to assemble the create body: the caller's overrides,
+// the resolved workspace, and the store for deriving default fields.
+export interface ToCreateParams<Input> {
+  // overrides are the caller-supplied fields passed to the returned hook.
+  overrides?: Partial<Input>;
+  // workspace is the resolved target workspace, if any.
+  workspace?: workspace.Key;
+  // store exposes redux state for callers that derive default fields from it.
+  store: Store<RootState>;
+}
+
 export interface CreateUseCreateArgs<Input, Output extends CreatedRecord> {
   // useCreate is the Pluto flux hook that persists the record on the server.
   useCreate: UseFluxCreate<Input, Output>;
   // createLayout builds the layout placed once the record exists on the server.
   createSessionState: (record: Pick<Output, "key" | "name">) => Layout.Creator;
-  // defaultName is applied when the caller does not supply a name.
-  defaultName: string;
-  // useDefaults supplies per-render default fields merged beneath caller overrides.
-  defaults?: (store: Store<RootState>) => Partial<Input>;
+  // toCreateParams assembles the create body, including the resource's default name and
+  // any per-render default fields. Constructed at the concrete call site so Input needs
+  // no cast; a caller override in overrides wins by spreading over the defaults.
+  toCreateParams: (params: ToCreateParams<Input>) => Input;
 }
 
 // createUseCreate builds a useCreate hook for a workspace-scoped layout resource. The
@@ -55,29 +66,25 @@ export const createUseCreate =
   >({
     useCreate,
     createSessionState,
-    defaultName,
-    defaults,
+    toCreateParams,
   }: CreateUseCreateArgs<Input, Output>) =>
   ({ workspace }: UseCreateProps): ((init?: Partial<Input>) => void) => {
     const activeWorkspace = useSelectActiveKey();
     const maybeChangeWorkspace = useMaybeChange();
     const placeLayout = Layout.usePlacer();
     const store = useStore<RootState>();
-    const targetWorkspace = workspace ?? activeWorkspace ?? undefined;
+    workspace ??= activeWorkspace ?? undefined;
     const { update } = useCreate({
-      afterSuccess: async ({ data: { key, name } }) => {
-        if (targetWorkspace != null) await maybeChangeWorkspace(targetWorkspace);
-        placeLayout(createSessionState({ key, name }));
-      },
+      afterSuccess: useCallback(
+        async ({ data: { key, name } }) => {
+          if (workspace != null) await maybeChangeWorkspace(workspace);
+          placeLayout(createSessionState({ key, name }));
+        },
+        [workspace],
+      ),
     });
     return useCallback(
-      (init) =>
-        update({
-          name: defaultName,
-          ...defaults?.(store),
-          ...init,
-          workspace: targetWorkspace,
-        } as Input),
-      [update, defaults, targetWorkspace, defaultName],
+      (overrides) => update(toCreateParams({ overrides, workspace, store })),
+      [update, store, workspace, toCreateParams],
     );
   };

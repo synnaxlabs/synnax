@@ -60,7 +60,11 @@ describe("createUseCreate", () => {
     Workspace.createUseCreate<PLog.CreateParams, log.Log>({
       useCreate: PLog.useCreate,
       createSessionState: Log.create,
-      defaultName: "Log",
+      toCreateParams: ({ overrides, workspace }) => ({
+        name: "Log",
+        ...overrides,
+        workspace,
+      }),
       ...args,
     });
 
@@ -94,8 +98,12 @@ describe("createUseCreate", () => {
       preloadedState: { [Workspace.SLICE_NAME]: activeState(workspaceA) },
     });
     const useCreate = buildUseCreate({
-      defaultName: "Default Log",
-      defaults: () => ({ name: "Defaults Log", showChannelNames: false }),
+      toCreateParams: ({ overrides, workspace }) => ({
+        name: "Default Log",
+        showChannelNames: false,
+        ...overrides,
+        workspace,
+      }),
     });
     const { result } = renderHook(() => useCreate({}), { wrapper });
 

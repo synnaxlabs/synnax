@@ -80,8 +80,9 @@ const makeUseCreate = (ctrl: CreateController): Flux.UseUpdate<FakeInput, FakeOu
   })) as unknown as Flux.UseUpdate<FakeInput, FakeOutput>;
 
 const buildHook = (ctrl: CreateController): ((key: string) => boolean) =>
-  createUseAutoUpload<FakeInput, FakeOutput>({
+  createUseAutoUpload<FakePending, FakeInput, FakeOutput>({
     useSelectPendingUpload,
+    toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
     useCreate: makeUseCreate(ctrl),
     clearPendingUpload: fakeSlice.actions.clearPendingUpload,
   });

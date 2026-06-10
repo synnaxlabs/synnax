@@ -14,6 +14,10 @@ import { Workspace } from "@/workspace";
 
 export const useCreate = Workspace.createUseCreate({
   useCreate: Log.useCreate,
+  toCreateParams: ({ overrides, workspace }) => ({
+    name: "Log",
+    ...overrides,
+    workspace,
+  }),
   createSessionState: create,
-  defaultName: "Log",
 });

@@ -48,6 +48,7 @@ import { Workspace } from "@/workspace";
 
 const useAutoUpload = createUseAutoUpload({
   useSelectPendingUpload,
+  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
   useCreate: Base.useCreate,
   clearPendingUpload,
 });

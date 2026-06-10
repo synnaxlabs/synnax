@@ -14,6 +14,10 @@ import { Workspace } from "@/workspace";
 
 export const useCreate = Workspace.createUseCreate({
   useCreate: Schematic.useCreate,
+  toCreateParams: ({ overrides, workspace }) => ({
+    name: "Schematic",
+    ...overrides,
+    workspace,
+  }),
   createSessionState: ({ key, name }) => create({ key, name, editable: true }),
-  defaultName: "Schematic",
 });

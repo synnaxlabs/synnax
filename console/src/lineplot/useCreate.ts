@@ -15,10 +15,14 @@ import { Workspace } from "@/workspace";
 
 export const useCreate = Workspace.createUseCreate({
   useCreate: LinePlot.useCreate,
-  createSessionState: create,
-  defaultName: "Line Plot",
-  defaults: (store) => {
+  toCreateParams: ({ overrides, workspace, store }) => {
     const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
-    return { ranges: { x1: [activeRange] } };
+    return {
+      name: "Line Plot",
+      ranges: { x1: [activeRange] },
+      ...overrides,
+      workspace,
+    };
   },
+  createSessionState: create,
 });
