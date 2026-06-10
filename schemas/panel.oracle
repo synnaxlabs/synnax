@@ -217,10 +217,8 @@ Panel struct {
 }
 
 New struct extends Panel {
-    -root
-    key Key? {
-        @doc value "is an optional key for the panel. If not provided, one will be automatically assigned."
-    }
+    key  = create
+    root = { leaf = { tabs = [] } }
 
     @doc value    "contains parameters for creating a new panel."
     @ts use_input
