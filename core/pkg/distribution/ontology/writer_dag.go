@@ -84,6 +84,7 @@ func (d dagWriter) DefineRelationship(
 	if len(to) == 0 {
 		return nil
 	}
+	to = lo.Uniq(to)
 	if err := d.validateResourcesExist(ctx, from); err != nil {
 		return err
 	}
