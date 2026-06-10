@@ -28,6 +28,22 @@ var _ = Describe("Writer", func() {
 			Expect(ws.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
+	Describe("CreateMany", func() {
+		It("Should create multiple workspaces", func(ctx SpecContext) {
+			workspaces := []workspace.Workspace{
+				{Name: "workspace-1", Author: author.Key},
+				{Name: "workspace-2", Author: author.Key},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, &workspaces)).To(Succeed())
+
+			var retrieved []workspace.Workspace
+			Expect(svc.NewRetrieve().Where(workspace.MatchKeys(
+				workspaces[0].Key,
+				workspaces[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
 	Describe("Update", func() {
 		It("Should rename a project", func(ctx SpecContext) {
 			ws := project.Project{Name: "test", Author: author.Key}

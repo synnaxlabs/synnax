@@ -43,11 +43,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 // KeysFromOntologyIDs returns the keys for the given ontology IDs.
 func KeysFromOntologyIDs(ids []ontology.ID) []Key {
-	keys := make([]Key, len(ids))
-	for i, id := range ids {
-		keys[i] = id.Key
-	}
-	return keys
+	return lo.Map(ids, func(id ontology.ID, _ int) Key { return id.Key })
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

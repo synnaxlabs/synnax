@@ -10,8 +10,6 @@
 package http
 
 import (
-	"context"
-
 	"github.com/gofiber/fiber/v3"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -61,7 +59,7 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 
 type unaryServer[RQ, RS freighter.Payload] struct {
 	unaryServerOptions
-	handle func(context.Context, RQ) (RS, error)
+	handle freighter.UnaryHandler[RQ, RS]
 	path   string
 	freighter.MiddlewareCollector
 }
@@ -81,9 +79,7 @@ func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 	}
 }
 
-func (s *unaryServer[RQ, RS]) BindHandler(
-	handler func(context.Context, RQ) (RS, error),
-) {
+func (s *unaryServer[RQ, RS]) BindHandler(handler freighter.UnaryHandler[RQ, RS]) {
 	s.handle = handler
 }
 

@@ -60,7 +60,7 @@ type (
 // Each panel is parented to req.Parent, or to the creating user as a draft when
 // Parent is zero.
 func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: panel.OntologyIDsFromPanels(req.Panels),
@@ -112,7 +112,7 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	err = q.Entries(&res.Panels).Exec(ctx, nil)
-	if eErr := s.access.Enforce(ctx, access.Request{
+	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: panel.OntologyIDsFromPanels(res.Panels),
@@ -132,7 +132,7 @@ type DispatchRequest = actions.DispatchRequest[panel.Key, panel.Action]
 // are reduced server-side via panel.Reduce; on success the resulting Scoped action
 // is broadcast on the panel set channel so connected clients can mirror the change.
 func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{panel.OntologyID(req.Key)},
@@ -149,7 +149,7 @@ type DeleteRequest struct {
 }
 
 func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: panel.OntologyIDs(req.Keys),

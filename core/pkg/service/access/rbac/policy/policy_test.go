@@ -122,6 +122,33 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple policies", func(ctx SpecContext) {
+			policies := []policy.Policy{
+				{
+					Name:    "policy-1",
+					Key:     uuid.New(),
+					Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+					Actions: []access.Action{access.ActionRetrieve},
+				},
+				{
+					Name:    "policy-2",
+					Key:     uuid.New(),
+					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Actions: []access.Action{access.ActionUpdate},
+				},
+			}
+			Expect(w.CreateMany(ctx, &policies)).To(Succeed())
+
+			var retrieved []policy.Policy
+			Expect(svc.NewRetrieve().Where(policy.MatchKeys(
+				policies[0].Key,
+				policies[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("Delete", func() {
 		var policies []policy.Policy
 		BeforeEach(func(ctx SpecContext) {

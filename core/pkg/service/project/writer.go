@@ -59,6 +59,20 @@ func (w Writer) Create(
 	return err
 }
 
+// CreateMany creates the given projects. If projects with the same key already
+// exist, they will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	projects *[]Project,
+) error {
+	for i := range *projects {
+		if err := w.Create(ctx, &(*projects)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (w Writer) Rename(
 	ctx context.Context,
 	key Key,

@@ -25,7 +25,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Symbol]
+	table     *gorp.Table[Key, Symbol]
 }
 
 // Create creates the given symbol as a child of the ontology.Resource with the given
@@ -63,12 +63,23 @@ func (w Writer) Create(
 	return w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID)
 }
 
-// Rename renames the symbol with the given key to the provided name.
-func (w Writer) Rename(
+// CreateMany creates the given symbols as children of the ontology.Resource with the
+// given parent ID. If symbols with the same key already exist, they will be overwritten.
+func (w Writer) CreateMany(
 	ctx context.Context,
-	key uuid.UUID,
-	name string,
+	symbols *[]Symbol,
+	parent ontology.ID,
 ) error {
+	for i := range *symbols {
+		if err := w.Create(ctx, &(*symbols)[i], parent); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Rename renames the symbol with the given key to the provided name.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.table.NewUpdate().Where(MatchKeys(key)).Change(func(_ gorp.Context, s Symbol) Symbol {
 		s.Name = name
 		return s
@@ -76,12 +87,8 @@ func (w Writer) Rename(
 }
 
 // Delete deletes the symbols with the given keys.
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...uuid.UUID,
-) error {
-	err := w.table.NewDelete().Where(MatchKeys(keys...)).Exec(ctx, w.tx)
-	if err != nil {
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.table.NewDelete().Where(MatchKeys(keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

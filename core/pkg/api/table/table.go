@@ -26,7 +26,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *table.Service
 }
@@ -37,7 +36,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		internal: cfg.Service.Table,
 		access:   cfg.Service.RBAC,
 	}, nil
@@ -53,47 +51,45 @@ type (
 	}
 )
 
-func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: table.OntologyIDsFromTables(req.Tables),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeTable}},
 	}); err != nil {
-		return res, err
+		return CreateResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, t := range req.Tables {
-			if err = s.internal.NewWriter(tx).Create(ctx, req.Project, &t); err != nil {
-				return err
-			}
-			req.Tables[i] = t
-		}
-		res.Tables = req.Tables
-		return nil
-	})
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.Tables); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse{Tables: req.Tables}, nil
 }
 
-// DispatchRequest carries an action sequence to apply to a single table.
-// DispatchKey is a client-generated identifier for the batch, registered as
-// outstanding on the originator before the request is sent. The server echoes
-// it verbatim on the broadcast frame so the originator can recognize its own
-// echo race-safely.
+// DispatchRequest carries an action sequence to apply to a single table. DispatchKey is
+// a client-generated identifier for the batch, registered as outstanding on the
+// originator before the request is sent. The server echoes it verbatim on the broadcast
+// frame so the originator can recognize its own echo race-safely.
 type DispatchRequest = actions.DispatchRequest[table.Key, table.Action]
 
-// Dispatch applies the action sequence to the target table atomically.
-// Subscribers to the table action signals receive the sequence after the
-// transaction commits.
-func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+// Dispatch applies the action sequence to the target table atomically. Subscribers to
+// the table action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{table.OntologyID(req.Key)},
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type (
@@ -105,35 +101,40 @@ type (
 	}
 )
 
-func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
-	err = s.internal.NewRetrieve().
-		Where(table.MatchKeys(req.Keys...)).Entries(&res.Tables).Exec(ctx, nil)
-	if err != nil {
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	if err := s.internal.NewRetrieve().
+		Where(table.MatchKeys(req.Keys...)).Entries(&res.Tables).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: table.OntologyIDs(req.Keys),
+		Objects: table.OntologyIDsFromTables(res.Tables),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 type DeleteRequest struct {
 	Keys []table.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: table.OntologyIDs(req.Keys),
 	}); err != nil {
-		return res, err
+		return types.Nil{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
