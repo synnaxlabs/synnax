@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
 	"github.com/synnaxlabs/x/errors"
@@ -22,6 +23,15 @@ import (
 // legacyWorkspaceType is the ontology resource type workspaces were stored under
 // before the rename to project.
 const legacyWorkspaceType = ontology.ResourceType("workspace")
+
+// legacyWorkspaceGroupName is the name of the root group workspaces were parented
+// under before the rename; projectGroupName is the name the service retrieves it by
+// now. Renaming the group in place keeps its key (and every parent relationship)
+// stable so the service reuses it instead of creating a second, empty group.
+const (
+	legacyWorkspaceGroupName = "Workspaces"
+	projectGroupName         = "Projects"
+)
 
 // MigrateWorkspaceToProject lifts a renamed workspace into a project. The
 // workspace-to-project change was a pure rename, so it lifts every record from the
@@ -36,7 +46,32 @@ func MigrateWorkspaceToProject(ctx context.Context, tx gorp.Tx, _ alamos.Instrum
 	if err := rewriteWorkspaceResources(ctx, tx); err != nil {
 		return err
 	}
-	return rewriteWorkspaceRelationships(ctx, tx)
+	if err := rewriteWorkspaceRelationships(ctx, tx); err != nil {
+		return err
+	}
+	return renameWorkspaceGroup(ctx, tx)
+}
+
+// renameWorkspaceGroup renames the root "Workspaces" group to "Projects" so the
+// service retrieves the existing group (with the migrated projects already
+// parented under it) rather than creating a second one.
+func renameWorkspaceGroup(ctx context.Context, tx gorp.Tx) error {
+	stale, err := collectEntries(
+		ctx,
+		gorp.WrapReader[group.Key, group.Group](tx),
+		func(g group.Group) bool { return g.Name == legacyWorkspaceGroupName },
+	)
+	if err != nil {
+		return err
+	}
+	w := gorp.WrapWriter[group.Key, group.Group](tx)
+	for _, g := range stale {
+		g.Name = projectGroupName
+		if err := w.Set(ctx, g); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // liftWorkspaces copies every legacy workspace record into the project table and

@@ -25,3 +25,14 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
   migrations: SLICE_MIGRATIONS,
   def: ZERO_SLICE_STATE,
 });
+
+// migrateLegacySlice migrates a persisted project slice, preferring the legacy
+// "workspace" key over the current "project" key so a slice persisted under the
+// pre-rename name survives the upgrade.
+export const migrateLegacySlice = (prev: {
+  workspace?: AnySliceState;
+  project?: AnySliceState;
+}): SliceState => {
+  const slice = prev.workspace ?? prev.project;
+  return slice == null ? ZERO_SLICE_STATE : migrateSlice(slice);
+};

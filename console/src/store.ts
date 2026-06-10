@@ -117,11 +117,10 @@ export const migrateState = (prev: RootState): RootState => {
   const line = LinePlot.migrateSlice(prev.line);
   const log = Log.migrateSlice(prev.log);
   const version = Version.migrateSlice(prev.version);
-  // The project slice was persisted under "workspace" before the rename; read the
-  // legacy key so an upgrading user keeps their saved active project.
-  const legacyProject = (prev as unknown as { workspace?: Project.AnySliceState })
-    .workspace;
-  const project = Project.migrateSlice(legacyProject ?? prev.project);
+  // The project slice was persisted under "workspace" before the rename;
+  // migrateLegacySlice reads the legacy key so an upgrading user keeps their saved
+  // active project.
+  const project = Project.migrateLegacySlice(prev);
   const range = Range.migrateSlice(prev.range);
   const docs = Docs.migrateSlice(prev.docs);
   const cluster = Cluster.migrateSlice(prev.cluster);

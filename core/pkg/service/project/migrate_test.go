@@ -10,9 +10,12 @@
 package project_test
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
@@ -25,96 +28,128 @@ import (
 )
 
 var _ = Describe("Workspace to project migration", func() {
-	It("Should lift workspaces into projects and repoint the ontology", func(ctx SpecContext) {
+	migrations := []migrate.Migration{
+		gorp.CodecMigration[project.Key, projectv56.Workspace]("msgpack_to_orc"),
+		migrate.WithAddedDeps(
+			gorp.NewMigration(
+				"v56_migrate_workspace_to_project",
+				project.MigrateWorkspaceToProject,
+			),
+			"msgpack_to_orc",
+		),
+	}
+	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[project.Key, project.Project] {
+		return MustOpen(gorp.OpenTable[project.Key, project.Project](
+			ctx, gorp.TableConfig[project.Key, project.Project]{DB: db, Migrations: migrations},
+		))
+	}
+	rel := func(from, to ontology.ID) ontology.Relationship {
+		return ontology.Relationship{From: from, Type: ontology.RelationshipTypeParentOf, To: to}
+	}
+	hasRel := func(ctx context.Context, db *gorp.DB, r ontology.Relationship) error {
+		return MustOpen(gorp.OpenTable[string, ontology.Relationship](
+			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
+		)).NewRetrieve().Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
+			Entry(&ontology.Relationship{}).Exec(ctx, db)
+	}
+
+	It("Should lift workspaces, repoint the ontology, and rename the group", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		// Seed a legacy workspace record under the "Workspace" gorp prefix.
-		wsKey, authorKey := uuid.New(), uuid.New()
+		// Seed two legacy workspace records under the "Workspace" gorp prefix.
+		wsA, wsB, authorKey := uuid.New(), uuid.New(), uuid.New()
 		wsTable := MustOpen(gorp.OpenTable[projectv56.Key, projectv56.Workspace](
 			ctx, gorp.TableConfig[projectv56.Key, projectv56.Workspace]{DB: db},
 		))
-		seed := projectv56.Workspace{
-			Key:    wsKey,
+		seedA := projectv56.Workspace{
+			Key:    wsA,
 			Name:   "Ops",
 			Author: authorKey,
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}
-		Expect(wsTable.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(wsTable.NewCreate().Entry(&seedA).Exec(ctx, db)).To(Succeed())
+		seedB := projectv56.Workspace{Key: wsB, Name: "Analysis"}
+		Expect(wsTable.NewCreate().Entry(&seedB).Exec(ctx, db)).To(Succeed())
 
-		// Seed ontology nodes: the workspace and an unrelated line plot.
-		wsID := ontology.ID{Type: ontology.ResourceType("workspace"), Key: wsKey.String()}
+		// Seed the root "Workspaces" group and the ontology nodes.
+		groupKey := uuid.New()
+		groupTable := MustOpen(gorp.OpenTable[group.Key, group.Group](
+			ctx, gorp.TableConfig[group.Key, group.Group]{DB: db},
+		))
+		Expect(groupTable.NewCreate().Entry(&group.Group{Key: groupKey, Name: "Workspaces"}).
+			Exec(ctx, db)).To(Succeed())
+		groupID := group.OntologyID(groupKey)
+		wsAID := ontology.ID{Type: ontology.ResourceType("workspace"), Key: wsA.String()}
+		wsBID := ontology.ID{Type: ontology.ResourceType("workspace"), Key: wsB.String()}
 		lpID := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: uuid.NewString()}
-		groupID := ontology.ID{Type: ontology.ResourceTypeGroup, Key: uuid.NewString()}
 		resTable := MustOpen(gorp.OpenTable[string, ontology.Resource](
 			ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
 		))
-		Expect(resTable.NewCreate().Entry(&ontology.Resource{ID: wsID}).Exec(ctx, db)).To(Succeed())
-		Expect(resTable.NewCreate().Entry(&ontology.Resource{ID: lpID}).Exec(ctx, db)).To(Succeed())
+		for _, id := range []ontology.ID{wsAID, wsBID, lpID} {
+			Expect(resTable.NewCreate().Entry(&ontology.Resource{ID: id}).Exec(ctx, db)).To(Succeed())
+		}
 
-		// Seed relationships: group -> workspace, workspace -> line plot, and an
+		// Seed relationships: group -> each workspace, workspace -> line plot, and an
 		// unrelated group -> line plot that must be left untouched.
 		relTable := MustOpen(gorp.OpenTable[string, ontology.Relationship](
 			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
 		))
-		parent := ontology.RelationshipTypeParentOf
-		groupToWS := ontology.Relationship{From: groupID, Type: parent, To: wsID}
-		wsToLP := ontology.Relationship{From: wsID, Type: parent, To: lpID}
-		groupToLP := ontology.Relationship{From: groupID, Type: parent, To: lpID}
-		for _, rel := range []ontology.Relationship{groupToWS, wsToLP, groupToLP} {
-			r := rel
-			Expect(relTable.NewCreate().Entry(&r).Exec(ctx, db)).To(Succeed())
+		groupToWSA := rel(groupID, wsAID)
+		groupToWSB := rel(groupID, wsBID)
+		wsAToLP := rel(wsAID, lpID)
+		groupToLP := rel(groupID, lpID)
+		for _, r := range []ontology.Relationship{groupToWSA, groupToWSB, wsAToLP, groupToLP} {
+			rr := r
+			Expect(relTable.NewCreate().Entry(&rr).Exec(ctx, db)).To(Succeed())
 		}
 
-		// Open the project table, running the migrations.
-		projectTable := MustOpen(gorp.OpenTable[project.Key, project.Project](
-			ctx, gorp.TableConfig[project.Key, project.Project]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.CodecMigration[project.Key, projectv56.Workspace]("msgpack_to_orc"),
-					migrate.WithAddedDeps(
-						gorp.NewMigration(
-							"v56_migrate_workspace_to_project",
-							project.MigrateWorkspaceToProject,
-						),
-						"msgpack_to_orc",
-					),
-				},
-			},
-		))
+		projectTable := openProjectTable(ctx, db)
 
-		By("Lifting the workspace into a project with identical fields")
-		var p project.Project
-		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[project.Key, project.Project](wsKey)).Entry(&p).Exec(ctx, db)).To(Succeed())
-		Expect(p).To(Equal(project.Project{
-			Key:    wsKey,
+		By("Lifting every workspace into a project with identical fields")
+		var pA project.Project
+		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[project.Key, project.Project](wsA)).
+			Entry(&pA).Exec(ctx, db)).To(Succeed())
+		Expect(pA).To(Equal(project.Project{
+			Key:    wsA,
 			Name:   "Ops",
 			Author: authorKey,
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}))
+		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[project.Key, project.Project](wsB)).
+			Exists(ctx, db)).To(BeTrue())
 
-		By("Removing the legacy workspace record")
-		Expect(wsTable.NewRetrieve().Where(gorp.MatchKeys[projectv56.Key, projectv56.Workspace](wsKey)).Entry(&projectv56.Workspace{}).Exec(ctx, db)).
-			To(MatchError(query.ErrNotFound))
+		By("Removing the legacy workspace records")
+		Expect(wsTable.NewRetrieve().Where(gorp.MatchKeys[projectv56.Key, projectv56.Workspace](wsA, wsB)).
+			Entries(&[]projectv56.Workspace{}).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 
-		By("Re-keying the workspace resource node to project")
-		projectID := ontology.ID{Type: ontology.ResourceTypeProject, Key: wsKey.String()}
-		var res ontology.Resource
-		Expect(resTable.NewRetrieve().Where(gorp.MatchKeys[string, ontology.Resource](projectID.String())).Entry(&res).Exec(ctx, db)).To(Succeed())
-		Expect(res.ID).To(Equal(projectID))
-		Expect(resTable.NewRetrieve().Where(gorp.MatchKeys[string, ontology.Resource](wsID.String())).Entry(&ontology.Resource{}).Exec(ctx, db)).
-			To(MatchError(query.ErrNotFound))
+		By("Re-keying the workspace resource nodes to project")
+		projectAID := ontology.ID{Type: ontology.ResourceTypeProject, Key: wsA.String()}
+		Expect(resTable.NewRetrieve().Where(gorp.MatchKeys[string, ontology.Resource](projectAID.String())).
+			Exists(ctx, db)).To(BeTrue())
+		Expect(resTable.NewRetrieve().Where(gorp.MatchKeys[string, ontology.Resource](wsAID.String())).
+			Exists(ctx, db)).To(BeFalse())
 
 		By("Repointing workspace relationships and leaving unrelated ones intact")
-		groupToProject := ontology.Relationship{From: groupID, Type: parent, To: projectID}
-		projectToLP := ontology.Relationship{From: projectID, Type: parent, To: lpID}
-		hasRel := func(rel ontology.Relationship) error {
-			return relTable.NewRetrieve().Where(gorp.MatchKeys[string, ontology.Relationship](rel.GorpKey())).
-				Entry(&ontology.Relationship{}).Exec(ctx, db)
-		}
-		Expect(hasRel(groupToProject)).To(Succeed())
-		Expect(hasRel(projectToLP)).To(Succeed())
-		Expect(hasRel(groupToWS)).To(MatchError(query.ErrNotFound))
-		Expect(hasRel(wsToLP)).To(MatchError(query.ErrNotFound))
-		Expect(hasRel(groupToLP)).To(Succeed())
+		projectBID := ontology.ID{Type: ontology.ResourceTypeProject, Key: wsB.String()}
+		Expect(hasRel(ctx, db, rel(groupID, projectAID))).To(Succeed())
+		Expect(hasRel(ctx, db, rel(groupID, projectBID))).To(Succeed())
+		Expect(hasRel(ctx, db, rel(projectAID, lpID))).To(Succeed())
+		Expect(hasRel(ctx, db, groupToWSA)).To(MatchError(query.ErrNotFound))
+		Expect(hasRel(ctx, db, wsAToLP)).To(MatchError(query.ErrNotFound))
+		Expect(hasRel(ctx, db, groupToLP)).To(Succeed())
+
+		By("Renaming the Workspaces group to Projects")
+		var g group.Group
+		Expect(groupTable.NewRetrieve().Where(gorp.MatchKeys[group.Key, group.Group](groupKey)).
+			Entry(&g).Exec(ctx, db)).To(Succeed())
+		Expect(g.Name).To(Equal("Projects"))
+	})
+
+	It("Should be a no-op on a cluster that never created a workspace", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		// Opening the table runs the migration; it must succeed with nothing to lift.
+		Expect(openProjectTable(ctx, db).NewRetrieve().
+			Where(gorp.MatchKeys[project.Key, project.Project](uuid.New())).
+			Exists(ctx, db)).To(BeFalse())
 	})
 })
