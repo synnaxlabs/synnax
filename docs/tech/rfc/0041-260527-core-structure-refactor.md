@@ -98,7 +98,7 @@ _"resources should not be defined in the ontology, but in the services that inte
 with it"_ — which argues for the substrate alongside services, not beneath topology.
 
 These packages can't simply move today because of one dependency edge:
-`distribution/ channel` and `distribution/node` import `ontology`/`group`/`search` to
+`distribution/channel` and `distribution/node` import `ontology`/`group`/`search` to
 register for discovery. The placement is forced by where registration lives, not chosen.
 
 ## 2.1 - Duplicate Types and Caller-Resolved Fields
