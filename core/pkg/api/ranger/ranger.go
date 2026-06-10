@@ -90,6 +90,9 @@ func (s *Service) Create(
 		if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Ranges); err != nil {
 			return err
 		}
+		for i := range req.Ranges {
+			req.Ranges[i].Parent = nil
+		}
 		res = CreateResponse(req)
 		return nil
 	}); err != nil {
