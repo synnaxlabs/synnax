@@ -85,9 +85,6 @@ func (s *Service) Create(
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Ranges); err != nil {
 		return CreateResponse{}, err
 	}
-	for i := range req.Ranges {
-		req.Ranges[i].Parent = nil
-	}
 	return CreateResponse(req), nil
 }
 
@@ -147,28 +144,31 @@ func (s *Service) Retrieve(
 	}
 	var err error
 	if req.IncludeLabels {
-		for i, rng := range ranges {
-			if rng.Labels, err = s.label.RetrieveFor(ctx, rng.OntologyID(), nil); err != nil {
+		for i, r := range ranges {
+			if ranges[i].Labels, err = s.label.
+				RetrieveFor(ctx, r.OntologyID(), nil); err != nil {
 				return RetrieveResponse{}, err
 			}
-			ranges[i] = rng
 		}
 	}
 	if req.IncludeParent {
-		for i, rng := range ranges {
-			parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, nil)
+		for i, r := range ranges {
+			parentKey, err := s.internal.RetrieveParentKey(ctx, r.Key, nil)
 			if errors.Is(err, query.ErrNotFound) {
 				continue
 			}
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
-			var parent ranger.Range
-			if err := s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
+			ranges[i].Parent = &ranger.Range{}
+			if err = s.
+				internal.
+				NewRetrieve().
+				Entry(ranges[i].Parent).
+				Where(ranger.MatchKeys(parentKey)).
+				Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
-			rng.Parent = &parent
-			ranges[i] = rng
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
