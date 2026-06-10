@@ -23,15 +23,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { channel } from "@/channel";
 import { ontology } from "@/ontology";
-
-export const SOURCE_ROLES = ["source"] as const;
-export const sourceRoleZ = z.enum(SOURCE_ROLES);
-export type SourceRole = z.infer<typeof sourceRoleZ>;
-
-export const SINK_ROLES = ["sink"] as const;
-export const sinkRoleZ = z.enum(SINK_ROLES);
-export type SinkRole = z.infer<typeof sinkRoleZ>;
 
 export const FLEX_ALIGNMENTS = ["start", "center", "end", "stretch"] as const;
 export const flexAlignmentZ = z.enum(FLEX_ALIGNMENTS);
@@ -87,44 +80,6 @@ export const segmentZ = z.object({
 });
 export interface Segment extends z.infer<typeof segmentZ> {}
 
-/**
- * SourceTelemSpec is a reference to a telemetry source. The value_type
- * discriminator on the wrapping union pins the value kind the spec
- * yields or accepts.
- */
-export const sourceTelemSpecZ = z.object({
-  /** type is the registered telem factory type that interprets props. */
-  type: z.string(),
-  /** variant is the data-flow role of the spec. */
-  variant: sourceRoleZ,
-  /**
-   * props contains factory-specific configuration. The shape is determined
-   * by type and validated at runtime by the owning telem factory; the
-   * wire format intentionally stores it as an opaque record.
-   */
-  props: caseconv.preserveCase(record.nullishToEmpty()),
-});
-export interface SourceTelemSpec extends z.infer<typeof sourceTelemSpecZ> {}
-
-/**
- * SinkTelemSpec is a reference to a telemetry sink. The value_type
- * discriminator on the wrapping union pins the value kind the spec
- * yields or accepts.
- */
-export const sinkTelemSpecZ = z.object({
-  /** type is the registered telem factory type that interprets props. */
-  type: z.string(),
-  /** variant is the data-flow role of the spec. */
-  variant: sinkRoleZ,
-  /**
-   * props contains factory-specific configuration. The shape is determined
-   * by type and validated at runtime by the owning telem factory; the
-   * wire format intentionally stores it as an opaque record.
-   */
-  props: caseconv.preserveCase(record.nullishToEmpty()),
-});
-export interface SinkTelemSpec extends z.infer<typeof sinkTelemSpecZ> {}
-
 /** LabelConfig is the text label configuration shared by schematic symbols. */
 export const labelConfigZ = z.object({
   /** label is the text content of the label. */
@@ -141,6 +96,24 @@ export const labelConfigZ = z.object({
   align: flexAlignmentZ.optional(),
 });
 export interface LabelConfig extends z.infer<typeof labelConfigZ> {}
+
+/** ControlStateConfig is the control authority and state display configuration for actuated symbols. */
+export const controlStateConfigZ = z.object({
+  /**
+   * authority is the control authority requested when the symbol acquires its
+   * command channel. Defaults to absolute authority when unset.
+   */
+  authority: zod.uint8.optional(),
+  /** show indicates whether the control state widget is visible. */
+  show: z.boolean().optional(),
+  /** showChip indicates whether the authority chip is visible. */
+  showChip: z.boolean().optional(),
+  /** showIndicator indicates whether the state indicator is visible. */
+  showIndicator: z.boolean().optional(),
+  /** orientation is the placement of the control state widget relative to the symbol. */
+  orientation: spatial.locationZ.optional(),
+});
+export interface ControlStateConfig extends z.infer<typeof controlStateConfigZ> {}
 
 /** StateMapping maps a numeric channel value to a named, colored state. */
 export const stateMappingZ = z.object({
@@ -189,184 +162,6 @@ export const segmentedEdgeConfigZ = z.object({
   segments: array.nullishToEmpty(segmentZ),
 });
 export interface SegmentedEdgeConfig extends z.infer<typeof segmentedEdgeConfigZ> {}
-
-export const booleanSourceSpecBooleanZ = sourceTelemSpecZ.extend({
-  valueType: z.literal("boolean"),
-});
-export interface BooleanSourceSpecBoolean extends z.infer<
-  typeof booleanSourceSpecBooleanZ
-> {}
-
-export const BOOLEAN_SOURCE_SPEC_TYPES = ["boolean"] as const;
-export const booleanSourceSpecTypeZ = z.enum(BOOLEAN_SOURCE_SPEC_TYPES);
-export type BooleanSourceSpecType = z.infer<typeof booleanSourceSpecTypeZ>;
-
-/** BooleanSourceSpec is a telemetry source that yields boolean values. */
-export const booleanSourceSpecZ = z.discriminatedUnion("valueType", [
-  booleanSourceSpecBooleanZ,
-]);
-export type BooleanSourceSpec = z.infer<typeof booleanSourceSpecZ>;
-
-export const BOOLEAN_SOURCE_SPEC_SCHEMAS: {
-  [K in BooleanSourceSpecType]: z.ZodType<Extract<BooleanSourceSpec, { valueType: K }>>;
-} = {
-  boolean: booleanSourceSpecBooleanZ,
-};
-
-export const numberSourceSpecNumberZ = sourceTelemSpecZ.extend({
-  valueType: z.literal("number"),
-});
-export interface NumberSourceSpecNumber extends z.infer<
-  typeof numberSourceSpecNumberZ
-> {}
-
-export const NUMBER_SOURCE_SPEC_TYPES = ["number"] as const;
-export const numberSourceSpecTypeZ = z.enum(NUMBER_SOURCE_SPEC_TYPES);
-export type NumberSourceSpecType = z.infer<typeof numberSourceSpecTypeZ>;
-
-/** NumberSourceSpec is a telemetry source that yields numeric values. */
-export const numberSourceSpecZ = z.discriminatedUnion("valueType", [
-  numberSourceSpecNumberZ,
-]);
-export type NumberSourceSpec = z.infer<typeof numberSourceSpecZ>;
-
-export const NUMBER_SOURCE_SPEC_SCHEMAS: {
-  [K in NumberSourceSpecType]: z.ZodType<Extract<NumberSourceSpec, { valueType: K }>>;
-} = {
-  number: numberSourceSpecNumberZ,
-};
-
-export const stringSourceSpecStringZ = sourceTelemSpecZ.extend({
-  valueType: z.literal("string"),
-});
-export interface StringSourceSpecString extends z.infer<
-  typeof stringSourceSpecStringZ
-> {}
-
-export const STRING_SOURCE_SPEC_TYPES = ["string"] as const;
-export const stringSourceSpecTypeZ = z.enum(STRING_SOURCE_SPEC_TYPES);
-export type StringSourceSpecType = z.infer<typeof stringSourceSpecTypeZ>;
-
-/** StringSourceSpec is a telemetry source that yields string values. */
-export const stringSourceSpecZ = z.discriminatedUnion("valueType", [
-  stringSourceSpecStringZ,
-]);
-export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
-
-export const STRING_SOURCE_SPEC_SCHEMAS: {
-  [K in StringSourceSpecType]: z.ZodType<Extract<StringSourceSpec, { valueType: K }>>;
-} = {
-  string: stringSourceSpecStringZ,
-};
-
-export const colorSourceSpecColorZ = sourceTelemSpecZ.extend({
-  valueType: z.literal("color"),
-});
-export interface ColorSourceSpecColor extends z.infer<typeof colorSourceSpecColorZ> {}
-
-export const COLOR_SOURCE_SPEC_TYPES = ["color"] as const;
-export const colorSourceSpecTypeZ = z.enum(COLOR_SOURCE_SPEC_TYPES);
-export type ColorSourceSpecType = z.infer<typeof colorSourceSpecTypeZ>;
-
-/** ColorSourceSpec is a telemetry source that yields colors. */
-export const colorSourceSpecZ = z.discriminatedUnion("valueType", [
-  colorSourceSpecColorZ,
-]);
-export type ColorSourceSpec = z.infer<typeof colorSourceSpecZ>;
-
-export const COLOR_SOURCE_SPEC_SCHEMAS: {
-  [K in ColorSourceSpecType]: z.ZodType<Extract<ColorSourceSpec, { valueType: K }>>;
-} = {
-  color: colorSourceSpecColorZ,
-};
-
-export const statusSourceSpecStatusZ = sourceTelemSpecZ.extend({
-  valueType: z.literal("status"),
-});
-export interface StatusSourceSpecStatus extends z.infer<
-  typeof statusSourceSpecStatusZ
-> {}
-
-export const STATUS_SOURCE_SPEC_TYPES = ["status"] as const;
-export const statusSourceSpecTypeZ = z.enum(STATUS_SOURCE_SPEC_TYPES);
-export type StatusSourceSpecType = z.infer<typeof statusSourceSpecTypeZ>;
-
-/** StatusSourceSpec is a telemetry source that yields statuses. */
-export const statusSourceSpecZ = z.discriminatedUnion("valueType", [
-  statusSourceSpecStatusZ,
-]);
-export type StatusSourceSpec = z.infer<typeof statusSourceSpecZ>;
-
-export const STATUS_SOURCE_SPEC_SCHEMAS: {
-  [K in StatusSourceSpecType]: z.ZodType<Extract<StatusSourceSpec, { valueType: K }>>;
-} = {
-  status: statusSourceSpecStatusZ,
-};
-
-export const booleanSinkSpecBooleanZ = sinkTelemSpecZ.extend({
-  valueType: z.literal("boolean"),
-});
-export interface BooleanSinkSpecBoolean extends z.infer<
-  typeof booleanSinkSpecBooleanZ
-> {}
-
-export const BOOLEAN_SINK_SPEC_TYPES = ["boolean"] as const;
-export const booleanSinkSpecTypeZ = z.enum(BOOLEAN_SINK_SPEC_TYPES);
-export type BooleanSinkSpecType = z.infer<typeof booleanSinkSpecTypeZ>;
-
-/** BooleanSinkSpec is a telemetry sink that accepts boolean commands. */
-export const booleanSinkSpecZ = z.discriminatedUnion("valueType", [
-  booleanSinkSpecBooleanZ,
-]);
-export type BooleanSinkSpec = z.infer<typeof booleanSinkSpecZ>;
-
-export const BOOLEAN_SINK_SPEC_SCHEMAS: {
-  [K in BooleanSinkSpecType]: z.ZodType<Extract<BooleanSinkSpec, { valueType: K }>>;
-} = {
-  boolean: booleanSinkSpecBooleanZ,
-};
-
-export const numberSinkSpecNumberZ = sinkTelemSpecZ.extend({
-  valueType: z.literal("number"),
-});
-export interface NumberSinkSpecNumber extends z.infer<typeof numberSinkSpecNumberZ> {}
-
-export const NUMBER_SINK_SPEC_TYPES = ["number"] as const;
-export const numberSinkSpecTypeZ = z.enum(NUMBER_SINK_SPEC_TYPES);
-export type NumberSinkSpecType = z.infer<typeof numberSinkSpecTypeZ>;
-
-/** NumberSinkSpec is a telemetry sink that accepts numeric commands. */
-export const numberSinkSpecZ = z.discriminatedUnion("valueType", [
-  numberSinkSpecNumberZ,
-]);
-export type NumberSinkSpec = z.infer<typeof numberSinkSpecZ>;
-
-export const NUMBER_SINK_SPEC_SCHEMAS: {
-  [K in NumberSinkSpecType]: z.ZodType<Extract<NumberSinkSpec, { valueType: K }>>;
-} = {
-  number: numberSinkSpecNumberZ,
-};
-
-export const stringSinkSpecStringZ = sinkTelemSpecZ.extend({
-  valueType: z.literal("string"),
-});
-export interface StringSinkSpecString extends z.infer<typeof stringSinkSpecStringZ> {}
-
-export const STRING_SINK_SPEC_TYPES = ["string"] as const;
-export const stringSinkSpecTypeZ = z.enum(STRING_SINK_SPEC_TYPES);
-export type StringSinkSpecType = z.infer<typeof stringSinkSpecTypeZ>;
-
-/** StringSinkSpec is a telemetry sink that accepts string commands. */
-export const stringSinkSpecZ = z.discriminatedUnion("valueType", [
-  stringSinkSpecStringZ,
-]);
-export type StringSinkSpec = z.infer<typeof stringSinkSpecZ>;
-
-export const STRING_SINK_SPEC_SCHEMAS: {
-  [K in StringSinkSpecType]: z.ZodType<Extract<StringSinkSpec, { valueType: K }>>;
-} = {
-  string: stringSinkSpecStringZ,
-};
 
 /** LabeledConfig is the base configuration for any symbol that carries a label. */
 export const labeledConfigZ = z.object({
@@ -489,23 +284,13 @@ export const EDGE_CONFIG_SCHEMAS: {
   data: edgeConfigDataZ,
 };
 
-/** IndicatorConfig is the control state indicator configuration. */
-export const indicatorConfigZ = z.object({
-  /** statusSource is the status source driving the indicator state. */
-  statusSource: zod.nullToUndefined(statusSourceSpecZ),
-  /** colorSource is the color source driving the indicator tint. */
-  colorSource: zod.nullToUndefined(colorSourceSpecZ),
+export const toggleConfigZ = labeledConfigZ.extend({
+  stateChannel: channel.keyZ.optional(),
+  commandChannel: channel.keyZ.optional(),
+  control: controlStateConfigZ.optional(),
+  onClickDelay: z.number().optional(),
 });
-export interface IndicatorConfig extends z.infer<typeof indicatorConfigZ> {}
-
-/** ChipConfig is the control authority chip configuration. */
-export const chipConfigZ = z.object({
-  /** source is the status source displayed by the control chip. */
-  source: zod.nullToUndefined(statusSourceSpecZ),
-  /** sink is the sink used to acquire and release control authority. */
-  sink: zod.nullToUndefined(booleanSinkSpecZ),
-});
-export interface ChipConfig extends z.infer<typeof chipConfigZ> {}
+export interface ToggleConfig extends z.infer<typeof toggleConfigZ> {}
 
 export const staticSymbolConfigZ = labeledConfigZ.extend({
   color: color.colorZ.optional(),
@@ -523,6 +308,17 @@ export interface DummyToggleSymbolConfig extends z.infer<
   typeof dummyToggleSymbolConfigZ
 > {}
 
+export const buttonConfigZ = labeledConfigZ.extend({
+  size: componentSizeZ.optional(),
+  level: text.levelZ.optional(),
+  onClickDelay: z.number().optional(),
+  commandChannel: channel.keyZ.optional(),
+  mode: buttonModeZ.optional(),
+  color: color.colorZ.optional(),
+  control: controlStateConfigZ.optional(),
+});
+export interface ButtonConfig extends z.infer<typeof buttonConfigZ> {}
+
 export const circleConfigZ = labeledConfigZ.extend({
   radius: z.number(),
   color: color.colorZ.optional(),
@@ -536,8 +332,8 @@ export const gaugeConfigZ = labeledConfigZ.extend({
   color: color.colorZ.optional(),
   bounds: spatial.boundsZ().optional(),
   barWidth: z.number().optional(),
-  telem: zod.nullToUndefined(stringSourceSpecZ),
-  backgroundTelem: zod.nullToUndefined(colorSourceSpecZ),
+  channel: channel.keyZ.optional(),
+  rollingAverage: z.int32().optional(),
   precision: z.number().optional(),
   minWidth: z.number().optional(),
   width: z.number().optional(),
@@ -548,8 +344,19 @@ export const gaugeConfigZ = labeledConfigZ.extend({
 });
 export interface GaugeConfig extends z.infer<typeof gaugeConfigZ> {}
 
+export const inputConfigZ = labeledConfigZ.extend({
+  size: componentSizeZ.optional(),
+  commandChannel: channel.keyZ.optional(),
+  dimensions: spatial.dimensionsZ.optional(),
+  color: color.colorZ.optional(),
+  disabled: z.boolean().optional(),
+  control: controlStateConfigZ.optional(),
+});
+export interface InputConfig extends z.infer<typeof inputConfigZ> {}
+
 export const lightConfigZ = labeledConfigZ.extend({
-  source: zod.nullToUndefined(booleanSourceSpecZ),
+  channel: channel.keyZ.optional(),
+  threshold: spatial.boundsZ().optional(),
   color: color.colorZ.optional(),
   scale: z.number().optional(),
 });
@@ -566,8 +373,31 @@ export const polygonConfigZ = labeledConfigZ.extend({
 });
 export interface PolygonConfig extends z.infer<typeof polygonConfigZ> {}
 
+export const selectConfigZ = labeledConfigZ.extend({
+  size: componentSizeZ.optional(),
+  commandChannel: channel.keyZ.optional(),
+  color: color.colorZ.optional(),
+  inlineSize: z.number().optional(),
+  options: array.nullishToEmpty(stateMappingZ),
+  disabled: z.boolean().optional(),
+  control: controlStateConfigZ.optional(),
+});
+export interface SelectConfig extends z.infer<typeof selectConfigZ> {}
+
+export const setpointConfigZ = labeledConfigZ.extend({
+  size: componentSizeZ.optional(),
+  stateChannel: channel.keyZ.optional(),
+  commandChannel: channel.keyZ.optional(),
+  dimensions: spatial.dimensionsZ.optional(),
+  color: color.colorZ.optional(),
+  units: z.string().optional(),
+  disabled: z.boolean().optional(),
+  control: controlStateConfigZ.optional(),
+});
+export interface SetpointConfig extends z.infer<typeof setpointConfigZ> {}
+
 export const stateIndicatorConfigZ = labeledConfigZ.extend({
-  source: zod.nullToUndefined(numberSourceSpecZ),
+  channel: channel.keyZ.optional(),
   color: color.colorZ.optional(),
   inlineSize: z.number().optional(),
   options: array.nullishToEmpty(stateMappingZ),
@@ -592,8 +422,8 @@ export const valueConfigZ = labeledConfigZ.extend({
   redline: redlineZ.optional(),
   units: z.string().optional(),
   inlineSize: z.number().optional(),
-  telem: zod.nullToUndefined(stringSourceSpecZ),
-  backgroundTelem: zod.nullToUndefined(colorSourceSpecZ),
+  channel: channel.keyZ.optional(),
+  rollingAverage: z.int32().optional(),
   level: text.levelZ.optional(),
   precision: z.number().optional(),
   stalenessTimeout: z.number().optional(),
@@ -630,75 +460,6 @@ export const customStaticConfigZ = labeledConfigZ.extend({
   stateOverrides: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ().array())),
 });
 export interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> {}
-
-/** ControlStateConfig is the control authority and state display configuration for actuated symbols. */
-export const controlStateConfigZ = z.object({
-  /** show indicates whether the control state widget is visible. */
-  show: z.boolean().optional(),
-  /** showChip indicates whether the authority chip is visible. */
-  showChip: z.boolean().optional(),
-  /** showIndicator indicates whether the state indicator is visible. */
-  showIndicator: z.boolean().optional(),
-  /** chip is the authority chip configuration. */
-  chip: chipConfigZ.optional(),
-  /** indicator is the indicator configuration. */
-  indicator: indicatorConfigZ.optional(),
-  /** orientation is the placement of the control state widget relative to the symbol. */
-  orientation: spatial.locationZ.optional(),
-});
-export interface ControlStateConfig extends z.infer<typeof controlStateConfigZ> {}
-
-export const toggleConfigZ = labeledConfigZ.extend({
-  source: zod.nullToUndefined(booleanSourceSpecZ),
-  sink: zod.nullToUndefined(booleanSinkSpecZ),
-  control: controlStateConfigZ.optional(),
-  onClickDelay: z.number().optional(),
-});
-export interface ToggleConfig extends z.infer<typeof toggleConfigZ> {}
-
-export const buttonConfigZ = labeledConfigZ.extend({
-  size: componentSizeZ.optional(),
-  level: text.levelZ.optional(),
-  onClickDelay: z.number().optional(),
-  sink: zod.nullToUndefined(booleanSinkSpecZ),
-  mode: buttonModeZ.optional(),
-  color: color.colorZ.optional(),
-  control: controlStateConfigZ.optional(),
-});
-export interface ButtonConfig extends z.infer<typeof buttonConfigZ> {}
-
-export const inputConfigZ = labeledConfigZ.extend({
-  size: componentSizeZ.optional(),
-  sink: zod.nullToUndefined(stringSinkSpecZ),
-  dimensions: spatial.dimensionsZ.optional(),
-  color: color.colorZ.optional(),
-  disabled: z.boolean().optional(),
-  control: controlStateConfigZ.optional(),
-});
-export interface InputConfig extends z.infer<typeof inputConfigZ> {}
-
-export const selectConfigZ = labeledConfigZ.extend({
-  size: componentSizeZ.optional(),
-  sink: zod.nullToUndefined(numberSinkSpecZ),
-  color: color.colorZ.optional(),
-  inlineSize: z.number().optional(),
-  options: array.nullishToEmpty(stateMappingZ),
-  disabled: z.boolean().optional(),
-  control: controlStateConfigZ.optional(),
-});
-export interface SelectConfig extends z.infer<typeof selectConfigZ> {}
-
-export const setpointConfigZ = labeledConfigZ.extend({
-  size: componentSizeZ.optional(),
-  source: zod.nullToUndefined(numberSourceSpecZ),
-  sink: zod.nullToUndefined(numberSinkSpecZ),
-  dimensions: spatial.dimensionsZ.optional(),
-  color: color.colorZ.optional(),
-  units: z.string().optional(),
-  disabled: z.boolean().optional(),
-  control: controlStateConfigZ.optional(),
-});
-export interface SetpointConfig extends z.infer<typeof setpointConfigZ> {}
 
 export const toggleSymbolConfigZ = toggleConfigZ.extend({
   color: color.colorZ.optional(),

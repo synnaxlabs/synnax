@@ -14,6 +14,7 @@ package schematic
 import (
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -25,40 +26,6 @@ import (
 
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = uuid.UUID
-
-// SourceRole is the data-flow role of a telemetry source spec.
-type SourceRole string
-
-const (
-	SourceRoleSource SourceRole = "source"
-)
-
-// IsValid reports whether s is one of the defined SourceRole values.
-func (s SourceRole) IsValid() bool {
-	switch s {
-	case SourceRoleSource:
-		return true
-	default:
-		return false
-	}
-}
-
-// SinkRole is the data-flow role of a telemetry sink spec.
-type SinkRole string
-
-const (
-	SinkRoleSink SinkRole = "sink"
-)
-
-// IsValid reports whether s is one of the defined SinkRole values.
-func (s SinkRole) IsValid() bool {
-	switch s {
-	case SinkRoleSink:
-		return true
-	default:
-		return false
-	}
-}
 
 // FlexAlignment is a cross-axis flex alignment for laid-out content.
 type FlexAlignment string
@@ -171,32 +138,6 @@ type SegmentedEdgeConfig struct {
 	Segments []Segment `json:"segments" msgpack:"segments"`
 }
 
-// SourceTelemSpec is a reference to a telemetry source. The value_type discriminator on
-// the wrapping union pins the value kind the spec yields or accepts.
-type SourceTelemSpec struct {
-	// Type is the registered telem factory type that interprets props.
-	Type string `json:"type" msgpack:"type"`
-	// Variant is the data-flow role of the spec.
-	Variant SourceRole `json:"variant" msgpack:"variant"`
-	// Props contains factory-specific configuration. The shape is determined by type and
-	// validated at runtime by the owning telem factory; the wire format intentionally
-	// stores it as an opaque record.
-	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
-}
-
-// SinkTelemSpec is a reference to a telemetry sink. The value_type discriminator on the
-// wrapping union pins the value kind the spec yields or accepts.
-type SinkTelemSpec struct {
-	// Type is the registered telem factory type that interprets props.
-	Type string `json:"type" msgpack:"type"`
-	// Variant is the data-flow role of the spec.
-	Variant SinkRole `json:"variant" msgpack:"variant"`
-	// Props contains factory-specific configuration. The shape is determined by type and
-	// validated at runtime by the owning telem factory; the wire format intentionally
-	// stores it as an opaque record.
-	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
-}
-
 // LabelConfig is the text label configuration shared by schematic symbols.
 type LabelConfig struct {
 	// Label is the text content of the label.
@@ -221,35 +162,18 @@ type LabeledConfig struct {
 	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
 }
 
-// ChipConfig is the control authority chip configuration.
-type ChipConfig struct {
-	// Source is the status source displayed by the control chip.
-	Source *StatusSourceSpec `json:"source,omitempty" msgpack:"source,omitempty"`
-	// Sink is the sink used to acquire and release control authority.
-	Sink *BooleanSinkSpec `json:"sink,omitempty" msgpack:"sink,omitempty"`
-}
-
-// IndicatorConfig is the control state indicator configuration.
-type IndicatorConfig struct {
-	// StatusSource is the status source driving the indicator state.
-	StatusSource *StatusSourceSpec `json:"status_source,omitempty" msgpack:"status_source,omitempty"`
-	// ColorSource is the color source driving the indicator tint.
-	ColorSource *ColorSourceSpec `json:"color_source,omitempty" msgpack:"color_source,omitempty"`
-}
-
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
 type ControlStateConfig struct {
+	// Authority is the control authority requested when the symbol acquires its command
+	// channel. Defaults to absolute authority when unset.
+	Authority *uint8 `json:"authority,omitempty" msgpack:"authority,omitempty"`
 	// Show indicates whether the control state widget is visible.
 	Show bool `json:"show" msgpack:"show"`
 	// ShowChip indicates whether the authority chip is visible.
 	ShowChip bool `json:"show_chip" msgpack:"show_chip"`
 	// ShowIndicator indicates whether the state indicator is visible.
 	ShowIndicator bool `json:"show_indicator" msgpack:"show_indicator"`
-	// Chip is the authority chip configuration.
-	Chip *ChipConfig `json:"chip,omitempty" msgpack:"chip,omitempty"`
-	// Indicator is the indicator configuration.
-	Indicator *IndicatorConfig `json:"indicator,omitempty" msgpack:"indicator,omitempty"`
 	// Orientation is the placement of the control state widget relative to the symbol.
 	Orientation *spatial.Location `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
 }
@@ -258,10 +182,10 @@ type ControlStateConfig struct {
 // telemetry pair.
 type ToggleConfig struct {
 	LabeledConfig
-	// Source is the boolean source that drives the symbol's active state.
-	Source *BooleanSourceSpec `json:"source,omitempty" msgpack:"source,omitempty"`
-	// Sink is the boolean sink that receives actuation commands.
-	Sink *BooleanSinkSpec `json:"sink,omitempty" msgpack:"sink,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
@@ -354,8 +278,8 @@ type ButtonConfig struct {
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
 	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
-	// Sink is the boolean sink that receives button presses.
-	Sink *BooleanSinkSpec `json:"sink,omitempty" msgpack:"sink,omitempty"`
+	// CommandChannel is the channel button presses are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
 	// Mode is the actuation behavior of the button.
 	Mode *ButtonMode `json:"mode,omitempty" msgpack:"mode,omitempty"`
 	// Color is the background color of the button.
@@ -388,10 +312,10 @@ type GaugeConfig struct {
 	Bounds *spatial.Bounds `json:"bounds,omitempty" msgpack:"bounds,omitempty"`
 	// BarWidth is the thickness of the gauge arc in pixels.
 	BarWidth *float64 `json:"bar_width,omitempty" msgpack:"bar_width,omitempty"`
-	// Telem is the string source that supplies the displayed value.
-	Telem *StringSourceSpec `json:"telem,omitempty" msgpack:"telem,omitempty"`
-	// BackgroundTelem is the color source that drives the gauge background.
-	BackgroundTelem *ColorSourceSpec `json:"background_telem,omitempty" msgpack:"background_telem,omitempty"`
+	// Channel is the channel whose value the gauge displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
 	// Precision is the number of decimal places shown.
 	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
 	// MinWidth is the minimum rendered width of the value in pixels.
@@ -413,8 +337,8 @@ type InputConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the input.
 	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// Sink is the string sink that receives submitted values.
-	Sink *StringSinkSpec `json:"sink,omitempty" msgpack:"sink,omitempty"`
+	// CommandChannel is the channel submitted values are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the input in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
 	// Color is the accent color of the input.
@@ -428,8 +352,10 @@ type InputConfig struct {
 // LightConfig is the configuration for indicator light symbols.
 type LightConfig struct {
 	LabeledConfig
-	// Source is the boolean source that drives the light's on state.
-	Source *BooleanSourceSpec `json:"source,omitempty" msgpack:"source,omitempty"`
+	// Channel is the channel whose value drives the light's on state.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// Threshold is the value range within which the light is considered on.
+	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
 	// Color is the illuminated color of the light.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Scale is the rendered scale multiplier of the symbol.
@@ -476,8 +402,8 @@ type SelectConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the select.
 	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// Sink is the numeric sink that receives the selected value.
-	Sink *NumberSinkSpec `json:"sink,omitempty" msgpack:"sink,omitempty"`
+	// CommandChannel is the channel the selected value is written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
 	// Color is the accent color of the select.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// InlineSize is the inline size of the select in pixels.
@@ -495,10 +421,10 @@ type SetpointConfig struct {
 	LabeledConfig
 	// Size is the rendered size preset of the setpoint.
 	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// Source is the numeric source displaying the current value.
-	Source *NumberSourceSpec `json:"source,omitempty" msgpack:"source,omitempty"`
-	// Sink is the numeric sink that receives submitted setpoints.
-	Sink *NumberSinkSpec `json:"sink,omitempty" msgpack:"sink,omitempty"`
+	// StateChannel is the channel whose value displays as the current setpoint.
+	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel submitted setpoints are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
 	// Dimensions is the rendered size of the setpoint in pixels.
 	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
 	// Color is the accent color of the setpoint.
@@ -514,8 +440,8 @@ type SetpointConfig struct {
 // StateIndicatorConfig is the configuration for multi-state indicator symbols.
 type StateIndicatorConfig struct {
 	LabeledConfig
-	// Source is the numeric source whose value selects the displayed state.
-	Source *NumberSourceSpec `json:"source,omitempty" msgpack:"source,omitempty"`
+	// Channel is the channel whose value selects the displayed state.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
 	// Color is the fallback color when no state matches.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// InlineSize is the inline size of the indicator in pixels.
@@ -558,10 +484,10 @@ type ValueConfig struct {
 	Units string `json:"units" msgpack:"units"`
 	// InlineSize is the inline size of the value in pixels.
 	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
-	// Telem is the string source that supplies the displayed value.
-	Telem *StringSourceSpec `json:"telem,omitempty" msgpack:"telem,omitempty"`
-	// BackgroundTelem is the color source that drives the background.
-	BackgroundTelem *ColorSourceSpec `json:"background_telem,omitempty" msgpack:"background_telem,omitempty"`
+	// Channel is the channel whose value the symbol displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// Precision is the number of decimal places shown.
@@ -820,582 +746,6 @@ func (u *EdgeConfig) UnmarshalJSON(data []byte) error {
 		u.Variant = v
 	default:
 		return errors.Newf("EdgeConfig: unknown variant %q", disc.Type)
-	}
-	return nil
-}
-
-type BooleanSourceSpecType string
-
-const (
-	BooleanSourceSpecTypeBoolean BooleanSourceSpecType = "boolean"
-)
-
-type BooleanSourceSpecVariant interface {
-	isBooleanSourceSpecVariant()
-}
-
-type BooleanSourceSpecBoolean struct {
-	SourceTelemSpec
-}
-
-func (BooleanSourceSpecBoolean) isBooleanSourceSpecVariant() {}
-
-// BooleanSourceSpec is a telemetry source that yields boolean values.
-type BooleanSourceSpec struct {
-	Variant BooleanSourceSpecVariant
-}
-
-func (u BooleanSourceSpec) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t BooleanSourceSpecType
-	switch u.Variant.(type) {
-	case BooleanSourceSpecBoolean:
-		t = BooleanSourceSpecTypeBoolean
-	default:
-		return nil, errors.Newf("BooleanSourceSpec: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["value_type"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *BooleanSourceSpec) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type BooleanSourceSpecType `json:"value_type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case BooleanSourceSpecTypeBoolean:
-		var v BooleanSourceSpecBoolean
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("BooleanSourceSpec: unknown value_type %q", disc.Type)
-	}
-	return nil
-}
-
-type NumberSourceSpecType string
-
-const (
-	NumberSourceSpecTypeNumber NumberSourceSpecType = "number"
-)
-
-type NumberSourceSpecVariant interface {
-	isNumberSourceSpecVariant()
-}
-
-type NumberSourceSpecNumber struct {
-	SourceTelemSpec
-}
-
-func (NumberSourceSpecNumber) isNumberSourceSpecVariant() {}
-
-// NumberSourceSpec is a telemetry source that yields numeric values.
-type NumberSourceSpec struct {
-	Variant NumberSourceSpecVariant
-}
-
-func (u NumberSourceSpec) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t NumberSourceSpecType
-	switch u.Variant.(type) {
-	case NumberSourceSpecNumber:
-		t = NumberSourceSpecTypeNumber
-	default:
-		return nil, errors.Newf("NumberSourceSpec: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["value_type"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *NumberSourceSpec) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type NumberSourceSpecType `json:"value_type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case NumberSourceSpecTypeNumber:
-		var v NumberSourceSpecNumber
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("NumberSourceSpec: unknown value_type %q", disc.Type)
-	}
-	return nil
-}
-
-type StringSourceSpecType string
-
-const (
-	StringSourceSpecTypeString StringSourceSpecType = "string"
-)
-
-type StringSourceSpecVariant interface {
-	isStringSourceSpecVariant()
-}
-
-type StringSourceSpecString struct {
-	SourceTelemSpec
-}
-
-func (StringSourceSpecString) isStringSourceSpecVariant() {}
-
-// StringSourceSpec is a telemetry source that yields string values.
-type StringSourceSpec struct {
-	Variant StringSourceSpecVariant
-}
-
-func (u StringSourceSpec) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t StringSourceSpecType
-	switch u.Variant.(type) {
-	case StringSourceSpecString:
-		t = StringSourceSpecTypeString
-	default:
-		return nil, errors.Newf("StringSourceSpec: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["value_type"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *StringSourceSpec) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type StringSourceSpecType `json:"value_type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case StringSourceSpecTypeString:
-		var v StringSourceSpecString
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("StringSourceSpec: unknown value_type %q", disc.Type)
-	}
-	return nil
-}
-
-type ColorSourceSpecType string
-
-const (
-	ColorSourceSpecTypeColor ColorSourceSpecType = "color"
-)
-
-type ColorSourceSpecVariant interface {
-	isColorSourceSpecVariant()
-}
-
-type ColorSourceSpecColor struct {
-	SourceTelemSpec
-}
-
-func (ColorSourceSpecColor) isColorSourceSpecVariant() {}
-
-// ColorSourceSpec is a telemetry source that yields colors.
-type ColorSourceSpec struct {
-	Variant ColorSourceSpecVariant
-}
-
-func (u ColorSourceSpec) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t ColorSourceSpecType
-	switch u.Variant.(type) {
-	case ColorSourceSpecColor:
-		t = ColorSourceSpecTypeColor
-	default:
-		return nil, errors.Newf("ColorSourceSpec: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["value_type"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *ColorSourceSpec) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type ColorSourceSpecType `json:"value_type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case ColorSourceSpecTypeColor:
-		var v ColorSourceSpecColor
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("ColorSourceSpec: unknown value_type %q", disc.Type)
-	}
-	return nil
-}
-
-type StatusSourceSpecType string
-
-const (
-	StatusSourceSpecTypeStatus StatusSourceSpecType = "status"
-)
-
-type StatusSourceSpecVariant interface {
-	isStatusSourceSpecVariant()
-}
-
-type StatusSourceSpecStatus struct {
-	SourceTelemSpec
-}
-
-func (StatusSourceSpecStatus) isStatusSourceSpecVariant() {}
-
-// StatusSourceSpec is a telemetry source that yields statuses.
-type StatusSourceSpec struct {
-	Variant StatusSourceSpecVariant
-}
-
-func (u StatusSourceSpec) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t StatusSourceSpecType
-	switch u.Variant.(type) {
-	case StatusSourceSpecStatus:
-		t = StatusSourceSpecTypeStatus
-	default:
-		return nil, errors.Newf("StatusSourceSpec: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["value_type"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *StatusSourceSpec) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type StatusSourceSpecType `json:"value_type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case StatusSourceSpecTypeStatus:
-		var v StatusSourceSpecStatus
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("StatusSourceSpec: unknown value_type %q", disc.Type)
-	}
-	return nil
-}
-
-type BooleanSinkSpecType string
-
-const (
-	BooleanSinkSpecTypeBoolean BooleanSinkSpecType = "boolean"
-)
-
-type BooleanSinkSpecVariant interface {
-	isBooleanSinkSpecVariant()
-}
-
-type BooleanSinkSpecBoolean struct {
-	SinkTelemSpec
-}
-
-func (BooleanSinkSpecBoolean) isBooleanSinkSpecVariant() {}
-
-// BooleanSinkSpec is a telemetry sink that accepts boolean commands.
-type BooleanSinkSpec struct {
-	Variant BooleanSinkSpecVariant
-}
-
-func (u BooleanSinkSpec) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t BooleanSinkSpecType
-	switch u.Variant.(type) {
-	case BooleanSinkSpecBoolean:
-		t = BooleanSinkSpecTypeBoolean
-	default:
-		return nil, errors.Newf("BooleanSinkSpec: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["value_type"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *BooleanSinkSpec) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type BooleanSinkSpecType `json:"value_type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case BooleanSinkSpecTypeBoolean:
-		var v BooleanSinkSpecBoolean
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("BooleanSinkSpec: unknown value_type %q", disc.Type)
-	}
-	return nil
-}
-
-type NumberSinkSpecType string
-
-const (
-	NumberSinkSpecTypeNumber NumberSinkSpecType = "number"
-)
-
-type NumberSinkSpecVariant interface {
-	isNumberSinkSpecVariant()
-}
-
-type NumberSinkSpecNumber struct {
-	SinkTelemSpec
-}
-
-func (NumberSinkSpecNumber) isNumberSinkSpecVariant() {}
-
-// NumberSinkSpec is a telemetry sink that accepts numeric commands.
-type NumberSinkSpec struct {
-	Variant NumberSinkSpecVariant
-}
-
-func (u NumberSinkSpec) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t NumberSinkSpecType
-	switch u.Variant.(type) {
-	case NumberSinkSpecNumber:
-		t = NumberSinkSpecTypeNumber
-	default:
-		return nil, errors.Newf("NumberSinkSpec: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["value_type"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *NumberSinkSpec) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type NumberSinkSpecType `json:"value_type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case NumberSinkSpecTypeNumber:
-		var v NumberSinkSpecNumber
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("NumberSinkSpec: unknown value_type %q", disc.Type)
-	}
-	return nil
-}
-
-type StringSinkSpecType string
-
-const (
-	StringSinkSpecTypeString StringSinkSpecType = "string"
-)
-
-type StringSinkSpecVariant interface {
-	isStringSinkSpecVariant()
-}
-
-type StringSinkSpecString struct {
-	SinkTelemSpec
-}
-
-func (StringSinkSpecString) isStringSinkSpecVariant() {}
-
-// StringSinkSpec is a telemetry sink that accepts string commands.
-type StringSinkSpec struct {
-	Variant StringSinkSpecVariant
-}
-
-func (u StringSinkSpec) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t StringSinkSpecType
-	switch u.Variant.(type) {
-	case StringSinkSpecString:
-		t = StringSinkSpecTypeString
-	default:
-		return nil, errors.Newf("StringSinkSpec: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["value_type"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *StringSinkSpec) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type StringSinkSpecType `json:"value_type"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case StringSinkSpecTypeString:
-		var v StringSinkSpecString
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("StringSinkSpec: unknown value_type %q", disc.Type)
 	}
 	return nil
 }

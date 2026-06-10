@@ -74,3 +74,112 @@ func camelToSnakeKey(s string) string {
 	}
 	return b.String()
 }
+
+// extractTelemArgs rewrites a config's stored telem pipeline specs into the
+// semantic arguments the schema now declares, in place on the normalized wire
+// map. Channel keys are read from the pipeline's well-known segments; a zero
+// channel (the legacy unset default) produces no argument. Spec fields are
+// removed regardless so the entry decodes under the args-based schema.
+func extractTelemArgs(cfg map[string]any) {
+	variant, _ := cfg["variant"].(string)
+	switch variant {
+	case "value", "gauge":
+		if ch, ok := segProp(cfg["telem"], "valueStream", "channel"); ok {
+			cfg["channel"] = ch
+		}
+		if w, ok := segProp(cfg["telem"], "rollingAverage", "windowSize"); ok {
+			cfg["rolling_average"] = w
+		}
+		delete(cfg, "telem")
+		delete(cfg, "background_telem")
+	case "light":
+		if ch, ok := segProp(cfg["source"], "valueStream", "channel"); ok {
+			cfg["channel"] = ch
+		}
+		if b, ok := segProp(cfg["source"], "threshold", "trueBound"); ok {
+			cfg["threshold"] = b
+		}
+		delete(cfg, "source")
+	case "stateIndicator":
+		if ch, ok := segProp(cfg["source"], "valueStream", "channel"); ok {
+			cfg["channel"] = ch
+		}
+		delete(cfg, "source")
+	case "setpoint":
+		if ch, ok := segProp(cfg["source"], "valueStream", "channel"); ok {
+			cfg["state_channel"] = ch
+		}
+		if ch, ok := segProp(cfg["sink"], "setter", "channel"); ok {
+			cfg["command_channel"] = ch
+		}
+		delete(cfg, "source")
+		delete(cfg, "sink")
+	case "button", "select", "input":
+		if ch, ok := segProp(cfg["sink"], "setter", "channel"); ok {
+			cfg["command_channel"] = ch
+		}
+		delete(cfg, "sink")
+	default:
+		if _, ok := cfg["source"]; ok {
+			if ch, k := segProp(cfg["source"], "valueStream", "channel"); k {
+				cfg["state_channel"] = ch
+			}
+			delete(cfg, "source")
+		}
+		if _, ok := cfg["sink"]; ok {
+			if ch, k := segProp(cfg["sink"], "setter", "channel"); k {
+				cfg["command_channel"] = ch
+			}
+			delete(cfg, "sink")
+		}
+	}
+	if ctl, ok := cfg["control"].(map[string]any); ok {
+		if chip, ok := ctl["chip"].(map[string]any); ok {
+			if sink, ok := chip["sink"].(map[string]any); ok {
+				if props, ok := sink["props"].(map[string]any); ok {
+					if a, ok := props["authority"]; ok {
+						ctl["authority"] = a
+					}
+				}
+			}
+		}
+		delete(ctl, "chip")
+		delete(ctl, "indicator")
+	}
+}
+
+// segProp reads a property from a named segment of a stored pipeline spec,
+// reporting false when any layer is missing or the value is a zero channel.
+func segProp(spec any, segment, prop string) (any, bool) {
+	m, ok := spec.(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	props, ok := m["props"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	segments, ok := props["segments"].(map[string]any)
+	if !ok {
+		// Single-segment pipelines store the spec at the top level.
+		segments = map[string]any{segment: m}
+	}
+	seg, ok := segments[segment].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	segProps, ok := seg["props"].(map[string]any)
+	if !ok {
+		return nil, false
+	}
+	v, ok := segProps[prop]
+	if !ok {
+		return nil, false
+	}
+	if prop == "channel" {
+		if n, isNum := v.(float64); isNum && n == 0 {
+			return nil, false
+		}
+	}
+	return v, true
+}

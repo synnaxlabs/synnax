@@ -213,6 +213,88 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(cfgFields(got.Configs["n1"])["variant"]).To(Equal("tank"))
 		})
 
+		It("Should extract telem pipeline args from v56 stored configs", func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			t := MustOpen(gorp.OpenTable[uuid.UUID, v56.Schematic](
+				ctx, gorp.TableConfig[uuid.UUID, v56.Schematic]{DB: db},
+			))
+			pipeline := map[string]any{
+				"type": "source-pipeline", "variant": "source", "valueType": "string",
+				"props": map[string]any{
+					"outlet": "stringifier",
+					"segments": map[string]any{
+						"valueStream": map[string]any{
+							"type": "stream-channel-value", "variant": "source",
+							"valueType": "number",
+							"props":     map[string]any{"channel": 42.0},
+						},
+						"rollingAverage": map[string]any{
+							"type": "rolling-average", "variant": "source-transformer",
+							"valueType": "number",
+							"props":     map[string]any{"windowSize": 5.0},
+						},
+					},
+				},
+			}
+			seed := v56.Schematic{
+				Key:  uuid.New(),
+				Name: "Telem Args",
+				Configs: map[string]msgpack.EncodedJSON{
+					"v1": {"variant": "value", "telem": pipeline},
+					"t1": {
+						"variant": "valve",
+						"sink": map[string]any{
+							"type": "sink-pipeline", "variant": "sink", "valueType": "boolean",
+							"props": map[string]any{
+								"inlet": "setpoint",
+								"segments": map[string]any{
+									"setter": map[string]any{
+										"type": "controlled-numeric-telem-sink", "variant": "sink",
+										"valueType": "number",
+										"props":     map[string]any{"channel": 7.0},
+									},
+								},
+							},
+						},
+						"control": map[string]any{
+							"show": true,
+							"chip": map[string]any{
+								"sink": map[string]any{
+									"type": "acquire-channel-control", "variant": "sink",
+									"valueType": "boolean",
+									"props":     map[string]any{"channel": 7.0, "authority": 200.0},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
+			migrated := MustOpen(gorp.OpenTable[uuid.UUID, schematic.Schematic](
+				ctx, gorp.TableConfig[uuid.UUID, schematic.Schematic]{
+					DB: db,
+					Migrations: []migrate.Migration{
+						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v56.Schematic, schematic.Schematic](
+							"v56_typed_element_configs",
+							schematic.MigrateSchematic,
+						),
+					},
+				},
+			))
+			got := retrieve(ctx, db, migrated, seed.Key)
+			value := cfgFields(got.Configs["v1"])
+			Expect(value["channel"]).To(Equal(42.0))
+			Expect(value["rolling_average"]).To(Equal(5.0))
+			Expect(value).NotTo(HaveKey("telem"))
+			valve := cfgFields(got.Configs["t1"])
+			Expect(valve["command_channel"]).To(Equal(7.0))
+			Expect(valve).NotTo(HaveKey("sink"))
+			Expect(valve["control"]).To(SatisfyAll(
+				HaveKeyWithValue("authority", 200.0),
+				Not(HaveKey("chip")),
+			))
+		})
+
 		It("Should normalize and type v56 stored configs on retrieve", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			t := MustOpen(gorp.OpenTable[uuid.UUID, v56.Schematic](

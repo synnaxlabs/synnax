@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/border"
+import "schemas/channel"
 import "schemas/color"
 import "schemas/notation"
 import "schemas/spatial"
@@ -114,112 +115,6 @@ EdgeConfig union on variant {
     """
 }
 
-SourceRole enum {
-    source = "source"
-
-    @doc value "is the data-flow role of a telemetry source spec."
-}
-
-SinkRole enum {
-    sink = "sink"
-
-    @doc value "is the data-flow role of a telemetry sink spec."
-}
-
-SourceTelemSpec struct {
-    type    string     {
-        @doc value "is the registered telem factory type that interprets props."
-    }
-    variant SourceRole {
-        @doc value "is the data-flow role of the spec."
-    }
-    props   record     {
-        @ts preserve_case
-        @doc value        """
-            contains factory-specific configuration. The shape is determined
-            by type and validated at runtime by the owning telem factory; the
-            wire format intentionally stores it as an opaque record.
-        """
-    }
-
-    @doc value """
-        is a reference to a telemetry source. The value_type
-        discriminator on the wrapping union pins the value kind the spec
-        yields or accepts.
-    """
-}
-
-SinkTelemSpec struct {
-    type    string   {
-        @doc value "is the registered telem factory type that interprets props."
-    }
-    variant SinkRole {
-        @doc value "is the data-flow role of the spec."
-    }
-    props   record   {
-        @ts preserve_case
-        @doc value        """
-            contains factory-specific configuration. The shape is determined
-            by type and validated at runtime by the owning telem factory; the
-            wire format intentionally stores it as an opaque record.
-        """
-    }
-
-    @doc value """
-        is a reference to a telemetry sink. The value_type
-        discriminator on the wrapping union pins the value kind the spec
-        yields or accepts.
-    """
-}
-
-BooleanSourceSpec union on value_type {
-    boolean SourceTelemSpec
-
-    @doc value "is a telemetry source that yields boolean values."
-}
-
-NumberSourceSpec union on value_type {
-    number SourceTelemSpec
-
-    @doc value "is a telemetry source that yields numeric values."
-}
-
-StringSourceSpec union on value_type {
-    string SourceTelemSpec
-
-    @doc value "is a telemetry source that yields string values."
-}
-
-ColorSourceSpec union on value_type {
-    color SourceTelemSpec
-
-    @doc value "is a telemetry source that yields colors."
-}
-
-StatusSourceSpec union on value_type {
-    status SourceTelemSpec
-
-    @doc value "is a telemetry source that yields statuses."
-}
-
-BooleanSinkSpec union on value_type {
-    boolean SinkTelemSpec
-
-    @doc value "is a telemetry sink that accepts boolean commands."
-}
-
-NumberSinkSpec union on value_type {
-    number SinkTelemSpec
-
-    @doc value "is a telemetry sink that accepts numeric commands."
-}
-
-StringSinkSpec union on value_type {
-    string SinkTelemSpec
-
-    @doc value "is a telemetry sink that accepts string commands."
-}
-
 FlexAlignment enum {
     start   = "start"
     center  = "center"
@@ -285,29 +180,13 @@ LabeledConfig struct {
     @doc value "is the base configuration for any symbol that carries a label."
 }
 
-ChipConfig struct {
-    source StatusSourceSpec?? {
-        @doc value "is the status source displayed by the control chip."
-    }
-    sink   BooleanSinkSpec??  {
-        @doc value "is the sink used to acquire and release control authority."
-    }
-
-    @doc value "is the control authority chip configuration."
-}
-
-IndicatorConfig struct {
-    status_source StatusSourceSpec?? {
-        @doc value "is the status source driving the indicator state."
-    }
-    color_source  ColorSourceSpec??  {
-        @doc value "is the color source driving the indicator tint."
-    }
-
-    @doc value "is the control state indicator configuration."
-}
-
 ControlStateConfig struct {
+    authority      uint8??            {
+        @doc value """
+            is the control authority requested when the symbol acquires its
+            command channel. Defaults to absolute authority when unset.
+        """
+    }
     show           bool?              {
         @doc value "indicates whether the control state widget is visible."
     }
@@ -317,12 +196,6 @@ ControlStateConfig struct {
     show_indicator bool?              {
         @doc value "indicates whether the state indicator is visible."
     }
-    chip           ChipConfig??       {
-        @doc value "is the authority chip configuration."
-    }
-    indicator      IndicatorConfig??  {
-        @doc value "is the indicator configuration."
-    }
     orientation    spatial.Location?? {
         @doc value "is the placement of the control state widget relative to the symbol."
     }
@@ -331,16 +204,16 @@ ControlStateConfig struct {
 }
 
 ToggleConfig struct extends LabeledConfig {
-    source         BooleanSourceSpec??  {
-        @doc value "is the boolean source that drives the symbol's active state."
+    state_channel   channel.Key??        {
+        @doc value "is the channel whose value drives the symbol's active state."
     }
-    sink           BooleanSinkSpec??    {
-        @doc value "is the boolean sink that receives actuation commands."
+    command_channel channel.Key??        {
+        @doc value "is the channel actuation commands are written to."
     }
-    control        ControlStateConfig?? {
+    control         ControlStateConfig?? {
         @doc value "is the control state display configuration."
     }
-    on_click_delay float64?             {
+    on_click_delay  float64?             {
         @doc value "is the debounce delay applied to clicks, in milliseconds."
     }
 
@@ -452,25 +325,25 @@ BoxConfig struct {
 }
 
 ButtonConfig struct extends LabeledConfig {
-    size           ComponentSize??      {
+    size            ComponentSize??      {
         @doc value "is the rendered size preset of the button."
     }
-    level          text.Level??         {
+    level           text.Level??         {
         @doc value "is the typography level of the button text."
     }
-    on_click_delay float64?             {
+    on_click_delay  float64?             {
         @doc value "is the debounce delay applied to clicks, in milliseconds."
     }
-    sink           BooleanSinkSpec??    {
-        @doc value "is the boolean sink that receives button presses."
+    command_channel channel.Key??        {
+        @doc value "is the channel button presses are written to."
     }
-    mode           ButtonMode??         {
+    mode            ButtonMode??         {
         @doc value "is the actuation behavior of the button."
     }
-    color          color.Color??        {
+    color           color.Color??        {
         @doc value "is the background color of the button."
     }
-    control        ControlStateConfig?? {
+    control         ControlStateConfig?? {
         @doc value "is the control state display configuration."
     }
 
@@ -495,43 +368,43 @@ CircleConfig struct extends LabeledConfig {
 }
 
 GaugeConfig struct extends LabeledConfig {
-    position         spatial.XY??         {
+    position        spatial.XY??         {
         @doc value "is the offset of the gauge contents within the symbol."
     }
-    color            color.Color??        {
+    color           color.Color??        {
         @doc value "is the accent color of the gauge arc."
     }
-    bounds           spatial.Bounds??     {
+    bounds          spatial.Bounds??     {
         @doc value "is the numeric range displayed by the gauge."
     }
-    bar_width        float64??            {
+    bar_width       float64??            {
         @doc value "is the thickness of the gauge arc in pixels."
     }
-    telem            StringSourceSpec??   {
-        @doc value "is the string source that supplies the displayed value."
+    channel         channel.Key??        {
+        @doc value "is the channel whose value the gauge displays."
     }
-    background_telem ColorSourceSpec??    {
-        @doc value "is the color source that drives the gauge background."
+    rolling_average int32??              {
+        @doc value "is the sample window for rolling-average smoothing."
     }
-    precision        float64??            {
+    precision       float64??            {
         @doc value "is the number of decimal places shown."
     }
-    min_width        float64??            {
+    min_width       float64??            {
         @doc value "is the minimum rendered width of the value in pixels."
     }
-    width            float64??            {
+    width           float64??            {
         @doc value "is the rendered width of the gauge in pixels."
     }
-    notation         notation.Notation??  {
+    notation        notation.Notation??  {
         @doc value "is the numeric notation used to format the value."
     }
-    location         spatial.LocationXY?? {
+    location        spatial.LocationXY?? {
         @doc value "is the anchor of the value within the gauge."
     }
-    units            string?              {
+    units           string?              {
         @doc value "is the unit suffix displayed after the value."
     }
-    level            text.Level??         {
+    level           text.Level??         {
         @doc value "is the typography level of the displayed value."
     }
 
@@ -539,22 +412,22 @@ GaugeConfig struct extends LabeledConfig {
 }
 
 InputConfig struct extends LabeledConfig {
-    size       ComponentSize??      {
+    size            ComponentSize??      {
         @doc value "is the rendered size preset of the input."
     }
-    sink       StringSinkSpec??     {
-        @doc value "is the string sink that receives submitted values."
+    command_channel channel.Key??        {
+        @doc value "is the channel submitted values are written to."
     }
-    dimensions spatial.Dimensions?? {
+    dimensions      spatial.Dimensions?? {
         @doc value "is the rendered size of the input in pixels."
     }
-    color      color.Color??        {
+    color           color.Color??        {
         @doc value "is the accent color of the input."
     }
-    disabled   bool?                {
+    disabled        bool?                {
         @doc value "indicates whether the input rejects interaction."
     }
-    control    ControlStateConfig?? {
+    control         ControlStateConfig?? {
         @doc value "is the control state display configuration."
     }
 
@@ -562,13 +435,16 @@ InputConfig struct extends LabeledConfig {
 }
 
 LightConfig struct extends LabeledConfig {
-    source BooleanSourceSpec?? {
-        @doc value "is the boolean source that drives the light's on state."
+    channel   channel.Key??    {
+        @doc value "is the channel whose value drives the light's on state."
     }
-    color  color.Color??       {
+    threshold spatial.Bounds?? {
+        @doc value "is the value range within which the light is considered on."
+    }
+    color     color.Color??    {
         @doc value "is the illuminated color of the light."
     }
-    scale  float64??           {
+    scale     float64??        {
         @doc value "is the rendered scale multiplier of the symbol."
     }
 
@@ -625,25 +501,25 @@ PolygonConfig struct extends LabeledConfig {
 }
 
 SelectConfig struct extends LabeledConfig {
-    size        ComponentSize??      {
+    size            ComponentSize??      {
         @doc value "is the rendered size preset of the select."
     }
-    sink        NumberSinkSpec??     {
-        @doc value "is the numeric sink that receives the selected value."
+    command_channel channel.Key??        {
+        @doc value "is the channel the selected value is written to."
     }
-    color       color.Color??        {
+    color           color.Color??        {
         @doc value "is the accent color of the select."
     }
-    inline_size float64??            {
+    inline_size     float64??            {
         @doc value "is the inline size of the select in pixels."
     }
-    options     StateMapping[]       {
+    options         StateMapping[]       {
         @doc value "is the set of selectable states."
     }
-    disabled    bool?                {
+    disabled        bool?                {
         @doc value "indicates whether the select rejects interaction."
     }
-    control     ControlStateConfig?? {
+    control         ControlStateConfig?? {
         @doc value "is the control state display configuration."
     }
 
@@ -651,28 +527,28 @@ SelectConfig struct extends LabeledConfig {
 }
 
 SetpointConfig struct extends LabeledConfig {
-    size       ComponentSize??      {
+    size            ComponentSize??      {
         @doc value "is the rendered size preset of the setpoint."
     }
-    source     NumberSourceSpec??   {
-        @doc value "is the numeric source displaying the current value."
+    state_channel   channel.Key??        {
+        @doc value "is the channel whose value displays as the current setpoint."
     }
-    sink       NumberSinkSpec??     {
-        @doc value "is the numeric sink that receives submitted setpoints."
+    command_channel channel.Key??        {
+        @doc value "is the channel submitted setpoints are written to."
     }
-    dimensions spatial.Dimensions?? {
+    dimensions      spatial.Dimensions?? {
         @doc value "is the rendered size of the setpoint in pixels."
     }
-    color      color.Color??        {
+    color           color.Color??        {
         @doc value "is the accent color of the setpoint."
     }
-    units      string?              {
+    units           string?              {
         @doc value "is the unit suffix displayed after the value."
     }
-    disabled   bool?                {
+    disabled        bool?                {
         @doc value "indicates whether the setpoint rejects interaction."
     }
-    control    ControlStateConfig?? {
+    control         ControlStateConfig?? {
         @doc value "is the control state display configuration."
     }
 
@@ -680,16 +556,16 @@ SetpointConfig struct extends LabeledConfig {
 }
 
 StateIndicatorConfig struct extends LabeledConfig {
-    source      NumberSourceSpec?? {
-        @doc value "is the numeric source whose value selects the displayed state."
+    channel     channel.Key??  {
+        @doc value "is the channel whose value selects the displayed state."
     }
-    color       color.Color??      {
+    color       color.Color??  {
         @doc value "is the fallback color when no state matches."
     }
-    inline_size float64??          {
+    inline_size float64??      {
         @doc value "is the inline size of the indicator in pixels."
     }
-    options     StateMapping[]     {
+    options     StateMapping[] {
         @doc value "is the set of displayable states."
     }
 
@@ -741,11 +617,11 @@ ValueConfig struct extends LabeledConfig {
     inline_size                float64??            {
         @doc value "is the inline size of the value in pixels."
     }
-    telem                      StringSourceSpec??   {
-        @doc value "is the string source that supplies the displayed value."
+    channel                    channel.Key??        {
+        @doc value "is the channel whose value the symbol displays."
     }
-    background_telem           ColorSourceSpec??    {
-        @doc value "is the color source that drives the background."
+    rolling_average            int32??              {
+        @doc value "is the sample window for rolling-average smoothing."
     }
     level                      text.Level??         {
         @doc value "is the typography level of the displayed value."

@@ -13,6 +13,7 @@ package pb
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	borderpb "github.com/synnaxlabs/x/border/pb"
 	colorpb "github.com/synnaxlabs/x/color/pb"
@@ -318,126 +319,6 @@ func SegmentedEdgeConfigsFromPB(pbs []*SegmentedEdgeConfig) ([]schematic.Segment
 	return result, nil
 }
 
-// SourceTelemSpecToPB converts SourceTelemSpec to SourceTelemSpec.
-func SourceTelemSpecToPB(r schematic.SourceTelemSpec) (*SourceTelemSpec, error) {
-	variantVal, err := SourceRoleToPB(r.Variant)
-	if err != nil {
-		return nil, err
-	}
-	propsVal, err := structpb.NewStruct(r.Props)
-	if err != nil {
-		return nil, err
-	}
-	pb := &SourceTelemSpec{
-		Type:    r.Type,
-		Variant: variantVal,
-		Props:   propsVal,
-	}
-	return pb, nil
-}
-
-// SourceTelemSpecFromPB converts SourceTelemSpec to SourceTelemSpec.
-func SourceTelemSpecFromPB(pb *SourceTelemSpec) (schematic.SourceTelemSpec, error) {
-	var r schematic.SourceTelemSpec
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Variant, err = SourceRoleFromPB(pb.Variant)
-	if err != nil {
-		return schematic.SourceTelemSpec{}, err
-	}
-	r.Props = pb.Props.AsMap()
-	r.Type = pb.Type
-	return r, nil
-}
-
-// SourceTelemSpecsToPB converts a slice of SourceTelemSpec to SourceTelemSpec.
-func SourceTelemSpecsToPB(rs []schematic.SourceTelemSpec) ([]*SourceTelemSpec, error) {
-	result := make([]*SourceTelemSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = SourceTelemSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// SourceTelemSpecsFromPB converts a slice of SourceTelemSpec to SourceTelemSpec.
-func SourceTelemSpecsFromPB(pbs []*SourceTelemSpec) ([]schematic.SourceTelemSpec, error) {
-	result := make([]schematic.SourceTelemSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = SourceTelemSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// SinkTelemSpecToPB converts SinkTelemSpec to SinkTelemSpec.
-func SinkTelemSpecToPB(r schematic.SinkTelemSpec) (*SinkTelemSpec, error) {
-	variantVal, err := SinkRoleToPB(r.Variant)
-	if err != nil {
-		return nil, err
-	}
-	propsVal, err := structpb.NewStruct(r.Props)
-	if err != nil {
-		return nil, err
-	}
-	pb := &SinkTelemSpec{
-		Type:    r.Type,
-		Variant: variantVal,
-		Props:   propsVal,
-	}
-	return pb, nil
-}
-
-// SinkTelemSpecFromPB converts SinkTelemSpec to SinkTelemSpec.
-func SinkTelemSpecFromPB(pb *SinkTelemSpec) (schematic.SinkTelemSpec, error) {
-	var r schematic.SinkTelemSpec
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Variant, err = SinkRoleFromPB(pb.Variant)
-	if err != nil {
-		return schematic.SinkTelemSpec{}, err
-	}
-	r.Props = pb.Props.AsMap()
-	r.Type = pb.Type
-	return r, nil
-}
-
-// SinkTelemSpecsToPB converts a slice of SinkTelemSpec to SinkTelemSpec.
-func SinkTelemSpecsToPB(rs []schematic.SinkTelemSpec) ([]*SinkTelemSpec, error) {
-	result := make([]*SinkTelemSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = SinkTelemSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// SinkTelemSpecsFromPB converts a slice of SinkTelemSpec to SinkTelemSpec.
-func SinkTelemSpecsFromPB(pbs []*SinkTelemSpec) ([]schematic.SinkTelemSpec, error) {
-	result := make([]schematic.SinkTelemSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = SinkTelemSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // LabelConfigToPB converts LabelConfig to LabelConfig.
 func LabelConfigToPB(r schematic.LabelConfig) (*LabelConfig, error) {
 	pb := &LabelConfig{
@@ -613,144 +494,6 @@ func LabeledConfigsFromPB(pbs []*LabeledConfig) ([]schematic.LabeledConfig, erro
 	return result, nil
 }
 
-// ChipConfigToPB converts ChipConfig to ChipConfig.
-func ChipConfigToPB(r schematic.ChipConfig) (*ChipConfig, error) {
-	pb := &ChipConfig{}
-	if r.Source != nil {
-		var err error
-		pb.Source, err = StatusSourceSpecToPB(*r.Source)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = BooleanSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return pb, nil
-}
-
-// ChipConfigFromPB converts ChipConfig to ChipConfig.
-func ChipConfigFromPB(pb *ChipConfig) (schematic.ChipConfig, error) {
-	var r schematic.ChipConfig
-	if pb == nil {
-		return r, nil
-	}
-	if pb.Source != nil {
-		val, err := StatusSourceSpecFromPB(pb.Source)
-		if err != nil {
-			return schematic.ChipConfig{}, err
-		}
-		r.Source = &val
-	}
-	if pb.Sink != nil {
-		val, err := BooleanSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.ChipConfig{}, err
-		}
-		r.Sink = &val
-	}
-	return r, nil
-}
-
-// ChipConfigsToPB converts a slice of ChipConfig to ChipConfig.
-func ChipConfigsToPB(rs []schematic.ChipConfig) ([]*ChipConfig, error) {
-	result := make([]*ChipConfig, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = ChipConfigToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// ChipConfigsFromPB converts a slice of ChipConfig to ChipConfig.
-func ChipConfigsFromPB(pbs []*ChipConfig) ([]schematic.ChipConfig, error) {
-	result := make([]schematic.ChipConfig, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = ChipConfigFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// IndicatorConfigToPB converts IndicatorConfig to IndicatorConfig.
-func IndicatorConfigToPB(r schematic.IndicatorConfig) (*IndicatorConfig, error) {
-	pb := &IndicatorConfig{}
-	if r.StatusSource != nil {
-		var err error
-		pb.StatusSource, err = StatusSourceSpecToPB(*r.StatusSource)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.ColorSource != nil {
-		var err error
-		pb.ColorSource, err = ColorSourceSpecToPB(*r.ColorSource)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return pb, nil
-}
-
-// IndicatorConfigFromPB converts IndicatorConfig to IndicatorConfig.
-func IndicatorConfigFromPB(pb *IndicatorConfig) (schematic.IndicatorConfig, error) {
-	var r schematic.IndicatorConfig
-	if pb == nil {
-		return r, nil
-	}
-	if pb.StatusSource != nil {
-		val, err := StatusSourceSpecFromPB(pb.StatusSource)
-		if err != nil {
-			return schematic.IndicatorConfig{}, err
-		}
-		r.StatusSource = &val
-	}
-	if pb.ColorSource != nil {
-		val, err := ColorSourceSpecFromPB(pb.ColorSource)
-		if err != nil {
-			return schematic.IndicatorConfig{}, err
-		}
-		r.ColorSource = &val
-	}
-	return r, nil
-}
-
-// IndicatorConfigsToPB converts a slice of IndicatorConfig to IndicatorConfig.
-func IndicatorConfigsToPB(rs []schematic.IndicatorConfig) ([]*IndicatorConfig, error) {
-	result := make([]*IndicatorConfig, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = IndicatorConfigToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// IndicatorConfigsFromPB converts a slice of IndicatorConfig to IndicatorConfig.
-func IndicatorConfigsFromPB(pbs []*IndicatorConfig) ([]schematic.IndicatorConfig, error) {
-	result := make([]schematic.IndicatorConfig, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = IndicatorConfigFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // ControlStateConfigToPB converts ControlStateConfig to ControlStateConfig.
 func ControlStateConfigToPB(r schematic.ControlStateConfig) (*ControlStateConfig, error) {
 	pb := &ControlStateConfig{
@@ -758,19 +501,9 @@ func ControlStateConfigToPB(r schematic.ControlStateConfig) (*ControlStateConfig
 		ShowChip:      r.ShowChip,
 		ShowIndicator: r.ShowIndicator,
 	}
-	if r.Chip != nil {
-		var err error
-		pb.Chip, err = ChipConfigToPB(*r.Chip)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Indicator != nil {
-		var err error
-		pb.Indicator, err = IndicatorConfigToPB(*r.Indicator)
-		if err != nil {
-			return nil, err
-		}
+	if r.Authority != nil {
+		v := uint32(*r.Authority)
+		pb.Authority = &v
 	}
 	if r.Orientation != nil {
 		val, err := spatialpb.LocationToPB(*r.Orientation)
@@ -791,19 +524,9 @@ func ControlStateConfigFromPB(pb *ControlStateConfig) (schematic.ControlStateCon
 	r.Show = pb.Show
 	r.ShowChip = pb.ShowChip
 	r.ShowIndicator = pb.ShowIndicator
-	if pb.Chip != nil {
-		val, err := ChipConfigFromPB(pb.Chip)
-		if err != nil {
-			return schematic.ControlStateConfig{}, err
-		}
-		r.Chip = &val
-	}
-	if pb.Indicator != nil {
-		val, err := IndicatorConfigFromPB(pb.Indicator)
-		if err != nil {
-			return schematic.ControlStateConfig{}, err
-		}
-		r.Indicator = &val
+	if pb.Authority != nil {
+		v := uint8(*pb.Authority)
+		r.Authority = &v
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.LocationFromPB(*pb.Orientation)
@@ -860,19 +583,13 @@ func ToggleConfigToPB(r schematic.ToggleConfig) (*ToggleConfig, error) {
 		}
 		pb.Orientation = &val
 	}
-	if r.Source != nil {
-		var err error
-		pb.Source, err = BooleanSourceSpecToPB(*r.Source)
-		if err != nil {
-			return nil, err
-		}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
 	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = BooleanSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
 	}
 	if r.Control != nil {
 		var err error
@@ -905,19 +622,13 @@ func ToggleConfigFromPB(pb *ToggleConfig) (schematic.ToggleConfig, error) {
 		}
 		r.Orientation = &val
 	}
-	if pb.Source != nil {
-		val, err := BooleanSourceSpecFromPB(pb.Source)
-		if err != nil {
-			return schematic.ToggleConfig{}, err
-		}
-		r.Source = &val
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
 	}
-	if pb.Sink != nil {
-		val, err := BooleanSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.ToggleConfig{}, err
-		}
-		r.Sink = &val
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -1063,19 +774,13 @@ func ToggleSymbolConfigToPB(r schematic.ToggleSymbolConfig) (*ToggleSymbolConfig
 		}
 		pb.Orientation = &val
 	}
-	if r.Source != nil {
-		var err error
-		pb.Source, err = BooleanSourceSpecToPB(*r.Source)
-		if err != nil {
-			return nil, err
-		}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
 	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = BooleanSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
 	}
 	if r.Control != nil {
 		var err error
@@ -1118,19 +823,13 @@ func ToggleSymbolConfigFromPB(pb *ToggleSymbolConfig) (schematic.ToggleSymbolCon
 		}
 		r.Orientation = &val
 	}
-	if pb.Source != nil {
-		val, err := BooleanSourceSpecFromPB(pb.Source)
-		if err != nil {
-			return schematic.ToggleSymbolConfig{}, err
-		}
-		r.Source = &val
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
 	}
-	if pb.Sink != nil {
-		val, err := BooleanSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.ToggleSymbolConfig{}, err
-		}
-		r.Sink = &val
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -1292,19 +991,13 @@ func SolenoidValveConfigToPB(r schematic.SolenoidValveConfig) (*SolenoidValveCon
 		}
 		pb.Orientation = &val
 	}
-	if r.Source != nil {
-		var err error
-		pb.Source, err = BooleanSourceSpecToPB(*r.Source)
-		if err != nil {
-			return nil, err
-		}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
 	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = BooleanSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
 	}
 	if r.Control != nil {
 		var err error
@@ -1348,19 +1041,13 @@ func SolenoidValveConfigFromPB(pb *SolenoidValveConfig) (schematic.SolenoidValve
 		}
 		r.Orientation = &val
 	}
-	if pb.Source != nil {
-		val, err := BooleanSourceSpecFromPB(pb.Source)
-		if err != nil {
-			return schematic.SolenoidValveConfig{}, err
-		}
-		r.Source = &val
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
 	}
-	if pb.Sink != nil {
-		val, err := BooleanSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.SolenoidValveConfig{}, err
-		}
-		r.Sink = &val
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -1687,12 +1374,9 @@ func ButtonConfigToPB(r schematic.ButtonConfig) (*ButtonConfig, error) {
 		}
 		pb.Level = &val
 	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = BooleanSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
 	}
 	if r.Mode != nil {
 		val, err := ButtonModeToPB(*r.Mode)
@@ -1753,12 +1437,9 @@ func ButtonConfigFromPB(pb *ButtonConfig) (schematic.ButtonConfig, error) {
 		}
 		r.Level = &val
 	}
-	if pb.Sink != nil {
-		val, err := BooleanSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.ButtonConfig{}, err
-		}
-		r.Sink = &val
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
 	}
 	if pb.Mode != nil {
 		val, err := ButtonModeFromPB(*pb.Mode)
@@ -1959,19 +1640,12 @@ func GaugeConfigToPB(r schematic.GaugeConfig) (*GaugeConfig, error) {
 	if r.BarWidth != nil {
 		pb.BarWidth = r.BarWidth
 	}
-	if r.Telem != nil {
-		var err error
-		pb.Telem, err = StringSourceSpecToPB(*r.Telem)
-		if err != nil {
-			return nil, err
-		}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
 	}
-	if r.BackgroundTelem != nil {
-		var err error
-		pb.BackgroundTelem, err = ColorSourceSpecToPB(*r.BackgroundTelem)
-		if err != nil {
-			return nil, err
-		}
+	if r.RollingAverage != nil {
+		pb.RollingAverage = r.RollingAverage
 	}
 	if r.Precision != nil {
 		pb.Precision = r.Precision
@@ -2051,19 +1725,12 @@ func GaugeConfigFromPB(pb *GaugeConfig) (schematic.GaugeConfig, error) {
 	if pb.BarWidth != nil {
 		r.BarWidth = pb.BarWidth
 	}
-	if pb.Telem != nil {
-		val, err := StringSourceSpecFromPB(pb.Telem)
-		if err != nil {
-			return schematic.GaugeConfig{}, err
-		}
-		r.Telem = &val
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
 	}
-	if pb.BackgroundTelem != nil {
-		val, err := ColorSourceSpecFromPB(pb.BackgroundTelem)
-		if err != nil {
-			return schematic.GaugeConfig{}, err
-		}
-		r.BackgroundTelem = &val
+	if pb.RollingAverage != nil {
+		r.RollingAverage = pb.RollingAverage
 	}
 	if pb.Precision != nil {
 		r.Precision = pb.Precision
@@ -2150,12 +1817,9 @@ func InputConfigToPB(r schematic.InputConfig) (*InputConfig, error) {
 		}
 		pb.Size = &val
 	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = StringSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
 	}
 	if r.Dimensions != nil {
 		var err error
@@ -2209,12 +1873,9 @@ func InputConfigFromPB(pb *InputConfig) (schematic.InputConfig, error) {
 		}
 		r.Size = &val
 	}
-	if pb.Sink != nil {
-		val, err := StringSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.InputConfig{}, err
-		}
-		r.Sink = &val
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
 	}
 	if pb.Dimensions != nil {
 		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
@@ -2283,9 +1944,13 @@ func LightConfigToPB(r schematic.LightConfig) (*LightConfig, error) {
 		}
 		pb.Orientation = &val
 	}
-	if r.Source != nil {
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
+	}
+	if r.Threshold != nil {
 		var err error
-		pb.Source, err = BooleanSourceSpecToPB(*r.Source)
+		pb.Threshold, err = spatialpb.BoundsToPB(*r.Threshold)
 		if err != nil {
 			return nil, err
 		}
@@ -2323,12 +1988,16 @@ func LightConfigFromPB(pb *LightConfig) (schematic.LightConfig, error) {
 		}
 		r.Orientation = &val
 	}
-	if pb.Source != nil {
-		val, err := BooleanSourceSpecFromPB(pb.Source)
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
+	}
+	if pb.Threshold != nil {
+		val, err := spatialpb.BoundsFromPB(pb.Threshold)
 		if err != nil {
 			return schematic.LightConfig{}, err
 		}
-		r.Source = &val
+		r.Threshold = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -2618,12 +2287,9 @@ func SelectConfigToPB(r schematic.SelectConfig) (*SelectConfig, error) {
 		}
 		pb.Size = &val
 	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = NumberSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
 	}
 	if r.Color != nil {
 		var err error
@@ -2678,12 +2344,9 @@ func SelectConfigFromPB(pb *SelectConfig) (schematic.SelectConfig, error) {
 		}
 		r.Size = &val
 	}
-	if pb.Sink != nil {
-		val, err := NumberSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.SelectConfig{}, err
-		}
-		r.Sink = &val
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -2758,19 +2421,13 @@ func SetpointConfigToPB(r schematic.SetpointConfig) (*SetpointConfig, error) {
 		}
 		pb.Size = &val
 	}
-	if r.Source != nil {
-		var err error
-		pb.Source, err = NumberSourceSpecToPB(*r.Source)
-		if err != nil {
-			return nil, err
-		}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
 	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = NumberSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
 	}
 	if r.Dimensions != nil {
 		var err error
@@ -2825,19 +2482,13 @@ func SetpointConfigFromPB(pb *SetpointConfig) (schematic.SetpointConfig, error) 
 		}
 		r.Size = &val
 	}
-	if pb.Source != nil {
-		val, err := NumberSourceSpecFromPB(pb.Source)
-		if err != nil {
-			return schematic.SetpointConfig{}, err
-		}
-		r.Source = &val
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
 	}
-	if pb.Sink != nil {
-		val, err := NumberSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.SetpointConfig{}, err
-		}
-		r.Sink = &val
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
 	}
 	if pb.Dimensions != nil {
 		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
@@ -2912,12 +2563,9 @@ func StateIndicatorConfigToPB(r schematic.StateIndicatorConfig) (*StateIndicator
 		}
 		pb.Orientation = &val
 	}
-	if r.Source != nil {
-		var err error
-		pb.Source, err = NumberSourceSpecToPB(*r.Source)
-		if err != nil {
-			return nil, err
-		}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
 	}
 	if r.Color != nil {
 		var err error
@@ -2957,12 +2605,9 @@ func StateIndicatorConfigFromPB(pb *StateIndicatorConfig) (schematic.StateIndica
 		}
 		r.Orientation = &val
 	}
-	if pb.Source != nil {
-		val, err := NumberSourceSpecFromPB(pb.Source)
-		if err != nil {
-			return schematic.StateIndicatorConfig{}, err
-		}
-		r.Source = &val
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -3177,19 +2822,12 @@ func ValueConfigToPB(r schematic.ValueConfig) (*ValueConfig, error) {
 	if r.InlineSize != nil {
 		pb.InlineSize = r.InlineSize
 	}
-	if r.Telem != nil {
-		var err error
-		pb.Telem, err = StringSourceSpecToPB(*r.Telem)
-		if err != nil {
-			return nil, err
-		}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
 	}
-	if r.BackgroundTelem != nil {
-		var err error
-		pb.BackgroundTelem, err = ColorSourceSpecToPB(*r.BackgroundTelem)
-		if err != nil {
-			return nil, err
-		}
+	if r.RollingAverage != nil {
+		pb.RollingAverage = r.RollingAverage
 	}
 	if r.Level != nil {
 		val, err := textpb.LevelToPB(*r.Level)
@@ -3299,19 +2937,12 @@ func ValueConfigFromPB(pb *ValueConfig) (schematic.ValueConfig, error) {
 	if pb.InlineSize != nil {
 		r.InlineSize = pb.InlineSize
 	}
-	if pb.Telem != nil {
-		val, err := StringSourceSpecFromPB(pb.Telem)
-		if err != nil {
-			return schematic.ValueConfig{}, err
-		}
-		r.Telem = &val
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
 	}
-	if pb.BackgroundTelem != nil {
-		val, err := ColorSourceSpecFromPB(pb.BackgroundTelem)
-		if err != nil {
-			return schematic.ValueConfig{}, err
-		}
-		r.BackgroundTelem = &val
+	if pb.RollingAverage != nil {
+		r.RollingAverage = pb.RollingAverage
 	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
@@ -3668,19 +3299,13 @@ func CustomActuatorConfigToPB(r schematic.CustomActuatorConfig) (*CustomActuator
 		}
 		pb.Orientation = &val
 	}
-	if r.Source != nil {
-		var err error
-		pb.Source, err = BooleanSourceSpecToPB(*r.Source)
-		if err != nil {
-			return nil, err
-		}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
 	}
-	if r.Sink != nil {
-		var err error
-		pb.Sink, err = BooleanSinkSpecToPB(*r.Sink)
-		if err != nil {
-			return nil, err
-		}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
 	}
 	if r.Control != nil {
 		var err error
@@ -3725,19 +3350,13 @@ func CustomActuatorConfigFromPB(pb *CustomActuatorConfig) (schematic.CustomActua
 		}
 		r.Orientation = &val
 	}
-	if pb.Source != nil {
-		val, err := BooleanSourceSpecFromPB(pb.Source)
-		if err != nil {
-			return schematic.CustomActuatorConfig{}, err
-		}
-		r.Source = &val
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
 	}
-	if pb.Sink != nil {
-		val, err := BooleanSinkSpecFromPB(pb.Sink)
-		if err != nil {
-			return schematic.CustomActuatorConfig{}, err
-		}
-		r.Sink = &val
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -4101,502 +3720,6 @@ func EdgeConfigsFromPB(pbs []*EdgeConfig) ([]schematic.EdgeConfig, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = EdgeConfigFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// BooleanSourceSpecToPB converts BooleanSourceSpec to BooleanSourceSpec.
-func BooleanSourceSpecToPB(r schematic.BooleanSourceSpec) (*BooleanSourceSpec, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &BooleanSourceSpec{}
-	switch v := r.Variant.(type) {
-	case schematic.BooleanSourceSpecBoolean:
-		inner, err := SourceTelemSpecToPB(v.SourceTelemSpec)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &BooleanSourceSpec_Boolean{Boolean: inner}
-	default:
-		return nil, errors.Newf("BooleanSourceSpec: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// BooleanSourceSpecFromPB converts BooleanSourceSpec to BooleanSourceSpec.
-func BooleanSourceSpecFromPB(pb *BooleanSourceSpec) (schematic.BooleanSourceSpec, error) {
-	var r schematic.BooleanSourceSpec
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *BooleanSourceSpec_Boolean:
-		inner, err := SourceTelemSpecFromPB(v.Boolean)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = schematic.BooleanSourceSpecBoolean{SourceTelemSpec: inner}
-	}
-	return r, nil
-}
-
-// BooleanSourceSpecsToPB converts a slice of BooleanSourceSpec to BooleanSourceSpec.
-func BooleanSourceSpecsToPB(rs []schematic.BooleanSourceSpec) ([]*BooleanSourceSpec, error) {
-	result := make([]*BooleanSourceSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = BooleanSourceSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// BooleanSourceSpecsFromPB converts a slice of BooleanSourceSpec to BooleanSourceSpec.
-func BooleanSourceSpecsFromPB(pbs []*BooleanSourceSpec) ([]schematic.BooleanSourceSpec, error) {
-	result := make([]schematic.BooleanSourceSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = BooleanSourceSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// NumberSourceSpecToPB converts NumberSourceSpec to NumberSourceSpec.
-func NumberSourceSpecToPB(r schematic.NumberSourceSpec) (*NumberSourceSpec, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &NumberSourceSpec{}
-	switch v := r.Variant.(type) {
-	case schematic.NumberSourceSpecNumber:
-		inner, err := SourceTelemSpecToPB(v.SourceTelemSpec)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &NumberSourceSpec_Number{Number: inner}
-	default:
-		return nil, errors.Newf("NumberSourceSpec: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// NumberSourceSpecFromPB converts NumberSourceSpec to NumberSourceSpec.
-func NumberSourceSpecFromPB(pb *NumberSourceSpec) (schematic.NumberSourceSpec, error) {
-	var r schematic.NumberSourceSpec
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *NumberSourceSpec_Number:
-		inner, err := SourceTelemSpecFromPB(v.Number)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = schematic.NumberSourceSpecNumber{SourceTelemSpec: inner}
-	}
-	return r, nil
-}
-
-// NumberSourceSpecsToPB converts a slice of NumberSourceSpec to NumberSourceSpec.
-func NumberSourceSpecsToPB(rs []schematic.NumberSourceSpec) ([]*NumberSourceSpec, error) {
-	result := make([]*NumberSourceSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = NumberSourceSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// NumberSourceSpecsFromPB converts a slice of NumberSourceSpec to NumberSourceSpec.
-func NumberSourceSpecsFromPB(pbs []*NumberSourceSpec) ([]schematic.NumberSourceSpec, error) {
-	result := make([]schematic.NumberSourceSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = NumberSourceSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StringSourceSpecToPB converts StringSourceSpec to StringSourceSpec.
-func StringSourceSpecToPB(r schematic.StringSourceSpec) (*StringSourceSpec, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &StringSourceSpec{}
-	switch v := r.Variant.(type) {
-	case schematic.StringSourceSpecString:
-		inner, err := SourceTelemSpecToPB(v.SourceTelemSpec)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &StringSourceSpec_String_{String_: inner}
-	default:
-		return nil, errors.Newf("StringSourceSpec: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// StringSourceSpecFromPB converts StringSourceSpec to StringSourceSpec.
-func StringSourceSpecFromPB(pb *StringSourceSpec) (schematic.StringSourceSpec, error) {
-	var r schematic.StringSourceSpec
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *StringSourceSpec_String_:
-		inner, err := SourceTelemSpecFromPB(v.String_)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = schematic.StringSourceSpecString{SourceTelemSpec: inner}
-	}
-	return r, nil
-}
-
-// StringSourceSpecsToPB converts a slice of StringSourceSpec to StringSourceSpec.
-func StringSourceSpecsToPB(rs []schematic.StringSourceSpec) ([]*StringSourceSpec, error) {
-	result := make([]*StringSourceSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StringSourceSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StringSourceSpecsFromPB converts a slice of StringSourceSpec to StringSourceSpec.
-func StringSourceSpecsFromPB(pbs []*StringSourceSpec) ([]schematic.StringSourceSpec, error) {
-	result := make([]schematic.StringSourceSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StringSourceSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// ColorSourceSpecToPB converts ColorSourceSpec to ColorSourceSpec.
-func ColorSourceSpecToPB(r schematic.ColorSourceSpec) (*ColorSourceSpec, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &ColorSourceSpec{}
-	switch v := r.Variant.(type) {
-	case schematic.ColorSourceSpecColor:
-		inner, err := SourceTelemSpecToPB(v.SourceTelemSpec)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &ColorSourceSpec_Color{Color: inner}
-	default:
-		return nil, errors.Newf("ColorSourceSpec: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// ColorSourceSpecFromPB converts ColorSourceSpec to ColorSourceSpec.
-func ColorSourceSpecFromPB(pb *ColorSourceSpec) (schematic.ColorSourceSpec, error) {
-	var r schematic.ColorSourceSpec
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *ColorSourceSpec_Color:
-		inner, err := SourceTelemSpecFromPB(v.Color)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = schematic.ColorSourceSpecColor{SourceTelemSpec: inner}
-	}
-	return r, nil
-}
-
-// ColorSourceSpecsToPB converts a slice of ColorSourceSpec to ColorSourceSpec.
-func ColorSourceSpecsToPB(rs []schematic.ColorSourceSpec) ([]*ColorSourceSpec, error) {
-	result := make([]*ColorSourceSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = ColorSourceSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// ColorSourceSpecsFromPB converts a slice of ColorSourceSpec to ColorSourceSpec.
-func ColorSourceSpecsFromPB(pbs []*ColorSourceSpec) ([]schematic.ColorSourceSpec, error) {
-	result := make([]schematic.ColorSourceSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = ColorSourceSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StatusSourceSpecToPB converts StatusSourceSpec to StatusSourceSpec.
-func StatusSourceSpecToPB(r schematic.StatusSourceSpec) (*StatusSourceSpec, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &StatusSourceSpec{}
-	switch v := r.Variant.(type) {
-	case schematic.StatusSourceSpecStatus:
-		inner, err := SourceTelemSpecToPB(v.SourceTelemSpec)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &StatusSourceSpec_Status{Status: inner}
-	default:
-		return nil, errors.Newf("StatusSourceSpec: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// StatusSourceSpecFromPB converts StatusSourceSpec to StatusSourceSpec.
-func StatusSourceSpecFromPB(pb *StatusSourceSpec) (schematic.StatusSourceSpec, error) {
-	var r schematic.StatusSourceSpec
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *StatusSourceSpec_Status:
-		inner, err := SourceTelemSpecFromPB(v.Status)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = schematic.StatusSourceSpecStatus{SourceTelemSpec: inner}
-	}
-	return r, nil
-}
-
-// StatusSourceSpecsToPB converts a slice of StatusSourceSpec to StatusSourceSpec.
-func StatusSourceSpecsToPB(rs []schematic.StatusSourceSpec) ([]*StatusSourceSpec, error) {
-	result := make([]*StatusSourceSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StatusSourceSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StatusSourceSpecsFromPB converts a slice of StatusSourceSpec to StatusSourceSpec.
-func StatusSourceSpecsFromPB(pbs []*StatusSourceSpec) ([]schematic.StatusSourceSpec, error) {
-	result := make([]schematic.StatusSourceSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StatusSourceSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// BooleanSinkSpecToPB converts BooleanSinkSpec to BooleanSinkSpec.
-func BooleanSinkSpecToPB(r schematic.BooleanSinkSpec) (*BooleanSinkSpec, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &BooleanSinkSpec{}
-	switch v := r.Variant.(type) {
-	case schematic.BooleanSinkSpecBoolean:
-		inner, err := SinkTelemSpecToPB(v.SinkTelemSpec)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &BooleanSinkSpec_Boolean{Boolean: inner}
-	default:
-		return nil, errors.Newf("BooleanSinkSpec: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// BooleanSinkSpecFromPB converts BooleanSinkSpec to BooleanSinkSpec.
-func BooleanSinkSpecFromPB(pb *BooleanSinkSpec) (schematic.BooleanSinkSpec, error) {
-	var r schematic.BooleanSinkSpec
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *BooleanSinkSpec_Boolean:
-		inner, err := SinkTelemSpecFromPB(v.Boolean)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = schematic.BooleanSinkSpecBoolean{SinkTelemSpec: inner}
-	}
-	return r, nil
-}
-
-// BooleanSinkSpecsToPB converts a slice of BooleanSinkSpec to BooleanSinkSpec.
-func BooleanSinkSpecsToPB(rs []schematic.BooleanSinkSpec) ([]*BooleanSinkSpec, error) {
-	result := make([]*BooleanSinkSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = BooleanSinkSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// BooleanSinkSpecsFromPB converts a slice of BooleanSinkSpec to BooleanSinkSpec.
-func BooleanSinkSpecsFromPB(pbs []*BooleanSinkSpec) ([]schematic.BooleanSinkSpec, error) {
-	result := make([]schematic.BooleanSinkSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = BooleanSinkSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// NumberSinkSpecToPB converts NumberSinkSpec to NumberSinkSpec.
-func NumberSinkSpecToPB(r schematic.NumberSinkSpec) (*NumberSinkSpec, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &NumberSinkSpec{}
-	switch v := r.Variant.(type) {
-	case schematic.NumberSinkSpecNumber:
-		inner, err := SinkTelemSpecToPB(v.SinkTelemSpec)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &NumberSinkSpec_Number{Number: inner}
-	default:
-		return nil, errors.Newf("NumberSinkSpec: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// NumberSinkSpecFromPB converts NumberSinkSpec to NumberSinkSpec.
-func NumberSinkSpecFromPB(pb *NumberSinkSpec) (schematic.NumberSinkSpec, error) {
-	var r schematic.NumberSinkSpec
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *NumberSinkSpec_Number:
-		inner, err := SinkTelemSpecFromPB(v.Number)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = schematic.NumberSinkSpecNumber{SinkTelemSpec: inner}
-	}
-	return r, nil
-}
-
-// NumberSinkSpecsToPB converts a slice of NumberSinkSpec to NumberSinkSpec.
-func NumberSinkSpecsToPB(rs []schematic.NumberSinkSpec) ([]*NumberSinkSpec, error) {
-	result := make([]*NumberSinkSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = NumberSinkSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// NumberSinkSpecsFromPB converts a slice of NumberSinkSpec to NumberSinkSpec.
-func NumberSinkSpecsFromPB(pbs []*NumberSinkSpec) ([]schematic.NumberSinkSpec, error) {
-	result := make([]schematic.NumberSinkSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = NumberSinkSpecFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StringSinkSpecToPB converts StringSinkSpec to StringSinkSpec.
-func StringSinkSpecToPB(r schematic.StringSinkSpec) (*StringSinkSpec, error) {
-	if r.Variant == nil {
-		return nil, nil
-	}
-	pb := &StringSinkSpec{}
-	switch v := r.Variant.(type) {
-	case schematic.StringSinkSpecString:
-		inner, err := SinkTelemSpecToPB(v.SinkTelemSpec)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &StringSinkSpec_String_{String_: inner}
-	default:
-		return nil, errors.Newf("StringSinkSpec: unknown variant %T", r.Variant)
-	}
-	return pb, nil
-}
-
-// StringSinkSpecFromPB converts StringSinkSpec to StringSinkSpec.
-func StringSinkSpecFromPB(pb *StringSinkSpec) (schematic.StringSinkSpec, error) {
-	var r schematic.StringSinkSpec
-	if pb == nil {
-		return r, nil
-	}
-	switch v := pb.Variant.(type) {
-	case *StringSinkSpec_String_:
-		inner, err := SinkTelemSpecFromPB(v.String_)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = schematic.StringSinkSpecString{SinkTelemSpec: inner}
-	}
-	return r, nil
-}
-
-// StringSinkSpecsToPB converts a slice of StringSinkSpec to StringSinkSpec.
-func StringSinkSpecsToPB(rs []schematic.StringSinkSpec) ([]*StringSinkSpec, error) {
-	result := make([]*StringSinkSpec, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StringSinkSpecToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StringSinkSpecsFromPB converts a slice of StringSinkSpec to StringSinkSpec.
-func StringSinkSpecsFromPB(pbs []*StringSinkSpec) ([]schematic.StringSinkSpec, error) {
-	result := make([]schematic.StringSinkSpec, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StringSinkSpecFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -7303,45 +6426,5 @@ func FlexAlignmentFromPB(v FlexAlignment) (schematic.FlexAlignment, error) {
 		return schematic.FlexAlignmentStretch, nil
 	default:
 		return schematic.FlexAlignment(""), errors.Newf("unrecognized FlexAlignment value: %v", v)
-	}
-}
-
-// SinkRoleToPB converts schematic.SinkRole to SinkRole.
-func SinkRoleToPB(v schematic.SinkRole) (SinkRole, error) {
-	switch v {
-	case schematic.SinkRoleSink:
-		return SinkRole_SINK_ROLE_SINK, nil
-	default:
-		return 0, errors.Newf("unrecognized schematic.SinkRole value: %v", v)
-	}
-}
-
-// SinkRoleFromPB converts SinkRole to schematic.SinkRole.
-func SinkRoleFromPB(v SinkRole) (schematic.SinkRole, error) {
-	switch v {
-	case SinkRole_SINK_ROLE_SINK:
-		return schematic.SinkRoleSink, nil
-	default:
-		return schematic.SinkRole(""), errors.Newf("unrecognized SinkRole value: %v", v)
-	}
-}
-
-// SourceRoleToPB converts schematic.SourceRole to SourceRole.
-func SourceRoleToPB(v schematic.SourceRole) (SourceRole, error) {
-	switch v {
-	case schematic.SourceRoleSource:
-		return SourceRole_SOURCE_ROLE_SOURCE, nil
-	default:
-		return 0, errors.Newf("unrecognized schematic.SourceRole value: %v", v)
-	}
-}
-
-// SourceRoleFromPB converts SourceRole to schematic.SourceRole.
-func SourceRoleFromPB(v SourceRole) (schematic.SourceRole, error) {
-	switch v {
-	case SourceRole_SOURCE_ROLE_SOURCE:
-		return schematic.SourceRoleSource, nil
-	default:
-		return schematic.SourceRole(""), errors.Newf("unrecognized SourceRole value: %v", v)
 	}
 }

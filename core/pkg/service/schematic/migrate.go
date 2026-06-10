@@ -40,7 +40,9 @@ func MigrateSchematic(ctx context.Context, old v56.Schematic) (Schematic, error)
 // verbatim by the Console) into the typed element config. ok is false when
 // the entry does not conform to any known variant.
 func migrateConfigEntry(raw msgpack.EncodedJSON) (ElementConfig, bool) {
-	cfg, err := decodeElementConfig(normalizeConfigKeys(raw))
+	normalized := normalizeConfigKeys(raw)
+	extractTelemArgs(normalized)
+	cfg, err := decodeElementConfig(normalized)
 	if err != nil {
 		return ElementConfig{}, false
 	}

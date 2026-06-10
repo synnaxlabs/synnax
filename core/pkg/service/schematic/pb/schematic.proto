@@ -22,16 +22,6 @@ import "x/go/text/pb/text.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/schematic/pb";
 
-// SourceRole is the data-flow role of a telemetry source spec.
-enum SourceRole {
-  SOURCE_ROLE_SOURCE = 0;
-}
-
-// SinkRole is the data-flow role of a telemetry sink spec.
-enum SinkRole {
-  SINK_ROLE_SINK = 0;
-}
-
 // FlexAlignment is a cross-axis flex alignment for laid-out content.
 enum FlexAlignment {
   FLEX_ALIGNMENT_START = 0;
@@ -107,32 +97,6 @@ message SegmentedEdgeConfig {
   repeated Segment segments = 2;
 }
 
-// SourceTelemSpec is a reference to a telemetry source. The value_type discriminator on
-// the wrapping union pins the value kind the spec yields or accepts.
-message SourceTelemSpec {
-  // type is the registered telem factory type that interprets props.
-  string type = 1;
-  // variant is the data-flow role of the spec.
-  SourceRole variant = 2;
-  // props contains factory-specific configuration. The shape is determined by type and
-  // validated at runtime by the owning telem factory; the wire format intentionally
-  // stores it as an opaque record.
-  google.protobuf.Struct props = 3;
-}
-
-// SinkTelemSpec is a reference to a telemetry sink. The value_type discriminator on the
-// wrapping union pins the value kind the spec yields or accepts.
-message SinkTelemSpec {
-  // type is the registered telem factory type that interprets props.
-  string type = 1;
-  // variant is the data-flow role of the spec.
-  SinkRole variant = 2;
-  // props contains factory-specific configuration. The shape is determined by type and
-  // validated at runtime by the owning telem factory; the wire format intentionally
-  // stores it as an opaque record.
-  google.protobuf.Struct props = 3;
-}
-
 // LabelConfig is the text label configuration shared by schematic symbols.
 message LabelConfig {
   // label is the text content of the label.
@@ -157,37 +121,20 @@ message LabeledConfig {
   optional .x.spatial.pb.OuterLocation orientation = 2;
 }
 
-// ChipConfig is the control authority chip configuration.
-message ChipConfig {
-  // source is the status source displayed by the control chip.
-  optional StatusSourceSpec source = 1;
-  // sink is the sink used to acquire and release control authority.
-  optional BooleanSinkSpec sink = 2;
-}
-
-// IndicatorConfig is the control state indicator configuration.
-message IndicatorConfig {
-  // status_source is the status source driving the indicator state.
-  optional StatusSourceSpec status_source = 1;
-  // color_source is the color source driving the indicator tint.
-  optional ColorSourceSpec color_source = 2;
-}
-
 // ControlStateConfig is the control authority and state display configuration for
 // actuated symbols.
 message ControlStateConfig {
+  // authority is the control authority requested when the symbol acquires its command
+  // channel. Defaults to absolute authority when unset.
+  optional uint32 authority = 1;
   // show indicates whether the control state widget is visible.
-  bool show = 1;
+  bool show = 2;
   // show_chip indicates whether the authority chip is visible.
-  bool show_chip = 2;
+  bool show_chip = 3;
   // show_indicator indicates whether the state indicator is visible.
-  bool show_indicator = 3;
-  // chip is the authority chip configuration.
-  optional ChipConfig chip = 4;
-  // indicator is the indicator configuration.
-  optional IndicatorConfig indicator = 5;
+  bool show_indicator = 4;
   // orientation is the placement of the control state widget relative to the symbol.
-  optional .x.spatial.pb.Location orientation = 6;
+  optional .x.spatial.pb.Location orientation = 5;
 }
 
 // ToggleConfig is the base configuration for symbols actuated through a boolean
@@ -197,10 +144,10 @@ message ToggleConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // source is the boolean source that drives the symbol's active state.
-  optional BooleanSourceSpec source = 3;
-  // sink is the boolean sink that receives actuation commands.
-  optional BooleanSinkSpec sink = 4;
+  // state_channel is the channel whose value drives the symbol's active state.
+  optional uint32 state_channel = 3;
+  // command_channel is the channel actuation commands are written to.
+  optional uint32 command_channel = 4;
   // control is the control state display configuration.
   optional ControlStateConfig control = 5;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
@@ -225,10 +172,10 @@ message ToggleSymbolConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // source is the boolean source that drives the symbol's active state.
-  optional BooleanSourceSpec source = 3;
-  // sink is the boolean sink that receives actuation commands.
-  optional BooleanSinkSpec sink = 4;
+  // state_channel is the channel whose value drives the symbol's active state.
+  optional uint32 state_channel = 3;
+  // command_channel is the channel actuation commands are written to.
+  optional uint32 command_channel = 4;
   // control is the control state display configuration.
   optional ControlStateConfig control = 5;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
@@ -262,10 +209,10 @@ message SolenoidValveConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // source is the boolean source that drives the symbol's active state.
-  optional BooleanSourceSpec source = 3;
-  // sink is the boolean sink that receives actuation commands.
-  optional BooleanSinkSpec sink = 4;
+  // state_channel is the channel whose value drives the symbol's active state.
+  optional uint32 state_channel = 3;
+  // command_channel is the channel actuation commands are written to.
+  optional uint32 command_channel = 4;
   // control is the control state display configuration.
   optional ControlStateConfig control = 5;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
@@ -328,8 +275,8 @@ message ButtonConfig {
   optional .x.text.pb.Level level = 4;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
   double on_click_delay = 5;
-  // sink is the boolean sink that receives button presses.
-  optional BooleanSinkSpec sink = 6;
+  // command_channel is the channel button presses are written to.
+  optional uint32 command_channel = 6;
   // mode is the actuation behavior of the button.
   optional ButtonMode mode = 7;
   // color is the background color of the button.
@@ -368,10 +315,10 @@ message GaugeConfig {
   optional .x.spatial.pb.Bounds bounds = 5;
   // bar_width is the thickness of the gauge arc in pixels.
   optional double bar_width = 6;
-  // telem is the string source that supplies the displayed value.
-  optional StringSourceSpec telem = 7;
-  // background_telem is the color source that drives the gauge background.
-  optional ColorSourceSpec background_telem = 8;
+  // channel is the channel whose value the gauge displays.
+  optional uint32 channel = 7;
+  // rolling_average is the sample window for rolling-average smoothing.
+  optional int32 rolling_average = 8;
   // precision is the number of decimal places shown.
   optional double precision = 9;
   // min_width is the minimum rendered width of the value in pixels.
@@ -396,8 +343,8 @@ message InputConfig {
   optional .x.spatial.pb.OuterLocation orientation = 2;
   // size is the rendered size preset of the input.
   optional ComponentSize size = 3;
-  // sink is the string sink that receives submitted values.
-  optional StringSinkSpec sink = 4;
+  // command_channel is the channel submitted values are written to.
+  optional uint32 command_channel = 4;
   // dimensions is the rendered size of the input in pixels.
   optional .x.spatial.pb.Dimensions dimensions = 5;
   // color is the accent color of the input.
@@ -414,12 +361,14 @@ message LightConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // source is the boolean source that drives the light's on state.
-  optional BooleanSourceSpec source = 3;
+  // channel is the channel whose value drives the light's on state.
+  optional uint32 channel = 3;
+  // threshold is the value range within which the light is considered on.
+  optional .x.spatial.pb.Bounds threshold = 4;
   // color is the illuminated color of the light.
-  optional .x.color.pb.Color color = 4;
+  optional .x.color.pb.Color color = 5;
   // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 5;
+  optional double scale = 6;
 }
 
 // OffPageReferenceConfig is the configuration for off-page reference symbols.
@@ -468,8 +417,8 @@ message SelectConfig {
   optional .x.spatial.pb.OuterLocation orientation = 2;
   // size is the rendered size preset of the select.
   optional ComponentSize size = 3;
-  // sink is the numeric sink that receives the selected value.
-  optional NumberSinkSpec sink = 4;
+  // command_channel is the channel the selected value is written to.
+  optional uint32 command_channel = 4;
   // color is the accent color of the select.
   optional .x.color.pb.Color color = 5;
   // inline_size is the inline size of the select in pixels.
@@ -490,10 +439,10 @@ message SetpointConfig {
   optional .x.spatial.pb.OuterLocation orientation = 2;
   // size is the rendered size preset of the setpoint.
   optional ComponentSize size = 3;
-  // source is the numeric source displaying the current value.
-  optional NumberSourceSpec source = 4;
-  // sink is the numeric sink that receives submitted setpoints.
-  optional NumberSinkSpec sink = 5;
+  // state_channel is the channel whose value displays as the current setpoint.
+  optional uint32 state_channel = 4;
+  // command_channel is the channel submitted setpoints are written to.
+  optional uint32 command_channel = 5;
   // dimensions is the rendered size of the setpoint in pixels.
   optional .x.spatial.pb.Dimensions dimensions = 6;
   // color is the accent color of the setpoint.
@@ -512,8 +461,8 @@ message StateIndicatorConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // source is the numeric source whose value selects the displayed state.
-  optional NumberSourceSpec source = 3;
+  // channel is the channel whose value selects the displayed state.
+  optional uint32 channel = 3;
   // color is the fallback color when no state matches.
   optional .x.color.pb.Color color = 4;
   // inline_size is the inline size of the indicator in pixels.
@@ -562,10 +511,10 @@ message ValueConfig {
   string units = 8;
   // inline_size is the inline size of the value in pixels.
   optional double inline_size = 9;
-  // telem is the string source that supplies the displayed value.
-  optional StringSourceSpec telem = 10;
-  // background_telem is the color source that drives the background.
-  optional ColorSourceSpec background_telem = 11;
+  // channel is the channel whose value the symbol displays.
+  optional uint32 channel = 10;
+  // rolling_average is the sample window for rolling-average smoothing.
+  optional int32 rolling_average = 11;
   // level is the typography level of the displayed value.
   optional .x.text.pb.Level level = 12;
   // precision is the number of decimal places shown.
@@ -628,10 +577,10 @@ message CustomActuatorConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // source is the boolean source that drives the symbol's active state.
-  optional BooleanSourceSpec source = 3;
-  // sink is the boolean sink that receives actuation commands.
-  optional BooleanSinkSpec sink = 4;
+  // state_channel is the channel whose value drives the symbol's active state.
+  optional uint32 state_channel = 3;
+  // command_channel is the channel actuation commands are written to.
+  optional uint32 command_channel = 4;
   // control is the control state display configuration.
   optional ControlStateConfig control = 5;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
@@ -696,62 +645,6 @@ message EdgeConfig {
     SegmentedEdgeConfig hydraulic = 5;
     SegmentedEdgeConfig pneumatic = 6;
     SegmentedEdgeConfig data = 7;
-  }
-}
-
-// BooleanSourceSpec is a telemetry source that yields boolean values.
-message BooleanSourceSpec {
-  oneof variant {
-    SourceTelemSpec boolean = 1;
-  }
-}
-
-// NumberSourceSpec is a telemetry source that yields numeric values.
-message NumberSourceSpec {
-  oneof variant {
-    SourceTelemSpec number = 1;
-  }
-}
-
-// StringSourceSpec is a telemetry source that yields string values.
-message StringSourceSpec {
-  oneof variant {
-    SourceTelemSpec string = 1;
-  }
-}
-
-// ColorSourceSpec is a telemetry source that yields colors.
-message ColorSourceSpec {
-  oneof variant {
-    SourceTelemSpec color = 1;
-  }
-}
-
-// StatusSourceSpec is a telemetry source that yields statuses.
-message StatusSourceSpec {
-  oneof variant {
-    SourceTelemSpec status = 1;
-  }
-}
-
-// BooleanSinkSpec is a telemetry sink that accepts boolean commands.
-message BooleanSinkSpec {
-  oneof variant {
-    SinkTelemSpec boolean = 1;
-  }
-}
-
-// NumberSinkSpec is a telemetry sink that accepts numeric commands.
-message NumberSinkSpec {
-  oneof variant {
-    SinkTelemSpec number = 1;
-  }
-}
-
-// StringSinkSpec is a telemetry sink that accepts string commands.
-message StringSinkSpec {
-  oneof variant {
-    SinkTelemSpec string = 1;
   }
 }
 

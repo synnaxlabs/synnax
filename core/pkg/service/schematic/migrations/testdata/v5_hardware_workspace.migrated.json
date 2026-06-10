@@ -31,6 +31,7 @@
   "edges": [],
   "configs": {
     "NCVBmjVavN6": {
+      "channel": 1048586,
       "color": {
         "r": 250,
         "g": 250,
@@ -55,6 +56,7 @@
         },
         "gradient": []
       },
+      "rolling_average": 1,
       "staleness_color": {
         "r": 194,
         "g": 157,
@@ -62,57 +64,13 @@
         "a": 1
       },
       "staleness_timeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 1048586
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "value_type": "string",
-        "variant": "source"
-      },
       "tooltip": ["stream_write_data_1"],
       "units": "psi",
       "use_width_for_background": false,
       "variant": "value"
     },
     "cJXBL6uIOmB": {
+      "channel": 1048587,
       "color": {
         "r": 250,
         "g": 250,
@@ -129,40 +87,9 @@
       },
       "orientation": "left",
       "scale": 1,
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 1048587
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "value_type": "boolean",
-        "variant": "source"
+      "threshold": {
+        "lower": 0.9,
+        "upper": 1.1
       },
       "variant": "light"
     }
