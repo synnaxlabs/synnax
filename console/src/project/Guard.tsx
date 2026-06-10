@@ -9,11 +9,11 @@
 
 import { type PropsWithChildren, type ReactNode } from "react";
 
-import { SelectOrCreate } from "@/project/SelectOrCreate";
 import { useSelectOptionalActiveKey } from "@/project/selectors";
+import { Splash } from "@/project/Splash";
 
 export const Guard = ({ children }: PropsWithChildren): ReactNode => {
   const active = useSelectOptionalActiveKey();
   if (active != null) return children;
-  return <SelectOrCreate />;
+  return <Splash />;
 };
