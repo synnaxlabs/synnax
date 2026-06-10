@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from uuid import UUID
+
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
@@ -15,12 +17,20 @@ from synnax.ontology.payload import ID
 from synnax.ranger.payload import Key, Payload
 
 
+class _ParentRef(BaseModel):
+    key: UUID
+
+
+class _CreatePayload(Payload):
+    parent: _ParentRef | None = None
+
+
 class _CreateRequest(BaseModel):
-    parent: ID | None = None
+    ranges: list[_CreatePayload] = []
+
+
+class _CreateResponse(BaseModel):
     ranges: list[Payload] = []
-
-
-_CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(BaseModel):
@@ -43,7 +53,9 @@ class Writer:
     def create(
         self, ranges: list[Payload], *, parent: ID | None = None
     ) -> list[Payload]:
-        req = _CreateRequest(ranges=ranges, parent=parent)
+        parent_ref = _ParentRef(key=UUID(parent.key)) if parent is not None else None
+        wire = [_CreatePayload(**r.model_dump(), parent=parent_ref) for r in ranges]
+        req = _CreateRequest(ranges=wire)
         return self._client.send("/range/create", req, _CreateResponse).ranges
 
     @trace("debug", "range.delete")

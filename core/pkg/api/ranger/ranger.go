@@ -67,8 +67,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Parent ontology.ID `json:"parent" msgpack:"parent"`
-		Ranges []Range     `json:"ranges" msgpack:"ranges"`
+		Ranges []Range `json:"ranges" msgpack:"ranges"`
 	}
 	CreateResponse struct {
 		Ranges []Range `json:"ranges" msgpack:"ranges"`
@@ -79,28 +78,12 @@ func (s *Service) Create(
 	ctx context.Context,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	ids := rangeAccessOntologyIDs(req.Ranges)
-	if !req.Parent.IsZero() {
-		ids = append(ids, req.Parent)
-	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: ids,
+		Objects: rangeAccessOntologyIDs(req.Ranges),
 	}); err != nil {
 		return CreateResponse{}, err
-	}
-	if !req.Parent.IsZero() {
-		parentKey, err := ranger.KeyFromOntologyID(req.Parent)
-		if err != nil {
-			return CreateResponse{}, err
-		}
-		parent := &Range{Key: parentKey}
-		for i := range req.Ranges {
-			if req.Ranges[i].Parent == nil {
-				req.Ranges[i].Parent = parent
-			}
-		}
 	}
 	var res CreateResponse
 	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {

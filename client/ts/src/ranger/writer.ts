@@ -16,10 +16,13 @@ import { keyZ, type New, newZ, type Payload, payloadZ } from "@/ranger/types.gen
 
 const createResZ = z.object({ ranges: payloadZ.array() });
 
-const createReqZ = z.object({ parent: ontology.idZ.optional(), ranges: newZ.array() });
+const parentRefZ = z.object({ key: keyZ });
+const createNewZ = newZ.extend({ parent: parentRefZ.optional() });
+const createReqZ = z.object({ ranges: createNewZ.array() });
 
-interface CreateRequest extends z.infer<typeof createReqZ> {}
-export interface CreateOptions extends Pick<CreateRequest, "parent"> {}
+export interface CreateOptions {
+  parent?: ontology.ID;
+}
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -39,9 +42,14 @@ export class Writer {
   }
 
   async create(ranges: New[], options?: CreateOptions): Promise<Payload[]> {
+    const parent = options?.parent != null ? { key: options.parent.key } : undefined;
+    const withParent =
+      parent == null
+        ? ranges
+        : ranges.map((r) => ("parent" in r && r.parent != null ? r : { ...r, parent }));
     const res = await this.client.send(
       "/range/create",
-      { ranges, ...options },
+      { ranges: withParent },
       createReqZ,
       createResZ,
     );
