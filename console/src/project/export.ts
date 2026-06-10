@@ -16,10 +16,10 @@ import { Export } from "@/export";
 import { useExtractors } from "@/export/ExtractorsProvider";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
+import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
+import { selectActive } from "@/project/selectors";
 import { Runtime } from "@/runtime";
 import { type RootAction, type RootState, type RootStore } from "@/store";
-import { purgeExcludedLayouts } from "@/workspace/purgeExcludedLayouts";
-import { selectActive } from "@/workspace/selectors";
 
 export interface ExportContext {
   client: Client | null;
@@ -34,7 +34,7 @@ export const export_ = (
   key: string | null,
   { client, store, confirm, handleError, extractors, addStatus }: ExportContext,
 ): void => {
-  let name: string = "workspace"; // default name for error message
+  let name: string = "project"; // default name for error message
   handleError(async () => {
     const storeState = store.getState();
     const active = selectActive(storeState);
@@ -45,7 +45,7 @@ export const export_ = (
       if (active?.key != null) name = active.name;
     } else {
       if (client == null) throw new DisconnectedError();
-      const ws = await client.workspaces.retrieve(key);
+      const ws = await client.projects.retrieve(key);
       toExport = ws.layout as Layout.SliceState;
       name = ws.name;
     }

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/workspace/Selector.css";
+import "@/project/Selector.css";
 
-import { UnexpectedError, workspace } from "@synnaxlabs/client";
+import { project,UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
   Button,
@@ -19,24 +19,24 @@ import {
   Icon,
   Input,
   List,
+  Project,
   Select,
   Synnax,
   Text,
-  Workspace,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { CREATE_LAYOUT } from "@/workspace/Create";
-import { useSelectActive } from "@/workspace/selectors";
-import { setActive } from "@/workspace/slice";
+import { CREATE_LAYOUT } from "@/project/Create";
+import { useSelectActive } from "@/project/selectors";
+import { setActive } from "@/project/slice";
 
 const listItem = Component.renderProp(
-  (props: List.ItemProps<workspace.Key>): ReactElement | null => {
+  (props: List.ItemProps<project.Key>): ReactElement | null => {
     const { itemKey } = props;
-    const ws = List.useItem<workspace.Key, workspace.Workspace>(itemKey);
+    const ws = List.useItem<project.Key, project.Project>(itemKey);
     if (ws == null) return null;
     return (
       <Select.ListItem {...props}>
@@ -54,27 +54,27 @@ export const Selector = (): ReactElement | null => {
   const active = useSelectActive();
   const placeLayout = Layout.usePlacer();
   const [dialogVisible, setDialogVisible] = useState(false);
-  const { data, retrieve, getItem, subscribe } = Workspace.useList();
+  const { data, retrieve, getItem, subscribe } = Project.useList();
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
     (v: string | null) => {
       if (v === null) {
         dispatch(setActive(null));
-        dispatch(Layout.clearWorkspace());
+        dispatch(Layout.clearProject());
         return;
       }
       const ws = getItem(v);
-      if (ws == null) throw new UnexpectedError(`Workspace ${v} not found`);
+      if (ws == null) throw new UnexpectedError(`Project ${v} not found`);
       dispatch(setActive(ws));
       dispatch(
-        Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+        Layout.setProject({ slice: ws.layout as Layout.SliceState, keepNav: false }),
       );
       setDialogVisible(false);
     },
     [dispatch, getItem],
   );
-  const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
-  const hasRetrievePermission = Access.useRetrieveGranted(workspace.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
+  const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   if (!hasRetrievePermission) return null;
   return (
     <Dialog.Frame visible={dialogVisible} onVisibleChange={setDialogVisible}>
@@ -93,8 +93,8 @@ export const Selector = (): ReactElement | null => {
           contrast={2}
           weight={400}
         >
-          <Icon.Workspace key="workspace" />
-          {active?.name ?? "No workspace"}
+          <Icon.Project key="project" />
+          {active?.name ?? "No project"}
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Flex.Box pack rounded>
@@ -104,7 +104,7 @@ export const Selector = (): ReactElement | null => {
               placeholder={
                 <>
                   <Icon.Search key="search" />
-                  Search workspaces
+                  Search projects
                 </>
               }
               contrast={0}
@@ -125,7 +125,7 @@ export const Selector = (): ReactElement | null => {
                 setDialogVisible(false);
               }}
               gap="small"
-              tooltip="Switch to no workspace"
+              tooltip="Switch to no project"
               borderColor={6}
             >
               <Icon.Close />
@@ -140,7 +140,7 @@ export const Selector = (): ReactElement | null => {
                   placeLayout(CREATE_LAYOUT);
                 }}
                 gap="small"
-                tooltip="Create a new workspace"
+                tooltip="Create a new project"
                 tooltipLocation={{ y: "bottom" }}
                 borderColor={6}
               >

@@ -16,7 +16,7 @@ import { ingestComponent } from "@/import/import";
 import { type DirectoryIngester, type FileIngesters } from "@/import/ingester";
 import { trimFileName } from "@/import/trimFileName";
 import { type Layout } from "@/layout";
-import { Workspace } from "@/workspace";
+import { Project } from "@/project";
 
 interface DirectoryContent {
   name: string;
@@ -96,13 +96,13 @@ export const dataTransferItem = async (
     const buffer = await entry.arrayBuffer();
     const fileData = new TextDecoder().decode(buffer);
     const parsedData = JSON.parse(fileData);
-    const workspaceKey = Workspace.selectActiveKey(store.getState());
+    const projectKey = Project.selectActiveKey(store.getState());
     await ingestComponent(parsedData, entry.name, fileIngesters, {
       layout: { ...layout, name },
       placeLayout,
       store: fluxStore,
       client,
-      workspaceKey: workspaceKey ?? uuid.ZERO,
+      projectKey: projectKey ?? uuid.ZERO,
     });
     return;
   }

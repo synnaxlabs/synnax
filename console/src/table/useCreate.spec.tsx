@@ -13,7 +13,7 @@ import {
   type Reducer,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { createTestClient, type Synnax, type workspace } from "@synnaxlabs/client";
+import { createTestClient, type project,type Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
@@ -23,11 +23,11 @@ import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { Table } from "@/table";
 import { LAYOUT_TYPE } from "@/table/layout";
 import { selectEditable } from "@/table/selectors";
 import { useCreate } from "@/table/useCreate";
-import { Workspace } from "@/workspace";
 
 const client: Synnax = createTestClient();
 
@@ -35,14 +35,14 @@ interface RootState {
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Project.SLICE_NAME]: Project.SliceState;
 }
 
 const rootReducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Project.SLICE_NAME]: Project.reducer,
 }) as unknown as Reducer<RootState, UnknownAction>;
 
 type RootStore = ReturnType<typeof configureStore<RootState>>;
@@ -53,16 +53,16 @@ interface Harness {
 }
 
 interface BuildHarnessArgs {
-  activeWorkspace?: workspace.Workspace;
+  activeProject?: project.Project;
 }
 
-const stripLayout = (ws: workspace.Workspace): Omit<workspace.Workspace, "layout"> => {
+const stripLayout = (ws: project.Project): Omit<project.Project, "layout"> => {
   const { layout: _, ...rest } = ws;
   return rest;
 };
 
 const buildHarness = async ({
-  activeWorkspace,
+  activeProject,
 }: BuildHarnessArgs = {}): Promise<Harness> => {
   const fluxClient = new Flux.Client({
     client,
@@ -75,9 +75,9 @@ const buildHarness = async ({
     [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
     [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
     [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
-    [Workspace.SLICE_NAME]: {
-      ...Workspace.ZERO_SLICE_STATE,
-      active: activeWorkspace != null ? stripLayout(activeWorkspace) : null,
+    [Project.SLICE_NAME]: {
+      ...Project.ZERO_SLICE_STATE,
+      active: activeProject != null ? stripLayout(activeProject) : null,
     },
   };
   const store = configureStore({ reducer: rootReducer, preloadedState });
@@ -93,8 +93,8 @@ const buildHarness = async ({
   return { wrapper: Wrapper, store };
 };
 
-const newWorkspace = async (): Promise<workspace.Workspace> =>
-  await client.workspaces.create({ name: `ws-${id.create()}`, layout: {} });
+const newProject = async (): Promise<project.Project> =>
+  await client.projects.create({ name: `ws-${id.create()}`, layout: {} });
 
 const findPlacedTableLayout = (store: RootStore) =>
   Layout.selectByFilter(store.getState(), (l) => l.type === LAYOUT_TYPE);
@@ -110,18 +110,18 @@ const waitForPlacedLayout = async (store: RootStore): Promise<string> => {
 };
 
 describe("useCreate", () => {
-  let workspaceA: workspace.Workspace;
-  let workspaceB: workspace.Workspace;
+  let projectA: project.Project;
+  let projectB: project.Project;
 
   beforeEach(async () => {
-    workspaceA = await newWorkspace();
-    workspaceB = await newWorkspace();
+    projectA = await newProject();
+    projectB = await newProject();
   });
 
-  describe("workspace resolution", () => {
-    it("prefers the prop workspace over the active workspace", async () => {
-      const { wrapper, store } = await buildHarness({ activeWorkspace: workspaceA });
-      const { result } = renderHook(() => useCreate({ workspace: workspaceB.key }), {
+  describe("project resolution", () => {
+    it("prefers the prop project over the active project", async () => {
+      const { wrapper, store } = await buildHarness({ activeProject: projectA });
+      const { result } = renderHook(() => useCreate({ project: projectB.key }), {
         wrapper,
       });
       await act(async () => {
@@ -130,11 +130,11 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ProvidedWS");
-      expect(Workspace.selectActiveKey(store.getState())).toEqual(workspaceB.key);
+      expect(Project.selectActiveKey(store.getState())).toEqual(projectB.key);
     });
 
-    it("falls back to the active workspace when no prop is given", async () => {
-      const { wrapper, store } = await buildHarness({ activeWorkspace: workspaceA });
+    it("falls back to the active project when no prop is given", async () => {
+      const { wrapper, store } = await buildHarness({ activeProject: projectA });
       const { result } = renderHook(() => useCreate({}), { wrapper });
       await act(async () => {
         result.current({ name: "ActiveWS" });
@@ -142,10 +142,10 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ActiveWS");
-      expect(Workspace.selectActiveKey(store.getState())).toEqual(workspaceA.key);
+      expect(Project.selectActiveKey(store.getState())).toEqual(projectA.key);
     });
 
-    it("creates a workspace-less table when neither prop nor active workspace is set", async () => {
+    it("creates a project-less table when neither prop nor active project is set", async () => {
       const { wrapper, store } = await buildHarness();
       const { result } = renderHook(() => useCreate({}), { wrapper });
       await act(async () => {
@@ -154,13 +154,13 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("Loose");
-      expect(Workspace.selectActive(store.getState())).toBeNull();
+      expect(Project.selectActive(store.getState())).toBeNull();
     });
   });
 
   describe("layout placement", () => {
     it("places the layout with editable=true after the server returns", async () => {
-      const { wrapper, store } = await buildHarness({ activeWorkspace: workspaceA });
+      const { wrapper, store } = await buildHarness({ activeProject: projectA });
       const { result } = renderHook(() => useCreate({}), { wrapper });
       await act(async () => {
         result.current({ name: "Editable" });
@@ -173,7 +173,7 @@ describe("useCreate", () => {
     });
 
     it("defaults the layout name to 'Table' when init does not provide one", async () => {
-      const { wrapper, store } = await buildHarness({ activeWorkspace: workspaceA });
+      const { wrapper, store } = await buildHarness({ activeProject: projectA });
       const { result } = renderHook(() => useCreate({}), { wrapper });
       await act(async () => {
         result.current();
@@ -183,7 +183,7 @@ describe("useCreate", () => {
     });
 
     it("uses the caller-provided key for both the server table and the layout", async () => {
-      const { wrapper, store } = await buildHarness({ activeWorkspace: workspaceA });
+      const { wrapper, store } = await buildHarness({ activeProject: projectA });
       const { result } = renderHook(() => useCreate({}), { wrapper });
       const callerKey = uuid.create();
       await act(async () => {
@@ -198,18 +198,18 @@ describe("useCreate", () => {
     });
   });
 
-  describe("workspace switching", () => {
-    it("does not flip the active workspace when the table is created in the active one", async () => {
-      const { wrapper, store } = await buildHarness({ activeWorkspace: workspaceA });
-      const beforeActive = Workspace.selectActive(store.getState());
-      const { result } = renderHook(() => useCreate({ workspace: workspaceA.key }), {
+  describe("project switching", () => {
+    it("does not flip the active project when the table is created in the active one", async () => {
+      const { wrapper, store } = await buildHarness({ activeProject: projectA });
+      const beforeActive = Project.selectActive(store.getState());
+      const { result } = renderHook(() => useCreate({ project: projectA.key }), {
         wrapper,
       });
       await act(async () => {
         result.current({ name: "SameWS" });
       });
       await waitForPlacedLayout(store);
-      expect(Workspace.selectActive(store.getState())).toBe(beforeActive);
+      expect(Project.selectActive(store.getState())).toBe(beforeActive);
     });
   });
 });

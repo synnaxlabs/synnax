@@ -9,10 +9,10 @@
 
 import { migrate } from "@synnaxlabs/x";
 
-import * as v0 from "@/workspace/types/v0";
-import * as v1 from "@/workspace/types/v1";
+import * as v0 from "@/project/types/v0";
+import * as v1 from "@/project/types/v1";
 
-export type Workspace = v1.Workspace;
+export type Project = v1.Project;
 export type SliceState = v1.SliceState;
 export type AnySliceState = v0.SliceState | v1.SliceState;
 

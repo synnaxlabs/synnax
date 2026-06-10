@@ -11,9 +11,9 @@ import {
   lineplot,
   log,
   type ontology,
+  project,
   schematic,
   table,
-  workspace,
 } from "@synnaxlabs/client";
 import {
   Access,
@@ -21,9 +21,9 @@ import {
   LinePlot as PLinePlot,
   Log as PLog,
   Menu,
+  Project as Base,
   Schematic as PSchematic,
   Table as PTable,
-  Workspace as Base,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
@@ -40,14 +40,14 @@ import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
+import { useExport } from "@/project/export";
+import { selectActiveKey } from "@/project/selectors";
+import { maybeRename, setActive } from "@/project/slice";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
-import { useExport } from "@/workspace/export";
-import { selectActiveKey } from "@/workspace/selectors";
-import { maybeRename, setActive } from "@/workspace/slice";
 
 const useDelete = createUseDelete({
-  type: "Workspace",
+  type: "Project",
   query: Base.useDelete,
   convertKey: String,
   afterSuccess: ({ data, store }) => {
@@ -56,13 +56,13 @@ const useDelete = createUseDelete({
     const active = array.toArray(data).find((k) => k === activeKey);
     if (active == null) return;
     store.dispatch(setActive(null));
-    store.dispatch(Layout.clearWorkspace());
+    store.dispatch(Layout.clearProject());
   },
 });
 
 const useRename = createUseRename({
   query: Base.useRename,
-  ontologyID: workspace.ontologyID,
+  ontologyID: project.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
@@ -80,12 +80,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   } = props;
   const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
-  const workspaceKey = ids[0].key;
-  const createPlot = LinePlot.useCreate({ workspace: workspaceKey });
-  const createLog = Log.useCreate({ workspace: workspaceKey });
-  const createTable = Table.useCreate({ workspace: workspaceKey });
+  const projectKey = ids[0].key;
+  const createPlot = LinePlot.useCreate({ project: projectKey });
+  const createLog = Log.useCreate({ project: projectKey });
+  const createTable = Table.useCreate({ project: projectKey });
   const firstID = selection.ids[0];
-  const createSchematic = Schematic.useCreate({ workspace: workspaceKey });
+  const createSchematic = Schematic.useCreate({ project: projectKey });
   const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
@@ -176,13 +176,13 @@ const handleSelect: Ontology.HandleSelect = ({
 }) => {
   const names = strings.naturalLanguageJoin(
     selection.map(({ name }) => name),
-    "workspace",
+    "project",
   );
   handleError(async () => {
-    const ws = await client.workspaces.retrieve(selection[0].id.key);
+    const ws = await client.projects.retrieve(selection[0].id.key);
     store.dispatch(setActive(ws));
     store.dispatch(
-      Layout.setWorkspace({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+      Layout.setProject({ slice: ws.layout as Layout.SliceState, keepNav: false }),
     );
   }, `Failed to select ${names}`);
 };
@@ -197,8 +197,8 @@ const VALID_CHILDREN: ontology.ResourceType[] = [
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
-  type: "workspace",
-  icon: <Icon.Workspace />,
+  type: "project",
+  icon: <Icon.Project />,
   onSelect: handleSelect,
   TreeContextMenu,
   canDrop: ({ items }) =>

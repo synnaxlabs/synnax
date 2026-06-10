@@ -19,20 +19,20 @@ import { Provider } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 import { Log } from "@/log";
-import { Workspace } from "@/workspace";
+import { Project } from "@/project";
 
 const consoleReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Log.SLICE_NAME]: Log.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Project.SLICE_NAME]: Project.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
 });
 
 export type ConsolePreloadedState = {
   [Layout.SLICE_NAME]?: Layout.SliceState;
   [Log.SLICE_NAME]?: Log.SliceState;
-  [Workspace.SLICE_NAME]?: Workspace.SliceState;
+  [Project.SLICE_NAME]?: Project.SliceState;
   [Cluster.SLICE_NAME]?: Cluster.SliceState;
 };
 

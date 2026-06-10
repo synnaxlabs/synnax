@@ -9,10 +9,10 @@
 
 import { Layout } from "@/layout";
 import { type Link } from "@/link";
-import { Workspace } from "@/workspace";
+import { Project } from "@/project";
 
 export const handleLink: Link.Handler = async ({ client, dispatch, key }) => {
-  const { layout, ...ws } = await client.workspaces.retrieve(key);
-  dispatch(Layout.setWorkspace({ slice: layout as Layout.SliceState }));
-  dispatch(Workspace.setActive(ws));
+  const { layout, ...ws } = await client.projects.retrieve(key);
+  dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
+  dispatch(Project.setActive(ws));
 };

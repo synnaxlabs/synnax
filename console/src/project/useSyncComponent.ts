@@ -15,8 +15,8 @@ import { useCallback, useEffect } from "react";
 import { useStore } from "react-redux";
 
 import { useDispatchEffect } from "@/hooks/useDispatchEffect";
+import { selectActiveKey, useSelectActiveKey } from "@/project/selectors";
 import { type RootState } from "@/store";
-import { selectActiveKey, useSelectActiveKey } from "@/workspace/selectors";
 
 interface UpdateParams {
   store: Store<RootState>;
@@ -25,7 +25,7 @@ interface UpdateParams {
 
 export interface SaveArgs {
   key: string;
-  workspace: string;
+  project: string;
   store: Store<RootState>;
   fluxStore: Pluto.FluxStore;
   client: Client;
@@ -43,7 +43,7 @@ export const createSyncComponent = (
       if (layoutKey == null || client == null) return false;
       const ws = selectActiveKey(store.getState());
       if (ws == null) return false;
-      await save({ key: layoutKey, workspace: ws, store, fluxStore, client });
+      await save({ key: layoutKey, project: ws, store, fluxStore, client });
       return data;
     },
   });

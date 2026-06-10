@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type workspace } from "@synnaxlabs/client";
+import { type project } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 
-import type * as v0 from "@/workspace/types/v0";
+import type * as v0 from "@/project/types/v0";
 
-export interface Workspace extends Omit<workspace.Workspace, "layout"> {}
+export interface Project extends Omit<project.Project, "layout"> {}
 
 export const VERSION = "1.0.0";
 type Version = typeof VERSION;
 
 export interface SliceState extends migrate.Migratable<Version> {
-  active: Workspace | null;
+  active: Project | null;
 }
 
 export const ZERO_SLICE_STATE: SliceState = {
@@ -26,12 +26,12 @@ export const ZERO_SLICE_STATE: SliceState = {
   active: null,
 };
 
-export const SLICE_MIGRATION_NAME = "workspace.slice";
+export const SLICE_MIGRATION_NAME = "project.slice";
 
 export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({
   name: SLICE_MIGRATION_NAME,
-  migrate: ({ active, workspaces }) => {
-    const ws = active != null ? { name: workspaces[active].name, key: active } : null;
+  migrate: ({ active, projects }) => {
+    const ws = active != null ? { name: projects[active].name, key: active } : null;
     return { active: ws, version: VERSION };
   },
 });

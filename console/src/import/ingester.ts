@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type Synnax, type workspace } from "@synnaxlabs/client";
+import { type ontology, type project,type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
 
 import { type Layout } from "@/layout";
@@ -23,7 +23,7 @@ export interface FileIngesterContext {
   placeLayout: Layout.Placer;
   store: Pluto.FluxStore;
   client: Synnax | null;
-  workspaceKey: workspace.Key;
+  projectKey: project.Key;
 }
 
 export interface FileIngester {

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type EnhancedStore } from "@reduxjs/toolkit";
-import { createTestClient, log, type Synnax, type workspace } from "@synnaxlabs/client";
+import { createTestClient, log, type project,type Synnax } from "@synnaxlabs/client";
 import { Log as PLog } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -16,37 +16,37 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Layout } from "@/layout";
 import { Log } from "@/log";
+import { Project } from "@/project";
 import { createConsoleWrapper } from "@/testUtils";
-import { Workspace } from "@/workspace";
 
 const client: Synnax = createTestClient();
 
-const stripLayout = (ws: workspace.Workspace): Workspace.Workspace => {
+const stripLayout = (ws: project.Project): Project.Project => {
   const { layout: _, ...rest } = ws;
   return rest;
 };
 
-const activeState = (ws: workspace.Workspace): Workspace.SliceState => ({
-  ...Workspace.ZERO_SLICE_STATE,
+const activeState = (ws: project.Project): Project.SliceState => ({
+  ...Project.ZERO_SLICE_STATE,
   active: stripLayout(ws),
 });
 
 const placedLog = (store: EnhancedStore): Layout.State | undefined =>
   Layout.selectByFilter(store.getState(), (l) => l.type === Log.LAYOUT_TYPE);
 
-const workspaceParents = async (logKey: string): Promise<string[]> =>
+const projectParents = async (logKey: string): Promise<string[]> =>
   (await client.ontology.retrieveParents(log.ontologyID(logKey))).map((r) => r.id.key);
 
 describe("createUseCreate", () => {
-  let workspaceA: workspace.Workspace;
-  let workspaceB: workspace.Workspace;
+  let projectA: project.Project;
+  let projectB: project.Project;
 
   beforeEach(async () => {
-    workspaceA = await client.workspaces.create({
+    projectA = await client.projects.create({
       name: `ws-a-${id.create()}`,
       layout: {},
     });
-    workspaceB = await client.workspaces.create({
+    projectB = await client.projects.create({
       name: `ws-b-${id.create()}`,
       layout: {},
     });
@@ -54,24 +54,24 @@ describe("createUseCreate", () => {
 
   const buildUseCreate = (
     args?: Partial<
-      Parameters<typeof Workspace.createUseCreate<PLog.CreateParams, log.Log>>[0]
+      Parameters<typeof Project.createUseCreate<PLog.CreateParams, log.Log>>[0]
     >,
   ) =>
-    Workspace.createUseCreate<PLog.CreateParams, log.Log>({
+    Project.createUseCreate<PLog.CreateParams, log.Log>({
       useCreate: PLog.useCreate,
       createSessionState: Log.create,
-      toCreateParams: ({ overrides, workspace }) => ({
+      toCreateParams: ({ overrides, project }) => ({
         name: "Log",
         ...overrides,
-        workspace,
+        project,
       }),
       ...args,
     });
 
-  it("creates the record under the active workspace with the default name and places its layout", async () => {
+  it("creates the record under the active project with the default name and places its layout", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Workspace.SLICE_NAME]: activeState(workspaceA) },
+      preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate();
     const { result } = renderHook(() => useCreate({}), { wrapper });
@@ -86,23 +86,23 @@ describe("createUseCreate", () => {
 
     const created = await client.logs.retrieve({ key: layout.key });
     expect(created.name).toBe("Log");
-    expect(await workspaceParents(layout.key)).toEqual([workspaceA.key]);
-    // The record was created in the already-active workspace, so the switch is a
-    // no-op and the active workspace stays put.
-    expect(Workspace.selectActiveKey(store.getState())).toBe(workspaceA.key);
+    expect(await projectParents(layout.key)).toEqual([projectA.key]);
+    // The record was created in the already-active project, so the switch is a
+    // no-op and the active project stays put.
+    expect(Project.selectActiveKey(store.getState())).toBe(projectA.key);
   });
 
   it("prefers caller init over defaults, and passes defaults through for unspecified fields", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Workspace.SLICE_NAME]: activeState(workspaceA) },
+      preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate({
-      toCreateParams: ({ overrides, workspace }) => ({
+      toCreateParams: ({ overrides, project }) => ({
         name: "Default Log",
         showChannelNames: false,
         ...overrides,
-        workspace,
+        project,
       }),
     });
     const { result } = renderHook(() => useCreate({}), { wrapper });
@@ -117,13 +117,13 @@ describe("createUseCreate", () => {
     expect(created.showChannelNames).toBe(false);
   });
 
-  it("creates the record under the workspace passed to the hook over the active one", async () => {
+  it("creates the record under the project passed to the hook over the active one", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Workspace.SLICE_NAME]: activeState(workspaceA) },
+      preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate();
-    const { result } = renderHook(() => useCreate({ workspace: workspaceB.key }), {
+    const { result } = renderHook(() => useCreate({ project: projectB.key }), {
       wrapper,
     });
 
@@ -132,10 +132,10 @@ describe("createUseCreate", () => {
     });
 
     await waitFor(() => expect(placedLog(store)).toBeDefined());
-    expect(await workspaceParents(placedLog(store)!.key)).toEqual([workspaceB.key]);
+    expect(await projectParents(placedLog(store)!.key)).toEqual([projectB.key]);
   });
 
-  it("creates the record outside any workspace when none is active or provided", async () => {
+  it("creates the record outside any project when none is active or provided", async () => {
     const { wrapper, store } = await createConsoleWrapper({ client });
     const useCreate = buildUseCreate();
     const { result } = renderHook(() => useCreate({}), { wrapper });
@@ -145,16 +145,16 @@ describe("createUseCreate", () => {
     });
 
     await waitFor(() => expect(placedLog(store)).toBeDefined());
-    expect(await workspaceParents(placedLog(store)!.key)).toEqual([]);
+    expect(await projectParents(placedLog(store)!.key)).toEqual([]);
   });
 
-  it("switches the active workspace to the workspace the record was created in", async () => {
+  it("switches the active project to the project the record was created in", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,
-      preloadedState: { [Workspace.SLICE_NAME]: activeState(workspaceA) },
+      preloadedState: { [Project.SLICE_NAME]: activeState(projectA) },
     });
     const useCreate = buildUseCreate();
-    const { result } = renderHook(() => useCreate({ workspace: workspaceB.key }), {
+    const { result } = renderHook(() => useCreate({ project: projectB.key }), {
       wrapper,
     });
 
@@ -163,7 +163,7 @@ describe("createUseCreate", () => {
     });
 
     await waitFor(() =>
-      expect(Workspace.selectActiveKey(store.getState())).toBe(workspaceB.key),
+      expect(Project.selectActiveKey(store.getState())).toBe(projectB.key),
     );
   });
 });

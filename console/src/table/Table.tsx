@@ -19,6 +19,7 @@ import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
 import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import {
   useSelectEditable,
   useSelectExists,
@@ -34,7 +35,6 @@ import {
   setSelectedCells,
 } from "@/table/slice";
 import { createUseAutoUpload } from "@/vis/useAutoUpload";
-import { Workspace } from "@/workspace";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
 
@@ -52,7 +52,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = useDispatch();
-  Workspace.useAdoptIntoActiveWorkspace(table.ontologyID(layoutKey));
+  Project.useAdoptIntoActiveProject(table.ontologyID(layoutKey));
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>

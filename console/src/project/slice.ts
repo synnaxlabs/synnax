@@ -8,18 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
-import { type workspace } from "@synnaxlabs/client";
+import { type project } from "@synnaxlabs/client";
 
-import { type SliceState, type Workspace, ZERO_SLICE_STATE } from "@/workspace/types";
+import { type Project, type SliceState, ZERO_SLICE_STATE } from "@/project/types";
 
-export const SLICE_NAME = "workspace";
+export const SLICE_NAME = "project";
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
 export interface MaybeRenamePayload {
-  key: workspace.Key;
+  key: project.Key;
   name: string;
 }
 
@@ -27,7 +27,7 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    setActive: (state, { payload }: PayloadAction<Workspace | null>) => {
+    setActive: (state, { payload }: PayloadAction<Project | null>) => {
       state.active = payload;
     },
     maybeRename: (

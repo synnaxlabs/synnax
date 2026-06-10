@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-workspace__selector {
+.console-project__selector {
     flex-shrink: 1;
     width: 200px;
     max-width: 300px;

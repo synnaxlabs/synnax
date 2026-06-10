@@ -14,7 +14,7 @@ import {
   type Store,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { createTestClient, type Synnax, workspace } from "@synnaxlabs/client";
+import { createTestClient, project,type Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Access, Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id } from "@synnaxlabs/x";
@@ -25,12 +25,12 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
+import { Project } from "@/project";
+import { ProjectServices } from "@/project/services";
 import { Schematic } from "@/schematic";
 import { SchematicServices } from "@/schematic/services";
 import { Table } from "@/table";
 import { TableServices } from "@/table/services";
-import { Workspace } from "@/workspace";
-import { WorkspaceServices } from "@/workspace/services";
 
 const client: Synnax = createTestClient();
 
@@ -72,7 +72,7 @@ const rootReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Project.SLICE_NAME]: Project.reducer,
   drift: Drift.reducer,
 }) as unknown as Reducer<Record<string, unknown>, UnknownAction>;
 
@@ -114,7 +114,7 @@ interface HarnessValue {
   granted: boolean;
 }
 
-describe("workspace import", () => {
+describe("project import", () => {
   let fluxClient: Flux.Client;
 
   beforeAll(async () => {
@@ -142,13 +142,13 @@ describe("workspace import", () => {
       () => ({
         placer: Layout.usePlacer(),
         fluxStore: Flux.useStore<Pluto.FluxStore>(),
-        granted: Access.useUpdateGranted(workspace.TYPE_ONTOLOGY_ID),
+        granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
       }),
       { wrapper },
     );
     await waitFor(() => expect(result.current.granted).toBe(true));
     await act(async () => {
-      await WorkspaceServices.ingest(`ws-${id.create()}`, fileList, {
+      await ProjectServices.ingest(`ws-${id.create()}`, fileList, {
         client,
         fileIngesters: FILE_INGESTERS,
         placeLayout: result.current.placer,
@@ -160,7 +160,7 @@ describe("workspace import", () => {
   };
 
   const files = (layoutSlice: unknown = exportedSlice()): Import.File[] => [
-    { name: Workspace.LAYOUT_FILE_NAME, data: layoutSlice },
+    { name: Project.LAYOUT_FILE_NAME, data: layoutSlice },
     { name: "Operator.json", data: SCHEMATIC_DATA },
     { name: "Thermocouples.json", data: TABLE_DATA },
   ];
@@ -197,7 +197,7 @@ describe("workspace import", () => {
     ).resolves.toBeDefined();
   });
 
-  it("imports a workspace whose exported themes predate current theme fields", async () => {
+  it("imports a project whose exported themes predate current theme fields", async () => {
     const store = await runImport(files(staleThemesSlice()));
     expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(1);
     expect(layoutsOfType(store, TABLE_TYPE)).toHaveLength(1);

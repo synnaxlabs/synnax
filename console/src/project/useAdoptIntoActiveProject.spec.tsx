@@ -13,12 +13,7 @@ import {
   type Reducer,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import {
-  createTestClient,
-  type Synnax,
-  table,
-  type workspace,
-} from "@synnaxlabs/client";
+import { createTestClient, type project,type Synnax, table } from "@synnaxlabs/client";
 import { Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -26,17 +21,17 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Workspace } from "@/workspace";
-import { useAdoptIntoActiveWorkspace } from "@/workspace/useAdoptIntoActiveWorkspace";
+import { Project } from "@/project";
+import { useAdoptIntoActiveProject } from "@/project/useAdoptIntoActiveProject";
 
 const client: Synnax = createTestClient();
 
 interface RootState {
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Project.SLICE_NAME]: Project.SliceState;
 }
 
 const rootReducer = combineReducers({
-  [Workspace.SLICE_NAME]: Workspace.reducer,
+  [Project.SLICE_NAME]: Project.reducer,
 }) as unknown as Reducer<RootState, UnknownAction>;
 
 type RootStore = ReturnType<typeof configureStore<RootState>>;
@@ -46,14 +41,12 @@ interface Harness {
   store: RootStore;
 }
 
-const stripLayout = (ws: workspace.Workspace): Omit<workspace.Workspace, "layout"> => {
+const stripLayout = (ws: project.Project): Omit<project.Project, "layout"> => {
   const { layout: _, ...rest } = ws;
   return rest;
 };
 
-const buildHarness = async (
-  activeWorkspace?: workspace.Workspace,
-): Promise<Harness> => {
+const buildHarness = async (activeProject?: project.Project): Promise<Harness> => {
   const fluxClient = new Flux.Client({
     client,
     storeConfig: Pluto.FLUX_STORE_CONFIG,
@@ -62,9 +55,9 @@ const buildHarness = async (
   });
   await fluxClient.awaitInitialized();
   const preloadedState: RootState = {
-    [Workspace.SLICE_NAME]: {
-      ...Workspace.ZERO_SLICE_STATE,
-      active: activeWorkspace != null ? stripLayout(activeWorkspace) : null,
+    [Project.SLICE_NAME]: {
+      ...Project.ZERO_SLICE_STATE,
+      active: activeProject != null ? stripLayout(activeProject) : null,
     },
   };
   const store = configureStore({ reducer: rootReducer, preloadedState });
@@ -91,66 +84,66 @@ const createOrphanTable = async (): Promise<string> => {
   return key;
 };
 
-describe("useAdoptIntoActiveWorkspace", () => {
-  let workspaceA: workspace.Workspace;
-  let workspaceB: workspace.Workspace;
+describe("useAdoptIntoActiveProject", () => {
+  let projectA: project.Project;
+  let projectB: project.Project;
 
   beforeEach(async () => {
-    workspaceA = await client.workspaces.create({
+    projectA = await client.projects.create({
       name: `ws-a-${id.create()}`,
       layout: {},
     });
-    workspaceB = await client.workspaces.create({
+    projectB = await client.projects.create({
       name: `ws-b-${id.create()}`,
       layout: {},
     });
   });
 
-  it("adopts an orphaned resource into the workspace active on mount", async () => {
+  it("adopts an orphaned resource into the project active on mount", async () => {
     const tableKey = await createOrphanTable();
     expect(await parentKeys(tableKey)).toHaveLength(0);
-    const { wrapper } = await buildHarness(workspaceA);
-    renderHook(() => useAdoptIntoActiveWorkspace(table.ontologyID(tableKey)), {
+    const { wrapper } = await buildHarness(projectA);
+    renderHook(() => useAdoptIntoActiveProject(table.ontologyID(tableKey)), {
       wrapper,
     });
     await waitFor(async () =>
-      expect(await parentKeys(tableKey)).toEqual([workspaceA.key]),
+      expect(await parentKeys(tableKey)).toEqual([projectA.key]),
     );
   });
 
-  it("adopts an orphaned resource when a workspace becomes active after mount", async () => {
+  it("adopts an orphaned resource when a project becomes active after mount", async () => {
     const tableKey = await createOrphanTable();
     const { wrapper, store } = await buildHarness();
-    renderHook(() => useAdoptIntoActiveWorkspace(table.ontologyID(tableKey)), {
+    renderHook(() => useAdoptIntoActiveProject(table.ontologyID(tableKey)), {
       wrapper,
     });
     act(() => {
-      store.dispatch(Workspace.setActive(stripLayout(workspaceA)));
+      store.dispatch(Project.setActive(stripLayout(projectA)));
     });
-    // The resource ends up parented to exactly the workspace that became active,
-    // which would not hold if the hook had acted while no workspace was active.
+    // The resource ends up parented to exactly the project that became active,
+    // which would not hold if the hook had acted while no project was active.
     await waitFor(async () =>
-      expect(await parentKeys(tableKey)).toEqual([workspaceA.key]),
+      expect(await parentKeys(tableKey)).toEqual([projectA.key]),
     );
   });
 
-  it("does not transfer a resource that already belongs to another workspace", async () => {
+  it("does not transfer a resource that already belongs to another project", async () => {
     const ownedKey = uuid.create();
-    await client.tables.create(workspaceA.key, { key: ownedKey, name: "in-a" });
+    await client.tables.create(projectA.key, { key: ownedKey, name: "in-a" });
     const orphanKey = await createOrphanTable();
-    const { wrapper } = await buildHarness(workspaceB);
+    const { wrapper } = await buildHarness(projectB);
     renderHook(
       () => {
-        useAdoptIntoActiveWorkspace(table.ontologyID(ownedKey));
-        useAdoptIntoActiveWorkspace(table.ontologyID(orphanKey));
+        useAdoptIntoActiveProject(table.ontologyID(ownedKey));
+        useAdoptIntoActiveProject(table.ontologyID(orphanKey));
       },
       { wrapper },
     );
     // Adopting the orphan into B is the barrier: it takes strictly more server round
     // trips than the owned table's decision, so once it lands both effects have run.
     await waitFor(async () =>
-      expect(await parentKeys(orphanKey)).toEqual([workspaceB.key]),
+      expect(await parentKeys(orphanKey)).toEqual([projectB.key]),
     );
-    expect(await parentKeys(ownedKey)).toEqual([workspaceA.key]);
+    expect(await parentKeys(ownedKey)).toEqual([projectA.key]);
   });
 });

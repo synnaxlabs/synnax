@@ -7,23 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type workspace } from "@synnaxlabs/client";
+import { type project } from "@synnaxlabs/client";
 
 import { useMemoSelect } from "@/hooks";
-import { SLICE_NAME, type StoreState } from "@/workspace/slice";
-import { type SliceState, type Workspace } from "@/workspace/types";
+import { SLICE_NAME, type StoreState } from "@/project/slice";
+import { type Project,type SliceState } from "@/project/types";
 
 const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const selectActive = (state: StoreState): Workspace | null =>
+export const selectActive = (state: StoreState): Project | null =>
   selectState(state).active;
 
-export const useSelectActive = (): Workspace | null => useMemoSelect(selectActive, []);
+export const useSelectActive = (): Project | null => useMemoSelect(selectActive, []);
 
-export const selectActiveKey = (state: StoreState): workspace.Key | null =>
+export const selectActiveKey = (state: StoreState): project.Key | null =>
   selectState(state).active?.key ?? null;
 
-export const useSelectActiveKey = (): workspace.Key | null =>
+export const useSelectActiveKey = (): project.Key | null =>
   useMemoSelect(selectActiveKey, []);
 
 export const selectActiveName = (state: StoreState): string | null =>

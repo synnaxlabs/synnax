@@ -11,11 +11,11 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
-import { setActive } from "@/workspace/slice";
+import { setActive } from "@/project/slice";
 
-// useCheckCore is a hook run to make sure that the active workspace is not saved when
+// useCheckCore is a hook run to make sure that the active project is not saved when
 // switching clusters, making sure the user doesn't accidentally lose data because of a
-// mismatch with a workspace that does not exist.
+// mismatch with a project that does not exist.
 export const useCheckCore = (): void => {
   const currentClientKey = Synnax.use()?.key;
   const dispatch = useDispatch();

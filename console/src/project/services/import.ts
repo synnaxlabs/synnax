@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, type Synnax, workspace } from "@synnaxlabs/client";
+import { DisconnectedError, project,type Synnax } from "@synnaxlabs/client";
 import { Access, Mosaic, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { Runtime } from "@/runtime";
-import { Workspace } from "@/workspace";
 
 // Rewrites every reference to an imported component's original key with the key of the
 // resource actually created for it. Without it the original-key tabs resolve to nothing
@@ -49,7 +49,7 @@ const remapLayoutKeys = (
   return next;
 };
 
-// Swaps imported themes for the current defaults before validation. setWorkspace
+// Swaps imported themes for the current defaults before validation. setProject
 // discards imported themes anyway, so a stale theme blob from an older export must not
 // fail anySliceStateZ and block the import.
 const stripThemes = (data: unknown): unknown => {
@@ -66,21 +66,19 @@ export const ingest: Import.DirectoryIngester = async (
   files,
   { client, fileIngesters, placeLayout, store, fluxStore },
 ) => {
-  if (
-    !Access.updateGranted({ id: workspace.TYPE_ONTOLOGY_ID, store: fluxStore, client })
-  )
-    throw new Error("You do not have permission to import workspaces");
+  if (!Access.updateGranted({ id: project.TYPE_ONTOLOGY_ID, store: fluxStore, client }))
+    throw new Error("You do not have permission to import projects");
   if (client == null) throw new DisconnectedError();
-  const layoutData = files.find((file) => file.name === Workspace.LAYOUT_FILE_NAME);
-  if (layoutData == null) throw new Error(`${Workspace.LAYOUT_FILE_NAME} not found`);
+  const layoutData = files.find((file) => file.name === Project.LAYOUT_FILE_NAME);
+  if (layoutData == null) throw new Error(`${Project.LAYOUT_FILE_NAME} not found`);
   const layout = Layout.migrateSlice(
     Layout.anySliceStateZ.parse(stripThemes(layoutData.data)),
   );
   const wsKey = uuid.create();
-  const ws: workspace.Workspace = { key: wsKey, name, layout };
-  // Create the workspace first so imported components can be parented to it; its layout
+  const ws: project.Project = { key: wsKey, name, layout };
+  // Create the project first so imported components can be parented to it; its layout
   // is rewritten and installed below once their real keys are known.
-  await client.workspaces.create(ws);
+  await client.projects.create(ws);
 
   const remap = new Map<string, string>();
   for (const [key, childLayout] of Object.entries(layout.layouts)) {
@@ -101,15 +99,15 @@ export const ingest: Import.DirectoryIngester = async (
       placeLayout,
       store: fluxStore,
       client,
-      workspaceKey: wsKey,
+      projectKey: wsKey,
     });
     if (id != null && id.key !== key) remap.set(key, id.key);
   }
 
   const remappedLayout = remapLayoutKeys(layout, remap);
-  store.dispatch(Workspace.setActive(ws));
-  store.dispatch(Layout.setWorkspace({ slice: remappedLayout, keepNav: false }));
-  if (remap.size > 0) await client.workspaces.setLayout(wsKey, remappedLayout);
+  store.dispatch(Project.setActive(ws));
+  store.dispatch(Layout.setProject({ slice: remappedLayout, keepNav: false }));
+  if (remap.size > 0) await client.projects.setLayout(wsKey, remappedLayout);
 };
 
 export interface IngestContext {
@@ -129,9 +127,9 @@ export const import_ = ({
   store,
   fluxStore,
 }: IngestContext) => {
-  let name: string | undefined = "workspace";
+  let name: string | undefined = "project";
   handleError(async () => {
-    const directory = await Runtime.pickDirectory({ title: "Import a Workspace" });
+    const directory = await Runtime.pickDirectory({ title: "Import a Project" });
     if (directory == null) return;
     name = directory.name;
     const fileData = await Promise.all(

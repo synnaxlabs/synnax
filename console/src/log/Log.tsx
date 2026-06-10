@@ -18,9 +18,9 @@ import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import { useSelectExists, useSelectPendingUpload } from "@/log/selectors";
 import { clearPendingUpload, internalCreate, setActiveToolbarTab } from "@/log/slice";
+import { Project } from "@/project";
 import { type RootState } from "@/store";
 import { createUseAutoUpload } from "@/vis/useAutoUpload";
-import { Workspace } from "@/workspace";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/log/layout";
 
@@ -37,7 +37,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   PLog.useEnsureRetrieved({ key: layoutKey });
   const dispatch = useDispatch();
   const store = useStore<RootState>();
-  Workspace.useAdoptIntoActiveWorkspace(log.ontologyID(layoutKey));
+  Project.useAdoptIntoActiveProject(log.ontologyID(layoutKey));
   const channelKeys = PLog.useSelectChannelKeys({ key: layoutKey });
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 

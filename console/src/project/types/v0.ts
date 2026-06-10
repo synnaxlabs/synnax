@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type workspace } from "@synnaxlabs/client";
+import { type project } from "@synnaxlabs/client";
 import { type migrate } from "@synnaxlabs/x";
 
 export const VERSION = "0.0.0";
@@ -15,11 +15,11 @@ type Version = typeof VERSION;
 
 export interface SliceState extends migrate.Migratable<Version> {
   active: string | null;
-  workspaces: Record<string, workspace.Workspace>;
+  projects: Record<string, project.Project>;
 }
 
 export const ZERO_SLICE_STATE: SliceState = {
   version: VERSION,
   active: null,
-  workspaces: {},
+  projects: {},
 };

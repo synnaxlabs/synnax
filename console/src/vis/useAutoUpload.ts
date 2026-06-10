@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction } from "@reduxjs/toolkit";
-import { type workspace } from "@synnaxlabs/client";
+import { type project } from "@synnaxlabs/client";
 import { type Flux } from "@synnaxlabs/pluto";
 import { useCallback, useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { Workspace } from "@/workspace";
+import { Project } from "@/project";
 
 export interface ClearPendingUploadPayload {
   key: string;
@@ -23,7 +23,7 @@ export interface ClearPendingUploadPayload {
 export interface UploadFields {
   key: string;
   name: string;
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 export interface CreateUseAutoUploadArgs<
@@ -61,10 +61,10 @@ export const createUseAutoUpload =
   (key) => {
     const pendingUpload = useSelectPendingUpload(key);
     const name = Layout.useSelectRequiredName(key);
-    const workspace = Workspace.useSelectActiveKey() ?? undefined;
+    const project = Project.useSelectActiveKey() ?? undefined;
     const dispatch = useDispatch();
     // Guards against a second create while the first is in flight: the effect re-runs if
-    // workspaceKey or name changes before afterSuccess clears pendingUpload. A remount
+    // projectKey or name changes before afterSuccess clears pendingUpload. A remount
     // (new instance) resets the ref, so a failed upload still retries.
     const startedRef = useRef(false);
     const { update: create } = useCreate({
@@ -78,7 +78,7 @@ export const createUseAutoUpload =
     useEffect(() => {
       if (pendingUpload == null || startedRef.current) return;
       startedRef.current = true;
-      create(toCreateParams(pendingUpload, { key, name, workspace }));
-    }, [pendingUpload, workspace, key, create, name, toCreateParams]);
+      create(toCreateParams(pendingUpload, { key, name, project }));
+    }, [pendingUpload, project, key, create, name, toCreateParams]);
     return pendingUpload == null;
   };

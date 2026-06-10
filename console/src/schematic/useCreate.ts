@@ -9,15 +9,15 @@
 
 import { Schematic } from "@synnaxlabs/pluto";
 
+import { Project } from "@/project";
 import { create } from "@/schematic/layout";
-import { Workspace } from "@/workspace";
 
-export const useCreate = Workspace.createUseCreate({
+export const useCreate = Project.createUseCreate({
   useCreate: Schematic.useCreate,
-  toCreateParams: ({ overrides, workspace }) => ({
+  toCreateParams: ({ overrides, project }) => ({
     name: "Schematic",
     ...overrides,
-    workspace,
+    project,
   }),
   createSessionState: ({ key, name }) => create({ key, name, editable: true }),
 });

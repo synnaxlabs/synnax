@@ -12,8 +12,8 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { useSelectActiveKey } from "@/workspace/selectors";
-import { setActive } from "@/workspace/slice";
+import { useSelectActiveKey } from "@/project/selectors";
+import { setActive } from "@/project/slice";
 
 export const useMaybeChange = (): ((key: string) => Promise<void>) => {
   const dispatch = useDispatch();
@@ -22,10 +22,8 @@ export const useMaybeChange = (): ((key: string) => Promise<void>) => {
   return async (key) => {
     if (activeWS === key) return;
     if (client == null) throw new DisconnectedError();
-    const { layout, ...ws } = await client.workspaces.retrieve(key);
+    const { layout, ...ws } = await client.projects.retrieve(key);
     dispatch(setActive(ws));
-    dispatch(
-      Layout.setWorkspace({ slice: layout as Layout.SliceState, keepNav: false }),
-    );
+    dispatch(Layout.setProject({ slice: layout as Layout.SliceState, keepNav: false }));
   };
 };

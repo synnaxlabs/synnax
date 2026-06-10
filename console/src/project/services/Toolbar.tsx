@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { workspace } from "@synnaxlabs/client";
-import { Access, Icon, Workspace } from "@synnaxlabs/pluto";
+import { project } from "@synnaxlabs/client";
+import { Access, Icon, Project } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-import { CREATE_LAYOUT } from "@/workspace/Create";
+import { CREATE_LAYOUT } from "@/project/Create";
 
 const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
       <Toolbar.Action
         onClick={() => placeLayout(CREATE_LAYOUT)}
-        tooltip="Create workspace"
+        tooltip="Create project"
       >
         <Icon.Add />
       </Toolbar.Action>
@@ -33,11 +33,11 @@ const Actions = (): ReactElement | null => {
 };
 
 const Content = (): ReactElement => {
-  const { data: groupID } = Workspace.useRetrieveGroupID({});
+  const { data: groupID } = Project.useRetrieveGroupID({});
   return (
     <Toolbar.Content>
       <Toolbar.Header padded>
-        <Toolbar.Title icon={<Icon.Workspace />}>Workspaces</Toolbar.Title>
+        <Toolbar.Title icon={<Icon.Project />}>Projects</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
       <Ontology.Tree root={groupID} emptyContent={<EmptyContent />} />
@@ -47,22 +47,22 @@ const Content = (): ReactElement => {
 
 const EmptyContent = () => {
   const placeLayout = Layout.usePlacer();
-  const hasCreatePermission = Access.useCreateGranted(workspace.TYPE_ONTOLOGY_ID);
+  const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const handleClick = () => placeLayout(CREATE_LAYOUT);
   return (
     <EmptyAction
-      message="No workspaces found."
-      action={hasCreatePermission ? "Create a workspace" : undefined}
+      message="No projects found."
+      action={hasCreatePermission ? "Create a project" : undefined}
       onClick={handleClick}
     />
   );
 };
 
 export const TOOLBAR: Layout.NavDrawerItem = {
-  key: "workspace",
-  icon: <Icon.Workspace />,
+  key: "project",
+  icon: <Icon.Project />,
   content: <Content />,
-  tooltip: "Workspaces",
+  tooltip: "Projects",
   trigger: ["W"],
   initialSize: 300,
   minSize: 175,

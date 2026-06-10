@@ -35,8 +35,8 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
+import { Project } from "@/project";
 import { Range } from "@/range";
-import { Workspace } from "@/workspace";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
@@ -69,10 +69,10 @@ const handleSelect: Ontology.HandleSelect = ({
       break;
     }
     default: {
-      const workspace = Workspace.selectActiveKey(state) ?? uuid.ZERO;
+      const project = Project.selectActiveKey(state) ?? uuid.ZERO;
       const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_KEY;
       handleError(async () => {
-        const { key, name } = await client.lineplots.create(workspace, {
+        const { key, name } = await client.lineplots.create(project, {
           name: "Line Plot",
           channels: { y1: nonVirtualSelection },
           ranges: { x1: [activeRange] },
