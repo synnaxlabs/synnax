@@ -1298,7 +1298,13 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodSchemaType = "typeof record.nullishToEmpty()"
 		}
 	} else if isAnyOptional {
-		if !field.Type.IsTypeParam() {
+		if isUnionField(field, table) {
+			// Optional union-typed fields tolerate null: the Go side
+			// marshals a nil-variant union as null.
+			addXImport(data, xImport{name: "zod", submodule: "zod"})
+			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s)", fd.ZodType)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<%s>>", fd.ZodSchemaType)
+		} else if !field.Type.IsTypeParam() {
 			fd.ZodType += ".optional()"
 		} else if field.IsHardOptional {
 			// Hard-optional (??) on a type-param field: the field is ALWAYS
@@ -1319,6 +1325,17 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.ZodType = fmt.Sprintf("caseconv.preserveKeys(%s)", fd.ZodType)
 	}
 	return fd
+}
+
+// isUnionField reports whether a field's type resolves to a discriminated
+// union.
+func isUnionField(field resolution.Field, table *resolution.Table) bool {
+	resolved, ok := field.Type.Resolve(table)
+	if !ok {
+		return false
+	}
+	_, isUnion := resolved.Form.(resolution.UnionForm)
+	return isUnion
 }
 
 func getFieldTypeOverride(field resolution.Field, domainName string) string {
