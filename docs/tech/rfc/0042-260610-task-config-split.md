@@ -102,8 +102,8 @@ normalize old-shaped wire input. Clients only ever see the current shape.
 `Task` keeps `Key`, `Name`, `Type`, `Internal`, and `Snapshot` as stored fields.
 `Config` becomes a resolved field: present on the type and serialized on the wire, but
 marked with the storage-exclusion marker (RFC 0041 §4.6.1) so the storage codec skips
-it. For task types on the fallback path, the config continues to be stored on the task
-under a legacy field until the final cutover stage removes it for migrated types.
+it. Fallback-path task types keep storing config on the task; the final cutover stage
+clears it for migrated types only.
 
 ## 4.1 - Config Services
 
