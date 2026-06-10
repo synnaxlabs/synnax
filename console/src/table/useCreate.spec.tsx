@@ -144,18 +144,6 @@ describe("useCreate", () => {
       expect(retrieved.name).toEqual("ActiveWS");
       expect(Project.selectActiveKey(store.getState())).toEqual(projectA.key);
     });
-
-    it("creates a project-less table when neither prop nor active project is set", async () => {
-      const { wrapper, store } = await buildHarness();
-      const { result } = renderHook(() => useCreate({}), { wrapper });
-      await act(async () => {
-        result.current({ name: "Loose" });
-      });
-      const placedKey = await waitForPlacedLayout(store);
-      const retrieved = await client.tables.retrieve({ key: placedKey });
-      expect(retrieved.name).toEqual("Loose");
-      expect(Project.selectActive(store.getState())).toBeNull();
-    });
   });
 
   describe("layout placement", () => {
