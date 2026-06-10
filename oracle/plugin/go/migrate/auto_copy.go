@@ -326,13 +326,47 @@ func (c *collector) structFuncFromForms(
 		c.addField(&fn, ext, "old."+name, name, false)
 	}
 	for _, oldField := range oldSF.Fields {
-		if findField(newSF.Fields, oldField.Name) == nil {
+		newField := findField(newSF.Fields, oldField.Name)
+		if newField == nil {
+			continue
+		}
+		if c.unionMismatch(oldField.Type, newField.Type) {
 			continue
 		}
 		name := naming.GetFieldName(oldField)
 		c.addField(&fn, oldField.Type, "old."+name, name, oldField.IsHardOptional)
 	}
 	return fn
+}
+
+// unionMismatch reports whether a field's old and new types disagree on
+// union-ness at any position, which auto-copy cannot bridge; such fields are
+// left to the hand-written migration.
+func (c *collector) unionMismatch(oldRef, newRef resolution.TypeRef) bool {
+	if isUnionIn(oldRef, c.oldTable) != isUnionIn(newRef, c.newTable) {
+		return true
+	}
+	n := len(oldRef.TypeArgs)
+	if len(newRef.TypeArgs) < n {
+		n = len(newRef.TypeArgs)
+	}
+	for i := range n {
+		if c.unionMismatch(oldRef.TypeArgs[i], newRef.TypeArgs[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// isUnionIn reports whether a type reference resolves to a discriminated
+// union within the given table.
+func isUnionIn(ref resolution.TypeRef, table *resolution.Table) bool {
+	resolved, ok := ref.Resolve(table)
+	if !ok {
+		return false
+	}
+	_, isUnion := resolved.Form.(resolution.UnionForm)
+	return isUnion
 }
 
 func (c *collector) addField(fn *funcData, ref resolution.TypeRef, accessor, goName string, isOptional bool) {
