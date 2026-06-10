@@ -2013,6 +2013,122 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Variants[2].Name).To(Equal("none"))
 		})
 
+		It("Should expand a union extending other unions into their variant union", func(ctx SpecContext) {
+			source := `
+				TankConfig struct { width float64 }
+				PipeConfig struct { length float64 }
+
+				NodeConfig union on variant {
+					tank TankConfig
+				}
+
+				EdgeConfig union on variant {
+					pipe PipeConfig
+				}
+
+				ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			el := table.MustGet("schematic.ElementConfig")
+			form := el.Form.(resolution.UnionForm)
+			Expect(form.Extends).To(BeEmpty())
+			Expect(form.Variants).To(HaveLen(2))
+			Expect(form.Variants[0].Name).To(Equal("tank"))
+			Expect(form.Variants[0].Type.Name).To(Equal("schematic.TankConfig"))
+			Expect(form.Variants[1].Name).To(Equal("pipe"))
+
+			node := table.MustGet("schematic.NodeConfig")
+			Expect(node.Form.(resolution.UnionForm).Variants).To(HaveLen(1))
+		})
+
+		It("Should allow an extending union to declare additional variants", func(ctx SpecContext) {
+			source := `
+				TankConfig struct {}
+				GroupConfig struct {}
+
+				NodeConfig union on variant {
+					tank TankConfig
+				}
+
+				ElementConfig union on variant extends NodeConfig {
+					group GroupConfig
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
+			Expect(form.Variants).To(HaveLen(2))
+			Expect(form.Variants[1].Name).To(Equal("group"))
+		})
+
+		It("Should reject extended unions with conflicting variant payloads", func(ctx SpecContext) {
+			source := `
+				TankConfig struct {}
+				OtherConfig struct {}
+
+				A union on variant {
+					tank TankConfig
+				}
+
+				B union on variant {
+					tank OtherConfig
+				}
+
+				ElementConfig union on variant extends A, B {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("conflicting payload types"))
+		})
+
+		It("Should reject extending unions with a different discriminator", func(ctx SpecContext) {
+			source := `
+				TankConfig struct {}
+
+				A union on kind {
+					tank TankConfig
+				}
+
+				ElementConfig union on variant extends A {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("different discriminator"))
+		})
+
+		It("Should reject mixing struct and union bases in extends", func(ctx SpecContext) {
+			source := `
+				Base struct { key string }
+				TankConfig struct {}
+
+				A union on variant {
+					tank TankConfig
+				}
+
+				ElementConfig union on variant extends A, Base {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("cannot mix struct and union bases"))
+		})
+
+		It("Should reject cyclic union extends chains", func(ctx SpecContext) {
+			source := `
+				TankConfig struct {}
+
+				A union on variant extends B {
+					tank TankConfig
+				}
+
+				B union on variant extends A {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("cyclic extends chain"))
+		})
+
 		It("Should collect a union with extends (shared base struct)", func(ctx SpecContext) {
 			source := `
 				BaseAIChannel struct {
