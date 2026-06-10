@@ -1688,6 +1688,35 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		cppPlugin = types.New(types.DefaultOptions())
 	})
 
+	It("Should resolve a union field from an imported namespace", func(ctx SpecContext) {
+		loader.Add("schemas/scale", `
+			@cpp output "client/cpp/scale"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none   NoneScale
+			}
+		`)
+		source := `
+			import "schemas/scale"
+
+			@cpp output "client/cpp/ni"
+
+			Channel struct {
+				custom_scale scale.Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`#include "client/cpp/scale/types.gen.h"`,
+				"::scale::Scale custom_scale;",
+			)
+	})
+
 	It("Should render a per-variant doc comment on the variant struct", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"

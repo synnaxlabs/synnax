@@ -2080,7 +2080,9 @@ var _ = Describe("Analyzer", func() {
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "schematic", loader)
 			Expect(diag.Ok()).To(BeFalse())
-			Expect(diag.Error()).To(ContainSubstring("conflicting payload types"))
+			Expect(diag.Error()).To(
+				ContainSubstring("conflicting payload types from schematic.B (schematic.TankConfig vs schematic.OtherConfig)"),
+			)
 		})
 
 		It("Should reject extending unions with a different discriminator", func(ctx SpecContext) {
@@ -2328,6 +2330,89 @@ var _ = Describe("Analyzer", func() {
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.Error()).To(ContainSubstring(`declares a field named "variant"`))
+		})
+
+		It("Should error when a variant references an unresolved type", func(ctx SpecContext) {
+			source := `
+				Foo union on type {
+					a MissingStruct
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(
+				ContainSubstring(`union Foo variant "a" references unresolved type: MissingStruct`),
+			)
+		})
+
+		It("Should error when a variant references a non-struct type", func(ctx SpecContext) {
+			source := `
+				Color enum {
+					red = "red"
+				}
+
+				Foo union on type {
+					a Color
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(
+				ContainSubstring(`union Foo variant "a" must reference a struct type, got: test.Color`),
+			)
+		})
+
+		It("Should error when extends targets an unresolved type", func(ctx SpecContext) {
+			source := `
+				A struct {}
+
+				Foo union on type extends Missing {
+					a A
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring("union Foo extends unresolved type"))
+		})
+
+		It("Should error when extends targets a non-struct type", func(ctx SpecContext) {
+			source := `
+				Color enum {
+					red = "red"
+				}
+
+				A struct {}
+
+				Foo union on type extends Color {
+					a A
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(
+				ContainSubstring("union Foo extends non-struct type at position 1: Color"),
+			)
+		})
+
+		It("Should error when extending a union that itself extends structs", func(ctx SpecContext) {
+			source := `
+				Base struct {
+					name string
+				}
+
+				TankConfig struct {}
+
+				A union on variant extends Base {
+					tank TankConfig
+				}
+
+				ElementConfig union on variant extends A {}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(
+				ContainSubstring("union test.ElementConfig cannot extend union test.A, which extends base structs"),
+			)
 		})
 
 		It("Should error on empty union", func(ctx SpecContext) {

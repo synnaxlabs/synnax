@@ -2217,36 +2217,29 @@ func (u *rtChan) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func TestGoUnionCodecRoundTrip(t *testing.T) {
-	in := rtChan{Variant: rtChanV{
-		rtBase:    rtBase{Port: 7},
-		rtVoltage: rtVoltage{MinVal: -10, Scale: rtScale{Variant: rtScaleLinear{rtLinearScale{Slope: 1.5}}}},
-	}}
-	data, err := gojson.Marshal(in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var m map[string]any
-	if err := gojson.Unmarshal(data, &m); err != nil {
-		t.Fatal(err)
-	}
-	for _, k := range []string{"type", "port", "min_val", "custom_scale"} {
-		if _, ok := m[k]; !ok {
-			t.Fatalf("missing internally-tagged key %q in %s", k, data)
-		}
-	}
-	if m["type"] != "v" {
-		t.Fatalf("bad discriminator: %v", m["type"])
-	}
-	if m["custom_scale"].(map[string]any)["type"] != "linear" {
-		t.Fatalf("nested union not internally tagged: %s", data)
-	}
-	var out rtChan
-	if err := gojson.Unmarshal(data, &out); err != nil {
-		t.Fatal(err)
-	}
-	got := out.Variant.(rtChanV)
-	if got.Port != 7 || got.MinVal != -10 || got.Scale.Variant.(rtScaleLinear).Slope != 1.5 {
-		t.Fatalf("round trip lost data: %+v", got)
-	}
-}
+var _ = Describe("Union codec round trip", func() {
+	It("Should round-trip an internally-tagged union with a nested union", func() {
+		in := rtChan{Variant: rtChanV{
+			rtBase: rtBase{Port: 7},
+			rtVoltage: rtVoltage{
+				MinVal: -10,
+				Scale:  rtScale{Variant: rtScaleLinear{rtLinearScale{Slope: 1.5}}},
+			},
+		}}
+		data := MustSucceed(gojson.Marshal(in))
+		var m map[string]any
+		Expect(gojson.Unmarshal(data, &m)).To(Succeed())
+		Expect(m).To(SatisfyAll(
+			HaveKeyWithValue("type", "v"),
+			HaveKey("port"),
+			HaveKey("min_val"),
+			HaveKeyWithValue("custom_scale", HaveKeyWithValue("type", "linear")),
+		))
+		var out rtChan
+		Expect(gojson.Unmarshal(data, &out)).To(Succeed())
+		got := out.Variant.(rtChanV)
+		Expect(got.Port).To(Equal(int32(7)))
+		Expect(got.MinVal).To(Equal(-10.0))
+		Expect(got.Scale.Variant.(rtScaleLinear).Slope).To(Equal(1.5))
+	})
+})

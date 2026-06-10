@@ -1020,4 +1020,34 @@ var _ = Describe("Protobuf Union Generation", func() {
 		ExpectContent(resp, "ni.proto").
 			ToContain("Scale custom_scale = 1;")
 	})
+	It("Should import a union field from another proto package", func(ctx SpecContext) {
+		loader.Add("schemas/scale", `
+			@pb
+			@go output "core/pkg/service/scale"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none   NoneScale
+			}
+		`)
+		source := `
+			import "schemas/scale"
+
+			@pb
+			@go output "core/pkg/service/ni"
+
+			Channel struct {
+				custom_scale scale.Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain(
+				`import "core/pkg/service/scale/pb/scale.proto";`,
+				"custom_scale = 1;",
+			)
+	})
 })

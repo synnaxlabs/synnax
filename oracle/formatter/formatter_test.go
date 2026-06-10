@@ -462,11 +462,11 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("@doc value \"the foo union\""))
 		})
 
-		It("should be idempotent for unions", func() {
+		It("should be idempotent for unions and produce the canonical layout", func() {
 			source := "A struct {\n    x int32\n}\n\nB struct {\n    y string\n}\n\nBase struct {\n    k string\n}\n\nFoo union on type extends Base {\n    a A\n    b B\n}\n"
 			first := format(source)
-			second := format(first)
-			Expect(second).To(Equal(first))
+			Expect(first).To(Equal(source))
+			Expect(format(first)).To(Equal(first))
 		})
 	})
 
