@@ -191,6 +191,7 @@ func analyze(c *analysisCtx) {
 	}
 
 	finalizeEnumExtensions(c)
+	finalizeUnionExtensions(c)
 
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
@@ -454,6 +455,138 @@ func effectiveEnumValues(
 		}
 	}
 	return merged, isInt, true
+}
+
+func addUnionDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
+	d := diagnostics.Errorf(nil, format, args...)
+	d.File = typ.FilePath
+	c.diag.Add(d)
+}
+
+// finalizeUnionExtensions resolves each union whose extends targets are other
+// unions into a flat variant list: the variants of every extended union
+// (recursively), followed by the union's own declared variants. Extends
+// targets that are structs keep the shared-base-field semantics and are left
+// untouched; mixing the two in one declaration is an error. The table is
+// mutated in place so downstream plugins read a plain, fully populated union.
+func finalizeUnionExtensions(c *analysisCtx) {
+	for _, typ := range c.table.TypesInNamespace(c.namespace) {
+		form, ok := typ.Form.(resolution.UnionForm)
+		if !ok || len(form.Extends) == 0 {
+			continue
+		}
+		if !hasUnionBases(form, c.table) {
+			continue
+		}
+		merged, ok := effectiveUnionVariants(c, typ, set.New[string]())
+		if !ok {
+			continue
+		}
+		form.Variants = merged
+		form.Extends = nil
+		typ.Form = form
+		for i, t := range c.table.Types {
+			if t.QualifiedName == typ.QualifiedName {
+				c.table.Types[i] = typ
+				break
+			}
+		}
+	}
+}
+
+// hasUnionBases reports whether any of a union's extends targets resolves to
+// another union.
+func hasUnionBases(form resolution.UnionForm, table *resolution.Table) bool {
+	for _, ref := range form.Extends {
+		if base, ok := ref.Resolve(table); ok {
+			if _, isUnion := base.Form.(resolution.UnionForm); isUnion {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// effectiveUnionVariants returns a union's fully-resolved variant list: the
+// variants of every union it extends (recursively), followed by its own
+// declared variants. visited guards against cycles. The bool is false when the
+// union or a parent is malformed (a diagnostic is added in that case).
+func effectiveUnionVariants(
+	c *analysisCtx, typ resolution.Type, visited set.Set[string],
+) ([]resolution.UnionVariant, bool) {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return nil, false
+	}
+	if visited.Contains(typ.QualifiedName) {
+		addUnionDiag(c, typ, "union %s has a cyclic extends chain", typ.QualifiedName)
+		return nil, false
+	}
+	visited.Add(typ.QualifiedName)
+
+	var merged []resolution.UnionVariant
+	byName := make(map[string]resolution.UnionVariant)
+	add := func(parentName string, v resolution.UnionVariant) bool {
+		if existing, dup := byName[v.Name]; dup {
+			if existing.Type.Name != v.Type.Name {
+				addUnionDiag(c, typ,
+					"union %s inherits variant %q with conflicting payload types from %s",
+					typ.QualifiedName, v.Name, parentName)
+				return false
+			}
+			return true
+		}
+		byName[v.Name] = v
+		merged = append(merged, v)
+		return true
+	}
+
+	for i := range form.Extends {
+		parent, ok := form.Extends[i].Resolve(c.table)
+		if !ok {
+			addUnionDiag(c, typ, "union %s extends unresolved type: %s",
+				typ.QualifiedName, form.Extends[i].Name)
+			return nil, false
+		}
+		pform, isUnion := parent.Form.(resolution.UnionForm)
+		if !isUnion {
+			addUnionDiag(c, typ,
+				"union %s cannot mix struct and union bases in extends; %s is not a union",
+				typ.QualifiedName, parent.QualifiedName)
+			return nil, false
+		}
+		if pform.Discriminator != form.Discriminator {
+			addUnionDiag(c, typ,
+				"union %s extends union %s with a different discriminator (%q vs %q)",
+				typ.QualifiedName, parent.QualifiedName, pform.Discriminator, form.Discriminator)
+			return nil, false
+		}
+		pVars := pform.Variants
+		if len(pform.Extends) > 0 {
+			if !hasUnionBases(pform, c.table) {
+				addUnionDiag(c, typ,
+					"union %s cannot extend union %s, which extends base structs",
+					typ.QualifiedName, parent.QualifiedName)
+				return nil, false
+			}
+			// Each branch gets its own copy so visited tracks the ancestor
+			// path, not every node seen, matching effectiveEnumValues.
+			if pVars, ok = effectiveUnionVariants(c, parent, visited.Copy()); !ok {
+				return nil, false
+			}
+		}
+		for _, v := range pVars {
+			if !add(parent.QualifiedName, v) {
+				return nil, false
+			}
+		}
+	}
+	for _, v := range form.Variants {
+		if !add(typ.QualifiedName, v) {
+			return nil, false
+		}
+	}
+	return merged, true
 }
 
 func collectStruct(c *analysisCtx, def parser.IStructDefContext) {

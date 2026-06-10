@@ -2521,6 +2521,33 @@ var _ = Describe("TS Union Generation", func() {
 			ToNotContain(`value_type`)
 	})
 
+	It("Should generate a flat union for a union extending other unions", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			TankConfig struct { width float64 }
+			PipeConfig struct { length float64 }
+
+			NodeConfig union on variant {
+				tank TankConfig
+			}
+
+			EdgeConfig union on variant {
+				pipe PipeConfig
+			}
+
+			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+		`
+		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const elementConfigZ = z.discriminatedUnion("variant", [`,
+				`elementConfigTankZ,`,
+				`elementConfigPipeZ,`,
+				`export const ELEMENT_CONFIG_TYPES = ["tank", "pipe"] as const;`,
+			)
+	})
+
 	It("Should generate a discriminator enum and per-variant interfaces", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
