@@ -52,10 +52,7 @@ type (
 	}
 )
 
-func (s *Service) Get(
-	ctx context.Context,
-	req GetRequest,
-) (GetResponse, error) {
+func (s *Service) Get(ctx context.Context, req GetRequest) (GetResponse, error) {
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,

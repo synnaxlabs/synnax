@@ -85,8 +85,8 @@ func (w Writer) CreateMany(ctx context.Context, ws workspace.Key, logs *[]Log) e
 // After a successful update the actions are notified to the service-level observer so
 // subscribers (cluster signals) can broadcast them. dispatchKey is a client-generated
 // identifier carried verbatim onto the broadcast so the originating client can match
-// its own echo against the set of outstanding local replays and skip a redundant
-// reduce when no foreign action interleaved.
+// its own echo against the set of outstanding local replays and skip a redundant reduce
+// when no foreign action interleaved.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,

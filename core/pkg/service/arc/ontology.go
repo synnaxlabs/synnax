@@ -30,7 +30,7 @@ func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeArc, Key: k.String()}
 }
 
-// OntologyIDs returns unique identifiers for the arcs within the ontology.
+// OntologyIDs returns unique identifiers for the Arcs within the ontology.
 func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
 }

@@ -61,18 +61,19 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
 // does not exist, a new rack will be created. If a status is provided on the rack,
 // it will be used instead of the default "unknown" status.
-func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
+func (w Writer) Create(ctx context.Context, r *Rack) error {
+	var err error
 	if r.Key.IsZero() {
 		r.Key, err = w.newKey(ctx)
 		if err != nil {
-			return
+			return err
 		}
 	}
 	if err = r.Validate(); err != nil {
 		return err
 	}
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
-		return
+		return err
 	}
 	otgID := OntologyID(r.Key)
 	if err = w.otg.DefineResource(ctx, otgID); err != nil {

@@ -479,4 +479,43 @@ var _ = Describe("Ontology Integration", func() {
 			Expect(count).To(BeNumerically(">=", 3))
 		})
 	})
+
+	Describe("OntologyIDsFromRoles", func() {
+		It("Should return an empty slice when given no roles", func() {
+			Expect(role.OntologyIDsFromRoles(nil)).To(BeEmpty())
+			Expect(role.OntologyIDsFromRoles([]role.Role{})).To(BeEmpty())
+		})
+
+		It("Should map a single role to its ontology ID", func() {
+			r := role.Role{Key: uuid.New(), Name: "single"}
+			Expect(role.OntologyIDsFromRoles([]role.Role{r})).To(ConsistOf(ontology.ID{
+				Type: ontology.ResourceTypeRole,
+				Key:  r.Key.String(),
+			}))
+		})
+
+		It("Should preserve order across multiple roles", func() {
+			roles := []role.Role{
+				{Key: uuid.New(), Name: "first"},
+				{Key: uuid.New(), Name: "second"},
+				{Key: uuid.New(), Name: "third"},
+			}
+			Expect(role.OntologyIDsFromRoles(roles)).To(Equal([]ontology.ID{
+				role.OntologyID(roles[0].Key),
+				role.OntologyID(roles[1].Key),
+				role.OntologyID(roles[2].Key),
+			}))
+		})
+
+		It("Should produce ontology IDs equivalent to (Role).OntologyID", func() {
+			roles := []role.Role{
+				{Key: uuid.New(), Name: "alpha"},
+				{Key: uuid.New(), Name: "beta"},
+			}
+			ids := role.OntologyIDsFromRoles(roles)
+			Expect(ids).To(HaveLen(2))
+			Expect(ids[0]).To(Equal(roles[0].OntologyID()))
+			Expect(ids[1]).To(Equal(roles[1].OntologyID()))
+		})
+	})
 })

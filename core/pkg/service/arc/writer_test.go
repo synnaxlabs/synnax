@@ -48,7 +48,7 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("CreateMany", func() {
-		It("Should create multiple arcs", func(ctx SpecContext) {
+		It("Should create multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
 				{Name: "arc-many-1"},
 				{Name: "arc-many-2"},

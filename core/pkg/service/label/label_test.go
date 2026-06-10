@@ -104,7 +104,7 @@ var _ = Describe("Label", Ordered, func() {
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
-			Expect(w.DeleteMany(ctx, []label.Key{ls[0].Key, ls[1].Key})).To(Succeed())
+			Expect(w.Delete(ctx, ls[0].Key, ls[1].Key)).To(Succeed())
 			for _, l := range ls {
 				Expect(svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			}

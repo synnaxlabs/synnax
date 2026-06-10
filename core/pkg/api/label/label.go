@@ -148,7 +148,7 @@ func (s *Service) Delete(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.internal.NewWriter(tx).DeleteMany(ctx, req.Keys)
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 type AddRequest struct {

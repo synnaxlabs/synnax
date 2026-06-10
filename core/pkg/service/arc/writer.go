@@ -33,10 +33,7 @@ type Writer struct {
 
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
-func (w Writer) Create(
-	ctx context.Context,
-	a *Arc,
-) error {
+func (w Writer) Create(ctx context.Context, a *Arc) error {
 	var (
 		exists bool
 		err    error
@@ -72,7 +69,7 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 	return nil
 }
 
-// Delete deletes the arcs with the given keys. If the Arc has child tasks, those tasks
+// Delete deletes the Arcs with the given keys. If the Arc has child tasks, those tasks
 // will also be deleted.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	for _, key := range keys {
