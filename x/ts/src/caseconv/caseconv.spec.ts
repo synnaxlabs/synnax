@@ -232,7 +232,7 @@ describe("caseconv", () => {
       const result = caseconv.snakeToCamel(input, { schema }) as R;
       const configs = result.configs as Record<string, R>;
       expect(configs.edge_b2).toBeDefined();
-      expect((configs.edge_b2).textColor).toBe("#000");
+      expect(configs.edge_b2.textColor).toBe("#000");
     });
   });
 
