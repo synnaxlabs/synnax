@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { DisconnectedError, project,type Synnax } from "@synnaxlabs/client";
+import { DisconnectedError, project, type Synnax } from "@synnaxlabs/client";
 import { Access, Mosaic, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 
@@ -74,11 +74,11 @@ export const ingest: Import.DirectoryIngester = async (
   const layout = Layout.migrateSlice(
     Layout.anySliceStateZ.parse(stripThemes(layoutData.data)),
   );
-  const wsKey = uuid.create();
-  const ws: project.Project = { key: wsKey, name, layout };
+  const projectKey = uuid.create();
+  const proj: project.Project = { key: projectKey, name, layout };
   // Create the project first so imported components can be parented to it; its layout
   // is rewritten and installed below once their real keys are known.
-  await client.projects.create(ws);
+  await client.projects.create(proj);
 
   const remap = new Map<string, string>();
   for (const [key, childLayout] of Object.entries(layout.layouts)) {
@@ -99,15 +99,15 @@ export const ingest: Import.DirectoryIngester = async (
       placeLayout,
       store: fluxStore,
       client,
-      projectKey: wsKey,
+      projectKey,
     });
     if (id != null && id.key !== key) remap.set(key, id.key);
   }
 
   const remappedLayout = remapLayoutKeys(layout, remap);
-  store.dispatch(Project.setActive(ws));
+  store.dispatch(Project.setActive(proj));
   store.dispatch(Layout.setProject({ slice: remappedLayout, keepNav: false }));
-  if (remap.size > 0) await client.projects.setLayout(wsKey, remappedLayout);
+  if (remap.size > 0) await client.projects.setLayout(projectKey, remappedLayout);
 };
 
 export interface IngestContext {

@@ -31,7 +31,11 @@ export const SLICE_MIGRATION_NAME = "project.slice";
 export const sliceMigration = migrate.createMigration<v0.SliceState, SliceState>({
   name: SLICE_MIGRATION_NAME,
   migrate: ({ active, projects }) => {
-    const ws = active != null ? { name: projects[active].name, key: active } : null;
-    return { active: ws, version: VERSION };
+    if (active == null) return { active: null, version: VERSION };
+    const found = projects[active];
+    return {
+      active: found != null ? { name: found.name, key: active } : null,
+      version: VERSION,
+    };
   },
 });
