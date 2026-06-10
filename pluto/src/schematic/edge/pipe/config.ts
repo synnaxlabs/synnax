@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+import { schematic } from "@synnaxlabs/client";
 
 import { Segmented } from "@/schematic/edge/common/segmented";
 
 export const VARIANT = "pipe" as const;
 export const NAME = "Pipe";
-export const configZ = Segmented.createConfigZ(VARIANT);
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.edgeConfigPipeZ;
+export type Config = schematic.EdgeConfigPipe;
 export const defaultConfig = (): Config => Segmented.createDefaultConfig(VARIANT);

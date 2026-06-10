@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { box, direction, location, xy } from "@synnaxlabs/x";
-import { z } from "zod";
 
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;
@@ -114,12 +114,9 @@ export const prepareNode = ({
   };
 };
 
-export const segmentZ = z.object({
-  direction: direction.directionZ,
-  length: z.number(),
-});
+export const segmentZ = schematic.segmentZ;
 
-export type Segment = z.infer<typeof segmentZ>;
+export type Segment = schematic.Segment;
 
 export const travelSegments = (source: xy.XY, ...segments: Segment[]): xy.XY => {
   let current = source;

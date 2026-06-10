@@ -14,6 +14,7 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -186,6 +187,121 @@ func EdgesFromPB(pbs []*Edge) ([]schematic.Edge, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = EdgeFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SegmentToPB converts Segment to Segment.
+func SegmentToPB(r schematic.Segment) (*Segment, error) {
+	directionVal, err := spatialpb.DirectionToPB(r.Direction)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Segment{
+		Length:    r.Length,
+		Direction: directionVal,
+	}
+	return pb, nil
+}
+
+// SegmentFromPB converts Segment to Segment.
+func SegmentFromPB(pb *Segment) (schematic.Segment, error) {
+	var r schematic.Segment
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Direction, err = spatialpb.DirectionFromPB(pb.Direction)
+	if err != nil {
+		return schematic.Segment{}, err
+	}
+	r.Length = pb.Length
+	return r, nil
+}
+
+// SegmentsToPB converts a slice of Segment to Segment.
+func SegmentsToPB(rs []schematic.Segment) ([]*Segment, error) {
+	result := make([]*Segment, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SegmentToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SegmentsFromPB converts a slice of Segment to Segment.
+func SegmentsFromPB(pbs []*Segment) ([]schematic.Segment, error) {
+	result := make([]schematic.Segment, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SegmentFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SegmentedEdgeConfigToPB converts SegmentedEdgeConfig to SegmentedEdgeConfig.
+func SegmentedEdgeConfigToPB(r schematic.SegmentedEdgeConfig) (*SegmentedEdgeConfig, error) {
+	colorVal, err := colorpb.ColorToPB(r.Color)
+	if err != nil {
+		return nil, err
+	}
+	segmentsVal, err := SegmentsToPB(r.Segments)
+	if err != nil {
+		return nil, err
+	}
+	pb := &SegmentedEdgeConfig{
+		Color:    colorVal,
+		Segments: segmentsVal,
+	}
+	return pb, nil
+}
+
+// SegmentedEdgeConfigFromPB converts SegmentedEdgeConfig to SegmentedEdgeConfig.
+func SegmentedEdgeConfigFromPB(pb *SegmentedEdgeConfig) (schematic.SegmentedEdgeConfig, error) {
+	var r schematic.SegmentedEdgeConfig
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Color, err = colorpb.ColorFromPB(pb.Color)
+	if err != nil {
+		return schematic.SegmentedEdgeConfig{}, err
+	}
+	r.Segments, err = SegmentsFromPB(pb.Segments)
+	if err != nil {
+		return schematic.SegmentedEdgeConfig{}, err
+	}
+	return r, nil
+}
+
+// SegmentedEdgeConfigsToPB converts a slice of SegmentedEdgeConfig to SegmentedEdgeConfig.
+func SegmentedEdgeConfigsToPB(rs []schematic.SegmentedEdgeConfig) ([]*SegmentedEdgeConfig, error) {
+	result := make([]*SegmentedEdgeConfig, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SegmentedEdgeConfigToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SegmentedEdgeConfigsFromPB converts a slice of SegmentedEdgeConfig to SegmentedEdgeConfig.
+func SegmentedEdgeConfigsFromPB(pbs []*SegmentedEdgeConfig) ([]schematic.SegmentedEdgeConfig, error) {
+	result := make([]schematic.SegmentedEdgeConfig, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SegmentedEdgeConfigFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

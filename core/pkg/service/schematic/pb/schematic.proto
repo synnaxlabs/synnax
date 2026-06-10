@@ -14,6 +14,7 @@ syntax = "proto3";
 package service.schematic.pb;
 
 import "google/protobuf/struct.proto";
+import "x/go/color/pb/color.proto";
 import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/schematic/pb";
@@ -51,6 +52,23 @@ message Edge {
   Handle target = 3;
 }
 
+// Segment is a single orthogonal run in an edge's connector path.
+message Segment {
+  // direction is the axis along which the segment travels.
+  .x.spatial.pb.Direction direction = 1;
+  // length is the signed length of the segment in pixels.
+  double length = 2;
+}
+
+// SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
+message SegmentedEdgeConfig {
+  // color is the stroke color of the edge.
+  .x.color.pb.Color color = 1;
+  // segments is the ordered list of orthogonal runs that trace the connector path from
+  // the source handle to the target handle.
+  repeated Segment segments = 2;
+}
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
@@ -69,4 +87,18 @@ message Schematic {
   // each value is determined by the element's variant; the wire format intentionally
   // stores it as an opaque record.
   map<string, google.protobuf.Struct> configs = 6;
+}
+
+// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
+// variant selects the visual style of the connection.
+message EdgeConfig {
+  oneof variant {
+    SegmentedEdgeConfig pipe = 1;
+    SegmentedEdgeConfig electric = 2;
+    SegmentedEdgeConfig secondary = 3;
+    SegmentedEdgeConfig jacketed = 4;
+    SegmentedEdgeConfig hydraulic = 5;
+    SegmentedEdgeConfig pneumatic = 6;
+    SegmentedEdgeConfig data = 7;
+  }
 }

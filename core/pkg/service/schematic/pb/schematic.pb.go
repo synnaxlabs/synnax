@@ -18,6 +18,7 @@
 package pb
 
 import (
+	pb1 "github.com/synnaxlabs/x/color/pb"
 	pb "github.com/synnaxlabs/x/spatial/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -229,6 +230,117 @@ func (x *Edge) GetTarget() *Handle {
 	return nil
 }
 
+// Segment is a single orthogonal run in an edge's connector path.
+type Segment struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// direction is the axis along which the segment travels.
+	Direction pb.Direction `protobuf:"varint,1,opt,name=direction,proto3,enum=x.spatial.pb.Direction" json:"direction,omitempty"`
+	// length is the signed length of the segment in pixels.
+	Length        float64 `protobuf:"fixed64,2,opt,name=length,proto3" json:"length,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Segment) Reset() {
+	*x = Segment{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Segment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Segment) ProtoMessage() {}
+
+func (x *Segment) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Segment.ProtoReflect.Descriptor instead.
+func (*Segment) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Segment) GetDirection() pb.Direction {
+	if x != nil {
+		return x.Direction
+	}
+	return pb.Direction(0)
+}
+
+func (x *Segment) GetLength() float64 {
+	if x != nil {
+		return x.Length
+	}
+	return 0
+}
+
+// SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
+type SegmentedEdgeConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// color is the stroke color of the edge.
+	Color *pb1.Color `protobuf:"bytes,1,opt,name=color,proto3" json:"color,omitempty"`
+	// segments is the ordered list of orthogonal runs that trace the connector path from
+	// the source handle to the target handle.
+	Segments      []*Segment `protobuf:"bytes,2,rep,name=segments,proto3" json:"segments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SegmentedEdgeConfig) Reset() {
+	*x = SegmentedEdgeConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SegmentedEdgeConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SegmentedEdgeConfig) ProtoMessage() {}
+
+func (x *SegmentedEdgeConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SegmentedEdgeConfig.ProtoReflect.Descriptor instead.
+func (*SegmentedEdgeConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *SegmentedEdgeConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *SegmentedEdgeConfig) GetSegments() []*Segment {
+	if x != nil {
+		return x.Segments
+	}
+	return nil
+}
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
@@ -254,7 +366,7 @@ type Schematic struct {
 
 func (x *Schematic) Reset() {
 	*x = Schematic{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -266,7 +378,7 @@ func (x *Schematic) String() string {
 func (*Schematic) ProtoMessage() {}
 
 func (x *Schematic) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -279,7 +391,7 @@ func (x *Schematic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schematic.ProtoReflect.Descriptor instead.
 func (*Schematic) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Schematic) GetKey() string {
@@ -324,11 +436,175 @@ func (x *Schematic) GetConfigs() map[string]*structpb.Struct {
 	return nil
 }
 
+// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
+// variant selects the visual style of the connection.
+type EdgeConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*EdgeConfig_Pipe
+	//	*EdgeConfig_Electric
+	//	*EdgeConfig_Secondary
+	//	*EdgeConfig_Jacketed
+	//	*EdgeConfig_Hydraulic
+	//	*EdgeConfig_Pneumatic
+	//	*EdgeConfig_Data
+	Variant       isEdgeConfig_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EdgeConfig) Reset() {
+	*x = EdgeConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgeConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgeConfig) ProtoMessage() {}
+
+func (x *EdgeConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgeConfig.ProtoReflect.Descriptor instead.
+func (*EdgeConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *EdgeConfig) GetVariant() isEdgeConfig_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *EdgeConfig) GetPipe() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*EdgeConfig_Pipe); ok {
+			return x.Pipe
+		}
+	}
+	return nil
+}
+
+func (x *EdgeConfig) GetElectric() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*EdgeConfig_Electric); ok {
+			return x.Electric
+		}
+	}
+	return nil
+}
+
+func (x *EdgeConfig) GetSecondary() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*EdgeConfig_Secondary); ok {
+			return x.Secondary
+		}
+	}
+	return nil
+}
+
+func (x *EdgeConfig) GetJacketed() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*EdgeConfig_Jacketed); ok {
+			return x.Jacketed
+		}
+	}
+	return nil
+}
+
+func (x *EdgeConfig) GetHydraulic() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*EdgeConfig_Hydraulic); ok {
+			return x.Hydraulic
+		}
+	}
+	return nil
+}
+
+func (x *EdgeConfig) GetPneumatic() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*EdgeConfig_Pneumatic); ok {
+			return x.Pneumatic
+		}
+	}
+	return nil
+}
+
+func (x *EdgeConfig) GetData() *SegmentedEdgeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*EdgeConfig_Data); ok {
+			return x.Data
+		}
+	}
+	return nil
+}
+
+type isEdgeConfig_Variant interface {
+	isEdgeConfig_Variant()
+}
+
+type EdgeConfig_Pipe struct {
+	Pipe *SegmentedEdgeConfig `protobuf:"bytes,1,opt,name=pipe,proto3,oneof"`
+}
+
+type EdgeConfig_Electric struct {
+	Electric *SegmentedEdgeConfig `protobuf:"bytes,2,opt,name=electric,proto3,oneof"`
+}
+
+type EdgeConfig_Secondary struct {
+	Secondary *SegmentedEdgeConfig `protobuf:"bytes,3,opt,name=secondary,proto3,oneof"`
+}
+
+type EdgeConfig_Jacketed struct {
+	Jacketed *SegmentedEdgeConfig `protobuf:"bytes,4,opt,name=jacketed,proto3,oneof"`
+}
+
+type EdgeConfig_Hydraulic struct {
+	Hydraulic *SegmentedEdgeConfig `protobuf:"bytes,5,opt,name=hydraulic,proto3,oneof"`
+}
+
+type EdgeConfig_Pneumatic struct {
+	Pneumatic *SegmentedEdgeConfig `protobuf:"bytes,6,opt,name=pneumatic,proto3,oneof"`
+}
+
+type EdgeConfig_Data struct {
+	Data *SegmentedEdgeConfig `protobuf:"bytes,7,opt,name=data,proto3,oneof"`
+}
+
+func (*EdgeConfig_Pipe) isEdgeConfig_Variant() {}
+
+func (*EdgeConfig_Electric) isEdgeConfig_Variant() {}
+
+func (*EdgeConfig_Secondary) isEdgeConfig_Variant() {}
+
+func (*EdgeConfig_Jacketed) isEdgeConfig_Variant() {}
+
+func (*EdgeConfig_Hydraulic) isEdgeConfig_Variant() {}
+
+func (*EdgeConfig_Pneumatic) isEdgeConfig_Variant() {}
+
+func (*EdgeConfig_Data) isEdgeConfig_Variant() {}
+
 var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x95\x01\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x95\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x17\n" +
@@ -340,7 +616,13 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x04Edge\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
 	"\x06source\x18\x02 \x01(\v2\x1c.service.schematic.pb.HandleR\x06source\x124\n" +
-	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"\xce\x02\n" +
+	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"X\n" +
+	"\aSegment\x125\n" +
+	"\tdirection\x18\x01 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12\x16\n" +
+	"\x06length\x18\x02 \x01(\x01R\x06length\"y\n" +
+	"\x13SegmentedEdgeConfig\x12'\n" +
+	"\x05color\x18\x01 \x01(\v2\x11.x.color.pb.ColorR\x05color\x129\n" +
+	"\bsegments\x18\x02 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegments\"\xce\x02\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -350,7 +632,17 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\aconfigs\x18\x06 \x03(\v2,.service.schematic.pb.Schematic.ConfigsEntryR\aconfigs\x1aS\n" +
 	"\fConfigsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
-	"\x05value\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05value:\x028\x01B\xd3\x01\n" +
+	"\x05value\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05value:\x028\x01\"\x8c\x04\n" +
+	"\n" +
+	"EdgeConfig\x12?\n" +
+	"\x04pipe\x18\x01 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\x04pipe\x12G\n" +
+	"\belectric\x18\x02 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\belectric\x12I\n" +
+	"\tsecondary\x18\x03 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\tsecondary\x12G\n" +
+	"\bjacketed\x18\x04 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\bjacketed\x12I\n" +
+	"\thydraulic\x18\x05 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\thydraulic\x12I\n" +
+	"\tpneumatic\x18\x06 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\tpneumatic\x12?\n" +
+	"\x04data\x18\a \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\x04dataB\t\n" +
+	"\avariantB\xd3\x01\n" +
 	"\x18com.service.schematic.pbB\x0eSchematicProtoP\x01Z5github.com/synnaxlabs/synnax/pkg/service/schematic/pb\xa2\x02\x03SSP\xaa\x02\x14Service.Schematic.Pb\xca\x02\x14Service\\Schematic\\Pb\xe2\x02 Service\\Schematic\\Pb\\GPBMetadata\xea\x02\x16Service::Schematic::Pbb\x06proto3"
 
 var (
@@ -365,31 +657,46 @@ func file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescData
 }
 
-var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
-	(*Node)(nil),            // 0: service.schematic.pb.Node
-	(*Handle)(nil),          // 1: service.schematic.pb.Handle
-	(*Edge)(nil),            // 2: service.schematic.pb.Edge
-	(*Schematic)(nil),       // 3: service.schematic.pb.Schematic
-	nil,                     // 4: service.schematic.pb.Schematic.ConfigsEntry
-	(*pb.XY)(nil),           // 5: x.spatial.pb.XY
-	(*pb.Dimensions)(nil),   // 6: x.spatial.pb.Dimensions
-	(*structpb.Struct)(nil), // 7: google.protobuf.Struct
+	(*Node)(nil),                // 0: service.schematic.pb.Node
+	(*Handle)(nil),              // 1: service.schematic.pb.Handle
+	(*Edge)(nil),                // 2: service.schematic.pb.Edge
+	(*Segment)(nil),             // 3: service.schematic.pb.Segment
+	(*SegmentedEdgeConfig)(nil), // 4: service.schematic.pb.SegmentedEdgeConfig
+	(*Schematic)(nil),           // 5: service.schematic.pb.Schematic
+	(*EdgeConfig)(nil),          // 6: service.schematic.pb.EdgeConfig
+	nil,                         // 7: service.schematic.pb.Schematic.ConfigsEntry
+	(*pb.XY)(nil),               // 8: x.spatial.pb.XY
+	(*pb.Dimensions)(nil),       // 9: x.spatial.pb.Dimensions
+	(pb.Direction)(0),           // 10: x.spatial.pb.Direction
+	(*pb1.Color)(nil),           // 11: x.color.pb.Color
+	(*structpb.Struct)(nil),     // 12: google.protobuf.Struct
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
-	5, // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
-	6, // 1: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
-	1, // 2: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
-	1, // 3: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
-	0, // 4: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
-	2, // 5: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	4, // 6: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
-	7, // 7: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> google.protobuf.Struct
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	8,  // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
+	9,  // 1: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
+	1,  // 2: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
+	1,  // 3: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
+	10, // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
+	11, // 5: service.schematic.pb.SegmentedEdgeConfig.color:type_name -> x.color.pb.Color
+	3,  // 6: service.schematic.pb.SegmentedEdgeConfig.segments:type_name -> service.schematic.pb.Segment
+	0,  // 7: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
+	2,  // 8: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
+	7,  // 9: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
+	4,  // 10: service.schematic.pb.EdgeConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	4,  // 11: service.schematic.pb.EdgeConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	4,  // 12: service.schematic.pb.EdgeConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	4,  // 13: service.schematic.pb.EdgeConfig.jacketed:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	4,  // 14: service.schematic.pb.EdgeConfig.hydraulic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	4,  // 15: service.schematic.pb.EdgeConfig.pneumatic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	4,  // 16: service.schematic.pb.EdgeConfig.data:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	12, // 17: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> google.protobuf.Struct
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }
@@ -397,13 +704,22 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 	if File_core_pkg_service_schematic_pb_schematic_proto != nil {
 		return
 	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6].OneofWrappers = []any{
+		(*EdgeConfig_Pipe)(nil),
+		(*EdgeConfig_Electric)(nil),
+		(*EdgeConfig_Secondary)(nil),
+		(*EdgeConfig_Jacketed)(nil),
+		(*EdgeConfig_Hydraulic)(nil),
+		(*EdgeConfig_Pneumatic)(nil),
+		(*EdgeConfig_Data)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

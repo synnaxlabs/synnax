@@ -12,8 +12,11 @@
 package schematic
 
 import (
+	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -53,6 +56,23 @@ type Edge struct {
 	Target Handle `json:"target" msgpack:"target"`
 }
 
+// Segment is a single orthogonal run in an edge's connector path.
+type Segment struct {
+	// Direction is the axis along which the segment travels.
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
+	// Length is the signed length of the segment in pixels.
+	Length float64 `json:"length" msgpack:"length"`
+}
+
+// SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
+type SegmentedEdgeConfig struct {
+	// Color is the stroke color of the edge.
+	Color color.Color `json:"color" msgpack:"color"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path from
+	// the source handle to the target handle.
+	Segments []Segment `json:"segments" msgpack:"segments"`
+}
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
@@ -71,4 +91,160 @@ type Schematic struct {
 	// each value is determined by the element's variant; the wire format intentionally
 	// stores it as an opaque record.
 	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
+}
+
+type EdgeConfigType string
+
+const (
+	EdgeConfigTypePipe      EdgeConfigType = "pipe"
+	EdgeConfigTypeElectric  EdgeConfigType = "electric"
+	EdgeConfigTypeSecondary EdgeConfigType = "secondary"
+	EdgeConfigTypeJacketed  EdgeConfigType = "jacketed"
+	EdgeConfigTypeHydraulic EdgeConfigType = "hydraulic"
+	EdgeConfigTypePneumatic EdgeConfigType = "pneumatic"
+	EdgeConfigTypeData      EdgeConfigType = "data"
+)
+
+type EdgeConfigVariant interface {
+	isEdgeConfigVariant()
+}
+
+type EdgeConfigPipe struct {
+	SegmentedEdgeConfig
+}
+
+func (EdgeConfigPipe) isEdgeConfigVariant() {}
+
+type EdgeConfigElectric struct {
+	SegmentedEdgeConfig
+}
+
+func (EdgeConfigElectric) isEdgeConfigVariant() {}
+
+type EdgeConfigSecondary struct {
+	SegmentedEdgeConfig
+}
+
+func (EdgeConfigSecondary) isEdgeConfigVariant() {}
+
+type EdgeConfigJacketed struct {
+	SegmentedEdgeConfig
+}
+
+func (EdgeConfigJacketed) isEdgeConfigVariant() {}
+
+type EdgeConfigHydraulic struct {
+	SegmentedEdgeConfig
+}
+
+func (EdgeConfigHydraulic) isEdgeConfigVariant() {}
+
+type EdgeConfigPneumatic struct {
+	SegmentedEdgeConfig
+}
+
+func (EdgeConfigPneumatic) isEdgeConfigVariant() {}
+
+type EdgeConfigData struct {
+	SegmentedEdgeConfig
+}
+
+func (EdgeConfigData) isEdgeConfigVariant() {}
+
+// EdgeConfig is the per-edge configuration stored in the schematic configs map. The
+// variant selects the visual style of the connection.
+type EdgeConfig struct {
+	Variant EdgeConfigVariant
+}
+
+func (u EdgeConfig) MarshalJSON() ([]byte, error) {
+	var t EdgeConfigType
+	switch u.Variant.(type) {
+	case EdgeConfigPipe:
+		t = EdgeConfigTypePipe
+	case EdgeConfigElectric:
+		t = EdgeConfigTypeElectric
+	case EdgeConfigSecondary:
+		t = EdgeConfigTypeSecondary
+	case EdgeConfigJacketed:
+		t = EdgeConfigTypeJacketed
+	case EdgeConfigHydraulic:
+		t = EdgeConfigTypeHydraulic
+	case EdgeConfigPneumatic:
+		t = EdgeConfigTypePneumatic
+	case EdgeConfigData:
+		t = EdgeConfigTypeData
+	default:
+		return nil, errors.Newf("EdgeConfig: nil or unknown variant %T", u.Variant)
+	}
+	raw, err := json.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["variant"] = tag
+	return json.Marshal(fields)
+}
+
+func (u *EdgeConfig) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type EdgeConfigType `json:"variant"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case EdgeConfigTypePipe:
+		var v EdgeConfigPipe
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EdgeConfigTypeElectric:
+		var v EdgeConfigElectric
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EdgeConfigTypeSecondary:
+		var v EdgeConfigSecondary
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EdgeConfigTypeJacketed:
+		var v EdgeConfigJacketed
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EdgeConfigTypeHydraulic:
+		var v EdgeConfigHydraulic
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EdgeConfigTypePneumatic:
+		var v EdgeConfigPneumatic
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case EdgeConfigTypeData:
+		var v EdgeConfigData
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("EdgeConfig: unknown variant %q", disc.Type)
+	}
+	return nil
 }

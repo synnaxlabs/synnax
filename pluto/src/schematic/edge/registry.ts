@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
-import z from "zod";
+import { NotFoundError, schematic } from "@synnaxlabs/client";
 
 import { type Config } from "@/schematic/edge/config";
 import { Data } from "@/schematic/edge/data";
@@ -28,11 +27,10 @@ export const REGISTRY = {
   hydraulic: Hydraulic.spec,
   pneumatic: Pneumatic.spec,
   data: Data.spec,
-} as const;
+} as const satisfies Record<schematic.EdgeConfigType, unknown>;
 
-const VARIANTS = Object.keys(REGISTRY) as Variant[];
-export const variantZ = z.enum(VARIANTS);
-export type Variant = keyof typeof REGISTRY;
+export const variantZ = schematic.edgeConfigTypeZ;
+export type Variant = schematic.EdgeConfigType;
 
 export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];

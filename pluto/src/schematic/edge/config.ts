@@ -7,23 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { schematic } from "@synnaxlabs/client";
 
-import { Data } from "@/schematic/edge/data";
-import { Electric } from "@/schematic/edge/electric";
-import { Hydraulic } from "@/schematic/edge/hydraulic";
-import { Jacketed } from "@/schematic/edge/jacketed";
-import { Pipe } from "@/schematic/edge/pipe";
-import { Pneumatic } from "@/schematic/edge/pneumatic";
-import { Secondary } from "@/schematic/edge/secondary";
-
-export const configZ = z.discriminatedUnion("variant", [
-  Pipe.configZ,
-  Electric.configZ,
-  Secondary.configZ,
-  Jacketed.configZ,
-  Hydraulic.configZ,
-  Pneumatic.configZ,
-  Data.configZ,
-]);
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.edgeConfigZ;
+export type Config = schematic.EdgeConfig;

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/color"
 import "schemas/spatial"
 
 @ts output "client/ts/src/schematic"
@@ -68,6 +69,46 @@ Edge struct {
     }
 
     @doc value "is a connection between two nodes in the schematic."
+}
+
+Segment struct {
+    direction spatial.Direction {
+        @doc value "is the axis along which the segment travels."
+    }
+    length    float64           {
+        @doc value "is the signed length of the segment in pixels."
+    }
+
+    @doc value "is a single orthogonal run in an edge's connector path."
+}
+
+SegmentedEdgeConfig struct {
+    color    color.Color {
+        @doc value "is the stroke color of the edge."
+    }
+    segments Segment[]   {
+        @doc value """
+            is the ordered list of orthogonal runs that trace the connector
+            path from the source handle to the target handle.
+        """
+    }
+
+    @doc value "is the configuration shared by every segmented edge variant."
+}
+
+EdgeConfig union on variant {
+    pipe      SegmentedEdgeConfig
+    electric  SegmentedEdgeConfig
+    secondary SegmentedEdgeConfig
+    jacketed  SegmentedEdgeConfig
+    hydraulic SegmentedEdgeConfig
+    pneumatic SegmentedEdgeConfig
+    data      SegmentedEdgeConfig
+
+    @doc value """
+        is the per-edge configuration stored in the schematic configs map.
+        The variant selects the visual style of the connection.
+    """
 }
 
 Schematic struct {
