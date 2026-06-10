@@ -174,6 +174,68 @@ describe("caseconv", () => {
     });
   });
 
+  describe("preserveKeys", () => {
+    const configZ = z.object({
+      variant: z.string(),
+      backgroundColor: z.string().optional(),
+      strokeWidth: z.number().optional(),
+    });
+
+    it("should keep record keys but convert value keys on snakeToCamel", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), configZ)),
+      });
+      const input = {
+        configs: {
+          node_a1: { variant: "box", background_color: "#fff", stroke_width: 2 },
+        },
+      };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1).toBeDefined();
+      expect(configs.node_a1.backgroundColor).toBe("#fff");
+      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1.background_color).toBeUndefined();
+    });
+
+    it("should keep record keys but convert value keys on camelToSnake", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), configZ)),
+      });
+      const input = {
+        configs: {
+          nodeA1: { variant: "box", backgroundColor: "#fff", strokeWidth: 2 },
+        },
+      };
+      const result = caseconv.camelToSnake(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.nodeA1).toBeDefined();
+      const value = configs.nodeA1 as R;
+      expect(value.background_color).toBe("#fff");
+      expect(value.stroke_width).toBe(2);
+      expect(value.backgroundColor).toBeUndefined();
+    });
+
+    it("should convert nested arrays inside record values", () => {
+      const valueZ = z.object({
+        segments: z.array(z.object({ direction: z.string() })),
+        textColor: z.string().optional(),
+      });
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), valueZ)),
+      });
+      const input = {
+        configs: {
+          edge_b2: { segments: [{ direction: "x" }], text_color: "#000" },
+        },
+      };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.edge_b2).toBeDefined();
+      expect((configs.edge_b2 as R).textColor).toBe("#000");
+    });
+  });
+
   describe("preserveCase", () => {
     describe("with ZodRecord", () => {
       it("should preserve case for record keys marked with preserveCase", () => {

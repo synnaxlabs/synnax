@@ -2548,6 +2548,25 @@ var _ = Describe("TS Union Generation", func() {
 			)
 	})
 
+	It("Should wrap preserve_keys map fields with caseconv.preserveKeys", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Config struct { variant string }
+
+			Schematic struct {
+				configs map<string, Config> {
+					@ts preserve_keys
+				}
+			}
+		`
+		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`configs: caseconv.preserveKeys(record.nullishToEmpty(z.string(), configZ)),`,
+			)
+	})
+
 	It("Should generate a discriminator enum and per-variant interfaces", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
