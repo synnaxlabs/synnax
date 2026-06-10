@@ -173,7 +173,7 @@ var _ = Describe("Bool", func() {
 			type MyBool bool
 			var dest *MyBool
 			Expect(zyn.Bool().Optional().Parse(true, &dest)).To(Succeed())
-			Expect(*dest).To(BeTrue())
+			Expect(*dest).To(Equal(MyBool(true)))
 		})
 	})
 
