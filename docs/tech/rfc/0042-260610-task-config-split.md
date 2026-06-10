@@ -63,11 +63,18 @@ it is stored, strongly typed, and migrated rather than derived.
 
 # 3 - Principles
 
-## 3.0 - The Wire Format Is Not the Storage Format
+## 3.0 - The Wire Format Is Not the Storage Format (For Now)
 
 Clients keep sending and receiving tasks with an embedded `config`. Where the server
 stores that config, and in what representation, is invisible to them. The split must
 ship without a coordinated client, Console, or driver upgrade.
+
+Wire compatibility is a transitional constraint, not the end state. Eventually the wire
+itself becomes strongly typed: clients send and receive the generated config types, and
+the untyped embedded blob disappears from the protocol. Preserving the current wire
+shape is what lets the migration happen gradually, one integration and one release at a
+time, instead of forcing a coordinated cutover across the server, three client
+libraries, the Console, and the driver.
 
 ## 3.1 - The Ontology Is a Reference Graph, Not a Data Store
 
