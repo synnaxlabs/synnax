@@ -28,7 +28,6 @@ import (
 )
 
 type Service struct {
-	db     *gorp.DB
 	access *rbac.Service
 	alias  *alias.Service
 }
@@ -39,7 +38,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
 		access: cfg.Service.RBAC,
 		alias:  cfg.Service.Alias,
 	}, nil
@@ -84,10 +82,9 @@ type (
 
 func (s *Service) Resolve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req ResolveRequest,
 ) (ResolveResponse, error) {
-	reader := s.alias.NewReader(tx)
+	reader := s.alias.NewReader(nil)
 	aliases := make(map[string]channel.Key, len(req.Aliases))
 	for _, a := range req.Aliases {
 		ch, err := reader.Resolve(ctx, req.Range, a)
@@ -99,7 +96,7 @@ func (s *Service) Resolve(
 		}
 	}
 	keys := lo.Values(aliases)
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: alias.OntologyIDs(req.Range, keys),
@@ -146,16 +143,15 @@ type (
 
 func (s *Service) List(
 	ctx context.Context,
-	tx gorp.Tx,
 	req ListRequest,
 ) (ListResponse, error) {
-	reader := s.alias.NewReader(tx)
+	reader := s.alias.NewReader(nil)
 	aliases, err := reader.List(ctx, req.Range)
 	if err != nil {
 		return ListResponse{}, err
 	}
 	keys := lo.Keys(aliases)
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: alias.OntologyIDs(req.Range, keys),
@@ -177,17 +173,16 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: alias.OntologyIDs(req.Range, req.Channels),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	reader := s.alias.NewReader(tx)
+	reader := s.alias.NewReader(nil)
 	aliases := make(map[channel.Key]string)
 	for _, ch := range req.Channels {
 		al, err := reader.Retrieve(ctx, req.Range, ch)

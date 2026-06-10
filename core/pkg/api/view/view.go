@@ -24,7 +24,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *view.Service
 }
@@ -36,7 +35,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Service.View,
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 	}, nil
 }
@@ -86,7 +84,6 @@ type RetrieveResponse struct {
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	q := s.internal.NewRetrieve()
@@ -106,10 +103,10 @@ func (s *Service) Retrieve(
 		q = q.Where(view.MatchTypes(req.Types...))
 	}
 	var views []view.View
-	if err := q.Entries(&views).Exec(ctx, tx); err != nil {
+	if err := q.Entries(&views).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: view.OntologyIDsFromViews(views),

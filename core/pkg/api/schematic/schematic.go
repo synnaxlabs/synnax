@@ -28,7 +28,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *schematic.Service
 }
@@ -39,7 +38,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		internal: cfg.Service.Schematic,
 		access:   cfg.Service.RBAC,
 	}, nil
@@ -111,15 +109,14 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
 	if err := s.internal.NewRetrieve().
-		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, tx); err != nil {
+		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: schematic.OntologyIDsFromSchematics(res.Schematics),
@@ -239,7 +236,6 @@ type (
 
 func (s *Service) RetrieveSymbol(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveSymbolRequest,
 ) (RetrieveSymbolResponse, error) {
 	q := s.internal.Symbol.NewRetrieve()
@@ -250,10 +246,10 @@ func (s *Service) RetrieveSymbol(
 		q = q.Search(req.SearchTerm)
 	}
 	var res RetrieveSymbolResponse
-	if err := q.Entries(&res.Symbols).Exec(ctx, tx); err != nil {
+	if err := q.Entries(&res.Symbols).Exec(ctx, nil); err != nil {
 		return RetrieveSymbolResponse{}, err
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: symbol.OntologyIDsFromSymbols(res.Symbols),
@@ -310,11 +306,10 @@ type RetrieveSymbolGroupResponse struct {
 
 func (s *Service) RetrieveSymbolGroup(
 	ctx context.Context,
-	tx gorp.Tx,
 	_ RetrieveSymbolGroupRequest,
 ) (RetrieveSymbolGroupResponse, error) {
 	g := s.internal.Symbol.Group()
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{g.OntologyID()},

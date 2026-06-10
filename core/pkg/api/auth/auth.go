@@ -41,7 +41,6 @@ type ClusterInfo struct {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
-	db      *gorp.DB
 	token   *token.Service
 	auth    *auth.Service
 	user    *user.Service
@@ -54,7 +53,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:      cfg.Distribution.DB,
 		token:   cfg.Service.Token,
 		auth:    cfg.Service.Auth,
 		user:    cfg.Service.User,
@@ -77,18 +75,17 @@ type LoginRequest struct{ Credentials }
 // returns a response containing a valid JWT along with the user's details.
 func (s *Service) Login(
 	ctx context.Context,
-	tx gorp.Tx,
 	req LoginRequest,
 ) (LoginResponse, error) {
 	startTime := telem.Now()
-	if err := s.auth.Authenticate(ctx, tx, req.Credentials); err != nil {
+	if err := s.auth.Authenticate(ctx, nil, req.Credentials); err != nil {
 		return LoginResponse{}, err
 	}
 	var u user.User
 	if err := s.user.NewRetrieve().
 		Where(user.MatchUsernames(req.Username)).
 		Entry(&u).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, nil); err != nil {
 		return LoginResponse{}, err
 	}
 	tk, err := s.token.New(u.Key)

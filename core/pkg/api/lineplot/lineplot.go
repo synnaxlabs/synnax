@@ -26,7 +26,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *lineplot.Service
 }
@@ -37,7 +36,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		internal: cfg.Service.LinePlot,
 		access:   cfg.Service.RBAC,
 	}, nil
@@ -106,15 +104,14 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
 	if err := s.internal.NewRetrieve().
-		Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).Exec(ctx, tx); err != nil {
+		Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: lineplot.OntologyIDsFromLinePlots(res.LinePlots),

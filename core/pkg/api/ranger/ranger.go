@@ -52,7 +52,6 @@ func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
 }
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *ranger.Service
 	label    *label.Service
@@ -64,7 +63,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Ranger,
 		label:    cfg.Service.Label,
@@ -124,7 +122,6 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var (
@@ -157,13 +154,13 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if err := q.Exec(ctx, tx); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	apiRanges := translateRangesFromService(svcRanges)
 	if req.IncludeLabels {
 		for i, rng := range apiRanges {
-			labels, err := s.label.RetrieveFor(ctx, rng.OntologyID(), tx)
+			labels, err := s.label.RetrieveFor(ctx, rng.OntologyID(), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
@@ -173,7 +170,7 @@ func (s *Service) Retrieve(
 	}
 	if req.IncludeParent {
 		for i, rng := range apiRanges {
-			parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, tx)
+			parentKey, err := s.internal.RetrieveParentKey(ctx, rng.Key, nil)
 			if errors.Is(err, query.ErrNotFound) {
 				continue
 			}
@@ -181,14 +178,14 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			var parent ranger.Range
-			if err := s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, tx); err != nil {
+			if err := s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			rng.Parent = &Range{Range: parent}
 			apiRanges[i] = rng
 		}
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: rangeAccessOntologyIDs(apiRanges),

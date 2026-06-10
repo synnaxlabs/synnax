@@ -24,7 +24,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *label.Service
 }
@@ -36,7 +35,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Service.Label,
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 	}, nil
 }
@@ -90,12 +88,11 @@ type RetrieveResponse struct {
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
 	if !req.For.IsZero() {
-		labels, err := s.internal.RetrieveFor(ctx, req.For, tx)
+		labels, err := s.internal.RetrieveFor(ctx, req.For, nil)
 		if err != nil {
 			return RetrieveResponse{}, err
 		}
@@ -117,7 +114,7 @@ func (s *Service) Retrieve(
 		if len(req.Names) != 0 {
 			q = q.Where(label.MatchNames(req.Names...))
 		}
-		if err := q.Entries(&res.Labels).Exec(ctx, tx); err != nil {
+		if err := q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
 	}
@@ -125,7 +122,7 @@ func (s *Service) Retrieve(
 	if !req.For.IsZero() {
 		objects = append(objects, req.For)
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: objects,

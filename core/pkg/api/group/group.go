@@ -24,7 +24,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *group.Service
 }
@@ -35,7 +34,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Distribution.Group,
 	}, nil

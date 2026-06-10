@@ -34,7 +34,6 @@ type (
 )
 
 type Service struct {
-	db     *gorp.DB
 	access *rbac.Service
 	rack   *rack.Service
 	device *device.Service
@@ -48,7 +47,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
 		rack:   cfg.Service.Rack,
 		device: cfg.Service.Device,
 		task:   cfg.Service.Task,
@@ -107,7 +105,6 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var (
@@ -144,7 +141,7 @@ func (s *Service) Retrieve(
 	if hasIntegration {
 		q = q.Where(rack.MatchIntegration(req.Integration))
 	}
-	if err := q.Entries(&resRacks).Exec(ctx, tx); err != nil {
+	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 
@@ -157,7 +154,7 @@ func (s *Service) Retrieve(
 		if err := status.NewRetrieve[rack.StatusDetails](s.status).
 			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
 			Entries(&statuses).
-			Exec(ctx, tx); err != nil {
+			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
 		for i, stat := range statuses {
@@ -165,7 +162,7 @@ func (s *Service) Retrieve(
 		}
 	}
 
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: rack.OntologyIDsFromRacks(resRacks),

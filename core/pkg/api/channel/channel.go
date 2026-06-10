@@ -37,7 +37,6 @@ type Key = channel.Key
 
 // Service is the central service for all things Channel related.
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *servicechannel.Service
 	ranger   *ranger.Service
@@ -54,7 +53,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		internal: cfg.Service.Channel,
 		ranger:   cfg.Service.Ranger,
 		alias:    cfg.Service.Alias,
-		db:       cfg.Distribution.DB,
 	}, nil
 }
 
@@ -146,7 +144,6 @@ type RetrieveResponse struct {
 // parameters are specified, retrieves all channels.
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var (
@@ -162,7 +159,7 @@ func (s *Service) Retrieve(
 
 	var resRng ranger.Range
 	if req.RangeKey != uuid.Nil {
-		err := s.ranger.NewRetrieve().Where(ranger.MatchKeys(req.RangeKey)).Entry(&resRng).Exec(ctx, tx)
+		err := s.ranger.NewRetrieve().Where(ranger.MatchKeys(req.RangeKey)).Entry(&resRng).Exec(ctx, nil)
 		isNotFound := errors.Is(err, query.ErrNotFound)
 		if err != nil && !isNotFound {
 			return RetrieveResponse{}, err
@@ -170,12 +167,12 @@ func (s *Service) Retrieve(
 		// We can still do a best effort search without the range even if we don't
 		// find it.
 		if !isNotFound && hasSearch {
-			keys, err := s.alias.NewReader(tx).Search(ctx, resRng.Key, req.SearchTerm)
+			keys, err := s.alias.NewReader(nil).Search(ctx, resRng.Key, req.SearchTerm)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
 			aliasChannels = make([]channel.Channel, 0, len(keys))
-			if err := s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, tx); err != nil {
+			if err := s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
@@ -213,7 +210,7 @@ func (s *Service) Retrieve(
 	if req.Internal != nil {
 		q = q.Where(channel.MatchInternal(*req.Internal))
 	}
-	if err := q.Exec(ctx, tx); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if len(aliasChannels) > 0 {
@@ -227,7 +224,7 @@ func (s *Service) Retrieve(
 	}
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
-		aliasReader := s.alias.NewReader(tx)
+		aliasReader := s.alias.NewReader(nil)
 		for i, ch := range resChannels {
 			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
 			if err == nil {
@@ -235,7 +232,7 @@ func (s *Service) Retrieve(
 			}
 		}
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: channel.OntologyIDsFromChannels(resChannels),
@@ -365,11 +362,10 @@ type RetrieveGroupResponse struct {
 
 func (s *Service) RetrieveGroup(
 	ctx context.Context,
-	tx gorp.Tx,
 	_ RetrieveGroupRequest,
 ) (RetrieveGroupResponse, error) {
 	g := s.internal.Group()
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{g.OntologyID()},

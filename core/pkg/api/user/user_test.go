@@ -90,7 +90,7 @@ var _ = Describe("Service", func() {
 			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 				Username: "retrieve-by-key-" + uuid.NewString(),
 			}))
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), db, apiuser.RetrieveRequest{
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Keys: []user.Key{u.Key},
 			}))
 			Expect(res.Users).To(ConsistOf(u))
@@ -100,7 +100,7 @@ var _ = Describe("Service", func() {
 			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 				Username: username,
 			}))
-			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), db, apiuser.RetrieveRequest{
+			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Usernames: []string{username},
 			}))
 			Expect(res.Users).To(ConsistOf(u))
@@ -110,12 +110,12 @@ var _ = Describe("Service", func() {
 				Username: "retrieve-denied-" + uuid.NewString(),
 			}))
 			fctx, _ := nonRootCtx(ctx)
-			Expect(apiSvc.Retrieve(fctx, db, apiuser.RetrieveRequest{
+			Expect(apiSvc.Retrieve(fctx, apiuser.RetrieveRequest{
 				Keys: []user.Key{u.Key},
 			})).Error().To(MatchError(access.ErrDenied))
 		})
 		It("Should return query.ErrNotFound when any requested key does not exist", func(ctx SpecContext) {
-			Expect(apiSvc.Retrieve(rootCtx(ctx), db, apiuser.RetrieveRequest{
+			Expect(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
 				Keys: []user.Key{uuid.New()},
 			})).Error().To(MatchError(query.ErrNotFound))
 		})

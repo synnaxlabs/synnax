@@ -26,7 +26,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *workspace.Service
 }
@@ -37,7 +36,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Workspace,
 	}, nil
@@ -132,7 +130,6 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	q := s.internal.NewRetrieve().Search(req.SearchTerm)
@@ -149,10 +146,10 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	var res RetrieveResponse
-	if err := q.Entries(&res.Workspaces).Exec(ctx, tx); err != nil {
+	if err := q.Entries(&res.Workspaces).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: workspace.OntologyIDsFromWorkspaces(res.Workspaces),

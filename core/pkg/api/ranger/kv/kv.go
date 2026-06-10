@@ -27,7 +27,6 @@ import (
 type Pair = kv.Pair
 
 type Service struct {
-	db     *gorp.DB
 	access *rbac.Service
 	kv     *kv.Service
 }
@@ -38,7 +37,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:     cfg.Distribution.DB,
 		access: cfg.Service.RBAC,
 		kv:     cfg.Service.KV,
 	}, nil
@@ -56,17 +54,16 @@ type (
 
 func (s *Service) Get(
 	ctx context.Context,
-	tx gorp.Tx,
 	req GetRequest,
 ) (GetResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{ranger.OntologyID(req.Range)},
 	}); err != nil {
 		return GetResponse{}, err
 	}
-	reader := s.kv.NewReader(tx)
+	reader := s.kv.NewReader(nil)
 	var (
 		pairs []kv.Pair
 		err   error

@@ -28,7 +28,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *status.Service
 	label    *label.Service
@@ -42,7 +41,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	return &Service{
 		internal: cfg.Service.Status,
 		label:    cfg.Service.Label,
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 	}, nil
 }
@@ -170,7 +168,6 @@ type RetrieveResponse struct {
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	q := s.internal.NewRetrieve()
@@ -194,21 +191,21 @@ func (s *Service) Retrieve(
 	if len(req.Keys) != 0 {
 		q = q.Where(status.MatchKeys[any](req.Keys...))
 	}
-	if err := q.Entries(&resStatuses).Exec(ctx, tx); err != nil {
+	if err := q.Entries(&resStatuses).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	res := RetrieveResponse{Statuses: resStatuses}
 	ids := statusAccessOntologyIDs(res.Statuses)
 	if req.IncludeLabels {
 		for i, stat := range res.Statuses {
-			labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), tx)
+			labels, err := s.label.RetrieveFor(ctx, status.OntologyID(stat.Key), nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
 			res.Statuses[i].Labels = labels
 		}
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: ids,

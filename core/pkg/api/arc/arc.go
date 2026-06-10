@@ -34,7 +34,6 @@ type (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *arc.Service
 	status   *status.Service
@@ -47,7 +46,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:              cfg.Distribution.DB,
 		access:          cfg.Service.RBAC,
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Service.Arc,
@@ -120,7 +118,6 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var arcs []arc.Arc
@@ -145,7 +142,7 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if err := q.Exec(ctx, tx); err != nil {
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 
@@ -154,7 +151,7 @@ func (s *Service) Retrieve(
 	// Compile Arcs to modules if requested
 	if req.Compile {
 		for i := range res.Arcs {
-			if err := s.compile(ctx, tx, &res.Arcs[i]); err != nil {
+			if err := s.compile(ctx, &res.Arcs[i]); err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
@@ -165,7 +162,7 @@ func (s *Service) Retrieve(
 		}
 	}
 
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: arc.OntologyIDsFromArcs(arcs),
@@ -195,12 +192,12 @@ func (s *Service) LSP(
 
 // compile compiles the Arc text to a module containing IR and WASM bytecode. Returns an
 // error if parsing, analysis, or compilation fails.
-func (s *Service) compile(ctx context.Context, tx gorp.Tx, arc *Arc) error {
+func (s *Service) compile(ctx context.Context, arc *Arc) error {
 	parsed, diag := arctext.Parse(arc.Text)
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}
-	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(tx))
+	ir, diag := arctext.Analyze(ctx, parsed, s.internal.NewRoot(nil))
 	if diag != nil && !diag.Ok() {
 		return CompileError{Diagnostics: diag.Error()}
 	}

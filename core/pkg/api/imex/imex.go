@@ -23,7 +23,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *imex.Service
 }
@@ -34,7 +33,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		internal: cfg.Service.ImEx,
 		access:   cfg.Service.RBAC,
 	}, nil
@@ -77,10 +75,9 @@ type (
 
 func (s *Service) Export(
 	ctx context.Context,
-	tx gorp.Tx,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{req},

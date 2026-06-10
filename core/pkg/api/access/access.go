@@ -29,7 +29,6 @@ import (
 
 type Service struct {
 	internal *rbac.Service
-	db       *gorp.DB
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -37,7 +36,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Service.RBAC, db: cfg.Distribution.DB}, nil
+	return &Service{internal: cfg.Service.RBAC}, nil
 }
 
 const allowInternal = false
@@ -89,13 +88,12 @@ type RetrievePolicyResponse struct {
 
 func (s *Service) RetrievePolicy(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrievePolicyRequest,
 ) (RetrievePolicyResponse, error) {
 	q := s.internal.Policy.NewRetrieve()
 	if len(req.Subjects) > 0 {
 		subjectKeys, err := s.internal.Policy.ResolveSubjects(
-			ctx, tx, req.Subjects...,
+			ctx, nil, req.Subjects...,
 		)
 		if err != nil {
 			return RetrievePolicyResponse{}, err
@@ -117,10 +115,10 @@ func (s *Service) RetrievePolicy(
 		q = q.Where(policy.MatchInternal(*req.Internal))
 	}
 	var res RetrievePolicyResponse
-	if err := q.Entries(&res.Policies).Exec(ctx, tx); err != nil {
+	if err := q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return RetrievePolicyResponse{}, err
 	}
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: policy.OntologyIDsFromPolicies(res.Policies),
@@ -198,7 +196,6 @@ type (
 
 func (s *Service) RetrieveRole(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRoleRequest,
 ) (RetrieveRoleResponse, error) {
 	q := s.internal.Role.NewRetrieve()
@@ -215,10 +212,10 @@ func (s *Service) RetrieveRole(
 		q = q.Where(role.MatchInternal(*req.Internal))
 	}
 	var res RetrieveRoleResponse
-	if err := q.Entries(&res.Roles).Exec(ctx, tx); err != nil {
+	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
 		return RetrieveRoleResponse{}, err
 	}
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: role.OntologyIDsFromRoles(res.Roles),

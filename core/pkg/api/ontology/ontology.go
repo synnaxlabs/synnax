@@ -26,7 +26,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	ontology *ontology.Ontology
 	search   *search.Index
 	access   *rbac.Service
@@ -41,7 +40,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		ontology: cfg.Distribution.Ontology,
 		search:   cfg.Distribution.Search,
 		access:   cfg.Service.RBAC,
-		db:       cfg.Distribution.DB,
 	}, nil
 }
 
@@ -63,7 +61,6 @@ type (
 
 func (s *Service) Retrieve(
 	ctx context.Context,
-	tx gorp.Tx,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var resources []ontology.Resource
@@ -73,7 +70,7 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 		resources = make([]ontology.Resource, 0, len(ids))
-		err = s.ontology.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, tx)
+		err = s.ontology.NewRetrieve().WhereIDs(ids...).Entries(&resources).Exec(ctx, nil)
 		if errors.Is(err, query.ErrNotFound) {
 			err = nil
 		}
@@ -101,11 +98,11 @@ func (s *Service) Retrieve(
 		if req.Offset > 0 {
 			q = q.Offset(req.Offset)
 		}
-		if err := q.Entries(&resources).Exec(ctx, tx); err != nil {
+		if err := q.Entries(&resources).Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
 	}
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: ontology.ResourceIDs(resources),
