@@ -493,9 +493,24 @@ type fieldData struct {
 	IsHardOptional bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field.
-func (f fieldData) TagSuffix() string {
+// JSONTagSuffix returns the json tag suffix for the field. Hard-optional
+// pointers omit when nil; soft-optional values omit when zero, so absence
+// round-trips as absence instead of a zero-filled value the TS schemas would
+// reject (e.g. "" for an optional enum).
+func (f fieldData) JSONTagSuffix() string {
 	if f.IsHardOptional {
+		return ",omitempty"
+	}
+	if f.IsOptional {
+		return ",omitzero"
+	}
+	return ""
+}
+
+// MsgpackTagSuffix returns the msgpack tag suffix for the field. msgpack has
+// no omitzero; omitempty covers nil pointers and empty basic values.
+func (f fieldData) MsgpackTagSuffix() string {
+	if f.IsHardOptional || f.IsOptional {
 		return ",omitempty"
 	}
 	return ""
@@ -621,7 +636,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
@@ -633,7 +648,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if .Doc}}
 	{{formatDoc .GoName .Doc | printf "%s"}}
 {{- end}}
-	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 {{- range .ExtraFields}}
 	{{.}}
