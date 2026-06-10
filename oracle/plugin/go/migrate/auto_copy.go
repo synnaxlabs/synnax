@@ -346,10 +346,7 @@ func (c *collector) unionMismatch(oldRef, newRef resolution.TypeRef) bool {
 	if isUnionIn(oldRef, c.oldTable) != isUnionIn(newRef, c.newTable) {
 		return true
 	}
-	n := len(oldRef.TypeArgs)
-	if len(newRef.TypeArgs) < n {
-		n = len(newRef.TypeArgs)
-	}
+	n := min(len(oldRef.TypeArgs), len(newRef.TypeArgs))
 	for i := range n {
 		if c.unionMismatch(oldRef.TypeArgs[i], newRef.TypeArgs[i]) {
 			return true
