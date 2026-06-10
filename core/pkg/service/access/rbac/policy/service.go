@@ -80,6 +80,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		Migrations: []migrate.Migration{
 			v0Mig,
 			gorp.CodecMigration[Key, Policy]("msgpack_to_orc", v0Mig.Key()),
+			migrate.WithAddedDeps(
+				gorp.NewMigration("v56_rewrite_workspace_policy_objects", MigrateWorkspaceObjects),
+				"msgpack_to_orc",
+			),
 		},
 	}); err != nil {
 		return nil, err
