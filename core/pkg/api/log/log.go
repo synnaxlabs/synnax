@@ -74,26 +74,6 @@ func (s *Service) Create(
 	return CreateResponse{Logs: req.Logs}, nil
 }
 
-type SetDataRequest struct {
-	Data log.Log `json:"data" msgpack:"data"`
-	Key  log.Key `json:"key" msgpack:"key"`
-}
-
-func (s *Service) SetData(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetDataRequest,
-) (types.Nil, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{log.OntologyID(req.Key)},
-	}); err != nil {
-		return types.Nil{}, err
-	}
-	return types.Nil{}, s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
-}
-
 // DispatchRequest carries an action sequence to apply to a single log. DispatchKey
 // identifies the originating client's batch so cluster broadcasts can be deduplicated
 // against the local optimistic update.

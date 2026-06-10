@@ -954,7 +954,7 @@ describe("Base Store", () => {
           expect(errorCall[1]).toBe("Failed to notify set listener");
         });
 
-        it("should continue notifying other listeners when one throws an error", async () => {
+        it("should continue notifying other listeners when one throws an error", () => {
           const baseStore = new ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
@@ -970,15 +970,13 @@ describe("Base Store", () => {
 
           scope1.set("key1", "value1");
 
-          await new Promise((resolve) => setTimeout(resolve, 10));
-
           expect(listener1).toHaveBeenCalledWith("value1", undefined);
           expect(listener2).toHaveBeenCalledWith("value1", undefined);
           expect(listener3).toHaveBeenCalledWith("value1", undefined);
           expect(squashError).toHaveBeenCalledTimes(3);
         });
 
-        it("should handle errors from multiple listeners", async () => {
+        it("should handle errors from multiple listeners", () => {
           const baseStore = new ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
@@ -995,8 +993,6 @@ describe("Base Store", () => {
           scope2.onSet(listener3);
 
           scope1.set("key1", "value1");
-
-          await new Promise((resolve) => setTimeout(resolve, 10));
 
           expect(listener3).toHaveBeenCalledWith("value1", undefined);
           expect(squashError).toHaveBeenCalledTimes(3);
@@ -1112,7 +1108,7 @@ describe("Base Store", () => {
           expect(errorCall[1]).toBe("Failed to notify delete listener");
         });
 
-        it("should continue notifying other listeners when one throws an error", async () => {
+        it("should continue notifying other listeners when one throws an error", () => {
           const baseStore = new ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
@@ -1129,15 +1125,13 @@ describe("Base Store", () => {
           scope1.set("key1", "value1");
           scope1.delete("key1");
 
-          await new Promise((resolve) => setTimeout(resolve, 10));
-
           expect(listener1).toHaveBeenCalledWith("key1");
           expect(listener2).toHaveBeenCalledWith("key1");
           expect(listener3).toHaveBeenCalledWith("key1");
           expect(squashError).toHaveBeenCalledTimes(3);
         });
 
-        it("should handle errors from multiple delete listeners", async () => {
+        it("should handle errors from multiple delete listeners", () => {
           const baseStore = new ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
@@ -1155,8 +1149,6 @@ describe("Base Store", () => {
 
           scope1.set("key1", "value1");
           scope1.delete("key1");
-
-          await new Promise((resolve) => setTimeout(resolve, 10));
 
           expect(listener3).toHaveBeenCalledWith("key1");
           expect(squashError).toHaveBeenCalledTimes(3);

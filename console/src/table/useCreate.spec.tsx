@@ -97,9 +97,7 @@ const newWorkspace = async (): Promise<workspace.Workspace> =>
   await client.workspaces.create({ name: `ws-${id.create()}`, layout: {} });
 
 const findPlacedTableLayout = (store: RootStore) =>
-  Object.values(store.getState()[Layout.SLICE_NAME].layouts).find(
-    (l) => l.type === LAYOUT_TYPE,
-  );
+  Layout.selectByFilter(store.getState(), (l) => l.type === LAYOUT_TYPE);
 
 const waitForPlacedLayout = async (store: RootStore): Promise<string> => {
   let key: string | undefined;
@@ -132,9 +130,7 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ProvidedWS");
-      expect(store.getState()[Workspace.SLICE_NAME].active?.key).toEqual(
-        workspaceB.key,
-      );
+      expect(Workspace.selectActiveKey(store.getState())).toEqual(workspaceB.key);
     });
 
     it("falls back to the active workspace when no prop is given", async () => {
@@ -146,9 +142,7 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("ActiveWS");
-      expect(store.getState()[Workspace.SLICE_NAME].active?.key).toEqual(
-        workspaceA.key,
-      );
+      expect(Workspace.selectActiveKey(store.getState())).toEqual(workspaceA.key);
     });
 
     it("creates a workspace-less table when neither prop nor active workspace is set", async () => {
@@ -160,7 +154,7 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
       expect(retrieved.name).toEqual("Loose");
-      expect(store.getState()[Workspace.SLICE_NAME].active).toBeNull();
+      expect(Workspace.selectActive(store.getState())).toBeNull();
     });
   });
 
@@ -174,8 +168,8 @@ describe("useCreate", () => {
       const placedKey = await waitForPlacedLayout(store);
       const state = store.getState();
       expect(selectEditable(state, placedKey)).toBe(true);
-      expect(state[Layout.SLICE_NAME].layouts[placedKey].name).toEqual("Editable");
-      expect(state[Layout.SLICE_NAME].layouts[placedKey].type).toEqual(LAYOUT_TYPE);
+      expect(Layout.select(state, placedKey)?.name).toEqual("Editable");
+      expect(Layout.selectType(state, placedKey)).toEqual(LAYOUT_TYPE);
     });
 
     it("defaults the layout name to 'Table' when init does not provide one", async () => {
@@ -185,9 +179,7 @@ describe("useCreate", () => {
         result.current();
       });
       const placedKey = await waitForPlacedLayout(store);
-      expect(store.getState()[Layout.SLICE_NAME].layouts[placedKey].name).toEqual(
-        "Table",
-      );
+      expect(Layout.select(store.getState(), placedKey)?.name).toEqual("Table");
     });
 
     it("uses the caller-provided key for both the server table and the layout", async () => {
@@ -198,7 +190,7 @@ describe("useCreate", () => {
         result.current({ key: callerKey, name: "WithKey" });
       });
       await waitFor(() => {
-        expect(store.getState()[Layout.SLICE_NAME].layouts[callerKey]).toBeDefined();
+        expect(Layout.select(store.getState(), callerKey)).toBeDefined();
       });
       const retrieved = await client.tables.retrieve({ key: callerKey });
       expect(retrieved.key).toEqual(callerKey);
@@ -209,7 +201,7 @@ describe("useCreate", () => {
   describe("workspace switching", () => {
     it("does not flip the active workspace when the table is created in the active one", async () => {
       const { wrapper, store } = await buildHarness({ activeWorkspace: workspaceA });
-      const beforeActive = store.getState()[Workspace.SLICE_NAME].active;
+      const beforeActive = Workspace.selectActive(store.getState());
       const { result } = renderHook(() => useCreate({ workspace: workspaceA.key }), {
         wrapper,
       });
@@ -217,7 +209,7 @@ describe("useCreate", () => {
         result.current({ name: "SameWS" });
       });
       await waitForPlacedLayout(store);
-      expect(store.getState()[Workspace.SLICE_NAME].active).toBe(beforeActive);
+      expect(Workspace.selectActive(store.getState())).toBe(beforeActive);
     });
   });
 });

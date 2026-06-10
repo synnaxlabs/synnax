@@ -17,7 +17,7 @@ import { Workspace } from "@/workspace";
 export const handleLink: Link.Handler = async ({ client, key, placeLayout, store }) => {
   const channel = await client.channels.retrieve(key);
   const workspace = Workspace.selectActiveKey(store.getState()) ?? uuid.ZERO;
-  const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_RANGE_KEY;
+  const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
   const { key: plotKey, name } = await client.lineplots.create(workspace, {
     name: `${channel.name} Plot`,
     channels: { y1: [channel.key] },

@@ -26,7 +26,7 @@ import {
   Workspace as Base,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { ContextMenu } from "@/components";
@@ -45,7 +45,6 @@ import { Table } from "@/table";
 import { useExport } from "@/workspace/export";
 import { selectActiveKey } from "@/workspace/selectors";
 import { maybeRename, setActive } from "@/workspace/slice";
-import { useMaybeChange } from "@/workspace/useMaybeChange";
 
 const useDelete = createUseDelete({
   type: "Workspace",
@@ -60,71 +59,6 @@ const useDelete = createUseDelete({
     store.dispatch(Layout.clearWorkspace());
   },
 });
-
-const useCreateLinePlot = ({
-  placeLayout,
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeWorkspace = useMaybeChange();
-  const workspaceID = ids[0];
-  const { update } = PLinePlot.useCreate({
-    afterSuccess: async ({ data }) => {
-      const { workspace: _workspace, ...linePlot } = data;
-      await maybeChangeWorkspace(workspaceID.key);
-      placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
-    },
-  });
-  return useCallback(
-    () =>
-      update({
-        workspace: workspaceID.key,
-        name: "New Line Plot",
-      }),
-    [workspaceID.key],
-  );
-};
-
-const useCreateLog = ({
-  placeLayout,
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeWorkspace = useMaybeChange();
-  const workspaceID = ids[0];
-  const { update } = PLog.useCreate({
-    afterSuccess: async ({ data }) => {
-      const { workspace, ...log } = data;
-      if (workspace != null) await maybeChangeWorkspace(workspace);
-      placeLayout(Log.create({ key: log.key, name: log.name }));
-    },
-  });
-  return useCallback(
-    () => update({ workspace: workspaceID.key, name: "New Log" }),
-    [workspaceID.key],
-  );
-};
-
-const useCreateTable = ({
-  placeLayout,
-  selection: { ids },
-}: Ontology.TreeContextMenuProps): (() => void) => {
-  const maybeChangeWorkspace = useMaybeChange();
-  const workspaceID = ids[0];
-  const { update } = PTable.useCreate({
-    afterSuccess: async ({ data }) => {
-      const { workspace, key, name } = data;
-      if (workspace != null) await maybeChangeWorkspace(workspace);
-      placeLayout(Table.create({ key, name }));
-    },
-  });
-  return useCallback(
-    () =>
-      update({
-        workspace: workspaceID.key,
-        name: "New Table",
-      }),
-    [workspaceID.key, update],
-  );
-};
 
 const useRename = createUseRename({
   query: Base.useRename,
@@ -146,11 +80,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   } = props;
   const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
-  const createPlot = useCreateLinePlot(props);
-  const createLog = useCreateLog(props);
-  const createTable = useCreateTable(props);
+  const workspaceKey = ids[0].key;
+  const createPlot = LinePlot.useCreate({ workspace: workspaceKey });
+  const createLog = Log.useCreate({ workspace: workspaceKey });
+  const createTable = Table.useCreate({ workspace: workspaceKey });
   const firstID = selection.ids[0];
-  const createSchematic = Schematic.useCreate({ workspace: ids[0].key });
+  const createSchematic = Schematic.useCreate({ workspace: workspaceKey });
   const importComponent = Import.useImport();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
@@ -189,19 +124,19 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       {singleResource && (
         <>
           {hasLinePlotCreatePermission && (
-            <Menu.Item itemKey="createPlot" onClick={createPlot}>
+            <Menu.Item itemKey="createPlot" onClick={() => createPlot()}>
               <PLinePlot.CreateIcon />
               Create line plot
             </Menu.Item>
           )}
           {hasLogCreatePermission && (
-            <Menu.Item itemKey="createLog" onClick={createLog}>
+            <Menu.Item itemKey="createLog" onClick={() => createLog()}>
               <PLog.CreateIcon />
               Create log
             </Menu.Item>
           )}
           {hasTableCreatePermission && (
-            <Menu.Item itemKey="createTable" onClick={createTable}>
+            <Menu.Item itemKey="createTable" onClick={() => createTable()}>
               <PTable.CreateIcon />
               Create table
             </Menu.Item>

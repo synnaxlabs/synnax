@@ -10,88 +10,89 @@
 import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { reduceAll } from "@/log/actions";
-import {
-  type Action,
-  actionZ,
-  addChannel,
-  removeChannel,
-  rename,
-  scopedActionZ,
-  setChannelEntry,
-  setChannels,
-  setShowChannelNames,
-  setShowReceiptTimestamp,
-  setTimestampPrecision,
-  swapChannel,
-} from "@/log/actions.gen";
-import { type ChannelEntry, channelEntryZ, type Log, logZ } from "@/log/types.gen";
+import { log } from "@/log";
 
-const entry = (channel: number, overrides: Partial<ChannelEntry> = {}): ChannelEntry =>
-  channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
+const createChannelEntry = (
+  channel: number,
+  overrides: Partial<log.ChannelEntry> = {},
+): log.ChannelEntry =>
+  log.channelEntryZ.parse({ channel, color: color.ZERO, ...overrides });
 
-const empty = (overrides: Partial<Log> = {}): Log =>
-  logZ.parse({ key: "00000000-0000-0000-0000-000000000000", name: "", ...overrides });
+const createEmpty = (overrides: Partial<log.Log> = {}): log.Log =>
+  log.newZ.parse({ name: "", ...overrides });
 
-const apply = (state: Log, ...actions: Action[]): Log => reduceAll(state, actions).next;
+const apply = (state: log.Log, ...actions: log.Action[]): log.Log =>
+  log.reduceAll(state, actions).next;
 
-// roundTrip applies actions then applies their captured inverses in reverse. The
-// result must equal the input state for actions that fully invert.
-const roundTrip = (state: Log, ...actions: Action[]): Log => {
-  const { next, inverse } = reduceAll(state, actions);
-  return reduceAll(next, inverse).next;
+const roundTrip = (state: log.Log, ...actions: log.Action[]): log.Log => {
+  const { next, inverse } = log.reduceAll(state, actions);
+  return log.reduceAll(next, inverse).next;
 };
 
 describe("log reducer", () => {
   describe("rename", () => {
     it("should set the log name", () => {
-      expect(apply(empty({ name: "old" }), rename({ name: "new" })).name).toEqual(
-        "new",
-      );
+      expect(
+        apply(createEmpty({ name: "old" }), log.rename({ name: "new" })).name,
+      ).toEqual("new");
     });
     it("should round-trip the previous name through its inverse", () => {
       expect(
-        roundTrip(empty({ name: "before" }), rename({ name: "after" })).name,
+        roundTrip(createEmpty({ name: "before" }), log.rename({ name: "after" })).name,
       ).toEqual("before");
     });
     it("should target the log key", () => {
-      const state = empty({ key: "11111111-1111-4111-8111-111111111111" });
-      expect(reduceAll(state, [rename({ name: "x" })]).targets).toEqual([state.key]);
+      const state = createEmpty({ key: "11111111-1111-4111-8111-111111111111" });
+      expect(log.reduceAll(state, [log.rename({ name: "x" })]).targets).toEqual([
+        state.key,
+      ]);
     });
   });
 
   describe("addChannel", () => {
     it("should append a default entry for the channel", () => {
-      const out = apply(empty(), addChannel({ channel: 42 }));
-      expect(out.channels).toEqual([entry(42)]);
+      const out = apply(createEmpty(), log.addChannel({ channel: 42 }));
+      expect(out.channels).toEqual([createChannelEntry(42)]);
     });
     it("should be a no-op when the channel already has an entry", () => {
-      const state = empty({ channels: [entry(42, { alias: "kept" })] });
-      const out = apply(state, addChannel({ channel: 42 }));
-      expect(out.channels).toEqual([entry(42, { alias: "kept" })]);
+      const state = createEmpty({
+        channels: [createChannelEntry(42, { alias: "kept" })],
+      });
+      const out = apply(state, log.addChannel({ channel: 42 }));
+      expect(out.channels).toEqual([createChannelEntry(42, { alias: "kept" })]);
     });
     it("should round-trip through removeChannel as its inverse", () => {
-      expect(roundTrip(empty(), addChannel({ channel: 7 })).channels).toEqual([]);
+      expect(roundTrip(createEmpty(), log.addChannel({ channel: 7 })).channels).toEqual(
+        [],
+      );
     });
     it("should target the channel", () => {
-      expect(reduceAll(empty(), [addChannel({ channel: 42 })]).targets).toEqual([
-        "channel:42",
-      ]);
+      expect(
+        log.reduceAll(createEmpty(), [log.addChannel({ channel: 42 })]).targets,
+      ).toEqual(["channel:42"]);
     });
   });
 
   describe("removeChannel", () => {
     it("should remove the entry for the channel", () => {
-      const state = empty({ channels: [entry(1), entry(2)] });
-      expect(apply(state, removeChannel({ channel: 1 })).channels).toEqual([entry(2)]);
+      const state = createEmpty({
+        channels: [createChannelEntry(1), createChannelEntry(2)],
+      });
+      expect(apply(state, log.removeChannel({ channel: 1 })).channels).toEqual([
+        createChannelEntry(2),
+      ]);
     });
     it("should be a no-op when the channel has no entry", () => {
-      const state = empty({ channels: [entry(2)] });
-      expect(apply(state, removeChannel({ channel: 1 })).channels).toEqual([entry(2)]);
+      const state = createEmpty({ channels: [createChannelEntry(2)] });
+      expect(apply(state, log.removeChannel({ channel: 1 })).channels).toEqual([
+        createChannelEntry(2),
+      ]);
     });
     it("should restore the entry and its config on undo", () => {
-      const state = empty({ channels: [entry(1, { alias: "kept", precision: 3 })] });
-      expect(roundTrip(state, removeChannel({ channel: 1 })).channels).toEqual(
+      const state = createEmpty({
+        channels: [createChannelEntry(1, { alias: "kept", precision: 3 })],
+      });
+      expect(roundTrip(state, log.removeChannel({ channel: 1 })).channels).toEqual(
         state.channels,
       );
     });
@@ -99,76 +100,110 @@ describe("log reducer", () => {
 
   describe("setChannelEntry", () => {
     it("should insert the entry when the channel is absent", () => {
-      const out = apply(empty(), setChannelEntry({ entry: entry(5, { alias: "a" }) }));
-      expect(out.channels).toEqual([entry(5, { alias: "a" })]);
+      const out = apply(
+        createEmpty(),
+        log.setChannelEntry({ entry: createChannelEntry(5, { alias: "a" }) }),
+      );
+      expect(out.channels).toEqual([createChannelEntry(5, { alias: "a" })]);
     });
     it("should replace the entry in place when the channel is present", () => {
-      const state = empty({ channels: [entry(5, { alias: "old" }), entry(6)] });
-      const out = apply(state, setChannelEntry({ entry: entry(5, { alias: "new" }) }));
-      expect(out.channels).toEqual([entry(5, { alias: "new" }), entry(6)]);
+      const state = createEmpty({
+        channels: [createChannelEntry(5, { alias: "old" }), createChannelEntry(6)],
+      });
+      const out = apply(
+        state,
+        log.setChannelEntry({ entry: createChannelEntry(5, { alias: "new" }) }),
+      );
+      expect(out.channels).toEqual([
+        createChannelEntry(5, { alias: "new" }),
+        createChannelEntry(6),
+      ]);
     });
     it("should round-trip an insert through removeChannel", () => {
-      expect(roundTrip(empty(), setChannelEntry({ entry: entry(5) })).channels).toEqual(
-        [],
-      );
+      expect(
+        roundTrip(createEmpty(), log.setChannelEntry({ entry: createChannelEntry(5) }))
+          .channels,
+      ).toEqual([]);
     });
     it("should round-trip a replace through the previous entry", () => {
-      const state = empty({ channels: [entry(5, { precision: 2 })] });
+      const state = createEmpty({
+        channels: [createChannelEntry(5, { precision: 2 })],
+      });
       expect(
-        roundTrip(state, setChannelEntry({ entry: entry(5, { precision: 9 }) }))
-          .channels,
+        roundTrip(
+          state,
+          log.setChannelEntry({ entry: createChannelEntry(5, { precision: 9 }) }),
+        ).channels,
       ).toEqual(state.channels);
     });
     it("should target the channel", () => {
       expect(
-        reduceAll(empty(), [setChannelEntry({ entry: entry(5) })]).targets,
+        log.reduceAll(createEmpty(), [
+          log.setChannelEntry({ entry: createChannelEntry(5) }),
+        ]).targets,
       ).toEqual(["channel:5"]);
     });
   });
 
   describe("setChannels", () => {
     it("should replace the entire ordered list", () => {
-      const state = empty({ channels: [entry(1)] });
-      const out = apply(state, setChannels({ channels: [entry(2), entry(3)] }));
-      expect(out.channels).toEqual([entry(2), entry(3)]);
+      const state = createEmpty({ channels: [createChannelEntry(1)] });
+      const out = apply(
+        state,
+        log.setChannels({ channels: [createChannelEntry(2), createChannelEntry(3)] }),
+      );
+      expect(out.channels).toEqual([createChannelEntry(2), createChannelEntry(3)]);
     });
     it("should round-trip the previous list through its inverse", () => {
-      const state = empty({ channels: [entry(1), entry(2)] });
-      expect(roundTrip(state, setChannels({ channels: [entry(3)] })).channels).toEqual(
-        state.channels,
-      );
+      const state = createEmpty({
+        channels: [createChannelEntry(1), createChannelEntry(2)],
+      });
+      expect(
+        roundTrip(state, log.setChannels({ channels: [createChannelEntry(3)] }))
+          .channels,
+      ).toEqual(state.channels);
     });
     it("should target every channel in the old and new lists", () => {
-      const state = empty({ channels: [entry(1)] });
-      const { targets } = reduceAll(state, [setChannels({ channels: [entry(2)] })]);
+      const state = createEmpty({ channels: [createChannelEntry(1)] });
+      const { targets } = log.reduceAll(state, [
+        log.setChannels({ channels: [createChannelEntry(2)] }),
+      ]);
       expect(new Set(targets)).toEqual(new Set(["channel:1", "channel:2"]));
     });
   });
 
   describe("swapChannel", () => {
     it("should repoint a channel in place, keeping position and config", () => {
-      const state = empty({
-        channels: [entry(1), entry(2, { alias: "kept", precision: 3 }), entry(4)],
+      const state = createEmpty({
+        channels: [
+          createChannelEntry(1),
+          createChannelEntry(2, { alias: "kept", precision: 3 }),
+          createChannelEntry(4),
+        ],
       });
-      const out = apply(state, swapChannel({ from: 2, to: 5 }));
+      const out = apply(state, log.swapChannel({ from: 2, to: 5 }));
       expect(out.channels.map((e) => e.channel)).toEqual([1, 5, 4]);
-      expect(out.channels[1]).toEqual(entry(5, { alias: "kept", precision: 3 }));
+      expect(out.channels[1]).toEqual(
+        createChannelEntry(5, { alias: "kept", precision: 3 }),
+      );
     });
     it("should be a no-op when the from channel is absent", () => {
-      const state = empty({ channels: [entry(1)] });
-      expect(apply(state, swapChannel({ from: 99, to: 5 })).channels).toEqual([
-        entry(1),
+      const state = createEmpty({ channels: [createChannelEntry(1)] });
+      expect(apply(state, log.swapChannel({ from: 99, to: 5 })).channels).toEqual([
+        createChannelEntry(1),
       ]);
     });
     it("should round-trip through the reverse swap", () => {
-      const state = empty({ channels: [entry(1), entry(2)] });
-      expect(roundTrip(state, swapChannel({ from: 2, to: 5 })).channels).toEqual(
+      const state = createEmpty({
+        channels: [createChannelEntry(1), createChannelEntry(2)],
+      });
+      expect(roundTrip(state, log.swapChannel({ from: 2, to: 5 })).channels).toEqual(
         state.channels,
       );
     });
     it("should target both the from and to channels", () => {
-      const state = empty({ channels: [entry(2)] });
-      const { targets } = reduceAll(state, [swapChannel({ from: 2, to: 5 })]);
+      const state = createEmpty({ channels: [createChannelEntry(2)] });
+      const { targets } = log.reduceAll(state, [log.swapChannel({ from: 2, to: 5 })]);
       expect(new Set(targets)).toEqual(new Set(["channel:2", "channel:5"]));
     });
   });
@@ -176,14 +211,14 @@ describe("log reducer", () => {
   describe("setTimestampPrecision", () => {
     it("should set the precision", () => {
       expect(
-        apply(empty(), setTimestampPrecision({ timestampPrecision: 3 }))
+        apply(createEmpty(), log.setTimestampPrecision({ timestampPrecision: 3 }))
           .timestampPrecision,
       ).toEqual(3);
     });
     it("should round-trip the previous precision", () => {
-      const state = empty({ timestampPrecision: 1 });
+      const state = createEmpty({ timestampPrecision: 1 });
       expect(
-        roundTrip(state, setTimestampPrecision({ timestampPrecision: 2 }))
+        roundTrip(state, log.setTimestampPrecision({ timestampPrecision: 2 }))
           .timestampPrecision,
       ).toEqual(1);
     });
@@ -191,12 +226,13 @@ describe("log reducer", () => {
 
   describe("setShowChannelNames", () => {
     it("should set the flag and round-trip it", () => {
-      const state = empty({ showChannelNames: true });
+      const state = createEmpty({ showChannelNames: true });
       expect(
-        apply(state, setShowChannelNames({ showChannelNames: false })).showChannelNames,
+        apply(state, log.setShowChannelNames({ showChannelNames: false }))
+          .showChannelNames,
       ).toEqual(false);
       expect(
-        roundTrip(state, setShowChannelNames({ showChannelNames: false }))
+        roundTrip(state, log.setShowChannelNames({ showChannelNames: false }))
           .showChannelNames,
       ).toEqual(true);
     });
@@ -204,45 +240,45 @@ describe("log reducer", () => {
 
   describe("setShowReceiptTimestamp", () => {
     it("should set the flag and round-trip it", () => {
-      const state = empty({ showReceiptTimestamp: true });
+      const state = createEmpty({ showReceiptTimestamp: true });
       expect(
-        apply(state, setShowReceiptTimestamp({ showReceiptTimestamp: false }))
+        apply(state, log.setShowReceiptTimestamp({ showReceiptTimestamp: false }))
           .showReceiptTimestamp,
       ).toEqual(false);
       expect(
-        roundTrip(state, setShowReceiptTimestamp({ showReceiptTimestamp: false }))
+        roundTrip(state, log.setShowReceiptTimestamp({ showReceiptTimestamp: false }))
           .showReceiptTimestamp,
       ).toEqual(true);
     });
   });
 
-  describe("reduceAll", () => {
+  describe("log.reduceAll", () => {
     it("should apply actions sequentially", () => {
       const out = apply(
-        empty(),
-        addChannel({ channel: 1 }),
-        addChannel({ channel: 2 }),
-        rename({ name: "n" }),
+        createEmpty(),
+        log.addChannel({ channel: 1 }),
+        log.addChannel({ channel: 2 }),
+        log.rename({ name: "n" }),
       );
       expect(out.channels.map((e) => e.channel)).toEqual([1, 2]);
       expect(out.name).toEqual("n");
     });
     it("should collect inverses in reverse application order", () => {
-      const { inverse } = reduceAll(empty(), [
-        rename({ name: "a" }),
-        addChannel({ channel: 1 }),
+      const { inverse } = log.reduceAll(createEmpty(), [
+        log.rename({ name: "a" }),
+        log.addChannel({ channel: 1 }),
       ]);
       expect(inverse[0].type).toEqual("remove_channel");
       expect(inverse[1].type).toEqual("rename");
     });
     it("should fully invert a multi-action batch", () => {
-      const state = empty({ name: "orig", channels: [entry(9)] });
+      const state = createEmpty({ name: "orig", channels: [createChannelEntry(9)] });
       expect(
         roundTrip(
           state,
-          rename({ name: "next" }),
-          addChannel({ channel: 1 }),
-          setShowChannelNames({ showChannelNames: false }),
+          log.rename({ name: "next" }),
+          log.addChannel({ channel: 1 }),
+          log.setShowChannelNames({ showChannelNames: false }),
         ),
       ).toEqual(state);
     });
@@ -250,16 +286,16 @@ describe("log reducer", () => {
 
   describe("wire format", () => {
     it("should parse a known action", () => {
-      expect(actionZ.parse(rename({ name: "x" })).type).toEqual("rename");
+      expect(log.actionZ.parse(log.rename({ name: "x" })).type).toEqual("rename");
     });
     it("should reject an unknown action type", () => {
-      expect(() => actionZ.parse({ type: "nope" })).toThrow();
+      expect(() => log.actionZ.parse({ type: "nope" })).toThrow();
     });
     it("should parse a scoped action envelope", () => {
-      const parsed = scopedActionZ.parse({
+      const parsed = log.scopedActionZ.parse({
         key: "00000000-0000-0000-0000-000000000000",
         dispatchKey: "abc",
-        actions: [rename({ name: "x" })],
+        actions: [log.rename({ name: "x" })],
       });
       expect(parsed.seq).toEqual(0);
       expect(parsed.actions[0].type).toEqual("rename");
