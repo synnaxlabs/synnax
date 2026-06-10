@@ -289,12 +289,13 @@ var _ = Describe("ImEx", func() {
 			})
 
 			It("Should skip unexported fields even when they carry a json tag", func() {
-				// Encode goes through structToMap, which only reflects over
-				// exported fields. An unexported field with a json tag should
-				// never reach the wire — calling Interface() on it would panic,
-				// and exposing it would leak private state.
+				// Encode goes through structToMap, which only reflects over exported
+				// fields. An unexported field with a json tag should never reach the
+				// wire — calling Interface() on it would panic, and exposing it would
+				// leak private state.
 				type payload struct {
-					Name   string `json:"name"`
+					Name string `json:"name"`
+					//nolint:govet,staticcheck
 					secret string `json:"secret"`
 				}
 				env := MustSucceed(imex.Encode(

@@ -121,9 +121,9 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 // Given the body already decoded as a flat map, the original wire bytes, and the codec
 // that produced them, it promotes the {version, type, name} headers onto the receiver
 // and stashes raw + codec for the later typed decode via Decode[T]. Both `type` and
-// `name` are required headers — an envelope that omits either, or that carries an
-// empty string for either, is rejected so the failure surfaces at the transport
-// boundary instead of routing to a no-op handler.
+// `name` are required headers — an envelope that omits either, or that carries an empty
+// string for either, is rejected so the failure surfaces at the transport boundary
+// instead of routing to a no-op handler.
 func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec) error {
 	if v, ok := m["version"]; ok {
 		ver, err := versionFromAny(v)
