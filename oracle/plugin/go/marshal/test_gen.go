@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -533,6 +534,30 @@ func (b *testValueBuilder) valueExpr(
 	case resolution.EnumForm:
 		return b.enumExpr(resolved, form)
 
+	case resolution.UnionForm:
+		if len(form.Variants) == 0 {
+			return "", errors.Newf("union %s has no variants", actual.Name)
+		}
+		goType, err := b.goTypeName(actual)
+		if err != nil {
+			return "", err
+		}
+		goName := naming.GetGoName(actual)
+		prefix := strings.TrimSuffix(goType, goName)
+		v := form.Variants[0]
+		payload, ok := v.Type.Resolve(b.table)
+		if !ok {
+			return "", errors.Newf("union %s variant %q: unresolved payload", actual.Name, v.Name)
+		}
+		payloadExpr, err := b.valueExpr(payload, v.Type)
+		if err != nil {
+			return "", err
+		}
+		variantType := prefix + casing.VariantTypeName(goName, v.Name)
+		return fmt.Sprintf(
+			"%s{Variant: %s{%s: %s}}",
+			goType, variantType, naming.GetGoName(payload), payloadExpr,
+		), nil
 	default:
 		return b.primitiveExpr(resolved)
 	}
