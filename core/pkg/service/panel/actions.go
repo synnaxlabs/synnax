@@ -9,9 +9,7 @@
 
 package panel
 
-// Handle replaces the panel's name. When the panel is owned by a user (draft),
-// the writer is responsible for promoting it to project ownership in the same
-// transaction; the reducer itself only updates the name.
+// Handle replaces the panel's name.
 func (p RenamePayload) Handle(state Panel) (Panel, error) {
 	state.Name = p.Name
 	return state, nil

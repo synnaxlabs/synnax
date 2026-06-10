@@ -48,6 +48,19 @@ func splitNode(dir spatial.Direction, size float64, first, last panel.Node) pane
 	}}
 }
 
+// tabKeys returns the keys of the tabs in n's leaf, in order, or nil when n is
+// not a leaf.
+func tabKeys(n *panel.Node) []uuid.UUID {
+	if n == nil || n.Leaf == nil {
+		return nil
+	}
+	keys := make([]uuid.UUID, len(n.Leaf.Tabs))
+	for i, t := range n.Leaf.Tabs {
+		keys[i] = t.Key
+	}
+	return keys
+}
+
 var _ = Describe("Actions", func() {
 	var (
 		tab1 uuid.UUID
@@ -76,11 +89,7 @@ var _ = Describe("Actions", func() {
 				TargetLeaf: 1,
 				Index:      new(int32(1)),
 			}.Handle(p))
-			tabs := next.Root.Leaf.Tabs
-			Expect(tabs).To(HaveLen(3))
-			Expect(tabs[0].Key).To(Equal(tab1))
-			Expect(tabs[1].Key).To(Equal(tab2))
-			Expect(tabs[2].Key).To(Equal(tab3))
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1, tab2, tab3}))
 		})
 
 		It("Should append when index is absent", func() {
@@ -89,8 +98,7 @@ var _ = Describe("Actions", func() {
 				Tab:        tab(tab2),
 				TargetLeaf: 1,
 			}.Handle(p))
-			Expect(next.Root.Leaf.Tabs).To(HaveLen(2))
-			Expect(next.Root.Leaf.Tabs[1].Key).To(Equal(tab2))
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
 		})
 
 		DescribeTable("Should error on bad inputs",
@@ -119,8 +127,7 @@ var _ = Describe("Actions", func() {
 		It("Should remove the tab without collapsing when the leaf retains tabs", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
 			next := MustSucceed(panel.RemoveTabPayload{Key: tab1}.Handle(p))
-			Expect(next.Root.Leaf.Tabs).To(HaveLen(1))
-			Expect(next.Root.Leaf.Tabs[0].Key).To(Equal(tab2))
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab2}))
 		})
 
 		It("Should leave an empty leaf in place when there is no sibling to collapse into", func() {
@@ -138,9 +145,7 @@ var _ = Describe("Actions", func() {
 			)}
 			next := MustSucceed(panel.RemoveTabPayload{Key: tab1}.Handle(p))
 			Expect(next.Root.Split).To(BeNil())
-			Expect(next.Root.Leaf).ToNot(BeNil())
-			Expect(next.Root.Leaf.Tabs).To(HaveLen(2))
-			Expect(next.Root.Leaf.Tabs[0].Key).To(Equal(tab2))
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab2, tab3}))
 		})
 
 		It("Should collapse a nested split toward the surviving sibling", func() {
@@ -155,9 +160,7 @@ var _ = Describe("Actions", func() {
 			)}
 			next := MustSucceed(panel.RemoveTabPayload{Key: tab1}.Handle(p))
 			Expect(next.Root.Split).ToNot(BeNil())
-			Expect(next.Root.Split.First.Leaf).ToNot(BeNil())
-			Expect(next.Root.Split.First.Leaf.Tabs).To(HaveLen(1))
-			Expect(next.Root.Split.First.Leaf.Tabs[0].Key).To(Equal(tab2))
+			Expect(tabKeys(next.Root.Split.First)).To(Equal([]uuid.UUID{tab2}))
 		})
 
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
@@ -173,10 +176,7 @@ var _ = Describe("Actions", func() {
 			next := MustSucceed(panel.MoveTabPayload{
 				Key: tab1, TargetLeaf: 1, Index: new(int32(2)),
 			}.Handle(p))
-			Expect(next.Root.Leaf.Tabs).To(HaveLen(3))
-			Expect(next.Root.Leaf.Tabs[0].Key).To(Equal(tab2))
-			Expect(next.Root.Leaf.Tabs[1].Key).To(Equal(tab3))
-			Expect(next.Root.Leaf.Tabs[2].Key).To(Equal(tab1))
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab2, tab3, tab1}))
 		})
 
 		It("Should move a tab across leaves of the same split", func() {
@@ -188,11 +188,8 @@ var _ = Describe("Actions", func() {
 			next := MustSucceed(panel.MoveTabPayload{
 				Key: tab1, TargetLeaf: 3, Index: new(int32(0)),
 			}.Handle(p))
-			Expect(next.Root.Split.First.Leaf.Tabs).To(HaveLen(1))
-			Expect(next.Root.Split.First.Leaf.Tabs[0].Key).To(Equal(tab2))
-			Expect(next.Root.Split.Last.Leaf.Tabs).To(HaveLen(2))
-			Expect(next.Root.Split.Last.Leaf.Tabs[0].Key).To(Equal(tab1))
-			Expect(next.Root.Split.Last.Leaf.Tabs[1].Key).To(Equal(tab3))
+			Expect(tabKeys(next.Root.Split.First)).To(Equal([]uuid.UUID{tab2}))
+			Expect(tabKeys(next.Root.Split.Last)).To(Equal([]uuid.UUID{tab1, tab3}))
 		})
 
 		It("Should move a tab into the empty side of a freshly split leaf", func() {
@@ -206,10 +203,8 @@ var _ = Describe("Actions", func() {
 				Key: tab2, TargetLeaf: 3, Index: new(int32(0)),
 			}.Handle(p))
 			Expect(next.Root.Split).ToNot(BeNil())
-			Expect(next.Root.Split.First.Leaf.Tabs).To(HaveLen(1))
-			Expect(next.Root.Split.First.Leaf.Tabs[0].Key).To(Equal(tab1))
-			Expect(next.Root.Split.Last.Leaf.Tabs).To(HaveLen(1))
-			Expect(next.Root.Split.Last.Leaf.Tabs[0].Key).To(Equal(tab2))
+			Expect(tabKeys(next.Root.Split.First)).To(Equal([]uuid.UUID{tab1}))
+			Expect(tabKeys(next.Root.Split.Last)).To(Equal([]uuid.UUID{tab2}))
 		})
 
 		It("Should collapse the source split when moving the last tab out of a side", func() {
@@ -222,10 +217,7 @@ var _ = Describe("Actions", func() {
 				Key: tab1, TargetLeaf: 3, Index: new(int32(0)),
 			}.Handle(p))
 			Expect(next.Root.Split).To(BeNil())
-			Expect(next.Root.Leaf).ToNot(BeNil())
-			Expect(next.Root.Leaf.Tabs).To(HaveLen(2))
-			Expect(next.Root.Leaf.Tabs[0].Key).To(Equal(tab1))
-			Expect(next.Root.Leaf.Tabs[1].Key).To(Equal(tab2))
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
 		})
 
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
@@ -246,10 +238,8 @@ var _ = Describe("Actions", func() {
 			Expect(next.Root.Split).ToNot(BeNil())
 			Expect(next.Root.Split.Direction).To(Equal(spatial.DirectionX))
 			Expect(next.Root.Split.Size).To(Equal(0.4))
-			Expect(next.Root.Split.First.Leaf).ToNot(BeNil())
-			Expect(next.Root.Split.First.Leaf.Tabs).To(HaveLen(2))
-			Expect(next.Root.Split.Last.Leaf).ToNot(BeNil())
-			Expect(next.Root.Split.Last.Leaf.Tabs).To(BeEmpty())
+			Expect(tabKeys(next.Root.Split.First)).To(Equal([]uuid.UUID{tab1, tab2}))
+			Expect(tabKeys(next.Root.Split.Last)).To(BeEmpty())
 		})
 
 		It("Should split a nested leaf without disturbing siblings", func() {
@@ -264,9 +254,9 @@ var _ = Describe("Actions", func() {
 				Size:     new(float64(0.5)),
 			}.Handle(p))
 			Expect(next.Root.Split.First.Split).ToNot(BeNil())
-			Expect(next.Root.Split.First.Split.First.Leaf.Tabs).To(BeEmpty())
-			Expect(next.Root.Split.First.Split.Last.Leaf.Tabs).To(HaveLen(1))
-			Expect(next.Root.Split.Last.Leaf.Tabs).To(HaveLen(1))
+			Expect(tabKeys(next.Root.Split.First.Split.First)).To(BeEmpty())
+			Expect(tabKeys(next.Root.Split.First.Split.Last)).To(Equal([]uuid.UUID{tab1}))
+			Expect(tabKeys(next.Root.Split.Last)).To(Equal([]uuid.UUID{tab2}))
 		})
 
 		It("Should default size to 0.5 when absent", func() {
@@ -334,10 +324,8 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			res := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: tab2.String()}
 			next := MustSucceed(panel.SetTabResourcePayload{Key: tab1, Resource: res}.Handle(p))
-			tabs := next.Root.Leaf.Tabs
-			Expect(tabs).To(HaveLen(1))
-			Expect(tabs[0].Key).To(Equal(tab1))
-			Expect(tabs[0].Resource).To(Equal(&res))
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1}))
+			Expect(next.Root.Leaf.Tabs[0].Resource).To(Equal(&res))
 		})
 
 		It("Should clear any view set on the tab", func() {
@@ -360,10 +348,8 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			view := panel.TabView{Type: "docs"}
 			next := MustSucceed(panel.SetTabViewPayload{Key: tab1, View: view}.Handle(p))
-			tabs := next.Root.Leaf.Tabs
-			Expect(tabs).To(HaveLen(1))
-			Expect(tabs[0].Key).To(Equal(tab1))
-			Expect(tabs[0].View).To(Equal(&view))
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1}))
+			Expect(next.Root.Leaf.Tabs[0].View).To(Equal(&view))
 		})
 
 		It("Should clear any resource set on the tab", func() {

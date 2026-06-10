@@ -24,6 +24,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Service is the API-layer panel service. It enforces access control and wraps
+// the distribution panel service's writers and retrievers in transactions.
 type Service struct {
 	db       *gorp.DB
 	access   *rbac.Service
@@ -54,6 +56,9 @@ type (
 	CreateResponse = CreateRequest
 )
 
+// Create persists the panels in req and returns them with their assigned keys.
+// Each panel is parented to req.Parent, or to the creating user as a draft when
+// Parent is zero.
 func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
 	if err = s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),

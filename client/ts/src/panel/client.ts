@@ -14,11 +14,11 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 import { type Action, dispatchReqZ, rename as renameAction } from "@/panel/actions.gen";
 import { type Key, keyZ, type New, newZ, type Panel, panelZ } from "@/panel/types.gen";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
-  parent: ontology.idZ.optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
 });
@@ -86,6 +86,7 @@ export class Client {
       retrieveReqZ,
       retrieveResZ,
     );
+    checkForMultipleOrNoResults("Panel", keys, res.panels, !isMany);
     return isMany ? res.panels : res.panels[0];
   }
 
