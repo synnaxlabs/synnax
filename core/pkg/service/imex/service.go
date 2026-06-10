@@ -37,7 +37,7 @@ func NewService() *Service {
 	}
 }
 
-// RegisterImportExporter registers a single handler for both halves under its own Type.
+// RegisterImportExporter registers a single handler for both halves under its own type.
 // Use this for symmetric services (one resource type for both import and export) —
 // e.g., logs, schematics.
 func (s *Service) RegisterImportExporter(ie ImportExporter) {
@@ -48,10 +48,10 @@ func (s *Service) RegisterImportExporter(ie ImportExporter) {
 	s.exporters[t] = ie
 }
 
-// RegisterImporter adds an Importer for the given resource type. Use this for services
-// with asymmetric registration — for example, a task service that imports under
-// fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a single
-// coarse type ("task").
+// RegisterImporter adds an [Importer] for the given resource type. Use this for
+// services with asymmetric registration — for example, a task service that imports
+// under fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a
+// single coarse type ("task").
 func (s *Service) RegisterImporter(t string, i Importer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -66,7 +66,7 @@ func (s *Service) RegisterExporter(e Exporter) {
 	s.exporters[e.Type()] = e
 }
 
-// ImporterType returns the ontology resource type that the importer registered under
+// ImporterType returns the ontology resource type that the [Importer] registered under
 // the given (possibly narrow) type string creates. For symmetric importers (e.g.,
 // "log") this is identical to the registration string; for asymmetric importers (e.g.,
 // a task service registered under "http_read") this is the broader ontology type
@@ -82,20 +82,16 @@ func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
 	return imp.Type(), nil
 }
 
-// notFoundError builds the validation error returned when Import or Export is called
-// with a Type that has no registered handler. kind is "importer" or "exporter"; path is
-// the JSON path the API layer surfaces the error against (always "type" today).
-func notFoundError(t any, kind string) error {
+func notFoundError[T ~string](typ T, kind string) error {
 	return validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, t),
+		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, typ),
 		"type",
 	)
 }
 
-// Import routes envelope to the importer registered under envelope.Type, persists it on
-// tx, and returns the newly-assigned key. Returns a validation error scoped to the
-// "type" field if no importer is registered for envelope.Type. Callers that need
-// multi-envelope atomicity should wrap several Import calls in db.WithTx.
+// Import routes envelope to the [Importer] registered under envelope.Type, persists it
+// on tx, and returns the newly-assigned key. Returns a validation error scoped to the
+// "type" field if no [Importer] is registered for envelope.Type.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -109,15 +105,15 @@ func (s *Service) Import(
 	}
 	key, err := importer.Import(ctx, tx, envelope)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to import envelope")
+		return "", errors.Wrap(err, "import envelope")
 	}
 	return key, nil
 }
 
-// Export routes resource to the exporter registered under resource.Type, retrieves it
-// on tx, and returns the resulting envelope. The exporter stamps its own per-schema
+// Export routes resource to the [Exporter] registered under resource.Type, retrieves it
+// on tx, and returns the resulting envelope. The Exporter stamps its own per-schema
 // version on the envelope. Returns a validation error scoped to the "type" field if no
-// exporter is registered for resource.Type.
+// Exporter is registered for resource.Type.
 func (s *Service) Export(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -131,7 +127,7 @@ func (s *Service) Export(
 	}
 	env, err := exporter.Export(ctx, tx, resource.Key)
 	if err != nil {
-		return Envelope{}, errors.Wrap(err, "failed to export resource")
+		return Envelope{}, errors.Wrap(err, "export resource")
 	}
 	return env, nil
 }
