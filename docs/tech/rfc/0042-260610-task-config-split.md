@@ -123,12 +123,15 @@ configs become representable later without schema surgery.
 
 ## 4.2 - The Provider Registry
 
-The task service exposes a registry mapping task-type prefixes to config providers:
+The task service exposes a registry mapping exact task-type strings to config providers,
+mirroring RFC 0039's per-subtype importer registry. A prefix would wrongly capture the
+internal scanner tasks (`ni_scanner`, `modbus_scan`, ...) every integration auto-creates
+with empty, schema-less configs.
 
 ```go
 type ConfigProvider interface {
-    // TypePrefix returns the task-type prefix this provider handles (e.g. "ni_").
-    TypePrefix() string
+    // Types returns the exact task types handled (e.g. "ni_analog_read").
+    Types() []string
     // Create validates cfg, stores a typed record in the provider's tables, and
     // returns the ontology ID of the created config resource.
     Create(ctx context.Context, tx gorp.Tx, task Key, taskType string,
@@ -143,11 +146,11 @@ type ConfigProvider interface {
 ```
 
 The task writer dispatches on `task.Type`. With a matching provider, create routes the
-config to the provider and defines the relationship; without one, the embedded-blob
-fallback path runs. Snapshot semantics (config preserved when updating a snapshot task)
-and task copy route through `Copy`. All provider methods receive the writer's `gorp.Tx`,
-so a task and its config are created, copied, or deleted in one transaction, following
-the device writer's pattern.
+config to the provider and defines the relationship; without one, or for internal tasks
+(no ontology resource to link from), the embedded-blob fallback path runs. Snapshot
+semantics (config preserved when updating a snapshot task) and task copy route through
+`Copy`. All provider methods receive the writer's `gorp.Tx`, so a task and its config
+are created, copied, or deleted in one transaction.
 
 ## 4.3 - Linkage via Parent Relationship
 
@@ -200,14 +203,14 @@ The rollout spans three releases, each independently safe:
   IDs against a closed generated enum and crash on unknown types in the relationship
   stream otherwise.
 - **Stage 1 (copy + dual-write).** The NI service ships with a bootstrap migration in
-  its startup chain. For each task with an `ni_` type prefix: decode the embedded blob
-  through the version chain, write the typed record, define the parent relationship, and
-  leave the blob in place. Config writes dual-write the typed record (source of truth)
-  and the blob, so downgrading the server binary remains safe. A blob that decodes at no
-  version leaves its task on the fallback path with a warning status; a malformed config
-  must never block startup. The pass runs in one transaction and is recorded as applied.
-  The task service opens before the NI service, so task records are already at the
-  current envelope version when the bootstrap reads them.
+  its startup chain. For each non-internal task whose type the provider claims: decode
+  the embedded blob through the version chain, write the typed record, define the parent
+  relationship, and leave the blob in place. Config writes dual-write the typed record
+  (source of truth) and the blob, so downgrading the server binary remains safe. A blob
+  that decodes at no version leaves its task on the fallback path with a warning status;
+  a malformed config must never block startup. The pass runs in one transaction and is
+  recorded as applied. The task service opens before the NI service, so task records are
+  already at the current envelope version when the bootstrap reads them.
 - **Stage 2 (cut).** One release later: stop dual-writing, ship a migration clearing the
   leftover blobs from migrated task types, and delete the Console's client-side config
   transforms.
@@ -218,7 +221,7 @@ The rollout spans three releases, each independently safe:
 
 A create request is unchanged on the wire: `{name, type, config}`. The API layer strips
 the config; the task writer allocates the rack-encoded key, writes the envelope, sets
-status, and dispatches on the type prefix. A matching provider normalizes the config
+status, and dispatches on the task type. A matching provider normalizes the config
 through the `vN` chain, validates it against the generated schema, and writes the typed
 record; the writer defines the parent relationship. Without a provider, the blob is
 stored on the task as today. The whole flow is one transaction, so a malformed config
@@ -241,10 +244,9 @@ meaningful per-resource `version` to dispatch on. The flat envelope
 `{version, type, name, ...fields}` maps directly onto the config record plus the task
 name, and import walks the same `vN` chain as storage migration and normalize-on-write.
 RFC 0039's goal of importing a task config while the target driver is offline becomes
-real, because the server validates instead of the driver. One interaction is flagged for
-that RFC: imex import takes no parent ontology ID, but task keys encode their rack, so a
-task importer must be handed one; resolved alongside RFC 0039's container-association
-question.
+real, because the server validates instead of the driver. One flag for that RFC: imex
+import takes no parent ontology ID, but task keys encode their rack, so a task importer
+must be handed one (the container-association question).
 
 # 5 - Resolved Design Decisions
 
