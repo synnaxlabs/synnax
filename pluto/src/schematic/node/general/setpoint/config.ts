@@ -7,25 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, dimensions } from "@synnaxlabs/x";
-import { z } from "zod";
-
-import { size as componentSize } from "@/component/size";
-import { Control } from "@/schematic/node/common/control";
-import { Label } from "@/schematic/node/common/label";
-import { telem } from "@/telem/aether";
+import { schematic } from "@synnaxlabs/client";
 
 export const VARIANT = "setpoint" as const;
 
-export const configZ = Label.labeledConfigZ.extend({
-  variant: z.literal(VARIANT),
-  size: componentSize.optional(),
-  source: telem.numberSourceSpecZ.optional(),
-  sink: telem.numberSinkSpecZ.optional(),
-  dimensions: dimensions.dimensionsZ.optional(),
-  color: color.crudeZ.optional(),
-  units: z.string().optional(),
-  disabled: z.boolean().optional(),
-  control: Control.stateConfigZ.optional(),
-});
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.nodeConfigSetpointZ;
+export type Config = schematic.NodeConfigSetpoint;

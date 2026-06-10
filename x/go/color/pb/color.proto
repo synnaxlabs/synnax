@@ -26,3 +26,15 @@ message Color {
   // a is the alpha component (0-1).
   double a = 4;
 }
+
+// Stop is a single color stop in a gradient.
+message Stop {
+  // key is the unique identifier for the stop.
+  string key = 1;
+  // color is the color at this stop.
+  Color color = 2;
+  // position is the normalized position of the stop along the gradient [0, 1].
+  double position = 3;
+  // switched indicates whether the stop's color has been switched by the user.
+  bool switched = 4;
+}

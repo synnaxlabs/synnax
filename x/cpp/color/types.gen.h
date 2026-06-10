@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -22,6 +23,7 @@
 namespace x::color {
 
 struct Color;
+struct Stop;
 
 /// @brief Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
 struct Color {
@@ -41,5 +43,26 @@ struct Color {
     [[nodiscard]] std::pair<::x::color::pb::Color, x::errors::Error> to_proto() const;
     static std::pair<Color, x::errors::Error>
     from_proto(const ::x::color::pb::Color &pb);
+};
+
+/// @brief Stop is a single color stop in a gradient.
+struct Stop {
+    /// @brief key is the unique identifier for the stop.
+    std::string key;
+    /// @brief color is the color at this stop.
+    Color color;
+    /// @brief position is the normalized position of the stop along the gradient [0,
+    /// 1].
+    double position = 0;
+    /// @brief switched indicates whether the stop's color has been switched by the
+    /// user.
+    bool switched = false;
+
+    static Stop parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::color::pb::Stop;
+    [[nodiscard]] std::pair<::x::color::pb::Stop, x::errors::Error> to_proto() const;
+    static std::pair<Stop, x::errors::Error> from_proto(const ::x::color::pb::Stop &pb);
 };
 }

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
@@ -17,7 +18,7 @@ import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 
-export interface SymbolArgs<V extends string> {
+export interface SymbolArgs<V extends schematic.NodeConfigType> {
   /// variant is the unique discriminant identifying the symbol in the registry.
   variant: V;
   /// name is the human-readable name shown in the symbols toolbar.
@@ -31,22 +32,37 @@ export interface SymbolArgs<V extends string> {
   zIndex?: number;
 }
 
+export interface StaticConfig<V extends schematic.NodeConfigType>
+  extends schematic.StaticSymbolConfig {
+  variant: V;
+}
+
+export interface ToggleSymbolConfig<V extends schematic.NodeConfigType>
+  extends schematic.ToggleSymbolConfig {
+  variant: V;
+}
+
+export interface DummyToggleConfig<V extends schematic.NodeConfigType>
+  extends schematic.DummyToggleSymbolConfig {
+  variant: V;
+}
+
+const resolveConfigZ = <C extends { variant: schematic.NodeConfigType }>(
+  variant: C["variant"],
+): z.ZodType<C> => schematic.NODE_CONFIG_SCHEMAS[variant] as z.ZodType<C>;
+
 /// createStatic builds a non-interactive labeled symbol: a styled SVG with a label,
 /// color, and scale, edited via the shared StyleForm. This is the most common archetype
 /// (meters, fittings, safety, process, vessels).
-export const createStatic = <V extends string>({
+export const createStatic = <V extends schematic.NodeConfigType>({
   variant,
   name,
   label = name,
   Primitive,
   zIndex = 4,
 }: SymbolArgs<V>) => {
-  const configZ = Label.labeledConfigZ.extend({
-    variant: z.literal(variant),
-    color: color.crudeZ.optional(),
-    scale: z.number().optional(),
-  });
-  type Config = z.infer<typeof configZ>;
+  const configZ = resolveConfigZ<StaticConfig<V>>(variant);
+  type Config = StaticConfig<V>;
   const defaultConfig = (): Config => ({
     variant,
     color: color.ZERO,
@@ -65,7 +81,7 @@ export const createStatic = <V extends string>({
   return { configZ, spec };
 };
 
-interface ToggleArgs<V extends string> extends SymbolArgs<V> {
+interface ToggleArgs<V extends schematic.NodeConfigType> extends SymbolArgs<V> {
   /// node selects how the symbol renders. "toggle" (default) renders an interactive
   /// toggle bound to the configured telemetry. "labeled" renders a static labeled
   /// symbol while retaining the toggle telemetry config — used by symbols that carry
@@ -75,7 +91,7 @@ interface ToggleArgs<V extends string> extends SymbolArgs<V> {
 
 /// createToggle builds an actuator symbol backed by a boolean source/sink with a
 /// control chip, edited via the shared ToggleForm (valves, pumps).
-export const createToggle = <V extends string>({
+export const createToggle = <V extends schematic.NodeConfigType>({
   variant,
   name,
   label = name,
@@ -83,12 +99,8 @@ export const createToggle = <V extends string>({
   zIndex = 4,
   node = "toggle",
 }: ToggleArgs<V>) => {
-  const configZ = Toggle.toggleConfigZ.extend({
-    variant: z.literal(variant),
-    color: color.crudeZ.optional(),
-    scale: z.number().optional(),
-  });
-  type Config = z.infer<typeof configZ>;
+  const configZ = resolveConfigZ<ToggleSymbolConfig<V>>(variant);
+  type Config = ToggleSymbolConfig<V>;
   const defaultConfig = (): Config => ({
     variant,
     color: color.ZERO,
@@ -114,19 +126,15 @@ export const createToggle = <V extends string>({
 /// createDummyToggle builds a symbol that toggles its appearance purely from local
 /// config (enabled/clickable) without binding to telemetry, edited via the shared
 /// DummyToggleForm (manual and relief valves).
-export const createDummyToggle = <V extends string>({
+export const createDummyToggle = <V extends schematic.NodeConfigType>({
   variant,
   name,
   label = name,
   Primitive,
   zIndex = 4,
 }: SymbolArgs<V>) => {
-  const configZ = Toggle.dummyToggleConfigZ.extend({
-    variant: z.literal(variant),
-    color: color.crudeZ.optional(),
-    scale: z.number().optional(),
-  });
-  type Config = z.infer<typeof configZ>;
+  const configZ = resolveConfigZ<DummyToggleConfig<V>>(variant);
+  type Config = DummyToggleConfig<V>;
   const defaultConfig = (): Config => ({
     variant,
     color: color.ZERO,

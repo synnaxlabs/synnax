@@ -358,6 +358,67 @@ func ViewportsFromPB(pbs []*Viewport) ([]spatial.Viewport, error) {
 	return result, nil
 }
 
+// LocationXYToPB converts LocationXY to LocationXY.
+func LocationXYToPB(r spatial.LocationXY) (*LocationXY, error) {
+	xVal, err := XCenterLocationToPB(r.X)
+	if err != nil {
+		return nil, err
+	}
+	yVal, err := YCenterLocationToPB(r.Y)
+	if err != nil {
+		return nil, err
+	}
+	pb := &LocationXY{
+		X: xVal,
+		Y: yVal,
+	}
+	return pb, nil
+}
+
+// LocationXYFromPB converts LocationXY to LocationXY.
+func LocationXYFromPB(pb *LocationXY) (spatial.LocationXY, error) {
+	var r spatial.LocationXY
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.X, err = XCenterLocationFromPB(pb.X)
+	if err != nil {
+		return spatial.LocationXY{}, err
+	}
+	r.Y, err = YCenterLocationFromPB(pb.Y)
+	if err != nil {
+		return spatial.LocationXY{}, err
+	}
+	return r, nil
+}
+
+// LocationXYsToPB converts a slice of LocationXY to LocationXY.
+func LocationXYsToPB(rs []spatial.LocationXY) ([]*LocationXY, error) {
+	result := make([]*LocationXY, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = LocationXYToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// LocationXYsFromPB converts a slice of LocationXY to LocationXY.
+func LocationXYsFromPB(pbs []*LocationXY) ([]spatial.LocationXY, error) {
+	result := make([]spatial.LocationXY, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = LocationXYFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // SignedDimensionsToPB converts SignedDimensions to SignedDimensions.
 func SignedDimensionsToPB(r spatial.SignedDimensions) (*SignedDimensions, error) {
 	pb := &SignedDimensions{
@@ -710,6 +771,34 @@ func StickyUnitFromPB(v StickyUnit) (spatial.StickyUnit, error) {
 	}
 }
 
+// XCenterLocationToPB converts spatial.XCenterLocation to XCenterLocation.
+func XCenterLocationToPB(v spatial.XCenterLocation) (XCenterLocation, error) {
+	switch v {
+	case spatial.XCenterLocationLeft:
+		return XCenterLocation_X_CENTER_LOCATION_LEFT, nil
+	case spatial.XCenterLocationRight:
+		return XCenterLocation_X_CENTER_LOCATION_RIGHT, nil
+	case spatial.XCenterLocationCenter:
+		return XCenterLocation_X_CENTER_LOCATION_CENTER, nil
+	default:
+		return 0, errors.Newf("unrecognized spatial.XCenterLocation value: %v", v)
+	}
+}
+
+// XCenterLocationFromPB converts XCenterLocation to spatial.XCenterLocation.
+func XCenterLocationFromPB(v XCenterLocation) (spatial.XCenterLocation, error) {
+	switch v {
+	case XCenterLocation_X_CENTER_LOCATION_LEFT:
+		return spatial.XCenterLocationLeft, nil
+	case XCenterLocation_X_CENTER_LOCATION_RIGHT:
+		return spatial.XCenterLocationRight, nil
+	case XCenterLocation_X_CENTER_LOCATION_CENTER:
+		return spatial.XCenterLocationCenter, nil
+	default:
+		return spatial.XCenterLocation(""), errors.Newf("unrecognized XCenterLocation value: %v", v)
+	}
+}
+
 // XLocationToPB converts spatial.XLocation to XLocation.
 func XLocationToPB(v spatial.XLocation) (XLocation, error) {
 	switch v {
@@ -731,6 +820,34 @@ func XLocationFromPB(v XLocation) (spatial.XLocation, error) {
 		return spatial.XLocationRight, nil
 	default:
 		return spatial.XLocation(""), errors.Newf("unrecognized XLocation value: %v", v)
+	}
+}
+
+// YCenterLocationToPB converts spatial.YCenterLocation to YCenterLocation.
+func YCenterLocationToPB(v spatial.YCenterLocation) (YCenterLocation, error) {
+	switch v {
+	case spatial.YCenterLocationTop:
+		return YCenterLocation_Y_CENTER_LOCATION_TOP, nil
+	case spatial.YCenterLocationBottom:
+		return YCenterLocation_Y_CENTER_LOCATION_BOTTOM, nil
+	case spatial.YCenterLocationCenter:
+		return YCenterLocation_Y_CENTER_LOCATION_CENTER, nil
+	default:
+		return 0, errors.Newf("unrecognized spatial.YCenterLocation value: %v", v)
+	}
+}
+
+// YCenterLocationFromPB converts YCenterLocation to spatial.YCenterLocation.
+func YCenterLocationFromPB(v YCenterLocation) (spatial.YCenterLocation, error) {
+	switch v {
+	case YCenterLocation_Y_CENTER_LOCATION_TOP:
+		return spatial.YCenterLocationTop, nil
+	case YCenterLocation_Y_CENTER_LOCATION_BOTTOM:
+		return spatial.YCenterLocationBottom, nil
+	case YCenterLocation_Y_CENTER_LOCATION_CENTER:
+		return spatial.YCenterLocationCenter, nil
+	default:
+		return spatial.YCenterLocation(""), errors.Newf("unrecognized YCenterLocation value: %v", v)
 	}
 }
 

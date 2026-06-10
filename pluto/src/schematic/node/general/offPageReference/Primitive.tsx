@@ -9,7 +9,7 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
-import { direction } from "@synnaxlabs/x";
+import { type color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -30,8 +30,9 @@ export const offPageReferenceTooltip = (
 
 interface RenderProps extends Omit<
   Config,
-  "label" | "page" | "dblClickNav" | "variant"
+  "label" | "page" | "dblClickNav" | "variant" | "color"
 > {
+  color?: color.Crude;
   id?: string;
   label?: string;
   className?: string;

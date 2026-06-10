@@ -106,6 +106,20 @@ inline x::json::json Viewport::to_json() const {
     return j;
 }
 
+inline LocationXY LocationXY::parse(x::json::Parser parser) {
+    return LocationXY{
+        .x = parser.field<std::string>("x"),
+        .y = parser.field<std::string>("y"),
+    };
+}
+
+inline x::json::json LocationXY::to_json() const {
+    x::json::json j;
+    j["x"] = this->x;
+    j["y"] = this->y;
+    return j;
+}
+
 inline SignedDimensions SignedDimensions::parse(x::json::Parser parser) {
     return SignedDimensions{
         .signed_width = parser.field<double>("signed_width"),

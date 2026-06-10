@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Form } from "@/schematic/node/common/form";
@@ -21,11 +20,7 @@ import { type Spec } from "@/schematic/node/spec";
 
 export const CUSTOM_ACTUATOR_VARIANT = "customActuator";
 
-export const customActuatorConfigZ = Toggle.toggleConfigZ.extend({
-  variant: z.literal(CUSTOM_ACTUATOR_VARIANT),
-  specKey: z.string(),
-  color: color.crudeZ.optional(),
-  scale: z.number().optional(),
+export const customActuatorConfigZ = schematic.nodeConfigCustomActuatorZ.extend({
   stateOverrides: z.array(schematic.symbol.stateZ).optional(),
 });
 export interface CustomActuatorConfig extends z.infer<typeof customActuatorConfigZ> {}
@@ -52,11 +47,7 @@ export const customActuatorSpec: Spec<
 
 export const CUSTOM_STATIC_VARIANT = "customStatic";
 
-export const customStaticConfigZ = Label.labeledConfigZ.extend({
-  variant: z.literal(CUSTOM_STATIC_VARIANT),
-  specKey: z.string(),
-  color: color.crudeZ.optional(),
-  scale: z.number().optional(),
+export const customStaticConfigZ = schematic.nodeConfigCustomStaticZ.extend({
   stateOverrides: z.array(schematic.symbol.stateZ).optional(),
 });
 export interface CustomStaticConfig extends z.infer<typeof customStaticConfigZ> {}

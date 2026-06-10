@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createToggle } from "@/schematic/node/common/create";
 import { Cavity } from "@/schematic/node/pumps/Cavity";
 import { Centrifugal } from "@/schematic/node/pumps/Centrifugal";
@@ -106,19 +104,3 @@ export const REGISTRY = {
   turboCompressor: turbo.spec,
   vacuumPump: vacuum.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  cavity.configZ,
-  centrifugal.configZ,
-  compressor.configZ,
-  diaphragm.configZ,
-  ejection.configZ,
-  ejector.configZ,
-  liquidRing.configZ,
-  piston.configZ,
-  pump.configZ,
-  rollerVane.configZ,
-  screw.configZ,
-  turbo.configZ,
-  vacuum.configZ,
-]);

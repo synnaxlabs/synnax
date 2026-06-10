@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { Box } from "@/schematic/node/general/box";
 import { Button } from "@/schematic/node/general/button";
 import { Circle } from "@/schematic/node/general/circle";
@@ -40,20 +38,3 @@ export const REGISTRY = {
   textBox: TextBox.spec,
   value: Value.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  Box.configZ,
-  Button.configZ,
-  Circle.configZ,
-  Gauge.configZ,
-  Input.configZ,
-  Light.configZ,
-  OffPageReference.configZ,
-  Polygon.configZ,
-  Select.configZ,
-  Setpoint.configZ,
-  StateIndicator.configZ,
-  Switch.configZ,
-  TextBox.configZ,
-  Value.configZ,
-]);

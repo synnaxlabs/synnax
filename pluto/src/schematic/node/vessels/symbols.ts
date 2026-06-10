@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { CrossJunction } from "@/schematic/node/vessels/crossJunction";
 import { Cylinder } from "@/schematic/node/vessels/cylinder";
 import { Tank } from "@/schematic/node/vessels/tank";
@@ -20,10 +18,3 @@ export const REGISTRY = {
   tank: Tank.spec,
   tJunction: TJunction.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  CrossJunction.configZ,
-  Cylinder.configZ,
-  Tank.configZ,
-  TJunction.configZ,
-]);

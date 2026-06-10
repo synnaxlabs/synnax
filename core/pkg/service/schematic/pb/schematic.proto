@@ -14,10 +14,48 @@ syntax = "proto3";
 package service.schematic.pb;
 
 import "google/protobuf/struct.proto";
+import "x/go/border/pb/border.proto";
 import "x/go/color/pb/color.proto";
+import "x/go/notation/pb/notation.proto";
 import "x/go/spatial/pb/spatial.proto";
+import "x/go/text/pb/text.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/schematic/pb";
+
+// SourceRole is the data-flow role of a telemetry source spec.
+enum SourceRole {
+  SOURCE_ROLE_SOURCE = 0;
+}
+
+// SinkRole is the data-flow role of a telemetry sink spec.
+enum SinkRole {
+  SINK_ROLE_SINK = 0;
+}
+
+// FlexAlignment is a cross-axis flex alignment for laid-out content.
+enum FlexAlignment {
+  FLEX_ALIGNMENT_START = 0;
+  FLEX_ALIGNMENT_CENTER = 1;
+  FLEX_ALIGNMENT_END = 2;
+  FLEX_ALIGNMENT_STRETCH = 3;
+}
+
+// ComponentSize is a discrete size preset for interactive components.
+enum ComponentSize {
+  COMPONENT_SIZE_TINY = 0;
+  COMPONENT_SIZE_SMALL = 1;
+  COMPONENT_SIZE_MEDIUM = 2;
+  COMPONENT_SIZE_LARGE = 3;
+  COMPONENT_SIZE_HUGE = 4;
+}
+
+// ButtonMode is the actuation behavior of a button: fire writes once on click,
+// momentary writes on press and clears on release, and pulse writes a one-cycle pulse.
+enum ButtonMode {
+  BUTTON_MODE_FIRE = 0;
+  BUTTON_MODE_MOMENTARY = 1;
+  BUTTON_MODE_PULSE = 2;
+}
 
 // Node is a diagram node representing a symbol in the schematic.
 message Node {
@@ -69,6 +107,565 @@ message SegmentedEdgeConfig {
   repeated Segment segments = 2;
 }
 
+// SourceTelemSpec is a reference to a telemetry source. The value_type discriminator on
+// the wrapping union pins the value kind the spec yields or accepts.
+message SourceTelemSpec {
+  // type is the registered telem factory type that interprets props.
+  string type = 1;
+  // variant is the data-flow role of the spec.
+  SourceRole variant = 2;
+  // props contains factory-specific configuration. The shape is determined by type and
+  // validated at runtime by the owning telem factory; the wire format intentionally
+  // stores it as an opaque record.
+  google.protobuf.Struct props = 3;
+}
+
+// SinkTelemSpec is a reference to a telemetry sink. The value_type discriminator on the
+// wrapping union pins the value kind the spec yields or accepts.
+message SinkTelemSpec {
+  // type is the registered telem factory type that interprets props.
+  string type = 1;
+  // variant is the data-flow role of the spec.
+  SinkRole variant = 2;
+  // props contains factory-specific configuration. The shape is determined by type and
+  // validated at runtime by the owning telem factory; the wire format intentionally
+  // stores it as an opaque record.
+  google.protobuf.Struct props = 3;
+}
+
+// LabelConfig is the text label configuration shared by schematic symbols.
+message LabelConfig {
+  // label is the text content of the label.
+  string label = 1;
+  // level is the typography level of the label text.
+  .x.text.pb.Level level = 2;
+  // orientation is the placement of the label relative to the symbol.
+  .x.spatial.pb.Location orientation = 3;
+  // direction is the axis along which the label text flows.
+  .x.spatial.pb.Direction direction = 4;
+  // max_inline_size is the maximum inline size of the label in pixels before wrapping.
+  double max_inline_size = 5;
+  // align is the alignment of the label text within its box.
+  FlexAlignment align = 6;
+}
+
+// LabeledConfig is the base configuration for any symbol that carries a label.
+message LabeledConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+}
+
+// ChipConfig is the control authority chip configuration.
+message ChipConfig {
+  // source is the status source displayed by the control chip.
+  StatusSourceSpec source = 1;
+  // sink is the sink used to acquire and release control authority.
+  BooleanSinkSpec sink = 2;
+}
+
+// IndicatorConfig is the control state indicator configuration.
+message IndicatorConfig {
+  // status_source is the status source driving the indicator state.
+  StatusSourceSpec status_source = 1;
+  // color_source is the color source driving the indicator tint.
+  ColorSourceSpec color_source = 2;
+}
+
+// ControlStateConfig is the control authority and state display configuration for
+// actuated symbols.
+message ControlStateConfig {
+  // show indicates whether the control state widget is visible.
+  bool show = 1;
+  // show_chip indicates whether the authority chip is visible.
+  bool show_chip = 2;
+  // show_indicator indicates whether the state indicator is visible.
+  bool show_indicator = 3;
+  // chip is the authority chip configuration.
+  ChipConfig chip = 4;
+  // indicator is the indicator configuration.
+  IndicatorConfig indicator = 5;
+  // orientation is the placement of the control state widget relative to the symbol.
+  .x.spatial.pb.Location orientation = 6;
+}
+
+// ToggleConfig is the base configuration for symbols actuated through a boolean
+// telemetry pair.
+message ToggleConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // source is the boolean source that drives the symbol's active state.
+  BooleanSourceSpec source = 3;
+  // sink is the boolean sink that receives actuation commands.
+  BooleanSinkSpec sink = 4;
+  // control is the control state display configuration.
+  ControlStateConfig control = 5;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 6;
+}
+
+// StaticSymbolConfig is the configuration for non-interactive labeled symbols.
+message StaticSymbolConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // color is the stroke color of the symbol.
+  .x.color.pb.Color color = 3;
+  // scale is the rendered scale multiplier of the symbol.
+  double scale = 4;
+}
+
+// ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
+message ToggleSymbolConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // source is the boolean source that drives the symbol's active state.
+  BooleanSourceSpec source = 3;
+  // sink is the boolean sink that receives actuation commands.
+  BooleanSinkSpec sink = 4;
+  // control is the control state display configuration.
+  ControlStateConfig control = 5;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 6;
+  // color is the stroke color of the symbol.
+  .x.color.pb.Color color = 7;
+  // scale is the rendered scale multiplier of the symbol.
+  double scale = 8;
+}
+
+// DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
+// from local state without binding to telemetry.
+message DummyToggleSymbolConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // enabled indicates whether the symbol renders in its active state.
+  bool enabled = 3;
+  // clickable indicates whether clicking the symbol toggles its state.
+  bool clickable = 4;
+  // color is the stroke color of the symbol.
+  .x.color.pb.Color color = 5;
+  // scale is the rendered scale multiplier of the symbol.
+  double scale = 6;
+}
+
+// SolenoidValveConfig is the configuration for solenoid valve symbols.
+message SolenoidValveConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // source is the boolean source that drives the symbol's active state.
+  BooleanSourceSpec source = 3;
+  // sink is the boolean sink that receives actuation commands.
+  BooleanSinkSpec sink = 4;
+  // control is the control state display configuration.
+  ControlStateConfig control = 5;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 6;
+  // color is the stroke color of the symbol.
+  .x.color.pb.Color color = 7;
+  // scale is the rendered scale multiplier of the symbol.
+  double scale = 8;
+  // normally_open indicates whether the valve is open when unpowered.
+  bool normally_open = 9;
+}
+
+// StateMapping maps a numeric channel value to a named, colored state.
+message StateMapping {
+  // key is the unique identifier for the mapping entry.
+  string key = 1;
+  // name is the display name for this state.
+  string name = 2;
+  // value is the channel value this state corresponds to.
+  double value = 3;
+  // color is the display color associated with this state.
+  .x.color.pb.Color color = 4;
+}
+
+// Redline maps a numeric range to a color gradient for limit visualization.
+message Redline {
+  // bounds is the numeric range mapped onto the gradient.
+  .x.spatial.pb.Bounds bounds = 1;
+  // gradient is the color gradient applied across the bounds.
+  repeated .x.color.pb.Stop gradient = 2;
+}
+
+// BoxConfig is the configuration for box annotation symbols.
+message BoxConfig {
+  // label is the box's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the box within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // color is the border color of the box.
+  .x.color.pb.Color color = 3;
+  // background_color is the fill color of the box.
+  .x.color.pb.Color background_color = 4;
+  // dimensions is the rendered size of the box in pixels.
+  .x.spatial.pb.Dimensions dimensions = 5;
+  // border_radius is the uniform corner radius of the box in pixels.
+  double border_radius = 6;
+  // stroke_width is the border stroke width in pixels.
+  double stroke_width = 7;
+}
+
+// ButtonConfig is the configuration for button symbols.
+message ButtonConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // size is the rendered size preset of the button.
+  ComponentSize size = 3;
+  // level is the typography level of the button text.
+  .x.text.pb.Level level = 4;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 5;
+  // sink is the boolean sink that receives button presses.
+  BooleanSinkSpec sink = 6;
+  // mode is the actuation behavior of the button.
+  ButtonMode mode = 7;
+  // color is the background color of the button.
+  .x.color.pb.Color color = 8;
+  // control is the control state display configuration.
+  ControlStateConfig control = 9;
+}
+
+// CircleConfig is the configuration for circle annotation symbols.
+message CircleConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // radius is the radius of the circle in pixels.
+  double radius = 3;
+  // color is the border color of the circle.
+  .x.color.pb.Color color = 4;
+  // background_color is the fill color of the circle.
+  .x.color.pb.Color background_color = 5;
+  // stroke_width is the border stroke width in pixels.
+  double stroke_width = 6;
+}
+
+// GaugeConfig is the configuration for gauge symbols.
+message GaugeConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // position is the offset of the gauge contents within the symbol.
+  .x.spatial.pb.XY position = 3;
+  // color is the accent color of the gauge arc.
+  .x.color.pb.Color color = 4;
+  // bounds is the numeric range displayed by the gauge.
+  .x.spatial.pb.Bounds bounds = 5;
+  // bar_width is the thickness of the gauge arc in pixels.
+  double bar_width = 6;
+  // telem is the string source that supplies the displayed value.
+  StringSourceSpec telem = 7;
+  // background_telem is the color source that drives the gauge background.
+  ColorSourceSpec background_telem = 8;
+  // precision is the number of decimal places shown.
+  double precision = 9;
+  // min_width is the minimum rendered width of the value in pixels.
+  double min_width = 10;
+  // width is the rendered width of the gauge in pixels.
+  double width = 11;
+  // notation is the numeric notation used to format the value.
+  .x.notation.pb.Notation notation = 12;
+  // location is the anchor of the value within the gauge.
+  .x.spatial.pb.LocationXY location = 13;
+  // units is the unit suffix displayed after the value.
+  string units = 14;
+  // level is the typography level of the displayed value.
+  .x.text.pb.Level level = 15;
+}
+
+// InputConfig is the configuration for free-form input symbols.
+message InputConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // size is the rendered size preset of the input.
+  ComponentSize size = 3;
+  // sink is the string sink that receives submitted values.
+  StringSinkSpec sink = 4;
+  // dimensions is the rendered size of the input in pixels.
+  .x.spatial.pb.Dimensions dimensions = 5;
+  // color is the accent color of the input.
+  .x.color.pb.Color color = 6;
+  // disabled indicates whether the input rejects interaction.
+  bool disabled = 7;
+  // control is the control state display configuration.
+  ControlStateConfig control = 8;
+}
+
+// LightConfig is the configuration for indicator light symbols.
+message LightConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // source is the boolean source that drives the light's on state.
+  BooleanSourceSpec source = 3;
+  // color is the illuminated color of the light.
+  .x.color.pb.Color color = 4;
+  // scale is the rendered scale multiplier of the symbol.
+  double scale = 5;
+}
+
+// OffPageReferenceConfig is the configuration for off-page reference symbols.
+message OffPageReferenceConfig {
+  // orientation is the direction the reference arrow points.
+  .x.spatial.pb.OuterLocation orientation = 1;
+  // label is the label displayed inside the reference.
+  LabelConfig label = 2;
+  // level is the typography level of the reference text.
+  .x.text.pb.Level level = 3;
+  // color is the fill color of the reference.
+  .x.color.pb.Color color = 4;
+  // page is the key of the schematic this reference links to.
+  string page = 5;
+  // dbl_click_nav indicates whether double-clicking navigates to the linked schematic.
+  bool dbl_click_nav = 6;
+}
+
+// PolygonConfig is the configuration for polygon annotation symbols.
+message PolygonConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // num_sides is the number of sides of the polygon.
+  double num_sides = 3;
+  // side_length is the length of each side in pixels.
+  double side_length = 4;
+  // rotation is the rotation of the polygon in degrees.
+  double rotation = 5;
+  // corner_rounding is the corner rounding radius in pixels.
+  double corner_rounding = 6;
+  // color is the border color of the polygon.
+  .x.color.pb.Color color = 7;
+  // background_color is the fill color of the polygon.
+  .x.color.pb.Color background_color = 8;
+  // stroke_width is the border stroke width in pixels.
+  double stroke_width = 9;
+}
+
+// SelectConfig is the configuration for select symbols.
+message SelectConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // size is the rendered size preset of the select.
+  ComponentSize size = 3;
+  // sink is the numeric sink that receives the selected value.
+  NumberSinkSpec sink = 4;
+  // color is the accent color of the select.
+  .x.color.pb.Color color = 5;
+  // inline_size is the inline size of the select in pixels.
+  double inline_size = 6;
+  // options is the set of selectable states.
+  repeated StateMapping options = 7;
+  // disabled indicates whether the select rejects interaction.
+  bool disabled = 8;
+  // control is the control state display configuration.
+  ControlStateConfig control = 9;
+}
+
+// SetpointConfig is the configuration for numeric setpoint symbols.
+message SetpointConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // size is the rendered size preset of the setpoint.
+  ComponentSize size = 3;
+  // source is the numeric source displaying the current value.
+  NumberSourceSpec source = 4;
+  // sink is the numeric sink that receives submitted setpoints.
+  NumberSinkSpec sink = 5;
+  // dimensions is the rendered size of the setpoint in pixels.
+  .x.spatial.pb.Dimensions dimensions = 6;
+  // color is the accent color of the setpoint.
+  .x.color.pb.Color color = 7;
+  // units is the unit suffix displayed after the value.
+  string units = 8;
+  // disabled indicates whether the setpoint rejects interaction.
+  bool disabled = 9;
+  // control is the control state display configuration.
+  ControlStateConfig control = 10;
+}
+
+// StateIndicatorConfig is the configuration for multi-state indicator symbols.
+message StateIndicatorConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // source is the numeric source whose value selects the displayed state.
+  NumberSourceSpec source = 3;
+  // color is the fallback color when no state matches.
+  .x.color.pb.Color color = 4;
+  // inline_size is the inline size of the indicator in pixels.
+  double inline_size = 5;
+  // options is the set of displayable states.
+  repeated StateMapping options = 6;
+}
+
+// TextBoxConfig is the configuration for text box annotation symbols.
+message TextBoxConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // color is the text color.
+  .x.color.pb.Color color = 3;
+  // width is the rendered width of the text box in pixels.
+  double width = 4;
+  // align is the alignment of the text within the box.
+  FlexAlignment align = 5;
+  // auto_fit indicates whether the box resizes to fit its content.
+  bool auto_fit = 6;
+  // level is the typography level of the text.
+  .x.text.pb.Level level = 7;
+  // value is the text content of the box.
+  string value = 8;
+}
+
+// ValueConfig is the configuration for live telemetry value symbols.
+message ValueConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // position is the offset of the value contents within the symbol.
+  .x.spatial.pb.XY position = 3;
+  // color is the background color of the value.
+  .x.color.pb.Color color = 4;
+  // text_color is the color of the displayed text.
+  .x.color.pb.Color text_color = 5;
+  // tooltip is the list of tooltip lines shown on hover.
+  repeated string tooltip = 6;
+  // redline is the bounds-to-gradient mapping applied to the background.
+  Redline redline = 7;
+  // units is the unit suffix displayed after the value.
+  string units = 8;
+  // inline_size is the inline size of the value in pixels.
+  double inline_size = 9;
+  // telem is the string source that supplies the displayed value.
+  StringSourceSpec telem = 10;
+  // background_telem is the color source that drives the background.
+  ColorSourceSpec background_telem = 11;
+  // level is the typography level of the displayed value.
+  .x.text.pb.Level level = 12;
+  // precision is the number of decimal places shown.
+  double precision = 13;
+  // staleness_timeout is the duration in seconds after which the value is considered
+  // stale.
+  double staleness_timeout = 14;
+  // staleness_color is the color applied when the value is stale.
+  .x.color.pb.Color staleness_color = 15;
+  // min_width is the minimum rendered width of the value in pixels.
+  double min_width = 16;
+  // notation is the numeric notation used to format the value.
+  .x.notation.pb.Notation notation = 17;
+  // location is the anchor of the value within the symbol.
+  .x.spatial.pb.LocationXY location = 18;
+  // use_width_for_background indicates whether the background spans the full configured
+  // width.
+  bool use_width_for_background = 19;
+  // value_background_shift is the offset applied to the value background.
+  .x.spatial.pb.XY value_background_shift = 20;
+  // value_background_over_scan is the extra padding applied around the value background.
+  .x.spatial.pb.XY value_background_over_scan = 21;
+}
+
+// TankConfig is the configuration for tank vessel symbols.
+message TankConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // color is the border color of the tank.
+  .x.color.pb.Color color = 3;
+  // background_color is the fill color of the tank.
+  .x.color.pb.Color background_color = 4;
+  // dimensions is the rendered size of the tank in pixels.
+  .x.spatial.pb.Dimensions dimensions = 5;
+  // border_radius is the corner radius of the tank.
+  .x.border.pb.Radius border_radius = 6;
+}
+
+// CylinderConfig is the configuration for cylinder vessel symbols.
+message CylinderConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // dimensions is the rendered size of the cylinder in pixels.
+  .x.spatial.pb.Dimensions dimensions = 3;
+  // border_radius is the corner radius of the cylinder.
+  .x.border.pb.Radius border_radius = 4;
+  // color is the border color of the cylinder.
+  .x.color.pb.Color color = 5;
+  // background_color is the fill color of the cylinder.
+  .x.color.pb.Color background_color = 6;
+}
+
+// CustomActuatorConfig is the configuration for user-defined actuator symbols.
+message CustomActuatorConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // source is the boolean source that drives the symbol's active state.
+  BooleanSourceSpec source = 3;
+  // sink is the boolean sink that receives actuation commands.
+  BooleanSinkSpec sink = 4;
+  // control is the control state display configuration.
+  ControlStateConfig control = 5;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 6;
+  // spec_key is the key of the custom symbol spec this instance renders.
+  string spec_key = 7;
+  // color is the stroke color of the symbol.
+  .x.color.pb.Color color = 8;
+  // scale is the rendered scale multiplier of the symbol.
+  double scale = 9;
+  // state_overrides contains per-instance overrides of the spec's visual states. Each
+  // entry mirrors the symbol service's State shape; the wire format stores it opaquely,
+  // consistent with how the symbol service stores specs.
+  repeated google.protobuf.Struct state_overrides = 10;
+}
+
+// CustomStaticConfig is the configuration for user-defined static symbols.
+message CustomStaticConfig {
+  // label is the symbol's label configuration.
+  LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  .x.spatial.pb.OuterLocation orientation = 2;
+  // spec_key is the key of the custom symbol spec this instance renders.
+  string spec_key = 3;
+  // color is the stroke color of the symbol.
+  .x.color.pb.Color color = 4;
+  // scale is the rendered scale multiplier of the symbol.
+  double scale = 5;
+  // state_overrides contains per-instance overrides of the spec's visual states. Each
+  // entry mirrors the symbol service's State shape; the wire format stores it opaquely,
+  // consistent with how the symbol service stores specs.
+  repeated google.protobuf.Struct state_overrides = 6;
+}
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
@@ -100,5 +697,168 @@ message EdgeConfig {
     SegmentedEdgeConfig hydraulic = 5;
     SegmentedEdgeConfig pneumatic = 6;
     SegmentedEdgeConfig data = 7;
+  }
+}
+
+// BooleanSourceSpec is a telemetry source that yields boolean values.
+message BooleanSourceSpec {
+  oneof variant {
+    SourceTelemSpec boolean = 1;
+  }
+}
+
+// NumberSourceSpec is a telemetry source that yields numeric values.
+message NumberSourceSpec {
+  oneof variant {
+    SourceTelemSpec number = 1;
+  }
+}
+
+// StringSourceSpec is a telemetry source that yields string values.
+message StringSourceSpec {
+  oneof variant {
+    SourceTelemSpec string = 1;
+  }
+}
+
+// ColorSourceSpec is a telemetry source that yields colors.
+message ColorSourceSpec {
+  oneof variant {
+    SourceTelemSpec color = 1;
+  }
+}
+
+// StatusSourceSpec is a telemetry source that yields statuses.
+message StatusSourceSpec {
+  oneof variant {
+    SourceTelemSpec status = 1;
+  }
+}
+
+// BooleanSinkSpec is a telemetry sink that accepts boolean commands.
+message BooleanSinkSpec {
+  oneof variant {
+    SinkTelemSpec boolean = 1;
+  }
+}
+
+// NumberSinkSpec is a telemetry sink that accepts numeric commands.
+message NumberSinkSpec {
+  oneof variant {
+    SinkTelemSpec number = 1;
+  }
+}
+
+// StringSinkSpec is a telemetry sink that accepts string commands.
+message StringSinkSpec {
+  oneof variant {
+    SinkTelemSpec string = 1;
+  }
+}
+
+// NodeConfig is the per-node configuration stored in the schematic configs map. The
+// variant selects the symbol rendered for the node and the fields that accompany it.
+message NodeConfig {
+  oneof variant {
+    StaticSymbolConfig cap = 1;
+    StaticSymbolConfig filter = 2;
+    StaticSymbolConfig flow_straightener = 3;
+    StaticSymbolConfig heater_element = 4;
+    StaticSymbolConfig iso_cap = 5;
+    StaticSymbolConfig iso_filter = 6;
+    StaticSymbolConfig nozzle = 7;
+    StaticSymbolConfig orifice = 8;
+    StaticSymbolConfig orifice_plate = 9;
+    StaticSymbolConfig strainer = 10;
+    StaticSymbolConfig strainer_cone = 11;
+    ToggleSymbolConfig thruster = 12;
+    StaticSymbolConfig vent = 13;
+    StaticSymbolConfig flowmeter_general = 14;
+    StaticSymbolConfig flowmeter_electromagnetic = 15;
+    StaticSymbolConfig flowmeter_variable_area = 16;
+    StaticSymbolConfig flowmeter_coriolis = 17;
+    StaticSymbolConfig flowmeter_nozzle = 18;
+    StaticSymbolConfig flowmeter_venturi = 19;
+    StaticSymbolConfig flowmeter_ring_piston = 20;
+    StaticSymbolConfig flowmeter_positive_displacement = 21;
+    StaticSymbolConfig flowmeter_turbine = 22;
+    StaticSymbolConfig flowmeter_pulse = 23;
+    StaticSymbolConfig flowmeter_float_sensor = 24;
+    StaticSymbolConfig flowmeter_orifice = 25;
+    BoxConfig box = 26;
+    ButtonConfig button = 27;
+    CircleConfig circle = 28;
+    GaugeConfig gauge = 29;
+    InputConfig input = 30;
+    LightConfig light = 31;
+    OffPageReferenceConfig off_page_reference = 32;
+    PolygonConfig polygon = 33;
+    SelectConfig select = 34;
+    SetpointConfig setpoint = 35;
+    StateIndicatorConfig state_indicator = 36;
+    ToggleSymbolConfig switch = 37;
+    TextBoxConfig text_box = 38;
+    ValueConfig value = 39;
+    ToggleSymbolConfig agitator = 40;
+    ToggleSymbolConfig cross_beam_agitator = 41;
+    ToggleSymbolConfig flat_blade_agitator = 42;
+    StaticSymbolConfig heat_exchanger_general = 43;
+    StaticSymbolConfig heat_exchanger_m = 44;
+    StaticSymbolConfig heat_exchanger_straight_tube = 45;
+    ToggleSymbolConfig helical_agitator = 46;
+    ToggleSymbolConfig paddle_agitator = 47;
+    ToggleSymbolConfig propeller_agitator = 48;
+    ToggleSymbolConfig rotary_mixer = 49;
+    StaticSymbolConfig static_mixer = 50;
+    ToggleSymbolConfig cavity_pump = 51;
+    ToggleSymbolConfig centrifugal_compressor = 52;
+    ToggleSymbolConfig compressor = 53;
+    ToggleSymbolConfig diaphragm_pump = 54;
+    ToggleSymbolConfig ejection_pump = 55;
+    ToggleSymbolConfig ejector_compressor = 56;
+    ToggleSymbolConfig liquid_ring_compressor = 57;
+    ToggleSymbolConfig piston_pump = 58;
+    ToggleSymbolConfig pump = 59;
+    ToggleSymbolConfig roller_vane_compressor = 60;
+    ToggleSymbolConfig screw_pump = 61;
+    ToggleSymbolConfig turbo_compressor = 62;
+    ToggleSymbolConfig vacuum_pump = 63;
+    StaticSymbolConfig burst_disc = 64;
+    StaticSymbolConfig flame_arrestor = 65;
+    StaticSymbolConfig flame_arrestor_detonation = 66;
+    StaticSymbolConfig flame_arrestor_explosion = 67;
+    StaticSymbolConfig flame_arrestor_fire_res = 68;
+    StaticSymbolConfig flame_arrestor_fire_res_detonation = 69;
+    StaticSymbolConfig iso_burst_disc = 70;
+    ToggleSymbolConfig angled_valve = 71;
+    DummyToggleSymbolConfig angled_relief_valve = 72;
+    DummyToggleSymbolConfig angled_spring_loaded_relief_valve = 73;
+    ToggleSymbolConfig ball_valve = 74;
+    DummyToggleSymbolConfig breather_valve = 75;
+    ToggleSymbolConfig butterfly_valve_one = 76;
+    ToggleSymbolConfig butterfly_valve_two = 77;
+    StaticSymbolConfig check_valve = 78;
+    StaticSymbolConfig check_valve_with_arrow = 79;
+    StaticSymbolConfig electric_regulator = 80;
+    StaticSymbolConfig electric_regulator_motorized = 81;
+    ToggleSymbolConfig four_way_valve = 82;
+    ToggleSymbolConfig gate_valve = 83;
+    StaticSymbolConfig iso_check_valve = 84;
+    DummyToggleSymbolConfig manual_valve = 85;
+    DummyToggleSymbolConfig needle_valve = 86;
+    StaticSymbolConfig regulator = 87;
+    StaticSymbolConfig regulator_manual = 88;
+    DummyToggleSymbolConfig relief_valve = 89;
+    SolenoidValveConfig solenoid_valve = 90;
+    DummyToggleSymbolConfig spring_loaded_relief_valve = 91;
+    ToggleSymbolConfig three_way_valve = 92;
+    ToggleSymbolConfig three_way_ball_valve = 93;
+    ToggleSymbolConfig valve = 94;
+    StaticSymbolConfig cross_junction = 95;
+    CylinderConfig cylinder = 96;
+    TankConfig tank = 97;
+    StaticSymbolConfig t_junction = 98;
+    CustomActuatorConfig custom_actuator = 99;
+    CustomStaticConfig custom_static = 100;
   }
 }

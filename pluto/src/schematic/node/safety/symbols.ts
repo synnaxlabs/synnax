@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createStatic } from "@/schematic/node/common/create";
 import { BurstDisc } from "@/schematic/node/safety/BurstDisc";
 import { FlameArrestor } from "@/schematic/node/safety/FlameArrestor";
@@ -70,13 +68,3 @@ export const REGISTRY = {
   flameArrestorFireResDetonation: flameArrestorFireResDetonation.spec,
   isoBurstDisc: isoBurstDisc.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  burstDisc.configZ,
-  flameArrestor.configZ,
-  flameArrestorDetonation.configZ,
-  flameArrestorExplosion.configZ,
-  flameArrestorFireRes.configZ,
-  flameArrestorFireResDetonation.configZ,
-  isoBurstDisc.configZ,
-]);

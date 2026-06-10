@@ -66,6 +66,44 @@ func (s StickyUnit) IsValid() bool {
 	}
 }
 
+// XCenterLocation is a horizontal-axis location at the left, right, or center.
+type XCenterLocation string
+
+const (
+	XCenterLocationLeft   XCenterLocation = "left"
+	XCenterLocationRight  XCenterLocation = "right"
+	XCenterLocationCenter XCenterLocation = "center"
+)
+
+// IsValid reports whether x is one of the defined XCenterLocation values.
+func (x XCenterLocation) IsValid() bool {
+	switch x {
+	case XCenterLocationLeft, XCenterLocationRight, XCenterLocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
+// YCenterLocation is a vertical-axis location at the top, bottom, or center.
+type YCenterLocation string
+
+const (
+	YCenterLocationTop    YCenterLocation = "top"
+	YCenterLocationBottom YCenterLocation = "bottom"
+	YCenterLocationCenter YCenterLocation = "center"
+)
+
+// IsValid reports whether y is one of the defined YCenterLocation values.
+func (y YCenterLocation) IsValid() bool {
+	switch y {
+	case YCenterLocationTop, YCenterLocationBottom, YCenterLocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
 type OuterLocation string
@@ -288,6 +326,14 @@ type Viewport struct {
 	Zoom float64 `json:"zoom" msgpack:"zoom"`
 	// Position is the (x, y) pan offset of the viewport.
 	Position XY `json:"position" msgpack:"position"`
+}
+
+// LocationXY is a per-axis location pair anchoring content within a region.
+type LocationXY struct {
+	// X is the horizontal anchor.
+	X XCenterLocation `json:"x" msgpack:"x"`
+	// Y is the vertical anchor.
+	Y YCenterLocation `json:"y" msgpack:"y"`
 }
 
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing

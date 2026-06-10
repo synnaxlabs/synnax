@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { type FC, memo, type ReactElement } from "react";
-import { z } from "zod";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -19,13 +19,8 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Toggle as Base } from "@/vis/toggle";
 
-export const toggleConfigZ = Label.labeledConfigZ.extend({
-  source: telem.booleanSourceSpecZ.optional(),
-  sink: telem.booleanSinkSpecZ.optional(),
-  control: Control.stateConfigZ.optional(),
-  onClickDelay: z.number().optional(),
-});
-export type ToggleConfig = z.infer<typeof toggleConfigZ>;
+export const toggleConfigZ = schematic.toggleConfigZ;
+export type ToggleConfig = schematic.ToggleConfig;
 
 export const ZERO_BOOLEAN_SOURCE = telem.sourcePipeline("boolean", {
   connections: [{ from: "valueStream", to: "threshold" }],
@@ -107,11 +102,10 @@ export const createToggle = <C extends ToggleConfig>(
   return M;
 };
 
-export const dummyToggleConfigZ = Label.labeledConfigZ.extend({
-  enabled: z.boolean().optional(),
-  clickable: z.boolean().optional(),
-});
-export type DummyToggleConfig = z.infer<typeof dummyToggleConfigZ>;
+export type DummyToggleConfig = Omit<
+  schematic.DummyToggleSymbolConfig,
+  "color" | "scale"
+>;
 
 export const createDummyToggle = <C extends DummyToggleConfig>(
   Primitive: FC<Omit<C, "label"> & ButtonProps>,

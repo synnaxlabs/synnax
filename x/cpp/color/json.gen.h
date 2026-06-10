@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 #include "x/cpp/color/types.gen.h"
 #include "x/cpp/json/json.h"
@@ -33,6 +34,24 @@ inline x::json::json Color::to_json() const {
     j["g"] = this->g;
     j["b"] = this->b;
     j["a"] = this->a;
+    return j;
+}
+
+inline Stop Stop::parse(x::json::Parser parser) {
+    return Stop{
+        .key = parser.field<std::string>("key"),
+        .color = parser.field<Color>("color"),
+        .position = parser.field<double>("position"),
+        .switched = parser.field<bool>("switched", false),
+    };
+}
+
+inline x::json::json Stop::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["color"] = this->color.to_json();
+    j["position"] = this->position;
+    j["switched"] = this->switched;
     return j;
 }
 

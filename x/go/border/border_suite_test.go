@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+package border_test
 
-export const stateMappingZ = schematic.stateMappingZ;
-export type StateMapping = schematic.StateMapping;
+import (
+	"testing"
 
-export const VARIANT = "stateIndicator" as const;
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
 
-export const configZ = schematic.nodeConfigStateIndicatorZ;
-export type Config = schematic.NodeConfigStateIndicator;
+func TestBorder(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Border Suite")
+}

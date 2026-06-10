@@ -22,3 +22,15 @@ type Color struct {
 	// A is the alpha component (0-1).
 	A float64 `json:"a" msgpack:"a"`
 }
+
+// Stop is a single color stop in a gradient.
+type Stop struct {
+	// Key is the unique identifier for the stop.
+	Key string `json:"key" msgpack:"key"`
+	// Color is the color at this stop.
+	Color Color `json:"color" msgpack:"color"`
+	// Position is the normalized position of the stop along the gradient [0, 1].
+	Position float64 `json:"position" msgpack:"position"`
+	// Switched indicates whether the stop's color has been switched by the user.
+	Switched bool `json:"switched" msgpack:"switched"`
+}

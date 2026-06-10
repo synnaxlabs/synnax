@@ -9,6 +9,7 @@
 
 export * from "@/array";
 export * from "@/binary";
+export * from "@/border";
 export * from "@/breaker";
 export * from "@/caseconv";
 export * from "@/change";

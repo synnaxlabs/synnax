@@ -1,0 +1,37 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/spatial"
+
+@ts output "x/ts/src/border"
+@go output "x/go/border"
+@pb
+
+Radius struct {
+    top_left     spatial.XY {
+        @doc value "is the top-left corner radius."
+    }
+    top_right    spatial.XY {
+        @doc value "is the top-right corner radius."
+    }
+    bottom_left  spatial.XY {
+        @doc value "is the bottom-left corner radius."
+    }
+    bottom_right spatial.XY {
+        @doc value "is the bottom-right corner radius."
+    }
+
+    @doc value """
+        is a per-corner border radius with independent x and y components,
+        expressed as percentages of the element's dimensions. The wire format
+        also accepts shorthand forms: a bare number, a single { x, y } pair,
+        or per-corner numbers, each of which expands to this canonical shape.
+    """
+    @ts omit
+}

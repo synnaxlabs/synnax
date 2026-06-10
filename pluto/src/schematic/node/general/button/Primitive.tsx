@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/button/button.css";
 
+import { type color } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type MouseEventHandler,
@@ -23,7 +24,8 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface ButtonProps extends Omit<Config, "variant"> {
+interface ButtonProps extends Omit<Config, "variant" | "color"> {
+  color?: color.Crude;
   className?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;

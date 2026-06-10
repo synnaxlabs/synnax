@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction, location, text } from "@synnaxlabs/x";
+import { schematic } from "@synnaxlabs/client";
 import {
   type CSSProperties,
   type FC,
@@ -16,24 +16,15 @@ import {
   useCallback,
   useMemo,
 } from "react";
-import { z } from "zod";
 
 import { CSS } from "@/css";
-import { Flex } from "@/flex";
 import { Grid } from "@/schematic/node/common/grid";
 import { type Primitive } from "@/schematic/node/common/primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Text } from "@/text";
 
-export const configZ = z.object({
-  label: z.string().optional(),
-  level: text.levelZ.optional(),
-  orientation: location.locationZ.optional(),
-  direction: direction.directionZ.optional(),
-  maxInlineSize: z.number().optional(),
-  align: Flex.alignmentZ.optional(),
-});
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.labelConfigZ;
+export type Config = schematic.LabelConfig;
 
 export interface LabelProps {
   config: Config;
@@ -97,11 +88,8 @@ export const defaultConfig = (label: string): Config => ({
   direction: "x",
 });
 
-export const labeledConfigZ = z.object({
-  label: configZ.optional(),
-  orientation: location.outerZ.optional(),
-});
-export type LabeledConfig = z.infer<typeof labeledConfigZ>;
+export const labeledConfigZ = schematic.labeledConfigZ;
+export type LabeledConfig = schematic.LabeledConfig;
 
 interface LabeledOverrides {
   grid: Partial<Omit<Grid.GridProps, "editable">>;

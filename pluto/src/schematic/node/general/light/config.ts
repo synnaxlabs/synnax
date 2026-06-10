@@ -7,18 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
-import { z } from "zod";
-
-import { Label } from "@/schematic/node/common/label";
-import { telem } from "@/telem/aether";
+import { schematic } from "@synnaxlabs/client";
 
 export const VARIANT = "light" as const;
 
-export const configZ = Label.labeledConfigZ.extend({
-  variant: z.literal(VARIANT),
-  source: telem.booleanSourceSpecZ.optional(),
-  color: color.crudeZ.optional(),
-  scale: z.number().optional(),
-});
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.nodeConfigLightZ;
+export type Config = schematic.NodeConfigLight;

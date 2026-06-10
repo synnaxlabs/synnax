@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import {
   createDummyToggle,
@@ -158,13 +158,7 @@ const relief = createDummyToggle({
   label: "Relief Valve",
   Primitive: Relief,
 });
-const solenoidConfigZ = Toggle.toggleConfigZ.extend({
-  variant: z.literal("solenoidValve"),
-  color: color.crudeZ.optional(),
-  scale: z.number().optional(),
-  normallyOpen: z.boolean().optional(),
-});
-type SolenoidConfig = z.infer<typeof solenoidConfigZ>;
+type SolenoidConfig = schematic.NodeConfigSolenoidValve;
 // Solenoid is the one valve whose config carries an extra `normallyOpen` field, so it
 // is built directly rather than through defineToggle. The spec is given an explicit
 // Spec annotation (not `satisfies`) to widen Form to FC<FormProps> — otherwise the
@@ -235,30 +229,3 @@ export const REGISTRY = {
   threeWayBallValve: threeWayBall.spec,
   valve: valve.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  angled.configZ,
-  angledRelief.configZ,
-  angledSpringLoadedRelief.configZ,
-  ball.configZ,
-  breather.configZ,
-  butterflyOne.configZ,
-  butterflyTwo.configZ,
-  check.configZ,
-  checkWithArrow.configZ,
-  electricRegulator.configZ,
-  electricRegulatorMotorized.configZ,
-  fourWay.configZ,
-  gate.configZ,
-  isoCheck.configZ,
-  manual.configZ,
-  needle.configZ,
-  regulator.configZ,
-  regulatorManual.configZ,
-  relief.configZ,
-  solenoidConfigZ,
-  springLoadedRelief.configZ,
-  threeWay.configZ,
-  threeWayBall.configZ,
-  valve.configZ,
-]);

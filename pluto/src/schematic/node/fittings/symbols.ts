@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createStatic, createToggle } from "@/schematic/node/common/create";
 import { Cap } from "@/schematic/node/fittings/Cap";
 import { Filter } from "@/schematic/node/fittings/Filter";
@@ -89,19 +87,3 @@ export const REGISTRY = {
   thruster: thruster.spec,
   vent: vent.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  cap.configZ,
-  filter.configZ,
-  flowStraightener.configZ,
-  heaterElement.configZ,
-  isoCap.configZ,
-  isoFilter.configZ,
-  nozzle.configZ,
-  orifice.configZ,
-  orificePlate.configZ,
-  strainer.configZ,
-  strainerCone.configZ,
-  thruster.configZ,
-  vent.configZ,
-]);

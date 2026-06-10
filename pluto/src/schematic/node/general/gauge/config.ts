@@ -7,28 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, location, notation, text, xy } from "@synnaxlabs/x";
-import { z } from "zod";
-
-import { Label } from "@/schematic/node/common/label";
-import { telem } from "@/telem/aether";
+import { schematic } from "@synnaxlabs/client";
 
 export const VARIANT = "gauge" as const;
 
-export const configZ = Label.labeledConfigZ.extend({
-  variant: z.literal(VARIANT),
-  position: xy.xyZ.optional(),
-  color: color.crudeZ.optional(),
-  bounds: bounds.boundsZ().optional(),
-  barWidth: z.number().optional(),
-  telem: telem.stringSourceSpecZ.optional(),
-  backgroundTelem: telem.colorSourceSpecZ.optional(),
-  precision: z.number().optional(),
-  minWidth: z.number().optional(),
-  width: z.number().optional(),
-  notation: notation.notationZ.optional(),
-  location: location.xy.optional(),
-  units: z.string().optional(),
-  level: text.levelZ.optional(),
-});
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.nodeConfigGaugeZ;
+export type Config = schematic.NodeConfigGauge;

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createStatic, createToggle } from "@/schematic/node/common/create";
 import { Agitator } from "@/schematic/node/process/Agitator";
 import { CrossBeamAgitator } from "@/schematic/node/process/CrossBeamAgitator";
@@ -93,17 +91,3 @@ export const REGISTRY = {
   rotaryMixer: rotaryMixer.spec,
   staticMixer: staticMixer.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  agitator.configZ,
-  crossBeamAgitator.configZ,
-  flatBladeAgitator.configZ,
-  heatExchangerGeneral.configZ,
-  heatExchangerM.configZ,
-  heatExchangerStraightTube.configZ,
-  helicalAgitator.configZ,
-  paddleAgitator.configZ,
-  propellerAgitator.configZ,
-  rotaryMixer.configZ,
-  staticMixer.configZ,
-]);

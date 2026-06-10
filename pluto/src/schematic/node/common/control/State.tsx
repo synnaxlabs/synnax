@@ -7,36 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { direction, location } from "@synnaxlabs/x";
-import { z } from "zod";
+import { schematic } from "@synnaxlabs/client";
+import { direction } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Grid } from "@/schematic/node/common/grid";
-import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";
 
-export const chipConfigZ = z.object({
-  source: telem.statusSourceSpecZ.optional(),
-  sink: telem.booleanSinkSpecZ.optional(),
-});
-export type ChipConfig = z.infer<typeof chipConfigZ>;
+export const chipConfigZ = schematic.chipConfigZ;
+export type ChipConfig = schematic.ChipConfig;
 
-export const indicatorConfigZ = z.object({
-  statusSource: telem.statusSourceSpecZ.optional(),
-  colorSource: telem.colorSourceSpecZ.optional(),
-});
-export type IndicatorConfig = z.infer<typeof indicatorConfigZ>;
+export const indicatorConfigZ = schematic.indicatorConfigZ;
+export type IndicatorConfig = schematic.IndicatorConfig;
 
-export const stateConfigZ = z.object({
-  show: z.boolean().optional(),
-  showChip: z.boolean().optional(),
-  showIndicator: z.boolean().optional(),
-  chip: chipConfigZ.optional(),
-  indicator: indicatorConfigZ.optional(),
-  orientation: location.locationZ.optional(),
-});
-export type StateConfig = z.infer<typeof stateConfigZ>;
+export const stateConfigZ = schematic.controlStateConfigZ;
+export type StateConfig = schematic.ControlStateConfig;
 
 export interface StateProps extends StateConfig, Omit<Flex.BoxProps, "direction"> {
   chip?: Control.ChipProps;

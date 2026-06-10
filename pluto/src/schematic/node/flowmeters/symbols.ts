@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createStatic } from "@/schematic/node/common/create";
 import { Coriolis } from "@/schematic/node/flowmeters/Coriolis";
 import { Electromagnetic } from "@/schematic/node/flowmeters/Electromagnetic";
@@ -110,18 +108,3 @@ export const REGISTRY = {
   flowmeterFloatSensor: floatSensor.spec,
   flowmeterOrifice: orifice.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  general.configZ,
-  electromagnetic.configZ,
-  variableArea.configZ,
-  coriolis.configZ,
-  nozzle.configZ,
-  venturi.configZ,
-  ringPiston.configZ,
-  positiveDisplacement.configZ,
-  turbine.configZ,
-  pulse.configZ,
-  floatSensor.configZ,
-  orifice.configZ,
-]);

@@ -34,6 +34,20 @@ enum StickyUnit {
   STICKY_UNIT_DECIMAL = 1;
 }
 
+// XCenterLocation is a horizontal-axis location at the left, right, or center.
+enum XCenterLocation {
+  X_CENTER_LOCATION_LEFT = 0;
+  X_CENTER_LOCATION_RIGHT = 1;
+  X_CENTER_LOCATION_CENTER = 2;
+}
+
+// YCenterLocation is a vertical-axis location at the top, bottom, or center.
+enum YCenterLocation {
+  Y_CENTER_LOCATION_TOP = 0;
+  Y_CENTER_LOCATION_BOTTOM = 1;
+  Y_CENTER_LOCATION_CENTER = 2;
+}
+
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
 enum OuterLocation {
@@ -148,6 +162,14 @@ message Viewport {
   double zoom = 1;
   // position is the (x, y) pan offset of the viewport.
   XY position = 2;
+}
+
+// LocationXY is a per-axis location pair anchoring content within a region.
+message LocationXY {
+  // x is the horizontal anchor.
+  XCenterLocation x = 1;
+  // y is the vertical anchor.
+  YCenterLocation y = 2;
 }
 
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing

@@ -64,3 +64,61 @@ func ColorsFromPB(pbs []*Color) ([]color.Color, error) {
 	}
 	return result, nil
 }
+
+// StopToPB converts Stop to Stop.
+func StopToPB(r color.Stop) (*Stop, error) {
+	colorVal, err := ColorToPB(r.Color)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Stop{
+		Key:      r.Key,
+		Position: r.Position,
+		Switched: r.Switched,
+		Color:    colorVal,
+	}
+	return pb, nil
+}
+
+// StopFromPB converts Stop to Stop.
+func StopFromPB(pb *Stop) (color.Stop, error) {
+	var r color.Stop
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Color, err = ColorFromPB(pb.Color)
+	if err != nil {
+		return color.Stop{}, err
+	}
+	r.Key = pb.Key
+	r.Position = pb.Position
+	r.Switched = pb.Switched
+	return r, nil
+}
+
+// StopsToPB converts a slice of Stop to Stop.
+func StopsToPB(rs []color.Stop) ([]*Stop, error) {
+	result := make([]*Stop, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StopToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StopsFromPB converts a slice of Stop to Stop.
+func StopsFromPB(pbs []*Stop) ([]color.Stop, error) {
+	result := make([]color.Stop, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StopFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}

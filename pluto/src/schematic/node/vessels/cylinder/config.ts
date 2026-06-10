@@ -7,19 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, dimensions } from "@synnaxlabs/x";
-import { z } from "zod";
-
-import { Border } from "@/schematic/node/common/border";
-import { Label } from "@/schematic/node/common/label";
+import { schematic } from "@synnaxlabs/client";
 
 export const VARIANT = "cylinder" as const;
 
-export const configZ = Label.labeledConfigZ.extend({
-  variant: z.literal(VARIANT),
-  dimensions: dimensions.dimensionsZ.optional(),
-  borderRadius: Border.radiusZ.optional(),
-  color: color.crudeZ.optional(),
-  backgroundColor: color.crudeZ.optional(),
-});
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.nodeConfigCylinderZ;
+export type Config = schematic.NodeConfigCylinder;

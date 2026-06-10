@@ -174,6 +174,106 @@ func (StickyUnit) EnumDescriptor() ([]byte, []int) {
 	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{2}
 }
 
+// XCenterLocation is a horizontal-axis location at the left, right, or center.
+type XCenterLocation int32
+
+const (
+	XCenterLocation_X_CENTER_LOCATION_LEFT   XCenterLocation = 0
+	XCenterLocation_X_CENTER_LOCATION_RIGHT  XCenterLocation = 1
+	XCenterLocation_X_CENTER_LOCATION_CENTER XCenterLocation = 2
+)
+
+// Enum value maps for XCenterLocation.
+var (
+	XCenterLocation_name = map[int32]string{
+		0: "X_CENTER_LOCATION_LEFT",
+		1: "X_CENTER_LOCATION_RIGHT",
+		2: "X_CENTER_LOCATION_CENTER",
+	}
+	XCenterLocation_value = map[string]int32{
+		"X_CENTER_LOCATION_LEFT":   0,
+		"X_CENTER_LOCATION_RIGHT":  1,
+		"X_CENTER_LOCATION_CENTER": 2,
+	}
+)
+
+func (x XCenterLocation) Enum() *XCenterLocation {
+	p := new(XCenterLocation)
+	*p = x
+	return p
+}
+
+func (x XCenterLocation) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (XCenterLocation) Descriptor() protoreflect.EnumDescriptor {
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[3].Descriptor()
+}
+
+func (XCenterLocation) Type() protoreflect.EnumType {
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[3]
+}
+
+func (x XCenterLocation) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use XCenterLocation.Descriptor instead.
+func (XCenterLocation) EnumDescriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{3}
+}
+
+// YCenterLocation is a vertical-axis location at the top, bottom, or center.
+type YCenterLocation int32
+
+const (
+	YCenterLocation_Y_CENTER_LOCATION_TOP    YCenterLocation = 0
+	YCenterLocation_Y_CENTER_LOCATION_BOTTOM YCenterLocation = 1
+	YCenterLocation_Y_CENTER_LOCATION_CENTER YCenterLocation = 2
+)
+
+// Enum value maps for YCenterLocation.
+var (
+	YCenterLocation_name = map[int32]string{
+		0: "Y_CENTER_LOCATION_TOP",
+		1: "Y_CENTER_LOCATION_BOTTOM",
+		2: "Y_CENTER_LOCATION_CENTER",
+	}
+	YCenterLocation_value = map[string]int32{
+		"Y_CENTER_LOCATION_TOP":    0,
+		"Y_CENTER_LOCATION_BOTTOM": 1,
+		"Y_CENTER_LOCATION_CENTER": 2,
+	}
+)
+
+func (x YCenterLocation) Enum() *YCenterLocation {
+	p := new(YCenterLocation)
+	*p = x
+	return p
+}
+
+func (x YCenterLocation) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (YCenterLocation) Descriptor() protoreflect.EnumDescriptor {
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[4].Descriptor()
+}
+
+func (YCenterLocation) Type() protoreflect.EnumType {
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[4]
+}
+
+func (x YCenterLocation) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use YCenterLocation.Descriptor instead.
+func (YCenterLocation) EnumDescriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{4}
+}
+
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
 type OuterLocation int32
@@ -212,11 +312,11 @@ func (x OuterLocation) String() string {
 }
 
 func (OuterLocation) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[3].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[5].Descriptor()
 }
 
 func (OuterLocation) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[3]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[5]
 }
 
 func (x OuterLocation) Number() protoreflect.EnumNumber {
@@ -225,7 +325,7 @@ func (x OuterLocation) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use OuterLocation.Descriptor instead.
 func (OuterLocation) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{3}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{5}
 }
 
 // Direction is a 2D axis direction.
@@ -259,11 +359,11 @@ func (x Direction) String() string {
 }
 
 func (Direction) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[4].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[6].Descriptor()
 }
 
 func (Direction) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[4]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[6]
 }
 
 func (x Direction) Number() protoreflect.EnumNumber {
@@ -272,7 +372,7 @@ func (x Direction) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Direction.Descriptor instead.
 func (Direction) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{4}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{6}
 }
 
 // AngularDirection is a rotational direction in 2D space.
@@ -306,11 +406,11 @@ func (x AngularDirection) String() string {
 }
 
 func (AngularDirection) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[5].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[7].Descriptor()
 }
 
 func (AngularDirection) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[5]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[7]
 }
 
 func (x AngularDirection) Number() protoreflect.EnumNumber {
@@ -319,7 +419,7 @@ func (x AngularDirection) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use AngularDirection.Descriptor instead.
 func (AngularDirection) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{5}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{7}
 }
 
 // CenterLocation is a location at the center of a container.
@@ -350,11 +450,11 @@ func (x CenterLocation) String() string {
 }
 
 func (CenterLocation) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[6].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[8].Descriptor()
 }
 
 func (CenterLocation) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[6]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[8]
 }
 
 func (x CenterLocation) Number() protoreflect.EnumNumber {
@@ -363,7 +463,7 @@ func (x CenterLocation) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CenterLocation.Descriptor instead.
 func (CenterLocation) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{6}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{8}
 }
 
 // Location is a position indicator covering the four outer edges of a container and its
@@ -407,11 +507,11 @@ func (x Location) String() string {
 }
 
 func (Location) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[7].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[9].Descriptor()
 }
 
 func (Location) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[7]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[9]
 }
 
 func (x Location) Number() protoreflect.EnumNumber {
@@ -420,7 +520,7 @@ func (x Location) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Location.Descriptor instead.
 func (Location) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{7}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{9}
 }
 
 // Alignment is a positioning indicator for aligning content along an axis within a
@@ -458,11 +558,11 @@ func (x Alignment) String() string {
 }
 
 func (Alignment) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[8].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[10].Descriptor()
 }
 
 func (Alignment) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[8]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[10]
 }
 
 func (x Alignment) Number() protoreflect.EnumNumber {
@@ -471,7 +571,7 @@ func (x Alignment) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Alignment.Descriptor instead.
 func (Alignment) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{8}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{10}
 }
 
 // Order is a positional ordering indicator for elements in a sequence.
@@ -505,11 +605,11 @@ func (x Order) String() string {
 }
 
 func (Order) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[9].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[11].Descriptor()
 }
 
 func (Order) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[9]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[11]
 }
 
 func (x Order) Number() protoreflect.EnumNumber {
@@ -518,7 +618,7 @@ func (x Order) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Order.Descriptor instead.
 func (Order) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{9}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{11}
 }
 
 // Dimension is the name of a 2D size axis.
@@ -552,11 +652,11 @@ func (x Dimension) String() string {
 }
 
 func (Dimension) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[10].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[12].Descriptor()
 }
 
 func (Dimension) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[10]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[12]
 }
 
 func (x Dimension) Number() protoreflect.EnumNumber {
@@ -565,7 +665,7 @@ func (x Dimension) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use Dimension.Descriptor instead.
 func (Dimension) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{10}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{12}
 }
 
 // SignedDimension is the name of a 2D signed size axis.
@@ -599,11 +699,11 @@ func (x SignedDimension) String() string {
 }
 
 func (SignedDimension) Descriptor() protoreflect.EnumDescriptor {
-	return file_x_go_spatial_pb_spatial_proto_enumTypes[11].Descriptor()
+	return file_x_go_spatial_pb_spatial_proto_enumTypes[13].Descriptor()
 }
 
 func (SignedDimension) Type() protoreflect.EnumType {
-	return &file_x_go_spatial_pb_spatial_proto_enumTypes[11]
+	return &file_x_go_spatial_pb_spatial_proto_enumTypes[13]
 }
 
 func (x SignedDimension) Number() protoreflect.EnumNumber {
@@ -612,7 +712,7 @@ func (x SignedDimension) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use SignedDimension.Descriptor instead.
 func (SignedDimension) EnumDescriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{11}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{13}
 }
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
@@ -965,6 +1065,61 @@ func (x *Viewport) GetPosition() *XY {
 	return nil
 }
 
+// LocationXY is a per-axis location pair anchoring content within a region.
+type LocationXY struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// x is the horizontal anchor.
+	X XCenterLocation `protobuf:"varint,1,opt,name=x,proto3,enum=x.spatial.pb.XCenterLocation" json:"x,omitempty"`
+	// y is the vertical anchor.
+	Y             YCenterLocation `protobuf:"varint,2,opt,name=y,proto3,enum=x.spatial.pb.YCenterLocation" json:"y,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LocationXY) Reset() {
+	*x = LocationXY{}
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LocationXY) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LocationXY) ProtoMessage() {}
+
+func (x *LocationXY) ProtoReflect() protoreflect.Message {
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LocationXY.ProtoReflect.Descriptor instead.
+func (*LocationXY) Descriptor() ([]byte, []int) {
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *LocationXY) GetX() XCenterLocation {
+	if x != nil {
+		return x.X
+	}
+	return XCenterLocation_X_CENTER_LOCATION_LEFT
+}
+
+func (x *LocationXY) GetY() YCenterLocation {
+	if x != nil {
+		return x.Y
+	}
+	return YCenterLocation_Y_CENTER_LOCATION_TOP
+}
+
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing
 // negative values to express direction.
 type SignedDimensions struct {
@@ -979,7 +1134,7 @@ type SignedDimensions struct {
 
 func (x *SignedDimensions) Reset() {
 	*x = SignedDimensions{}
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[6]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -991,7 +1146,7 @@ func (x *SignedDimensions) String() string {
 func (*SignedDimensions) ProtoMessage() {}
 
 func (x *SignedDimensions) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[6]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1004,7 +1159,7 @@ func (x *SignedDimensions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SignedDimensions.ProtoReflect.Descriptor instead.
 func (*SignedDimensions) Descriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{6}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SignedDimensions) GetSignedWidth() float64 {
@@ -1035,7 +1190,7 @@ type ClientXY struct {
 
 func (x *ClientXY) Reset() {
 	*x = ClientXY{}
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[7]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1047,7 +1202,7 @@ func (x *ClientXY) String() string {
 func (*ClientXY) ProtoMessage() {}
 
 func (x *ClientXY) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[7]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1060,7 +1215,7 @@ func (x *ClientXY) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientXY.ProtoReflect.Descriptor instead.
 func (*ClientXY) Descriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{7}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ClientXY) GetClientX() float64 {
@@ -1092,7 +1247,7 @@ type Bounds struct {
 
 func (x *Bounds) Reset() {
 	*x = Bounds{}
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[8]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1104,7 +1259,7 @@ func (x *Bounds) String() string {
 func (*Bounds) ProtoMessage() {}
 
 func (x *Bounds) ProtoReflect() protoreflect.Message {
-	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[8]
+	mi := &file_x_go_spatial_pb_spatial_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1117,7 +1272,7 @@ func (x *Bounds) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Bounds.ProtoReflect.Descriptor instead.
 func (*Bounds) Descriptor() ([]byte, []int) {
-	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{8}
+	return file_x_go_spatial_pb_spatial_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Bounds) GetLower() float64 {
@@ -1161,7 +1316,11 @@ const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
 	"\x06height\x18\x02 \x01(\x01R\x06height\"L\n" +
 	"\bViewport\x12\x12\n" +
 	"\x04zoom\x18\x01 \x01(\x01R\x04zoom\x12,\n" +
-	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\"Z\n" +
+	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\"f\n" +
+	"\n" +
+	"LocationXY\x12+\n" +
+	"\x01x\x18\x01 \x01(\x0e2\x1d.x.spatial.pb.XCenterLocationR\x01x\x12+\n" +
+	"\x01y\x18\x02 \x01(\x0e2\x1d.x.spatial.pb.YCenterLocationR\x01y\"Z\n" +
 	"\x10SignedDimensions\x12!\n" +
 	"\fsigned_width\x18\x01 \x01(\x01R\vsignedWidth\x12#\n" +
 	"\rsigned_height\x18\x02 \x01(\x01R\fsignedHeight\"@\n" +
@@ -1180,7 +1339,15 @@ const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
 	"\n" +
 	"StickyUnit\x12\x12\n" +
 	"\x0eSTICKY_UNIT_PX\x10\x00\x12\x17\n" +
-	"\x13STICKY_UNIT_DECIMAL\x10\x01*u\n" +
+	"\x13STICKY_UNIT_DECIMAL\x10\x01*h\n" +
+	"\x0fXCenterLocation\x12\x1a\n" +
+	"\x16X_CENTER_LOCATION_LEFT\x10\x00\x12\x1b\n" +
+	"\x17X_CENTER_LOCATION_RIGHT\x10\x01\x12\x1c\n" +
+	"\x18X_CENTER_LOCATION_CENTER\x10\x02*h\n" +
+	"\x0fYCenterLocation\x12\x19\n" +
+	"\x15Y_CENTER_LOCATION_TOP\x10\x00\x12\x1c\n" +
+	"\x18Y_CENTER_LOCATION_BOTTOM\x10\x01\x12\x1c\n" +
+	"\x18Y_CENTER_LOCATION_CENTER\x10\x02*u\n" +
 	"\rOuterLocation\x12\x16\n" +
 	"\x12OUTER_LOCATION_TOP\x10\x00\x12\x18\n" +
 	"\x14OUTER_LOCATION_RIGHT\x10\x01\x12\x19\n" +
@@ -1228,44 +1395,49 @@ func file_x_go_spatial_pb_spatial_proto_rawDescGZIP() []byte {
 	return file_x_go_spatial_pb_spatial_proto_rawDescData
 }
 
-var file_x_go_spatial_pb_spatial_proto_enumTypes = make([]protoimpl.EnumInfo, 12)
-var file_x_go_spatial_pb_spatial_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_x_go_spatial_pb_spatial_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
+var file_x_go_spatial_pb_spatial_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_x_go_spatial_pb_spatial_proto_goTypes = []any{
 	(XLocation)(0),           // 0: x.spatial.pb.XLocation
 	(YLocation)(0),           // 1: x.spatial.pb.YLocation
 	(StickyUnit)(0),          // 2: x.spatial.pb.StickyUnit
-	(OuterLocation)(0),       // 3: x.spatial.pb.OuterLocation
-	(Direction)(0),           // 4: x.spatial.pb.Direction
-	(AngularDirection)(0),    // 5: x.spatial.pb.AngularDirection
-	(CenterLocation)(0),      // 6: x.spatial.pb.CenterLocation
-	(Location)(0),            // 7: x.spatial.pb.Location
-	(Alignment)(0),           // 8: x.spatial.pb.Alignment
-	(Order)(0),               // 9: x.spatial.pb.Order
-	(Dimension)(0),           // 10: x.spatial.pb.Dimension
-	(SignedDimension)(0),     // 11: x.spatial.pb.SignedDimension
-	(*XY)(nil),               // 12: x.spatial.pb.XY
-	(*CornerLocation)(nil),   // 13: x.spatial.pb.CornerLocation
-	(*StickyUnits)(nil),      // 14: x.spatial.pb.StickyUnits
-	(*StickyXY)(nil),         // 15: x.spatial.pb.StickyXY
-	(*Dimensions)(nil),       // 16: x.spatial.pb.Dimensions
-	(*Viewport)(nil),         // 17: x.spatial.pb.Viewport
-	(*SignedDimensions)(nil), // 18: x.spatial.pb.SignedDimensions
-	(*ClientXY)(nil),         // 19: x.spatial.pb.ClientXY
-	(*Bounds)(nil),           // 20: x.spatial.pb.Bounds
+	(XCenterLocation)(0),     // 3: x.spatial.pb.XCenterLocation
+	(YCenterLocation)(0),     // 4: x.spatial.pb.YCenterLocation
+	(OuterLocation)(0),       // 5: x.spatial.pb.OuterLocation
+	(Direction)(0),           // 6: x.spatial.pb.Direction
+	(AngularDirection)(0),    // 7: x.spatial.pb.AngularDirection
+	(CenterLocation)(0),      // 8: x.spatial.pb.CenterLocation
+	(Location)(0),            // 9: x.spatial.pb.Location
+	(Alignment)(0),           // 10: x.spatial.pb.Alignment
+	(Order)(0),               // 11: x.spatial.pb.Order
+	(Dimension)(0),           // 12: x.spatial.pb.Dimension
+	(SignedDimension)(0),     // 13: x.spatial.pb.SignedDimension
+	(*XY)(nil),               // 14: x.spatial.pb.XY
+	(*CornerLocation)(nil),   // 15: x.spatial.pb.CornerLocation
+	(*StickyUnits)(nil),      // 16: x.spatial.pb.StickyUnits
+	(*StickyXY)(nil),         // 17: x.spatial.pb.StickyXY
+	(*Dimensions)(nil),       // 18: x.spatial.pb.Dimensions
+	(*Viewport)(nil),         // 19: x.spatial.pb.Viewport
+	(*LocationXY)(nil),       // 20: x.spatial.pb.LocationXY
+	(*SignedDimensions)(nil), // 21: x.spatial.pb.SignedDimensions
+	(*ClientXY)(nil),         // 22: x.spatial.pb.ClientXY
+	(*Bounds)(nil),           // 23: x.spatial.pb.Bounds
 }
 var file_x_go_spatial_pb_spatial_proto_depIdxs = []int32{
 	0,  // 0: x.spatial.pb.CornerLocation.x:type_name -> x.spatial.pb.XLocation
 	1,  // 1: x.spatial.pb.CornerLocation.y:type_name -> x.spatial.pb.YLocation
 	2,  // 2: x.spatial.pb.StickyUnits.x:type_name -> x.spatial.pb.StickyUnit
 	2,  // 3: x.spatial.pb.StickyUnits.y:type_name -> x.spatial.pb.StickyUnit
-	13, // 4: x.spatial.pb.StickyXY.root:type_name -> x.spatial.pb.CornerLocation
-	14, // 5: x.spatial.pb.StickyXY.units:type_name -> x.spatial.pb.StickyUnits
-	12, // 6: x.spatial.pb.Viewport.position:type_name -> x.spatial.pb.XY
-	7,  // [7:7] is the sub-list for method output_type
-	7,  // [7:7] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	15, // 4: x.spatial.pb.StickyXY.root:type_name -> x.spatial.pb.CornerLocation
+	16, // 5: x.spatial.pb.StickyXY.units:type_name -> x.spatial.pb.StickyUnits
+	14, // 6: x.spatial.pb.Viewport.position:type_name -> x.spatial.pb.XY
+	3,  // 7: x.spatial.pb.LocationXY.x:type_name -> x.spatial.pb.XCenterLocation
+	4,  // 8: x.spatial.pb.LocationXY.y:type_name -> x.spatial.pb.YCenterLocation
+	9,  // [9:9] is the sub-list for method output_type
+	9,  // [9:9] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_x_go_spatial_pb_spatial_proto_init() }
@@ -1279,8 +1451,8 @@ func file_x_go_spatial_pb_spatial_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_x_go_spatial_pb_spatial_proto_rawDesc), len(file_x_go_spatial_pb_spatial_proto_rawDesc)),
-			NumEnums:      12,
-			NumMessages:   9,
+			NumEnums:      14,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

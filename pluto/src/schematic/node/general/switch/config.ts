@@ -7,16 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
-import { z } from "zod";
-
-import { Toggle } from "@/schematic/node/common/toggle";
+import { schematic } from "@synnaxlabs/client";
 
 export const VARIANT = "switch" as const;
 
-export const configZ = Toggle.toggleConfigZ.extend({
-  variant: z.literal(VARIANT),
-  color: color.crudeZ.optional(),
-  scale: z.number().optional(),
-});
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.nodeConfigSwitchZ;
+export type Config = schematic.NodeConfigSwitch;

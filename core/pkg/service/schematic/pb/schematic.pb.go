@@ -18,8 +18,11 @@
 package pb
 
 import (
+	pb4 "github.com/synnaxlabs/x/border/pb"
 	pb1 "github.com/synnaxlabs/x/color/pb"
+	pb3 "github.com/synnaxlabs/x/notation/pb"
 	pb "github.com/synnaxlabs/x/spatial/pb"
+	pb2 "github.com/synnaxlabs/x/text/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -34,6 +37,254 @@ const (
 	// Verify that runtime/protoimpl is sufficiently up-to-date.
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
+
+// SourceRole is the data-flow role of a telemetry source spec.
+type SourceRole int32
+
+const (
+	SourceRole_SOURCE_ROLE_SOURCE SourceRole = 0
+)
+
+// Enum value maps for SourceRole.
+var (
+	SourceRole_name = map[int32]string{
+		0: "SOURCE_ROLE_SOURCE",
+	}
+	SourceRole_value = map[string]int32{
+		"SOURCE_ROLE_SOURCE": 0,
+	}
+)
+
+func (x SourceRole) Enum() *SourceRole {
+	p := new(SourceRole)
+	*p = x
+	return p
+}
+
+func (x SourceRole) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SourceRole) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[0].Descriptor()
+}
+
+func (SourceRole) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[0]
+}
+
+func (x SourceRole) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SourceRole.Descriptor instead.
+func (SourceRole) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{0}
+}
+
+// SinkRole is the data-flow role of a telemetry sink spec.
+type SinkRole int32
+
+const (
+	SinkRole_SINK_ROLE_SINK SinkRole = 0
+)
+
+// Enum value maps for SinkRole.
+var (
+	SinkRole_name = map[int32]string{
+		0: "SINK_ROLE_SINK",
+	}
+	SinkRole_value = map[string]int32{
+		"SINK_ROLE_SINK": 0,
+	}
+)
+
+func (x SinkRole) Enum() *SinkRole {
+	p := new(SinkRole)
+	*p = x
+	return p
+}
+
+func (x SinkRole) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SinkRole) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[1].Descriptor()
+}
+
+func (SinkRole) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[1]
+}
+
+func (x SinkRole) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use SinkRole.Descriptor instead.
+func (SinkRole) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{1}
+}
+
+// FlexAlignment is a cross-axis flex alignment for laid-out content.
+type FlexAlignment int32
+
+const (
+	FlexAlignment_FLEX_ALIGNMENT_START   FlexAlignment = 0
+	FlexAlignment_FLEX_ALIGNMENT_CENTER  FlexAlignment = 1
+	FlexAlignment_FLEX_ALIGNMENT_END     FlexAlignment = 2
+	FlexAlignment_FLEX_ALIGNMENT_STRETCH FlexAlignment = 3
+)
+
+// Enum value maps for FlexAlignment.
+var (
+	FlexAlignment_name = map[int32]string{
+		0: "FLEX_ALIGNMENT_START",
+		1: "FLEX_ALIGNMENT_CENTER",
+		2: "FLEX_ALIGNMENT_END",
+		3: "FLEX_ALIGNMENT_STRETCH",
+	}
+	FlexAlignment_value = map[string]int32{
+		"FLEX_ALIGNMENT_START":   0,
+		"FLEX_ALIGNMENT_CENTER":  1,
+		"FLEX_ALIGNMENT_END":     2,
+		"FLEX_ALIGNMENT_STRETCH": 3,
+	}
+)
+
+func (x FlexAlignment) Enum() *FlexAlignment {
+	p := new(FlexAlignment)
+	*p = x
+	return p
+}
+
+func (x FlexAlignment) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (FlexAlignment) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[2].Descriptor()
+}
+
+func (FlexAlignment) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[2]
+}
+
+func (x FlexAlignment) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use FlexAlignment.Descriptor instead.
+func (FlexAlignment) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{2}
+}
+
+// ComponentSize is a discrete size preset for interactive components.
+type ComponentSize int32
+
+const (
+	ComponentSize_COMPONENT_SIZE_TINY   ComponentSize = 0
+	ComponentSize_COMPONENT_SIZE_SMALL  ComponentSize = 1
+	ComponentSize_COMPONENT_SIZE_MEDIUM ComponentSize = 2
+	ComponentSize_COMPONENT_SIZE_LARGE  ComponentSize = 3
+	ComponentSize_COMPONENT_SIZE_HUGE   ComponentSize = 4
+)
+
+// Enum value maps for ComponentSize.
+var (
+	ComponentSize_name = map[int32]string{
+		0: "COMPONENT_SIZE_TINY",
+		1: "COMPONENT_SIZE_SMALL",
+		2: "COMPONENT_SIZE_MEDIUM",
+		3: "COMPONENT_SIZE_LARGE",
+		4: "COMPONENT_SIZE_HUGE",
+	}
+	ComponentSize_value = map[string]int32{
+		"COMPONENT_SIZE_TINY":   0,
+		"COMPONENT_SIZE_SMALL":  1,
+		"COMPONENT_SIZE_MEDIUM": 2,
+		"COMPONENT_SIZE_LARGE":  3,
+		"COMPONENT_SIZE_HUGE":   4,
+	}
+)
+
+func (x ComponentSize) Enum() *ComponentSize {
+	p := new(ComponentSize)
+	*p = x
+	return p
+}
+
+func (x ComponentSize) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ComponentSize) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[3].Descriptor()
+}
+
+func (ComponentSize) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[3]
+}
+
+func (x ComponentSize) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ComponentSize.Descriptor instead.
+func (ComponentSize) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{3}
+}
+
+// ButtonMode is the actuation behavior of a button: fire writes once on click,
+// momentary writes on press and clears on release, and pulse writes a one-cycle pulse.
+type ButtonMode int32
+
+const (
+	ButtonMode_BUTTON_MODE_FIRE      ButtonMode = 0
+	ButtonMode_BUTTON_MODE_MOMENTARY ButtonMode = 1
+	ButtonMode_BUTTON_MODE_PULSE     ButtonMode = 2
+)
+
+// Enum value maps for ButtonMode.
+var (
+	ButtonMode_name = map[int32]string{
+		0: "BUTTON_MODE_FIRE",
+		1: "BUTTON_MODE_MOMENTARY",
+		2: "BUTTON_MODE_PULSE",
+	}
+	ButtonMode_value = map[string]int32{
+		"BUTTON_MODE_FIRE":      0,
+		"BUTTON_MODE_MOMENTARY": 1,
+		"BUTTON_MODE_PULSE":     2,
+	}
+)
+
+func (x ButtonMode) Enum() *ButtonMode {
+	p := new(ButtonMode)
+	*p = x
+	return p
+}
+
+func (x ButtonMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ButtonMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[4].Descriptor()
+}
+
+func (ButtonMode) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[4]
+}
+
+func (x ButtonMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ButtonMode.Descriptor instead.
+func (ButtonMode) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{4}
+}
 
 // Node is a diagram node representing a symbol in the schematic.
 type Node struct {
@@ -341,6 +592,3058 @@ func (x *SegmentedEdgeConfig) GetSegments() []*Segment {
 	return nil
 }
 
+// SourceTelemSpec is a reference to a telemetry source. The value_type discriminator on
+// the wrapping union pins the value kind the spec yields or accepts.
+type SourceTelemSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// type is the registered telem factory type that interprets props.
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	// variant is the data-flow role of the spec.
+	Variant SourceRole `protobuf:"varint,2,opt,name=variant,proto3,enum=service.schematic.pb.SourceRole" json:"variant,omitempty"`
+	// props contains factory-specific configuration. The shape is determined by type and
+	// validated at runtime by the owning telem factory; the wire format intentionally
+	// stores it as an opaque record.
+	Props         *structpb.Struct `protobuf:"bytes,3,opt,name=props,proto3" json:"props,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SourceTelemSpec) Reset() {
+	*x = SourceTelemSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SourceTelemSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SourceTelemSpec) ProtoMessage() {}
+
+func (x *SourceTelemSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SourceTelemSpec.ProtoReflect.Descriptor instead.
+func (*SourceTelemSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SourceTelemSpec) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SourceTelemSpec) GetVariant() SourceRole {
+	if x != nil {
+		return x.Variant
+	}
+	return SourceRole_SOURCE_ROLE_SOURCE
+}
+
+func (x *SourceTelemSpec) GetProps() *structpb.Struct {
+	if x != nil {
+		return x.Props
+	}
+	return nil
+}
+
+// SinkTelemSpec is a reference to a telemetry sink. The value_type discriminator on the
+// wrapping union pins the value kind the spec yields or accepts.
+type SinkTelemSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// type is the registered telem factory type that interprets props.
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	// variant is the data-flow role of the spec.
+	Variant SinkRole `protobuf:"varint,2,opt,name=variant,proto3,enum=service.schematic.pb.SinkRole" json:"variant,omitempty"`
+	// props contains factory-specific configuration. The shape is determined by type and
+	// validated at runtime by the owning telem factory; the wire format intentionally
+	// stores it as an opaque record.
+	Props         *structpb.Struct `protobuf:"bytes,3,opt,name=props,proto3" json:"props,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SinkTelemSpec) Reset() {
+	*x = SinkTelemSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SinkTelemSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SinkTelemSpec) ProtoMessage() {}
+
+func (x *SinkTelemSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SinkTelemSpec.ProtoReflect.Descriptor instead.
+func (*SinkTelemSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SinkTelemSpec) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SinkTelemSpec) GetVariant() SinkRole {
+	if x != nil {
+		return x.Variant
+	}
+	return SinkRole_SINK_ROLE_SINK
+}
+
+func (x *SinkTelemSpec) GetProps() *structpb.Struct {
+	if x != nil {
+		return x.Props
+	}
+	return nil
+}
+
+// LabelConfig is the text label configuration shared by schematic symbols.
+type LabelConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the text content of the label.
+	Label string `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// level is the typography level of the label text.
+	Level pb2.Level `protobuf:"varint,2,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	// orientation is the placement of the label relative to the symbol.
+	Orientation pb.Location `protobuf:"varint,3,opt,name=orientation,proto3,enum=x.spatial.pb.Location" json:"orientation,omitempty"`
+	// direction is the axis along which the label text flows.
+	Direction pb.Direction `protobuf:"varint,4,opt,name=direction,proto3,enum=x.spatial.pb.Direction" json:"direction,omitempty"`
+	// max_inline_size is the maximum inline size of the label in pixels before wrapping.
+	MaxInlineSize float64 `protobuf:"fixed64,5,opt,name=max_inline_size,json=maxInlineSize,proto3" json:"max_inline_size,omitempty"`
+	// align is the alignment of the label text within its box.
+	Align         FlexAlignment `protobuf:"varint,6,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment" json:"align,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LabelConfig) Reset() {
+	*x = LabelConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LabelConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LabelConfig) ProtoMessage() {}
+
+func (x *LabelConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LabelConfig.ProtoReflect.Descriptor instead.
+func (*LabelConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *LabelConfig) GetLabel() string {
+	if x != nil {
+		return x.Label
+	}
+	return ""
+}
+
+func (x *LabelConfig) GetLevel() pb2.Level {
+	if x != nil {
+		return x.Level
+	}
+	return pb2.Level(0)
+}
+
+func (x *LabelConfig) GetOrientation() pb.Location {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.Location(0)
+}
+
+func (x *LabelConfig) GetDirection() pb.Direction {
+	if x != nil {
+		return x.Direction
+	}
+	return pb.Direction(0)
+}
+
+func (x *LabelConfig) GetMaxInlineSize() float64 {
+	if x != nil {
+		return x.MaxInlineSize
+	}
+	return 0
+}
+
+func (x *LabelConfig) GetAlign() FlexAlignment {
+	if x != nil {
+		return x.Align
+	}
+	return FlexAlignment_FLEX_ALIGNMENT_START
+}
+
+// LabeledConfig is the base configuration for any symbol that carries a label.
+type LabeledConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation   pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LabeledConfig) Reset() {
+	*x = LabeledConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LabeledConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LabeledConfig) ProtoMessage() {}
+
+func (x *LabeledConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LabeledConfig.ProtoReflect.Descriptor instead.
+func (*LabeledConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *LabeledConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *LabeledConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+// ChipConfig is the control authority chip configuration.
+type ChipConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// source is the status source displayed by the control chip.
+	Source *StatusSourceSpec `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
+	// sink is the sink used to acquire and release control authority.
+	Sink          *BooleanSinkSpec `protobuf:"bytes,2,opt,name=sink,proto3" json:"sink,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ChipConfig) Reset() {
+	*x = ChipConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ChipConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ChipConfig) ProtoMessage() {}
+
+func (x *ChipConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ChipConfig.ProtoReflect.Descriptor instead.
+func (*ChipConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ChipConfig) GetSource() *StatusSourceSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *ChipConfig) GetSink() *BooleanSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+// IndicatorConfig is the control state indicator configuration.
+type IndicatorConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// status_source is the status source driving the indicator state.
+	StatusSource *StatusSourceSpec `protobuf:"bytes,1,opt,name=status_source,json=statusSource,proto3" json:"status_source,omitempty"`
+	// color_source is the color source driving the indicator tint.
+	ColorSource   *ColorSourceSpec `protobuf:"bytes,2,opt,name=color_source,json=colorSource,proto3" json:"color_source,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IndicatorConfig) Reset() {
+	*x = IndicatorConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IndicatorConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IndicatorConfig) ProtoMessage() {}
+
+func (x *IndicatorConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IndicatorConfig.ProtoReflect.Descriptor instead.
+func (*IndicatorConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *IndicatorConfig) GetStatusSource() *StatusSourceSpec {
+	if x != nil {
+		return x.StatusSource
+	}
+	return nil
+}
+
+func (x *IndicatorConfig) GetColorSource() *ColorSourceSpec {
+	if x != nil {
+		return x.ColorSource
+	}
+	return nil
+}
+
+// ControlStateConfig is the control authority and state display configuration for
+// actuated symbols.
+type ControlStateConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// show indicates whether the control state widget is visible.
+	Show bool `protobuf:"varint,1,opt,name=show,proto3" json:"show,omitempty"`
+	// show_chip indicates whether the authority chip is visible.
+	ShowChip bool `protobuf:"varint,2,opt,name=show_chip,json=showChip,proto3" json:"show_chip,omitempty"`
+	// show_indicator indicates whether the state indicator is visible.
+	ShowIndicator bool `protobuf:"varint,3,opt,name=show_indicator,json=showIndicator,proto3" json:"show_indicator,omitempty"`
+	// chip is the authority chip configuration.
+	Chip *ChipConfig `protobuf:"bytes,4,opt,name=chip,proto3" json:"chip,omitempty"`
+	// indicator is the indicator configuration.
+	Indicator *IndicatorConfig `protobuf:"bytes,5,opt,name=indicator,proto3" json:"indicator,omitempty"`
+	// orientation is the placement of the control state widget relative to the symbol.
+	Orientation   pb.Location `protobuf:"varint,6,opt,name=orientation,proto3,enum=x.spatial.pb.Location" json:"orientation,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ControlStateConfig) Reset() {
+	*x = ControlStateConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ControlStateConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ControlStateConfig) ProtoMessage() {}
+
+func (x *ControlStateConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ControlStateConfig.ProtoReflect.Descriptor instead.
+func (*ControlStateConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ControlStateConfig) GetShow() bool {
+	if x != nil {
+		return x.Show
+	}
+	return false
+}
+
+func (x *ControlStateConfig) GetShowChip() bool {
+	if x != nil {
+		return x.ShowChip
+	}
+	return false
+}
+
+func (x *ControlStateConfig) GetShowIndicator() bool {
+	if x != nil {
+		return x.ShowIndicator
+	}
+	return false
+}
+
+func (x *ControlStateConfig) GetChip() *ChipConfig {
+	if x != nil {
+		return x.Chip
+	}
+	return nil
+}
+
+func (x *ControlStateConfig) GetIndicator() *IndicatorConfig {
+	if x != nil {
+		return x.Indicator
+	}
+	return nil
+}
+
+func (x *ControlStateConfig) GetOrientation() pb.Location {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.Location(0)
+}
+
+// ToggleConfig is the base configuration for symbols actuated through a boolean
+// telemetry pair.
+type ToggleConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// source is the boolean source that drives the symbol's active state.
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// sink is the boolean sink that receives actuation commands.
+	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	// control is the control state display configuration.
+	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3" json:"control,omitempty"`
+	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay  float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleConfig) Reset() {
+	*x = ToggleConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleConfig) ProtoMessage() {}
+
+func (x *ToggleConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleConfig.ProtoReflect.Descriptor instead.
+func (*ToggleConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ToggleConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *ToggleConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *ToggleConfig) GetSource() *BooleanSourceSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *ToggleConfig) GetSink() *BooleanSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+func (x *ToggleConfig) GetControl() *ControlStateConfig {
+	if x != nil {
+		return x.Control
+	}
+	return nil
+}
+
+func (x *ToggleConfig) GetOnClickDelay() float64 {
+	if x != nil {
+		return x.OnClickDelay
+	}
+	return 0
+}
+
+// StaticSymbolConfig is the configuration for non-interactive labeled symbols.
+type StaticSymbolConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale         float64 `protobuf:"fixed64,4,opt,name=scale,proto3" json:"scale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StaticSymbolConfig) Reset() {
+	*x = StaticSymbolConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StaticSymbolConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StaticSymbolConfig) ProtoMessage() {}
+
+func (x *StaticSymbolConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StaticSymbolConfig.ProtoReflect.Descriptor instead.
+func (*StaticSymbolConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *StaticSymbolConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *StaticSymbolConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *StaticSymbolConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *StaticSymbolConfig) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+// ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
+type ToggleSymbolConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// source is the boolean source that drives the symbol's active state.
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// sink is the boolean sink that receives actuation commands.
+	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	// control is the control state display configuration.
+	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3" json:"control,omitempty"`
+	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale         float64 `protobuf:"fixed64,8,opt,name=scale,proto3" json:"scale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ToggleSymbolConfig) Reset() {
+	*x = ToggleSymbolConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToggleSymbolConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToggleSymbolConfig) ProtoMessage() {}
+
+func (x *ToggleSymbolConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ToggleSymbolConfig.ProtoReflect.Descriptor instead.
+func (*ToggleSymbolConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ToggleSymbolConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *ToggleSymbolConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *ToggleSymbolConfig) GetSource() *BooleanSourceSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *ToggleSymbolConfig) GetSink() *BooleanSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+func (x *ToggleSymbolConfig) GetControl() *ControlStateConfig {
+	if x != nil {
+		return x.Control
+	}
+	return nil
+}
+
+func (x *ToggleSymbolConfig) GetOnClickDelay() float64 {
+	if x != nil {
+		return x.OnClickDelay
+	}
+	return 0
+}
+
+func (x *ToggleSymbolConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *ToggleSymbolConfig) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+// DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
+// from local state without binding to telemetry.
+type DummyToggleSymbolConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// enabled indicates whether the symbol renders in its active state.
+	Enabled bool `protobuf:"varint,3,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// clickable indicates whether clicking the symbol toggles its state.
+	Clickable bool `protobuf:"varint,4,opt,name=clickable,proto3" json:"clickable,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale         float64 `protobuf:"fixed64,6,opt,name=scale,proto3" json:"scale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DummyToggleSymbolConfig) Reset() {
+	*x = DummyToggleSymbolConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DummyToggleSymbolConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DummyToggleSymbolConfig) ProtoMessage() {}
+
+func (x *DummyToggleSymbolConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DummyToggleSymbolConfig.ProtoReflect.Descriptor instead.
+func (*DummyToggleSymbolConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *DummyToggleSymbolConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *DummyToggleSymbolConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *DummyToggleSymbolConfig) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *DummyToggleSymbolConfig) GetClickable() bool {
+	if x != nil {
+		return x.Clickable
+	}
+	return false
+}
+
+func (x *DummyToggleSymbolConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *DummyToggleSymbolConfig) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+// SolenoidValveConfig is the configuration for solenoid valve symbols.
+type SolenoidValveConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// source is the boolean source that drives the symbol's active state.
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// sink is the boolean sink that receives actuation commands.
+	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	// control is the control state display configuration.
+	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3" json:"control,omitempty"`
+	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale float64 `protobuf:"fixed64,8,opt,name=scale,proto3" json:"scale,omitempty"`
+	// normally_open indicates whether the valve is open when unpowered.
+	NormallyOpen  bool `protobuf:"varint,9,opt,name=normally_open,json=normallyOpen,proto3" json:"normally_open,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SolenoidValveConfig) Reset() {
+	*x = SolenoidValveConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SolenoidValveConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SolenoidValveConfig) ProtoMessage() {}
+
+func (x *SolenoidValveConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SolenoidValveConfig.ProtoReflect.Descriptor instead.
+func (*SolenoidValveConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *SolenoidValveConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *SolenoidValveConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *SolenoidValveConfig) GetSource() *BooleanSourceSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *SolenoidValveConfig) GetSink() *BooleanSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+func (x *SolenoidValveConfig) GetControl() *ControlStateConfig {
+	if x != nil {
+		return x.Control
+	}
+	return nil
+}
+
+func (x *SolenoidValveConfig) GetOnClickDelay() float64 {
+	if x != nil {
+		return x.OnClickDelay
+	}
+	return 0
+}
+
+func (x *SolenoidValveConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *SolenoidValveConfig) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+func (x *SolenoidValveConfig) GetNormallyOpen() bool {
+	if x != nil {
+		return x.NormallyOpen
+	}
+	return false
+}
+
+// StateMapping maps a numeric channel value to a named, colored state.
+type StateMapping struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique identifier for the mapping entry.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is the display name for this state.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// value is the channel value this state corresponds to.
+	Value float64 `protobuf:"fixed64,3,opt,name=value,proto3" json:"value,omitempty"`
+	// color is the display color associated with this state.
+	Color         *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StateMapping) Reset() {
+	*x = StateMapping{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateMapping) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateMapping) ProtoMessage() {}
+
+func (x *StateMapping) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateMapping.ProtoReflect.Descriptor instead.
+func (*StateMapping) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *StateMapping) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *StateMapping) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *StateMapping) GetValue() float64 {
+	if x != nil {
+		return x.Value
+	}
+	return 0
+}
+
+func (x *StateMapping) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+// Redline maps a numeric range to a color gradient for limit visualization.
+type Redline struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// bounds is the numeric range mapped onto the gradient.
+	Bounds *pb.Bounds `protobuf:"bytes,1,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	// gradient is the color gradient applied across the bounds.
+	Gradient      []*pb1.Stop `protobuf:"bytes,2,rep,name=gradient,proto3" json:"gradient,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Redline) Reset() {
+	*x = Redline{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Redline) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Redline) ProtoMessage() {}
+
+func (x *Redline) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Redline.ProtoReflect.Descriptor instead.
+func (*Redline) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *Redline) GetBounds() *pb.Bounds {
+	if x != nil {
+		return x.Bounds
+	}
+	return nil
+}
+
+func (x *Redline) GetGradient() []*pb1.Stop {
+	if x != nil {
+		return x.Gradient
+	}
+	return nil
+}
+
+// BoxConfig is the configuration for box annotation symbols.
+type BoxConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the box's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the box within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// color is the border color of the box.
+	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	// background_color is the fill color of the box.
+	BackgroundColor *pb1.Color `protobuf:"bytes,4,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	// dimensions is the rendered size of the box in pixels.
+	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	// border_radius is the uniform corner radius of the box in pixels.
+	BorderRadius float64 `protobuf:"fixed64,6,opt,name=border_radius,json=borderRadius,proto3" json:"border_radius,omitempty"`
+	// stroke_width is the border stroke width in pixels.
+	StrokeWidth   float64 `protobuf:"fixed64,7,opt,name=stroke_width,json=strokeWidth,proto3" json:"stroke_width,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BoxConfig) Reset() {
+	*x = BoxConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BoxConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoxConfig) ProtoMessage() {}
+
+func (x *BoxConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoxConfig.ProtoReflect.Descriptor instead.
+func (*BoxConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *BoxConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *BoxConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *BoxConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *BoxConfig) GetBackgroundColor() *pb1.Color {
+	if x != nil {
+		return x.BackgroundColor
+	}
+	return nil
+}
+
+func (x *BoxConfig) GetDimensions() *pb.Dimensions {
+	if x != nil {
+		return x.Dimensions
+	}
+	return nil
+}
+
+func (x *BoxConfig) GetBorderRadius() float64 {
+	if x != nil {
+		return x.BorderRadius
+	}
+	return 0
+}
+
+func (x *BoxConfig) GetStrokeWidth() float64 {
+	if x != nil {
+		return x.StrokeWidth
+	}
+	return 0
+}
+
+// ButtonConfig is the configuration for button symbols.
+type ButtonConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// size is the rendered size preset of the button.
+	Size ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize" json:"size,omitempty"`
+	// level is the typography level of the button text.
+	Level pb2.Level `protobuf:"varint,4,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `protobuf:"fixed64,5,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	// sink is the boolean sink that receives button presses.
+	Sink *BooleanSinkSpec `protobuf:"bytes,6,opt,name=sink,proto3" json:"sink,omitempty"`
+	// mode is the actuation behavior of the button.
+	Mode ButtonMode `protobuf:"varint,7,opt,name=mode,proto3,enum=service.schematic.pb.ButtonMode" json:"mode,omitempty"`
+	// color is the background color of the button.
+	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3" json:"color,omitempty"`
+	// control is the control state display configuration.
+	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3" json:"control,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ButtonConfig) Reset() {
+	*x = ButtonConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ButtonConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ButtonConfig) ProtoMessage() {}
+
+func (x *ButtonConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ButtonConfig.ProtoReflect.Descriptor instead.
+func (*ButtonConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *ButtonConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *ButtonConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *ButtonConfig) GetSize() ComponentSize {
+	if x != nil {
+		return x.Size
+	}
+	return ComponentSize_COMPONENT_SIZE_TINY
+}
+
+func (x *ButtonConfig) GetLevel() pb2.Level {
+	if x != nil {
+		return x.Level
+	}
+	return pb2.Level(0)
+}
+
+func (x *ButtonConfig) GetOnClickDelay() float64 {
+	if x != nil {
+		return x.OnClickDelay
+	}
+	return 0
+}
+
+func (x *ButtonConfig) GetSink() *BooleanSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+func (x *ButtonConfig) GetMode() ButtonMode {
+	if x != nil {
+		return x.Mode
+	}
+	return ButtonMode_BUTTON_MODE_FIRE
+}
+
+func (x *ButtonConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *ButtonConfig) GetControl() *ControlStateConfig {
+	if x != nil {
+		return x.Control
+	}
+	return nil
+}
+
+// CircleConfig is the configuration for circle annotation symbols.
+type CircleConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// radius is the radius of the circle in pixels.
+	Radius float64 `protobuf:"fixed64,3,opt,name=radius,proto3" json:"radius,omitempty"`
+	// color is the border color of the circle.
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	// background_color is the fill color of the circle.
+	BackgroundColor *pb1.Color `protobuf:"bytes,5,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	// stroke_width is the border stroke width in pixels.
+	StrokeWidth   float64 `protobuf:"fixed64,6,opt,name=stroke_width,json=strokeWidth,proto3" json:"stroke_width,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CircleConfig) Reset() {
+	*x = CircleConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CircleConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CircleConfig) ProtoMessage() {}
+
+func (x *CircleConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CircleConfig.ProtoReflect.Descriptor instead.
+func (*CircleConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *CircleConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *CircleConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *CircleConfig) GetRadius() float64 {
+	if x != nil {
+		return x.Radius
+	}
+	return 0
+}
+
+func (x *CircleConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *CircleConfig) GetBackgroundColor() *pb1.Color {
+	if x != nil {
+		return x.BackgroundColor
+	}
+	return nil
+}
+
+func (x *CircleConfig) GetStrokeWidth() float64 {
+	if x != nil {
+		return x.StrokeWidth
+	}
+	return 0
+}
+
+// GaugeConfig is the configuration for gauge symbols.
+type GaugeConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// position is the offset of the gauge contents within the symbol.
+	Position *pb.XY `protobuf:"bytes,3,opt,name=position,proto3" json:"position,omitempty"`
+	// color is the accent color of the gauge arc.
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	// bounds is the numeric range displayed by the gauge.
+	Bounds *pb.Bounds `protobuf:"bytes,5,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	// bar_width is the thickness of the gauge arc in pixels.
+	BarWidth float64 `protobuf:"fixed64,6,opt,name=bar_width,json=barWidth,proto3" json:"bar_width,omitempty"`
+	// telem is the string source that supplies the displayed value.
+	Telem *StringSourceSpec `protobuf:"bytes,7,opt,name=telem,proto3" json:"telem,omitempty"`
+	// background_telem is the color source that drives the gauge background.
+	BackgroundTelem *ColorSourceSpec `protobuf:"bytes,8,opt,name=background_telem,json=backgroundTelem,proto3" json:"background_telem,omitempty"`
+	// precision is the number of decimal places shown.
+	Precision float64 `protobuf:"fixed64,9,opt,name=precision,proto3" json:"precision,omitempty"`
+	// min_width is the minimum rendered width of the value in pixels.
+	MinWidth float64 `protobuf:"fixed64,10,opt,name=min_width,json=minWidth,proto3" json:"min_width,omitempty"`
+	// width is the rendered width of the gauge in pixels.
+	Width float64 `protobuf:"fixed64,11,opt,name=width,proto3" json:"width,omitempty"`
+	// notation is the numeric notation used to format the value.
+	Notation pb3.Notation `protobuf:"varint,12,opt,name=notation,proto3,enum=x.notation.pb.Notation" json:"notation,omitempty"`
+	// location is the anchor of the value within the gauge.
+	Location *pb.LocationXY `protobuf:"bytes,13,opt,name=location,proto3" json:"location,omitempty"`
+	// units is the unit suffix displayed after the value.
+	Units string `protobuf:"bytes,14,opt,name=units,proto3" json:"units,omitempty"`
+	// level is the typography level of the displayed value.
+	Level         pb2.Level `protobuf:"varint,15,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GaugeConfig) Reset() {
+	*x = GaugeConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GaugeConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GaugeConfig) ProtoMessage() {}
+
+func (x *GaugeConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GaugeConfig.ProtoReflect.Descriptor instead.
+func (*GaugeConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *GaugeConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *GaugeConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *GaugeConfig) GetPosition() *pb.XY {
+	if x != nil {
+		return x.Position
+	}
+	return nil
+}
+
+func (x *GaugeConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *GaugeConfig) GetBounds() *pb.Bounds {
+	if x != nil {
+		return x.Bounds
+	}
+	return nil
+}
+
+func (x *GaugeConfig) GetBarWidth() float64 {
+	if x != nil {
+		return x.BarWidth
+	}
+	return 0
+}
+
+func (x *GaugeConfig) GetTelem() *StringSourceSpec {
+	if x != nil {
+		return x.Telem
+	}
+	return nil
+}
+
+func (x *GaugeConfig) GetBackgroundTelem() *ColorSourceSpec {
+	if x != nil {
+		return x.BackgroundTelem
+	}
+	return nil
+}
+
+func (x *GaugeConfig) GetPrecision() float64 {
+	if x != nil {
+		return x.Precision
+	}
+	return 0
+}
+
+func (x *GaugeConfig) GetMinWidth() float64 {
+	if x != nil {
+		return x.MinWidth
+	}
+	return 0
+}
+
+func (x *GaugeConfig) GetWidth() float64 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *GaugeConfig) GetNotation() pb3.Notation {
+	if x != nil {
+		return x.Notation
+	}
+	return pb3.Notation(0)
+}
+
+func (x *GaugeConfig) GetLocation() *pb.LocationXY {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
+func (x *GaugeConfig) GetUnits() string {
+	if x != nil {
+		return x.Units
+	}
+	return ""
+}
+
+func (x *GaugeConfig) GetLevel() pb2.Level {
+	if x != nil {
+		return x.Level
+	}
+	return pb2.Level(0)
+}
+
+// InputConfig is the configuration for free-form input symbols.
+type InputConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// size is the rendered size preset of the input.
+	Size ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize" json:"size,omitempty"`
+	// sink is the string sink that receives submitted values.
+	Sink *StringSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	// dimensions is the rendered size of the input in pixels.
+	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	// color is the accent color of the input.
+	Color *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3" json:"color,omitempty"`
+	// disabled indicates whether the input rejects interaction.
+	Disabled bool `protobuf:"varint,7,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	// control is the control state display configuration.
+	Control       *ControlStateConfig `protobuf:"bytes,8,opt,name=control,proto3" json:"control,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InputConfig) Reset() {
+	*x = InputConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InputConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InputConfig) ProtoMessage() {}
+
+func (x *InputConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InputConfig.ProtoReflect.Descriptor instead.
+func (*InputConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *InputConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *InputConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *InputConfig) GetSize() ComponentSize {
+	if x != nil {
+		return x.Size
+	}
+	return ComponentSize_COMPONENT_SIZE_TINY
+}
+
+func (x *InputConfig) GetSink() *StringSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+func (x *InputConfig) GetDimensions() *pb.Dimensions {
+	if x != nil {
+		return x.Dimensions
+	}
+	return nil
+}
+
+func (x *InputConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *InputConfig) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
+func (x *InputConfig) GetControl() *ControlStateConfig {
+	if x != nil {
+		return x.Control
+	}
+	return nil
+}
+
+// LightConfig is the configuration for indicator light symbols.
+type LightConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// source is the boolean source that drives the light's on state.
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// color is the illuminated color of the light.
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale         float64 `protobuf:"fixed64,5,opt,name=scale,proto3" json:"scale,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LightConfig) Reset() {
+	*x = LightConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LightConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LightConfig) ProtoMessage() {}
+
+func (x *LightConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LightConfig.ProtoReflect.Descriptor instead.
+func (*LightConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *LightConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *LightConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *LightConfig) GetSource() *BooleanSourceSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *LightConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *LightConfig) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+// OffPageReferenceConfig is the configuration for off-page reference symbols.
+type OffPageReferenceConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// orientation is the direction the reference arrow points.
+	Orientation pb.OuterLocation `protobuf:"varint,1,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// label is the label displayed inside the reference.
+	Label *LabelConfig `protobuf:"bytes,2,opt,name=label,proto3" json:"label,omitempty"`
+	// level is the typography level of the reference text.
+	Level pb2.Level `protobuf:"varint,3,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	// color is the fill color of the reference.
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	// page is the key of the schematic this reference links to.
+	Page string `protobuf:"bytes,5,opt,name=page,proto3" json:"page,omitempty"`
+	// dbl_click_nav indicates whether double-clicking navigates to the linked schematic.
+	DblClickNav   bool `protobuf:"varint,6,opt,name=dbl_click_nav,json=dblClickNav,proto3" json:"dbl_click_nav,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *OffPageReferenceConfig) Reset() {
+	*x = OffPageReferenceConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OffPageReferenceConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OffPageReferenceConfig) ProtoMessage() {}
+
+func (x *OffPageReferenceConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use OffPageReferenceConfig.ProtoReflect.Descriptor instead.
+func (*OffPageReferenceConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *OffPageReferenceConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *OffPageReferenceConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *OffPageReferenceConfig) GetLevel() pb2.Level {
+	if x != nil {
+		return x.Level
+	}
+	return pb2.Level(0)
+}
+
+func (x *OffPageReferenceConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *OffPageReferenceConfig) GetPage() string {
+	if x != nil {
+		return x.Page
+	}
+	return ""
+}
+
+func (x *OffPageReferenceConfig) GetDblClickNav() bool {
+	if x != nil {
+		return x.DblClickNav
+	}
+	return false
+}
+
+// PolygonConfig is the configuration for polygon annotation symbols.
+type PolygonConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// num_sides is the number of sides of the polygon.
+	NumSides float64 `protobuf:"fixed64,3,opt,name=num_sides,json=numSides,proto3" json:"num_sides,omitempty"`
+	// side_length is the length of each side in pixels.
+	SideLength float64 `protobuf:"fixed64,4,opt,name=side_length,json=sideLength,proto3" json:"side_length,omitempty"`
+	// rotation is the rotation of the polygon in degrees.
+	Rotation float64 `protobuf:"fixed64,5,opt,name=rotation,proto3" json:"rotation,omitempty"`
+	// corner_rounding is the corner rounding radius in pixels.
+	CornerRounding float64 `protobuf:"fixed64,6,opt,name=corner_rounding,json=cornerRounding,proto3" json:"corner_rounding,omitempty"`
+	// color is the border color of the polygon.
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
+	// background_color is the fill color of the polygon.
+	BackgroundColor *pb1.Color `protobuf:"bytes,8,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	// stroke_width is the border stroke width in pixels.
+	StrokeWidth   float64 `protobuf:"fixed64,9,opt,name=stroke_width,json=strokeWidth,proto3" json:"stroke_width,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PolygonConfig) Reset() {
+	*x = PolygonConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PolygonConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PolygonConfig) ProtoMessage() {}
+
+func (x *PolygonConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PolygonConfig.ProtoReflect.Descriptor instead.
+func (*PolygonConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *PolygonConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *PolygonConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *PolygonConfig) GetNumSides() float64 {
+	if x != nil {
+		return x.NumSides
+	}
+	return 0
+}
+
+func (x *PolygonConfig) GetSideLength() float64 {
+	if x != nil {
+		return x.SideLength
+	}
+	return 0
+}
+
+func (x *PolygonConfig) GetRotation() float64 {
+	if x != nil {
+		return x.Rotation
+	}
+	return 0
+}
+
+func (x *PolygonConfig) GetCornerRounding() float64 {
+	if x != nil {
+		return x.CornerRounding
+	}
+	return 0
+}
+
+func (x *PolygonConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *PolygonConfig) GetBackgroundColor() *pb1.Color {
+	if x != nil {
+		return x.BackgroundColor
+	}
+	return nil
+}
+
+func (x *PolygonConfig) GetStrokeWidth() float64 {
+	if x != nil {
+		return x.StrokeWidth
+	}
+	return 0
+}
+
+// SelectConfig is the configuration for select symbols.
+type SelectConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// size is the rendered size preset of the select.
+	Size ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize" json:"size,omitempty"`
+	// sink is the numeric sink that receives the selected value.
+	Sink *NumberSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	// color is the accent color of the select.
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`
+	// inline_size is the inline size of the select in pixels.
+	InlineSize float64 `protobuf:"fixed64,6,opt,name=inline_size,json=inlineSize,proto3" json:"inline_size,omitempty"`
+	// options is the set of selectable states.
+	Options []*StateMapping `protobuf:"bytes,7,rep,name=options,proto3" json:"options,omitempty"`
+	// disabled indicates whether the select rejects interaction.
+	Disabled bool `protobuf:"varint,8,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	// control is the control state display configuration.
+	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3" json:"control,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SelectConfig) Reset() {
+	*x = SelectConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SelectConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SelectConfig) ProtoMessage() {}
+
+func (x *SelectConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SelectConfig.ProtoReflect.Descriptor instead.
+func (*SelectConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *SelectConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *SelectConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *SelectConfig) GetSize() ComponentSize {
+	if x != nil {
+		return x.Size
+	}
+	return ComponentSize_COMPONENT_SIZE_TINY
+}
+
+func (x *SelectConfig) GetSink() *NumberSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+func (x *SelectConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *SelectConfig) GetInlineSize() float64 {
+	if x != nil {
+		return x.InlineSize
+	}
+	return 0
+}
+
+func (x *SelectConfig) GetOptions() []*StateMapping {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+func (x *SelectConfig) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
+func (x *SelectConfig) GetControl() *ControlStateConfig {
+	if x != nil {
+		return x.Control
+	}
+	return nil
+}
+
+// SetpointConfig is the configuration for numeric setpoint symbols.
+type SetpointConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// size is the rendered size preset of the setpoint.
+	Size ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize" json:"size,omitempty"`
+	// source is the numeric source displaying the current value.
+	Source *NumberSourceSpec `protobuf:"bytes,4,opt,name=source,proto3" json:"source,omitempty"`
+	// sink is the numeric sink that receives submitted setpoints.
+	Sink *NumberSinkSpec `protobuf:"bytes,5,opt,name=sink,proto3" json:"sink,omitempty"`
+	// dimensions is the rendered size of the setpoint in pixels.
+	Dimensions *pb.Dimensions `protobuf:"bytes,6,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	// color is the accent color of the setpoint.
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3" json:"color,omitempty"`
+	// units is the unit suffix displayed after the value.
+	Units string `protobuf:"bytes,8,opt,name=units,proto3" json:"units,omitempty"`
+	// disabled indicates whether the setpoint rejects interaction.
+	Disabled bool `protobuf:"varint,9,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	// control is the control state display configuration.
+	Control       *ControlStateConfig `protobuf:"bytes,10,opt,name=control,proto3" json:"control,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetpointConfig) Reset() {
+	*x = SetpointConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetpointConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetpointConfig) ProtoMessage() {}
+
+func (x *SetpointConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetpointConfig.ProtoReflect.Descriptor instead.
+func (*SetpointConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *SetpointConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *SetpointConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *SetpointConfig) GetSize() ComponentSize {
+	if x != nil {
+		return x.Size
+	}
+	return ComponentSize_COMPONENT_SIZE_TINY
+}
+
+func (x *SetpointConfig) GetSource() *NumberSourceSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *SetpointConfig) GetSink() *NumberSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+func (x *SetpointConfig) GetDimensions() *pb.Dimensions {
+	if x != nil {
+		return x.Dimensions
+	}
+	return nil
+}
+
+func (x *SetpointConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *SetpointConfig) GetUnits() string {
+	if x != nil {
+		return x.Units
+	}
+	return ""
+}
+
+func (x *SetpointConfig) GetDisabled() bool {
+	if x != nil {
+		return x.Disabled
+	}
+	return false
+}
+
+func (x *SetpointConfig) GetControl() *ControlStateConfig {
+	if x != nil {
+		return x.Control
+	}
+	return nil
+}
+
+// StateIndicatorConfig is the configuration for multi-state indicator symbols.
+type StateIndicatorConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// source is the numeric source whose value selects the displayed state.
+	Source *NumberSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// color is the fallback color when no state matches.
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	// inline_size is the inline size of the indicator in pixels.
+	InlineSize float64 `protobuf:"fixed64,5,opt,name=inline_size,json=inlineSize,proto3" json:"inline_size,omitempty"`
+	// options is the set of displayable states.
+	Options       []*StateMapping `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StateIndicatorConfig) Reset() {
+	*x = StateIndicatorConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateIndicatorConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateIndicatorConfig) ProtoMessage() {}
+
+func (x *StateIndicatorConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateIndicatorConfig.ProtoReflect.Descriptor instead.
+func (*StateIndicatorConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *StateIndicatorConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *StateIndicatorConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *StateIndicatorConfig) GetSource() *NumberSourceSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *StateIndicatorConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *StateIndicatorConfig) GetInlineSize() float64 {
+	if x != nil {
+		return x.InlineSize
+	}
+	return 0
+}
+
+func (x *StateIndicatorConfig) GetOptions() []*StateMapping {
+	if x != nil {
+		return x.Options
+	}
+	return nil
+}
+
+// TextBoxConfig is the configuration for text box annotation symbols.
+type TextBoxConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// color is the text color.
+	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	// width is the rendered width of the text box in pixels.
+	Width float64 `protobuf:"fixed64,4,opt,name=width,proto3" json:"width,omitempty"`
+	// align is the alignment of the text within the box.
+	Align FlexAlignment `protobuf:"varint,5,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment" json:"align,omitempty"`
+	// auto_fit indicates whether the box resizes to fit its content.
+	AutoFit bool `protobuf:"varint,6,opt,name=auto_fit,json=autoFit,proto3" json:"auto_fit,omitempty"`
+	// level is the typography level of the text.
+	Level pb2.Level `protobuf:"varint,7,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	// value is the text content of the box.
+	Value         string `protobuf:"bytes,8,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TextBoxConfig) Reset() {
+	*x = TextBoxConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TextBoxConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TextBoxConfig) ProtoMessage() {}
+
+func (x *TextBoxConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TextBoxConfig.ProtoReflect.Descriptor instead.
+func (*TextBoxConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *TextBoxConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *TextBoxConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *TextBoxConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *TextBoxConfig) GetWidth() float64 {
+	if x != nil {
+		return x.Width
+	}
+	return 0
+}
+
+func (x *TextBoxConfig) GetAlign() FlexAlignment {
+	if x != nil {
+		return x.Align
+	}
+	return FlexAlignment_FLEX_ALIGNMENT_START
+}
+
+func (x *TextBoxConfig) GetAutoFit() bool {
+	if x != nil {
+		return x.AutoFit
+	}
+	return false
+}
+
+func (x *TextBoxConfig) GetLevel() pb2.Level {
+	if x != nil {
+		return x.Level
+	}
+	return pb2.Level(0)
+}
+
+func (x *TextBoxConfig) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+// ValueConfig is the configuration for live telemetry value symbols.
+type ValueConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// position is the offset of the value contents within the symbol.
+	Position *pb.XY `protobuf:"bytes,3,opt,name=position,proto3" json:"position,omitempty"`
+	// color is the background color of the value.
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	// text_color is the color of the displayed text.
+	TextColor *pb1.Color `protobuf:"bytes,5,opt,name=text_color,json=textColor,proto3" json:"text_color,omitempty"`
+	// tooltip is the list of tooltip lines shown on hover.
+	Tooltip []string `protobuf:"bytes,6,rep,name=tooltip,proto3" json:"tooltip,omitempty"`
+	// redline is the bounds-to-gradient mapping applied to the background.
+	Redline *Redline `protobuf:"bytes,7,opt,name=redline,proto3" json:"redline,omitempty"`
+	// units is the unit suffix displayed after the value.
+	Units string `protobuf:"bytes,8,opt,name=units,proto3" json:"units,omitempty"`
+	// inline_size is the inline size of the value in pixels.
+	InlineSize float64 `protobuf:"fixed64,9,opt,name=inline_size,json=inlineSize,proto3" json:"inline_size,omitempty"`
+	// telem is the string source that supplies the displayed value.
+	Telem *StringSourceSpec `protobuf:"bytes,10,opt,name=telem,proto3" json:"telem,omitempty"`
+	// background_telem is the color source that drives the background.
+	BackgroundTelem *ColorSourceSpec `protobuf:"bytes,11,opt,name=background_telem,json=backgroundTelem,proto3" json:"background_telem,omitempty"`
+	// level is the typography level of the displayed value.
+	Level pb2.Level `protobuf:"varint,12,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	// precision is the number of decimal places shown.
+	Precision float64 `protobuf:"fixed64,13,opt,name=precision,proto3" json:"precision,omitempty"`
+	// staleness_timeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout float64 `protobuf:"fixed64,14,opt,name=staleness_timeout,json=stalenessTimeout,proto3" json:"staleness_timeout,omitempty"`
+	// staleness_color is the color applied when the value is stale.
+	StalenessColor *pb1.Color `protobuf:"bytes,15,opt,name=staleness_color,json=stalenessColor,proto3" json:"staleness_color,omitempty"`
+	// min_width is the minimum rendered width of the value in pixels.
+	MinWidth float64 `protobuf:"fixed64,16,opt,name=min_width,json=minWidth,proto3" json:"min_width,omitempty"`
+	// notation is the numeric notation used to format the value.
+	Notation pb3.Notation `protobuf:"varint,17,opt,name=notation,proto3,enum=x.notation.pb.Notation" json:"notation,omitempty"`
+	// location is the anchor of the value within the symbol.
+	Location *pb.LocationXY `protobuf:"bytes,18,opt,name=location,proto3" json:"location,omitempty"`
+	// use_width_for_background indicates whether the background spans the full configured
+	// width.
+	UseWidthForBackground bool `protobuf:"varint,19,opt,name=use_width_for_background,json=useWidthForBackground,proto3" json:"use_width_for_background,omitempty"`
+	// value_background_shift is the offset applied to the value background.
+	ValueBackgroundShift *pb.XY `protobuf:"bytes,20,opt,name=value_background_shift,json=valueBackgroundShift,proto3" json:"value_background_shift,omitempty"`
+	// value_background_over_scan is the extra padding applied around the value background.
+	ValueBackgroundOverScan *pb.XY `protobuf:"bytes,21,opt,name=value_background_over_scan,json=valueBackgroundOverScan,proto3" json:"value_background_over_scan,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *ValueConfig) Reset() {
+	*x = ValueConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValueConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValueConfig) ProtoMessage() {}
+
+func (x *ValueConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValueConfig.ProtoReflect.Descriptor instead.
+func (*ValueConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *ValueConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *ValueConfig) GetPosition() *pb.XY {
+	if x != nil {
+		return x.Position
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetTextColor() *pb1.Color {
+	if x != nil {
+		return x.TextColor
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetTooltip() []string {
+	if x != nil {
+		return x.Tooltip
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetRedline() *Redline {
+	if x != nil {
+		return x.Redline
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetUnits() string {
+	if x != nil {
+		return x.Units
+	}
+	return ""
+}
+
+func (x *ValueConfig) GetInlineSize() float64 {
+	if x != nil {
+		return x.InlineSize
+	}
+	return 0
+}
+
+func (x *ValueConfig) GetTelem() *StringSourceSpec {
+	if x != nil {
+		return x.Telem
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetBackgroundTelem() *ColorSourceSpec {
+	if x != nil {
+		return x.BackgroundTelem
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetLevel() pb2.Level {
+	if x != nil {
+		return x.Level
+	}
+	return pb2.Level(0)
+}
+
+func (x *ValueConfig) GetPrecision() float64 {
+	if x != nil {
+		return x.Precision
+	}
+	return 0
+}
+
+func (x *ValueConfig) GetStalenessTimeout() float64 {
+	if x != nil {
+		return x.StalenessTimeout
+	}
+	return 0
+}
+
+func (x *ValueConfig) GetStalenessColor() *pb1.Color {
+	if x != nil {
+		return x.StalenessColor
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetMinWidth() float64 {
+	if x != nil {
+		return x.MinWidth
+	}
+	return 0
+}
+
+func (x *ValueConfig) GetNotation() pb3.Notation {
+	if x != nil {
+		return x.Notation
+	}
+	return pb3.Notation(0)
+}
+
+func (x *ValueConfig) GetLocation() *pb.LocationXY {
+	if x != nil {
+		return x.Location
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetUseWidthForBackground() bool {
+	if x != nil {
+		return x.UseWidthForBackground
+	}
+	return false
+}
+
+func (x *ValueConfig) GetValueBackgroundShift() *pb.XY {
+	if x != nil {
+		return x.ValueBackgroundShift
+	}
+	return nil
+}
+
+func (x *ValueConfig) GetValueBackgroundOverScan() *pb.XY {
+	if x != nil {
+		return x.ValueBackgroundOverScan
+	}
+	return nil
+}
+
+// TankConfig is the configuration for tank vessel symbols.
+type TankConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// color is the border color of the tank.
+	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	// background_color is the fill color of the tank.
+	BackgroundColor *pb1.Color `protobuf:"bytes,4,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	// dimensions is the rendered size of the tank in pixels.
+	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	// border_radius is the corner radius of the tank.
+	BorderRadius  *pb4.Radius `protobuf:"bytes,6,opt,name=border_radius,json=borderRadius,proto3" json:"border_radius,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TankConfig) Reset() {
+	*x = TankConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TankConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TankConfig) ProtoMessage() {}
+
+func (x *TankConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TankConfig.ProtoReflect.Descriptor instead.
+func (*TankConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *TankConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *TankConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *TankConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *TankConfig) GetBackgroundColor() *pb1.Color {
+	if x != nil {
+		return x.BackgroundColor
+	}
+	return nil
+}
+
+func (x *TankConfig) GetDimensions() *pb.Dimensions {
+	if x != nil {
+		return x.Dimensions
+	}
+	return nil
+}
+
+func (x *TankConfig) GetBorderRadius() *pb4.Radius {
+	if x != nil {
+		return x.BorderRadius
+	}
+	return nil
+}
+
+// CylinderConfig is the configuration for cylinder vessel symbols.
+type CylinderConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// dimensions is the rendered size of the cylinder in pixels.
+	Dimensions *pb.Dimensions `protobuf:"bytes,3,opt,name=dimensions,proto3" json:"dimensions,omitempty"`
+	// border_radius is the corner radius of the cylinder.
+	BorderRadius *pb4.Radius `protobuf:"bytes,4,opt,name=border_radius,json=borderRadius,proto3" json:"border_radius,omitempty"`
+	// color is the border color of the cylinder.
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3" json:"color,omitempty"`
+	// background_color is the fill color of the cylinder.
+	BackgroundColor *pb1.Color `protobuf:"bytes,6,opt,name=background_color,json=backgroundColor,proto3" json:"background_color,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *CylinderConfig) Reset() {
+	*x = CylinderConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CylinderConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CylinderConfig) ProtoMessage() {}
+
+func (x *CylinderConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CylinderConfig.ProtoReflect.Descriptor instead.
+func (*CylinderConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *CylinderConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *CylinderConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *CylinderConfig) GetDimensions() *pb.Dimensions {
+	if x != nil {
+		return x.Dimensions
+	}
+	return nil
+}
+
+func (x *CylinderConfig) GetBorderRadius() *pb4.Radius {
+	if x != nil {
+		return x.BorderRadius
+	}
+	return nil
+}
+
+func (x *CylinderConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *CylinderConfig) GetBackgroundColor() *pb1.Color {
+	if x != nil {
+		return x.BackgroundColor
+	}
+	return nil
+}
+
+// CustomActuatorConfig is the configuration for user-defined actuator symbols.
+type CustomActuatorConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// source is the boolean source that drives the symbol's active state.
+	Source *BooleanSourceSpec `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"`
+	// sink is the boolean sink that receives actuation commands.
+	Sink *BooleanSinkSpec `protobuf:"bytes,4,opt,name=sink,proto3" json:"sink,omitempty"`
+	// control is the control state display configuration.
+	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3" json:"control,omitempty"`
+	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	// spec_key is the key of the custom symbol spec this instance renders.
+	SpecKey string `protobuf:"bytes,7,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3" json:"color,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale float64 `protobuf:"fixed64,9,opt,name=scale,proto3" json:"scale,omitempty"`
+	// state_overrides contains per-instance overrides of the spec's visual states. Each
+	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
+	// consistent with how the symbol service stores specs.
+	StateOverrides []*structpb.Struct `protobuf:"bytes,10,rep,name=state_overrides,json=stateOverrides,proto3" json:"state_overrides,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CustomActuatorConfig) Reset() {
+	*x = CustomActuatorConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomActuatorConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomActuatorConfig) ProtoMessage() {}
+
+func (x *CustomActuatorConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomActuatorConfig.ProtoReflect.Descriptor instead.
+func (*CustomActuatorConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *CustomActuatorConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *CustomActuatorConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *CustomActuatorConfig) GetSource() *BooleanSourceSpec {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *CustomActuatorConfig) GetSink() *BooleanSinkSpec {
+	if x != nil {
+		return x.Sink
+	}
+	return nil
+}
+
+func (x *CustomActuatorConfig) GetControl() *ControlStateConfig {
+	if x != nil {
+		return x.Control
+	}
+	return nil
+}
+
+func (x *CustomActuatorConfig) GetOnClickDelay() float64 {
+	if x != nil {
+		return x.OnClickDelay
+	}
+	return 0
+}
+
+func (x *CustomActuatorConfig) GetSpecKey() string {
+	if x != nil {
+		return x.SpecKey
+	}
+	return ""
+}
+
+func (x *CustomActuatorConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *CustomActuatorConfig) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+func (x *CustomActuatorConfig) GetStateOverrides() []*structpb.Struct {
+	if x != nil {
+		return x.StateOverrides
+	}
+	return nil
+}
+
+// CustomStaticConfig is the configuration for user-defined static symbols.
+type CustomStaticConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// label is the symbol's label configuration.
+	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	// orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation" json:"orientation,omitempty"`
+	// spec_key is the key of the custom symbol spec this instance renders.
+	SpecKey string `protobuf:"bytes,3,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3" json:"color,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale float64 `protobuf:"fixed64,5,opt,name=scale,proto3" json:"scale,omitempty"`
+	// state_overrides contains per-instance overrides of the spec's visual states. Each
+	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
+	// consistent with how the symbol service stores specs.
+	StateOverrides []*structpb.Struct `protobuf:"bytes,6,rep,name=state_overrides,json=stateOverrides,proto3" json:"state_overrides,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CustomStaticConfig) Reset() {
+	*x = CustomStaticConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CustomStaticConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CustomStaticConfig) ProtoMessage() {}
+
+func (x *CustomStaticConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CustomStaticConfig.ProtoReflect.Descriptor instead.
+func (*CustomStaticConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *CustomStaticConfig) GetLabel() *LabelConfig {
+	if x != nil {
+		return x.Label
+	}
+	return nil
+}
+
+func (x *CustomStaticConfig) GetOrientation() pb.OuterLocation {
+	if x != nil {
+		return x.Orientation
+	}
+	return pb.OuterLocation(0)
+}
+
+func (x *CustomStaticConfig) GetSpecKey() string {
+	if x != nil {
+		return x.SpecKey
+	}
+	return ""
+}
+
+func (x *CustomStaticConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *CustomStaticConfig) GetScale() float64 {
+	if x != nil {
+		return x.Scale
+	}
+	return 0
+}
+
+func (x *CustomStaticConfig) GetStateOverrides() []*structpb.Struct {
+	if x != nil {
+		return x.StateOverrides
+	}
+	return nil
+}
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
@@ -366,7 +3669,7 @@ type Schematic struct {
 
 func (x *Schematic) Reset() {
 	*x = Schematic{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[5]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -378,7 +3681,7 @@ func (x *Schematic) String() string {
 func (*Schematic) ProtoMessage() {}
 
 func (x *Schematic) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[5]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -391,7 +3694,7 @@ func (x *Schematic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schematic.ProtoReflect.Descriptor instead.
 func (*Schematic) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Schematic) GetKey() string {
@@ -456,7 +3759,7 @@ type EdgeConfig struct {
 
 func (x *EdgeConfig) Reset() {
 	*x = EdgeConfig{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -468,7 +3771,7 @@ func (x *EdgeConfig) String() string {
 func (*EdgeConfig) ProtoMessage() {}
 
 func (x *EdgeConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -481,7 +3784,7 @@ func (x *EdgeConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeConfig.ProtoReflect.Descriptor instead.
 func (*EdgeConfig) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *EdgeConfig) GetVariant() isEdgeConfig_Variant {
@@ -600,11 +3903,2199 @@ func (*EdgeConfig_Pneumatic) isEdgeConfig_Variant() {}
 
 func (*EdgeConfig_Data) isEdgeConfig_Variant() {}
 
+// BooleanSourceSpec is a telemetry source that yields boolean values.
+type BooleanSourceSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*BooleanSourceSpec_Boolean
+	Variant       isBooleanSourceSpec_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BooleanSourceSpec) Reset() {
+	*x = BooleanSourceSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BooleanSourceSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BooleanSourceSpec) ProtoMessage() {}
+
+func (x *BooleanSourceSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BooleanSourceSpec.ProtoReflect.Descriptor instead.
+func (*BooleanSourceSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *BooleanSourceSpec) GetVariant() isBooleanSourceSpec_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *BooleanSourceSpec) GetBoolean() *SourceTelemSpec {
+	if x != nil {
+		if x, ok := x.Variant.(*BooleanSourceSpec_Boolean); ok {
+			return x.Boolean
+		}
+	}
+	return nil
+}
+
+type isBooleanSourceSpec_Variant interface {
+	isBooleanSourceSpec_Variant()
+}
+
+type BooleanSourceSpec_Boolean struct {
+	Boolean *SourceTelemSpec `protobuf:"bytes,1,opt,name=boolean,proto3,oneof"`
+}
+
+func (*BooleanSourceSpec_Boolean) isBooleanSourceSpec_Variant() {}
+
+// NumberSourceSpec is a telemetry source that yields numeric values.
+type NumberSourceSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*NumberSourceSpec_Number
+	Variant       isNumberSourceSpec_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NumberSourceSpec) Reset() {
+	*x = NumberSourceSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NumberSourceSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NumberSourceSpec) ProtoMessage() {}
+
+func (x *NumberSourceSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NumberSourceSpec.ProtoReflect.Descriptor instead.
+func (*NumberSourceSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *NumberSourceSpec) GetVariant() isNumberSourceSpec_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *NumberSourceSpec) GetNumber() *SourceTelemSpec {
+	if x != nil {
+		if x, ok := x.Variant.(*NumberSourceSpec_Number); ok {
+			return x.Number
+		}
+	}
+	return nil
+}
+
+type isNumberSourceSpec_Variant interface {
+	isNumberSourceSpec_Variant()
+}
+
+type NumberSourceSpec_Number struct {
+	Number *SourceTelemSpec `protobuf:"bytes,1,opt,name=number,proto3,oneof"`
+}
+
+func (*NumberSourceSpec_Number) isNumberSourceSpec_Variant() {}
+
+// StringSourceSpec is a telemetry source that yields string values.
+type StringSourceSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*StringSourceSpec_String_
+	Variant       isStringSourceSpec_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringSourceSpec) Reset() {
+	*x = StringSourceSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringSourceSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringSourceSpec) ProtoMessage() {}
+
+func (x *StringSourceSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringSourceSpec.ProtoReflect.Descriptor instead.
+func (*StringSourceSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *StringSourceSpec) GetVariant() isStringSourceSpec_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *StringSourceSpec) GetString_() *SourceTelemSpec {
+	if x != nil {
+		if x, ok := x.Variant.(*StringSourceSpec_String_); ok {
+			return x.String_
+		}
+	}
+	return nil
+}
+
+type isStringSourceSpec_Variant interface {
+	isStringSourceSpec_Variant()
+}
+
+type StringSourceSpec_String_ struct {
+	String_ *SourceTelemSpec `protobuf:"bytes,1,opt,name=string,proto3,oneof"`
+}
+
+func (*StringSourceSpec_String_) isStringSourceSpec_Variant() {}
+
+// ColorSourceSpec is a telemetry source that yields colors.
+type ColorSourceSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*ColorSourceSpec_Color
+	Variant       isColorSourceSpec_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ColorSourceSpec) Reset() {
+	*x = ColorSourceSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ColorSourceSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ColorSourceSpec) ProtoMessage() {}
+
+func (x *ColorSourceSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ColorSourceSpec.ProtoReflect.Descriptor instead.
+func (*ColorSourceSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *ColorSourceSpec) GetVariant() isColorSourceSpec_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *ColorSourceSpec) GetColor() *SourceTelemSpec {
+	if x != nil {
+		if x, ok := x.Variant.(*ColorSourceSpec_Color); ok {
+			return x.Color
+		}
+	}
+	return nil
+}
+
+type isColorSourceSpec_Variant interface {
+	isColorSourceSpec_Variant()
+}
+
+type ColorSourceSpec_Color struct {
+	Color *SourceTelemSpec `protobuf:"bytes,1,opt,name=color,proto3,oneof"`
+}
+
+func (*ColorSourceSpec_Color) isColorSourceSpec_Variant() {}
+
+// StatusSourceSpec is a telemetry source that yields statuses.
+type StatusSourceSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*StatusSourceSpec_Status
+	Variant       isStatusSourceSpec_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatusSourceSpec) Reset() {
+	*x = StatusSourceSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatusSourceSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatusSourceSpec) ProtoMessage() {}
+
+func (x *StatusSourceSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatusSourceSpec.ProtoReflect.Descriptor instead.
+func (*StatusSourceSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *StatusSourceSpec) GetVariant() isStatusSourceSpec_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *StatusSourceSpec) GetStatus() *SourceTelemSpec {
+	if x != nil {
+		if x, ok := x.Variant.(*StatusSourceSpec_Status); ok {
+			return x.Status
+		}
+	}
+	return nil
+}
+
+type isStatusSourceSpec_Variant interface {
+	isStatusSourceSpec_Variant()
+}
+
+type StatusSourceSpec_Status struct {
+	Status *SourceTelemSpec `protobuf:"bytes,1,opt,name=status,proto3,oneof"`
+}
+
+func (*StatusSourceSpec_Status) isStatusSourceSpec_Variant() {}
+
+// BooleanSinkSpec is a telemetry sink that accepts boolean commands.
+type BooleanSinkSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*BooleanSinkSpec_Boolean
+	Variant       isBooleanSinkSpec_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BooleanSinkSpec) Reset() {
+	*x = BooleanSinkSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BooleanSinkSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BooleanSinkSpec) ProtoMessage() {}
+
+func (x *BooleanSinkSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BooleanSinkSpec.ProtoReflect.Descriptor instead.
+func (*BooleanSinkSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *BooleanSinkSpec) GetVariant() isBooleanSinkSpec_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *BooleanSinkSpec) GetBoolean() *SinkTelemSpec {
+	if x != nil {
+		if x, ok := x.Variant.(*BooleanSinkSpec_Boolean); ok {
+			return x.Boolean
+		}
+	}
+	return nil
+}
+
+type isBooleanSinkSpec_Variant interface {
+	isBooleanSinkSpec_Variant()
+}
+
+type BooleanSinkSpec_Boolean struct {
+	Boolean *SinkTelemSpec `protobuf:"bytes,1,opt,name=boolean,proto3,oneof"`
+}
+
+func (*BooleanSinkSpec_Boolean) isBooleanSinkSpec_Variant() {}
+
+// NumberSinkSpec is a telemetry sink that accepts numeric commands.
+type NumberSinkSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*NumberSinkSpec_Number
+	Variant       isNumberSinkSpec_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NumberSinkSpec) Reset() {
+	*x = NumberSinkSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NumberSinkSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NumberSinkSpec) ProtoMessage() {}
+
+func (x *NumberSinkSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NumberSinkSpec.ProtoReflect.Descriptor instead.
+func (*NumberSinkSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *NumberSinkSpec) GetVariant() isNumberSinkSpec_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *NumberSinkSpec) GetNumber() *SinkTelemSpec {
+	if x != nil {
+		if x, ok := x.Variant.(*NumberSinkSpec_Number); ok {
+			return x.Number
+		}
+	}
+	return nil
+}
+
+type isNumberSinkSpec_Variant interface {
+	isNumberSinkSpec_Variant()
+}
+
+type NumberSinkSpec_Number struct {
+	Number *SinkTelemSpec `protobuf:"bytes,1,opt,name=number,proto3,oneof"`
+}
+
+func (*NumberSinkSpec_Number) isNumberSinkSpec_Variant() {}
+
+// StringSinkSpec is a telemetry sink that accepts string commands.
+type StringSinkSpec struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*StringSinkSpec_String_
+	Variant       isStringSinkSpec_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringSinkSpec) Reset() {
+	*x = StringSinkSpec{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringSinkSpec) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringSinkSpec) ProtoMessage() {}
+
+func (x *StringSinkSpec) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringSinkSpec.ProtoReflect.Descriptor instead.
+func (*StringSinkSpec) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *StringSinkSpec) GetVariant() isStringSinkSpec_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *StringSinkSpec) GetString_() *SinkTelemSpec {
+	if x != nil {
+		if x, ok := x.Variant.(*StringSinkSpec_String_); ok {
+			return x.String_
+		}
+	}
+	return nil
+}
+
+type isStringSinkSpec_Variant interface {
+	isStringSinkSpec_Variant()
+}
+
+type StringSinkSpec_String_ struct {
+	String_ *SinkTelemSpec `protobuf:"bytes,1,opt,name=string,proto3,oneof"`
+}
+
+func (*StringSinkSpec_String_) isStringSinkSpec_Variant() {}
+
+// NodeConfig is the per-node configuration stored in the schematic configs map. The
+// variant selects the symbol rendered for the node and the fields that accompany it.
+type NodeConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*NodeConfig_Cap
+	//	*NodeConfig_Filter
+	//	*NodeConfig_FlowStraightener
+	//	*NodeConfig_HeaterElement
+	//	*NodeConfig_IsoCap
+	//	*NodeConfig_IsoFilter
+	//	*NodeConfig_Nozzle
+	//	*NodeConfig_Orifice
+	//	*NodeConfig_OrificePlate
+	//	*NodeConfig_Strainer
+	//	*NodeConfig_StrainerCone
+	//	*NodeConfig_Thruster
+	//	*NodeConfig_Vent
+	//	*NodeConfig_FlowmeterGeneral
+	//	*NodeConfig_FlowmeterElectromagnetic
+	//	*NodeConfig_FlowmeterVariableArea
+	//	*NodeConfig_FlowmeterCoriolis
+	//	*NodeConfig_FlowmeterNozzle
+	//	*NodeConfig_FlowmeterVenturi
+	//	*NodeConfig_FlowmeterRingPiston
+	//	*NodeConfig_FlowmeterPositiveDisplacement
+	//	*NodeConfig_FlowmeterTurbine
+	//	*NodeConfig_FlowmeterPulse
+	//	*NodeConfig_FlowmeterFloatSensor
+	//	*NodeConfig_FlowmeterOrifice
+	//	*NodeConfig_Box
+	//	*NodeConfig_Button
+	//	*NodeConfig_Circle
+	//	*NodeConfig_Gauge
+	//	*NodeConfig_Input
+	//	*NodeConfig_Light
+	//	*NodeConfig_OffPageReference
+	//	*NodeConfig_Polygon
+	//	*NodeConfig_Select
+	//	*NodeConfig_Setpoint
+	//	*NodeConfig_StateIndicator
+	//	*NodeConfig_Switch
+	//	*NodeConfig_TextBox
+	//	*NodeConfig_Value
+	//	*NodeConfig_Agitator
+	//	*NodeConfig_CrossBeamAgitator
+	//	*NodeConfig_FlatBladeAgitator
+	//	*NodeConfig_HeatExchangerGeneral
+	//	*NodeConfig_HeatExchangerM
+	//	*NodeConfig_HeatExchangerStraightTube
+	//	*NodeConfig_HelicalAgitator
+	//	*NodeConfig_PaddleAgitator
+	//	*NodeConfig_PropellerAgitator
+	//	*NodeConfig_RotaryMixer
+	//	*NodeConfig_StaticMixer
+	//	*NodeConfig_CavityPump
+	//	*NodeConfig_CentrifugalCompressor
+	//	*NodeConfig_Compressor
+	//	*NodeConfig_DiaphragmPump
+	//	*NodeConfig_EjectionPump
+	//	*NodeConfig_EjectorCompressor
+	//	*NodeConfig_LiquidRingCompressor
+	//	*NodeConfig_PistonPump
+	//	*NodeConfig_Pump
+	//	*NodeConfig_RollerVaneCompressor
+	//	*NodeConfig_ScrewPump
+	//	*NodeConfig_TurboCompressor
+	//	*NodeConfig_VacuumPump
+	//	*NodeConfig_BurstDisc
+	//	*NodeConfig_FlameArrestor
+	//	*NodeConfig_FlameArrestorDetonation
+	//	*NodeConfig_FlameArrestorExplosion
+	//	*NodeConfig_FlameArrestorFireRes
+	//	*NodeConfig_FlameArrestorFireResDetonation
+	//	*NodeConfig_IsoBurstDisc
+	//	*NodeConfig_AngledValve
+	//	*NodeConfig_AngledReliefValve
+	//	*NodeConfig_AngledSpringLoadedReliefValve
+	//	*NodeConfig_BallValve
+	//	*NodeConfig_BreatherValve
+	//	*NodeConfig_ButterflyValveOne
+	//	*NodeConfig_ButterflyValveTwo
+	//	*NodeConfig_CheckValve
+	//	*NodeConfig_CheckValveWithArrow
+	//	*NodeConfig_ElectricRegulator
+	//	*NodeConfig_ElectricRegulatorMotorized
+	//	*NodeConfig_FourWayValve
+	//	*NodeConfig_GateValve
+	//	*NodeConfig_IsoCheckValve
+	//	*NodeConfig_ManualValve
+	//	*NodeConfig_NeedleValve
+	//	*NodeConfig_Regulator
+	//	*NodeConfig_RegulatorManual
+	//	*NodeConfig_ReliefValve
+	//	*NodeConfig_SolenoidValve
+	//	*NodeConfig_SpringLoadedReliefValve
+	//	*NodeConfig_ThreeWayValve
+	//	*NodeConfig_ThreeWayBallValve
+	//	*NodeConfig_Valve
+	//	*NodeConfig_CrossJunction
+	//	*NodeConfig_Cylinder
+	//	*NodeConfig_Tank
+	//	*NodeConfig_TJunction
+	//	*NodeConfig_CustomActuator
+	//	*NodeConfig_CustomStatic
+	Variant       isNodeConfig_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NodeConfig) Reset() {
+	*x = NodeConfig{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeConfig) ProtoMessage() {}
+
+func (x *NodeConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeConfig.ProtoReflect.Descriptor instead.
+func (*NodeConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *NodeConfig) GetVariant() isNodeConfig_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCap() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Cap); ok {
+			return x.Cap
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFilter() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Filter); ok {
+			return x.Filter
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowStraightener() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowStraightener); ok {
+			return x.FlowStraightener
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetHeaterElement() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_HeaterElement); ok {
+			return x.HeaterElement
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetIsoCap() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_IsoCap); ok {
+			return x.IsoCap
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetIsoFilter() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_IsoFilter); ok {
+			return x.IsoFilter
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetNozzle() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Nozzle); ok {
+			return x.Nozzle
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetOrifice() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Orifice); ok {
+			return x.Orifice
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetOrificePlate() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_OrificePlate); ok {
+			return x.OrificePlate
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetStrainer() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Strainer); ok {
+			return x.Strainer
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetStrainerCone() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_StrainerCone); ok {
+			return x.StrainerCone
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetThruster() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Thruster); ok {
+			return x.Thruster
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetVent() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Vent); ok {
+			return x.Vent
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterGeneral() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterGeneral); ok {
+			return x.FlowmeterGeneral
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterElectromagnetic() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterElectromagnetic); ok {
+			return x.FlowmeterElectromagnetic
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterVariableArea() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterVariableArea); ok {
+			return x.FlowmeterVariableArea
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterCoriolis() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterCoriolis); ok {
+			return x.FlowmeterCoriolis
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterNozzle() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterNozzle); ok {
+			return x.FlowmeterNozzle
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterVenturi() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterVenturi); ok {
+			return x.FlowmeterVenturi
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterRingPiston() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterRingPiston); ok {
+			return x.FlowmeterRingPiston
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterPositiveDisplacement() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterPositiveDisplacement); ok {
+			return x.FlowmeterPositiveDisplacement
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterTurbine() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterTurbine); ok {
+			return x.FlowmeterTurbine
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterPulse() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterPulse); ok {
+			return x.FlowmeterPulse
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterFloatSensor() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterFloatSensor); ok {
+			return x.FlowmeterFloatSensor
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlowmeterOrifice() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlowmeterOrifice); ok {
+			return x.FlowmeterOrifice
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetBox() *BoxConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Box); ok {
+			return x.Box
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetButton() *ButtonConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Button); ok {
+			return x.Button
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCircle() *CircleConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Circle); ok {
+			return x.Circle
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetGauge() *GaugeConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Gauge); ok {
+			return x.Gauge
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetInput() *InputConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Input); ok {
+			return x.Input
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetLight() *LightConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Light); ok {
+			return x.Light
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetOffPageReference() *OffPageReferenceConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_OffPageReference); ok {
+			return x.OffPageReference
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetPolygon() *PolygonConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Polygon); ok {
+			return x.Polygon
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetSelect() *SelectConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Select); ok {
+			return x.Select
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetSetpoint() *SetpointConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Setpoint); ok {
+			return x.Setpoint
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetStateIndicator() *StateIndicatorConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_StateIndicator); ok {
+			return x.StateIndicator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetSwitch() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Switch); ok {
+			return x.Switch
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetTextBox() *TextBoxConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_TextBox); ok {
+			return x.TextBox
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetValue() *ValueConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Value); ok {
+			return x.Value
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Agitator); ok {
+			return x.Agitator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCrossBeamAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_CrossBeamAgitator); ok {
+			return x.CrossBeamAgitator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlatBladeAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlatBladeAgitator); ok {
+			return x.FlatBladeAgitator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetHeatExchangerGeneral() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_HeatExchangerGeneral); ok {
+			return x.HeatExchangerGeneral
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetHeatExchangerM() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_HeatExchangerM); ok {
+			return x.HeatExchangerM
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetHeatExchangerStraightTube() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_HeatExchangerStraightTube); ok {
+			return x.HeatExchangerStraightTube
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetHelicalAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_HelicalAgitator); ok {
+			return x.HelicalAgitator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetPaddleAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_PaddleAgitator); ok {
+			return x.PaddleAgitator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetPropellerAgitator() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_PropellerAgitator); ok {
+			return x.PropellerAgitator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetRotaryMixer() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_RotaryMixer); ok {
+			return x.RotaryMixer
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetStaticMixer() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_StaticMixer); ok {
+			return x.StaticMixer
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCavityPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_CavityPump); ok {
+			return x.CavityPump
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCentrifugalCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_CentrifugalCompressor); ok {
+			return x.CentrifugalCompressor
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Compressor); ok {
+			return x.Compressor
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetDiaphragmPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_DiaphragmPump); ok {
+			return x.DiaphragmPump
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetEjectionPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_EjectionPump); ok {
+			return x.EjectionPump
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetEjectorCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_EjectorCompressor); ok {
+			return x.EjectorCompressor
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetLiquidRingCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_LiquidRingCompressor); ok {
+			return x.LiquidRingCompressor
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetPistonPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_PistonPump); ok {
+			return x.PistonPump
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Pump); ok {
+			return x.Pump
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetRollerVaneCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_RollerVaneCompressor); ok {
+			return x.RollerVaneCompressor
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetScrewPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ScrewPump); ok {
+			return x.ScrewPump
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetTurboCompressor() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_TurboCompressor); ok {
+			return x.TurboCompressor
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetVacuumPump() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_VacuumPump); ok {
+			return x.VacuumPump
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetBurstDisc() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_BurstDisc); ok {
+			return x.BurstDisc
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlameArrestor() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlameArrestor); ok {
+			return x.FlameArrestor
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlameArrestorDetonation() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlameArrestorDetonation); ok {
+			return x.FlameArrestorDetonation
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlameArrestorExplosion() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlameArrestorExplosion); ok {
+			return x.FlameArrestorExplosion
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlameArrestorFireRes() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlameArrestorFireRes); ok {
+			return x.FlameArrestorFireRes
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFlameArrestorFireResDetonation() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FlameArrestorFireResDetonation); ok {
+			return x.FlameArrestorFireResDetonation
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetIsoBurstDisc() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_IsoBurstDisc); ok {
+			return x.IsoBurstDisc
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetAngledValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_AngledValve); ok {
+			return x.AngledValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetAngledReliefValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_AngledReliefValve); ok {
+			return x.AngledReliefValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetAngledSpringLoadedReliefValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_AngledSpringLoadedReliefValve); ok {
+			return x.AngledSpringLoadedReliefValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetBallValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_BallValve); ok {
+			return x.BallValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetBreatherValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_BreatherValve); ok {
+			return x.BreatherValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetButterflyValveOne() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ButterflyValveOne); ok {
+			return x.ButterflyValveOne
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetButterflyValveTwo() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ButterflyValveTwo); ok {
+			return x.ButterflyValveTwo
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCheckValve() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_CheckValve); ok {
+			return x.CheckValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCheckValveWithArrow() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_CheckValveWithArrow); ok {
+			return x.CheckValveWithArrow
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetElectricRegulator() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ElectricRegulator); ok {
+			return x.ElectricRegulator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetElectricRegulatorMotorized() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ElectricRegulatorMotorized); ok {
+			return x.ElectricRegulatorMotorized
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetFourWayValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_FourWayValve); ok {
+			return x.FourWayValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetGateValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_GateValve); ok {
+			return x.GateValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetIsoCheckValve() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_IsoCheckValve); ok {
+			return x.IsoCheckValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetManualValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ManualValve); ok {
+			return x.ManualValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetNeedleValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_NeedleValve); ok {
+			return x.NeedleValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetRegulator() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Regulator); ok {
+			return x.Regulator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetRegulatorManual() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_RegulatorManual); ok {
+			return x.RegulatorManual
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetReliefValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ReliefValve); ok {
+			return x.ReliefValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetSolenoidValve() *SolenoidValveConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_SolenoidValve); ok {
+			return x.SolenoidValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetSpringLoadedReliefValve() *DummyToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_SpringLoadedReliefValve); ok {
+			return x.SpringLoadedReliefValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetThreeWayValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ThreeWayValve); ok {
+			return x.ThreeWayValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetThreeWayBallValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_ThreeWayBallValve); ok {
+			return x.ThreeWayBallValve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetValve() *ToggleSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Valve); ok {
+			return x.Valve
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCrossJunction() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_CrossJunction); ok {
+			return x.CrossJunction
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCylinder() *CylinderConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Cylinder); ok {
+			return x.Cylinder
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetTank() *TankConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_Tank); ok {
+			return x.Tank
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetTJunction() *StaticSymbolConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_TJunction); ok {
+			return x.TJunction
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCustomActuator() *CustomActuatorConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_CustomActuator); ok {
+			return x.CustomActuator
+		}
+	}
+	return nil
+}
+
+func (x *NodeConfig) GetCustomStatic() *CustomStaticConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*NodeConfig_CustomStatic); ok {
+			return x.CustomStatic
+		}
+	}
+	return nil
+}
+
+type isNodeConfig_Variant interface {
+	isNodeConfig_Variant()
+}
+
+type NodeConfig_Cap struct {
+	Cap *StaticSymbolConfig `protobuf:"bytes,1,opt,name=cap,proto3,oneof"`
+}
+
+type NodeConfig_Filter struct {
+	Filter *StaticSymbolConfig `protobuf:"bytes,2,opt,name=filter,proto3,oneof"`
+}
+
+type NodeConfig_FlowStraightener struct {
+	FlowStraightener *StaticSymbolConfig `protobuf:"bytes,3,opt,name=flow_straightener,json=flowStraightener,proto3,oneof"`
+}
+
+type NodeConfig_HeaterElement struct {
+	HeaterElement *StaticSymbolConfig `protobuf:"bytes,4,opt,name=heater_element,json=heaterElement,proto3,oneof"`
+}
+
+type NodeConfig_IsoCap struct {
+	IsoCap *StaticSymbolConfig `protobuf:"bytes,5,opt,name=iso_cap,json=isoCap,proto3,oneof"`
+}
+
+type NodeConfig_IsoFilter struct {
+	IsoFilter *StaticSymbolConfig `protobuf:"bytes,6,opt,name=iso_filter,json=isoFilter,proto3,oneof"`
+}
+
+type NodeConfig_Nozzle struct {
+	Nozzle *StaticSymbolConfig `protobuf:"bytes,7,opt,name=nozzle,proto3,oneof"`
+}
+
+type NodeConfig_Orifice struct {
+	Orifice *StaticSymbolConfig `protobuf:"bytes,8,opt,name=orifice,proto3,oneof"`
+}
+
+type NodeConfig_OrificePlate struct {
+	OrificePlate *StaticSymbolConfig `protobuf:"bytes,9,opt,name=orifice_plate,json=orificePlate,proto3,oneof"`
+}
+
+type NodeConfig_Strainer struct {
+	Strainer *StaticSymbolConfig `protobuf:"bytes,10,opt,name=strainer,proto3,oneof"`
+}
+
+type NodeConfig_StrainerCone struct {
+	StrainerCone *StaticSymbolConfig `protobuf:"bytes,11,opt,name=strainer_cone,json=strainerCone,proto3,oneof"`
+}
+
+type NodeConfig_Thruster struct {
+	Thruster *ToggleSymbolConfig `protobuf:"bytes,12,opt,name=thruster,proto3,oneof"`
+}
+
+type NodeConfig_Vent struct {
+	Vent *StaticSymbolConfig `protobuf:"bytes,13,opt,name=vent,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterGeneral struct {
+	FlowmeterGeneral *StaticSymbolConfig `protobuf:"bytes,14,opt,name=flowmeter_general,json=flowmeterGeneral,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterElectromagnetic struct {
+	FlowmeterElectromagnetic *StaticSymbolConfig `protobuf:"bytes,15,opt,name=flowmeter_electromagnetic,json=flowmeterElectromagnetic,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterVariableArea struct {
+	FlowmeterVariableArea *StaticSymbolConfig `protobuf:"bytes,16,opt,name=flowmeter_variable_area,json=flowmeterVariableArea,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterCoriolis struct {
+	FlowmeterCoriolis *StaticSymbolConfig `protobuf:"bytes,17,opt,name=flowmeter_coriolis,json=flowmeterCoriolis,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterNozzle struct {
+	FlowmeterNozzle *StaticSymbolConfig `protobuf:"bytes,18,opt,name=flowmeter_nozzle,json=flowmeterNozzle,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterVenturi struct {
+	FlowmeterVenturi *StaticSymbolConfig `protobuf:"bytes,19,opt,name=flowmeter_venturi,json=flowmeterVenturi,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterRingPiston struct {
+	FlowmeterRingPiston *StaticSymbolConfig `protobuf:"bytes,20,opt,name=flowmeter_ring_piston,json=flowmeterRingPiston,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterPositiveDisplacement struct {
+	FlowmeterPositiveDisplacement *StaticSymbolConfig `protobuf:"bytes,21,opt,name=flowmeter_positive_displacement,json=flowmeterPositiveDisplacement,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterTurbine struct {
+	FlowmeterTurbine *StaticSymbolConfig `protobuf:"bytes,22,opt,name=flowmeter_turbine,json=flowmeterTurbine,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterPulse struct {
+	FlowmeterPulse *StaticSymbolConfig `protobuf:"bytes,23,opt,name=flowmeter_pulse,json=flowmeterPulse,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterFloatSensor struct {
+	FlowmeterFloatSensor *StaticSymbolConfig `protobuf:"bytes,24,opt,name=flowmeter_float_sensor,json=flowmeterFloatSensor,proto3,oneof"`
+}
+
+type NodeConfig_FlowmeterOrifice struct {
+	FlowmeterOrifice *StaticSymbolConfig `protobuf:"bytes,25,opt,name=flowmeter_orifice,json=flowmeterOrifice,proto3,oneof"`
+}
+
+type NodeConfig_Box struct {
+	Box *BoxConfig `protobuf:"bytes,26,opt,name=box,proto3,oneof"`
+}
+
+type NodeConfig_Button struct {
+	Button *ButtonConfig `protobuf:"bytes,27,opt,name=button,proto3,oneof"`
+}
+
+type NodeConfig_Circle struct {
+	Circle *CircleConfig `protobuf:"bytes,28,opt,name=circle,proto3,oneof"`
+}
+
+type NodeConfig_Gauge struct {
+	Gauge *GaugeConfig `protobuf:"bytes,29,opt,name=gauge,proto3,oneof"`
+}
+
+type NodeConfig_Input struct {
+	Input *InputConfig `protobuf:"bytes,30,opt,name=input,proto3,oneof"`
+}
+
+type NodeConfig_Light struct {
+	Light *LightConfig `protobuf:"bytes,31,opt,name=light,proto3,oneof"`
+}
+
+type NodeConfig_OffPageReference struct {
+	OffPageReference *OffPageReferenceConfig `protobuf:"bytes,32,opt,name=off_page_reference,json=offPageReference,proto3,oneof"`
+}
+
+type NodeConfig_Polygon struct {
+	Polygon *PolygonConfig `protobuf:"bytes,33,opt,name=polygon,proto3,oneof"`
+}
+
+type NodeConfig_Select struct {
+	Select *SelectConfig `protobuf:"bytes,34,opt,name=select,proto3,oneof"`
+}
+
+type NodeConfig_Setpoint struct {
+	Setpoint *SetpointConfig `protobuf:"bytes,35,opt,name=setpoint,proto3,oneof"`
+}
+
+type NodeConfig_StateIndicator struct {
+	StateIndicator *StateIndicatorConfig `protobuf:"bytes,36,opt,name=state_indicator,json=stateIndicator,proto3,oneof"`
+}
+
+type NodeConfig_Switch struct {
+	Switch *ToggleSymbolConfig `protobuf:"bytes,37,opt,name=switch,proto3,oneof"`
+}
+
+type NodeConfig_TextBox struct {
+	TextBox *TextBoxConfig `protobuf:"bytes,38,opt,name=text_box,json=textBox,proto3,oneof"`
+}
+
+type NodeConfig_Value struct {
+	Value *ValueConfig `protobuf:"bytes,39,opt,name=value,proto3,oneof"`
+}
+
+type NodeConfig_Agitator struct {
+	Agitator *ToggleSymbolConfig `protobuf:"bytes,40,opt,name=agitator,proto3,oneof"`
+}
+
+type NodeConfig_CrossBeamAgitator struct {
+	CrossBeamAgitator *ToggleSymbolConfig `protobuf:"bytes,41,opt,name=cross_beam_agitator,json=crossBeamAgitator,proto3,oneof"`
+}
+
+type NodeConfig_FlatBladeAgitator struct {
+	FlatBladeAgitator *ToggleSymbolConfig `protobuf:"bytes,42,opt,name=flat_blade_agitator,json=flatBladeAgitator,proto3,oneof"`
+}
+
+type NodeConfig_HeatExchangerGeneral struct {
+	HeatExchangerGeneral *StaticSymbolConfig `protobuf:"bytes,43,opt,name=heat_exchanger_general,json=heatExchangerGeneral,proto3,oneof"`
+}
+
+type NodeConfig_HeatExchangerM struct {
+	HeatExchangerM *StaticSymbolConfig `protobuf:"bytes,44,opt,name=heat_exchanger_m,json=heatExchangerM,proto3,oneof"`
+}
+
+type NodeConfig_HeatExchangerStraightTube struct {
+	HeatExchangerStraightTube *StaticSymbolConfig `protobuf:"bytes,45,opt,name=heat_exchanger_straight_tube,json=heatExchangerStraightTube,proto3,oneof"`
+}
+
+type NodeConfig_HelicalAgitator struct {
+	HelicalAgitator *ToggleSymbolConfig `protobuf:"bytes,46,opt,name=helical_agitator,json=helicalAgitator,proto3,oneof"`
+}
+
+type NodeConfig_PaddleAgitator struct {
+	PaddleAgitator *ToggleSymbolConfig `protobuf:"bytes,47,opt,name=paddle_agitator,json=paddleAgitator,proto3,oneof"`
+}
+
+type NodeConfig_PropellerAgitator struct {
+	PropellerAgitator *ToggleSymbolConfig `protobuf:"bytes,48,opt,name=propeller_agitator,json=propellerAgitator,proto3,oneof"`
+}
+
+type NodeConfig_RotaryMixer struct {
+	RotaryMixer *ToggleSymbolConfig `protobuf:"bytes,49,opt,name=rotary_mixer,json=rotaryMixer,proto3,oneof"`
+}
+
+type NodeConfig_StaticMixer struct {
+	StaticMixer *StaticSymbolConfig `protobuf:"bytes,50,opt,name=static_mixer,json=staticMixer,proto3,oneof"`
+}
+
+type NodeConfig_CavityPump struct {
+	CavityPump *ToggleSymbolConfig `protobuf:"bytes,51,opt,name=cavity_pump,json=cavityPump,proto3,oneof"`
+}
+
+type NodeConfig_CentrifugalCompressor struct {
+	CentrifugalCompressor *ToggleSymbolConfig `protobuf:"bytes,52,opt,name=centrifugal_compressor,json=centrifugalCompressor,proto3,oneof"`
+}
+
+type NodeConfig_Compressor struct {
+	Compressor *ToggleSymbolConfig `protobuf:"bytes,53,opt,name=compressor,proto3,oneof"`
+}
+
+type NodeConfig_DiaphragmPump struct {
+	DiaphragmPump *ToggleSymbolConfig `protobuf:"bytes,54,opt,name=diaphragm_pump,json=diaphragmPump,proto3,oneof"`
+}
+
+type NodeConfig_EjectionPump struct {
+	EjectionPump *ToggleSymbolConfig `protobuf:"bytes,55,opt,name=ejection_pump,json=ejectionPump,proto3,oneof"`
+}
+
+type NodeConfig_EjectorCompressor struct {
+	EjectorCompressor *ToggleSymbolConfig `protobuf:"bytes,56,opt,name=ejector_compressor,json=ejectorCompressor,proto3,oneof"`
+}
+
+type NodeConfig_LiquidRingCompressor struct {
+	LiquidRingCompressor *ToggleSymbolConfig `protobuf:"bytes,57,opt,name=liquid_ring_compressor,json=liquidRingCompressor,proto3,oneof"`
+}
+
+type NodeConfig_PistonPump struct {
+	PistonPump *ToggleSymbolConfig `protobuf:"bytes,58,opt,name=piston_pump,json=pistonPump,proto3,oneof"`
+}
+
+type NodeConfig_Pump struct {
+	Pump *ToggleSymbolConfig `protobuf:"bytes,59,opt,name=pump,proto3,oneof"`
+}
+
+type NodeConfig_RollerVaneCompressor struct {
+	RollerVaneCompressor *ToggleSymbolConfig `protobuf:"bytes,60,opt,name=roller_vane_compressor,json=rollerVaneCompressor,proto3,oneof"`
+}
+
+type NodeConfig_ScrewPump struct {
+	ScrewPump *ToggleSymbolConfig `protobuf:"bytes,61,opt,name=screw_pump,json=screwPump,proto3,oneof"`
+}
+
+type NodeConfig_TurboCompressor struct {
+	TurboCompressor *ToggleSymbolConfig `protobuf:"bytes,62,opt,name=turbo_compressor,json=turboCompressor,proto3,oneof"`
+}
+
+type NodeConfig_VacuumPump struct {
+	VacuumPump *ToggleSymbolConfig `protobuf:"bytes,63,opt,name=vacuum_pump,json=vacuumPump,proto3,oneof"`
+}
+
+type NodeConfig_BurstDisc struct {
+	BurstDisc *StaticSymbolConfig `protobuf:"bytes,64,opt,name=burst_disc,json=burstDisc,proto3,oneof"`
+}
+
+type NodeConfig_FlameArrestor struct {
+	FlameArrestor *StaticSymbolConfig `protobuf:"bytes,65,opt,name=flame_arrestor,json=flameArrestor,proto3,oneof"`
+}
+
+type NodeConfig_FlameArrestorDetonation struct {
+	FlameArrestorDetonation *StaticSymbolConfig `protobuf:"bytes,66,opt,name=flame_arrestor_detonation,json=flameArrestorDetonation,proto3,oneof"`
+}
+
+type NodeConfig_FlameArrestorExplosion struct {
+	FlameArrestorExplosion *StaticSymbolConfig `protobuf:"bytes,67,opt,name=flame_arrestor_explosion,json=flameArrestorExplosion,proto3,oneof"`
+}
+
+type NodeConfig_FlameArrestorFireRes struct {
+	FlameArrestorFireRes *StaticSymbolConfig `protobuf:"bytes,68,opt,name=flame_arrestor_fire_res,json=flameArrestorFireRes,proto3,oneof"`
+}
+
+type NodeConfig_FlameArrestorFireResDetonation struct {
+	FlameArrestorFireResDetonation *StaticSymbolConfig `protobuf:"bytes,69,opt,name=flame_arrestor_fire_res_detonation,json=flameArrestorFireResDetonation,proto3,oneof"`
+}
+
+type NodeConfig_IsoBurstDisc struct {
+	IsoBurstDisc *StaticSymbolConfig `protobuf:"bytes,70,opt,name=iso_burst_disc,json=isoBurstDisc,proto3,oneof"`
+}
+
+type NodeConfig_AngledValve struct {
+	AngledValve *ToggleSymbolConfig `protobuf:"bytes,71,opt,name=angled_valve,json=angledValve,proto3,oneof"`
+}
+
+type NodeConfig_AngledReliefValve struct {
+	AngledReliefValve *DummyToggleSymbolConfig `protobuf:"bytes,72,opt,name=angled_relief_valve,json=angledReliefValve,proto3,oneof"`
+}
+
+type NodeConfig_AngledSpringLoadedReliefValve struct {
+	AngledSpringLoadedReliefValve *DummyToggleSymbolConfig `protobuf:"bytes,73,opt,name=angled_spring_loaded_relief_valve,json=angledSpringLoadedReliefValve,proto3,oneof"`
+}
+
+type NodeConfig_BallValve struct {
+	BallValve *ToggleSymbolConfig `protobuf:"bytes,74,opt,name=ball_valve,json=ballValve,proto3,oneof"`
+}
+
+type NodeConfig_BreatherValve struct {
+	BreatherValve *DummyToggleSymbolConfig `protobuf:"bytes,75,opt,name=breather_valve,json=breatherValve,proto3,oneof"`
+}
+
+type NodeConfig_ButterflyValveOne struct {
+	ButterflyValveOne *ToggleSymbolConfig `protobuf:"bytes,76,opt,name=butterfly_valve_one,json=butterflyValveOne,proto3,oneof"`
+}
+
+type NodeConfig_ButterflyValveTwo struct {
+	ButterflyValveTwo *ToggleSymbolConfig `protobuf:"bytes,77,opt,name=butterfly_valve_two,json=butterflyValveTwo,proto3,oneof"`
+}
+
+type NodeConfig_CheckValve struct {
+	CheckValve *StaticSymbolConfig `protobuf:"bytes,78,opt,name=check_valve,json=checkValve,proto3,oneof"`
+}
+
+type NodeConfig_CheckValveWithArrow struct {
+	CheckValveWithArrow *StaticSymbolConfig `protobuf:"bytes,79,opt,name=check_valve_with_arrow,json=checkValveWithArrow,proto3,oneof"`
+}
+
+type NodeConfig_ElectricRegulator struct {
+	ElectricRegulator *StaticSymbolConfig `protobuf:"bytes,80,opt,name=electric_regulator,json=electricRegulator,proto3,oneof"`
+}
+
+type NodeConfig_ElectricRegulatorMotorized struct {
+	ElectricRegulatorMotorized *StaticSymbolConfig `protobuf:"bytes,81,opt,name=electric_regulator_motorized,json=electricRegulatorMotorized,proto3,oneof"`
+}
+
+type NodeConfig_FourWayValve struct {
+	FourWayValve *ToggleSymbolConfig `protobuf:"bytes,82,opt,name=four_way_valve,json=fourWayValve,proto3,oneof"`
+}
+
+type NodeConfig_GateValve struct {
+	GateValve *ToggleSymbolConfig `protobuf:"bytes,83,opt,name=gate_valve,json=gateValve,proto3,oneof"`
+}
+
+type NodeConfig_IsoCheckValve struct {
+	IsoCheckValve *StaticSymbolConfig `protobuf:"bytes,84,opt,name=iso_check_valve,json=isoCheckValve,proto3,oneof"`
+}
+
+type NodeConfig_ManualValve struct {
+	ManualValve *DummyToggleSymbolConfig `protobuf:"bytes,85,opt,name=manual_valve,json=manualValve,proto3,oneof"`
+}
+
+type NodeConfig_NeedleValve struct {
+	NeedleValve *DummyToggleSymbolConfig `protobuf:"bytes,86,opt,name=needle_valve,json=needleValve,proto3,oneof"`
+}
+
+type NodeConfig_Regulator struct {
+	Regulator *StaticSymbolConfig `protobuf:"bytes,87,opt,name=regulator,proto3,oneof"`
+}
+
+type NodeConfig_RegulatorManual struct {
+	RegulatorManual *StaticSymbolConfig `protobuf:"bytes,88,opt,name=regulator_manual,json=regulatorManual,proto3,oneof"`
+}
+
+type NodeConfig_ReliefValve struct {
+	ReliefValve *DummyToggleSymbolConfig `protobuf:"bytes,89,opt,name=relief_valve,json=reliefValve,proto3,oneof"`
+}
+
+type NodeConfig_SolenoidValve struct {
+	SolenoidValve *SolenoidValveConfig `protobuf:"bytes,90,opt,name=solenoid_valve,json=solenoidValve,proto3,oneof"`
+}
+
+type NodeConfig_SpringLoadedReliefValve struct {
+	SpringLoadedReliefValve *DummyToggleSymbolConfig `protobuf:"bytes,91,opt,name=spring_loaded_relief_valve,json=springLoadedReliefValve,proto3,oneof"`
+}
+
+type NodeConfig_ThreeWayValve struct {
+	ThreeWayValve *ToggleSymbolConfig `protobuf:"bytes,92,opt,name=three_way_valve,json=threeWayValve,proto3,oneof"`
+}
+
+type NodeConfig_ThreeWayBallValve struct {
+	ThreeWayBallValve *ToggleSymbolConfig `protobuf:"bytes,93,opt,name=three_way_ball_valve,json=threeWayBallValve,proto3,oneof"`
+}
+
+type NodeConfig_Valve struct {
+	Valve *ToggleSymbolConfig `protobuf:"bytes,94,opt,name=valve,proto3,oneof"`
+}
+
+type NodeConfig_CrossJunction struct {
+	CrossJunction *StaticSymbolConfig `protobuf:"bytes,95,opt,name=cross_junction,json=crossJunction,proto3,oneof"`
+}
+
+type NodeConfig_Cylinder struct {
+	Cylinder *CylinderConfig `protobuf:"bytes,96,opt,name=cylinder,proto3,oneof"`
+}
+
+type NodeConfig_Tank struct {
+	Tank *TankConfig `protobuf:"bytes,97,opt,name=tank,proto3,oneof"`
+}
+
+type NodeConfig_TJunction struct {
+	TJunction *StaticSymbolConfig `protobuf:"bytes,98,opt,name=t_junction,json=tJunction,proto3,oneof"`
+}
+
+type NodeConfig_CustomActuator struct {
+	CustomActuator *CustomActuatorConfig `protobuf:"bytes,99,opt,name=custom_actuator,json=customActuator,proto3,oneof"`
+}
+
+type NodeConfig_CustomStatic struct {
+	CustomStatic *CustomStaticConfig `protobuf:"bytes,100,opt,name=custom_static,json=customStatic,proto3,oneof"`
+}
+
+func (*NodeConfig_Cap) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Filter) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowStraightener) isNodeConfig_Variant() {}
+
+func (*NodeConfig_HeaterElement) isNodeConfig_Variant() {}
+
+func (*NodeConfig_IsoCap) isNodeConfig_Variant() {}
+
+func (*NodeConfig_IsoFilter) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Nozzle) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Orifice) isNodeConfig_Variant() {}
+
+func (*NodeConfig_OrificePlate) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Strainer) isNodeConfig_Variant() {}
+
+func (*NodeConfig_StrainerCone) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Thruster) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Vent) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterGeneral) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterElectromagnetic) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterVariableArea) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterCoriolis) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterNozzle) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterVenturi) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterRingPiston) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterPositiveDisplacement) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterTurbine) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterPulse) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterFloatSensor) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlowmeterOrifice) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Box) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Button) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Circle) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Gauge) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Input) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Light) isNodeConfig_Variant() {}
+
+func (*NodeConfig_OffPageReference) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Polygon) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Select) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Setpoint) isNodeConfig_Variant() {}
+
+func (*NodeConfig_StateIndicator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Switch) isNodeConfig_Variant() {}
+
+func (*NodeConfig_TextBox) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Value) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Agitator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_CrossBeamAgitator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlatBladeAgitator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_HeatExchangerGeneral) isNodeConfig_Variant() {}
+
+func (*NodeConfig_HeatExchangerM) isNodeConfig_Variant() {}
+
+func (*NodeConfig_HeatExchangerStraightTube) isNodeConfig_Variant() {}
+
+func (*NodeConfig_HelicalAgitator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_PaddleAgitator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_PropellerAgitator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_RotaryMixer) isNodeConfig_Variant() {}
+
+func (*NodeConfig_StaticMixer) isNodeConfig_Variant() {}
+
+func (*NodeConfig_CavityPump) isNodeConfig_Variant() {}
+
+func (*NodeConfig_CentrifugalCompressor) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Compressor) isNodeConfig_Variant() {}
+
+func (*NodeConfig_DiaphragmPump) isNodeConfig_Variant() {}
+
+func (*NodeConfig_EjectionPump) isNodeConfig_Variant() {}
+
+func (*NodeConfig_EjectorCompressor) isNodeConfig_Variant() {}
+
+func (*NodeConfig_LiquidRingCompressor) isNodeConfig_Variant() {}
+
+func (*NodeConfig_PistonPump) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Pump) isNodeConfig_Variant() {}
+
+func (*NodeConfig_RollerVaneCompressor) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ScrewPump) isNodeConfig_Variant() {}
+
+func (*NodeConfig_TurboCompressor) isNodeConfig_Variant() {}
+
+func (*NodeConfig_VacuumPump) isNodeConfig_Variant() {}
+
+func (*NodeConfig_BurstDisc) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlameArrestor) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlameArrestorDetonation) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlameArrestorExplosion) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlameArrestorFireRes) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FlameArrestorFireResDetonation) isNodeConfig_Variant() {}
+
+func (*NodeConfig_IsoBurstDisc) isNodeConfig_Variant() {}
+
+func (*NodeConfig_AngledValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_AngledReliefValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_AngledSpringLoadedReliefValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_BallValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_BreatherValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ButterflyValveOne) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ButterflyValveTwo) isNodeConfig_Variant() {}
+
+func (*NodeConfig_CheckValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_CheckValveWithArrow) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ElectricRegulator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ElectricRegulatorMotorized) isNodeConfig_Variant() {}
+
+func (*NodeConfig_FourWayValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_GateValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_IsoCheckValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ManualValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_NeedleValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Regulator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_RegulatorManual) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ReliefValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_SolenoidValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_SpringLoadedReliefValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ThreeWayValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_ThreeWayBallValve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Valve) isNodeConfig_Variant() {}
+
+func (*NodeConfig_CrossJunction) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Cylinder) isNodeConfig_Variant() {}
+
+func (*NodeConfig_Tank) isNodeConfig_Variant() {}
+
+func (*NodeConfig_TJunction) isNodeConfig_Variant() {}
+
+func (*NodeConfig_CustomActuator) isNodeConfig_Variant() {}
+
+func (*NodeConfig_CustomStatic) isNodeConfig_Variant() {}
+
 var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x95\x01\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/border/pb/border.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1fx/go/notation/pb/notation.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"\x95\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x17\n" +
@@ -622,7 +6113,269 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06length\x18\x02 \x01(\x01R\x06length\"y\n" +
 	"\x13SegmentedEdgeConfig\x12'\n" +
 	"\x05color\x18\x01 \x01(\v2\x11.x.color.pb.ColorR\x05color\x129\n" +
-	"\bsegments\x18\x02 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegments\"\xce\x02\n" +
+	"\bsegments\x18\x02 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegments\"\x90\x01\n" +
+	"\x0fSourceTelemSpec\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12:\n" +
+	"\avariant\x18\x02 \x01(\x0e2 .service.schematic.pb.SourceRoleR\avariant\x12-\n" +
+	"\x05props\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05props\"\x8c\x01\n" +
+	"\rSinkTelemSpec\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x128\n" +
+	"\avariant\x18\x02 \x01(\x0e2\x1e.service.schematic.pb.SinkRoleR\avariant\x12-\n" +
+	"\x05props\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05props\"\x9f\x02\n" +
+	"\vLabelConfig\x12\x14\n" +
+	"\x05label\x18\x01 \x01(\tR\x05label\x12&\n" +
+	"\x05level\x18\x02 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x128\n" +
+	"\vorientation\x18\x03 \x01(\x0e2\x16.x.spatial.pb.LocationR\vorientation\x125\n" +
+	"\tdirection\x18\x04 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12&\n" +
+	"\x0fmax_inline_size\x18\x05 \x01(\x01R\rmaxInlineSize\x129\n" +
+	"\x05align\x18\x06 \x01(\x0e2#.service.schematic.pb.FlexAlignmentR\x05align\"\x87\x01\n" +
+	"\rLabeledConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\"\x87\x01\n" +
+	"\n" +
+	"ChipConfig\x12>\n" +
+	"\x06source\x18\x01 \x01(\v2&.service.schematic.pb.StatusSourceSpecR\x06source\x129\n" +
+	"\x04sink\x18\x02 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\"\xa8\x01\n" +
+	"\x0fIndicatorConfig\x12K\n" +
+	"\rstatus_source\x18\x01 \x01(\v2&.service.schematic.pb.StatusSourceSpecR\fstatusSource\x12H\n" +
+	"\fcolor_source\x18\x02 \x01(\v2%.service.schematic.pb.ColorSourceSpecR\vcolorSource\"\xa1\x02\n" +
+	"\x12ControlStateConfig\x12\x12\n" +
+	"\x04show\x18\x01 \x01(\bR\x04show\x12\x1b\n" +
+	"\tshow_chip\x18\x02 \x01(\bR\bshowChip\x12%\n" +
+	"\x0eshow_indicator\x18\x03 \x01(\bR\rshowIndicator\x124\n" +
+	"\x04chip\x18\x04 \x01(\v2 .service.schematic.pb.ChipConfigR\x04chip\x12C\n" +
+	"\tindicator\x18\x05 \x01(\v2%.service.schematic.pb.IndicatorConfigR\tindicator\x128\n" +
+	"\vorientation\x18\x06 \x01(\x0e2\x16.x.spatial.pb.LocationR\vorientation\"\xec\x02\n" +
+	"\fToggleConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x129\n" +
+	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x12B\n" +
+	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\x12$\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\"\xcb\x01\n" +
+	"\x12StaticSymbolConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05scale\x18\x04 \x01(\x01R\x05scale\"\xb1\x03\n" +
+	"\x12ToggleSymbolConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x129\n" +
+	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x12B\n" +
+	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\x12$\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12'\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05scale\x18\b \x01(\x01R\x05scale\"\x88\x02\n" +
+	"\x17DummyToggleSymbolConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12\x18\n" +
+	"\aenabled\x18\x03 \x01(\bR\aenabled\x12\x1c\n" +
+	"\tclickable\x18\x04 \x01(\bR\tclickable\x12'\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05scale\x18\x06 \x01(\x01R\x05scale\"\xd7\x03\n" +
+	"\x13SolenoidValveConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x129\n" +
+	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x12B\n" +
+	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\x12$\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12'\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05scale\x18\b \x01(\x01R\x05scale\x12#\n" +
+	"\rnormally_open\x18\t \x01(\bR\fnormallyOpen\"s\n" +
+	"\fStateMapping\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
+	"\x05value\x18\x03 \x01(\x01R\x05value\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\"e\n" +
+	"\aRedline\x12,\n" +
+	"\x06bounds\x18\x01 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12,\n" +
+	"\bgradient\x18\x02 \x03(\v2\x10.x.color.pb.StopR\bgradient\"\xec\x02\n" +
+	"\tBoxConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
+	"\x10background_color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\x128\n" +
+	"\n" +
+	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
+	"dimensions\x12#\n" +
+	"\rborder_radius\x18\x06 \x01(\x01R\fborderRadius\x12!\n" +
+	"\fstroke_width\x18\a \x01(\x01R\vstrokeWidth\"\xeb\x03\n" +
+	"\fButtonConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
+	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeR\x04size\x12&\n" +
+	"\x05level\x18\x04 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12$\n" +
+	"\x0eon_click_delay\x18\x05 \x01(\x01R\fonClickDelay\x129\n" +
+	"\x04sink\x18\x06 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x124\n" +
+	"\x04mode\x18\a \x01(\x0e2 .service.schematic.pb.ButtonModeR\x04mode\x12'\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorR\x05color\x12B\n" +
+	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\"\xa8\x02\n" +
+	"\fCircleConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12\x16\n" +
+	"\x06radius\x18\x03 \x01(\x01R\x06radius\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
+	"\x10background_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\x12!\n" +
+	"\fstroke_width\x18\x06 \x01(\x01R\vstrokeWidth\"\xb1\x05\n" +
+	"\vGaugeConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12,\n" +
+	"\bposition\x18\x03 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12,\n" +
+	"\x06bounds\x18\x05 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12\x1b\n" +
+	"\tbar_width\x18\x06 \x01(\x01R\bbarWidth\x12<\n" +
+	"\x05telem\x18\a \x01(\v2&.service.schematic.pb.StringSourceSpecR\x05telem\x12P\n" +
+	"\x10background_telem\x18\b \x01(\v2%.service.schematic.pb.ColorSourceSpecR\x0fbackgroundTelem\x12\x1c\n" +
+	"\tprecision\x18\t \x01(\x01R\tprecision\x12\x1b\n" +
+	"\tmin_width\x18\n" +
+	" \x01(\x01R\bminWidth\x12\x14\n" +
+	"\x05width\x18\v \x01(\x01R\x05width\x123\n" +
+	"\bnotation\x18\f \x01(\x0e2\x17.x.notation.pb.NotationR\bnotation\x124\n" +
+	"\blocation\x18\r \x01(\v2\x18.x.spatial.pb.LocationXYR\blocation\x12\x14\n" +
+	"\x05units\x18\x0e \x01(\tR\x05units\x12&\n" +
+	"\x05level\x18\x0f \x01(\x0e2\x10.x.text.pb.LevelR\x05level\"\xbb\x03\n" +
+	"\vInputConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
+	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeR\x04size\x128\n" +
+	"\x04sink\x18\x04 \x01(\v2$.service.schematic.pb.StringSinkSpecR\x04sink\x128\n" +
+	"\n" +
+	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
+	"dimensions\x12'\n" +
+	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x1a\n" +
+	"\bdisabled\x18\a \x01(\bR\bdisabled\x12B\n" +
+	"\acontrol\x18\b \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\"\x85\x02\n" +
+	"\vLightConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05scale\x18\x05 \x01(\x01R\x05scale\"\x99\x02\n" +
+	"\x16OffPageReferenceConfig\x12=\n" +
+	"\vorientation\x18\x01 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
+	"\x05label\x18\x02 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12&\n" +
+	"\x05level\x18\x03 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x12\n" +
+	"\x04page\x18\x05 \x01(\tR\x04page\x12\"\n" +
+	"\rdbl_click_nav\x18\x06 \x01(\bR\vdblClickNav\"\x94\x03\n" +
+	"\rPolygonConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12\x1b\n" +
+	"\tnum_sides\x18\x03 \x01(\x01R\bnumSides\x12\x1f\n" +
+	"\vside_length\x18\x04 \x01(\x01R\n" +
+	"sideLength\x12\x1a\n" +
+	"\brotation\x18\x05 \x01(\x01R\brotation\x12'\n" +
+	"\x0fcorner_rounding\x18\x06 \x01(\x01R\x0ecornerRounding\x12'\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
+	"\x10background_color\x18\b \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\x12!\n" +
+	"\fstroke_width\x18\t \x01(\x01R\vstrokeWidth\"\xe1\x03\n" +
+	"\fSelectConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
+	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeR\x04size\x128\n" +
+	"\x04sink\x18\x04 \x01(\v2$.service.schematic.pb.NumberSinkSpecR\x04sink\x12'\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x1f\n" +
+	"\vinline_size\x18\x06 \x01(\x01R\n" +
+	"inlineSize\x12<\n" +
+	"\aoptions\x18\a \x03(\v2\".service.schematic.pb.StateMappingR\aoptions\x12\x1a\n" +
+	"\bdisabled\x18\b \x01(\bR\bdisabled\x12B\n" +
+	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\"\x94\x04\n" +
+	"\x0eSetpointConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x127\n" +
+	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeR\x04size\x12>\n" +
+	"\x06source\x18\x04 \x01(\v2&.service.schematic.pb.NumberSourceSpecR\x06source\x128\n" +
+	"\x04sink\x18\x05 \x01(\v2$.service.schematic.pb.NumberSinkSpecR\x04sink\x128\n" +
+	"\n" +
+	"dimensions\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
+	"dimensions\x12'\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05units\x18\b \x01(\tR\x05units\x12\x1a\n" +
+	"\bdisabled\x18\t \x01(\bR\bdisabled\x12B\n" +
+	"\acontrol\x18\n" +
+	" \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\"\xd6\x02\n" +
+	"\x14StateIndicatorConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12>\n" +
+	"\x06source\x18\x03 \x01(\v2&.service.schematic.pb.NumberSourceSpecR\x06source\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x1f\n" +
+	"\vinline_size\x18\x05 \x01(\x01R\n" +
+	"inlineSize\x12<\n" +
+	"\aoptions\x18\x06 \x03(\v2\".service.schematic.pb.StateMappingR\aoptions\"\xda\x02\n" +
+	"\rTextBoxConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05width\x18\x04 \x01(\x01R\x05width\x129\n" +
+	"\x05align\x18\x05 \x01(\x0e2#.service.schematic.pb.FlexAlignmentR\x05align\x12\x19\n" +
+	"\bauto_fit\x18\x06 \x01(\bR\aautoFit\x12&\n" +
+	"\x05level\x18\a \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12\x14\n" +
+	"\x05value\x18\b \x01(\tR\x05value\"\xaf\b\n" +
+	"\vValueConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12,\n" +
+	"\bposition\x18\x03 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x120\n" +
+	"\n" +
+	"text_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\ttextColor\x12\x18\n" +
+	"\atooltip\x18\x06 \x03(\tR\atooltip\x127\n" +
+	"\aredline\x18\a \x01(\v2\x1d.service.schematic.pb.RedlineR\aredline\x12\x14\n" +
+	"\x05units\x18\b \x01(\tR\x05units\x12\x1f\n" +
+	"\vinline_size\x18\t \x01(\x01R\n" +
+	"inlineSize\x12<\n" +
+	"\x05telem\x18\n" +
+	" \x01(\v2&.service.schematic.pb.StringSourceSpecR\x05telem\x12P\n" +
+	"\x10background_telem\x18\v \x01(\v2%.service.schematic.pb.ColorSourceSpecR\x0fbackgroundTelem\x12&\n" +
+	"\x05level\x18\f \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12\x1c\n" +
+	"\tprecision\x18\r \x01(\x01R\tprecision\x12+\n" +
+	"\x11staleness_timeout\x18\x0e \x01(\x01R\x10stalenessTimeout\x12:\n" +
+	"\x0fstaleness_color\x18\x0f \x01(\v2\x11.x.color.pb.ColorR\x0estalenessColor\x12\x1b\n" +
+	"\tmin_width\x18\x10 \x01(\x01R\bminWidth\x123\n" +
+	"\bnotation\x18\x11 \x01(\x0e2\x17.x.notation.pb.NotationR\bnotation\x124\n" +
+	"\blocation\x18\x12 \x01(\v2\x18.x.spatial.pb.LocationXYR\blocation\x127\n" +
+	"\x18use_width_for_background\x18\x13 \x01(\bR\x15useWidthForBackground\x12F\n" +
+	"\x16value_background_shift\x18\x14 \x01(\v2\x10.x.spatial.pb.XYR\x14valueBackgroundShift\x12M\n" +
+	"\x1avalue_background_over_scan\x18\x15 \x01(\v2\x10.x.spatial.pb.XYR\x17valueBackgroundOverScan\"\xdf\x02\n" +
+	"\n" +
+	"TankConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
+	"\x10background_color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\x128\n" +
+	"\n" +
+	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
+	"dimensions\x128\n" +
+	"\rborder_radius\x18\x06 \x01(\v2\x13.x.border.pb.RadiusR\fborderRadius\"\xe3\x02\n" +
+	"\x0eCylinderConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x128\n" +
+	"\n" +
+	"dimensions\x18\x03 \x01(\v2\x18.x.spatial.pb.DimensionsR\n" +
+	"dimensions\x128\n" +
+	"\rborder_radius\x18\x04 \x01(\v2\x13.x.border.pb.RadiusR\fborderRadius\x12'\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12<\n" +
+	"\x10background_color\x18\x06 \x01(\v2\x11.x.color.pb.ColorR\x0fbackgroundColor\"\x90\x04\n" +
+	"\x14CustomActuatorConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12?\n" +
+	"\x06source\x18\x03 \x01(\v2'.service.schematic.pb.BooleanSourceSpecR\x06source\x129\n" +
+	"\x04sink\x18\x04 \x01(\v2%.service.schematic.pb.BooleanSinkSpecR\x04sink\x12B\n" +
+	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigR\acontrol\x12$\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12\x19\n" +
+	"\bspec_key\x18\a \x01(\tR\aspecKey\x12'\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05scale\x18\t \x01(\x01R\x05scale\x12@\n" +
+	"\x0fstate_overrides\x18\n" +
+	" \x03(\v2\x17.google.protobuf.StructR\x0estateOverrides\"\xa8\x02\n" +
+	"\x12CustomStaticConfig\x127\n" +
+	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationR\vorientation\x12\x19\n" +
+	"\bspec_key\x18\x03 \x01(\tR\aspecKey\x12'\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x14\n" +
+	"\x05scale\x18\x05 \x01(\x01R\x05scale\x12@\n" +
+	"\x0fstate_overrides\x18\x06 \x03(\v2\x17.google.protobuf.StructR\x0estateOverrides\"\xce\x02\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
@@ -642,7 +6395,168 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\thydraulic\x18\x05 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\thydraulic\x12I\n" +
 	"\tpneumatic\x18\x06 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\tpneumatic\x12?\n" +
 	"\x04data\x18\a \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\x04dataB\t\n" +
-	"\avariantB\xd3\x01\n" +
+	"\avariant\"a\n" +
+	"\x11BooleanSourceSpec\x12A\n" +
+	"\aboolean\x18\x01 \x01(\v2%.service.schematic.pb.SourceTelemSpecH\x00R\abooleanB\t\n" +
+	"\avariant\"^\n" +
+	"\x10NumberSourceSpec\x12?\n" +
+	"\x06number\x18\x01 \x01(\v2%.service.schematic.pb.SourceTelemSpecH\x00R\x06numberB\t\n" +
+	"\avariant\"^\n" +
+	"\x10StringSourceSpec\x12?\n" +
+	"\x06string\x18\x01 \x01(\v2%.service.schematic.pb.SourceTelemSpecH\x00R\x06stringB\t\n" +
+	"\avariant\"[\n" +
+	"\x0fColorSourceSpec\x12=\n" +
+	"\x05color\x18\x01 \x01(\v2%.service.schematic.pb.SourceTelemSpecH\x00R\x05colorB\t\n" +
+	"\avariant\"^\n" +
+	"\x10StatusSourceSpec\x12?\n" +
+	"\x06status\x18\x01 \x01(\v2%.service.schematic.pb.SourceTelemSpecH\x00R\x06statusB\t\n" +
+	"\avariant\"]\n" +
+	"\x0fBooleanSinkSpec\x12?\n" +
+	"\aboolean\x18\x01 \x01(\v2#.service.schematic.pb.SinkTelemSpecH\x00R\abooleanB\t\n" +
+	"\avariant\"Z\n" +
+	"\x0eNumberSinkSpec\x12=\n" +
+	"\x06number\x18\x01 \x01(\v2#.service.schematic.pb.SinkTelemSpecH\x00R\x06numberB\t\n" +
+	"\avariant\"Z\n" +
+	"\x0eStringSinkSpec\x12=\n" +
+	"\x06string\x18\x01 \x01(\v2#.service.schematic.pb.SinkTelemSpecH\x00R\x06stringB\t\n" +
+	"\avariant\"\xfa@\n" +
+	"\n" +
+	"NodeConfig\x12<\n" +
+	"\x03cap\x18\x01 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x03cap\x12B\n" +
+	"\x06filter\x18\x02 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x06filter\x12W\n" +
+	"\x11flow_straightener\x18\x03 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowStraightener\x12Q\n" +
+	"\x0eheater_element\x18\x04 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\rheaterElement\x12C\n" +
+	"\aiso_cap\x18\x05 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x06isoCap\x12I\n" +
+	"\n" +
+	"iso_filter\x18\x06 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\tisoFilter\x12B\n" +
+	"\x06nozzle\x18\a \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x06nozzle\x12D\n" +
+	"\aorifice\x18\b \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\aorifice\x12O\n" +
+	"\rorifice_plate\x18\t \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\forificePlate\x12F\n" +
+	"\bstrainer\x18\n" +
+	" \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\bstrainer\x12O\n" +
+	"\rstrainer_cone\x18\v \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\fstrainerCone\x12F\n" +
+	"\bthruster\x18\f \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\bthruster\x12>\n" +
+	"\x04vent\x18\r \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x04vent\x12W\n" +
+	"\x11flowmeter_general\x18\x0e \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowmeterGeneral\x12g\n" +
+	"\x19flowmeter_electromagnetic\x18\x0f \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x18flowmeterElectromagnetic\x12b\n" +
+	"\x17flowmeter_variable_area\x18\x10 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x15flowmeterVariableArea\x12Y\n" +
+	"\x12flowmeter_coriolis\x18\x11 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x11flowmeterCoriolis\x12U\n" +
+	"\x10flowmeter_nozzle\x18\x12 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x0fflowmeterNozzle\x12W\n" +
+	"\x11flowmeter_venturi\x18\x13 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowmeterVenturi\x12^\n" +
+	"\x15flowmeter_ring_piston\x18\x14 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x13flowmeterRingPiston\x12r\n" +
+	"\x1fflowmeter_positive_displacement\x18\x15 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x1dflowmeterPositiveDisplacement\x12W\n" +
+	"\x11flowmeter_turbine\x18\x16 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowmeterTurbine\x12S\n" +
+	"\x0fflowmeter_pulse\x18\x17 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x0eflowmeterPulse\x12`\n" +
+	"\x16flowmeter_float_sensor\x18\x18 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x14flowmeterFloatSensor\x12W\n" +
+	"\x11flowmeter_orifice\x18\x19 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x10flowmeterOrifice\x123\n" +
+	"\x03box\x18\x1a \x01(\v2\x1f.service.schematic.pb.BoxConfigH\x00R\x03box\x12<\n" +
+	"\x06button\x18\x1b \x01(\v2\".service.schematic.pb.ButtonConfigH\x00R\x06button\x12<\n" +
+	"\x06circle\x18\x1c \x01(\v2\".service.schematic.pb.CircleConfigH\x00R\x06circle\x129\n" +
+	"\x05gauge\x18\x1d \x01(\v2!.service.schematic.pb.GaugeConfigH\x00R\x05gauge\x129\n" +
+	"\x05input\x18\x1e \x01(\v2!.service.schematic.pb.InputConfigH\x00R\x05input\x129\n" +
+	"\x05light\x18\x1f \x01(\v2!.service.schematic.pb.LightConfigH\x00R\x05light\x12\\\n" +
+	"\x12off_page_reference\x18  \x01(\v2,.service.schematic.pb.OffPageReferenceConfigH\x00R\x10offPageReference\x12?\n" +
+	"\apolygon\x18! \x01(\v2#.service.schematic.pb.PolygonConfigH\x00R\apolygon\x12<\n" +
+	"\x06select\x18\" \x01(\v2\".service.schematic.pb.SelectConfigH\x00R\x06select\x12B\n" +
+	"\bsetpoint\x18# \x01(\v2$.service.schematic.pb.SetpointConfigH\x00R\bsetpoint\x12U\n" +
+	"\x0fstate_indicator\x18$ \x01(\v2*.service.schematic.pb.StateIndicatorConfigH\x00R\x0estateIndicator\x12B\n" +
+	"\x06switch\x18% \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x06switch\x12@\n" +
+	"\btext_box\x18& \x01(\v2#.service.schematic.pb.TextBoxConfigH\x00R\atextBox\x129\n" +
+	"\x05value\x18' \x01(\v2!.service.schematic.pb.ValueConfigH\x00R\x05value\x12F\n" +
+	"\bagitator\x18( \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\bagitator\x12Z\n" +
+	"\x13cross_beam_agitator\x18) \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11crossBeamAgitator\x12Z\n" +
+	"\x13flat_blade_agitator\x18* \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11flatBladeAgitator\x12`\n" +
+	"\x16heat_exchanger_general\x18+ \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x14heatExchangerGeneral\x12T\n" +
+	"\x10heat_exchanger_m\x18, \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x0eheatExchangerM\x12k\n" +
+	"\x1cheat_exchanger_straight_tube\x18- \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x19heatExchangerStraightTube\x12U\n" +
+	"\x10helical_agitator\x18. \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x0fhelicalAgitator\x12S\n" +
+	"\x0fpaddle_agitator\x18/ \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x0epaddleAgitator\x12Y\n" +
+	"\x12propeller_agitator\x180 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11propellerAgitator\x12M\n" +
+	"\frotary_mixer\x181 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\vrotaryMixer\x12M\n" +
+	"\fstatic_mixer\x182 \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\vstaticMixer\x12K\n" +
+	"\vcavity_pump\x183 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\n" +
+	"cavityPump\x12a\n" +
+	"\x16centrifugal_compressor\x184 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x15centrifugalCompressor\x12J\n" +
+	"\n" +
+	"compressor\x185 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\n" +
+	"compressor\x12Q\n" +
+	"\x0ediaphragm_pump\x186 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\rdiaphragmPump\x12O\n" +
+	"\rejection_pump\x187 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\fejectionPump\x12Y\n" +
+	"\x12ejector_compressor\x188 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11ejectorCompressor\x12`\n" +
+	"\x16liquid_ring_compressor\x189 \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x14liquidRingCompressor\x12K\n" +
+	"\vpiston_pump\x18: \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\n" +
+	"pistonPump\x12>\n" +
+	"\x04pump\x18; \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x04pump\x12`\n" +
+	"\x16roller_vane_compressor\x18< \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x14rollerVaneCompressor\x12I\n" +
+	"\n" +
+	"screw_pump\x18= \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\tscrewPump\x12U\n" +
+	"\x10turbo_compressor\x18> \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x0fturboCompressor\x12K\n" +
+	"\vvacuum_pump\x18? \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\n" +
+	"vacuumPump\x12I\n" +
+	"\n" +
+	"burst_disc\x18@ \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\tburstDisc\x12Q\n" +
+	"\x0eflame_arrestor\x18A \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\rflameArrestor\x12f\n" +
+	"\x19flame_arrestor_detonation\x18B \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x17flameArrestorDetonation\x12d\n" +
+	"\x18flame_arrestor_explosion\x18C \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x16flameArrestorExplosion\x12a\n" +
+	"\x17flame_arrestor_fire_res\x18D \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x14flameArrestorFireRes\x12v\n" +
+	"\"flame_arrestor_fire_res_detonation\x18E \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x1eflameArrestorFireResDetonation\x12P\n" +
+	"\x0eiso_burst_disc\x18F \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\fisoBurstDisc\x12M\n" +
+	"\fangled_valve\x18G \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\vangledValve\x12_\n" +
+	"\x13angled_relief_valve\x18H \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\x11angledReliefValve\x12y\n" +
+	"!angled_spring_loaded_relief_valve\x18I \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\x1dangledSpringLoadedReliefValve\x12I\n" +
+	"\n" +
+	"ball_valve\x18J \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\tballValve\x12V\n" +
+	"\x0ebreather_valve\x18K \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\rbreatherValve\x12Z\n" +
+	"\x13butterfly_valve_one\x18L \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11butterflyValveOne\x12Z\n" +
+	"\x13butterfly_valve_two\x18M \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11butterflyValveTwo\x12K\n" +
+	"\vcheck_valve\x18N \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\n" +
+	"checkValve\x12_\n" +
+	"\x16check_valve_with_arrow\x18O \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x13checkValveWithArrow\x12Y\n" +
+	"\x12electric_regulator\x18P \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x11electricRegulator\x12l\n" +
+	"\x1celectric_regulator_motorized\x18Q \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x1aelectricRegulatorMotorized\x12P\n" +
+	"\x0efour_way_valve\x18R \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\ffourWayValve\x12I\n" +
+	"\n" +
+	"gate_valve\x18S \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\tgateValve\x12R\n" +
+	"\x0fiso_check_valve\x18T \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\risoCheckValve\x12R\n" +
+	"\fmanual_valve\x18U \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\vmanualValve\x12R\n" +
+	"\fneedle_valve\x18V \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\vneedleValve\x12H\n" +
+	"\tregulator\x18W \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\tregulator\x12U\n" +
+	"\x10regulator_manual\x18X \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\x0fregulatorManual\x12R\n" +
+	"\frelief_valve\x18Y \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\vreliefValve\x12R\n" +
+	"\x0esolenoid_valve\x18Z \x01(\v2).service.schematic.pb.SolenoidValveConfigH\x00R\rsolenoidValve\x12l\n" +
+	"\x1aspring_loaded_relief_valve\x18[ \x01(\v2-.service.schematic.pb.DummyToggleSymbolConfigH\x00R\x17springLoadedReliefValve\x12R\n" +
+	"\x0fthree_way_valve\x18\\ \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\rthreeWayValve\x12[\n" +
+	"\x14three_way_ball_valve\x18] \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x11threeWayBallValve\x12@\n" +
+	"\x05valve\x18^ \x01(\v2(.service.schematic.pb.ToggleSymbolConfigH\x00R\x05valve\x12Q\n" +
+	"\x0ecross_junction\x18_ \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\rcrossJunction\x12B\n" +
+	"\bcylinder\x18` \x01(\v2$.service.schematic.pb.CylinderConfigH\x00R\bcylinder\x126\n" +
+	"\x04tank\x18a \x01(\v2 .service.schematic.pb.TankConfigH\x00R\x04tank\x12I\n" +
+	"\n" +
+	"t_junction\x18b \x01(\v2(.service.schematic.pb.StaticSymbolConfigH\x00R\ttJunction\x12U\n" +
+	"\x0fcustom_actuator\x18c \x01(\v2*.service.schematic.pb.CustomActuatorConfigH\x00R\x0ecustomActuator\x12O\n" +
+	"\rcustom_static\x18d \x01(\v2(.service.schematic.pb.CustomStaticConfigH\x00R\fcustomStaticB\t\n" +
+	"\avariant*$\n" +
+	"\n" +
+	"SourceRole\x12\x16\n" +
+	"\x12SOURCE_ROLE_SOURCE\x10\x00*\x1e\n" +
+	"\bSinkRole\x12\x12\n" +
+	"\x0eSINK_ROLE_SINK\x10\x00*x\n" +
+	"\rFlexAlignment\x12\x18\n" +
+	"\x14FLEX_ALIGNMENT_START\x10\x00\x12\x19\n" +
+	"\x15FLEX_ALIGNMENT_CENTER\x10\x01\x12\x16\n" +
+	"\x12FLEX_ALIGNMENT_END\x10\x02\x12\x1a\n" +
+	"\x16FLEX_ALIGNMENT_STRETCH\x10\x03*\x90\x01\n" +
+	"\rComponentSize\x12\x17\n" +
+	"\x13COMPONENT_SIZE_TINY\x10\x00\x12\x18\n" +
+	"\x14COMPONENT_SIZE_SMALL\x10\x01\x12\x19\n" +
+	"\x15COMPONENT_SIZE_MEDIUM\x10\x02\x12\x18\n" +
+	"\x14COMPONENT_SIZE_LARGE\x10\x03\x12\x17\n" +
+	"\x13COMPONENT_SIZE_HUGE\x10\x04*T\n" +
+	"\n" +
+	"ButtonMode\x12\x14\n" +
+	"\x10BUTTON_MODE_FIRE\x10\x00\x12\x19\n" +
+	"\x15BUTTON_MODE_MOMENTARY\x10\x01\x12\x15\n" +
+	"\x11BUTTON_MODE_PULSE\x10\x02B\xd3\x01\n" +
 	"\x18com.service.schematic.pbB\x0eSchematicProtoP\x01Z5github.com/synnaxlabs/synnax/pkg/service/schematic/pb\xa2\x02\x03SSP\xaa\x02\x14Service.Schematic.Pb\xca\x02\x14Service\\Schematic\\Pb\xe2\x02 Service\\Schematic\\Pb\\GPBMetadata\xea\x02\x16Service::Schematic::Pbb\x06proto3"
 
 var (
@@ -657,46 +6571,359 @@ func file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescData
 }
 
-var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_core_pkg_service_schematic_pb_schematic_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 48)
 var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
-	(*Node)(nil),                // 0: service.schematic.pb.Node
-	(*Handle)(nil),              // 1: service.schematic.pb.Handle
-	(*Edge)(nil),                // 2: service.schematic.pb.Edge
-	(*Segment)(nil),             // 3: service.schematic.pb.Segment
-	(*SegmentedEdgeConfig)(nil), // 4: service.schematic.pb.SegmentedEdgeConfig
-	(*Schematic)(nil),           // 5: service.schematic.pb.Schematic
-	(*EdgeConfig)(nil),          // 6: service.schematic.pb.EdgeConfig
-	nil,                         // 7: service.schematic.pb.Schematic.ConfigsEntry
-	(*pb.XY)(nil),               // 8: x.spatial.pb.XY
-	(*pb.Dimensions)(nil),       // 9: x.spatial.pb.Dimensions
-	(pb.Direction)(0),           // 10: x.spatial.pb.Direction
-	(*pb1.Color)(nil),           // 11: x.color.pb.Color
-	(*structpb.Struct)(nil),     // 12: google.protobuf.Struct
+	(SourceRole)(0),                 // 0: service.schematic.pb.SourceRole
+	(SinkRole)(0),                   // 1: service.schematic.pb.SinkRole
+	(FlexAlignment)(0),              // 2: service.schematic.pb.FlexAlignment
+	(ComponentSize)(0),              // 3: service.schematic.pb.ComponentSize
+	(ButtonMode)(0),                 // 4: service.schematic.pb.ButtonMode
+	(*Node)(nil),                    // 5: service.schematic.pb.Node
+	(*Handle)(nil),                  // 6: service.schematic.pb.Handle
+	(*Edge)(nil),                    // 7: service.schematic.pb.Edge
+	(*Segment)(nil),                 // 8: service.schematic.pb.Segment
+	(*SegmentedEdgeConfig)(nil),     // 9: service.schematic.pb.SegmentedEdgeConfig
+	(*SourceTelemSpec)(nil),         // 10: service.schematic.pb.SourceTelemSpec
+	(*SinkTelemSpec)(nil),           // 11: service.schematic.pb.SinkTelemSpec
+	(*LabelConfig)(nil),             // 12: service.schematic.pb.LabelConfig
+	(*LabeledConfig)(nil),           // 13: service.schematic.pb.LabeledConfig
+	(*ChipConfig)(nil),              // 14: service.schematic.pb.ChipConfig
+	(*IndicatorConfig)(nil),         // 15: service.schematic.pb.IndicatorConfig
+	(*ControlStateConfig)(nil),      // 16: service.schematic.pb.ControlStateConfig
+	(*ToggleConfig)(nil),            // 17: service.schematic.pb.ToggleConfig
+	(*StaticSymbolConfig)(nil),      // 18: service.schematic.pb.StaticSymbolConfig
+	(*ToggleSymbolConfig)(nil),      // 19: service.schematic.pb.ToggleSymbolConfig
+	(*DummyToggleSymbolConfig)(nil), // 20: service.schematic.pb.DummyToggleSymbolConfig
+	(*SolenoidValveConfig)(nil),     // 21: service.schematic.pb.SolenoidValveConfig
+	(*StateMapping)(nil),            // 22: service.schematic.pb.StateMapping
+	(*Redline)(nil),                 // 23: service.schematic.pb.Redline
+	(*BoxConfig)(nil),               // 24: service.schematic.pb.BoxConfig
+	(*ButtonConfig)(nil),            // 25: service.schematic.pb.ButtonConfig
+	(*CircleConfig)(nil),            // 26: service.schematic.pb.CircleConfig
+	(*GaugeConfig)(nil),             // 27: service.schematic.pb.GaugeConfig
+	(*InputConfig)(nil),             // 28: service.schematic.pb.InputConfig
+	(*LightConfig)(nil),             // 29: service.schematic.pb.LightConfig
+	(*OffPageReferenceConfig)(nil),  // 30: service.schematic.pb.OffPageReferenceConfig
+	(*PolygonConfig)(nil),           // 31: service.schematic.pb.PolygonConfig
+	(*SelectConfig)(nil),            // 32: service.schematic.pb.SelectConfig
+	(*SetpointConfig)(nil),          // 33: service.schematic.pb.SetpointConfig
+	(*StateIndicatorConfig)(nil),    // 34: service.schematic.pb.StateIndicatorConfig
+	(*TextBoxConfig)(nil),           // 35: service.schematic.pb.TextBoxConfig
+	(*ValueConfig)(nil),             // 36: service.schematic.pb.ValueConfig
+	(*TankConfig)(nil),              // 37: service.schematic.pb.TankConfig
+	(*CylinderConfig)(nil),          // 38: service.schematic.pb.CylinderConfig
+	(*CustomActuatorConfig)(nil),    // 39: service.schematic.pb.CustomActuatorConfig
+	(*CustomStaticConfig)(nil),      // 40: service.schematic.pb.CustomStaticConfig
+	(*Schematic)(nil),               // 41: service.schematic.pb.Schematic
+	(*EdgeConfig)(nil),              // 42: service.schematic.pb.EdgeConfig
+	(*BooleanSourceSpec)(nil),       // 43: service.schematic.pb.BooleanSourceSpec
+	(*NumberSourceSpec)(nil),        // 44: service.schematic.pb.NumberSourceSpec
+	(*StringSourceSpec)(nil),        // 45: service.schematic.pb.StringSourceSpec
+	(*ColorSourceSpec)(nil),         // 46: service.schematic.pb.ColorSourceSpec
+	(*StatusSourceSpec)(nil),        // 47: service.schematic.pb.StatusSourceSpec
+	(*BooleanSinkSpec)(nil),         // 48: service.schematic.pb.BooleanSinkSpec
+	(*NumberSinkSpec)(nil),          // 49: service.schematic.pb.NumberSinkSpec
+	(*StringSinkSpec)(nil),          // 50: service.schematic.pb.StringSinkSpec
+	(*NodeConfig)(nil),              // 51: service.schematic.pb.NodeConfig
+	nil,                             // 52: service.schematic.pb.Schematic.ConfigsEntry
+	(*pb.XY)(nil),                   // 53: x.spatial.pb.XY
+	(*pb.Dimensions)(nil),           // 54: x.spatial.pb.Dimensions
+	(pb.Direction)(0),               // 55: x.spatial.pb.Direction
+	(*pb1.Color)(nil),               // 56: x.color.pb.Color
+	(*structpb.Struct)(nil),         // 57: google.protobuf.Struct
+	(pb2.Level)(0),                  // 58: x.text.pb.Level
+	(pb.Location)(0),                // 59: x.spatial.pb.Location
+	(pb.OuterLocation)(0),           // 60: x.spatial.pb.OuterLocation
+	(*pb.Bounds)(nil),               // 61: x.spatial.pb.Bounds
+	(*pb1.Stop)(nil),                // 62: x.color.pb.Stop
+	(pb3.Notation)(0),               // 63: x.notation.pb.Notation
+	(*pb.LocationXY)(nil),           // 64: x.spatial.pb.LocationXY
+	(*pb4.Radius)(nil),              // 65: x.border.pb.Radius
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
-	8,  // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
-	9,  // 1: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
-	1,  // 2: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
-	1,  // 3: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
-	10, // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
-	11, // 5: service.schematic.pb.SegmentedEdgeConfig.color:type_name -> x.color.pb.Color
-	3,  // 6: service.schematic.pb.SegmentedEdgeConfig.segments:type_name -> service.schematic.pb.Segment
-	0,  // 7: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
-	2,  // 8: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	7,  // 9: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
-	4,  // 10: service.schematic.pb.EdgeConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	4,  // 11: service.schematic.pb.EdgeConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	4,  // 12: service.schematic.pb.EdgeConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	4,  // 13: service.schematic.pb.EdgeConfig.jacketed:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	4,  // 14: service.schematic.pb.EdgeConfig.hydraulic:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	4,  // 15: service.schematic.pb.EdgeConfig.pneumatic:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	4,  // 16: service.schematic.pb.EdgeConfig.data:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	12, // 17: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> google.protobuf.Struct
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	53,  // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
+	54,  // 1: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
+	6,   // 2: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
+	6,   // 3: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
+	55,  // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
+	56,  // 5: service.schematic.pb.SegmentedEdgeConfig.color:type_name -> x.color.pb.Color
+	8,   // 6: service.schematic.pb.SegmentedEdgeConfig.segments:type_name -> service.schematic.pb.Segment
+	0,   // 7: service.schematic.pb.SourceTelemSpec.variant:type_name -> service.schematic.pb.SourceRole
+	57,  // 8: service.schematic.pb.SourceTelemSpec.props:type_name -> google.protobuf.Struct
+	1,   // 9: service.schematic.pb.SinkTelemSpec.variant:type_name -> service.schematic.pb.SinkRole
+	57,  // 10: service.schematic.pb.SinkTelemSpec.props:type_name -> google.protobuf.Struct
+	58,  // 11: service.schematic.pb.LabelConfig.level:type_name -> x.text.pb.Level
+	59,  // 12: service.schematic.pb.LabelConfig.orientation:type_name -> x.spatial.pb.Location
+	55,  // 13: service.schematic.pb.LabelConfig.direction:type_name -> x.spatial.pb.Direction
+	2,   // 14: service.schematic.pb.LabelConfig.align:type_name -> service.schematic.pb.FlexAlignment
+	12,  // 15: service.schematic.pb.LabeledConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 16: service.schematic.pb.LabeledConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	47,  // 17: service.schematic.pb.ChipConfig.source:type_name -> service.schematic.pb.StatusSourceSpec
+	48,  // 18: service.schematic.pb.ChipConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
+	47,  // 19: service.schematic.pb.IndicatorConfig.status_source:type_name -> service.schematic.pb.StatusSourceSpec
+	46,  // 20: service.schematic.pb.IndicatorConfig.color_source:type_name -> service.schematic.pb.ColorSourceSpec
+	14,  // 21: service.schematic.pb.ControlStateConfig.chip:type_name -> service.schematic.pb.ChipConfig
+	15,  // 22: service.schematic.pb.ControlStateConfig.indicator:type_name -> service.schematic.pb.IndicatorConfig
+	59,  // 23: service.schematic.pb.ControlStateConfig.orientation:type_name -> x.spatial.pb.Location
+	12,  // 24: service.schematic.pb.ToggleConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 25: service.schematic.pb.ToggleConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	43,  // 26: service.schematic.pb.ToggleConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
+	48,  // 27: service.schematic.pb.ToggleConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
+	16,  // 28: service.schematic.pb.ToggleConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	12,  // 29: service.schematic.pb.StaticSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 30: service.schematic.pb.StaticSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	56,  // 31: service.schematic.pb.StaticSymbolConfig.color:type_name -> x.color.pb.Color
+	12,  // 32: service.schematic.pb.ToggleSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 33: service.schematic.pb.ToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	43,  // 34: service.schematic.pb.ToggleSymbolConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
+	48,  // 35: service.schematic.pb.ToggleSymbolConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
+	16,  // 36: service.schematic.pb.ToggleSymbolConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	56,  // 37: service.schematic.pb.ToggleSymbolConfig.color:type_name -> x.color.pb.Color
+	12,  // 38: service.schematic.pb.DummyToggleSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 39: service.schematic.pb.DummyToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	56,  // 40: service.schematic.pb.DummyToggleSymbolConfig.color:type_name -> x.color.pb.Color
+	12,  // 41: service.schematic.pb.SolenoidValveConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 42: service.schematic.pb.SolenoidValveConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	43,  // 43: service.schematic.pb.SolenoidValveConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
+	48,  // 44: service.schematic.pb.SolenoidValveConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
+	16,  // 45: service.schematic.pb.SolenoidValveConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	56,  // 46: service.schematic.pb.SolenoidValveConfig.color:type_name -> x.color.pb.Color
+	56,  // 47: service.schematic.pb.StateMapping.color:type_name -> x.color.pb.Color
+	61,  // 48: service.schematic.pb.Redline.bounds:type_name -> x.spatial.pb.Bounds
+	62,  // 49: service.schematic.pb.Redline.gradient:type_name -> x.color.pb.Stop
+	12,  // 50: service.schematic.pb.BoxConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 51: service.schematic.pb.BoxConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	56,  // 52: service.schematic.pb.BoxConfig.color:type_name -> x.color.pb.Color
+	56,  // 53: service.schematic.pb.BoxConfig.background_color:type_name -> x.color.pb.Color
+	54,  // 54: service.schematic.pb.BoxConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	12,  // 55: service.schematic.pb.ButtonConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 56: service.schematic.pb.ButtonConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	3,   // 57: service.schematic.pb.ButtonConfig.size:type_name -> service.schematic.pb.ComponentSize
+	58,  // 58: service.schematic.pb.ButtonConfig.level:type_name -> x.text.pb.Level
+	48,  // 59: service.schematic.pb.ButtonConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
+	4,   // 60: service.schematic.pb.ButtonConfig.mode:type_name -> service.schematic.pb.ButtonMode
+	56,  // 61: service.schematic.pb.ButtonConfig.color:type_name -> x.color.pb.Color
+	16,  // 62: service.schematic.pb.ButtonConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	12,  // 63: service.schematic.pb.CircleConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 64: service.schematic.pb.CircleConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	56,  // 65: service.schematic.pb.CircleConfig.color:type_name -> x.color.pb.Color
+	56,  // 66: service.schematic.pb.CircleConfig.background_color:type_name -> x.color.pb.Color
+	12,  // 67: service.schematic.pb.GaugeConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 68: service.schematic.pb.GaugeConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	53,  // 69: service.schematic.pb.GaugeConfig.position:type_name -> x.spatial.pb.XY
+	56,  // 70: service.schematic.pb.GaugeConfig.color:type_name -> x.color.pb.Color
+	61,  // 71: service.schematic.pb.GaugeConfig.bounds:type_name -> x.spatial.pb.Bounds
+	45,  // 72: service.schematic.pb.GaugeConfig.telem:type_name -> service.schematic.pb.StringSourceSpec
+	46,  // 73: service.schematic.pb.GaugeConfig.background_telem:type_name -> service.schematic.pb.ColorSourceSpec
+	63,  // 74: service.schematic.pb.GaugeConfig.notation:type_name -> x.notation.pb.Notation
+	64,  // 75: service.schematic.pb.GaugeConfig.location:type_name -> x.spatial.pb.LocationXY
+	58,  // 76: service.schematic.pb.GaugeConfig.level:type_name -> x.text.pb.Level
+	12,  // 77: service.schematic.pb.InputConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 78: service.schematic.pb.InputConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	3,   // 79: service.schematic.pb.InputConfig.size:type_name -> service.schematic.pb.ComponentSize
+	50,  // 80: service.schematic.pb.InputConfig.sink:type_name -> service.schematic.pb.StringSinkSpec
+	54,  // 81: service.schematic.pb.InputConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	56,  // 82: service.schematic.pb.InputConfig.color:type_name -> x.color.pb.Color
+	16,  // 83: service.schematic.pb.InputConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	12,  // 84: service.schematic.pb.LightConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 85: service.schematic.pb.LightConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	43,  // 86: service.schematic.pb.LightConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
+	56,  // 87: service.schematic.pb.LightConfig.color:type_name -> x.color.pb.Color
+	60,  // 88: service.schematic.pb.OffPageReferenceConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	12,  // 89: service.schematic.pb.OffPageReferenceConfig.label:type_name -> service.schematic.pb.LabelConfig
+	58,  // 90: service.schematic.pb.OffPageReferenceConfig.level:type_name -> x.text.pb.Level
+	56,  // 91: service.schematic.pb.OffPageReferenceConfig.color:type_name -> x.color.pb.Color
+	12,  // 92: service.schematic.pb.PolygonConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 93: service.schematic.pb.PolygonConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	56,  // 94: service.schematic.pb.PolygonConfig.color:type_name -> x.color.pb.Color
+	56,  // 95: service.schematic.pb.PolygonConfig.background_color:type_name -> x.color.pb.Color
+	12,  // 96: service.schematic.pb.SelectConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 97: service.schematic.pb.SelectConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	3,   // 98: service.schematic.pb.SelectConfig.size:type_name -> service.schematic.pb.ComponentSize
+	49,  // 99: service.schematic.pb.SelectConfig.sink:type_name -> service.schematic.pb.NumberSinkSpec
+	56,  // 100: service.schematic.pb.SelectConfig.color:type_name -> x.color.pb.Color
+	22,  // 101: service.schematic.pb.SelectConfig.options:type_name -> service.schematic.pb.StateMapping
+	16,  // 102: service.schematic.pb.SelectConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	12,  // 103: service.schematic.pb.SetpointConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 104: service.schematic.pb.SetpointConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	3,   // 105: service.schematic.pb.SetpointConfig.size:type_name -> service.schematic.pb.ComponentSize
+	44,  // 106: service.schematic.pb.SetpointConfig.source:type_name -> service.schematic.pb.NumberSourceSpec
+	49,  // 107: service.schematic.pb.SetpointConfig.sink:type_name -> service.schematic.pb.NumberSinkSpec
+	54,  // 108: service.schematic.pb.SetpointConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	56,  // 109: service.schematic.pb.SetpointConfig.color:type_name -> x.color.pb.Color
+	16,  // 110: service.schematic.pb.SetpointConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	12,  // 111: service.schematic.pb.StateIndicatorConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 112: service.schematic.pb.StateIndicatorConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 113: service.schematic.pb.StateIndicatorConfig.source:type_name -> service.schematic.pb.NumberSourceSpec
+	56,  // 114: service.schematic.pb.StateIndicatorConfig.color:type_name -> x.color.pb.Color
+	22,  // 115: service.schematic.pb.StateIndicatorConfig.options:type_name -> service.schematic.pb.StateMapping
+	12,  // 116: service.schematic.pb.TextBoxConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 117: service.schematic.pb.TextBoxConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	56,  // 118: service.schematic.pb.TextBoxConfig.color:type_name -> x.color.pb.Color
+	2,   // 119: service.schematic.pb.TextBoxConfig.align:type_name -> service.schematic.pb.FlexAlignment
+	58,  // 120: service.schematic.pb.TextBoxConfig.level:type_name -> x.text.pb.Level
+	12,  // 121: service.schematic.pb.ValueConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 122: service.schematic.pb.ValueConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	53,  // 123: service.schematic.pb.ValueConfig.position:type_name -> x.spatial.pb.XY
+	56,  // 124: service.schematic.pb.ValueConfig.color:type_name -> x.color.pb.Color
+	56,  // 125: service.schematic.pb.ValueConfig.text_color:type_name -> x.color.pb.Color
+	23,  // 126: service.schematic.pb.ValueConfig.redline:type_name -> service.schematic.pb.Redline
+	45,  // 127: service.schematic.pb.ValueConfig.telem:type_name -> service.schematic.pb.StringSourceSpec
+	46,  // 128: service.schematic.pb.ValueConfig.background_telem:type_name -> service.schematic.pb.ColorSourceSpec
+	58,  // 129: service.schematic.pb.ValueConfig.level:type_name -> x.text.pb.Level
+	56,  // 130: service.schematic.pb.ValueConfig.staleness_color:type_name -> x.color.pb.Color
+	63,  // 131: service.schematic.pb.ValueConfig.notation:type_name -> x.notation.pb.Notation
+	64,  // 132: service.schematic.pb.ValueConfig.location:type_name -> x.spatial.pb.LocationXY
+	53,  // 133: service.schematic.pb.ValueConfig.value_background_shift:type_name -> x.spatial.pb.XY
+	53,  // 134: service.schematic.pb.ValueConfig.value_background_over_scan:type_name -> x.spatial.pb.XY
+	12,  // 135: service.schematic.pb.TankConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 136: service.schematic.pb.TankConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	56,  // 137: service.schematic.pb.TankConfig.color:type_name -> x.color.pb.Color
+	56,  // 138: service.schematic.pb.TankConfig.background_color:type_name -> x.color.pb.Color
+	54,  // 139: service.schematic.pb.TankConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	65,  // 140: service.schematic.pb.TankConfig.border_radius:type_name -> x.border.pb.Radius
+	12,  // 141: service.schematic.pb.CylinderConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 142: service.schematic.pb.CylinderConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	54,  // 143: service.schematic.pb.CylinderConfig.dimensions:type_name -> x.spatial.pb.Dimensions
+	65,  // 144: service.schematic.pb.CylinderConfig.border_radius:type_name -> x.border.pb.Radius
+	56,  // 145: service.schematic.pb.CylinderConfig.color:type_name -> x.color.pb.Color
+	56,  // 146: service.schematic.pb.CylinderConfig.background_color:type_name -> x.color.pb.Color
+	12,  // 147: service.schematic.pb.CustomActuatorConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 148: service.schematic.pb.CustomActuatorConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	43,  // 149: service.schematic.pb.CustomActuatorConfig.source:type_name -> service.schematic.pb.BooleanSourceSpec
+	48,  // 150: service.schematic.pb.CustomActuatorConfig.sink:type_name -> service.schematic.pb.BooleanSinkSpec
+	16,  // 151: service.schematic.pb.CustomActuatorConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	56,  // 152: service.schematic.pb.CustomActuatorConfig.color:type_name -> x.color.pb.Color
+	57,  // 153: service.schematic.pb.CustomActuatorConfig.state_overrides:type_name -> google.protobuf.Struct
+	12,  // 154: service.schematic.pb.CustomStaticConfig.label:type_name -> service.schematic.pb.LabelConfig
+	60,  // 155: service.schematic.pb.CustomStaticConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	56,  // 156: service.schematic.pb.CustomStaticConfig.color:type_name -> x.color.pb.Color
+	57,  // 157: service.schematic.pb.CustomStaticConfig.state_overrides:type_name -> google.protobuf.Struct
+	5,   // 158: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
+	7,   // 159: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
+	52,  // 160: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
+	9,   // 161: service.schematic.pb.EdgeConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 162: service.schematic.pb.EdgeConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 163: service.schematic.pb.EdgeConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 164: service.schematic.pb.EdgeConfig.jacketed:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 165: service.schematic.pb.EdgeConfig.hydraulic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 166: service.schematic.pb.EdgeConfig.pneumatic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	9,   // 167: service.schematic.pb.EdgeConfig.data:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	10,  // 168: service.schematic.pb.BooleanSourceSpec.boolean:type_name -> service.schematic.pb.SourceTelemSpec
+	10,  // 169: service.schematic.pb.NumberSourceSpec.number:type_name -> service.schematic.pb.SourceTelemSpec
+	10,  // 170: service.schematic.pb.StringSourceSpec.string:type_name -> service.schematic.pb.SourceTelemSpec
+	10,  // 171: service.schematic.pb.ColorSourceSpec.color:type_name -> service.schematic.pb.SourceTelemSpec
+	10,  // 172: service.schematic.pb.StatusSourceSpec.status:type_name -> service.schematic.pb.SourceTelemSpec
+	11,  // 173: service.schematic.pb.BooleanSinkSpec.boolean:type_name -> service.schematic.pb.SinkTelemSpec
+	11,  // 174: service.schematic.pb.NumberSinkSpec.number:type_name -> service.schematic.pb.SinkTelemSpec
+	11,  // 175: service.schematic.pb.StringSinkSpec.string:type_name -> service.schematic.pb.SinkTelemSpec
+	18,  // 176: service.schematic.pb.NodeConfig.cap:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 177: service.schematic.pb.NodeConfig.filter:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 178: service.schematic.pb.NodeConfig.flow_straightener:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 179: service.schematic.pb.NodeConfig.heater_element:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 180: service.schematic.pb.NodeConfig.iso_cap:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 181: service.schematic.pb.NodeConfig.iso_filter:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 182: service.schematic.pb.NodeConfig.nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 183: service.schematic.pb.NodeConfig.orifice:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 184: service.schematic.pb.NodeConfig.orifice_plate:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 185: service.schematic.pb.NodeConfig.strainer:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 186: service.schematic.pb.NodeConfig.strainer_cone:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 187: service.schematic.pb.NodeConfig.thruster:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 188: service.schematic.pb.NodeConfig.vent:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 189: service.schematic.pb.NodeConfig.flowmeter_general:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 190: service.schematic.pb.NodeConfig.flowmeter_electromagnetic:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 191: service.schematic.pb.NodeConfig.flowmeter_variable_area:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 192: service.schematic.pb.NodeConfig.flowmeter_coriolis:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 193: service.schematic.pb.NodeConfig.flowmeter_nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 194: service.schematic.pb.NodeConfig.flowmeter_venturi:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 195: service.schematic.pb.NodeConfig.flowmeter_ring_piston:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 196: service.schematic.pb.NodeConfig.flowmeter_positive_displacement:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 197: service.schematic.pb.NodeConfig.flowmeter_turbine:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 198: service.schematic.pb.NodeConfig.flowmeter_pulse:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 199: service.schematic.pb.NodeConfig.flowmeter_float_sensor:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 200: service.schematic.pb.NodeConfig.flowmeter_orifice:type_name -> service.schematic.pb.StaticSymbolConfig
+	24,  // 201: service.schematic.pb.NodeConfig.box:type_name -> service.schematic.pb.BoxConfig
+	25,  // 202: service.schematic.pb.NodeConfig.button:type_name -> service.schematic.pb.ButtonConfig
+	26,  // 203: service.schematic.pb.NodeConfig.circle:type_name -> service.schematic.pb.CircleConfig
+	27,  // 204: service.schematic.pb.NodeConfig.gauge:type_name -> service.schematic.pb.GaugeConfig
+	28,  // 205: service.schematic.pb.NodeConfig.input:type_name -> service.schematic.pb.InputConfig
+	29,  // 206: service.schematic.pb.NodeConfig.light:type_name -> service.schematic.pb.LightConfig
+	30,  // 207: service.schematic.pb.NodeConfig.off_page_reference:type_name -> service.schematic.pb.OffPageReferenceConfig
+	31,  // 208: service.schematic.pb.NodeConfig.polygon:type_name -> service.schematic.pb.PolygonConfig
+	32,  // 209: service.schematic.pb.NodeConfig.select:type_name -> service.schematic.pb.SelectConfig
+	33,  // 210: service.schematic.pb.NodeConfig.setpoint:type_name -> service.schematic.pb.SetpointConfig
+	34,  // 211: service.schematic.pb.NodeConfig.state_indicator:type_name -> service.schematic.pb.StateIndicatorConfig
+	19,  // 212: service.schematic.pb.NodeConfig.switch:type_name -> service.schematic.pb.ToggleSymbolConfig
+	35,  // 213: service.schematic.pb.NodeConfig.text_box:type_name -> service.schematic.pb.TextBoxConfig
+	36,  // 214: service.schematic.pb.NodeConfig.value:type_name -> service.schematic.pb.ValueConfig
+	19,  // 215: service.schematic.pb.NodeConfig.agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 216: service.schematic.pb.NodeConfig.cross_beam_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 217: service.schematic.pb.NodeConfig.flat_blade_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 218: service.schematic.pb.NodeConfig.heat_exchanger_general:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 219: service.schematic.pb.NodeConfig.heat_exchanger_m:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 220: service.schematic.pb.NodeConfig.heat_exchanger_straight_tube:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 221: service.schematic.pb.NodeConfig.helical_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 222: service.schematic.pb.NodeConfig.paddle_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 223: service.schematic.pb.NodeConfig.propeller_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 224: service.schematic.pb.NodeConfig.rotary_mixer:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 225: service.schematic.pb.NodeConfig.static_mixer:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 226: service.schematic.pb.NodeConfig.cavity_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 227: service.schematic.pb.NodeConfig.centrifugal_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 228: service.schematic.pb.NodeConfig.compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 229: service.schematic.pb.NodeConfig.diaphragm_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 230: service.schematic.pb.NodeConfig.ejection_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 231: service.schematic.pb.NodeConfig.ejector_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 232: service.schematic.pb.NodeConfig.liquid_ring_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 233: service.schematic.pb.NodeConfig.piston_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 234: service.schematic.pb.NodeConfig.pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 235: service.schematic.pb.NodeConfig.roller_vane_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 236: service.schematic.pb.NodeConfig.screw_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 237: service.schematic.pb.NodeConfig.turbo_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 238: service.schematic.pb.NodeConfig.vacuum_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 239: service.schematic.pb.NodeConfig.burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 240: service.schematic.pb.NodeConfig.flame_arrestor:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 241: service.schematic.pb.NodeConfig.flame_arrestor_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 242: service.schematic.pb.NodeConfig.flame_arrestor_explosion:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 243: service.schematic.pb.NodeConfig.flame_arrestor_fire_res:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 244: service.schematic.pb.NodeConfig.flame_arrestor_fire_res_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 245: service.schematic.pb.NodeConfig.iso_burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 246: service.schematic.pb.NodeConfig.angled_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	20,  // 247: service.schematic.pb.NodeConfig.angled_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	20,  // 248: service.schematic.pb.NodeConfig.angled_spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	19,  // 249: service.schematic.pb.NodeConfig.ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	20,  // 250: service.schematic.pb.NodeConfig.breather_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	19,  // 251: service.schematic.pb.NodeConfig.butterfly_valve_one:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 252: service.schematic.pb.NodeConfig.butterfly_valve_two:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 253: service.schematic.pb.NodeConfig.check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 254: service.schematic.pb.NodeConfig.check_valve_with_arrow:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 255: service.schematic.pb.NodeConfig.electric_regulator:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 256: service.schematic.pb.NodeConfig.electric_regulator_motorized:type_name -> service.schematic.pb.StaticSymbolConfig
+	19,  // 257: service.schematic.pb.NodeConfig.four_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 258: service.schematic.pb.NodeConfig.gate_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 259: service.schematic.pb.NodeConfig.iso_check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
+	20,  // 260: service.schematic.pb.NodeConfig.manual_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	20,  // 261: service.schematic.pb.NodeConfig.needle_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	18,  // 262: service.schematic.pb.NodeConfig.regulator:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 263: service.schematic.pb.NodeConfig.regulator_manual:type_name -> service.schematic.pb.StaticSymbolConfig
+	20,  // 264: service.schematic.pb.NodeConfig.relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	21,  // 265: service.schematic.pb.NodeConfig.solenoid_valve:type_name -> service.schematic.pb.SolenoidValveConfig
+	20,  // 266: service.schematic.pb.NodeConfig.spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	19,  // 267: service.schematic.pb.NodeConfig.three_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 268: service.schematic.pb.NodeConfig.three_way_ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	19,  // 269: service.schematic.pb.NodeConfig.valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	18,  // 270: service.schematic.pb.NodeConfig.cross_junction:type_name -> service.schematic.pb.StaticSymbolConfig
+	38,  // 271: service.schematic.pb.NodeConfig.cylinder:type_name -> service.schematic.pb.CylinderConfig
+	37,  // 272: service.schematic.pb.NodeConfig.tank:type_name -> service.schematic.pb.TankConfig
+	18,  // 273: service.schematic.pb.NodeConfig.t_junction:type_name -> service.schematic.pb.StaticSymbolConfig
+	39,  // 274: service.schematic.pb.NodeConfig.custom_actuator:type_name -> service.schematic.pb.CustomActuatorConfig
+	40,  // 275: service.schematic.pb.NodeConfig.custom_static:type_name -> service.schematic.pb.CustomStaticConfig
+	57,  // 276: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> google.protobuf.Struct
+	277, // [277:277] is the sub-list for method output_type
+	277, // [277:277] is the sub-list for method input_type
+	277, // [277:277] is the sub-list for extension type_name
+	277, // [277:277] is the sub-list for extension extendee
+	0,   // [0:277] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }
@@ -704,7 +6931,7 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 	if File_core_pkg_service_schematic_pb_schematic_proto != nil {
 		return
 	}
-	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6].OneofWrappers = []any{
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[37].OneofWrappers = []any{
 		(*EdgeConfig_Pipe)(nil),
 		(*EdgeConfig_Electric)(nil),
 		(*EdgeConfig_Secondary)(nil),
@@ -713,18 +6940,145 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 		(*EdgeConfig_Pneumatic)(nil),
 		(*EdgeConfig_Data)(nil),
 	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[38].OneofWrappers = []any{
+		(*BooleanSourceSpec_Boolean)(nil),
+	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[39].OneofWrappers = []any{
+		(*NumberSourceSpec_Number)(nil),
+	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[40].OneofWrappers = []any{
+		(*StringSourceSpec_String_)(nil),
+	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[41].OneofWrappers = []any{
+		(*ColorSourceSpec_Color)(nil),
+	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[42].OneofWrappers = []any{
+		(*StatusSourceSpec_Status)(nil),
+	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[43].OneofWrappers = []any{
+		(*BooleanSinkSpec_Boolean)(nil),
+	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[44].OneofWrappers = []any{
+		(*NumberSinkSpec_Number)(nil),
+	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[45].OneofWrappers = []any{
+		(*StringSinkSpec_String_)(nil),
+	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[46].OneofWrappers = []any{
+		(*NodeConfig_Cap)(nil),
+		(*NodeConfig_Filter)(nil),
+		(*NodeConfig_FlowStraightener)(nil),
+		(*NodeConfig_HeaterElement)(nil),
+		(*NodeConfig_IsoCap)(nil),
+		(*NodeConfig_IsoFilter)(nil),
+		(*NodeConfig_Nozzle)(nil),
+		(*NodeConfig_Orifice)(nil),
+		(*NodeConfig_OrificePlate)(nil),
+		(*NodeConfig_Strainer)(nil),
+		(*NodeConfig_StrainerCone)(nil),
+		(*NodeConfig_Thruster)(nil),
+		(*NodeConfig_Vent)(nil),
+		(*NodeConfig_FlowmeterGeneral)(nil),
+		(*NodeConfig_FlowmeterElectromagnetic)(nil),
+		(*NodeConfig_FlowmeterVariableArea)(nil),
+		(*NodeConfig_FlowmeterCoriolis)(nil),
+		(*NodeConfig_FlowmeterNozzle)(nil),
+		(*NodeConfig_FlowmeterVenturi)(nil),
+		(*NodeConfig_FlowmeterRingPiston)(nil),
+		(*NodeConfig_FlowmeterPositiveDisplacement)(nil),
+		(*NodeConfig_FlowmeterTurbine)(nil),
+		(*NodeConfig_FlowmeterPulse)(nil),
+		(*NodeConfig_FlowmeterFloatSensor)(nil),
+		(*NodeConfig_FlowmeterOrifice)(nil),
+		(*NodeConfig_Box)(nil),
+		(*NodeConfig_Button)(nil),
+		(*NodeConfig_Circle)(nil),
+		(*NodeConfig_Gauge)(nil),
+		(*NodeConfig_Input)(nil),
+		(*NodeConfig_Light)(nil),
+		(*NodeConfig_OffPageReference)(nil),
+		(*NodeConfig_Polygon)(nil),
+		(*NodeConfig_Select)(nil),
+		(*NodeConfig_Setpoint)(nil),
+		(*NodeConfig_StateIndicator)(nil),
+		(*NodeConfig_Switch)(nil),
+		(*NodeConfig_TextBox)(nil),
+		(*NodeConfig_Value)(nil),
+		(*NodeConfig_Agitator)(nil),
+		(*NodeConfig_CrossBeamAgitator)(nil),
+		(*NodeConfig_FlatBladeAgitator)(nil),
+		(*NodeConfig_HeatExchangerGeneral)(nil),
+		(*NodeConfig_HeatExchangerM)(nil),
+		(*NodeConfig_HeatExchangerStraightTube)(nil),
+		(*NodeConfig_HelicalAgitator)(nil),
+		(*NodeConfig_PaddleAgitator)(nil),
+		(*NodeConfig_PropellerAgitator)(nil),
+		(*NodeConfig_RotaryMixer)(nil),
+		(*NodeConfig_StaticMixer)(nil),
+		(*NodeConfig_CavityPump)(nil),
+		(*NodeConfig_CentrifugalCompressor)(nil),
+		(*NodeConfig_Compressor)(nil),
+		(*NodeConfig_DiaphragmPump)(nil),
+		(*NodeConfig_EjectionPump)(nil),
+		(*NodeConfig_EjectorCompressor)(nil),
+		(*NodeConfig_LiquidRingCompressor)(nil),
+		(*NodeConfig_PistonPump)(nil),
+		(*NodeConfig_Pump)(nil),
+		(*NodeConfig_RollerVaneCompressor)(nil),
+		(*NodeConfig_ScrewPump)(nil),
+		(*NodeConfig_TurboCompressor)(nil),
+		(*NodeConfig_VacuumPump)(nil),
+		(*NodeConfig_BurstDisc)(nil),
+		(*NodeConfig_FlameArrestor)(nil),
+		(*NodeConfig_FlameArrestorDetonation)(nil),
+		(*NodeConfig_FlameArrestorExplosion)(nil),
+		(*NodeConfig_FlameArrestorFireRes)(nil),
+		(*NodeConfig_FlameArrestorFireResDetonation)(nil),
+		(*NodeConfig_IsoBurstDisc)(nil),
+		(*NodeConfig_AngledValve)(nil),
+		(*NodeConfig_AngledReliefValve)(nil),
+		(*NodeConfig_AngledSpringLoadedReliefValve)(nil),
+		(*NodeConfig_BallValve)(nil),
+		(*NodeConfig_BreatherValve)(nil),
+		(*NodeConfig_ButterflyValveOne)(nil),
+		(*NodeConfig_ButterflyValveTwo)(nil),
+		(*NodeConfig_CheckValve)(nil),
+		(*NodeConfig_CheckValveWithArrow)(nil),
+		(*NodeConfig_ElectricRegulator)(nil),
+		(*NodeConfig_ElectricRegulatorMotorized)(nil),
+		(*NodeConfig_FourWayValve)(nil),
+		(*NodeConfig_GateValve)(nil),
+		(*NodeConfig_IsoCheckValve)(nil),
+		(*NodeConfig_ManualValve)(nil),
+		(*NodeConfig_NeedleValve)(nil),
+		(*NodeConfig_Regulator)(nil),
+		(*NodeConfig_RegulatorManual)(nil),
+		(*NodeConfig_ReliefValve)(nil),
+		(*NodeConfig_SolenoidValve)(nil),
+		(*NodeConfig_SpringLoadedReliefValve)(nil),
+		(*NodeConfig_ThreeWayValve)(nil),
+		(*NodeConfig_ThreeWayBallValve)(nil),
+		(*NodeConfig_Valve)(nil),
+		(*NodeConfig_CrossJunction)(nil),
+		(*NodeConfig_Cylinder)(nil),
+		(*NodeConfig_Tank)(nil),
+		(*NodeConfig_TJunction)(nil),
+		(*NodeConfig_CustomActuator)(nil),
+		(*NodeConfig_CustomStatic)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   8,
+			NumEnums:      5,
+			NumMessages:   48,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_service_schematic_pb_schematic_proto_goTypes,
 		DependencyIndexes: file_core_pkg_service_schematic_pb_schematic_proto_depIdxs,
+		EnumInfos:         file_core_pkg_service_schematic_pb_schematic_proto_enumTypes,
 		MessageInfos:      file_core_pkg_service_schematic_pb_schematic_proto_msgTypes,
 	}.Build()
 	File_core_pkg_service_schematic_pb_schematic_proto = out.File

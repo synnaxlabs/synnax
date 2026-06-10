@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/border"
 import "schemas/color"
+import "schemas/notation"
 import "schemas/spatial"
+import "schemas/text"
 
 @ts output "client/ts/src/schematic"
 @go output "core/pkg/service/schematic"
@@ -108,6 +111,858 @@ EdgeConfig union on variant {
     @doc value """
         is the per-edge configuration stored in the schematic configs map.
         The variant selects the visual style of the connection.
+    """
+}
+
+SourceRole enum {
+    source = "source"
+
+    @doc value "is the data-flow role of a telemetry source spec."
+}
+
+SinkRole enum {
+    sink = "sink"
+
+    @doc value "is the data-flow role of a telemetry sink spec."
+}
+
+SourceTelemSpec struct {
+    type    string     {
+        @doc value "is the registered telem factory type that interprets props."
+    }
+    variant SourceRole {
+        @doc value "is the data-flow role of the spec."
+    }
+    props   record     {
+        @doc value """
+            contains factory-specific configuration. The shape is determined
+            by type and validated at runtime by the owning telem factory; the
+            wire format intentionally stores it as an opaque record.
+        """
+    }
+
+    @doc value """
+        is a reference to a telemetry source. The value_type
+        discriminator on the wrapping union pins the value kind the spec
+        yields or accepts.
+    """
+}
+
+SinkTelemSpec struct {
+    type    string   {
+        @doc value "is the registered telem factory type that interprets props."
+    }
+    variant SinkRole {
+        @doc value "is the data-flow role of the spec."
+    }
+    props   record   {
+        @doc value """
+            contains factory-specific configuration. The shape is determined
+            by type and validated at runtime by the owning telem factory; the
+            wire format intentionally stores it as an opaque record.
+        """
+    }
+
+    @doc value """
+        is a reference to a telemetry sink. The value_type
+        discriminator on the wrapping union pins the value kind the spec
+        yields or accepts.
+    """
+}
+
+BooleanSourceSpec union on value_type {
+    boolean SourceTelemSpec
+
+    @doc value "is a telemetry source that yields boolean values."
+}
+
+NumberSourceSpec union on value_type {
+    number SourceTelemSpec
+
+    @doc value "is a telemetry source that yields numeric values."
+}
+
+StringSourceSpec union on value_type {
+    string SourceTelemSpec
+
+    @doc value "is a telemetry source that yields string values."
+}
+
+ColorSourceSpec union on value_type {
+    color SourceTelemSpec
+
+    @doc value "is a telemetry source that yields colors."
+}
+
+StatusSourceSpec union on value_type {
+    status SourceTelemSpec
+
+    @doc value "is a telemetry source that yields statuses."
+}
+
+BooleanSinkSpec union on value_type {
+    boolean SinkTelemSpec
+
+    @doc value "is a telemetry sink that accepts boolean commands."
+}
+
+NumberSinkSpec union on value_type {
+    number SinkTelemSpec
+
+    @doc value "is a telemetry sink that accepts numeric commands."
+}
+
+StringSinkSpec union on value_type {
+    string SinkTelemSpec
+
+    @doc value "is a telemetry sink that accepts string commands."
+}
+
+FlexAlignment enum {
+    start   = "start"
+    center  = "center"
+    end     = "end"
+    stretch = "stretch"
+
+    @doc value "is a cross-axis flex alignment for laid-out content."
+}
+
+ComponentSize enum {
+    tiny   = "tiny"
+    small  = "small"
+    medium = "medium"
+    large  = "large"
+    huge   = "huge"
+
+    @doc value "is a discrete size preset for interactive components."
+}
+
+ButtonMode enum {
+    fire      = "fire"
+    momentary = "momentary"
+    pulse     = "pulse"
+
+    @doc value """
+        is the actuation behavior of a button: fire writes once on click,
+        momentary writes on press and clears on release, and pulse writes a
+        one-cycle pulse.
+    """
+}
+
+LabelConfig struct {
+    label           string?            {
+        @doc value "is the text content of the label."
+    }
+    level           text.Level?        {
+        @doc value "is the typography level of the label text."
+    }
+    orientation     spatial.Location?  {
+        @doc value "is the placement of the label relative to the symbol."
+    }
+    direction       spatial.Direction? {
+        @doc value "is the axis along which the label text flows."
+    }
+    max_inline_size float64?           {
+        @doc value "is the maximum inline size of the label in pixels before wrapping."
+    }
+    align           FlexAlignment?     {
+        @doc value "is the alignment of the label text within its box."
+    }
+
+    @doc value "is the text label configuration shared by schematic symbols."
+}
+
+LabeledConfig struct {
+    label       LabelConfig?           {
+        @doc value "is the symbol's label configuration."
+    }
+    orientation spatial.OuterLocation? {
+        @doc value "is the orientation of the symbol's primitive within the diagram."
+    }
+
+    @doc value "is the base configuration for any symbol that carries a label."
+}
+
+ChipConfig struct {
+    source StatusSourceSpec? {
+        @doc value "is the status source displayed by the control chip."
+    }
+    sink   BooleanSinkSpec?  {
+        @doc value "is the sink used to acquire and release control authority."
+    }
+
+    @doc value "is the control authority chip configuration."
+}
+
+IndicatorConfig struct {
+    status_source StatusSourceSpec? {
+        @doc value "is the status source driving the indicator state."
+    }
+    color_source  ColorSourceSpec?  {
+        @doc value "is the color source driving the indicator tint."
+    }
+
+    @doc value "is the control state indicator configuration."
+}
+
+ControlStateConfig struct {
+    show           bool?             {
+        @doc value "indicates whether the control state widget is visible."
+    }
+    show_chip      bool?             {
+        @doc value "indicates whether the authority chip is visible."
+    }
+    show_indicator bool?             {
+        @doc value "indicates whether the state indicator is visible."
+    }
+    chip           ChipConfig?       {
+        @doc value "is the authority chip configuration."
+    }
+    indicator      IndicatorConfig?  {
+        @doc value "is the indicator configuration."
+    }
+    orientation    spatial.Location? {
+        @doc value "is the placement of the control state widget relative to the symbol."
+    }
+
+    @doc value "is the control authority and state display configuration for actuated symbols."
+}
+
+ToggleConfig struct extends LabeledConfig {
+    source         BooleanSourceSpec?  {
+        @doc value "is the boolean source that drives the symbol's active state."
+    }
+    sink           BooleanSinkSpec?    {
+        @doc value "is the boolean sink that receives actuation commands."
+    }
+    control        ControlStateConfig? {
+        @doc value "is the control state display configuration."
+    }
+    on_click_delay float64?            {
+        @doc value "is the debounce delay applied to clicks, in milliseconds."
+    }
+
+    @doc value "is the base configuration for symbols actuated through a boolean telemetry pair."
+}
+
+StaticSymbolConfig struct extends LabeledConfig {
+    color color.Color? {
+        @doc value "is the stroke color of the symbol."
+    }
+    scale float64?     {
+        @doc value "is the rendered scale multiplier of the symbol."
+    }
+
+    @doc value "is the configuration for non-interactive labeled symbols."
+}
+
+ToggleSymbolConfig struct extends ToggleConfig {
+    color color.Color? {
+        @doc value "is the stroke color of the symbol."
+    }
+    scale float64?     {
+        @doc value "is the rendered scale multiplier of the symbol."
+    }
+
+    @doc value "is the configuration for telemetry-actuated toggle symbols."
+}
+
+DummyToggleSymbolConfig struct extends LabeledConfig {
+    enabled   bool?        {
+        @doc value "indicates whether the symbol renders in its active state."
+    }
+    clickable bool?        {
+        @doc value "indicates whether clicking the symbol toggles its state."
+    }
+    color     color.Color? {
+        @doc value "is the stroke color of the symbol."
+    }
+    scale     float64?     {
+        @doc value "is the rendered scale multiplier of the symbol."
+    }
+
+    @doc value """
+        is the configuration for symbols that toggle their appearance from
+        local state without binding to telemetry.
+    """
+}
+
+SolenoidValveConfig struct extends ToggleSymbolConfig {
+    normally_open bool? {
+        @doc value "indicates whether the valve is open when unpowered."
+    }
+
+    @doc value "is the configuration for solenoid valve symbols."
+}
+
+StateMapping struct {
+    key   string       {
+        @doc value "is the unique identifier for the mapping entry."
+    }
+    name  string       {
+        @doc value "is the display name for this state."
+    }
+    value float64      {
+        @doc value "is the channel value this state corresponds to."
+    }
+    color color.Color? {
+        @doc value "is the display color associated with this state."
+    }
+
+    @doc value "maps a numeric channel value to a named, colored state."
+}
+
+Redline struct {
+    bounds   spatial.Bounds {
+        @doc value "is the numeric range mapped onto the gradient."
+    }
+    gradient color.Stop[]   {
+        @doc value "is the color gradient applied across the bounds."
+    }
+
+    @doc value "maps a numeric range to a color gradient for limit visualization."
+}
+
+BoxConfig struct {
+    label            LabelConfig?           {
+        @doc value "is the box's label configuration."
+    }
+    orientation      spatial.OuterLocation? {
+        @doc value "is the orientation of the box within the diagram."
+    }
+    color            color.Color?           {
+        @doc value "is the border color of the box."
+    }
+    background_color color.Color?           {
+        @doc value "is the fill color of the box."
+    }
+    dimensions       spatial.Dimensions?    {
+        @doc value "is the rendered size of the box in pixels."
+    }
+    border_radius    float64?               {
+        @doc value "is the uniform corner radius of the box in pixels."
+    }
+    stroke_width     float64?               {
+        @doc value "is the border stroke width in pixels."
+    }
+
+    @doc value "is the configuration for box annotation symbols."
+}
+
+ButtonConfig struct extends LabeledConfig {
+    size           ComponentSize?      {
+        @doc value "is the rendered size preset of the button."
+    }
+    level          text.Level?         {
+        @doc value "is the typography level of the button text."
+    }
+    on_click_delay float64?            {
+        @doc value "is the debounce delay applied to clicks, in milliseconds."
+    }
+    sink           BooleanSinkSpec?    {
+        @doc value "is the boolean sink that receives button presses."
+    }
+    mode           ButtonMode?         {
+        @doc value "is the actuation behavior of the button."
+    }
+    color          color.Color?        {
+        @doc value "is the background color of the button."
+    }
+    control        ControlStateConfig? {
+        @doc value "is the control state display configuration."
+    }
+
+    @doc value "is the configuration for button symbols."
+}
+
+CircleConfig struct extends LabeledConfig {
+    radius           float64      {
+        @doc value "is the radius of the circle in pixels."
+    }
+    color            color.Color? {
+        @doc value "is the border color of the circle."
+    }
+    background_color color.Color? {
+        @doc value "is the fill color of the circle."
+    }
+    stroke_width     float64?     {
+        @doc value "is the border stroke width in pixels."
+    }
+
+    @doc value "is the configuration for circle annotation symbols."
+}
+
+GaugeConfig struct extends LabeledConfig {
+    position         spatial.XY?         {
+        @doc value "is the offset of the gauge contents within the symbol."
+    }
+    color            color.Color?        {
+        @doc value "is the accent color of the gauge arc."
+    }
+    bounds           spatial.Bounds?     {
+        @doc value "is the numeric range displayed by the gauge."
+    }
+    bar_width        float64?            {
+        @doc value "is the thickness of the gauge arc in pixels."
+    }
+    telem            StringSourceSpec?   {
+        @doc value "is the string source that supplies the displayed value."
+    }
+    background_telem ColorSourceSpec?    {
+        @doc value "is the color source that drives the gauge background."
+    }
+    precision        float64?            {
+        @doc value "is the number of decimal places shown."
+    }
+    min_width        float64?            {
+        @doc value "is the minimum rendered width of the value in pixels."
+    }
+    width            float64?            {
+        @doc value "is the rendered width of the gauge in pixels."
+    }
+    notation         notation.Notation?  {
+        @doc value "is the numeric notation used to format the value."
+    }
+    location         spatial.LocationXY? {
+        @doc value "is the anchor of the value within the gauge."
+    }
+    units            string?             {
+        @doc value "is the unit suffix displayed after the value."
+    }
+    level            text.Level?         {
+        @doc value "is the typography level of the displayed value."
+    }
+
+    @doc value "is the configuration for gauge symbols."
+}
+
+InputConfig struct extends LabeledConfig {
+    size       ComponentSize?      {
+        @doc value "is the rendered size preset of the input."
+    }
+    sink       StringSinkSpec?     {
+        @doc value "is the string sink that receives submitted values."
+    }
+    dimensions spatial.Dimensions? {
+        @doc value "is the rendered size of the input in pixels."
+    }
+    color      color.Color?        {
+        @doc value "is the accent color of the input."
+    }
+    disabled   bool?               {
+        @doc value "indicates whether the input rejects interaction."
+    }
+    control    ControlStateConfig? {
+        @doc value "is the control state display configuration."
+    }
+
+    @doc value "is the configuration for free-form input symbols."
+}
+
+LightConfig struct extends LabeledConfig {
+    source BooleanSourceSpec? {
+        @doc value "is the boolean source that drives the light's on state."
+    }
+    color  color.Color?       {
+        @doc value "is the illuminated color of the light."
+    }
+    scale  float64?           {
+        @doc value "is the rendered scale multiplier of the symbol."
+    }
+
+    @doc value "is the configuration for indicator light symbols."
+}
+
+OffPageReferenceConfig struct {
+    orientation   spatial.OuterLocation? {
+        @doc value "is the direction the reference arrow points."
+    }
+    label         LabelConfig            {
+        @doc value "is the label displayed inside the reference."
+    }
+    level         text.Level?            {
+        @doc value "is the typography level of the reference text."
+    }
+    color         color.Color?           {
+        @doc value "is the fill color of the reference."
+    }
+    page          string?                {
+        @doc value "is the key of the schematic this reference links to."
+    }
+    dbl_click_nav bool?                  {
+        @doc value "indicates whether double-clicking navigates to the linked schematic."
+    }
+
+    @doc value "is the configuration for off-page reference symbols."
+}
+
+PolygonConfig struct extends LabeledConfig {
+    num_sides        float64      {
+        @doc value "is the number of sides of the polygon."
+    }
+    side_length      float64      {
+        @doc value "is the length of each side in pixels."
+    }
+    rotation         float64?     {
+        @doc value "is the rotation of the polygon in degrees."
+    }
+    corner_rounding  float64?     {
+        @doc value "is the corner rounding radius in pixels."
+    }
+    color            color.Color? {
+        @doc value "is the border color of the polygon."
+    }
+    background_color color.Color? {
+        @doc value "is the fill color of the polygon."
+    }
+    stroke_width     float64?     {
+        @doc value "is the border stroke width in pixels."
+    }
+
+    @doc value "is the configuration for polygon annotation symbols."
+}
+
+SelectConfig struct extends LabeledConfig {
+    size        ComponentSize?      {
+        @doc value "is the rendered size preset of the select."
+    }
+    sink        NumberSinkSpec?     {
+        @doc value "is the numeric sink that receives the selected value."
+    }
+    color       color.Color?        {
+        @doc value "is the accent color of the select."
+    }
+    inline_size float64?            {
+        @doc value "is the inline size of the select in pixels."
+    }
+    options     StateMapping[]      {
+        @doc value "is the set of selectable states."
+    }
+    disabled    bool?               {
+        @doc value "indicates whether the select rejects interaction."
+    }
+    control     ControlStateConfig? {
+        @doc value "is the control state display configuration."
+    }
+
+    @doc value "is the configuration for select symbols."
+}
+
+SetpointConfig struct extends LabeledConfig {
+    size       ComponentSize?      {
+        @doc value "is the rendered size preset of the setpoint."
+    }
+    source     NumberSourceSpec?   {
+        @doc value "is the numeric source displaying the current value."
+    }
+    sink       NumberSinkSpec?     {
+        @doc value "is the numeric sink that receives submitted setpoints."
+    }
+    dimensions spatial.Dimensions? {
+        @doc value "is the rendered size of the setpoint in pixels."
+    }
+    color      color.Color?        {
+        @doc value "is the accent color of the setpoint."
+    }
+    units      string?             {
+        @doc value "is the unit suffix displayed after the value."
+    }
+    disabled   bool?               {
+        @doc value "indicates whether the setpoint rejects interaction."
+    }
+    control    ControlStateConfig? {
+        @doc value "is the control state display configuration."
+    }
+
+    @doc value "is the configuration for numeric setpoint symbols."
+}
+
+StateIndicatorConfig struct extends LabeledConfig {
+    source      NumberSourceSpec? {
+        @doc value "is the numeric source whose value selects the displayed state."
+    }
+    color       color.Color?      {
+        @doc value "is the fallback color when no state matches."
+    }
+    inline_size float64?          {
+        @doc value "is the inline size of the indicator in pixels."
+    }
+    options     StateMapping[]    {
+        @doc value "is the set of displayable states."
+    }
+
+    @doc value "is the configuration for multi-state indicator symbols."
+}
+
+TextBoxConfig struct extends LabeledConfig {
+    color    color.Color?   {
+        @doc value "is the text color."
+    }
+    width    float64?       {
+        @doc value "is the rendered width of the text box in pixels."
+    }
+    align    FlexAlignment? {
+        @doc value "is the alignment of the text within the box."
+    }
+    auto_fit bool?          {
+        @doc value "indicates whether the box resizes to fit its content."
+    }
+    level    text.Level?    {
+        @doc value "is the typography level of the text."
+    }
+    value    string?        {
+        @doc value "is the text content of the box."
+    }
+
+    @doc value "is the configuration for text box annotation symbols."
+}
+
+ValueConfig struct extends LabeledConfig {
+    position                   spatial.XY?         {
+        @doc value "is the offset of the value contents within the symbol."
+    }
+    color                      color.Color?        {
+        @doc value "is the background color of the value."
+    }
+    text_color                 color.Color?        {
+        @doc value "is the color of the displayed text."
+    }
+    tooltip                    string[]?           {
+        @doc value "is the list of tooltip lines shown on hover."
+    }
+    redline                    Redline?            {
+        @doc value "is the bounds-to-gradient mapping applied to the background."
+    }
+    units                      string?             {
+        @doc value "is the unit suffix displayed after the value."
+    }
+    inline_size                float64?            {
+        @doc value "is the inline size of the value in pixels."
+    }
+    telem                      StringSourceSpec?   {
+        @doc value "is the string source that supplies the displayed value."
+    }
+    background_telem           ColorSourceSpec?    {
+        @doc value "is the color source that drives the background."
+    }
+    level                      text.Level?         {
+        @doc value "is the typography level of the displayed value."
+    }
+    precision                  float64?            {
+        @doc value "is the number of decimal places shown."
+    }
+    staleness_timeout          float64?            {
+        @doc value "is the duration in seconds after which the value is considered stale."
+    }
+    staleness_color            color.Color?        {
+        @doc value "is the color applied when the value is stale."
+    }
+    min_width                  float64?            {
+        @doc value "is the minimum rendered width of the value in pixels."
+    }
+    notation                   notation.Notation?  {
+        @doc value "is the numeric notation used to format the value."
+    }
+    location                   spatial.LocationXY? {
+        @doc value "is the anchor of the value within the symbol."
+    }
+    use_width_for_background   bool?               {
+        @doc value "indicates whether the background spans the full configured width."
+    }
+    value_background_shift     spatial.XY?         {
+        @doc value "is the offset applied to the value background."
+    }
+    value_background_over_scan spatial.XY?         {
+        @doc value "is the extra padding applied around the value background."
+    }
+
+    @doc value "is the configuration for live telemetry value symbols."
+}
+
+TankConfig struct extends LabeledConfig {
+    color            color.Color?        {
+        @doc value "is the border color of the tank."
+    }
+    background_color color.Color?        {
+        @doc value "is the fill color of the tank."
+    }
+    dimensions       spatial.Dimensions? {
+        @doc value "is the rendered size of the tank in pixels."
+    }
+    border_radius    border.Radius?      {
+        @doc value "is the corner radius of the tank."
+    }
+
+    @doc value "is the configuration for tank vessel symbols."
+}
+
+CylinderConfig struct extends LabeledConfig {
+    dimensions       spatial.Dimensions? {
+        @doc value "is the rendered size of the cylinder in pixels."
+    }
+    border_radius    border.Radius?      {
+        @doc value "is the corner radius of the cylinder."
+    }
+    color            color.Color?        {
+        @doc value "is the border color of the cylinder."
+    }
+    background_color color.Color?        {
+        @doc value "is the fill color of the cylinder."
+    }
+
+    @doc value "is the configuration for cylinder vessel symbols."
+}
+
+CustomActuatorConfig struct extends ToggleConfig {
+    spec_key        string       {
+        @doc value "is the key of the custom symbol spec this instance renders."
+    }
+    color           color.Color? {
+        @doc value "is the stroke color of the symbol."
+    }
+    scale           float64?     {
+        @doc value "is the rendered scale multiplier of the symbol."
+    }
+    state_overrides record[]?    {
+        @doc value """
+            contains per-instance overrides of the spec's visual states. Each
+            entry mirrors the symbol service's State shape; the wire format
+            stores it opaquely, consistent with how the symbol service stores
+            specs.
+        """
+    }
+
+    @doc value "is the configuration for user-defined actuator symbols."
+}
+
+CustomStaticConfig struct extends LabeledConfig {
+    spec_key        string       {
+        @doc value "is the key of the custom symbol spec this instance renders."
+    }
+    color           color.Color? {
+        @doc value "is the stroke color of the symbol."
+    }
+    scale           float64?     {
+        @doc value "is the rendered scale multiplier of the symbol."
+    }
+    state_overrides record[]?    {
+        @doc value """
+            contains per-instance overrides of the spec's visual states. Each
+            entry mirrors the symbol service's State shape; the wire format
+            stores it opaquely, consistent with how the symbol service stores
+            specs.
+        """
+    }
+
+    @doc value "is the configuration for user-defined static symbols."
+}
+
+NodeConfig union on variant {
+    cap                            StaticSymbolConfig
+    filter                         StaticSymbolConfig
+    flowStraightener               StaticSymbolConfig
+    heaterElement                  StaticSymbolConfig
+    isoCap                         StaticSymbolConfig
+    isoFilter                      StaticSymbolConfig
+    nozzle                         StaticSymbolConfig
+    orifice                        StaticSymbolConfig
+    orificePlate                   StaticSymbolConfig
+    strainer                       StaticSymbolConfig
+    strainerCone                   StaticSymbolConfig
+    thruster                       ToggleSymbolConfig
+    vent                           StaticSymbolConfig
+    flowmeterGeneral               StaticSymbolConfig
+    flowmeterElectromagnetic       StaticSymbolConfig
+    flowmeterVariableArea          StaticSymbolConfig
+    flowmeterCoriolis              StaticSymbolConfig
+    flowmeterNozzle                StaticSymbolConfig
+    flowmeterVenturi               StaticSymbolConfig
+    flowmeterRingPiston            StaticSymbolConfig
+    flowmeterPositiveDisplacement  StaticSymbolConfig
+    flowmeterTurbine               StaticSymbolConfig
+    flowmeterPulse                 StaticSymbolConfig
+    flowmeterFloatSensor           StaticSymbolConfig
+    flowmeterOrifice               StaticSymbolConfig
+    box                            BoxConfig
+    button                         ButtonConfig
+    circle                         CircleConfig
+    gauge                          GaugeConfig
+    input                          InputConfig
+    light                          LightConfig
+    offPageReference               OffPageReferenceConfig
+    polygon                        PolygonConfig
+    select                         SelectConfig
+    setpoint                       SetpointConfig
+    stateIndicator                 StateIndicatorConfig
+    switch                         ToggleSymbolConfig
+    textBox                        TextBoxConfig
+    value                          ValueConfig
+    agitator                       ToggleSymbolConfig
+    crossBeamAgitator              ToggleSymbolConfig
+    flatBladeAgitator              ToggleSymbolConfig
+    heatExchangerGeneral           StaticSymbolConfig
+    heatExchangerM                 StaticSymbolConfig
+    heatExchangerStraightTube      StaticSymbolConfig
+    helicalAgitator                ToggleSymbolConfig
+    paddleAgitator                 ToggleSymbolConfig
+    propellerAgitator              ToggleSymbolConfig
+    rotaryMixer                    ToggleSymbolConfig
+    staticMixer                    StaticSymbolConfig
+    cavityPump                     ToggleSymbolConfig
+    centrifugalCompressor          ToggleSymbolConfig
+    compressor                     ToggleSymbolConfig
+    diaphragmPump                  ToggleSymbolConfig
+    ejectionPump                   ToggleSymbolConfig
+    ejectorCompressor              ToggleSymbolConfig
+    liquidRingCompressor           ToggleSymbolConfig
+    pistonPump                     ToggleSymbolConfig
+    pump                           ToggleSymbolConfig
+    rollerVaneCompressor           ToggleSymbolConfig
+    screwPump                      ToggleSymbolConfig
+    turboCompressor                ToggleSymbolConfig
+    vacuumPump                     ToggleSymbolConfig
+    burstDisc                      StaticSymbolConfig
+    flameArrestor                  StaticSymbolConfig
+    flameArrestorDetonation        StaticSymbolConfig
+    flameArrestorExplosion         StaticSymbolConfig
+    flameArrestorFireRes           StaticSymbolConfig
+    flameArrestorFireResDetonation StaticSymbolConfig
+    isoBurstDisc                   StaticSymbolConfig
+    angledValve                    ToggleSymbolConfig
+    angledReliefValve              DummyToggleSymbolConfig
+    angledSpringLoadedReliefValve  DummyToggleSymbolConfig
+    ballValve                      ToggleSymbolConfig
+    breatherValve                  DummyToggleSymbolConfig
+    butterflyValveOne              ToggleSymbolConfig
+    butterflyValveTwo              ToggleSymbolConfig
+    checkValve                     StaticSymbolConfig
+    checkValveWithArrow            StaticSymbolConfig
+    electricRegulator              StaticSymbolConfig
+    electricRegulatorMotorized     StaticSymbolConfig
+    fourWayValve                   ToggleSymbolConfig
+    gateValve                      ToggleSymbolConfig
+    isoCheckValve                  StaticSymbolConfig
+    manualValve                    DummyToggleSymbolConfig
+    needleValve                    DummyToggleSymbolConfig
+    regulator                      StaticSymbolConfig
+    regulatorManual                StaticSymbolConfig
+    reliefValve                    DummyToggleSymbolConfig
+    solenoidValve                  SolenoidValveConfig
+    springLoadedReliefValve        DummyToggleSymbolConfig
+    threeWayValve                  ToggleSymbolConfig
+    threeWayBallValve              ToggleSymbolConfig
+    valve                          ToggleSymbolConfig
+    crossJunction                  StaticSymbolConfig
+    cylinder                       CylinderConfig
+    tank                           TankConfig
+    tJunction                      StaticSymbolConfig
+    customActuator                 CustomActuatorConfig
+    customStatic                   CustomStaticConfig
+
+    @doc value """
+        is the per-node configuration stored in the schematic configs map.
+        The variant selects the symbol rendered for the node and the fields
+        that accompany it.
     """
 }
 
