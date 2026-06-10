@@ -328,10 +328,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Concurrency", func() {
 		It("Should be safe to register and look up handlers from multiple goroutines", func() {
-			// Stress test the registry under concurrent registration and lookup.
-			// Under `go test -race` a missing lock would surface as a data race; under
-			// a normal run it just verifies that every concurrent registration
-			// eventually resolves.
+			// Stress test the registry under concurrent registration and lookup. Under
+			// `go test -race` a missing lock would surface as a data race; under a
+			// normal run it just verifies that every concurrent registration eventually
+			// resolves.
 			s := imex.NewService()
 			const N = 64
 			types := make([]string, N)

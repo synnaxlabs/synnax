@@ -20,17 +20,16 @@ import (
 )
 
 // Service is the central import/export registry. Handlers are registered via
-// RegisterImportExporter, RegisterImporter, or RegisterExporter, and Import and Export
-// route to them by Type. Service is safe for concurrent registration and lookup.
+// [Service.RegisterImportExporter], [Service.RegisterImporter], or
+// [Service.RegisterExporter], and [Service.Import] and [Service.Export] route to them
+// by type. Service is safe for concurrent registration and lookup.
 type Service struct {
 	mu        sync.RWMutex
 	importers map[string]Importer
 	exporters map[ontology.ResourceType]Exporter
 }
 
-// NewService creates a new, empty import/export registry. Handlers register themselves
-// via RegisterImportExporter, RegisterImporter, or RegisterExporter at their own
-// startup time, typically by accepting the Service in their own service config.
+// NewService creates a new, empty [Service], safe for concurrent use.
 func NewService() *Service {
 	return &Service{
 		importers: make(map[string]Importer),
@@ -49,10 +48,10 @@ func (s *Service) RegisterImportExporter(ie ImportExporter) {
 	s.exporters[t] = ie
 }
 
-// RegisterImporter adds an [Importer] for the given resource type. Use this for
-// services with asymmetric registration — for example, a task service that imports
-// under fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a
-// single coarse type ("task").
+// RegisterImporter adds an Importer for the given resource type. Use this for services
+// with asymmetric registration — for example, a task service that imports under
+// fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a single
+// coarse type ("task").
 func (s *Service) RegisterImporter(t string, i Importer) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -78,7 +77,7 @@ func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
 	imp, ok := s.importers[t]
 	s.mu.RUnlock()
 	if !ok {
-		return "", notFoundError(t, "type", "importer")
+		return "", notFoundError(t, "importer")
 	}
 	return imp.Type(), nil
 }
@@ -86,10 +85,10 @@ func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
 // notFoundError builds the validation error returned when Import or Export is called
 // with a Type that has no registered handler. kind is "importer" or "exporter"; path is
 // the JSON path the API layer surfaces the error against (always "type" today).
-func notFoundError(t any, path, kind string) error {
+func notFoundError(t any, kind string) error {
 	return validate.PathedError(
 		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, t),
-		path,
+		"type",
 	)
 }
 
@@ -106,7 +105,7 @@ func (s *Service) Import(
 	importer, ok := s.importers[envelope.Type]
 	s.mu.RUnlock()
 	if !ok {
-		return "", notFoundError(envelope.Type, "type", "importer")
+		return "", notFoundError(envelope.Type, "importer")
 	}
 	key, err := importer.Import(ctx, tx, envelope)
 	if err != nil {
@@ -128,7 +127,7 @@ func (s *Service) Export(
 	exporter, ok := s.exporters[resource.Type]
 	s.mu.RUnlock()
 	if !ok {
-		return Envelope{}, notFoundError(resource.Type, "type", "exporter")
+		return Envelope{}, notFoundError(resource.Type, "exporter")
 	}
 	env, err := exporter.Export(ctx, tx, resource.Key)
 	if err != nil {
