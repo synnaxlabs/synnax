@@ -2604,7 +2604,9 @@ var _ = Describe("TS Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		ExpectContent(resp, "types.gen.ts").
 			ToContain(
-				`export const SCALE_SCHEMAS: Record<ScaleType, z.ZodType<Scale>> = {`,
+				`export const SCALE_SCHEMAS: {`,
+				`  [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;`,
+				`} = {`,
 				`linear: scaleLinearZ,`,
 				`none: scaleNoneZ,`,
 			)
