@@ -57,14 +57,10 @@ export const Selector = (): ReactElement | null => {
   const { data, retrieve, getItem, subscribe } = Project.useList();
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
-    (v: string | null) => {
-      if (v === null) {
-        dispatch(setActive(null));
-        dispatch(Layout.clearProject());
-        return;
-      }
-      const ws = getItem(v);
-      if (ws == null) throw new UnexpectedError(`Project ${v} not found`);
+    (key: project.Key | null) => {
+      if (key == null) return;
+      const ws = getItem(key);
+      if (ws == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(setActive(ws));
       dispatch(
         Layout.setProject({ slice: ws.layout as Layout.SliceState, keepNav: false }),
@@ -85,7 +81,6 @@ export const Selector = (): ReactElement | null => {
         getItem={getItem}
         subscribe={subscribe}
         onFetchMore={() => retrieve({})}
-        allowNone
       >
         <Dialog.Trigger
           size="medium"
@@ -117,20 +112,6 @@ export const Selector = (): ReactElement | null => {
               style={{ borderBottomLeftRadius: 0 }}
               borderColor={6}
             />
-            <Button.Button
-              size="large"
-              variant="outlined"
-              onClick={() => {
-                handleChange(null);
-                setDialogVisible(false);
-              }}
-              gap="small"
-              tooltip="Switch to no project"
-              borderColor={6}
-            >
-              <Icon.Close />
-              Clear
-            </Button.Button>
             {hasCreatePermission && (
               <Button.Button
                 size="large"

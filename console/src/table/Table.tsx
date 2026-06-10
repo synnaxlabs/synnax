@@ -19,31 +19,20 @@ import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
 import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
-import { Project } from "@/project";
 import {
   useSelectEditable,
   useSelectExists,
   useSelectHideIndicators,
-  useSelectPendingUpload,
   useSelectSelectedCellKeys,
 } from "@/table/selectors";
 import {
-  clearPendingUpload,
   internalCreate,
   setEditable,
   setHideIndicators,
   setSelectedCells,
 } from "@/table/slice";
-import { createUseAutoUpload } from "@/vis/useAutoUpload";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
-
-const useAutoUpload = createUseAutoUpload({
-  useSelectPendingUpload,
-  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
-  useCreate: Base.useCreate,
-  clearPendingUpload,
-});
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const editable = useSelectEditable(layoutKey);
@@ -52,7 +41,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = useDispatch();
-  Project.useAdoptIntoActiveProject(table.ontologyID(layoutKey));
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>
@@ -158,8 +146,7 @@ const useEnsureState = createEnsureState({
 
 export const Table: Layout.Renderer = (props) => {
   const exists = useEnsureState(props.layoutKey);
-  const uploaded = useAutoUpload(props.layoutKey);
-  if (!exists || !uploaded) return null;
+  if (!exists) return null;
   return <Loaded {...props} />;
 };
 

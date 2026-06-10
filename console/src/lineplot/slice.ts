@@ -24,7 +24,6 @@ export type ToolbarState = latest.ToolbarState;
 export type ClickMode = latest.ClickMode;
 export type ControlState = latest.ControlState;
 export type SliceState = latest.SliceState;
-export type PendingUpload = latest.PendingUpload;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_ANNOTATIONS_STATE = latest.ZERO_ANNOTATIONS_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
@@ -90,10 +89,6 @@ export interface SetMeasureModePayload {
 export interface SetRangeAnnotationsVisiblePayload {
   key: string;
   visible: boolean;
-}
-
-export interface ClearPendingUploadPayload {
-  key: string;
 }
 
 export interface SetLineVisiblePayload {
@@ -177,14 +172,6 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.plots[payload.key].annotations.visible = payload.visible;
     },
-    clearPendingUpload: (
-      state,
-      { payload }: PayloadAction<ClearPendingUploadPayload>,
-    ) => {
-      const plot = state.plots[payload.key];
-      if (plot == null) return;
-      plot.pendingUpload = undefined;
-    },
     setLineVisible: (state, { payload }: PayloadAction<SetLineVisiblePayload>) => {
       const plot = state.plots[payload.key];
       if (plot == null) return;
@@ -208,7 +195,6 @@ export const {
   setSelection,
   setMeasureMode,
   setRangeAnnotationsVisible,
-  clearPendingUpload,
   setLineVisible,
   create: internalCreate,
 } = actions;
