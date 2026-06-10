@@ -11,16 +11,16 @@ import {
   createTestClient,
   group,
   NotFoundError,
-  schematic,
   project,
+  schematic,
 } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { Project } from "@/project";
+import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 

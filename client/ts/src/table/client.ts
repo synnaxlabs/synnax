@@ -11,10 +11,10 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { project } from "@/project";
 import { type Action, dispatchReqZ, rename as renameAction } from "@/table/actions.gen";
 import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { project } from "@/project";
 
 export const SET_CHANNEL_NAME = "sy_table_set";
 

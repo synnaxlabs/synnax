@@ -15,12 +15,12 @@ import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
+import { Project } from "@/project";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
 import { Theming } from "@/theming";
-import { Project } from "@/project";
 const CLICK_MODE_KEYS = ["single", "double"] as const;
 
 const ClickModeSelect = Component.renderProp(

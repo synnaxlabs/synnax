@@ -13,7 +13,7 @@ import {
   type Reducer,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { createTestClient, type project,type Synnax, table } from "@synnaxlabs/client";
+import { createTestClient, type project, type Synnax, table } from "@synnaxlabs/client";
 import { Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";

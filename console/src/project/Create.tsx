@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { Button, Flex, Form, Input, Nav, Project,Synnax } from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Input, Nav, Project, Synnax } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";

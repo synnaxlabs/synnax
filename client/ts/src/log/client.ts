@@ -13,8 +13,8 @@ import { z } from "zod";
 
 import { type Action, dispatchReqZ, rename as renameAction } from "@/log/actions.gen";
 import { type Key, keyZ, type Log, logZ, type New, newZ } from "@/log/types.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { project } from "@/project";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_log_set";
 

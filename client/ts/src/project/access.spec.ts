@@ -10,9 +10,9 @@
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
+import { project } from "@/project";
 import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
-import { project } from "@/project";
 
 const client = createTestClient();
 

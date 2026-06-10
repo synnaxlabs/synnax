@@ -24,8 +24,8 @@ import {
   type New,
   newZ,
 } from "@/lineplot/types.gen";
-import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { project } from "@/project";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_lineplot_set";
 

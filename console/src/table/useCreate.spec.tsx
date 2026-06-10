@@ -13,7 +13,7 @@ import {
   type Reducer,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { createTestClient, type project,type Synnax } from "@synnaxlabs/client";
+import { createTestClient, type project, type Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";

@@ -25,6 +25,7 @@ import { lineplot } from "@/lineplot";
 import { log } from "@/log";
 import { ontology } from "@/ontology";
 import { panel } from "@/panel";
+import { project } from "@/project";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { alias } from "@/ranger/alias";
@@ -36,7 +37,6 @@ import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { view } from "@/view";
-import { project } from "@/project";
 
 export const synnaxParamsZ = z.object({
   host: z.string({ error: "Host is required" }).min(1, "Host is required"),

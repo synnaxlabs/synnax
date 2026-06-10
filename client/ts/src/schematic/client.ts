@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { project } from "@/project";
 import {
   type Action,
   dispatchReqZ,
@@ -26,7 +27,6 @@ import {
   schematicZ,
 } from "@/schematic/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { project } from "@/project";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 

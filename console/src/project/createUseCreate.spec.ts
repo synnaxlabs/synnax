@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type EnhancedStore } from "@reduxjs/toolkit";
-import { createTestClient, log, type project,type Synnax } from "@synnaxlabs/client";
+import { createTestClient, log, type project, type Synnax } from "@synnaxlabs/client";
 import { Log as PLog } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";

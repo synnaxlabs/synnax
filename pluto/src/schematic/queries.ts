@@ -10,8 +10,8 @@
 import {
   NotFoundError,
   type ontology,
-  schematic,
   type project,
+  schematic,
 } from "@synnaxlabs/client";
 import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";

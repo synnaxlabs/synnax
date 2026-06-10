@@ -10,8 +10,8 @@
 import {
   createTestClient,
   NotFoundError,
-  schematic,
   type project,
+  schematic,
 } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";

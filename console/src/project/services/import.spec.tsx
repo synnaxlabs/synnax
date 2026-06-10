@@ -14,7 +14,7 @@ import {
   type Store,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import { createTestClient, project,type Synnax } from "@synnaxlabs/client";
+import { createTestClient, project, type Synnax } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
 import { Access, Flux, Pluto, Status, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id } from "@synnaxlabs/x";

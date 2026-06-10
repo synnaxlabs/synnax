@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ as userKeyZ } from "@/user/types.gen";
 import {
   type Key,
   keyZ,
@@ -20,6 +19,7 @@ import {
   type Project,
   projectZ,
 } from "@/project/types.gen";
+import { keyZ as userKeyZ } from "@/user/types.gen";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),

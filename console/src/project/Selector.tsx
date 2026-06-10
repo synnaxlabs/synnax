@@ -9,7 +9,7 @@
 
 import "@/project/Selector.css";
 
-import { project,UnexpectedError } from "@synnaxlabs/client";
+import { project, UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
   Button,

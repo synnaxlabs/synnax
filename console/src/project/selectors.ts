@@ -11,7 +11,7 @@ import { type project } from "@synnaxlabs/client";
 
 import { useMemoSelect } from "@/hooks";
 import { SLICE_NAME, type StoreState } from "@/project/slice";
-import { type Project,type SliceState } from "@/project/types";
+import { type Project, type SliceState } from "@/project/types";
 
 const selectState = (state: StoreState): SliceState => state[SLICE_NAME];
 

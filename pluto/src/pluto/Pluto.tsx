@@ -24,6 +24,7 @@ import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
 import { Ontology } from "@/ontology";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
+import { Project } from "@/project";
 import { Rack } from "@/rack";
 import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
@@ -41,7 +42,6 @@ import { Triggers } from "@/triggers";
 import { User } from "@/user";
 import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { View } from "@/view";
-import { Project } from "@/project";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);

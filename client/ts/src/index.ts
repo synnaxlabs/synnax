@@ -42,6 +42,7 @@ export { lineplot } from "@/lineplot";
 export { log } from "@/log";
 export { ontology } from "@/ontology";
 export { panel } from "@/panel";
+export { project } from "@/project";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";
@@ -52,7 +53,6 @@ export { createTestClientWithPolicy } from "@/testutil/access";
 export { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil/client";
 export { user } from "@/user";
 export { view } from "@/view";
-export { project } from "@/project";
 export {
   type CrudeDataType,
   type CrudeDensity,
