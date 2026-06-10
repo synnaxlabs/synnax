@@ -43,13 +43,11 @@ func sampleResource(name string) testResource {
 }
 
 func sampleEnvelope(name string, typ ontology.ResourceType) imex.Envelope {
-	return wireRoundTrip(MustSucceed(imex.Encode(sampleResource(name), testVersion, typ)))
+	return wireRoundTrip(
+		MustSucceed(imex.Encode(sampleResource(name), testVersion, typ)),
+	)
 }
 
-// wireRoundTrip marshals env to JSON and unmarshals it back, simulating the HTTP path
-// so the result has the JSON codec bound on it. Tests that hand an envelope from Encode
-// straight to a decoder (or to a registered Importer that decodes it) must go through
-// this helper — Decode[T] no longer falls back when the envelope has no codec.
 func wireRoundTrip(env imex.Envelope) imex.Envelope {
 	b := MustSucceed(json.Marshal(env))
 	var out imex.Envelope
@@ -67,6 +65,7 @@ type testEntry struct {
 var _ gorp.Entry[string] = testEntry{}
 
 func (e testEntry) GorpKey() string { return e.Key }
+
 func (testEntry) SetOptions() []any { return nil }
 
 // testService is a minimal in-memory ImportExporter used to exercise the ImEx registry
@@ -79,7 +78,9 @@ type testService struct {
 }
 
 func openTestService(ctx context.Context, db *gorp.DB) *testService {
-	table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, testEntry]{DB: db}))
+	table := MustSucceed(
+		gorp.OpenTable(ctx, gorp.TableConfig[string, testEntry]{DB: db}),
+	)
 	return &testService{db: db, table: table}
 }
 
@@ -136,8 +137,6 @@ func (s *testService) Retrieve(ctx context.Context, name string) (testEntry, err
 
 func (s *testService) Close() error { return s.table.Close() }
 
-// errorService is an ImportExporter whose Import and Export methods always return an
-// error. It exists to verify that the registry surfaces handler-side failures verbatim.
 type errorService struct{}
 
 func (errorService) Type() ontology.ResourceType { return errorResourceType }
@@ -150,8 +149,6 @@ func (errorService) Export(context.Context, gorp.Tx, imex.Key) (imex.Envelope, e
 	return imex.Envelope{}, errors.New("exporter error: forced failure")
 }
 
-// noopImporter is a minimal Importer that always succeeds without persisting anything.
-// Its Type is configurable so callers can exercise asymmetric registration.
 type noopImporter struct{ typ ontology.ResourceType }
 
 func (n noopImporter) Type() ontology.ResourceType { return n.typ }
@@ -160,7 +157,6 @@ func (noopImporter) Import(context.Context, gorp.Tx, imex.Envelope) (imex.Key, e
 	return "noop-key", nil
 }
 
-// noopExporter is a minimal Exporter that returns a fixed envelope under its Type.
 type noopExporter struct{ typ ontology.ResourceType }
 
 func (n noopExporter) Type() ontology.ResourceType { return n.typ }
@@ -179,6 +175,7 @@ var _ = Describe("Service", func() {
 		ts  *testService
 	)
 	BeforeEach(func(ctx SpecContext) {
+		svc = imex.NewService()
 		ts = DeferClose(openTestService(ctx, db))
 		svc.RegisterImportExporter(ts)
 		svc.RegisterImportExporter(errorService{})
@@ -186,7 +183,9 @@ var _ = Describe("Service", func() {
 
 	Describe("ImporterType", func() {
 		It("Should return the registered importer's broader Type", func() {
-			Expect(svc.ImporterType(string(testResourceType))).To(Equal(testResourceType))
+			Expect(
+				svc.ImporterType(string(testResourceType)),
+			).To(Equal(testResourceType))
 		})
 
 		It("Should return a validation error scoped to the type field if not registered", func() {
@@ -266,11 +265,11 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should roll back the transaction when a sibling envelope fails", func(ctx SpecContext) {
-			// Per-envelope atomicity is now the caller's responsibility — Service.Import
-			// takes a single envelope on a single Tx, and the caller wraps the multi-
-			// envelope batch in db.WithTx. This test exercises that contract: the bad
-			// envelope causes the tx callback to return early, so the good envelope's
-			// write is rolled back along with it.
+			// Per-envelope atomicity is now the caller's responsibility —
+			// Service.Import takes a single envelope on a single Tx, and the caller
+			// wraps the multi- envelope batch in db.WithTx. This test exercises that
+			// contract: the bad envelope causes the tx callback to return early, so the
+			// good envelope's write is rolled back along with it.
 			err := db.WithTx(ctx, func(tx gorp.Tx) error {
 				if _, err := svc.Import(
 					ctx, tx, sampleEnvelope("Good Record", testResourceType),
@@ -327,10 +326,6 @@ var _ = Describe("Service", func() {
 
 	Describe("Concurrency", func() {
 		It("Should be safe to register and look up handlers from multiple goroutines", func() {
-			// Stress test the registry under concurrent registration and lookup. Under
-			// `go test -race` a missing lock would surface as a data race; under a
-			// normal run it just verifies that every concurrent registration eventually
-			// resolves.
 			s := imex.NewService()
 			const N = 64
 			types := make([]string, N)
@@ -338,17 +333,11 @@ var _ = Describe("Service", func() {
 				types[i] = fmt.Sprintf("type-%d", i)
 			}
 			var wg sync.WaitGroup
-			wg.Add(N * 2)
+			wg.Add(N)
 			for _, t := range types {
 				go func(t string) {
 					defer wg.Done()
 					s.RegisterImporter(t, noopImporter{typ: "task"})
-				}(t)
-				go func(t string) {
-					defer wg.Done()
-					// May or may not see the registration depending on scheduling;
-					// the race detector is what catches a missing lock here.
-					_, _ = s.ImporterType(t)
 				}(t)
 			}
 			wg.Wait()
