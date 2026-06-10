@@ -302,6 +302,30 @@ func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 	return result, nil
 }
 {{- end}}
+{{- if .NeedsRecordArrayHelpers}}
+
+// recordsToPB converts a slice of opaque records to structpb structs.
+func recordsToPB(rs []msgpack.EncodedJSON) ([]*structpb.Struct, error) {
+	result := make([]*structpb.Struct, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = structpb.NewStruct(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// recordsFromPB converts a slice of structpb structs to opaque records.
+func recordsFromPB(pbs []*structpb.Struct) []msgpack.EncodedJSON {
+	result := make([]msgpack.EncodedJSON, len(pbs))
+	for i, pb := range pbs {
+		result[i] = pb.AsMap()
+	}
+	return result
+}
+{{- end}}
 {{- range .EnumTranslators}}
 
 // {{.Name}}ToPB converts {{.GoType}} to {{.PBType}}.
