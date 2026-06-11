@@ -11,6 +11,7 @@ package panel_test
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -47,11 +49,14 @@ var _ = Describe("Project layout to panel migration", func() {
 			},
 		))
 	}
-	seedProject := func(ctx context.Context, db *gorp.DB, p project.Project) {
-		table := MustOpen(gorp.OpenTable[project.Key, project.Project](
-			ctx, gorp.TableConfig[project.Key, project.Project]{DB: db},
-		))
-		Expect(table.NewCreate().Entry(&p).Exec(ctx, db)).To(Succeed())
+	// stageLayout stages a project's layout blob under its staging key, mirroring the
+	// project migration's Phase 1 so the panel migration finds the layout to convert.
+	stageLayout := func(ctx context.Context, db *gorp.DB, p project.Project) {
+		if len(p.Layout) == 0 {
+			return
+		}
+		blob := MustSucceed(json.Marshal(p.Layout))
+		Expect(db.Set(ctx, project.LegacyLayoutKVKey(p.Key), blob)).To(Succeed())
 	}
 	seedResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
 		table := MustOpen(gorp.OpenTable[string, ontology.Resource](
@@ -143,7 +148,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			ontology.ID{Type: ontology.ResourceTypeLog, Key: logKey},
 			ontology.ID{Type: ontology.ResourceTypeTable, Key: tblKey},
 		)
-		seedProject(ctx, db, project.Project{
+		stageLayout(ctx, db, project.Project{
 			Key:  projectKey,
 			Name: "Ops",
 			Layout: msgpack.EncodedJSON{
@@ -250,6 +255,10 @@ var _ = Describe("Project layout to panel migration", func() {
 			Expect(hasRel(ctx, db, rel(project.OntologyID(projectKey), panelID))).
 				To(BeTrue())
 		}
+
+		By("Deleting the staging entry once it has been consumed")
+		Expect(db.Get(ctx, project.LegacyLayoutKVKey(projectKey))).Error().
+			To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should collapse splits whose sides lose all of their tabs", func(ctx SpecContext) {
@@ -259,7 +268,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		seedResources(ctx, db, ontology.ID{
 			Type: ontology.ResourceTypeLineplot, Key: lpKey,
 		})
-		seedProject(ctx, db, project.Project{
+		stageLayout(ctx, db, project.Project{
 			Key:  uuid.New(),
 			Name: "Ops",
 			Layout: msgpack.EncodedJSON{
@@ -298,16 +307,15 @@ var _ = Describe("Project layout to panel migration", func() {
 		Expect(root).To(Equal(*leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey))))
 	})
 
-	It("Should skip projects with empty, corrupt, or unmigratable layouts", func(ctx SpecContext) {
+	It("Should skip corrupt or unmigratable staged layouts", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		groupID := group.OntologyID(uuid.New())
-		seedProject(ctx, db, project.Project{Key: uuid.New(), Name: "Empty"})
-		seedProject(ctx, db, project.Project{
+		stageLayout(ctx, db, project.Project{
 			Key:    uuid.New(),
 			Name:   "Corrupt",
 			Layout: msgpack.EncodedJSON{"mosaics": "garbage"},
 		})
-		seedProject(ctx, db, project.Project{
+		stageLayout(ctx, db, project.Project{
 			Key:  uuid.New(),
 			Name: "Unmigratable",
 			Layout: msgpack.EncodedJSON{

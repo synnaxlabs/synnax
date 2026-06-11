@@ -90,6 +90,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 				),
 				"msgpack_to_orc",
 			),
+			migrate.WithAddedDeps(
+				gorp.NewMigration(
+					"v56_stage_project_layouts",
+					MigrateLayoutsToStaging,
+				),
+				"v56_migrate_workspace_to_project",
+			),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

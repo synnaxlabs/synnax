@@ -11,10 +11,12 @@ package project_test
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -151,5 +153,39 @@ var _ = Describe("Workspace to project migration", func() {
 		Expect(openProjectTable(ctx, db).NewRetrieve().
 			Where(gorp.MatchKeys[project.Key, project.Project](uuid.New())).
 			Exists(ctx, db)).To(BeFalse())
+	})
+})
+
+var _ = Describe("Project layout staging migration", func() {
+	It("Should stage each non-empty layout under its key and skip empty ones", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		table := MustOpen(gorp.OpenTable[project.Key, project.Project](
+			ctx, gorp.TableConfig[project.Key, project.Project]{DB: db},
+		))
+		withLayout := uuid.New()
+		layout := msgpack.EncodedJSON{"active": "plot-1", "pinned": true}
+		Expect(table.NewCreate().Entry(&project.Project{
+			Key: withLayout, Name: "Ops", Layout: layout,
+		}).Exec(ctx, db)).To(Succeed())
+		empty := uuid.New()
+		Expect(table.NewCreate().Entry(&project.Project{
+			Key: empty, Name: "Empty",
+		}).Exec(ctx, db)).To(Succeed())
+
+		tx := db.OpenTx()
+		Expect(project.MigrateLayoutsToStaging(ctx, tx, alamos.Instrumentation{})).
+			To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+
+		By("Writing the layout blob under the project's staging key")
+		blob, closer := MustSucceed2(db.Get(ctx, project.LegacyLayoutKVKey(withLayout)))
+		var got msgpack.EncodedJSON
+		Expect(json.Unmarshal(blob, &got)).To(Succeed())
+		Expect(closer.Close()).To(Succeed())
+		Expect(got).To(Equal(layout))
+
+		By("Leaving no staging entry for a project without a layout")
+		Expect(db.Get(ctx, project.LegacyLayoutKVKey(empty))).Error().
+			To(MatchError(query.ErrNotFound))
 	})
 })
