@@ -7,9 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NodeResizeControl, type ResizeControlProps } from "@xyflow/react";
-import { type ComponentType } from "react";
-
 import { context } from "@/context";
 import { type Viewport } from "@/viewport";
 import { diagram } from "@/vis/diagram/aether";
@@ -23,22 +20,18 @@ export interface ContextValue {
   fitViewOnResize: boolean;
   setFitViewOnResize: (v: boolean) => void;
   fitViewOptions: diagram.FitViewOptions;
-  resizeControl: ComponentType<ResizeControlProps>;
 }
 
-export const ZERO_CONTEXT_VALUE: ContextValue = {
-  editable: true,
-  fitViewOnResize: false,
-  fitViewOptions: diagram.FIT_VIEW_OPTIONS,
-  onEditableChange: () => {},
-  onViewportModeChange: () => {},
-  setFitViewOnResize: () => {},
-  viewportMode: "select",
-  visible: true,
-  resizeControl: NodeResizeControl,
-};
-
 export const [Context, useContext] = context.create<ContextValue>({
-  defaultValue: ZERO_CONTEXT_VALUE,
+  defaultValue: {
+    editable: true,
+    fitViewOnResize: false,
+    fitViewOptions: diagram.FIT_VIEW_OPTIONS,
+    onEditableChange: () => {},
+    onViewportModeChange: () => {},
+    setFitViewOnResize: () => {},
+    viewportMode: "select",
+    visible: true,
+  },
   displayName: "Diagram.Context",
 });

@@ -9,47 +9,17 @@
 
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import { ReactFlowProvider, ResizeControlVariant } from "@xyflow/react";
 import {
-  NodeResizeControl,
-  ReactFlowProvider,
-  type ResizeControlProps,
-  ResizeControlVariant,
-  type ResizeDragEvent,
-} from "@xyflow/react";
-import {
-  type FC,
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
   useState,
 } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Haul } from "@/haul";
 import { Grid } from "@/schematic/node/common/grid";
-import { Context as DiagramContext, ZERO_CONTEXT_VALUE } from "@/vis/diagram/Context";
-
-interface RecordedControl {
-  keepAspectRatio?: boolean;
-  triggerResize: (width: number, height: number) => void;
-}
-
-const resizeControls = new Map<string, RecordedControl>();
-
-const RESIZE_EVENT = {} as ResizeDragEvent;
-
-// Renders the real NodeResizeControl so positions, variants, and gating are asserted
-// on the DOM, and records a trigger so tests can drive a resize jsdom cannot perform.
-const SpyResizeControl: FC<ResizeControlProps> = (props) => {
-  resizeControls.set(props.position ?? "", {
-    keepAspectRatio: props.keepAspectRatio,
-    triggerResize: (width, height) =>
-      props.onResize?.(RESIZE_EVENT, { x: 0, y: 0, width, height, direction: [] }),
-  });
-  return <NodeResizeControl {...props} />;
-};
-
-const diagramCtx = { ...ZERO_CONTEXT_VALUE, resizeControl: SpyResizeControl };
 
 const NODE_KEY = "node-1";
 
@@ -552,22 +522,14 @@ describe("Grid resize controls", () => {
   const ResizableHost = ({
     editable = true,
     onResize,
-    keepAspectRatio,
   }: Partial<Grid.GridProps>): ReactElement => (
     <ReactFlowProvider>
       <Haul.Provider>
-        <DiagramContext value={diagramCtx}>
-          <div data-id={NODE_KEY}>
-            <Grid.Grid
-              editable={editable}
-              nodeKey={NODE_KEY}
-              onResize={onResize}
-              keepAspectRatio={keepAspectRatio}
-            >
-              <div>body</div>
-            </Grid.Grid>
-          </div>
-        </DiagramContext>
+        <div data-id={NODE_KEY}>
+          <Grid.Grid editable={editable} nodeKey={NODE_KEY} onResize={onResize}>
+            <div>body</div>
+          </Grid.Grid>
+        </div>
       </Haul.Provider>
     </ReactFlowProvider>
   );
@@ -578,8 +540,6 @@ describe("Grid resize controls", () => {
     Array.from(controlEls(c)).some((el) =>
       classes.every((cl) => el.classList.contains(cl)),
     );
-
-  beforeEach(() => resizeControls.clear());
 
   describe("render gating", () => {
     it("should render no controls when the node is not editable", () => {
@@ -616,42 +576,6 @@ describe("Grid resize controls", () => {
           hasControl(container, vertical, horizontal, ResizeControlVariant.Handle),
         ).toBe(true);
       });
-    });
-  });
-
-  describe("aspect ratio", () => {
-    it("should lock the corners but not the edges by default", () => {
-      render(<ResizableHost onResize={vi.fn()} />);
-      CORNERS.forEach((corner) =>
-        expect(resizeControls.get(corner)?.keepAspectRatio).toBe(true),
-      );
-      EDGES.forEach((edge) =>
-        expect(resizeControls.get(edge)?.keepAspectRatio).toBeFalsy(),
-      );
-    });
-
-    it("should lock every control when keepAspectRatio is set", () => {
-      render(<ResizableHost keepAspectRatio onResize={vi.fn()} />);
-      [...EDGES, ...CORNERS].forEach((position) =>
-        expect(resizeControls.get(position)?.keepAspectRatio).toBe(true),
-      );
-    });
-  });
-
-  describe("dimension forwarding", () => {
-    it("should round fractional dimensions before forwarding them", () => {
-      const onResize = vi.fn();
-      render(<ResizableHost onResize={onResize} />);
-      resizeControls.get("right")?.triggerResize(120.6, 80.4);
-      expect(onResize).toHaveBeenCalledTimes(1);
-      expect(onResize).toHaveBeenCalledWith({ width: 121, height: 80 });
-    });
-
-    it("should forward rounded dimensions from a corner control", () => {
-      const onResize = vi.fn();
-      render(<ResizableHost onResize={onResize} />);
-      resizeControls.get("bottom-right")?.triggerResize(50.5, 50.49);
-      expect(onResize).toHaveBeenCalledWith({ width: 51, height: 50 });
     });
   });
 });

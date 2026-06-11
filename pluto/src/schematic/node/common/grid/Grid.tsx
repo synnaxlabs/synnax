@@ -13,6 +13,7 @@ import { type dimensions, location } from "@synnaxlabs/x";
 import {
   type ControlLinePosition,
   type ControlPosition,
+  NodeResizeControl,
   ResizeControlVariant,
 } from "@xyflow/react";
 import {
@@ -39,7 +40,6 @@ import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { triggerReflow } from "@/util/reflow";
-import { useContext as useDiagramContext } from "@/vis/diagram/Context";
 import { selectNode } from "@/vis/diagram/util";
 
 type DraggableElement = ReactElement<{
@@ -231,7 +231,6 @@ export const Grid: FC<GridProps> = ({
   nodeKey,
   orientation = "left",
 }) => {
-  const { resizeControl: ResizeControl } = useDiagramContext();
   const prevEditable = useRef(editable);
   if (editable !== prevEditable.current) {
     reflowPane(nodeKey);
@@ -240,6 +239,18 @@ export const Grid: FC<GridProps> = ({
   const { items, body } = splitChildren(children);
   const handleRotate = () =>
     onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
+  const resizeControls = useMemo(() => {
+    if (!editable || onResize == null) return null;
+    return RESIZE_CONTROLS.map(({ position, variant, keepAspectRatio: corner }) => (
+      <NodeResizeControl
+        key={position}
+        position={position}
+        variant={variant}
+        keepAspectRatio={keepAspectRatio || corner}
+        onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
+      />
+    ));
+  }, [editable, onResize, keepAspectRatio]);
   return (
     <>
       <Zone key="top" loc="top" editable={editable} nodeKey={nodeKey} items={items} />
@@ -271,19 +282,7 @@ export const Grid: FC<GridProps> = ({
           <Icon.Rotate />
         </Button.Button>
       )}
-      {editable &&
-        onResize != null &&
-        RESIZE_CONTROLS.map(({ position, variant, keepAspectRatio: corner }) => (
-          <ResizeControl
-            key={position}
-            position={position}
-            variant={variant}
-            keepAspectRatio={keepAspectRatio || corner}
-            onResize={(_, { width, height }) =>
-              onResize(roundDimensions(width, height))
-            }
-          />
-        ))}
+      {resizeControls}
       <div className={DRAG_HANDLE_CLASS}>{body}</div>
     </>
   );
