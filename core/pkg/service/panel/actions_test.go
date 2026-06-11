@@ -397,6 +397,16 @@ var _ = Describe("Actions", func() {
 				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationCenter},
 				panel.ErrInvalidSplitLocation,
 			),
+			Entry("size above 1",
+				panel.Panel{Root: leafNode(tab(uuid.New()))},
+				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft, Size: new(float64(1.5))},
+				panel.ErrInvalidSize,
+			),
+			Entry("size below 0",
+				panel.Panel{Root: leafNode(tab(uuid.New()))},
+				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft, Size: new(float64(-0.1))},
+				panel.ErrInvalidSize,
+			),
 		)
 	})
 
@@ -425,6 +435,16 @@ var _ = Describe("Actions", func() {
 				panel.Panel{Root: leafNode(tab(uuid.New()))},
 				panel.ResizeSplitPayload{Split: 1, Size: 0.5},
 				panel.ErrNotASplit,
+			),
+			Entry("size above 1",
+				panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
+				panel.ResizeSplitPayload{Split: 1, Size: 1.5},
+				panel.ErrInvalidSize,
+			),
+			Entry("size below 0",
+				panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
+				panel.ResizeSplitPayload{Split: 1, Size: -0.1},
+				panel.ErrInvalidSize,
 			),
 		)
 	})

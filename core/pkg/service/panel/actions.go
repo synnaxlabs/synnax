@@ -133,6 +133,9 @@ func (p SplitLeafPayload) Handle(state Panel) (Panel, error) {
 	if p.Size != nil {
 		size = *p.Size
 	}
+	if size < 0 || size > 1 {
+		return Panel{}, ErrInvalidSize
+	}
 	if err := splitLeafAt(&state.Root, p.Leaf, p.Location, size); err != nil {
 		return Panel{}, err
 	}
@@ -143,6 +146,9 @@ func (p SplitLeafPayload) Handle(state Panel) (Panel, error) {
 // ErrInvalidPath when the split path does not resolve, or ErrNotASplit when
 // it resolves to a leaf.
 func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
+	if p.Size < 0 || p.Size > 1 {
+		return Panel{}, ErrInvalidSize
+	}
 	updated, err := updateAt(state.Root, pathDirections(p.Split), func(n Node) (Node, error) {
 		split, ok := n.Variant.(NodeSplit)
 		if !ok {

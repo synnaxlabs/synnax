@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Path-derived numeric keys for Node positions in the panel tree:
@@ -44,6 +45,9 @@ var ErrTabNotFound = errors.New("tab not found in tree")
 // ErrIndexOutOfRange is returned when an InsertTab index exceeds the leaf's current
 // tab count.
 var ErrIndexOutOfRange = errors.New("index out of range")
+
+// ErrInvalidSize is returned when a split size ratio falls outside [0, 1].
+var ErrInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
 
 // Key returns the stable identifier of the tab regardless of its content variant.
 // Returns uuid.Nil for a Tab with no variant set.
