@@ -32,10 +32,11 @@ func TestProject(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db     *gorp.DB
-	svc    *project.Service
-	author user.User
-	tx     gorp.Tx
+	db      *gorp.DB
+	svc     *project.Service
+	userSvc *user.Service
+	author  user.User
+	tx      gorp.Tx
 )
 
 var (
@@ -49,13 +50,13 @@ var (
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
-			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Search:   searchIdx,
-			}))
 		)
+		userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Search:   searchIdx,
+		}))
 		svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
