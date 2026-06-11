@@ -41,8 +41,8 @@ export const createSyncComponent = (
     update: async ({ client, data, store: fluxStore }) => {
       const { store, layoutKey } = data;
       if (layoutKey == null || client == null) return false;
-      const ws = selectActiveKey(store.getState());
-      await save({ key: layoutKey, project: ws, store, fluxStore, client });
+      const proj = selectActiveKey(store.getState());
+      await save({ key: layoutKey, project: proj, store, fluxStore, client });
       return data;
     },
   });
@@ -55,8 +55,8 @@ export const createSyncComponent = (
     const run = useCallback(() => {
       update({ layoutKey, store });
     }, [layoutKey, store]);
-    const ws = useSelectActiveKey();
-    useEffect(() => run(), [ws, run]);
+    const proj = useSelectActiveKey();
+    useEffect(() => run(), [proj, run]);
     return useDispatchEffect(run, TimeSpan.milliseconds(100), dispatch);
   };
 };

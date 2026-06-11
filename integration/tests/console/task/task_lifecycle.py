@@ -208,7 +208,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         """Open a task configuration via the search palette."""
         name = TASKS[3].name
         self.log(f"Testing: Open task config via search palette for '{name}'")
-        task_page = self.console.workspace.open_from_search(TaskPage, name)
+        task_page = self.console.project.open_from_search(TaskPage, name)
         assert task_page.page_name == name, (
             f"Opened page name should be '{name}', got '{task_page.page_name}'"
         )

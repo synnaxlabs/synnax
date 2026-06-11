@@ -32,11 +32,11 @@ describe("log queries", () => {
   });
 
   const createLog = async (overrides: Partial<log.New> = {}): Promise<log.Log> => {
-    const ws = await client.projects.create({
+    const proj = await client.projects.create({
       name: `log_ws_${uuid.create()}`,
       layout: {},
     });
-    return await client.logs.create(ws.key, { name: "test_log", ...overrides });
+    return await client.logs.create(proj.key, { name: "test_log", ...overrides });
   };
 
   const loadAndSelect = async <T>(

@@ -17,45 +17,45 @@ const client = createTestClient();
 describe("Project", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "Schematic",
         layout: { one: 1 },
       });
-      expect(ws.name).toEqual("Schematic");
-      expect(ws.key).not.toEqual(uuid.ZERO);
-      expect(ws.layout.one).toEqual(1);
+      expect(proj.name).toEqual("Schematic");
+      expect(proj.key).not.toEqual(uuid.ZERO);
+      expect(proj.layout.one).toEqual(1);
     });
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "Schematic",
         layout: { one: 1 },
       });
-      await client.projects.rename(ws.key, "Schematic2");
-      const res = await client.projects.retrieve(ws.key);
+      await client.projects.rename(proj.key, "Schematic2");
+      const res = await client.projects.retrieve(proj.key);
       expect(res.name).toEqual("Schematic2");
     });
   });
   describe("setLayout", () => {
     test("set layout", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "Schematic",
         layout: { one: 1 },
       });
-      await client.projects.setLayout(ws.key, { two: 2 });
-      const res = await client.projects.retrieve(ws.key);
+      await client.projects.setLayout(proj.key, { two: 2 });
+      const res = await client.projects.retrieve(proj.key);
       expect(res.layout.two).toEqual(2);
     });
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "Schematic",
         layout: { one: 1 },
       });
-      await client.projects.delete(ws.key);
-      await expect(client.projects.retrieve(ws.key)).rejects.toThrow();
+      await client.projects.delete(proj.key);
+      await expect(client.projects.retrieve(proj.key)).rejects.toThrow();
     });
   });
   describe("retrieve", () => {
@@ -73,7 +73,7 @@ describe("Project", () => {
   });
   describe("case preservation", () => {
     test("should preserve key casing in layout field on create/retrieve cycle", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "CaseTest",
         layout: {
           camelCaseKey: "value1",
@@ -86,7 +86,7 @@ describe("Project", () => {
         },
       });
 
-      const retrieved = await client.projects.retrieve(ws.key);
+      const retrieved = await client.projects.retrieve(proj.key);
 
       const layout = retrieved.layout as Record<string, unknown>;
       expect(layout.camelCaseKey).toEqual("value1");

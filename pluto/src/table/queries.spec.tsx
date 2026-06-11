@@ -313,11 +313,11 @@ describe("table queries", () => {
 
   describe("useDispatch", () => {
     const createTable = async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
         layout: {},
       });
-      return await client.tables.create(ws.key, {
+      return await client.tables.create(proj.key, {
         name: "dispatch_test",
         rows: [{ size: 36, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],
@@ -543,11 +543,11 @@ describe("table queries", () => {
     };
 
     it("populates the store so downstream selectors resolve", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
         layout: {},
       });
-      const created = await client.tables.create(ws.key, {
+      const created = await client.tables.create(proj.key, {
         name: "ensure_test",
         rows: [{ size: 30, cells: ["a"] }],
         columns: [{ size: 80 }],
@@ -563,11 +563,11 @@ describe("table queries", () => {
 
   describe("selectors", () => {
     const createTable = async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
         layout: {},
       });
-      return await client.tables.create(ws.key, {
+      return await client.tables.create(proj.key, {
         name: "selector_test",
         rows: [
           { size: 30, cells: ["a", "b"] },
@@ -801,11 +801,11 @@ describe("table queries", () => {
 
   describe("useRetrieveObservableName", () => {
     it("fires the callback with the initial name and with each rename", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `obs_name_ws_${uuid.create()}`,
         layout: {},
       });
-      const created = await client.tables.create(ws.key, {
+      const created = await client.tables.create(proj.key, {
         name: "obs_initial",
       });
       const seen: string[] = [];

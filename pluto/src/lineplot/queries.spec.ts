@@ -246,11 +246,11 @@ describe("lineplot queries", () => {
 
   describe("useDispatch", () => {
     const createPlot = async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `dispatch_ws_${uuid.create()}`,
         layout: {},
       });
-      return await client.lineplots.create(ws.key, { name: "dispatch_test" });
+      return await client.lineplots.create(proj.key, { name: "dispatch_test" });
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
@@ -476,11 +476,11 @@ describe("lineplot queries", () => {
 
   describe("selectors", () => {
     const createPlot = async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `selector_ws_${uuid.create()}`,
         layout: {},
       });
-      return await client.lineplots.create(ws.key, { name: "selector_test" });
+      return await client.lineplots.create(proj.key, { name: "selector_test" });
     };
 
     const loadAndUse = async <T>(key: string, hook: () => T) => {
@@ -932,11 +932,11 @@ describe("lineplot queries", () => {
 
   describe("selector stability", () => {
     const createPlot = async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `stability_ws_${uuid.create()}`,
         layout: {},
       });
-      return await client.lineplots.create(ws.key, { name: "stability_test" });
+      return await client.lineplots.create(proj.key, { name: "stability_test" });
     };
 
     const loadAndCount = async <T>(key: string, hook: () => T) => {
@@ -1497,11 +1497,11 @@ describe("lineplot queries", () => {
 
   describe("useRetrieveObservableName", () => {
     it("fires the callback with the initial name and with each rename", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `obs_name_ws_${uuid.create()}`,
         layout: {},
       });
-      const created = await client.lineplots.create(ws.key, {
+      const created = await client.lineplots.create(proj.key, {
         name: "obs_initial",
       });
       const seen: string[] = [];
