@@ -17,6 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/go/marshal"
 	. "github.com/synnaxlabs/oracle/testutil"
+	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 )
 
 func TestGoMarshal(t *testing.T) {
@@ -380,7 +382,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("map field nil preservation", func() {
-			It("Should encode union map values as length-prefixed JSON", func(ctx SpecContext) {
+			It("Should dispatch union map values through the wrapper codec", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -399,9 +401,10 @@ var _ = Describe("Go Marshal Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
 				ExpectContent(resp, "codec.gen.go").
 					ToContain(
-						"json.Marshal(val)",
-						"json.Unmarshal(b, &val)",
-					)
+						"if err := val.EncodeOrc(w); err != nil { return err }",
+						"if err = val.DecodeOrc(r); err != nil { return err }",
+					).
+					ToNotContain("json.Marshal(val)")
 			})
 
 			It("Should generate a presence bit before the map length", func() {
@@ -792,5 +795,205 @@ var _ = Describe("Go Marshal Plugin", func() {
 					)
 			})
 		})
+	})
+})
+
+var _ = Describe("Union Codecs", func() {
+	var (
+		loader        *MockFileLoader
+		marshalPlugin *marshal.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		marshalPlugin = marshal.New(marshal.DefaultOptions())
+	})
+
+	It("Should generate a binary wrapper codec with base and payload delegation", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			BaseElement struct { key string }
+			TankConfig struct { width float64 }
+			ValveConfig struct {}
+
+			ElementConfig union on variant extends BaseElement {
+				tank  TankConfig
+				valve ValveConfig
+			}
+
+			Test struct {
+				config ElementConfig
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "codec.gen.go").
+			ToContain(
+				"func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {",
+				"switch v := ec.Variant.(type) {",
+				"case ElementConfigTank:",
+				`w.String("tank")`,
+				"if err := v.BaseElement.EncodeOrc(w); err != nil { return err }",
+				"if err := v.TankConfig.EncodeOrc(w); err != nil { return err }",
+				"case ElementConfigValve:",
+				`w.String("valve")`,
+				`return errors.Newf("ElementConfig: nil or unknown variant %T", ec.Variant)`,
+				"func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {",
+				"tag, err := r.String()",
+				`case "tank":`,
+				"var v ElementConfigTank",
+				"if err := v.BaseElement.DecodeOrc(r); err != nil { return err }",
+				"if err := v.TankConfig.DecodeOrc(r); err != nil { return err }",
+				"ec.Variant = v",
+				`return errors.Newf("ElementConfig: unknown variant %q", tag)`,
+				"if err := t.Config.EncodeOrc(w); err != nil { return err }",
+				`"github.com/synnaxlabs/x/errors"`,
+			).
+			ToNotContain("json.Marshal")
+	})
+
+	It("Should generate codecs for structs reachable only through a union", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			TankConfig struct { width float64 }
+
+			ElementConfig union on variant {
+				tank TankConfig
+			}
+
+			Test struct {
+				config ElementConfig
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "codec.gen.go").
+			ToContain(
+				"func (tc TankConfig) EncodeOrc(w *orc.Writer) error {",
+				"w.Float64(float64(tc.Width))",
+			)
+	})
+})
+
+// The rt* fixtures mirror the exact shape the generator emits for a
+// discriminated union wrapper codec (binary discriminator tag followed by the
+// variant's struct codecs), locking the runtime semantics the substring tests
+// above cannot: round-trip equality, the nil-variant encode error, and the
+// unknown-tag decode error.
+type rtTank struct{ Width float64 }
+
+func (t rtTank) EncodeOrc(w *orc.Writer) error {
+	w.Float64(t.Width)
+	return nil
+}
+
+func (t *rtTank) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if t.Width, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type rtValve struct{ Open bool }
+
+func (v rtValve) EncodeOrc(w *orc.Writer) error {
+	w.Bool(v.Open)
+	return nil
+}
+
+func (v *rtValve) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if v.Open, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}
+
+type rtConfigVariant interface{ isRTConfigVariant() }
+
+type rtConfigTank struct{ rtTank }
+
+func (rtConfigTank) isRTConfigVariant() {}
+
+type rtConfigValve struct{ rtValve }
+
+func (rtConfigValve) isRTConfigVariant() {}
+
+type rtConfig struct{ Variant rtConfigVariant }
+
+func (c rtConfig) EncodeOrc(w *orc.Writer) error {
+	switch v := c.Variant.(type) {
+	case rtConfigTank:
+		w.String("tank")
+		if err := v.rtTank.EncodeOrc(w); err != nil {
+			return err
+		}
+	case rtConfigValve:
+		w.String("valve")
+		if err := v.rtValve.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("rtConfig: nil or unknown variant %T", c.Variant)
+	}
+	return nil
+}
+
+func (c *rtConfig) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "tank":
+		var v rtConfigTank
+		if err := v.rtTank.DecodeOrc(r); err != nil {
+			return err
+		}
+		c.Variant = v
+	case "valve":
+		var v rtConfigValve
+		if err := v.rtValve.DecodeOrc(r); err != nil {
+			return err
+		}
+		c.Variant = v
+	default:
+		return errors.Newf("rtConfig: unknown variant %q", tag)
+	}
+	return nil
+}
+
+var _ = Describe("Union Codec Round Trip", func() {
+	DescribeTable("should round-trip each variant through the orc wire form",
+		func(in rtConfig) {
+			w := orc.NewWriter(0)
+			Expect(in.EncodeOrc(w)).To(Succeed())
+			r := orc.NewReader(nil)
+			r.ResetBytes(w.Bytes())
+			var out rtConfig
+			Expect(out.DecodeOrc(r)).To(Succeed())
+			Expect(out).To(Equal(in))
+		},
+		Entry("tank variant", rtConfig{Variant: rtConfigTank{rtTank{Width: 1.5}}}),
+		Entry("valve variant", rtConfig{Variant: rtConfigValve{rtValve{Open: true}}}),
+	)
+
+	It("Should reject encoding a nil variant", func() {
+		w := orc.NewWriter(0)
+		Expect(rtConfig{}.EncodeOrc(w)).To(MatchError(ContainSubstring("nil or unknown variant")))
+	})
+
+	It("Should reject decoding an unknown discriminator tag", func() {
+		w := orc.NewWriter(0)
+		w.String("bogus")
+		r := orc.NewReader(nil)
+		r.ResetBytes(w.Bytes())
+		var out rtConfig
+		Expect(out.DecodeOrc(r)).To(MatchError(ContainSubstring(`unknown variant "bogus"`)))
 	})
 })
