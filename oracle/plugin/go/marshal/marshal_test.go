@@ -881,9 +881,24 @@ var _ = Describe("Union Codecs", func() {
 
 // The rt* fixtures mirror the exact shape the generator emits for a
 // discriminated union wrapper codec (binary discriminator tag followed by the
-// variant's struct codecs), locking the runtime semantics the substring tests
-// above cannot: round-trip equality, the nil-variant encode error, and the
-// unknown-tag decode error.
+// variant's base and payload codecs), locking the runtime semantics the
+// substring tests above cannot: round-trip equality, the nil-variant encode
+// error, and the unknown-tag decode error.
+type rtBase struct{ Key string }
+
+func (b rtBase) EncodeOrc(w *orc.Writer) error {
+	w.String(b.Key)
+	return nil
+}
+
+func (b *rtBase) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if b.Key, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
 type rtTank struct{ Width float64 }
 
 func (t rtTank) EncodeOrc(w *orc.Writer) error {
@@ -916,11 +931,17 @@ func (v *rtValve) DecodeOrc(r *orc.Reader) error {
 
 type rtConfigVariant interface{ isRTConfigVariant() }
 
-type rtConfigTank struct{ rtTank }
+type rtConfigTank struct {
+	rtBase
+	rtTank
+}
 
 func (rtConfigTank) isRTConfigVariant() {}
 
-type rtConfigValve struct{ rtValve }
+type rtConfigValve struct {
+	rtBase
+	rtValve
+}
 
 func (rtConfigValve) isRTConfigVariant() {}
 
@@ -930,11 +951,17 @@ func (c rtConfig) EncodeOrc(w *orc.Writer) error {
 	switch v := c.Variant.(type) {
 	case rtConfigTank:
 		w.String("tank")
+		if err := v.rtBase.EncodeOrc(w); err != nil {
+			return err
+		}
 		if err := v.rtTank.EncodeOrc(w); err != nil {
 			return err
 		}
 	case rtConfigValve:
 		w.String("valve")
+		if err := v.rtBase.EncodeOrc(w); err != nil {
+			return err
+		}
 		if err := v.rtValve.EncodeOrc(w); err != nil {
 			return err
 		}
@@ -952,12 +979,18 @@ func (c *rtConfig) DecodeOrc(r *orc.Reader) error {
 	switch tag {
 	case "tank":
 		var v rtConfigTank
+		if err := v.rtBase.DecodeOrc(r); err != nil {
+			return err
+		}
 		if err := v.rtTank.DecodeOrc(r); err != nil {
 			return err
 		}
 		c.Variant = v
 	case "valve":
 		var v rtConfigValve
+		if err := v.rtBase.DecodeOrc(r); err != nil {
+			return err
+		}
 		if err := v.rtValve.DecodeOrc(r); err != nil {
 			return err
 		}
@@ -979,8 +1012,12 @@ var _ = Describe("Union Codec Round Trip", func() {
 			Expect(out.DecodeOrc(r)).To(Succeed())
 			Expect(out).To(Equal(in))
 		},
-		Entry("tank variant", rtConfig{Variant: rtConfigTank{rtTank{Width: 1.5}}}),
-		Entry("valve variant", rtConfig{Variant: rtConfigValve{rtValve{Open: true}}}),
+		Entry("tank variant", rtConfig{Variant: rtConfigTank{
+			rtBase{Key: "t1"}, rtTank{Width: 1.5},
+		}}),
+		Entry("valve variant", rtConfig{Variant: rtConfigValve{
+			rtBase{Key: "v1"}, rtValve{Open: true},
+		}}),
 	)
 
 	It("Should reject encoding a nil variant", func() {
