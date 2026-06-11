@@ -79,12 +79,8 @@ func (s *Service) Create(
 	}); err != nil {
 		return res, err
 	}
-	w := s.internal.NewWriter(tx)
-	for i, p := range req.Panels {
-		if err := w.Create(ctx, &p); err != nil {
-			return res, err
-		}
-		req.Panels[i] = p
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Panels); err != nil {
+		return res, err
 	}
 	res.Panels = req.Panels
 	return res, nil

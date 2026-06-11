@@ -77,6 +77,17 @@ func (w Writer) Create(
 	return nil
 }
 
+// CreateMany creates the given panels, applying the same key assignment, tree
+// defaulting, validation, and parenting as Create to each.
+func (w Writer) CreateMany(ctx context.Context, ps *[]Panel) error {
+	for i := range *ps {
+		if err := w.Create(ctx, &(*ps)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Dispatch applies a sequence of actions atomically to the panel with the given key.
 // After a successful update the actions are notified to the service-level dispatcher
 // so subscribers (cluster signals) can broadcast them. dispatchKey identifies the

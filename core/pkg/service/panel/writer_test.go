@@ -142,6 +142,49 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create every panel with keys assigned and trees defaulted", func(ctx SpecContext) {
+			ps := []panel.Panel{
+				{Name: "a", Parent: &parentID},
+				{Name: "b", Parent: &parentID},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
+			for _, p := range ps {
+				Expect(p.Key).ToNot(Equal(uuid.Nil))
+				leaf := MustBeOk(asLeaf(retrieve(ctx, p.Key).Root))
+				Expect(leaf.Tabs).To(BeEmpty())
+			}
+		})
+
+		It("Should parent each panel to its own parent", func(ctx SpecContext) {
+			other := MustSucceed(dist.Group.CreateOrRetrieve(ctx, "other-parent", ontology.RootID)).
+				OntologyID()
+			ps := []panel.Panel{
+				{Name: "a", Parent: &parentID},
+				{Name: "b", Parent: &other},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
+			Expect(otg.NewWriter(tx).HasRelationship(
+				ctx, parentID, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[0].Key),
+			)).To(BeTrue())
+			Expect(otg.NewWriter(tx).HasRelationship(
+				ctx, other, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[1].Key),
+			)).To(BeTrue())
+		})
+
+		It("Should reject the batch when any panel's tree is invalid", func(ctx SpecContext) {
+			key := uuid.New()
+			ps := []panel.Panel{
+				{Name: "ok", Parent: &parentID},
+				{Name: "bad", Parent: &parentID, Root: splitNode(
+					spatial.DirectionX, 0.5, leafNode(tab(key)), leafNode(tab(key)),
+				)},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).
+				To(MatchError(panel.ErrDuplicateTab))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should delete a panel so it is no longer retrievable", func(ctx SpecContext) {
 			p := panel.Panel{Name: "to-delete", Parent: &parentID}
