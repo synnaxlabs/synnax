@@ -11,6 +11,7 @@ import { ontology, panel } from "@synnaxlabs/client";
 import { type location, uuid } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement, useCallback, useMemo } from "react";
 
+import { type Component } from "@/component";
 import { context } from "@/context";
 import { Mosaic as Base } from "@/mosaic";
 import {
@@ -110,45 +111,37 @@ const adaptToMosaic = (root: panel.Node, selected: string[] | undefined): Base.N
   return visit(root, panel.ROOT_PATH);
 };
 
-// TabNameContext carries the panel key and the consumer's tabName resolver down
-// to the Base.Mosaic tab strip, which only exposes Tabs.NameProps. A
-// module-stable Name component reads it so tab names never remount on tree
-// changes.
 interface TabNameContextValue {
-  panelKey: panel.Key | null;
-  tabName?: (props: MosaicTabNameProps) => ReactElement | null;
+  panelKey: panel.Key;
+  tabName?: Component.RenderProp<MosaicTabNameProps>;
 }
 
 const [TabNameContext, useTabNameContext] = context.create<TabNameContextValue>({
-  displayName: "Panel.Mosaic.TabName",
-  defaultValue: { panelKey: null },
+  displayName: "Panel.Mosaic.TabContext.Provider",
+  providerName: "Panel.Mosaic.TabContext.Provider",
 });
 
 const TabName: ComponentType<Tabs.NameProps> = (props) => {
-  const { panelKey, tabName } = useTabNameContext();
-  const content = useSelectTabContent({ key: panelKey ?? "", tabKey: props.tabKey });
+  const { tabKey } = props;
+  const { panelKey: key, tabName } = useTabNameContext("Panel.Mosaic.TabName");
+  const content = useSelectTabContent({ key, tabKey });
   if (tabName == null) return <Tabs.DefaultName {...props} />;
-  return tabName({ ...props, resource: content.resource, view: content.view });
+  return tabName({ ...props, ...content });
 };
 
-interface ContentProps {
+interface ContentProps extends Pick<MosaicProps, "children"> {
   panelKey: panel.Key;
   tabKey: string;
   visible: boolean;
-  children: MosaicProps["children"];
 }
 
-// Content subscribes to a single tab's content union, so a resource or view
-// change re-renders only this tab.
 const Content = ({
-  panelKey,
+  panelKey: key,
   tabKey,
   visible,
   children,
-}: ContentProps): ReactElement | null => {
-  const content = useSelectTabContent({ key: panelKey, tabKey });
-  return children({ tabKey, resource: content.resource, view: content.view, visible });
-};
+}: ContentProps): ReactElement | null =>
+  children({ ...useSelectTabContent({ key, tabKey }), tabKey, visible });
 
 export const Mosaic = ({
   panelKey: key,
@@ -164,16 +157,14 @@ export const Mosaic = ({
   const treeRoot = useSelectRoot({ key });
   const root = useMemo(() => adaptToMosaic(treeRoot, selected), [treeRoot, selected]);
 
-  const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
-
   const handleDrop = useCallback(
-    (targetLeaf: number, tabKey: string, loc: location.Location, index?: number) => {
-      const action = panel.moveTab({
-        key: tabKey,
-        targetLeaf,
-        index: index ?? 0,
-        location: loc === "center" ? undefined : loc,
-      });
+    (
+      targetLeaf: number,
+      tabKey: string,
+      location: location.Location,
+      index?: number,
+    ) => {
+      const action = panel.moveTab({ key: tabKey, targetLeaf, index, location });
       dispatch({ key, actions: [action] });
     },
     [dispatch, key],
@@ -192,22 +183,20 @@ export const Mosaic = ({
 
   const handleCreate = useCallback(
     (node: number, loc: location.Location, tabKeys?: string[]) => {
-      const dropped = (tabKeys ?? []).flatMap((raw) => {
-        const parsed = ontology.idZ.safeParse(raw);
-        return parsed.success ? [parsed.data] : [];
-      });
-      const tabs: panel.Tab[] =
-        dropped.length === 0
-          ? [{ key: uuid.create() }]
-          : dropped.map((resource) => ({ key: uuid.create(), resource }));
-      const edge = loc === "center" ? undefined : loc;
+      let tabs: panel.Tab[];
+      if (tabKeys == null) tabs = [{ key: uuid.create() }];
+      else
+        tabs = tabKeys.flatMap((raw) => {
+          const parsed = ontology.idZ.safeParse(raw);
+          return parsed.success ? [{ key: uuid.create(), resource: parsed.data }] : [];
+        });
       const restLeaf =
-        edge != null ? panel.childPath(node, panel.splitSide(edge)) : node;
+        loc === "center" ? node : panel.childPath(node, panel.splitSide(loc));
       const actions = tabs.map((tab, i) =>
         panel.insertTab({
           tab,
           targetLeaf: i === 0 ? node : restLeaf,
-          location: i === 0 ? edge : undefined,
+          location: i === 0 ? loc : undefined,
         }),
       );
       dispatch({ key, actions });
@@ -218,7 +207,7 @@ export const Mosaic = ({
 
   const [portalRef, portalNodes] = Base.usePortal({
     root,
-    onSelect: handleSelect,
+    onSelect,
     children: ({ tabKey, visible }) => (
       <Content panelKey={key} tabKey={tabKey} visible={visible !== false}>
         {children}
@@ -247,7 +236,7 @@ export const Mosaic = ({
         {...rest}
         root={root}
         activeTab={focused}
-        onSelect={handleSelect}
+        onSelect={onSelect}
         onDrop={handleDrop}
         onResize={handleResize}
         onClose={handleClose}
