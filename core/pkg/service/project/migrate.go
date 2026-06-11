@@ -11,6 +11,7 @@ package project
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -19,6 +20,50 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
+
+// LegacyLayoutKVPrefix is the KV key prefix under which MigrateLayoutsToStaging
+// stages each project's legacy layout blob. The remainder of the key is the
+// project's key. The panel migration scans this prefix to convert the blobs into
+// panels and deletes the entries as it consumes them, so it never reads the project
+// layout field and the field can later be removed without ordering a project-table
+// migration after a panel-table one.
+const LegacyLayoutKVPrefix = "sy_project_legacy_layout/"
+
+// LegacyLayoutKVKey returns the staging KV key holding the legacy layout blob for the
+// project with the given key.
+func LegacyLayoutKVKey(key Key) []byte {
+	return []byte(LegacyLayoutKVPrefix + key.String())
+}
+
+// MigrateLayoutsToStaging copies every project's layout blob into its own staging KV
+// entry keyed by LegacyLayoutKVKey. The blob is the project layout marshalled to
+// JSON, which the panel migration unmarshals back into its legacy mosaic structs.
+// The layout field is left intact; this migration only forwards a copy so the panel
+// migration no longer depends on reading it.
+func MigrateLayoutsToStaging(
+	ctx context.Context,
+	tx gorp.Tx,
+	_ alamos.Instrumentation,
+) error {
+	projects, err := collectEntries(
+		ctx,
+		gorp.WrapReader[Key, Project](tx),
+		func(p Project) bool { return len(p.Layout) > 0 },
+	)
+	if err != nil {
+		return err
+	}
+	for _, p := range projects {
+		blob, err := json.Marshal(p.Layout)
+		if err != nil {
+			return errors.Wrapf(err, "marshal layout for project %s", p.Key)
+		}
+		if err = tx.Set(ctx, LegacyLayoutKVKey(p.Key), blob); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // legacyWorkspaceType is the ontology resource type workspaces were stored under
 // before the rename to project.

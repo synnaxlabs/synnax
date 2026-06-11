@@ -268,3 +268,20 @@ func splitLeafAt(root *Node, leafPath int32, loc spatial.Location, size float64)
 	node.Split = split
 	return nil
 }
+
+// splitLeafForPlacement splits the leaf at leafPath at loc and returns the path
+// key of the new empty sibling leaf created by the split. Returns the same
+// errors as splitLeafAt.
+func splitLeafForPlacement(root *Node, leafPath int32, loc spatial.Location) (int32, error) {
+	if err := splitLeafAt(root, leafPath, loc, 0.5); err != nil {
+		return 0, err
+	}
+	_, side, err := directionAndSideForLocation(loc)
+	if err != nil {
+		return 0, err
+	}
+	if side == spatial.OrderFirst {
+		return leafPath * 2, nil
+	}
+	return leafPath*2 + 1, nil
+}

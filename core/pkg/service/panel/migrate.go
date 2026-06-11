@@ -10,8 +10,12 @@
 package panel
 
 import (
+	"bytes"
+	"cmp"
 	"context"
+	"encoding/json"
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
@@ -19,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/spatial"
 	"go.uber.org/zap"
 )
@@ -76,36 +81,38 @@ type legacySlice struct {
 // mainWindowKey is the key the Console uses for the main window's mosaic.
 const mainWindowKey = "main"
 
-// MigrateProjectLayouts returns a migration that converts each project's legacy
-// layout blob into panels. Every window mosaic that references at least one live
+// stagedLayout is a project layout gathered from the staging prefix for conversion:
+// the KV key it was read from, the owning project's ontology ID, and the parsed
+// mosaic state.
+type stagedLayout struct {
+	key       []byte
+	projectID ontology.ID
+	slice     legacySlice
+}
+
+// MigrateProjectLayouts returns a migration that converts the legacy layout blobs the
+// project migration stages under project.LegacyLayoutKVPrefix into panels, deleting
+// each staged entry as it is consumed, so this migration never reads the project
+// layout field directly. Every window mosaic that references at least one live
 // visualization document becomes a panel parented under the project and the panels
 // group identified by groupID. Tabs whose layout entry is missing, whose layout type
 // has no backing document, or whose document no longer exists are dropped; splits
-// that lose a side collapse into the surviving child. Blobs that cannot be parsed
-// are skipped, since the Console wrote them best-effort and an unreadable layout
-// must not block the upgrade.
+// that lose a side collapse into the surviving child. Blobs that cannot be parsed are
+// skipped, since the Console wrote them best-effort and an unreadable layout must not
+// block the upgrade.
 func MigrateProjectLayouts(
 	groupID ontology.ID,
 ) func(context.Context, gorp.Tx, alamos.Instrumentation) error {
 	return func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-		projects, err := collectProjects(ctx, tx)
+		staged, err := scanStagedLayouts(ctx, tx, ins)
 		if err != nil {
 			return err
 		}
-		for _, p := range projects {
-			if len(p.Layout) == 0 {
-				continue
+		for _, s := range staged {
+			if err = createPanels(ctx, tx, groupID, s.projectID, s.slice); err != nil {
+				return err
 			}
-			var slice legacySlice
-			if err := p.Layout.Unmarshal(&slice); err != nil {
-				ins.L.Warn(
-					"skipping project with unparseable layout",
-					zap.String("project", p.Key.String()),
-					zap.Error(err),
-				)
-				continue
-			}
-			if err := createPanels(ctx, tx, groupID, p, slice); err != nil {
+			if err = tx.Delete(ctx, s.key); err != nil {
 				return err
 			}
 		}
@@ -113,13 +120,48 @@ func MigrateProjectLayouts(
 	}
 }
 
-// createPanels converts every migratable window mosaic in slice into a panel owned
-// by p.
+// scanStagedLayouts gathers every staged layout before any are converted, since
+// writing panels while iterating the staging prefix would be unsafe. Blobs that fail
+// to parse are skipped with a warning.
+func scanStagedLayouts(
+	ctx context.Context,
+	tx gorp.Tx,
+	ins alamos.Instrumentation,
+) (out []stagedLayout, err error) {
+	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(project.LegacyLayoutKVPrefix)))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Combine(err, iter.Close()) }()
+	for iter.First(); iter.Valid(); iter.Next() {
+		key := bytes.Clone(iter.Key())
+		var slice legacySlice
+		if jerr := json.Unmarshal(iter.Value(), &slice); jerr != nil {
+			ins.L.Warn(
+				"skipping project with unparseable staged layout",
+				zap.String("key", string(key)),
+				zap.Error(jerr),
+			)
+			continue
+		}
+		out = append(out, stagedLayout{
+			key: key,
+			projectID: ontology.ID{
+				Type: ontology.ResourceTypeProject,
+				Key:  strings.TrimPrefix(string(key), project.LegacyLayoutKVPrefix),
+			},
+			slice: slice,
+		})
+	}
+	return out, iter.Error()
+}
+
+// createPanels converts every migratable window mosaic in slice into a panel owned by
+// the project with the given ontology ID.
 func createPanels(
 	ctx context.Context,
 	tx gorp.Tx,
-	groupID ontology.ID,
-	p project.Project,
+	groupID, projectID ontology.ID,
 	slice legacySlice,
 ) error {
 	panelWriter := gorp.WrapWriter[Key, Panel](tx)
@@ -141,7 +183,7 @@ func createPanels(
 		if err := resourceWriter.Set(ctx, ontology.Resource{ID: panelID}); err != nil {
 			return err
 		}
-		for _, parent := range []ontology.ID{groupID, project.OntologyID(p.Key)} {
+		for _, parent := range []ontology.ID{groupID, projectID} {
 			if err := relWriter.Set(ctx, ontology.Relationship{
 				From: parent,
 				Type: ontology.RelationshipTypeParentOf,
@@ -162,19 +204,16 @@ func sortedWindowKeys(mosaics map[string]legacyMosaic) []string {
 		keys = append(keys, k)
 	}
 	slices.SortFunc(keys, func(a, b string) int {
+		if a == b {
+			return 0
+		}
 		if a == mainWindowKey {
 			return -1
 		}
 		if b == mainWindowKey {
 			return 1
 		}
-		if a < b {
-			return -1
-		}
-		if a > b {
-			return 1
-		}
-		return 0
+		return cmp.Compare(a, b)
 	})
 	return keys
 }
@@ -267,25 +306,4 @@ func convertSize(s float64) float64 {
 		return s
 	}
 	return 0.5
-}
-
-// collectProjects drains every project record into a slice. Mutating other gorp
-// prefixes while iterating is unsafe, so the migration gathers first and writes
-// after.
-func collectProjects(
-	ctx context.Context,
-	tx gorp.Tx,
-) (out []project.Project, err error) {
-	iter, err := gorp.WrapReader[project.Key, project.Project](tx).
-		OpenIterator(gorp.IterOptions{})
-	if err != nil {
-		return nil, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	for iter.First(); iter.Valid(); iter.Next() {
-		if p := iter.Value(ctx); p != nil {
-			out = append(out, *p)
-		}
-	}
-	return out, iter.Error()
 }

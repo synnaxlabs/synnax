@@ -36,11 +36,13 @@ type RenamePayload struct {
 }
 
 // InsertTabPayload inserts a tab into the leaf with the given path-derived key at the
-// given index. Appends when index is absent.
+// given index. Appends when index is absent. When location is present, the target leaf
+// is first split at that location and the tab is inserted into the new empty leaf.
 type InsertTabPayload struct {
-	Tab        Tab    `json:"tab" msgpack:"tab"`
-	TargetLeaf int32  `json:"target_leaf" msgpack:"target_leaf"`
-	Index      *int32 `json:"index,omitempty" msgpack:"index,omitempty"`
+	Tab        Tab               `json:"tab" msgpack:"tab"`
+	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
+	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
+	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
 }
 
 // RemoveTabPayload removes the tab with the given key. If the containing leaf becomes
@@ -49,13 +51,16 @@ type RemoveTabPayload struct {
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
-// MoveTabPayload moves a tab to a position within the panel. Cross-panel moves are
-// RemoveTab on the source plus InsertTab on the destination (two dispatches; not
-// atomic).
+// MoveTabPayload moves a tab to a position within the panel. When location is present,
+// the target leaf is first split at that location and the tab moves into the new empty
+// leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. Cross-panel
+// moves are RemoveTab on the source plus InsertTab on the destination (two dispatches;
+// not atomic).
 type MoveTabPayload struct {
-	Key        uuid.UUID `json:"key" msgpack:"key"`
-	TargetLeaf int32     `json:"target_leaf" msgpack:"target_leaf"`
-	Index      *int32    `json:"index,omitempty" msgpack:"index,omitempty"`
+	Key        uuid.UUID         `json:"key" msgpack:"key"`
+	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
+	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
+	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
 }
 
 // SplitLeafPayload splits the given leaf into a parent split with two children: the
