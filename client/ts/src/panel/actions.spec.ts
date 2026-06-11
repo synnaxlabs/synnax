@@ -81,6 +81,17 @@ describe("reduceAll", () => {
       expect(next.root.split).toBeUndefined();
       expect(tabKeys(next.root)).toEqual(["a"]);
     });
+
+    it("should place the tab directly in the target leaf for a center location", () => {
+      const { next } = panel.reduceAll(
+        state({
+          split: { direction: "x", size: 0.5, first: leaf("a"), last: leaf("b") },
+        }),
+        [panel.moveTab({ key: "a", targetLeaf: 3, location: "center" })],
+      );
+      expect(next.root.split).toBeUndefined();
+      expect(tabKeys(next.root)).toEqual(["b", "a"]);
+    });
   });
 
   describe("resizeSplit", () => {
@@ -118,6 +129,18 @@ describe("reduceAll", () => {
       expect(next.root.split?.direction).toEqual("y");
       expect(tabKeys(next.root.split?.first)).toEqual(["a"]);
       expect(tabKeys(next.root.split?.last)).toEqual(["b"]);
+    });
+
+    it("should insert directly into the target leaf for a center location", () => {
+      const { next } = panel.reduceAll(state(leaf("a")), [
+        panel.insertTab({
+          tab: { key: "b" },
+          targetLeaf: panel.ROOT_PATH,
+          location: "center",
+        }),
+      ]);
+      expect(next.root.split).toBeUndefined();
+      expect(tabKeys(next.root)).toEqual(["a", "b"]);
     });
   });
 
