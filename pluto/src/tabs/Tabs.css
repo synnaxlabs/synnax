@@ -18,11 +18,6 @@
 
 .pluto-tabs-selector {
     height: 0 !important;
-    .pluto-tabs-selector__icon {
-        flex-shrink: 0;
-        margin-left: 1.5rem;
-        margin-right: 1rem;
-    }
 
     .pluto-tabs-selector__tabs {
         height: 100%;
@@ -41,38 +36,9 @@
         }
     }
 
-    &.pluto--direction-x {
-        box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0
-            var(--pluto-border-color);
-        z-index: 3;
-        & .pluto-tabs-selector__tabs > .pluto-btn {
-            margin-bottom: -1px;
-            height: 100% !important;
-            font-weight: 450;
-            position: relative;
-            &.pluto--selected {
-                --box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
-                box-shadow: var(--box-shadow);
-                .pluto-btn-icon:hover {
-                    box-shadow: var(--box-shadow);
-                }
-            }
-        }
-    }
-
-    &.pluto--drag-over .pluto-tabs-selector__tabs > *:last-child {
-        border-left: 2px solid var(--pluto-primary-z);
-        height: 100%;
-    }
-
     & .pluto-tabs-selector__tabs > .pluto-btn {
         cursor: pointer;
-        border: none;
-        padding: 0;
-        transition:
-            box-shadow 0.15s,
-            background 0.15s ease-in-out,
-            border-color 0.15s ease-in-out;
+        position: relative;
 
         &.pluto--drag-over {
             &::after {
@@ -96,6 +62,46 @@
                 right: -1px;
             }
         }
+    }
+
+    &.pluto--drag-over .pluto-tabs-selector__tabs > *:last-child {
+        border-left: 2px solid var(--pluto-primary-z);
+        height: 100%;
+    }
+}
+
+.pluto-tabs-selector--default {
+    .pluto-tabs-selector__icon {
+        flex-shrink: 0;
+        margin-left: 1.5rem;
+        margin-right: 1rem;
+    }
+
+    &.pluto--direction-x {
+        box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0
+            var(--pluto-border-color);
+        z-index: 3;
+        & .pluto-tabs-selector__tabs > .pluto-btn {
+            margin-bottom: -1px;
+            height: 100% !important;
+            font-weight: 450;
+            &.pluto--selected {
+                --box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+                box-shadow: var(--box-shadow);
+                .pluto-btn-icon:hover {
+                    box-shadow: var(--box-shadow);
+                }
+            }
+        }
+    }
+
+    & .pluto-tabs-selector__tabs > .pluto-btn {
+        border: none;
+        padding: 0;
+        transition:
+            box-shadow 0.15s,
+            background 0.15s ease-in-out,
+            border-color 0.15s ease-in-out;
 
         .pluto-text {
             color: var(--pluto-gray-l9);
@@ -218,7 +224,7 @@
     }
 }
 
-.pluto-header .pluto-tabs-selector {
+.pluto-header .pluto-tabs-selector--default {
     &.pluto--direction-x {
         box-shadow: none;
     }

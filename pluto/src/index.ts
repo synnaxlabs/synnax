@@ -49,6 +49,7 @@ export { Notation } from "@/notation";
 export { Note } from "@/note";
 export { Ontology } from "@/ontology";
 export { OS } from "@/os";
+export { Panel } from "@/panel";
 export { Pluto } from "@/pluto";
 export { Portal } from "@/portal";
 export { Progress } from "@/progress";
