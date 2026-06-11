@@ -161,20 +161,6 @@ func walkLeaf(root Node, pathKey int32) (Leaf, error) {
 	return leaf.Leaf, nil
 }
 
-// walkSplit returns the split at the given path key, or an error if the path
-// resolves to a leaf or does not resolve at all.
-func walkSplit(root Node, pathKey int32) (Split, error) {
-	n, err := walk(root, pathKey)
-	if err != nil {
-		return Split{}, err
-	}
-	split, ok := n.Variant.(NodeSplit)
-	if !ok {
-		return Split{}, ErrNotASplit
-	}
-	return split.Split, nil
-}
-
 // findTab walks the tree to find the leaf containing the tab with the given key.
 // Returns the leaf's path key, the tab's index within the leaf, and ok=true. When
 // the tab is not present, returns ok=false.
