@@ -33,20 +33,15 @@ type Writer struct {
 }
 
 // Create creates or updates the given range. If r.Parent is non-nil, the range is
-// parented to that range; otherwise its parent relationship is left unchanged on update
-// and left undefined on create. If r.Parent points to a range that does not yet exist,
-// it (and any of its own ancestors via Parent) is created first, so an arbitrarily deep
-// ancestry chain can be persisted in a single call. If r.Labels is non-empty, a
-// LabeledBy relationship is defined from the range to each label; existing
-// relationships are preserved. If the range does not already have a key, a new key will
-// be assigned. If the range already exists and r.Parent is non-nil, the existing parent
-// relationship will be replaced.
+// parented to that range via the parent-of relationship; only r.Parent.Key is consulted
+// — the parent's other fields are ignored and the parent must already exist (it is not
+// validated or written). If r.Parent is nil on update, the existing parent relationship
+// is preserved; on create it is left undefined. If r.Labels is non-empty, a LabeledBy
+// relationship is defined from the range to each label; existing relationships are
+// preserved. If the range does not already have a key, a new key will be assigned. If
+// the range already exists and r.Parent is non-nil, the existing parent relationship
+// will be replaced.
 func (w Writer) Create(ctx context.Context, r *Range) error {
-	if r.Parent != nil {
-		if err := w.Create(ctx, r.Parent); err != nil {
-			return err
-		}
-	}
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
 	}
@@ -174,7 +169,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DeleteManyResources(ctx, OntologyIDs(allKeys))
+	return w.otgWriter.DeleteResource(ctx, OntologyIDs(allKeys)...)
 }
 
 func (w Writer) validate(r Range) error {

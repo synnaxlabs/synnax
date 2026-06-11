@@ -32,15 +32,38 @@ type (
 	Range = ranger.Range
 )
 
+// rangeAccessOntologyIDs collects every ontology ID that an access check should cover
+// for the given ranges. Each range contributes its own ID, the IDs of its labels, and
+// the ID + labels of its immediate parent (one level only — deeper ancestry is the
+// parent's authorization concern). The one-level cap also makes the walk safe against
+// hostile inputs that build cycles via the Parent pointer.
 func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
 	ids := make([]ontology.ID, 0, len(ranges))
 	for _, r := range ranges {
-		for cur := &r; cur != nil; cur = cur.Parent {
-			ids = append(ids, cur.OntologyID())
-			ids = append(ids, label.OntologyIDsFromLabels(cur.Labels)...)
+		ids = append(ids, r.OntologyID())
+		ids = append(ids, label.OntologyIDsFromLabels(r.Labels)...)
+		if r.Parent == nil {
+			continue
 		}
+		ids = append(ids, r.Parent.OntologyID())
+		ids = append(ids, label.OntologyIDsFromLabels(r.Parent.Labels)...)
 	}
 	return ids
+}
+
+// validateParentDepth rejects requests whose Parent chain exceeds one level. The
+// transport-layer codec already caps unmarshal recursion at a fixed depth, but this
+// explicit check enforces the one-level API contract and gives clients a clear error
+// rather than letting the server silently ignore everything past the first parent.
+func validateParentDepth(ranges []Range) error {
+	for _, r := range ranges {
+		if r.Parent != nil && r.Parent.Parent != nil {
+			return errors.New(
+				"range parent chain may not exceed one level — only the immediate parent's Key is used",
+			)
+		}
+	}
+	return nil
 }
 
 type Service struct {
@@ -75,6 +98,9 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
+	if err := validateParentDepth(req.Ranges); err != nil {
+		return CreateResponse{}, err
+	}
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
@@ -169,6 +195,11 @@ func (s *Service) Retrieve(
 				Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
+			// The loaded parent is returned one level deep only. Null out its own
+			// transient fields so the response shape is consistent and stale snapshots
+			// can't leak from any persisted residue.
+			ranges[i].Parent.Parent = nil
+			ranges[i].Parent.Labels = nil
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

@@ -211,40 +211,6 @@ var _ = Describe("Ranger", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(2))
 			})
-			It("Should recursively create parent and grandparent ranges in a single Create call", func(ctx SpecContext) {
-				grandparent := ranger.Range{
-					Name:      "GrandParent",
-					TimeRange: telem.SecondTS.SpanRange(telem.Second),
-				}
-				parent := ranger.Range{
-					Name:      "Parent",
-					TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					Parent:    &grandparent,
-				}
-				r := &ranger.Range{
-					Name:      "Range",
-					TimeRange: telem.SecondTS.SpanRange(telem.Second),
-					Parent:    &parent,
-				}
-				Expect(w.Create(ctx, r)).To(Succeed())
-				Expect(grandparent.Key).ToNot(Equal(uuid.Nil))
-				Expect(parent.Key).ToNot(Equal(uuid.Nil))
-				Expect(r.Key).ToNot(Equal(uuid.Nil))
-				var parentChild ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(parent.OntologyID()).
-					TraverseTo(ontology.ChildrenTraverser).
-					Entry(&parentChild).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(parentChild.ID.Key).To(Equal(r.Key.String()))
-				var grandparentChild ontology.Resource
-				Expect(otg.NewRetrieve().
-					WhereIDs(grandparent.OntologyID()).
-					TraverseTo(ontology.ChildrenTraverser).
-					Entry(&grandparentChild).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(grandparentChild.ID.Key).To(Equal(parent.Key.String()))
-			})
 			Context("RetrieveParent", func() {
 				It("Should get the parent of the range", func(ctx SpecContext) {
 					parent := ranger.Range{
