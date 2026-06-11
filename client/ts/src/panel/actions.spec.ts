@@ -55,6 +55,47 @@ describe("reduceAll", () => {
       expect(next.root.split).toBeUndefined();
       expect(tabKeys(next.root)).toEqual(["a", "b"]);
     });
+
+    it("should split the target leaf and move the tab into the new sibling when location is present", () => {
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.moveTab({ key: "b", targetLeaf: panel.ROOT_PATH, location: "right" }),
+      ]);
+      expect(next.root.split?.direction).toEqual("x");
+      expect(tabKeys(next.root.split?.first)).toEqual(["a"]);
+      expect(tabKeys(next.root.split?.last)).toEqual(["b"]);
+    });
+
+    it("should place the new sibling first for a top location", () => {
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.moveTab({ key: "b", targetLeaf: panel.ROOT_PATH, location: "top" }),
+      ]);
+      expect(next.root.split?.direction).toEqual("y");
+      expect(tabKeys(next.root.split?.first)).toEqual(["b"]);
+      expect(tabKeys(next.root.split?.last)).toEqual(["a"]);
+    });
+
+    it("should no-op when moving a leaf's only tab to an edge of its own leaf", () => {
+      const { next } = panel.reduceAll(state(leaf("a")), [
+        panel.moveTab({ key: "a", targetLeaf: panel.ROOT_PATH, location: "left" }),
+      ]);
+      expect(next.root.split).toBeUndefined();
+      expect(tabKeys(next.root)).toEqual(["a"]);
+    });
+  });
+
+  describe("insertTab", () => {
+    it("should split the target leaf and insert into the new sibling when location is present", () => {
+      const { next } = panel.reduceAll(state(leaf("a")), [
+        panel.insertTab({
+          tab: { key: "b" },
+          targetLeaf: panel.ROOT_PATH,
+          location: "bottom",
+        }),
+      ]);
+      expect(next.root.split?.direction).toEqual("y");
+      expect(tabKeys(next.root.split?.first)).toEqual(["a"]);
+      expect(tabKeys(next.root.split?.last)).toEqual(["b"]);
+    });
   });
 
   describe("removeTab", () => {
