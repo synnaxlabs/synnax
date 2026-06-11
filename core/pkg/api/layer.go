@@ -491,10 +491,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Delete))
 
 	// PANEL
-	t.PanelCreate.BindHandler(l.Panel.Create)
+	t.PanelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Create))
 	t.PanelRetrieve.BindHandler(l.Panel.Retrieve)
-	t.PanelDelete.BindHandler(l.Panel.Delete)
-	t.PanelDispatch.BindHandler(l.Panel.Dispatch)
+	t.PanelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Delete))
+	t.PanelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Dispatch))
 
 	// LOG
 	t.LogCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Create))

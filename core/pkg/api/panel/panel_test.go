@@ -45,7 +45,7 @@ var _ = Describe("api.Service.Create", func() {
 	It("Should reject the request when the subject has no create policy", func(ctx SpecContext) {
 		u := newUser(ctx)
 		p := panel.Panel{Key: uuid.New(), Name: "no-policy"}
-		Expect(apiSvc.Create(authedCtx(ctx, u), CreateRequest{
+		Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -55,7 +55,7 @@ var _ = Describe("api.Service.Create", func() {
 		p := panel.Panel{Key: uuid.New(), Name: "with-parent"}
 		grant(ctx, user.OntologyID(u.Key), access.ActionCreate,
 			ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
-		res := MustSucceed(apiSvc.Create(authedCtx(ctx, u), CreateRequest{
+		res := MustSucceed(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
 			Parent: parentID,
 			Panels: []panel.Panel{p},
 		}))
@@ -73,7 +73,7 @@ var _ = Describe("api.Service.Create", func() {
 		p := panel.Panel{Key: uuid.New(), Name: "draft"}
 		grant(ctx, user.OntologyID(u.Key), access.ActionCreate,
 			ontology.ID{Type: ontology.ResourceTypePanel})
-		Expect(apiSvc.Create(authedCtx(ctx, u), CreateRequest{
+		Expect(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().To(Succeed())
 		Expect(hasParent(ctx, user.OntologyID(u.Key), p.Key)).To(BeTrue())
@@ -116,7 +116,7 @@ var _ = Describe("api.Service.Retrieve", func() {
 var _ = Describe("api.Service.Dispatch", func() {
 	It("Should reject the request when the subject has no update policy", func(ctx SpecContext) {
 		p := createPanel(ctx, "dispatch-denied")
-		Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+		Expect(apiSvc.Dispatch(authedCtx(ctx, author), nil, DispatchRequest{
 			Key:         p.Key,
 			DispatchKey: "sess-1",
 			Actions:     []panel.Action{panel.NewRenameAction(panel.RenamePayload{Name: "x"})},
@@ -126,7 +126,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 	It("Should apply the action sequence to the target panel", func(ctx SpecContext) {
 		p := createPanel(ctx, "dispatch-ok")
 		grant(ctx, user.OntologyID(author.Key), access.ActionUpdate, panel.OntologyID(p.Key))
-		Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
+		Expect(apiSvc.Dispatch(authedCtx(ctx, author), nil, DispatchRequest{
 			Key:         p.Key,
 			DispatchKey: "sess-1",
 			Actions: []panel.Action{
@@ -143,7 +143,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 var _ = Describe("api.Service.Delete", func() {
 	It("Should reject the request when the subject has no delete policy", func(ctx SpecContext) {
 		p := createPanel(ctx, "delete-denied")
-		Expect(apiSvc.Delete(authedCtx(ctx, author), DeleteRequest{
+		Expect(apiSvc.Delete(authedCtx(ctx, author), nil, DeleteRequest{
 			Keys: []panel.Key{p.Key},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
@@ -151,7 +151,7 @@ var _ = Describe("api.Service.Delete", func() {
 	It("Should delete the panels with the given keys", func(ctx SpecContext) {
 		p := createPanel(ctx, "deletable")
 		grant(ctx, user.OntologyID(author.Key), access.ActionDelete, panel.OntologyID(p.Key))
-		Expect(apiSvc.Delete(authedCtx(ctx, author), DeleteRequest{
+		Expect(apiSvc.Delete(authedCtx(ctx, author), nil, DeleteRequest{
 			Keys: []panel.Key{p.Key},
 		})).Error().To(Succeed())
 		var got panel.Panel

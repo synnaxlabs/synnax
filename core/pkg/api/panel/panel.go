@@ -24,10 +24,10 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Service is the API-layer panel service. It enforces access control and wraps
-// the distribution panel service's writers and retrievers in transactions.
+// Service is the API-layer panel service. It enforces access control and routes
+// requests to the distribution panel service. Write handlers execute inside the
+// transaction provided by the binding layer (fgorp.CreateWriteUnaryHandler).
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *panel.Service
 }
@@ -38,7 +38,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Panel,
 	}, nil
@@ -59,13 +58,17 @@ type (
 // Create persists the panels in req and returns them with their assigned keys.
 // Each panel is parented to req.Parent, or to the creating user as a draft when
 // Parent is zero.
-func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (res CreateResponse, err error) {
 	subject := auth.GetSubject(ctx)
 	objects := []ontology.ID{{Type: ontology.ResourceTypePanel}}
 	if !req.Parent.IsZero() {
 		objects = append(objects, req.Parent)
 	}
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: subject,
 		Action:  access.ActionCreate,
 		Objects: objects,
@@ -77,17 +80,15 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 	if !req.Parent.IsZero() {
 		parent = req.Parent
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
-		for i, p := range req.Panels {
-			if err := w.Create(ctx, &p, parent); err != nil {
-				return err
-			}
-			req.Panels[i] = p
+	w := s.internal.NewWriter(tx)
+	for i, p := range req.Panels {
+		if err := w.Create(ctx, &p, parent); err != nil {
+			return res, err
 		}
-		res.Panels = req.Panels
-		return nil
-	})
+		req.Panels[i] = p
+	}
+	res.Panels = req.Panels
+	return res, nil
 }
 
 type (
@@ -136,32 +137,36 @@ type DispatchRequest = actions.DispatchRequest[panel.Key, panel.Action]
 // Dispatch applies the action sequence to the target panel atomically. The actions
 // are reduced server-side via panel.Reduce; on success the resulting Scoped action
 // is broadcast on the panel set channel so connected clients can mirror the change.
-func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (res types.Nil, err error) {
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{panel.OntologyID(req.Key)},
 	}); err != nil {
 		return res, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
-	})
+	return res, s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type DeleteRequest struct {
 	Keys []panel.Key `json:"keys" msgpack:"keys"`
 }
 
-func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
-	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (res types.Nil, err error) {
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: panel.OntologyIDs(req.Keys),
 	}); err != nil {
 		return res, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-	})
+	return res, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
