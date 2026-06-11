@@ -12,6 +12,7 @@ package op
 import (
 	"context"
 
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -29,7 +30,7 @@ func NewHost() *Host { return &Host{} }
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	cat, ok := typedOps[cfg.Node.Type]
 	if ok {
-		return &binary{State: cfg.State, op: cat[cfg.State.Input(0).DataType]}, nil
+		return &binary{State: cfg.State, op: cat[cfg.State.InputNamed(ir.LHSInputParam).DataType]}, nil
 	}
 	opFn, ok := logicalOps[cfg.Node.Type]
 	if ok {
@@ -51,9 +52,9 @@ func (n *binary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {
 		return
 	}
-	lhs, rhs := n.Input(0), n.Input(1)
+	lhs, rhs := n.InputNamed(ir.LHSInputParam), n.InputNamed(ir.RHSInputParam)
 	n.op(lhs, rhs, n.Output(0))
-	*n.OutputTime(0) = n.InputTime(0)
+	*n.OutputTime(0) = n.InputTimeNamed(ir.LHSInputParam)
 	alignment := lhs.Alignment + rhs.Alignment
 	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
 	if !rhs.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || rhs.TimeRange.Start < timeRange.Start) {
@@ -80,9 +81,9 @@ func (n *unary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {
 		return
 	}
-	input := n.Input(0)
+	input := n.InputNamed(ir.DefaultInputParam)
 	n.op(input, n.Output(0))
-	*n.OutputTime(0) = n.InputTime(0)
+	*n.OutputTime(0) = n.InputTimeNamed(ir.DefaultInputParam)
 	n.Output(0).Alignment = input.Alignment
 	n.Output(0).TimeRange = input.TimeRange
 	n.OutputTime(0).Alignment = input.Alignment

@@ -65,7 +65,8 @@ func NewSymbols() []*symbol.Symbol {
 					{Name: FalseOutputParam, Type: types.U8()},
 				},
 			}),
-			Doc: symbolDoc,
+			Trigger: symbol.TriggerInput(ir.DefaultOutputParam),
+			Doc:     symbolDoc,
 		},
 	}
 }
@@ -90,8 +91,8 @@ func (s *selectNode) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
-	data := s.Input(0)
-	time := s.InputTime(0)
+	data := s.InputNamed(ir.DefaultOutputParam)
+	time := s.InputTimeNamed(ir.DefaultOutputParam)
 	if data.Len() == 0 {
 		return
 	}

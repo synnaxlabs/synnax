@@ -55,18 +55,22 @@ func NewSymbols() []*symbol.Symbol {
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
-				Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
+				Inputs:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
 			}),
+			Trigger: symbol.TriggerOnly,
 		},
 		{
 			Name: "write",
 			Kind: symbol.KindFunction,
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+				Inputs: types.Params{
+					{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))},
+					{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+				},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-				Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
 			}),
+			Trigger: symbol.TriggerInput(ir.DefaultInputParam),
 		},
 	}
 }
@@ -117,7 +121,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg config
-	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
+	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &nodeCfg); err != nil {
 		return nil, err
 	}
 	if isSource {
@@ -206,8 +210,8 @@ func (s *sink) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
-	data := s.Input(0)
-	time := s.InputTime(0)
+	data := s.InputNamed(ir.DefaultInputParam)
+	time := s.InputTimeNamed(ir.DefaultInputParam)
 	if data.Len() == 0 {
 		return
 	}

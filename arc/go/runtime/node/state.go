@@ -104,8 +104,14 @@ func (s *ProgramState) Node(key string) *State {
 		outputCache[i] = s.outputs[handle]
 	}
 
+	inputIndex := make(map[string]int, len(n.Inputs))
+	for i, p := range n.Inputs {
+		inputIndex[p.Name] = i
+	}
+
 	nd := &State{}
 	nd.ir.inputs = inputs
+	nd.inputIndex = inputIndex
 	nd.ir.outputs = lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
 		return ir.Handle{Node: key, Param: item.Name}
 	})
@@ -132,6 +138,8 @@ type State struct {
 		inputs  []ir.Edge
 		outputs []ir.Handle
 	}
+	// inputIndex maps an input's parameter name to its position.
+	inputIndex  map[string]int
 	accumulated []inputEntry
 	aligned     struct {
 		data []telem.Series
@@ -204,6 +212,24 @@ func (n *State) InitInput(paramIndex int, data, time telem.Series) {
 // Input returns the data series for the input at the given parameter index.
 func (n *State) Input(paramIndex int) telem.Series {
 	return n.aligned.data[paramIndex]
+}
+
+// InputNamed returns the data series for the named input: a constant series if
+// literal-fed, the upstream series if wire-fed.
+func (n *State) InputNamed(name string) telem.Series {
+	return n.aligned.data[n.inputIndex[name]]
+}
+
+// InputTimeNamed returns the timestamp series for the named input.
+func (n *State) InputTimeNamed(name string) telem.Series {
+	return n.aligned.time[n.inputIndex[name]]
+}
+
+// InitInputNamed initializes the source series for the named input.
+func (n *State) InitInputNamed(name string, data, time telem.Series) {
+	if idx, ok := n.inputIndex[name]; ok {
+		n.InitInput(idx, data, time)
+	}
 }
 
 // Output returns a mutable pointer to the data series for the output at the

@@ -59,11 +59,9 @@ func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
+			Inputs: types.Params{
 				{Name: durationConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
 				{Name: countConfigParam, Type: types.I64(), Value: 0},
-			},
-			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.Variable("T", &numConstraint)},
 				{Name: resetInputParam, Type: types.U8(), Value: 0},
 			},
@@ -71,7 +69,8 @@ func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
 				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)},
 			},
 		}),
-		Doc: doc,
+		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
+		Doc:     doc,
 	}
 }
 
@@ -127,6 +126,7 @@ func newPowSymbol() *symbol.Symbol {
 			Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
 		}),
+		Trigger: symbol.TriggerOnly,
 	}
 }
 
@@ -143,7 +143,8 @@ func newDerivativeSymbol() *symbol.Symbol {
 				{Name: ir.DefaultOutputParam, Type: types.F64()},
 			},
 		}),
-		Doc: derivativeDoc,
+		Trigger: symbol.TriggerInput(ir.DefaultInputParam),
+		Doc:     derivativeDoc,
 	}
 }
 
@@ -226,31 +227,31 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 		return nil, query.ErrNotFound
 	}
 	var (
-		inputData   = nodeCfg.State.Input(0)
-		reductionFn = reductionMap[inputData.DataType]
-		resetIdx    = -1
+		inputData      = nodeCfg.State.InputNamed(ir.DefaultInputParam)
+		reductionFn    = reductionMap[inputData.DataType]
+		resetConnected = false
 	)
 	if _, found := nodeCfg.Program.Edges.FindByTarget(ir.Handle{
 		Node:  nodeCfg.Node.Key,
 		Param: resetInputParam,
 	}); found {
-		resetIdx = 1
-		nodeCfg.State.InitInput(
-			resetIdx,
+		resetConnected = true
+		nodeCfg.State.InitInputNamed(
+			resetInputParam,
 			telem.NewSeriesV[uint8](0),
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
 	}
 	var cfg WindowConfig
-	if err := windowConfigSchema.Parse(nodeCfg.Node.Config.ValueMap(), &cfg); err != nil {
+	if err := windowConfigSchema.Parse(nodeCfg.Node.Inputs.ValueMap(), &cfg); err != nil {
 		return nil, err
 	}
 	return &avgNode{
-		State:       nodeCfg.State,
-		resetIdx:    resetIdx,
-		process:     reductionFn,
-		sampleCount: 0,
-		cfg:         cfg,
+		State:          nodeCfg.State,
+		resetConnected: resetConnected,
+		process:        reductionFn,
+		sampleCount:    0,
+		cfg:            cfg,
 	}, nil
 }
 
@@ -266,12 +267,12 @@ var windowConfigSchema = zyn.Object(map[string]zyn.Schema{
 
 type avgNode struct {
 	*node.State
-	process       reductionFn
-	cfg           WindowConfig
-	resetIdx      int
-	sampleCount   int64
-	startTime     telem.TimeStamp
-	lastResetTime telem.TimeStamp
+	process        reductionFn
+	cfg            WindowConfig
+	resetConnected bool
+	sampleCount    int64
+	startTime      telem.TimeStamp
+	lastResetTime  telem.TimeStamp
 }
 
 var _ node.Node = (*avgNode)(nil)
@@ -288,16 +289,16 @@ func (r *avgNode) Next(ctx node.Context) {
 		return
 	}
 
-	inputTime := r.InputTime(0)
+	inputTime := r.InputTimeNamed(ir.DefaultInputParam)
 	if r.startTime == 0 && inputTime.Len() > 0 {
 		r.startTime = telem.ValueAt[telem.TimeStamp](inputTime, 0)
 	}
 
 	shouldReset := false
 
-	if r.resetIdx >= 0 {
-		resetData := r.Input(r.resetIdx)
-		resetTime := r.InputTime(r.resetIdx)
+	if r.resetConnected {
+		resetData := r.InputNamed(resetInputParam)
+		resetTime := r.InputTimeNamed(resetInputParam)
 		for i := int64(0); i < resetData.Len(); i++ {
 			ts := telem.ValueAt[telem.TimeStamp](resetTime, int(i))
 			if ts > r.lastResetTime && telem.ValueAt[uint8](resetData, int(i)) == 1 {
@@ -325,9 +326,9 @@ func (r *avgNode) Next(ctx node.Context) {
 	if shouldReset {
 		r.sampleCount = 0
 		r.Output(0).Resize(0)
-		inputTime = r.InputTime(0)
+		inputTime = r.InputTimeNamed(ir.DefaultInputParam)
 	}
-	inputData := r.Input(0)
+	inputData := r.InputNamed(ir.DefaultInputParam)
 	if inputData.Len() == 0 {
 		return
 	}
@@ -338,8 +339,8 @@ func (r *avgNode) Next(ctx node.Context) {
 	}
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange
-	if r.resetIdx >= 0 {
-		resetData := r.Input(r.resetIdx)
+	if r.resetConnected {
+		resetData := r.InputNamed(resetInputParam)
 		alignment += resetData.Alignment
 		if !resetData.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
 			timeRange.Start = resetData.TimeRange.Start
@@ -409,7 +410,7 @@ var (
 )
 
 func createDerivative(cfg node.Config) (node.Node, error) {
-	inputData := cfg.State.Input(0)
+	inputData := cfg.State.InputNamed(ir.DefaultInputParam)
 	derivFn, ok := derivOps[inputData.DataType]
 	if !ok {
 		return nil, query.ErrNotFound
@@ -438,8 +439,8 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	if !d.RefreshInputs() {
 		return
 	}
-	inputData := d.Input(0)
-	inputTime := d.InputTime(0)
+	inputData := d.InputNamed(ir.DefaultInputParam)
+	inputTime := d.InputTimeNamed(ir.DefaultInputParam)
 	if inputData.Len() == 0 {
 		return
 	}

@@ -14,6 +14,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/types"
@@ -45,16 +46,27 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	isEntryNode := !strings.HasPrefix(cfg.Node.Key, "expression_") &&
 		len(cfg.Program.Edges.GetInputs(cfg.Node.Key)) == 0
 
-	configCount := len(cfg.Node.Config)
-	params := make([]uint64, configCount+len(irFn.Inputs))
-	for i, param := range cfg.Node.Config {
+	// Each input fills one WASM param slot. Wire-fed inputs are streamed per
+	// sample in Next; literal-fed inputs get their constant value set once here.
+	params := make([]uint64, len(irFn.Inputs))
+	edgeFed := make([]bool, len(irFn.Inputs))
+	for i, param := range cfg.Node.Inputs {
+		if _, found := cfg.Program.Edges.FindByTarget(ir.Handle{
+			Node:  cfg.Node.Key,
+			Param: param.Name,
+		}); found {
+			edgeFed[i] = true
+			continue
+		}
+		if param.Value == nil {
+			continue
+		}
 		if s, ok := param.Value.(string); ok {
-			// String config params get a stable handle that persists across Flush calls.
+			// A literal string gets a stable handle that persists across Flush calls.
 			params[i] = uint64(w.Strings.CreateConfig(s))
 			continue
 		}
 		val, err := ConvertConfigValue(param.Value)
-
 		if err != nil {
 			return nil, err
 		}
@@ -99,7 +111,7 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		outputValues:  make([]result, len(irFn.Outputs)),
 		memBase:       base,
 		params:        params,
-		configCount:   configCount,
+		edgeFed:       edgeFed,
 		offsets:       make([]int, len(irFn.Outputs)),
 		isEntryNode:   isEntryNode,
 		nodeKeySetter: w.NodeKeySetter,
