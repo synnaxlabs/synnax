@@ -87,9 +87,10 @@ var _ = Describe("ImEx", func() {
 
 			It("Should error when type is not a string", func() {
 				var env imex.Envelope
-				Expect(json.Unmarshal([]byte(`{"type":5}`), &env)).To(
+				Expect(json.Unmarshal([]byte(`{"type":5}`), &env)).To(SatisfyAll(
 					MatchError(ContainSubstring("string")),
-				)
+					MatchError(ContainSubstring("validation error")),
+				))
 			})
 
 			It("Should error when name is not a string", func() {
@@ -108,18 +109,24 @@ var _ = Describe("ImEx", func() {
 				)
 			})
 
-			It("Should reject an empty type", func() {
+			It("Should reject an empty type with a validation error scoped to the type field", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
 					[]byte(`{"version":1,"type":"","name":"n"}`), &env,
-				)).To(MatchError(ContainSubstring("type must be a non-empty string")))
+				)).To(SatisfyAll(
+					MatchError(ContainSubstring("type must be a non-empty string")),
+					MatchError(ContainSubstring("validation error")),
+				))
 			})
 
-			It("Should reject an empty name", func() {
+			It("Should reject an empty name with a validation error scoped to the name field", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
 					[]byte(`{"version":1,"type":"log","name":""}`), &env,
-				)).To(MatchError(ContainSubstring("name must be a non-empty string")))
+				)).To(SatisfyAll(
+					MatchError(ContainSubstring("name must be a non-empty string")),
+					MatchError(ContainSubstring("validation error")),
+				))
 			})
 
 			It("Should error when the input is a bare JSON number", func() {
@@ -216,7 +223,10 @@ var _ = Describe("ImEx", func() {
 			It("Should fail when neither the envelope nor the data carries a type", func() {
 				Expect(imex.Encode(
 					&imex.Envelope{Version: 1}, wirePayload{Name: "n", Foo: 1},
-				)).To(MatchError(ContainSubstring("type must be a non-empty string")))
+				)).To(SatisfyAll(
+					MatchError(ContainSubstring("type must be a non-empty string")),
+					MatchError(ContainSubstring("validation error")),
+				))
 			})
 
 			It("Should fall back to the data's json:\"type\" field when the envelope type is empty", func() {
@@ -257,7 +267,10 @@ var _ = Describe("ImEx", func() {
 				Expect(imex.Encode(
 					&imex.Envelope{Version: 1, Type: "log"},
 					payload{Name: "n", Type: 5},
-				)).To(MatchError(ContainSubstring("type must be a string")))
+				)).To(SatisfyAll(
+					MatchError(ContainSubstring("type must be a string")),
+					MatchError(ContainSubstring("validation error")),
+				))
 			})
 
 			It("Should fail when the data is missing a top-level name field", func() {
@@ -282,7 +295,10 @@ var _ = Describe("ImEx", func() {
 				Expect(imex.Encode(
 					&imex.Envelope{Version: 1, Type: "log"},
 					wirePayload{Name: "", Foo: 1},
-				)).To(MatchError(ContainSubstring("name")))
+				)).To(SatisfyAll(
+					MatchError(ContainSubstring("name")),
+					MatchError(ContainSubstring("validation error")),
+				))
 			})
 
 			It("Should leave the envelope untouched when the data's name field is empty", func() {

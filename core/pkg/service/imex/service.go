@@ -90,24 +90,24 @@ func notFoundError[T ~string](typ T, kind string) error {
 }
 
 // Import routes envelope to the [Importer] registered under envelope.Type, persists it
-// on tx, and returns the newly-assigned key. Returns a validation error scoped to the
-// "type" field if no [Importer] is registered for envelope.Type.
+// on tx, and returns the ontology.ID of the created resource. Returns a validation error
+// scoped to the "type" field if no [Importer] is registered for envelope.Type.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	envelope Envelope,
-) (Key, error) {
+) (ontology.ID, error) {
 	s.mu.RLock()
 	importer, ok := s.importers[envelope.Type]
 	s.mu.RUnlock()
 	if !ok {
-		return "", notFoundError(envelope.Type, "importer")
+		return ontology.ID{}, notFoundError(envelope.Type, "importer")
 	}
-	key, err := importer.Import(ctx, tx, envelope)
+	id, err := importer.Import(ctx, tx, envelope)
 	if err != nil {
-		return "", errors.Wrap(err, "import envelope")
+		return ontology.ID{}, errors.Wrap(err, "import envelope")
 	}
-	return key, nil
+	return id, nil
 }
 
 // Export routes resource to the [Exporter] registered under resource.Type and returns
@@ -124,7 +124,7 @@ func (s *Service) Export(
 	if !ok {
 		return Envelope{}, notFoundError(resource.Type, "exporter")
 	}
-	env, err := exporter.Export(ctx, resource.Key)
+	env, err := exporter.Export(ctx, resource)
 	if err != nil {
 		return Envelope{}, errors.Wrap(err, "export resource")
 	}

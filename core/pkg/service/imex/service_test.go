@@ -90,23 +90,23 @@ func (s *testService) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
-) (imex.Key, error) {
+) (ontology.ID, error) {
 	r, err := imex.Decode[testResource](ctx, env)
 	if err != nil {
-		return "", err
+		return ontology.ID{}, err
 	}
 	key := uuid.NewString()
 	e := testEntry{Key: key, Name: r.Name, FieldOne: r.FieldOne, FieldTwo: r.FieldTwo}
 	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
-		return "", err
+		return ontology.ID{}, err
 	}
-	return key, nil
+	return ontology.ID{Type: testResourceType, Key: key}, nil
 }
 
-func (s *testService) Export(ctx context.Context, key imex.Key) (imex.Envelope, error) {
+func (s *testService) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	var e testEntry
 	if err := s.table.NewRetrieve().
-		Where(gorp.MatchKeys[string, testEntry](key)).
+		Where(gorp.MatchKeys[string, testEntry](id.Key)).
 		Entry(&e).
 		Exec(ctx, s.db); err != nil {
 		return imex.Envelope{}, err
@@ -140,11 +140,11 @@ type errorService struct{}
 
 func (errorService) Type() ontology.ResourceType { return errorResourceType }
 
-func (errorService) Import(context.Context, gorp.Tx, imex.Envelope) (imex.Key, error) {
-	return "", errors.New("importer error: forced failure")
+func (errorService) Import(context.Context, gorp.Tx, imex.Envelope) (ontology.ID, error) {
+	return ontology.ID{}, errors.New("importer error: forced failure")
 }
 
-func (errorService) Export(context.Context, imex.Key) (imex.Envelope, error) {
+func (errorService) Export(context.Context, ontology.ID) (imex.Envelope, error) {
 	return imex.Envelope{}, errors.New("exporter error: forced failure")
 }
 
@@ -152,15 +152,15 @@ type noopImporter struct{ typ ontology.ResourceType }
 
 func (n noopImporter) Type() ontology.ResourceType { return n.typ }
 
-func (noopImporter) Import(context.Context, gorp.Tx, imex.Envelope) (imex.Key, error) {
-	return "noop-key", nil
+func (n noopImporter) Import(context.Context, gorp.Tx, imex.Envelope) (ontology.ID, error) {
+	return ontology.ID{Type: n.typ, Key: "noop-key"}, nil
 }
 
 type noopExporter struct{ typ ontology.ResourceType }
 
 func (n noopExporter) Type() ontology.ResourceType { return n.typ }
 
-func (n noopExporter) Export(context.Context, imex.Key) (imex.Envelope, error) {
+func (n noopExporter) Export(context.Context, ontology.ID) (imex.Envelope, error) {
 	env := imex.Envelope{Version: testVersion, Type: string(n.typ)}
 	if err := imex.Encode(&env, testResource{Name: "noop"}); err != nil {
 		return imex.Envelope{}, err
@@ -219,8 +219,8 @@ var _ = Describe("Service", func() {
 					ctx, db,
 					imex.Envelope{Version: 1, Type: "opc_scan", Name: "scan"},
 				))
-				Expect(k1).To(Equal("noop-key"))
-				Expect(k2).To(Equal("noop-key"))
+				Expect(k1).To(Equal(ontology.ID{Type: "task", Key: "noop-key"}))
+				Expect(k2).To(Equal(ontology.ID{Type: "task", Key: "noop-key"}))
 			},
 		)
 	})
@@ -239,11 +239,12 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Import", func() {
-		It("Should route to the correct service by type and return the new key", func(ctx SpecContext) {
-			key := MustSucceed(svc.Import(
+		It("Should route to the correct service by type and return the new ID", func(ctx SpecContext) {
+			id := MustSucceed(svc.Import(
 				ctx, db, sampleEnvelope("Registry Test", testResourceType),
 			))
-			Expect(key).NotTo(BeEmpty())
+			Expect(id.Type).To(Equal(testResourceType))
+			Expect(id.Key).NotTo(BeEmpty())
 		})
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
@@ -291,13 +292,10 @@ var _ = Describe("Service", func() {
 
 	Describe("Export", func() {
 		It("Should round-trip a registered resource through Import then Export", func(ctx SpecContext) {
-			key := MustSucceed(svc.Import(
+			id := MustSucceed(svc.Import(
 				ctx, db, sampleEnvelope("Round Trip", testResourceType),
 			))
-			env := MustSucceed(svc.Export(ctx, ontology.ID{
-				Type: testResourceType,
-				Key:  key,
-			}))
+			env := MustSucceed(svc.Export(ctx, id))
 			Expect(env.Version).To(Equal(testVersion))
 			Expect(env.Type).To(Equal(string(testResourceType)))
 			Expect(env.Name).To(Equal("Round Trip"))

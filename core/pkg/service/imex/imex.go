@@ -37,11 +37,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Key is the string-form identifier of a resource within its ontology type — i.e. the
-// Key field of an ontology.ID. Importers return one on persist, Exporters look one up
-// on retrieve.
-type Key = string
-
 // Version is the per-schema integer version stamped on every envelope. On the wire it
 // is decoded by Envelope.UnmarshalJSON (which accepts both numeric values and legacy
 // "N.0.0" semver strings via versionFromAny); standalone JSON unmarshal of a Version
@@ -60,6 +55,16 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 			typ, given, supported,
 		),
 		"version",
+	)
+}
+
+// newFieldError constructs a validation error scoped to the named wire field so API
+// responses can present it as a structured field error, mirroring the path-scoping done
+// by NewErrUnsupportedVersion for the "version" field.
+func newFieldError(field, format string, args ...any) error {
+	return validate.PathedError(
+		errors.Wrapf(validate.ErrValidation, format, args...),
+		field,
 	)
 }
 
@@ -135,22 +140,22 @@ func (e *Envelope) unmarshal(m map[string]any, raw []byte, codec encoding.Codec)
 	if v, ok := m["type"]; ok {
 		s, ok := v.(string)
 		if !ok {
-			return errors.Newf("type must be a string, got %T", v)
+			return newFieldError("type", "type must be a string, got %T", v)
 		}
 		e.Type = s
 	}
 	if e.Type == "" {
-		return errors.New("type must be a non-empty string")
+		return newFieldError("type", "type must be a non-empty string")
 	}
 	if v, ok := m["name"]; ok {
 		s, ok := v.(string)
 		if !ok {
-			return errors.Newf("name must be a string, got %T", v)
+			return newFieldError("name", "name must be a string, got %T", v)
 		}
 		e.Name = s
 	}
 	if e.Name == "" {
-		return errors.New("name must be a non-empty string")
+		return newFieldError("name", "name must be a non-empty string")
 	}
 	e.codec = codec
 	e.raw = raw
@@ -206,23 +211,23 @@ func Encode[T any](env *Envelope, data T) error {
 	if v, ok := body["type"]; ok {
 		s, ok := v.(string)
 		if !ok {
-			return errors.Newf("encode envelope: type must be a string, got %T", v)
+			return newFieldError("type", "type must be a string, got %T", v)
 		}
 		typ = s
 	}
 	if typ == "" {
-		return errors.New("encode envelope: type must be a non-empty string")
+		return newFieldError("type", "type must be a non-empty string")
 	}
 	name := env.Name
 	if v, ok := body["name"]; ok {
 		s, ok := v.(string)
 		if !ok {
-			return errors.Newf("encode envelope: name must be a string, got %T", v)
+			return newFieldError("name", "name must be a string, got %T", v)
 		}
 		name = s
 	}
 	if name == "" {
-		return errors.New("encode envelope: name must be a non-empty string")
+		return newFieldError("name", "name must be a non-empty string")
 	}
 	body["version"] = env.Version
 	body["type"] = typ
@@ -336,9 +341,9 @@ func flattenStruct(rv reflect.Value, m map[string]any) {
 // Importer materializes a resource from an Envelope and persists it. The envelope's
 // Type is informational only, since the registry has already routed to this handler.
 type Importer interface {
-	// Import validates and persists the given envelope on tx, returning the
-	// newly-assigned key for the imported resource.
-	Import(context.Context, gorp.Tx, Envelope) (Key, error)
+	// Import validates and persists the given envelope on tx, returning the ontology.ID
+	// of the newly-created resource.
+	Import(context.Context, gorp.Tx, Envelope) (ontology.ID, error)
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under
 	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the
@@ -349,11 +354,11 @@ type Importer interface {
 // Exporter serializes a stored resource as an Envelope, stamping its own per-schema
 // version on the returned value.
 type Exporter interface {
-	// Export retrieves the resource identified by key and serializes it as an envelope,
+	// Export retrieves the resource identified by id and serializes it as an envelope,
 	// stamping the exporter's per-schema Version on the result. Exporters read directly
 	// from their own storage handle; the transactional Export path will return in a
 	// follow-up change once the API surface is settled.
-	Export(context.Context, Key) (Envelope, error)
+	Export(context.Context, ontology.ID) (Envelope, error)
 	// Type returns the ontology resource type this exporter handles.
 	Type() ontology.ResourceType
 }

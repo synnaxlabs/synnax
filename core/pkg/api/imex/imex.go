@@ -40,9 +40,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	ImportRequest  = imex.Envelope
-	ImportResponse struct {
-		Key string `json:"key" msgpack:"key"`
-	}
+	ImportResponse = ontology.ID
 )
 
 func (s *Service) Import(
@@ -61,11 +59,11 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	key, err := s.internal.Import(ctx, tx, req)
+	id, err := s.internal.Import(ctx, tx, req)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	return ImportResponse{Key: key}, nil
+	return id, nil
 }
 
 type (
