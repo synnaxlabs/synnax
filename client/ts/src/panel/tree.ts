@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type location } from "@synnaxlabs/x";
+
 import { type Node, type Tab } from "@/panel/types.gen";
 
 // Nodes in the panel tree are identified by path-derived numeric keys: the root
@@ -19,6 +21,14 @@ export const ROOT_PATH = 1;
 /** childPath returns the path key of a split's child on the given side. */
 export const childPath = (pathKey: number, side: "first" | "last"): number =>
   side === "first" ? pathKey * 2 : pathKey * 2 + 1;
+
+/**
+ * splitSide returns the child slot the new empty leaf occupies when a leaf is
+ * split at the given location: "first" for left/top, "last" otherwise. The
+ * convention is shared by SplitLeaf and location-bearing InsertTab/MoveTab.
+ */
+export const splitSide = (loc: location.Location): "first" | "last" =>
+  loc === "left" || loc === "top" ? "first" : "last";
 
 const pathDirections = (pathKey: number): boolean[] => {
   if (pathKey <= ROOT_PATH) return [];
