@@ -12,19 +12,23 @@ import { describe, expect, it } from "vitest";
 import { panel } from "@/panel";
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
-  leaf: { tabs: tabKeys.map((key) => ({ key })) },
+  variant: "leaf",
+  tabs: tabKeys.map((key) => ({ variant: "empty", key })),
 });
 
 // root splits into [a, b] | [c]; the left side splits again into [a] / [b].
 const TREE: panel.Node = {
-  split: {
-    direction: "x",
+  variant: "split",
+  direction: "x",
+  size: 0.5,
+  first: {
+    variant: "split",
+    direction: "y",
     size: 0.5,
-    first: {
-      split: { direction: "y", size: 0.5, first: leaf("a"), last: leaf("b") },
-    },
-    last: leaf("c"),
+    first: leaf("a"),
+    last: leaf("b"),
   },
+  last: leaf("c"),
 };
 
 describe("tree", () => {

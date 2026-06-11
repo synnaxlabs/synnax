@@ -41,9 +41,8 @@ var _ = Describe("Writer", func() {
 			p := panel.Panel{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
 			res := retrieve(ctx, p.Key)
-			Expect(res.Root.Split).To(BeNil())
-			Expect(res.Root.Leaf).ToNot(BeNil())
-			Expect(res.Root.Leaf.Tabs).To(BeEmpty())
+			leaf := MustBeOk(asLeaf(res.Root))
+			Expect(leaf.Tabs).To(BeEmpty())
 		})
 
 		It("Should preserve a caller-provided tree", func(ctx SpecContext) {
@@ -51,8 +50,9 @@ var _ = Describe("Writer", func() {
 			p := panel.Panel{Name: "test", Root: leafNode(tab(key))}
 			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
 			res := retrieve(ctx, p.Key)
-			Expect(res.Root.Leaf.Tabs).To(HaveLen(1))
-			Expect(res.Root.Leaf.Tabs[0].Key).To(Equal(key))
+			leaf := MustBeOk(asLeaf(res.Root))
+			Expect(leaf.Tabs).To(HaveLen(1))
+			Expect(leaf.Tabs[0].Key()).To(Equal(key))
 		})
 
 		It("Should register the panel as an ontology resource", func(ctx SpecContext) {
@@ -169,9 +169,9 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
 			})).To(Succeed())
-			tabs := retrieve(ctx, key).Root.Leaf.Tabs
-			Expect(tabs).To(HaveLen(1))
-			Expect(tabs[0].Key).To(Equal(tabKey))
+			leaf := MustBeOk(asLeaf(retrieve(ctx, key).Root))
+			Expect(leaf.Tabs).To(HaveLen(1))
+			Expect(leaf.Tabs[0].Key()).To(Equal(tabKey))
 		})
 
 		It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
@@ -183,7 +183,7 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			res := retrieve(ctx, key)
 			Expect(res.Name).To(Equal("batched"))
-			Expect(res.Root.Leaf.Tabs).To(HaveLen(1))
+			Expect(MustBeOk(asLeaf(res.Root)).Tabs).To(HaveLen(1))
 		})
 
 		It("Should apply no action when one in the batch is rejected", func(ctx SpecContext) {
