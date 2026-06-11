@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -157,9 +158,9 @@ var _ = Describe("Ontology", func() {
 			seq, closer := MustSucceed2(svc.OpenNexter(ctx))
 			DeferClose(closer)
 
-			seen := make(map[string]struct{})
+			seen := set.New[string]()
 			for resource := range seq {
-				seen[resource.ID.String()] = struct{}{}
+				seen.Add(resource.ID.String())
 			}
 			Expect(seen).To(SatisfyAll(
 				HaveKey(a.OntologyID().String()),
