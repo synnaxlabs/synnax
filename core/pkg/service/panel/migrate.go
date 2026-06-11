@@ -10,6 +10,7 @@
 package panel
 
 import (
+	"cmp"
 	"context"
 	"slices"
 
@@ -162,19 +163,16 @@ func sortedWindowKeys(mosaics map[string]legacyMosaic) []string {
 		keys = append(keys, k)
 	}
 	slices.SortFunc(keys, func(a, b string) int {
+		if a == b {
+			return 0
+		}
 		if a == mainWindowKey {
 			return -1
 		}
 		if b == mainWindowKey {
 			return 1
 		}
-		if a < b {
-			return -1
-		}
-		if a > b {
-			return 1
-		}
-		return 0
+		return cmp.Compare(a, b)
 	})
 	return keys
 }
