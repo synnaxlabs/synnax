@@ -34,8 +34,8 @@ func OntologyIDs(keys []Key) []ontology.ID {
 }
 
 func OntologyIDsFromProjects(projects []Project) []ontology.ID {
-	return lo.Map(projects, func(w Project, _ int) ontology.ID {
-		return OntologyID(w.Key)
+	return lo.Map(projects, func(p Project, _ int) ontology.ID {
+		return OntologyID(p.Key)
 	})
 }
 
@@ -50,8 +50,8 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"name": zyn.String(),
 })
 
-func newResource(ws Project) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(ws.Key), ws.Name, ws)
+func newResource(p Project) ontology.Resource {
+	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
 }
 
 type change = xchange.Change[Key, Project]
@@ -72,11 +72,11 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 	if err != nil {
 		return ontology.Resource{}, err
 	}
-	var w Project
-	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&w).Exec(ctx, tx); err != nil {
+	var p Project
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&p).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
-	return newResource(w), nil
+	return newResource(p), nil
 }
 
 func translateChange(c change) ontology.Change {

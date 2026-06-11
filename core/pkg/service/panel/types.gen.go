@@ -12,19 +12,21 @@
 package panel
 
 import (
+	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 )
 
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
 
-// TabView is a self-describing, inline view displayed by a tab. Unlike a resource, a
-// view has no backing core document: it carries its own type and opaque args. Used for
+// View is a self-describing, inline view displayed by a tab. Unlike a resource, a view
+// has no backing core document: it carries its own type and opaque args. Used for
 // app-views and tools (docs, explorers, about, the visualization picker).
-type TabView struct {
+type View struct {
 	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
 	// a renderer.
 	Type string `json:"type" msgpack:"type"`
@@ -37,25 +39,33 @@ type TabView struct {
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
-// Tab is a single tab in a leaf. Tab content is a union: either a resource (a backing
-// core document, e.g. a line plot) or a view (an inline, self-describing app-view, e.g.
-// docs). Exactly one of resource or view is set; when both are null the tab renders the
-// visualization selector. Display attributes (name, icon, closability) are resolved at
-// render time from the content. The same content may be referenced by multiple tabs in
-// the same or other panels.
-type Tab struct {
+// ResourceTab is a tab displaying a backing core document.
+type ResourceTab struct {
 	// Key is the stable unique identifier of this tab within the panel. It is independent
 	// of the tab's content, so a tab's content may be swapped without changing the tab's
 	// identity or position.
 	Key uuid.UUID `json:"key" msgpack:"key"`
 	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
-	// Exactly one of resource or view is set; when both are null the tab renders the
-	// visualization selector at render time. Setting one clears the other.
-	Resource *ontology.ID `json:"resource,omitempty" msgpack:"resource,omitempty"`
-	// View is the inline view displayed by this tab, set via SetTabView. Exactly one of
-	// resource or view is set; when both are null the tab renders the visualization
-	// selector at render time. Setting one clears the other.
-	View *TabView `json:"view,omitempty" msgpack:"view,omitempty"`
+	Resource ontology.ID `json:"resource" msgpack:"resource"`
+}
+
+// ViewTab is a tab displaying an inline, self-describing view.
+type ViewTab struct {
+	// Key is the stable unique identifier of this tab within the panel. It is independent
+	// of the tab's content, so a tab's content may be swapped without changing the tab's
+	// identity or position.
+	Key uuid.UUID `json:"key" msgpack:"key"`
+	// View is the inline view displayed by this tab, set via SetTabView.
+	View View `json:"view" msgpack:"view"`
+}
+
+// EmptyTab is a tab with no content yet. An empty tab renders the visualization
+// selector at render time; SetTabResource or SetTabView fills it in place.
+type EmptyTab struct {
+	// Key is the stable unique identifier of this tab within the panel. It is independent
+	// of the tab's content, so a tab's content may be swapped without changing the tab's
+	// identity or position.
+	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.
@@ -71,22 +81,10 @@ type Split struct {
 	// Size is the fraction in [0, 1] of the parent area allocated to first. The remainder
 	// is allocated to last.
 	Size float64 `json:"size" msgpack:"size"`
-	// First is the first child (left for x, top for y). Always present at runtime;
-	// double-optional only for Go pointer indirection over the recursive type.
-	First *Node `json:"first,omitempty" msgpack:"first,omitempty"`
-	// Last is the second child (right for x, bottom for y). Always present at runtime;
-	// double-optional only for Go pointer indirection over the recursive type.
-	Last *Node `json:"last,omitempty" msgpack:"last,omitempty"`
-}
-
-// Node is a node in the panel tree. Exactly one of leaf or split is set (the other is
-// null); nodes are identified by path-derived numeric keys during traversal (1 = root,
-// 2k = first child, 2k+1 = last child).
-type Node struct {
-	// Leaf is set when this node is a leaf.
-	Leaf *Leaf `json:"leaf,omitempty" msgpack:"leaf,omitempty"`
-	// Split is set when this node is a split.
-	Split *Split `json:"split,omitempty" msgpack:"split,omitempty"`
+	// First is the first child (left for x, top for y).
+	First Node `json:"first" msgpack:"first"`
+	// Last is the second child (right for x, bottom for y).
+	Last Node `json:"last" msgpack:"last"`
 }
 
 // Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
@@ -99,4 +97,199 @@ type Panel struct {
 	Name string `json:"name" msgpack:"name"`
 	// Root is the root of the panel tree.
 	Root Node `json:"root" msgpack:"root"`
+}
+
+type TabType string
+
+const (
+	TabTypeResource TabType = "resource"
+	TabTypeView     TabType = "view"
+	TabTypeEmpty    TabType = "empty"
+)
+
+type TabVariant interface {
+	isTabVariant()
+}
+
+type TabResource struct {
+	ResourceTab
+}
+
+func (TabResource) isTabVariant() {}
+
+type TabView struct {
+	ViewTab
+}
+
+func (TabView) isTabVariant() {}
+
+type TabEmpty struct {
+	EmptyTab
+}
+
+func (TabEmpty) isTabVariant() {}
+
+// Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
+// backing core document, e.g. a line plot), a view (an inline, self-describing
+// app-view, e.g. docs), or empty (the visualization selector). Display attributes
+// (name, icon, closability) are resolved at render time from the content. The same
+// content may be referenced by multiple tabs in the same or other panels.
+type Tab struct {
+	Variant TabVariant
+}
+
+func (u Tab) MarshalJSON() ([]byte, error) {
+	if u.Variant == nil {
+		return []byte("null"), nil
+	}
+	var t TabType
+	switch u.Variant.(type) {
+	case TabResource:
+		t = TabTypeResource
+	case TabView:
+		t = TabTypeView
+	case TabEmpty:
+		t = TabTypeEmpty
+	default:
+		return nil, errors.Newf("Tab: nil or unknown variant %T", u.Variant)
+	}
+	raw, err := json.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["variant"] = tag
+	return json.Marshal(fields)
+}
+
+func (u *Tab) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type TabType `json:"variant"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case TabTypeResource:
+		var v TabResource
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TabTypeView:
+		var v TabView
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TabTypeEmpty:
+		var v TabEmpty
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Tab: unknown variant %q", disc.Type)
+	}
+	return nil
+}
+
+type NodeType string
+
+const (
+	NodeTypeLeaf  NodeType = "leaf"
+	NodeTypeSplit NodeType = "split"
+)
+
+type NodeVariant interface {
+	isNodeVariant()
+}
+
+type NodeLeaf struct {
+	Leaf
+}
+
+func (NodeLeaf) isNodeVariant() {}
+
+type NodeSplit struct {
+	Split
+}
+
+func (NodeSplit) isNodeVariant() {}
+
+// Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
+// split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
+// 2k = first child, 2k+1 = last child).
+type Node struct {
+	Variant NodeVariant
+}
+
+func (u Node) MarshalJSON() ([]byte, error) {
+	if u.Variant == nil {
+		return []byte("null"), nil
+	}
+	var t NodeType
+	switch u.Variant.(type) {
+	case NodeLeaf:
+		t = NodeTypeLeaf
+	case NodeSplit:
+		t = NodeTypeSplit
+	default:
+		return nil, errors.Newf("Node: nil or unknown variant %T", u.Variant)
+	}
+	raw, err := json.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["variant"] = tag
+	return json.Marshal(fields)
+}
+
+func (u *Node) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type NodeType `json:"variant"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case NodeTypeLeaf:
+		var v NodeLeaf
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case NodeTypeSplit:
+		var v NodeSplit
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Node: unknown variant %q", disc.Type)
+	}
+	return nil
 }

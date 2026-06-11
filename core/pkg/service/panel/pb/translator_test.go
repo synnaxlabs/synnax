@@ -30,8 +30,8 @@ func TestPanelPB(t *testing.T) {
 
 // view builds a non-trivial view, including an opaque Args map whose string and
 // bool values survive the structpb round-trip unchanged.
-func view() panel.TabView {
-	return panel.TabView{
+func view() panel.View {
+	return panel.View{
 		Type: "docs",
 		Name: "Docs",
 		Args: msgpack.EncodedJSON{"path": "/intro", "pinned": true},
@@ -40,12 +40,27 @@ func view() panel.TabView {
 
 func resourceTab() panel.Tab {
 	id := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: uuid.New().String()}
-	return panel.Tab{Key: uuid.New(), Resource: &id}
+	return panel.Tab{Variant: panel.TabResource{
+		ResourceTab: panel.ResourceTab{Key: uuid.New(), Resource: id},
+	}}
 }
 
 func viewTab() panel.Tab {
-	v := view()
-	return panel.Tab{Key: uuid.New(), View: &v}
+	return panel.Tab{Variant: panel.TabView{
+		ViewTab: panel.ViewTab{Key: uuid.New(), View: view()},
+	}}
+}
+
+func emptyTab() panel.Tab {
+	return panel.Tab{Variant: panel.TabEmpty{
+		EmptyTab: panel.EmptyTab{Key: uuid.New()},
+	}}
+}
+
+func leafNode(tabs ...panel.Tab) panel.Node {
+	return panel.Node{Variant: panel.NodeLeaf{
+		Leaf: panel.Leaf{Tabs: append([]panel.Tab{}, tabs...)},
+	}}
 }
 
 // nestedPanel exercises every translator: a split whose sides are leaves holding
@@ -54,12 +69,12 @@ func nestedPanel() panel.Panel {
 	return panel.Panel{
 		Key:  uuid.New(),
 		Name: "nested",
-		Root: panel.Node{Split: &panel.Split{
+		Root: panel.Node{Variant: panel.NodeSplit{Split: panel.Split{
 			Direction: spatial.DirectionX,
 			Size:      0.4,
-			First:     &panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{resourceTab()}}},
-			Last:      &panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{viewTab()}}},
-		}},
+			First:     leafNode(resourceTab()),
+			Last:      leafNode(viewTab(), emptyTab()),
+		}}},
 	}
 }
 
@@ -75,7 +90,7 @@ var _ = Describe("Translator", func() {
 			p := panel.Panel{
 				Key:  uuid.New(),
 				Name: "leaf",
-				Root: panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{}}},
+				Root: leafNode(),
 			}
 			back := MustSucceed(pb.PanelFromPB(MustSucceed(pb.PanelToPB(p))))
 			Expect(back).To(Equal(p))
@@ -91,16 +106,16 @@ var _ = Describe("Translator", func() {
 			p := panel.Panel{
 				Key:  uuid.New(),
 				Name: "bad-args",
-				Root: panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{{
+				Root: leafNode(panel.Tab{Variant: panel.TabView{ViewTab: panel.ViewTab{
 					Key:  uuid.New(),
-					View: &panel.TabView{Type: "x", Args: msgpack.EncodedJSON{"bad": make(chan int)}},
-				}}}},
+					View: panel.View{Type: "x", Args: msgpack.EncodedJSON{"bad": make(chan int)}},
+				}}}),
 			}
 			Expect(pb.PanelToPB(p)).Error().To(MatchError(ContainSubstring("invalid type")))
 		})
 	})
 
-	Describe("Tab and TabView", func() {
+	Describe("Tab and View", func() {
 		It("Should round-trip a resource-backed tab", func() {
 			t := resourceTab()
 			back := MustSucceed(pb.TabFromPB(MustSucceed(pb.TabToPB(t))))
@@ -113,26 +128,32 @@ var _ = Describe("Translator", func() {
 			Expect(back).To(Equal(t))
 		})
 
+		It("Should round-trip an empty tab", func() {
+			t := emptyTab()
+			back := MustSucceed(pb.TabFromPB(MustSucceed(pb.TabToPB(t))))
+			Expect(back).To(Equal(t))
+		})
+
 		It("Should round-trip a slice of tabs", func() {
-			ts := []panel.Tab{resourceTab(), viewTab()}
+			ts := []panel.Tab{resourceTab(), viewTab(), emptyTab()}
 			back := MustSucceed(pb.TabsFromPB(MustSucceed(pb.TabsToPB(ts))))
 			Expect(back).To(Equal(ts))
 		})
 
 		It("Should round-trip a slice of views", func() {
-			vs := []panel.TabView{view(), {Type: "about", Args: msgpack.EncodedJSON{}}}
-			back := MustSucceed(pb.TabViewsFromPB(MustSucceed(pb.TabViewsToPB(vs))))
+			vs := []panel.View{view(), {Type: "about", Args: msgpack.EncodedJSON{}}}
+			back := MustSucceed(pb.ViewsFromPB(MustSucceed(pb.ViewsToPB(vs))))
 			Expect(back).To(Equal(vs))
 		})
 
-		It("Should return a zero TabView when decoding nil", func() {
-			Expect(pb.TabViewFromPB(nil)).To(Equal(panel.TabView{}))
+		It("Should return a zero View when decoding nil", func() {
+			Expect(pb.ViewFromPB(nil)).To(Equal(panel.View{}))
 		})
 	})
 
 	Describe("Node, Leaf, and Split", func() {
 		It("Should round-trip a leaf node", func() {
-			n := panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{resourceTab()}}}
+			n := leafNode(resourceTab())
 			back := MustSucceed(pb.NodeFromPB(MustSucceed(pb.NodeToPB(n))))
 			Expect(back).To(Equal(n))
 		})
@@ -147,8 +168,8 @@ var _ = Describe("Translator", func() {
 			ss := []panel.Split{{
 				Direction: spatial.DirectionY,
 				Size:      0.5,
-				First:     &panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{viewTab()}}},
-				Last:      &panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{}}},
+				First:     leafNode(viewTab()),
+				Last:      leafNode(),
 			}}
 			back := MustSucceed(pb.SplitsFromPB(MustSucceed(pb.SplitsToPB(ss))))
 			Expect(back).To(Equal(ss))
@@ -156,13 +177,13 @@ var _ = Describe("Translator", func() {
 
 		It("Should round-trip a slice of nodes", func() {
 			ns := []panel.Node{
-				{Leaf: &panel.Leaf{Tabs: []panel.Tab{resourceTab()}}},
-				{Split: &panel.Split{
+				leafNode(resourceTab()),
+				{Variant: panel.NodeSplit{Split: panel.Split{
 					Direction: spatial.DirectionX,
 					Size:      0.3,
-					First:     &panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{}}},
-					Last:      &panel.Node{Leaf: &panel.Leaf{Tabs: []panel.Tab{}}},
-				}},
+					First:     leafNode(),
+					Last:      leafNode(),
+				}}},
 			}
 			back := MustSucceed(pb.NodesFromPB(MustSucceed(pb.NodesToPB(ns))))
 			Expect(back).To(Equal(ns))

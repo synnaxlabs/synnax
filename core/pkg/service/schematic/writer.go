@@ -37,7 +37,7 @@ type Writer struct {
 // schematic does not have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	ws project.Key,
+	projectKey project.Key,
 	s *Schematic,
 ) (err error) {
 	var exists bool
@@ -59,12 +59,12 @@ func (w Writer) Create(
 	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if ws == uuid.Nil {
+	if projectKey == uuid.Nil {
 		return nil
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
-		project.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
@@ -74,11 +74,11 @@ func (w Writer) Create(
 // with the same key already exist, they will be overwritten.
 func (w Writer) CreateMany(
 	ctx context.Context,
-	ws project.Key,
+	projectKey project.Key,
 	schematics *[]Schematic,
 ) error {
 	for i := range *schematics {
-		if err := w.Create(ctx, ws, &(*schematics)[i]); err != nil {
+		if err := w.Create(ctx, projectKey, &(*schematics)[i]); err != nil {
 			return err
 		}
 	}
@@ -125,7 +125,7 @@ func (w Writer) Copy(
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	ws, ok, err := w.findParentProject(ctx, key)
+	projectKey, ok, err := w.findParentProject(ctx, key)
 	if err != nil || !ok {
 		return err
 	}
@@ -138,7 +138,7 @@ func (w Writer) Copy(
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
-		project.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		OntologyID(newKey),
 	)

@@ -15,17 +15,18 @@ import (
 	"github.com/google/uuid"
 	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
-// TabViewToPB converts TabView to TabView.
-func TabViewToPB(r panel.TabView) (*TabView, error) {
+// ViewToPB converts View to View.
+func ViewToPB(r panel.View) (*View, error) {
 	argsVal, err := structpb.NewStruct(r.Args)
 	if err != nil {
 		return nil, err
 	}
-	pb := &TabView{
+	pb := &View{
 		Type: r.Type,
 		Name: r.Name,
 		Args: argsVal,
@@ -33,9 +34,9 @@ func TabViewToPB(r panel.TabView) (*TabView, error) {
 	return pb, nil
 }
 
-// TabViewFromPB converts TabView to TabView.
-func TabViewFromPB(pb *TabView) (panel.TabView, error) {
-	var r panel.TabView
+// ViewFromPB converts View to View.
+func ViewFromPB(pb *View) (panel.View, error) {
+	var r panel.View
 	if pb == nil {
 		return r, nil
 	}
@@ -45,12 +46,12 @@ func TabViewFromPB(pb *TabView) (panel.TabView, error) {
 	return r, nil
 }
 
-// TabViewsToPB converts a slice of TabView to TabView.
-func TabViewsToPB(rs []panel.TabView) ([]*TabView, error) {
-	result := make([]*TabView, len(rs))
+// ViewsToPB converts a slice of View to View.
+func ViewsToPB(rs []panel.View) ([]*View, error) {
+	result := make([]*View, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TabViewToPB(rs[i])
+		result[i], err = ViewToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -58,12 +59,12 @@ func TabViewsToPB(rs []panel.TabView) ([]*TabView, error) {
 	return result, nil
 }
 
-// TabViewsFromPB converts a slice of TabView to TabView.
-func TabViewsFromPB(pbs []*TabView) ([]panel.TabView, error) {
-	result := make([]panel.TabView, len(pbs))
+// ViewsFromPB converts a slice of View to View.
+func ViewsFromPB(pbs []*View) ([]panel.View, error) {
+	result := make([]panel.View, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TabViewFromPB(pb)
+		result[i], err = ViewFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -71,62 +72,43 @@ func TabViewsFromPB(pbs []*TabView) ([]panel.TabView, error) {
 	return result, nil
 }
 
-// TabToPB converts Tab to Tab.
-func TabToPB(r panel.Tab) (*Tab, error) {
-	pb := &Tab{
-		Key: r.Key.String(),
+// ResourceTabToPB converts ResourceTab to ResourceTab.
+func ResourceTabToPB(r panel.ResourceTab) (*ResourceTab, error) {
+	resourceVal, err := ontologypb.IDToPB(r.Resource)
+	if err != nil {
+		return nil, err
 	}
-	if r.Resource != nil {
-		var err error
-		pb.Resource, err = ontologypb.IDToPB(*r.Resource)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.View != nil {
-		var err error
-		pb.View, err = TabViewToPB(*r.View)
-		if err != nil {
-			return nil, err
-		}
+	pb := &ResourceTab{
+		Key:      r.Key.String(),
+		Resource: resourceVal,
 	}
 	return pb, nil
 }
 
-// TabFromPB converts Tab to Tab.
-func TabFromPB(pb *Tab) (panel.Tab, error) {
-	var r panel.Tab
+// ResourceTabFromPB converts ResourceTab to ResourceTab.
+func ResourceTabFromPB(pb *ResourceTab) (panel.ResourceTab, error) {
+	var r panel.ResourceTab
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
-		return panel.Tab{}, err
+		return panel.ResourceTab{}, err
 	}
-	if pb.Resource != nil {
-		val, err := ontologypb.IDFromPB(pb.Resource)
-		if err != nil {
-			return panel.Tab{}, err
-		}
-		r.Resource = &val
-	}
-	if pb.View != nil {
-		val, err := TabViewFromPB(pb.View)
-		if err != nil {
-			return panel.Tab{}, err
-		}
-		r.View = &val
+	r.Resource, err = ontologypb.IDFromPB(pb.Resource)
+	if err != nil {
+		return panel.ResourceTab{}, err
 	}
 	return r, nil
 }
 
-// TabsToPB converts a slice of Tab to Tab.
-func TabsToPB(rs []panel.Tab) ([]*Tab, error) {
-	result := make([]*Tab, len(rs))
+// ResourceTabsToPB converts a slice of ResourceTab to ResourceTab.
+func ResourceTabsToPB(rs []panel.ResourceTab) ([]*ResourceTab, error) {
+	result := make([]*ResourceTab, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TabToPB(rs[i])
+		result[i], err = ResourceTabToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -134,12 +116,117 @@ func TabsToPB(rs []panel.Tab) ([]*Tab, error) {
 	return result, nil
 }
 
-// TabsFromPB converts a slice of Tab to Tab.
-func TabsFromPB(pbs []*Tab) ([]panel.Tab, error) {
-	result := make([]panel.Tab, len(pbs))
+// ResourceTabsFromPB converts a slice of ResourceTab to ResourceTab.
+func ResourceTabsFromPB(pbs []*ResourceTab) ([]panel.ResourceTab, error) {
+	result := make([]panel.ResourceTab, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TabFromPB(pb)
+		result[i], err = ResourceTabFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ViewTabToPB converts ViewTab to ViewTab.
+func ViewTabToPB(r panel.ViewTab) (*ViewTab, error) {
+	viewVal, err := ViewToPB(r.View)
+	if err != nil {
+		return nil, err
+	}
+	pb := &ViewTab{
+		Key:  r.Key.String(),
+		View: viewVal,
+	}
+	return pb, nil
+}
+
+// ViewTabFromPB converts ViewTab to ViewTab.
+func ViewTabFromPB(pb *ViewTab) (panel.ViewTab, error) {
+	var r panel.ViewTab
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return panel.ViewTab{}, err
+	}
+	r.View, err = ViewFromPB(pb.View)
+	if err != nil {
+		return panel.ViewTab{}, err
+	}
+	return r, nil
+}
+
+// ViewTabsToPB converts a slice of ViewTab to ViewTab.
+func ViewTabsToPB(rs []panel.ViewTab) ([]*ViewTab, error) {
+	result := make([]*ViewTab, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ViewTabToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ViewTabsFromPB converts a slice of ViewTab to ViewTab.
+func ViewTabsFromPB(pbs []*ViewTab) ([]panel.ViewTab, error) {
+	result := make([]panel.ViewTab, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ViewTabFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// EmptyTabToPB converts EmptyTab to EmptyTab.
+func EmptyTabToPB(r panel.EmptyTab) (*EmptyTab, error) {
+	pb := &EmptyTab{
+		Key: r.Key.String(),
+	}
+	return pb, nil
+}
+
+// EmptyTabFromPB converts EmptyTab to EmptyTab.
+func EmptyTabFromPB(pb *EmptyTab) (panel.EmptyTab, error) {
+	var r panel.EmptyTab
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Key, err = uuid.Parse(pb.Key)
+	if err != nil {
+		return panel.EmptyTab{}, err
+	}
+	return r, nil
+}
+
+// EmptyTabsToPB converts a slice of EmptyTab to EmptyTab.
+func EmptyTabsToPB(rs []panel.EmptyTab) ([]*EmptyTab, error) {
+	result := make([]*EmptyTab, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = EmptyTabToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// EmptyTabsFromPB converts a slice of EmptyTab to EmptyTab.
+func EmptyTabsFromPB(pbs []*EmptyTab) ([]panel.EmptyTab, error) {
+	result := make([]panel.EmptyTab, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = EmptyTabFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -205,23 +292,19 @@ func SplitToPB(r panel.Split) (*Split, error) {
 	if err != nil {
 		return nil, err
 	}
+	firstVal, err := NodeToPB(r.First)
+	if err != nil {
+		return nil, err
+	}
+	lastVal, err := NodeToPB(r.Last)
+	if err != nil {
+		return nil, err
+	}
 	pb := &Split{
 		Size:      r.Size,
 		Direction: directionVal,
-	}
-	if r.First != nil {
-		var err error
-		pb.First, err = NodeToPB(*r.First)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Last != nil {
-		var err error
-		pb.Last, err = NodeToPB(*r.Last)
-		if err != nil {
-			return nil, err
-		}
+		First:     firstVal,
+		Last:      lastVal,
 	}
 	return pb, nil
 }
@@ -237,21 +320,15 @@ func SplitFromPB(pb *Split) (panel.Split, error) {
 	if err != nil {
 		return panel.Split{}, err
 	}
+	r.First, err = NodeFromPB(pb.First)
+	if err != nil {
+		return panel.Split{}, err
+	}
+	r.Last, err = NodeFromPB(pb.Last)
+	if err != nil {
+		return panel.Split{}, err
+	}
 	r.Size = pb.Size
-	if pb.First != nil {
-		val, err := NodeFromPB(pb.First)
-		if err != nil {
-			return panel.Split{}, err
-		}
-		r.First = &val
-	}
-	if pb.Last != nil {
-		val, err := NodeFromPB(pb.Last)
-		if err != nil {
-			return panel.Split{}, err
-		}
-		r.Last = &val
-	}
 	return r, nil
 }
 
@@ -274,75 +351,6 @@ func SplitsFromPB(pbs []*Split) ([]panel.Split, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = SplitFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// NodeToPB converts Node to Node.
-func NodeToPB(r panel.Node) (*Node, error) {
-	pb := &Node{}
-	if r.Leaf != nil {
-		var err error
-		pb.Leaf, err = LeafToPB(*r.Leaf)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Split != nil {
-		var err error
-		pb.Split, err = SplitToPB(*r.Split)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return pb, nil
-}
-
-// NodeFromPB converts Node to Node.
-func NodeFromPB(pb *Node) (panel.Node, error) {
-	var r panel.Node
-	if pb == nil {
-		return r, nil
-	}
-	if pb.Leaf != nil {
-		val, err := LeafFromPB(pb.Leaf)
-		if err != nil {
-			return panel.Node{}, err
-		}
-		r.Leaf = &val
-	}
-	if pb.Split != nil {
-		val, err := SplitFromPB(pb.Split)
-		if err != nil {
-			return panel.Node{}, err
-		}
-		r.Split = &val
-	}
-	return r, nil
-}
-
-// NodesToPB converts a slice of Node to Node.
-func NodesToPB(rs []panel.Node) ([]*Node, error) {
-	result := make([]*Node, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = NodeToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// NodesFromPB converts a slice of Node to Node.
-func NodesFromPB(pbs []*Node) ([]panel.Node, error) {
-	result := make([]panel.Node, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = NodeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -403,6 +411,166 @@ func PanelsFromPB(pbs []*Panel) ([]panel.Panel, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = PanelFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TabToPB converts Tab to Tab.
+func TabToPB(r panel.Tab) (*Tab, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Tab{}
+	switch v := r.Variant.(type) {
+	case panel.TabResource:
+		inner, err := ResourceTabToPB(v.ResourceTab)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Tab_Resource{Resource: inner}
+	case panel.TabView:
+		inner, err := ViewTabToPB(v.ViewTab)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Tab_View{View: inner}
+	case panel.TabEmpty:
+		inner, err := EmptyTabToPB(v.EmptyTab)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Tab_Empty{Empty: inner}
+	default:
+		return nil, errors.Newf("Tab: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// TabFromPB converts Tab to Tab.
+func TabFromPB(pb *Tab) (panel.Tab, error) {
+	var r panel.Tab
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *Tab_Resource:
+		inner, err := ResourceTabFromPB(v.Resource)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = panel.TabResource{ResourceTab: inner}
+	case *Tab_View:
+		inner, err := ViewTabFromPB(v.View)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = panel.TabView{ViewTab: inner}
+	case *Tab_Empty:
+		inner, err := EmptyTabFromPB(v.Empty)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = panel.TabEmpty{EmptyTab: inner}
+	}
+	return r, nil
+}
+
+// TabsToPB converts a slice of Tab to Tab.
+func TabsToPB(rs []panel.Tab) ([]*Tab, error) {
+	result := make([]*Tab, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TabToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TabsFromPB converts a slice of Tab to Tab.
+func TabsFromPB(pbs []*Tab) ([]panel.Tab, error) {
+	result := make([]panel.Tab, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TabFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeToPB converts Node to Node.
+func NodeToPB(r panel.Node) (*Node, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &Node{}
+	switch v := r.Variant.(type) {
+	case panel.NodeLeaf:
+		inner, err := LeafToPB(v.Leaf)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Node_Leaf{Leaf: inner}
+	case panel.NodeSplit:
+		inner, err := SplitToPB(v.Split)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &Node_Split{Split: inner}
+	default:
+		return nil, errors.Newf("Node: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// NodeFromPB converts Node to Node.
+func NodeFromPB(pb *Node) (panel.Node, error) {
+	var r panel.Node
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *Node_Leaf:
+		inner, err := LeafFromPB(v.Leaf)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = panel.NodeLeaf{Leaf: inner}
+	case *Node_Split:
+		inner, err := SplitFromPB(v.Split)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = panel.NodeSplit{Split: inner}
+	}
+	return r, nil
+}
+
+// NodesToPB converts a slice of Node to Node.
+func NodesToPB(rs []panel.Node) ([]*Node, error) {
+	result := make([]*Node, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = NodeToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodesFromPB converts a slice of Node to Node.
+func NodesFromPB(pbs []*Node) ([]panel.Node, error) {
+	result := make([]panel.Node, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = NodeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
