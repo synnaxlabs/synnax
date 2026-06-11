@@ -48,8 +48,7 @@ type (
 	CreateRequest struct {
 		// Parent, when non-zero, parents each created panel to that resource in
 		// the ontology. When zero, the panels are parented to the creating user
-		// instead — a draft, visible only to its creator. Either way the panel is
-		// also parented to the root Panels group.
+		// instead — a draft, visible only to its creator.
 		Parent ontology.ID   `json:"parent" msgpack:"parent"`
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 	}

@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -31,7 +30,7 @@ import (
 
 var _ = Describe("Project layout to panel migration", func() {
 	openPanelTable := func(
-		ctx context.Context, db *gorp.DB, groupID ontology.ID,
+		ctx context.Context, db *gorp.DB,
 	) *gorp.Table[panel.Key, panel.Panel] {
 		return MustOpen(gorp.OpenTable[panel.Key, panel.Panel](
 			ctx, gorp.TableConfig[panel.Key, panel.Panel]{
@@ -41,7 +40,7 @@ var _ = Describe("Project layout to panel migration", func() {
 					migrate.WithAddedDeps(
 						gorp.NewMigration(
 							"v56_migrate_project_layouts_to_panels",
-							panel.MigrateProjectLayouts(groupID),
+							panel.MigrateProjectLayouts(),
 						),
 						"msgpack_to_orc",
 					),
@@ -94,15 +93,20 @@ var _ = Describe("Project layout to panel migration", func() {
 		if n == nil {
 			return
 		}
-		if n.Leaf != nil {
-			for i := range n.Leaf.Tabs {
-				Expect(n.Leaf.Tabs[i].Key).ToNot(Equal(uuid.Nil))
-				n.Leaf.Tabs[i].Key = uuid.Nil
+		switch v := n.Variant.(type) {
+		case panel.NodeLeaf:
+			for i, t := range v.Tabs {
+				rt, ok := t.Variant.(panel.TabResource)
+				Expect(ok).To(BeTrue())
+				Expect(rt.Key).ToNot(Equal(uuid.Nil))
+				rt.Key = uuid.Nil
+				v.Tabs[i] = panel.Tab{Variant: rt}
 			}
-		}
-		if n.Split != nil {
-			zeroTabKeys(n.Split.First)
-			zeroTabKeys(n.Split.Last)
+			n.Variant = v
+		case panel.NodeSplit:
+			zeroTabKeys(&v.First)
+			zeroTabKeys(&v.Last)
+			n.Variant = v
 		}
 	}
 	rel := func(from, to ontology.ID) ontology.Relationship {
@@ -118,10 +122,12 @@ var _ = Describe("Project layout to panel migration", func() {
 			Exists(ctx, db))
 	}
 	resourceTab := func(t ontology.ResourceType, key string) panel.Tab {
-		return panel.Tab{Resource: &ontology.ID{Type: t, Key: key}}
+		return panel.Tab{Variant: panel.TabResource{ResourceTab: panel.ResourceTab{
+			Resource: ontology.ID{Type: t, Key: key},
+		}}}
 	}
 	leaf := func(tabs ...panel.Tab) *panel.Node {
-		return &panel.Node{Leaf: &panel.Leaf{Tabs: tabs}}
+		return &panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: tabs}}}
 	}
 	mosaicTab := func(tabKey string) map[string]any {
 		return map[string]any{"tabKey": tabKey, "name": "Tab " + tabKey}
@@ -135,9 +141,8 @@ var _ = Describe("Project layout to panel migration", func() {
 		}
 	}
 
-	It("Should convert mosaics into panels parented under the project and group", func(ctx SpecContext) {
+	It("Should convert mosaics into panels parented under the project", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		groupID := group.OntologyID(uuid.New())
 		projectKey := uuid.New()
 		lpKey, scKey, logKey, tblKey := uuid.NewString(), uuid.NewString(),
 			uuid.NewString(), uuid.NewString()
@@ -221,23 +226,23 @@ var _ = Describe("Project layout to panel migration", func() {
 			},
 		})
 
-		openPanelTable(ctx, db, groupID)
+		openPanelTable(ctx, db)
 		panels := collectPanels(ctx, db)
 		Expect(panels).To(HaveLen(2))
 
 		main := findPanel(panels, "Main")
 		zeroTabKeys(&main.Root)
-		Expect(main.Root).To(Equal(panel.Node{Split: &panel.Split{
+		Expect(main.Root).To(Equal(panel.Node{Variant: panel.NodeSplit{Split: panel.Split{
 			Direction: spatial.DirectionX,
 			Size:      0.25,
-			First: &panel.Node{Split: &panel.Split{
+			First: panel.Node{Variant: panel.NodeSplit{Split: panel.Split{
 				Direction: spatial.DirectionY,
 				Size:      0.5,
-				First:     leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
-				Last:      leaf(resourceTab(ontology.ResourceTypeSchematic, scKey)),
-			}},
-			Last: leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
-		}}))
+				First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
+				Last:      *leaf(resourceTab(ontology.ResourceTypeSchematic, scKey)),
+			}}},
+			Last: *leaf(resourceTab(ontology.ResourceTypeLog, logKey)),
+		}}}))
 
 		tableWin := findPanel(panels, "Table Window")
 		zeroTabKeys(&tableWin.Root)
@@ -245,13 +250,12 @@ var _ = Describe("Project layout to panel migration", func() {
 			*leaf(resourceTab(ontology.ResourceTypeTable, tblKey)),
 		))
 
-		By("Defining an ontology resource and parent relationships for each panel")
+		By("Defining an ontology resource and parent relationship for each panel")
 		for _, p := range panels {
 			panelID := panel.OntologyID(p.Key)
 			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
 				Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
 				Exists(ctx, db))).To(BeTrue())
-			Expect(hasRel(ctx, db, rel(groupID, panelID))).To(BeTrue())
 			Expect(hasRel(ctx, db, rel(project.OntologyID(projectKey), panelID))).
 				To(BeTrue())
 		}
@@ -263,7 +267,6 @@ var _ = Describe("Project layout to panel migration", func() {
 
 	It("Should collapse splits whose sides lose all of their tabs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		groupID := group.OntologyID(uuid.New())
 		lpKey, staleKey := uuid.NewString(), uuid.NewString()
 		seedResources(ctx, db, ontology.ID{
 			Type: ontology.ResourceTypeLineplot, Key: lpKey,
@@ -296,7 +299,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			},
 		})
 
-		openPanelTable(ctx, db, groupID)
+		openPanelTable(ctx, db)
 		panels := collectPanels(ctx, db)
 		Expect(panels).To(HaveLen(1))
 		// No "main" layout entry was seeded, so the panel name falls back to the
@@ -309,7 +312,6 @@ var _ = Describe("Project layout to panel migration", func() {
 
 	It("Should skip corrupt or unmigratable staged layouts", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		groupID := group.OntologyID(uuid.New())
 		stageLayout(ctx, db, project.Project{
 			Key:    uuid.New(),
 			Name:   "Corrupt",
@@ -338,13 +340,13 @@ var _ = Describe("Project layout to panel migration", func() {
 			},
 		})
 
-		openPanelTable(ctx, db, groupID)
+		openPanelTable(ctx, db)
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 
 	It("Should be a no-op on a cluster with no projects", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		openPanelTable(ctx, db, group.OntologyID(uuid.New()))
+		openPanelTable(ctx, db)
 		Expect(collectPanels(ctx, db)).To(BeEmpty())
 	})
 })

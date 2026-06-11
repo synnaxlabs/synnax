@@ -14,7 +14,6 @@ import (
 	stdio "io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
@@ -35,7 +34,6 @@ type ServiceConfig struct {
 	Signals  *signals.Provider
 	DB       *gorp.DB
 	Ontology *ontology.Ontology
-	Group    *group.Service
 	Search   *search.Index
 }
 
@@ -49,7 +47,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
-	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
@@ -60,7 +57,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("panel")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
-	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
@@ -69,7 +65,6 @@ type Service struct {
 	cfg    ServiceConfig
 	closer xio.MultiCloser
 	table  *gorp.Table[Key, Panel]
-	group  group.Group
 	state  *actions.State[Key, Action]
 }
 
@@ -81,9 +76,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Panels", ontology.RootID); !ok(err, nil) {
-		return nil, err
-	}
 	if s.table, err = gorp.OpenTable[Key, Panel](ctx, gorp.TableConfig[Key, Panel]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
@@ -91,7 +83,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			migrate.WithAddedDeps(
 				gorp.NewMigration(
 					"v56_migrate_project_layouts_to_panels",
-					MigrateProjectLayouts(s.group.OntologyID()),
+					MigrateProjectLayouts(),
 				),
 				"msgpack_to_orc",
 			),
@@ -139,7 +131,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
 		otg:        s.cfg.Ontology.NewWriter(tx),
-		group:      s.group,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}

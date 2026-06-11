@@ -94,22 +94,19 @@ type stagedLayout struct {
 // project migration stages under project.LegacyLayoutKVPrefix into panels, deleting
 // each staged entry as it is consumed, so this migration never reads the project
 // layout field directly. Every window mosaic that references at least one live
-// visualization document becomes a panel parented under the project and the panels
-// group identified by groupID. Tabs whose layout entry is missing, whose layout type
-// has no backing document, or whose document no longer exists are dropped; splits
-// that lose a side collapse into the surviving child. Blobs that cannot be parsed are
-// skipped, since the Console wrote them best-effort and an unreadable layout must not
-// block the upgrade.
-func MigrateProjectLayouts(
-	groupID ontology.ID,
-) func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+// visualization document becomes a panel parented under the project. Tabs whose
+// layout entry is missing, whose layout type has no backing document, or whose
+// document no longer exists are dropped; splits that lose a side collapse into the
+// surviving child. Blobs that cannot be parsed are skipped, since the Console wrote
+// them best-effort and an unreadable layout must not block the upgrade.
+func MigrateProjectLayouts() func(context.Context, gorp.Tx, alamos.Instrumentation) error {
 	return func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
-		staged, err := scanStagedLayouts(ctx, tx, ins)
+		staged, err := scanStagedLayouts(tx, ins)
 		if err != nil {
 			return err
 		}
 		for _, s := range staged {
-			if err = createPanels(ctx, tx, groupID, s.projectID, s.slice); err != nil {
+			if err = createPanels(ctx, tx, s.projectID, s.slice); err != nil {
 				return err
 			}
 			if err = tx.Delete(ctx, s.key); err != nil {
@@ -124,7 +121,6 @@ func MigrateProjectLayouts(
 // writing panels while iterating the staging prefix would be unsafe. Blobs that fail
 // to parse are skipped with a warning.
 func scanStagedLayouts(
-	ctx context.Context,
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
 ) (out []stagedLayout, err error) {
@@ -161,7 +157,7 @@ func scanStagedLayouts(
 func createPanels(
 	ctx context.Context,
 	tx gorp.Tx,
-	groupID, projectID ontology.ID,
+	projectID ontology.ID,
 	slice legacySlice,
 ) error {
 	panelWriter := gorp.WrapWriter[Key, Panel](tx)
@@ -183,14 +179,12 @@ func createPanels(
 		if err := resourceWriter.Set(ctx, ontology.Resource{ID: panelID}); err != nil {
 			return err
 		}
-		for _, parent := range []ontology.ID{groupID, projectID} {
-			if err := relWriter.Set(ctx, ontology.Relationship{
-				From: parent,
-				Type: ontology.RelationshipTypeParentOf,
-				To:   panelID,
-			}); err != nil {
-				return err
-			}
+		if err := relWriter.Set(ctx, ontology.Relationship{
+			From: projectID,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   panelID,
+		}); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -254,12 +248,12 @@ func convertNode(
 		if last == nil {
 			return first, nil
 		}
-		return &Node{Split: &Split{
+		return &Node{Variant: NodeSplit{Split: Split{
 			Direction: convertDirection(n.Direction),
 			Size:      convertSize(n.Size),
-			First:     first,
-			Last:      last,
-		}}, nil
+			First:     *first,
+			Last:      *last,
+		}}}, nil
 	}
 	tabs := make([]Tab, 0, len(n.Tabs))
 	for _, t := range n.Tabs {
@@ -281,12 +275,15 @@ func convertNode(
 		if !exists {
 			continue
 		}
-		tabs = append(tabs, Tab{Key: uuid.New(), Resource: &id})
+		tabs = append(tabs, Tab{Variant: TabResource{ResourceTab: ResourceTab{
+			Key:      uuid.New(),
+			Resource: id,
+		}}})
 	}
 	if len(tabs) == 0 {
 		return nil, nil
 	}
-	return &Node{Leaf: &Leaf{Tabs: tabs}}, nil
+	return &Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: tabs}}}, nil
 }
 
 // convertDirection parses a legacy mosaic split direction, defaulting to x when the

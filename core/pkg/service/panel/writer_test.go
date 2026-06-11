@@ -67,18 +67,6 @@ var _ = Describe("Writer", func() {
 			Expect(resource.Name).To(Equal("test"))
 		})
 
-		It("Should parent the panel to the root Panels group", func(ctx SpecContext) {
-			group := MustSucceed(dist.Group.CreateOrRetrieve(ctx, "Panels", ontology.RootID))
-			p := panel.Panel{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				group.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				panel.OntologyID(p.Key),
-			)).To(BeTrue())
-		})
-
 		It("Should parent the panel to the provided parent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "with-parent"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
