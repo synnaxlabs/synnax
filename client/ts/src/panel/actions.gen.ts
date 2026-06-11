@@ -29,12 +29,15 @@ export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
 /**
  * InsertTab inserts a tab into the leaf with the given path-derived key at
- * the given index. Appends when index is absent.
+ * the given index. Appends when index is absent. When location is
+ * present, the target leaf is first split at that location and the
+ * tab is inserted into the new empty leaf.
  */
 export const insertTabPayloadZ = z.object({
   tab: tabZ,
   targetLeaf: z.int32(),
   index: z.int32().optional(),
+  location: spatial.locationZ.optional(),
 });
 
 export type InsertTabPayload = z.infer<typeof insertTabPayloadZ>;
@@ -51,14 +54,18 @@ export const removeTabPayloadZ = z.object({
 export type RemoveTabPayload = z.infer<typeof removeTabPayloadZ>;
 
 /**
- * MoveTab moves a tab to a position within the panel. Cross-panel moves
- * are RemoveTab on the source plus InsertTab on the destination
- * (two dispatches; not atomic).
+ * MoveTab moves a tab to a position within the panel. When location is
+ * present, the target leaf is first split at that location and the
+ * tab moves into the new empty leaf; moving a leaf's only tab to
+ * an edge of its own leaf is a no-op. Cross-panel moves are
+ * RemoveTab on the source plus InsertTab on the destination (two
+ * dispatches; not atomic).
  */
 export const moveTabPayloadZ = z.object({
   key: z.uuid(),
   targetLeaf: z.int32(),
   index: z.int32().optional(),
+  location: spatial.locationZ.optional(),
 });
 
 export type MoveTabPayload = z.infer<typeof moveTabPayloadZ>;
