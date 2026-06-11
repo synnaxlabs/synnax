@@ -92,7 +92,23 @@ export const { useRetrieve, useEnsureRetrieved } = Flux.createRetrieve<
   ],
 });
 
-export interface TabContent extends Pick<panel.Tab, "resource" | "view"> {}
+export interface TabContent {
+  resource?: ontology.ID;
+  view?: panel.View;
+}
+
+// tabContent flattens a tab's variant into the optional content pair consumed by
+// render props, so consumers can read resource/view without switching on variant.
+export const tabContent = (tab: panel.Tab): TabContent => {
+  switch (tab.variant) {
+    case "resource":
+      return { resource: tab.resource };
+    case "view":
+      return { view: tab.view };
+    case "empty":
+      return {};
+  }
+};
 
 export interface SelectKeyArgs {
   key: panel.Key;

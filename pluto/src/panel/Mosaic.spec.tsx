@@ -42,7 +42,11 @@ const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
 
 // contentText is what the harness's children render prop displays for a tab, so
 // specs can find a tab's content the way an operator would: by its visible text.
-const contentText = ({ key, resource, view }: panel.Tab): string => {
+const contentText = ({
+  key,
+  resource,
+  view,
+}: { key: string } & Panel.TabContent): string => {
   if (resource != null) return `resource:${resource.key}`;
   if (view != null) return `view:${view.type}`;
   return `empty:${key}`;
@@ -107,7 +111,11 @@ describe("Panel.Mosaic", () => {
 
   describe("rendering", () => {
     it("should render a tab's content through the children render prop", async () => {
-      const tab: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const tab: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(tab);
       const { utils, children } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
@@ -115,9 +123,17 @@ describe("Panel.Mosaic", () => {
     });
 
     it("should resolve each tab's content union", async () => {
-      const resourceTab: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const viewTab: panel.Tab = { key: uuid.create(), view: { type: "docs" } };
-      const emptyTab: panel.Tab = { key: uuid.create() };
+      const resourceTab: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const viewTab: panel.TabView = {
+        variant: "view",
+        key: uuid.create(),
+        view: { type: "docs" },
+      };
+      const emptyTab: panel.TabEmpty = { variant: "empty", key: uuid.create() };
       const p = await createPanel(resourceTab, viewTab, emptyTab);
       const { utils, children } = await renderMosaic({ panelKey: p.key });
       // Only the selected tab's content is attached to the document; the
@@ -137,7 +153,11 @@ describe("Panel.Mosaic", () => {
     });
 
     it("should render tab names through the tabName render prop", async () => {
-      const tab: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const tab: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(tab);
       const tabName = vi.fn(({ resource }: Panel.MosaicTabNameProps) => (
         <span>{`name:${resource?.key}`}</span>
@@ -151,8 +171,16 @@ describe("Panel.Mosaic", () => {
 
   describe("selection", () => {
     it("should select a leaf's first tab when no selection is provided", async () => {
-      const a: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const b: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const a: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(a, b);
       const { utils, children } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
@@ -162,8 +190,16 @@ describe("Panel.Mosaic", () => {
     });
 
     it("should select the most recent tab in selected", async () => {
-      const a: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const b: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const a: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(a, b);
       const { utils, children } = await renderMosaic({
         panelKey: p.key,
@@ -175,10 +211,26 @@ describe("Panel.Mosaic", () => {
     });
 
     it("should select the most recent of each leaf's own tabs", async () => {
-      const a1: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const a2: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const b1: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const b2: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const a1: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const a2: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b1: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b2: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(a1, a2, b1, b2);
       await client.panels.dispatch(p.key, "", [
         panel.moveTab({ key: b1.key, targetLeaf: panel.ROOT_PATH, location: "right" }),
@@ -205,8 +257,16 @@ describe("Panel.Mosaic", () => {
 
   describe("gestures", () => {
     it("should remove a tab from the document when its close button is clicked", async () => {
-      const a: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const b: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const a: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(a, b);
       const { utils } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
@@ -228,7 +288,11 @@ describe("Panel.Mosaic", () => {
     });
 
     it("should insert and select a fresh contentless tab from the add button", async () => {
-      const a: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const a: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(a);
       const onSelect = vi.fn();
       const { utils, children } = await renderMosaic({ panelKey: p.key, onSelect });
@@ -256,8 +320,16 @@ describe("Panel.Mosaic", () => {
 
   describe("cross-client sync", () => {
     it("should render a split dispatched by another client", async () => {
-      const a: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const b: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const a: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(a, b);
       const { utils } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
@@ -276,7 +348,7 @@ describe("Panel.Mosaic", () => {
     });
 
     it("should update a tab's content when another client sets its resource", async () => {
-      const tab: panel.Tab = { key: uuid.create() };
+      const tab: panel.TabEmpty = { variant: "empty", key: uuid.create() };
       const p = await createPanel(tab);
       const { utils } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
@@ -294,8 +366,16 @@ describe("Panel.Mosaic", () => {
     });
 
     it("should drop a tab removed by another client", async () => {
-      const a: panel.Tab = { key: uuid.create(), resource: resourceID() };
-      const b: panel.Tab = { key: uuid.create(), resource: resourceID() };
+      const a: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
       const p = await createPanel(a, b);
       const { utils } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
