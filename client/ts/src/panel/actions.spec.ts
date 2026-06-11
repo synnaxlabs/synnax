@@ -83,6 +83,29 @@ describe("reduceAll", () => {
     });
   });
 
+  describe("resizeSplit", () => {
+    it("should return the same state reference when the size is unchanged", () => {
+      const prev = state({
+        split: { direction: "x", size: 0.5, first: leaf("a"), last: leaf("b") },
+      });
+      const { next } = panel.reduceAll(prev, [
+        panel.resizeSplit({ split: panel.ROOT_PATH, size: 0.5 }),
+      ]);
+      expect(next).toBe(prev);
+    });
+
+    it("should resize the split when the size differs", () => {
+      const prev = state({
+        split: { direction: "x", size: 0.5, first: leaf("a"), last: leaf("b") },
+      });
+      const { next } = panel.reduceAll(prev, [
+        panel.resizeSplit({ split: panel.ROOT_PATH, size: 0.7 }),
+      ]);
+      expect(next).not.toBe(prev);
+      expect(next.root.split?.size).toEqual(0.7);
+    });
+  });
+
   describe("insertTab", () => {
     it("should split the target leaf and insert into the new sibling when location is present", () => {
       const { next } = panel.reduceAll(state(leaf("a")), [

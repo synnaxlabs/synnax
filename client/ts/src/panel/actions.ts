@@ -186,6 +186,9 @@ const handlers: Handlers = {
     if (state.root == null) return NO_OP;
     const node = walkPath(state.root, payload.split);
     if (node == null || node.split == null) return NO_OP;
+    // An equal size must not touch the draft: the dispatch substrate detects
+    // no-op vectors by reference equality and skips the server send.
+    if (node.split.size === payload.size) return NO_OP;
     node.split.size = payload.size;
     return { inverse: [], targets: [String(payload.split)] };
   },
