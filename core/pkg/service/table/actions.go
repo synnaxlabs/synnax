@@ -227,15 +227,13 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 		}
 	}
 	slices.Sort(fullColIdx)
-	for i := len(fullRowIdx) - 1; i >= 0; i-- {
-		idx := fullRowIdx[i]
+	for _, idx := range slices.Backward(fullRowIdx) {
 		for _, k := range state.Rows[idx].Cells {
 			delete(state.Cells, k)
 		}
 		state.Rows = slices.Delete(state.Rows, idx, idx+1)
 	}
-	for i := len(fullColIdx) - 1; i >= 0; i-- {
-		idx := fullColIdx[i]
+	for _, idx := range slices.Backward(fullColIdx) {
 		state.Columns = slices.Delete(state.Columns, idx, idx+1)
 		for r := range state.Rows {
 			if idx >= len(state.Rows[r].Cells) {

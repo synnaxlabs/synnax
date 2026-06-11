@@ -178,50 +178,6 @@ var _ = Describe("HasKey", func() {
 	})
 })
 
-var _ = Describe("HasGenerate", func() {
-	It("returns true when key domain has generate expression", func() {
-		field := resolution.Field{
-			Name: "id",
-			Domains: map[string]resolution.Domain{
-				"key": {
-					Expressions: resolution.Expressions{{Name: "generate"}},
-				},
-			},
-		}
-		Expect(key.HasGenerate(field)).To(BeTrue())
-	})
-
-	It("returns false when key domain has no generate expression", func() {
-		field := resolution.Field{
-			Name: "id",
-			Domains: map[string]resolution.Domain{
-				"key": {
-					Expressions: resolution.Expressions{{Name: "primary"}},
-				},
-			},
-		}
-		Expect(key.HasGenerate(field)).To(BeFalse())
-	})
-
-	It("returns false when field has no key domain", func() {
-		field := resolution.Field{
-			Name:    "id",
-			Domains: map[string]resolution.Domain{},
-		}
-		Expect(key.HasGenerate(field)).To(BeFalse())
-	})
-
-	It("returns false when key domain has empty expressions", func() {
-		field := resolution.Field{
-			Name: "id",
-			Domains: map[string]resolution.Domain{
-				"key": {Expressions: resolution.Expressions{}},
-			},
-		}
-		Expect(key.HasGenerate(field)).To(BeFalse())
-	})
-})
-
 var _ = Describe("ResolvePrimitive", func() {
 	var table *resolution.Table
 

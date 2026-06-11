@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -188,6 +188,29 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("CreateMany", func() {
+		It("Should create multiple tasks", func(ctx SpecContext) {
+			tasks := []task.Task{
+				{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Task 1",
+				},
+				{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Task 2",
+				},
+			}
+			Expect(w.CreateMany(ctx, &tasks)).To(Succeed())
+
+			var retrieved []task.Task
+			Expect(svc.NewRetrieve().Where(task.MatchKeys(
+				tasks[0].Key,
+				tasks[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
+		})
+	})
+
 	Describe("Copy", func() {
 
 		It("Should copy a task", func(ctx SpecContext) {
@@ -196,10 +219,10 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 4)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 6)))
 			Expect(m.Name).To(Equal("Test Task"))
 			t := MustSucceed(w.Copy(ctx, m.Key, "Copied Task", false))
-			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 5)))
+			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 7)))
 		})
 
 		It("Should create a snapshot of an existing task", func(ctx SpecContext) {
@@ -208,10 +231,10 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 6)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 8)))
 			Expect(m.Name).To(Equal("Test Task"))
 			t := MustSucceed(w.Copy(ctx, m.Key, "Snapshotted Task", true))
-			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 7)))
+			Expect(t.Key).To(Equal(task.NewKey(testRack.Key, 9)))
 			Expect(t.Snapshot).To(BeTrue())
 		})
 
@@ -224,7 +247,7 @@ var _ = Describe("Task", Ordered, func() {
 				Name: "Test Task",
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
-			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 8)))
+			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 10)))
 			Expect(m.Name).To(Equal("Test Task"))
 			var res task.Task
 			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())

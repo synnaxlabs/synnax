@@ -11,6 +11,7 @@ package analyzer
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -191,6 +192,151 @@ func analyze(c *analysisCtx) {
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
 		validateTypeParams(c, typ)
+		validateFieldOverrides(c, typ)
+	}
+
+	desugarPartialOverrides(c)
+}
+
+// desugarPartialOverrides rewrites each struct's typeless override fields into
+// complete fields, resolving the inherited type, optionality, (when omitted)
+// default, and domains from the parent. The field's own domains win on a name
+// conflict, matching mergeOverrideField. After this pass a typeless override
+// (key?) is indistinguishable from a full restatement (key Key?), so the code
+// generators make the same embed-vs-flatten decision and emit identical output.
+// Domain removal (-@domain) is intentionally left for the generators to handle,
+// since it has no full-restatement equivalent and cannot be expressed through
+// embedding.
+func desugarPartialOverrides(c *analysisCtx) {
+	for i := range c.table.Types {
+		typ := c.table.Types[i]
+		if typ.Namespace != c.namespace {
+			continue
+		}
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok || len(form.Extends) == 0 {
+			continue
+		}
+		if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
+			continue
+		}
+		parents := resolvedParentFields(c, form)
+		fields := make([]resolution.Field, len(form.Fields))
+		copy(fields, form.Fields)
+		changed := false
+		for j := range fields {
+			f := &fields[j]
+			if f.HasType() {
+				continue
+			}
+			pf, ok := parents[f.Name]
+			if !ok {
+				continue
+			}
+			f.Type = pf.Type
+			if !f.IsOptional && !f.IsHardOptional {
+				f.IsOptional = pf.IsOptional
+				f.IsHardOptional = pf.IsHardOptional
+			}
+			if f.Default == nil {
+				f.Default = pf.Default
+			}
+			if len(pf.Domains) > 0 {
+				domains := make(map[string]resolution.Domain, len(pf.Domains)+len(f.Domains))
+				maps.Copy(domains, pf.Domains)
+				for k, v := range f.Domains {
+					if existing, ok := domains[k]; ok {
+						domains[k] = v.Merge(existing)
+					} else {
+						domains[k] = v
+					}
+				}
+				f.Domains = domains
+			}
+			changed = true
+		}
+		if !changed {
+			continue
+		}
+		form.Fields = fields
+		typ.Form = form
+		c.table.Types[i] = typ
+	}
+}
+
+// resolvedParentFields collects the fields a struct inherits, keyed by name, with
+// generic type parameters substituted. The first parent wins on a name conflict,
+// matching UnifiedFields.
+func resolvedParentFields(c *analysisCtx, form resolution.StructForm) map[string]resolution.Field {
+	out := make(map[string]resolution.Field)
+	for _, ext := range form.Extends {
+		parent, ok := ext.Resolve(c.table)
+		if !ok {
+			continue
+		}
+		parentForm, ok := parent.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		typeArgMap := make(map[string]resolution.TypeRef)
+		for i, tp := range parentForm.TypeParams {
+			if i < len(ext.TypeArgs) {
+				typeArgMap[tp.Name] = ext.TypeArgs[i]
+			}
+		}
+		for _, pf := range resolution.UnifiedFields(parent, c.table) {
+			if _, exists := out[pf.Name]; exists {
+				continue
+			}
+			pf.Type = resolution.SubstituteTypeRef(pf.Type, typeArgMap)
+			out[pf.Name] = pf
+		}
+	}
+	return out
+}
+
+// validateFieldOverrides reports partial-override syntax that cannot resolve: a
+// field that omits its type, or removes a domain with `-@domain`, must name a
+// field inherited from a parent struct to inherit from. Outside an extends
+// chain, or naming no parent field, there is nothing to inherit.
+func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok {
+		return
+	}
+	// Resolving parent fields walks the extends chain; a cycle (already reported
+	// by validateExtends) would recur without bound, so skip it here.
+	if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
+		return
+	}
+	parentFields := make(set.Set[string])
+	for _, extendsRef := range form.Extends {
+		parent, ok := extendsRef.Resolve(c.table)
+		if !ok {
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(parent, c.table) {
+			parentFields.Add(f.Name)
+		}
+	}
+	for _, f := range form.Fields {
+		if parentFields.Contains(f.Name) {
+			continue
+		}
+		if !f.HasType() {
+			d := diagnostics.Errorf(nil,
+				"field %q in struct %s declares no type and overrides no parent field",
+				f.Name, typ.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
+		if len(f.OmittedDomains) > 0 {
+			d := diagnostics.Errorf(nil,
+				"field %q in struct %s removes a domain with -@ but overrides no parent field",
+				f.Name, typ.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
 	}
 }
 
@@ -339,9 +485,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	}
 
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
@@ -396,6 +540,11 @@ func collectAction(
 	hasKeyDomain := false
 	for _, f := range body.AllFieldDef() {
 		field := collectField(c, f, typeParams, &hasKeyDomain)
+		if !field.HasType() {
+			d := diagnostics.Errorf(f, "action %s field %q must declare a type", action.Name, field.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
 		action.Fields = append(action.Fields, field)
 	}
 	for _, d := range body.AllDomain() {
@@ -440,9 +589,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 	}
 
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 	if body := def.AliasBody(); body != nil {
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
@@ -539,45 +686,46 @@ func collectMapTypeRef(mapCtx *parser.TypeRefMapContext, typeParams []resolution
 }
 
 func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []resolution.TypeParam, hasKeyDomain *bool) resolution.Field {
-	name := def.IDENT().GetText()
-	tr := def.TypeRef()
+	field := resolution.Field{
+		Name:    def.IDENT().GetText(),
+		Domains: make(map[string]resolution.Domain),
+		AST:     def,
+	}
 
-	normalCtx, isNormal := tr.(*parser.TypeRefNormalContext)
-	mapCtx, isMap := tr.(*parser.TypeRefMapContext)
-	isOptional, isHardOptional := false, false
-	isArray := false
-	var arraySize *int64
+	// A field may omit its type to partially override an inherited field, in
+	// which case the type and optionality are resolved from the parent later.
+	if tr := def.TypeRef(); tr != nil {
+		normalCtx, isNormal := tr.(*parser.TypeRefNormalContext)
+		mapCtx, isMap := tr.(*parser.TypeRefMapContext)
+		isArray := false
+		var arraySize *int64
 
-	if isNormal {
-		isOptional, isHardOptional = extractTypeModifiersNormal(normalCtx)
-		if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
-			isArray = true
-			if intLit := arrMod.INT_LIT(); intLit != nil {
-				size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
-				arraySize = &size
+		if isNormal {
+			field.IsOptional, field.IsHardOptional = extractTypeModifiersNormal(normalCtx)
+			if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
+				isArray = true
+				if intLit := arrMod.INT_LIT(); intLit != nil {
+					size, _ := strconv.ParseInt(intLit.GetText(), 10, 64)
+					arraySize = &size
+				}
+			}
+		} else if isMap {
+			field.IsOptional, field.IsHardOptional = extractTypeModifiersMap(mapCtx)
+		}
+
+		typeRef := collectTypeRef(tr, typeParams)
+		if isArray {
+			typeRef = resolution.TypeRef{
+				Name:      "Array",
+				TypeArgs:  []resolution.TypeRef{typeRef},
+				ArraySize: arraySize,
 			}
 		}
-	} else if isMap {
-		isOptional, isHardOptional = extractTypeModifiersMap(mapCtx)
-	}
-
-	typeRef := collectTypeRef(tr, typeParams)
-
-	if isArray {
-		typeRef = resolution.TypeRef{
-			Name:      "Array",
-			TypeArgs:  []resolution.TypeRef{typeRef},
-			ArraySize: arraySize,
-		}
-	}
-
-	field := resolution.Field{
-		Name:           name,
-		Type:           typeRef,
-		Domains:        make(map[string]resolution.Domain),
-		IsOptional:     isOptional,
-		IsHardOptional: isHardOptional,
-		AST:            def,
+		field.Type = typeRef
+	} else if mods := def.TypeModifiers(); mods != nil {
+		// Typeless override that overrides only optionality (key? / key??); the
+		// type is inherited from the parent during override resolution.
+		field.IsOptional, field.IsHardOptional = modifiersFrom(mods)
 	}
 
 	if fd := def.FieldDefault(); fd != nil {
@@ -592,6 +740,9 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 			*hasKeyDomain = true
 		}
 	}
+	for _, om := range def.AllDomainOmit() {
+		field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
+	}
 
 	if fb := def.FieldBody(); fb != nil {
 		for _, d := range fb.AllDomain() {
@@ -600,6 +751,9 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 			if de.Name == "key" {
 				*hasKeyDomain = true
 			}
+		}
+		for _, om := range fb.AllDomainOmit() {
+			field.OmittedDomains = append(field.OmittedDomains, om.IDENT().GetText())
 		}
 	}
 	return field
@@ -653,11 +807,45 @@ func collectFieldDefault(fd parser.IFieldDefaultContext) resolution.ExpressionVa
 	if ev := fd.ExpressionValue(); ev != nil {
 		return collectValue(ev)
 	}
-	out := resolution.ExpressionValue{Kind: resolution.ValueKindArray}
 	if arr := fd.ArrayDefault(); arr != nil {
-		for _, el := range arr.AllExpressionValue() {
-			out.Elements = append(out.Elements, collectValue(el))
-		}
+		return collectArrayDefault(arr)
+	}
+	if st := fd.StructDefault(); st != nil {
+		return collectStructDefault(st)
+	}
+	return resolution.ExpressionValue{}
+}
+
+// collectDefaultValue collects a default value in a nested position (an array
+// element or a struct field), recursing into arrays and structs.
+func collectDefaultValue(dv parser.IDefaultValueContext) resolution.ExpressionValue {
+	if ev := dv.ExpressionValue(); ev != nil {
+		return collectValue(ev)
+	}
+	if arr := dv.ArrayDefault(); arr != nil {
+		return collectArrayDefault(arr)
+	}
+	if st := dv.StructDefault(); st != nil {
+		return collectStructDefault(st)
+	}
+	return resolution.ExpressionValue{}
+}
+
+func collectArrayDefault(arr parser.IArrayDefaultContext) resolution.ExpressionValue {
+	out := resolution.ExpressionValue{Kind: resolution.ValueKindArray}
+	for _, el := range arr.AllDefaultValue() {
+		out.Elements = append(out.Elements, collectDefaultValue(el))
+	}
+	return out
+}
+
+func collectStructDefault(st parser.IStructDefaultContext) resolution.ExpressionValue {
+	out := resolution.ExpressionValue{Kind: resolution.ValueKindStruct}
+	for _, f := range st.AllStructFieldDefault() {
+		out.Fields = append(out.Fields, resolution.StructFieldValue{
+			Name:  f.IDENT().GetText(),
+			Value: collectDefaultValue(f.DefaultValue()),
+		})
 	}
 	return out
 }
@@ -732,9 +920,7 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 		}
 	}
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 
 	if body := def.EnumBody(); body != nil {
 		vals := body.AllEnumValue()
@@ -816,9 +1002,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 	}
 
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 
 	if body := def.TypeDefBody(); body != nil {
 		for _, d := range body.AllDomain() {
@@ -952,8 +1136,9 @@ func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 	return ids[0].GetText()
 }
 
-func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (isOptional, isHardOptional bool) {
-	mods := tr.TypeModifiers()
+// modifiersFrom translates an optionality modifier context into the soft/hard
+// optional flags: one `?` is soft-optional, `??` is hard-optional.
+func modifiersFrom(mods parser.ITypeModifiersContext) (isOptional, isHardOptional bool) {
 	if mods == nil {
 		return false, false
 	}
@@ -964,16 +1149,12 @@ func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (isOptional, is
 	return questionCount >= 1, false
 }
 
+func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (isOptional, isHardOptional bool) {
+	return modifiersFrom(tr.TypeModifiers())
+}
+
 func extractTypeModifiersMap(tr *parser.TypeRefMapContext) (isOptional, isHardOptional bool) {
-	mods := tr.TypeModifiers()
-	if mods == nil {
-		return false, false
-	}
-	questionCount := len(mods.AllQUESTION())
-	if questionCount >= 2 {
-		return false, true
-	}
-	return questionCount >= 1, false
+	return modifiersFrom(tr.TypeModifiers())
 }
 
 func detectRecursiveTypes(table *resolution.Table) {

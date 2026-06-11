@@ -11,5 +11,6 @@
 
 .pluto-tank {
     border: var(--pluto-border);
+    border-color: var(--pluto-symbol-display);
     border-width: 2px;
 }

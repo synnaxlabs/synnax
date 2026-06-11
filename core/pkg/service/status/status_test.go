@@ -174,9 +174,7 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should be idempotent", func(ctx SpecContext) {
 				Expect(w.Delete(ctx, "non-existent-key")).To(Succeed())
 			})
-		})
 
-		Describe("DeleteMany", func() {
 			It("Should delete multiple statuses", func(ctx SpecContext) {
 				statuses := []status.Status[any]{
 					{
@@ -193,7 +191,7 @@ var _ = Describe("Status", Ordered, func() {
 					},
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
-				Expect(w.DeleteMany(ctx, "del1", "del2")).To(Succeed())
+				Expect(w.Delete(ctx, "del1", "del2")).To(Succeed())
 
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any]("del1", "del2")).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})

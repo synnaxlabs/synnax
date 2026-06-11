@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package node exposes a thin domain layer over aspen's cluster-membership primitives,
-// along with the ontology service that publishes nodes as resources in the Synnax
-// ontology.
+// Package node exposes a thin domain layer over aspen's cluster-membership primitives.
+// The ontology service that publishes nodes as resources lives in pkg/service/node.
 package node
 
 import "github.com/synnaxlabs/aspen"

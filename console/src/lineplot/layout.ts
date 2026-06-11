@@ -18,6 +18,10 @@ export type LayoutType = typeof LAYOUT_TYPE;
 
 export type CreateArg = Partial<State> & Omit<Partial<Layout.BaseState>, "type">;
 
+// create constructs a Layout for an existing line plot, placing it in the
+// mosaic. The plot's document must already exist on the server; use useCreate to
+// create a fresh plot. pendingUpload is left untouched so migrations can stage a
+// pre-server plot's body for upload on first open.
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>
   ({ dispatch }) => {

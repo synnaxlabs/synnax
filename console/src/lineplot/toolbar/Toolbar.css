@@ -11,6 +11,16 @@
 
 .console-line-plot-toolbar {
     height: 100%;
+
+    .console-line-plot__toolbar-actions {
+        height: 100%;
+        width: 86px;
+    }
+
+    .console-line-plot__toolbar-selector {
+        border-bottom: none;
+    }
+
     .console-line-plot__toolbar-lines {
         .pluto-list__item {
             padding: 0.5rem 5rem 0.5rem 1rem;
@@ -18,6 +28,49 @@
                 min-width: 90px;
                 max-width: 125px;
             }
+        }
+    }
+
+    .console-line-plot__toolbar-data,
+    .console-line-plot__toolbar-axes,
+    .console-line-plot__toolbar-properties {
+        padding: 2rem;
+    }
+
+    .console-line-plot__toolbar-data-x {
+        max-width: 400px;
+        width: 100%;
+    }
+
+    .console-line-plot__toolbar-axes-label-direction {
+        min-width: 90px;
+    }
+
+    .console-line-plot__toolbar-annotations {
+        height: 100%;
+
+        .console-line-plot__toolbar-annotations-list {
+            width: 20%;
+        }
+
+        .console-line-plot__toolbar-annotations-add {
+            padding: 0.5rem;
+        }
+
+        .console-line-plot__toolbar-annotations-item {
+            padding: 0.5rem 1.5rem;
+        }
+
+        .console-line-plot__toolbar-annotations-details {
+            padding: 1.5rem 2rem;
+        }
+
+        .console-line-plot__toolbar-annotations-units {
+            width: 15rem;
+        }
+
+        .console-line-plot__toolbar-annotations-position {
+            width: 25rem;
         }
     }
 }

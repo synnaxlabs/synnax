@@ -70,6 +70,21 @@ func (w Writer) Create(
 	)
 }
 
+// CreateMany creates the given schematics within the workspace provided. If schematics
+// with the same key already exist, they will be overwritten.
+func (w Writer) CreateMany(
+	ctx context.Context,
+	ws workspace.Key,
+	schematics *[]Schematic,
+) error {
+	for i := range *schematics {
+		if err := w.Create(ctx, ws, &(*schematics)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (w Writer) findParentWorkspace(ctx context.Context, key Key) (workspace.Key, bool, error) {
 	var res []ontology.Resource
 	if err := w.otg.NewRetrieve().

@@ -10,14 +10,17 @@
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { extract } from "@/log/export";
-import { LAYOUT_TYPE, Log, Selectable } from "@/log/Log";
+import { LAYOUT_TYPE, Log } from "@/log/Log";
+import { Selectable } from "@/log/Selectable";
 import { type Selector } from "@/selector";
 
 export * from "@/log/export";
 export * from "@/log/Log";
+export * from "@/log/Selectable";
 export * from "@/log/selectors";
 export * from "@/log/slice";
 export * from "@/log/toolbar/Toolbar";
+export * from "@/log/useCreate";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

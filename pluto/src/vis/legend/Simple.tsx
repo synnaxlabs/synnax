@@ -12,14 +12,13 @@ import { type ReactElement, useState } from "react";
 
 import { type Theming } from "@/theming";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
-import { Entries, type EntryData } from "@/vis/legend/Entries";
+import { Entries, type EntriesProps, type EntryData } from "@/vis/legend/Entries";
 
-export interface SimpleProps extends Omit<
-  ContainerProps,
-  "value" | "onChange" | "background" | "draggable" | "gap"
-> {
+export interface SimpleProps
+  extends
+    Omit<ContainerProps, "value" | "onChange" | "background" | "draggable" | "gap">,
+    Pick<EntriesProps, "onColorChange" | "onLabelChange" | "onVisibleChange"> {
   data?: optional.Optional<EntryData, "visible">[];
-  onEntryChange?: (value: EntryData) => void;
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
   allowEntryVisibleChange?: boolean;
@@ -28,7 +27,9 @@ export interface SimpleProps extends Omit<
 
 export const Simple = ({
   data = [],
-  onEntryChange,
+  onColorChange,
+  onLabelChange,
+  onVisibleChange,
   position,
   onPositionChange,
   allowEntryVisibleChange = true,
@@ -48,7 +49,9 @@ export const Simple = ({
     >
       <Entries
         data={data}
-        onEntryChange={onEntryChange}
+        onColorChange={onColorChange}
+        onLabelChange={onLabelChange}
+        onVisibleChange={onVisibleChange}
         colorPickerVisible={pickerVisible}
         onColorPickerVisibleChange={setPickerVisible}
         allowVisibleChange={allowEntryVisibleChange}

@@ -127,6 +127,17 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	)
 }
 
+// CreateMany creates or updates the given devices. If devices with the same key already
+// exist, they will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
+	for i := range *devices {
+		if err := w.Create(ctx, &(*devices)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key) error {
 	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {

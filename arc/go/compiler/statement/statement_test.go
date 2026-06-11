@@ -10,6 +10,8 @@
 package statement_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -2020,18 +2022,10 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
-			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
-			Expect(containsOpcode(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
-			Expect(containsOpcode(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(slices.Contains(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
+			Expect(slices.Contains(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
 		})
 
 		It("Should compile range loop with mixed concrete types", func(bCtx SpecContext) {
@@ -2052,16 +2046,8 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
-			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
-			Expect(containsOpcode(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
-			Expect(containsOpcode(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
+			Expect(slices.Contains(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
+			Expect(slices.Contains(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
 		})
 
 		It("Should compile range loop with explicit i32 type", func(bCtx SpecContext) {
@@ -2129,18 +2115,10 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
-			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
-			Expect(containsOpcode(bytecode, byte(OpI32Eqz))).To(BeTrue(), "missing condition eqz")
-			Expect(containsOpcode(bytecode, byte(OpI32Sub))).To(BeTrue(), "missing decrement")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(slices.Contains(bytecode, byte(OpI32Eqz))).To(BeTrue(), "missing condition eqz")
+			Expect(slices.Contains(bytecode, byte(OpI32Sub))).To(BeTrue(), "missing decrement")
 		})
 
 		It("Should compile infinite loop with continue", func(bCtx SpecContext) {
@@ -2164,19 +2142,11 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(diverged).To(BeFalse())
 
 			bytecode := ctx.Writer.Bytes()
-			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
-			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing increment")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
+			Expect(slices.Contains(bytecode, byte(OpI32Add))).To(BeTrue(), "missing increment")
 			// break and continue both emit br instructions
-			Expect(containsOpcode(bytecode, byte(OpBr))).To(BeTrue(), "missing br for break/continue")
+			Expect(slices.Contains(bytecode, byte(OpBr))).To(BeTrue(), "missing br for break/continue")
 		})
 
 		// Series iteration compiles to WASM that calls external functions
@@ -2199,14 +2169,6 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
-			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
 			bytecode := compileForLoop(`
 				data series i32 := [1, 2, 3]
 				sum i32 := 0
@@ -2215,16 +2177,16 @@ var _ = Describe("Statement Compiler", func() {
 				}
 			`)
 			// block/loop/end structure for the for loop
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
 			// idx >= len exit condition
-			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			Expect(slices.Contains(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
 			// idx increment: idx + 1
-			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
+			Expect(slices.Contains(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
 			// i32.wrap_i64 to convert series.len result
-			Expect(containsOpcode(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
+			Expect(slices.Contains(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
 			// Call instructions for series.len and series.index
-			Expect(containsOpcode(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
+			Expect(slices.Contains(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
 		})
 
 		It("Should compile series iteration (two-ident)", func(bCtx SpecContext) {
@@ -2241,14 +2203,6 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
-			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
 			bytecode := compileForLoop(`
 				data series i32 := [10, 20, 30]
 				sum i32 := 0
@@ -2256,14 +2210,14 @@ var _ = Describe("Statement Compiler", func() {
 					sum = sum + x * (i + 1)
 				}
 			`)
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
-			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
-			Expect(containsOpcode(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
-			Expect(containsOpcode(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
-			Expect(containsOpcode(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			Expect(slices.Contains(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			Expect(slices.Contains(bytecode, byte(OpI32Add))).To(BeTrue(), "missing i32.add for index increment")
+			Expect(slices.Contains(bytecode, byte(OpI32WrapI64))).To(BeTrue(), "missing i32.wrap_i64 for len conversion")
+			Expect(slices.Contains(bytecode, byte(OpCall))).To(BeTrue(), "missing call opcode for host functions")
 			// Two-ident form should also have i32.mul for the weighted sum body
-			Expect(containsOpcode(bytecode, byte(OpI32Mul))).To(BeTrue(), "missing i32.mul for weighted sum")
+			Expect(slices.Contains(bytecode, byte(OpI32Mul))).To(BeTrue(), "missing i32.mul for weighted sum")
 		})
 
 		It("Should compile series iteration with f64 elements", func(bCtx SpecContext) {
@@ -2280,14 +2234,6 @@ var _ = Describe("Statement Compiler", func() {
 				Expect(diverged).To(BeFalse())
 				return FinalizeContext(ctx)
 			}
-			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
-			}
 			bytecode := compileForLoop(`
 				data series f64 := [1.0, 2.0, 3.0]
 				sum f64 := 0.0
@@ -2295,11 +2241,11 @@ var _ = Describe("Statement Compiler", func() {
 					sum = sum + x
 				}
 			`)
-			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
-			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
-			Expect(containsOpcode(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
+			Expect(slices.Contains(bytecode, byte(OpBlock))).To(BeTrue(), "missing block opcode")
+			Expect(slices.Contains(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop opcode")
+			Expect(slices.Contains(bytecode, byte(OpI32GeS))).To(BeTrue(), "missing i32.ge_s for exit condition")
 			// f64 addition in the loop body
-			Expect(containsOpcode(bytecode, byte(OpF64Add))).To(BeTrue(), "missing f64.add for sum")
+			Expect(slices.Contains(bytecode, byte(OpF64Add))).To(BeTrue(), "missing f64.add for sum")
 		})
 
 		It("Should compile nested range loops", func(bCtx SpecContext) {
