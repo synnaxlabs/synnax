@@ -120,7 +120,7 @@ const handlers: Handlers = {
   insertTab: (state, payload) => {
     if (state.root == null) return NO_OP;
     let targetLeaf = payload.targetLeaf;
-    if (payload.location != null) {
+    if (payload.location != null && payload.location !== "center") {
       const placed = splitLeafAt(state.root, targetLeaf, payload.location, 0.5);
       if (placed == null) return NO_OP;
       targetLeaf = placed;
@@ -148,7 +148,7 @@ const handlers: Handlers = {
   moveTab: (state, payload) => {
     if (state.root == null) return NO_OP;
     let targetLeaf = payload.targetLeaf;
-    if (payload.location != null) {
+    if (payload.location != null && payload.location !== "center") {
       const current = walkLeaf(state.root, targetLeaf);
       if (current == null) return NO_OP;
       // Moving a leaf's only tab to an edge of its own leaf is degenerate: the
