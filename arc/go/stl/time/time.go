@@ -72,9 +72,10 @@ func NewSymbols() []*symbol.Symbol {
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
+			Inputs:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
-		Doc: intervalDoc,
+		Trigger: symbol.TriggerOnly,
+		Doc:     intervalDoc,
 	}
 	wait := &symbol.Symbol{
 		Name: waitSymbolName,
@@ -82,9 +83,10 @@ func NewSymbols() []*symbol.Symbol {
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
+			Inputs:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
-		Doc: waitDoc,
+		Trigger: symbol.TriggerOnly,
+		Doc:     waitDoc,
 	}
 	now := &symbol.Symbol{
 		Name: nowSymbolName,
@@ -93,7 +95,8 @@ func NewSymbols() []*symbol.Symbol {
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
-		Doc: nowDoc,
+		Trigger: symbol.TriggerOnly,
+		Doc:     nowDoc,
 	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(interval, wait, now)
@@ -140,7 +143,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
-		periodParam, ok := cfg.Node.Config.Get(periodConfigParam)
+		periodParam, ok := cfg.Node.Inputs.Get(periodConfigParam)
 		if !ok {
 			return nil, query.ErrNotFound
 		}
@@ -156,7 +159,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}, nil
 
 	case waitSymbolName:
-		durationParam, ok := cfg.Node.Config.Get(durationConfigParam)
+		durationParam, ok := cfg.Node.Inputs.Get(durationConfigParam)
 		if !ok {
 			return nil, query.ErrNotFound
 		}

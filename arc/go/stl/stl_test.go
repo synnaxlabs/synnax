@@ -31,6 +31,20 @@ func allModules() []*symbol.Symbol {
 	return mods
 }
 
+// allSymbols returns every registered stdlib symbol, recursing into module members.
+func allSymbols() []*symbol.Symbol {
+	var out []*symbol.Symbol
+	var walk func([]*symbol.Symbol)
+	walk = func(syms []*symbol.Symbol) {
+		for _, s := range syms {
+			out = append(out, s)
+			walk(s.Children())
+		}
+	}
+	walk(stl.NewSymbols())
+	return out
+}
+
 var _ = Describe("STL Symbols", func() {
 	It("Should set KindFunction on every module member with a function type", func() {
 		var violations []string
@@ -71,37 +85,35 @@ var _ = Describe("STL Symbols", func() {
 				strings.Join(violations, "\n  "))
 	})
 
-	It("Should obey the ExecBoth structural contract on every ExecBoth symbol", func() {
+	It("Should attach an AnalyzeArguments hook only to KindFunction symbols", func() {
 		var violations []string
-		for _, mod := range allModules() {
-			for _, sym := range mod.Children() {
-				if sym.Kind != symbol.KindFunction || sym.Exec != symbol.ExecBoth {
-					continue
-				}
-				inputs := sym.Type.Inputs
-				config := sym.Type.Config
-				if len(inputs) != len(config) {
-					violations = append(violations, fmt.Sprintf(
-						"%s.%s (Inputs has %d params, Config has %d; ExecBoth requires "+
-							"one-to-one mirroring)",
-						mod.Name, sym.Name, len(inputs), len(config),
-					))
-					continue
-				}
-				for i := range inputs {
-					if inputs[i].Name != config[i].Name || !types.Equal(inputs[i].Type, config[i].Type) {
-						violations = append(violations, fmt.Sprintf(
-							"%s.%s (Inputs[%d]={%s,%s} does not match Config[%d]={%s,%s})",
-							mod.Name, sym.Name,
-							i, inputs[i].Name, inputs[i].Type,
-							i, config[i].Name, config[i].Type,
-						))
-					}
-				}
+		for _, sym := range allSymbols() {
+			if sym.AnalyzeArguments != nil && sym.Kind != symbol.KindFunction {
+				violations = append(violations, fmt.Sprintf(
+					"%s (Kind is %s, but has an AnalyzeArguments hook)", sym.Name, sym.Kind,
+				))
 			}
 		}
 		Expect(violations).To(BeEmpty(),
-			"ExecBoth symbols violating the dual-shape contract:\n  "+
+			"Non-function symbols with an AnalyzeArguments hook:\n  "+
+				strings.Join(violations, "\n  "))
+	})
+
+	It("Should bind every non-empty Trigger.Target to an existing input param", func() {
+		var violations []string
+		for _, sym := range allSymbols() {
+			target := sym.Trigger.Target
+			if target == "" {
+				continue
+			}
+			if !sym.Type.Inputs.Has(target) {
+				violations = append(violations, fmt.Sprintf(
+					"%s (Trigger.Target %q names no param in Inputs)", sym.Name, target,
+				))
+			}
+		}
+		Expect(violations).To(BeEmpty(),
+			"Symbols whose Trigger.Target names no existing input param:\n  "+
 				strings.Join(violations, "\n  "))
 	})
 
