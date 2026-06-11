@@ -279,9 +279,12 @@ func legacyToNumeric(s string) (Version, error) {
 // name component is non-empty and not "-". Fields without a tag, with `json:"-"`, or
 // with an empty tag name (e.g. `json:",omitempty"`) are skipped. Tag options after the
 // name are ignored. Embedded (anonymous, untagged) struct fields are promoted: their
-// fields are flattened into the top-level map, mirroring encoding/json. The map is the
-// codec-independent intermediate Encode merges headers into; it is never the wire
-// output itself.
+// fields are flattened into the top-level map.
+//
+// Promotion follows encoding/json's depth rule — a shallower field overrides a
+// same-named field promoted from a deeper embedded struct — but does not reproduce its
+// full conflict resolution: two fields with the same json name promoted from the same
+// depth are resolved last-wins here, whereas encoding/json drops both.
 func structToMap(v any) (map[string]any, error) {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Struct {
