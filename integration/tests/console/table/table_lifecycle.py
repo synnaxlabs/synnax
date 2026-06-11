@@ -30,7 +30,7 @@ class TableLifecycle(ConsoleCase):
         self.main_table_name = None
         self.ctx_table_name = None
 
-        ctx_table = self.console.workspace.create_table(
+        ctx_table = self.console.project.create_table(
             f"Context Menu Test {self.suffix}"
         )
         self.ctx_table_name = ctx_table.page_name
@@ -63,7 +63,7 @@ class TableLifecycle(ConsoleCase):
         """Run all table lifecycle tests."""
         self.setup_channels()
 
-        table = self.console.workspace.create_table(f"Table Test {self.suffix}")
+        table = self.console.project.create_table(f"Table Test {self.suffix}")
 
         # Visualization
         self.test_add_rows_and_columns(table)
@@ -91,7 +91,7 @@ class TableLifecycle(ConsoleCase):
 
         # Interaction: cell editing, selection, clipboard, keyboard shortcuts
         interaction_name = f"Interaction Test {self.suffix}"
-        interaction = self.console.workspace.create_table(interaction_name)
+        interaction = self.console.project.create_table(interaction_name)
         self._cleanup_pages.append(interaction.page_name)
         try:
             self.test_cell_text_editing(interaction)
@@ -174,11 +174,11 @@ class TableLifecycle(ConsoleCase):
         assert upper == "90", f"Upper bound should be '90', got '{upper}'"
 
     def test_open_table_from_resources(self) -> None:
-        """Test opening a table by double-clicking in the workspace resources toolbar."""
+        """Test opening a table by double-clicking in the project resources toolbar."""
         assert self.main_table_name is not None
         self.log("Testing open table from resources toolbar")
 
-        table = self.console.workspace.open_table(self.main_table_name)
+        table = self.console.project.open_table(self.main_table_name)
         assert table.is_pane_visible, (
             f"Table '{self.main_table_name}' pane not visible after opening"
         )
@@ -194,7 +194,7 @@ class TableLifecycle(ConsoleCase):
         assert self.main_table_name is not None
         self.log("Testing drag table onto mosaic")
 
-        table = self.console.workspace.drag_table_to_mosaic(self.main_table_name)
+        table = self.console.project.drag_table_to_mosaic(self.main_table_name)
         assert table.is_pane_visible, (
             f"Table '{self.main_table_name}' pane not visible after drag"
         )
@@ -210,7 +210,7 @@ class TableLifecycle(ConsoleCase):
         assert self.main_table_name is not None
         self.log("Testing open table from search palette")
 
-        table = self.console.workspace.open_from_search(Table, self.main_table_name)
+        table = self.console.project.open_from_search(Table, self.main_table_name)
         assert table.is_pane_visible, (
             f"Table '{self.main_table_name}' pane not visible after search"
         )
@@ -226,10 +226,10 @@ class TableLifecycle(ConsoleCase):
         self.log("Testing import table from file")
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
         imported_name = f"Imported Table {self.suffix}"
-        self.console.workspace.import_page(json_path, imported_name)
+        self.console.project.import_page(json_path, imported_name)
 
-        assert self.console.workspace.page_exists(imported_name), (
-            f"Imported table '{imported_name}' should appear in workspace"
+        assert self.console.project.page_exists(imported_name), (
+            f"Imported table '{imported_name}' should appear in project"
         )
 
         table = Table.from_open_page(self.console.layout, self.client, imported_name)
@@ -240,20 +240,20 @@ class TableLifecycle(ConsoleCase):
             f"Expected 2 columns, got {table.get_column_count()}"
         )
         table.close()
-        self.console.workspace.delete_page(imported_name)
+        self.console.project.delete_page(imported_name)
 
     def test_ctx_copy_link(self) -> None:
         """Test copying a link to a table via context menu."""
         assert self.ctx_table_name is not None
         self.log("Testing copy link via context menu")
-        link = self.console.workspace.copy_page_link(self.ctx_table_name)
+        link = self.console.project.copy_page_link(self.ctx_table_name)
         assert_link_format(link, "table")
 
     def test_ctx_export_json(self) -> None:
         """Test exporting a table as JSON via context menu."""
         assert self.ctx_table_name is not None
         self.log("Testing export table via context menu")
-        exported = self.console.workspace.export_page(self.ctx_table_name)
+        exported = self.console.project.export_page(self.ctx_table_name)
         assert "key" in exported, "Exported JSON should contain 'key'"
         assert len(exported["key"]) == 36, "Table key should be a UUID"
 
@@ -261,7 +261,7 @@ class TableLifecycle(ConsoleCase):
         """Test deleting a table via context menu."""
         assert self.ctx_table_name is not None
         self.log("Testing delete table via context menu")
-        self.console.workspace.delete_page(self.ctx_table_name)
+        self.console.project.delete_page(self.ctx_table_name)
         self.ctx_table_name = None
 
     def test_cell_text_editing(self, table: Table) -> None:

@@ -27,7 +27,7 @@ var _ = Describe("Retrieve", func() {
 			},
 			ShowChannelNames: true,
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 		var res log.Log
 		Expect(svc.NewRetrieve().Where(log.MatchKeys(l.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 		Expect(res).To(Equal(l))

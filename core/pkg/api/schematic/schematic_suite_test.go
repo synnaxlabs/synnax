@@ -45,7 +45,7 @@ var (
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *Service
-	ws           project.Project
+	proj         project.Project
 	author       user.User
 )
 
@@ -89,8 +89,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 		Username: "test",
 	}))
-	ws.Author = author.Key
-	Expect(projectSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
+	proj.Author = author.Key
+	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 
 // authedCtx returns a freighter.Context derived from ctx with the given user

@@ -566,32 +566,35 @@ describe("Layout Slice", () => {
   describe("setProject", () => {
     it("should preserve window-located layouts when applying a project", () => {
       store.dispatch(place(windowLayout("popup-1")));
-      const ws = {
+      const proj = {
         ...ZERO_SLICE_STATE,
-        layouts: { ...ZERO_SLICE_STATE.layouts, "ws-plot": mosaicLayout("ws-plot") },
+        layouts: {
+          ...ZERO_SLICE_STATE.layouts,
+          "proj-plot": mosaicLayout("proj-plot"),
+        },
       };
-      store.dispatch(setProject({ slice: ws }));
+      store.dispatch(setProject({ slice: proj }));
       expect(select(state(), "popup-1")).toBeDefined();
-      expect(select(state(), "ws-plot")).toBeDefined();
+      expect(select(state(), "proj-plot")).toBeDefined();
       expect(select(state(), "main")).toBeDefined();
     });
 
     it("should resurrect orphan mosaic layouts that the project's mosaics map omits", () => {
-      const ws = {
+      const proj = {
         ...ZERO_SLICE_STATE,
         layouts: {
           ...ZERO_SLICE_STATE.layouts,
-          "ws-orphan": mosaicLayout("ws-orphan"),
+          "proj-orphan": mosaicLayout("proj-orphan"),
         },
       };
-      store.dispatch(setProject({ slice: ws }));
-      expect(select(state(), "ws-orphan")).toBeDefined();
+      store.dispatch(setProject({ slice: proj }));
+      expect(select(state(), "proj-orphan")).toBeDefined();
       const [, root] = selectMosaic(state());
-      expect(Mosaic.findTabNode(root!, "ws-orphan")).toBeDefined();
+      expect(Mosaic.findTabNode(root!, "proj-orphan")).toBeDefined();
     });
 
     it("should fall back to the main mosaic when an orphan layout points at a missing window", () => {
-      const ws = {
+      const proj = {
         ...ZERO_SLICE_STATE,
         layouts: {
           ...ZERO_SLICE_STATE.layouts,
@@ -600,14 +603,14 @@ describe("Layout Slice", () => {
           }),
         },
       };
-      store.dispatch(setProject({ slice: ws }));
+      store.dispatch(setProject({ slice: proj }));
       expect(select(state(), "stale-window-tab")?.windowKey).toBe(MAIN_WINDOW);
       const [, root] = selectMosaic(state());
       expect(Mosaic.findTabNode(root!, "stale-window-tab")).toBeDefined();
     });
 
     it("should adopt the project's nav state when keepNav is false", () => {
-      const ws = {
+      const proj = {
         ...ZERO_SLICE_STATE,
         nav: {
           ...ZERO_SLICE_STATE.nav,
@@ -622,7 +625,7 @@ describe("Layout Slice", () => {
           },
         },
       };
-      store.dispatch(setProject({ slice: ws, keepNav: false }));
+      store.dispatch(setProject({ slice: proj, keepNav: false }));
       expect(selectNavDrawer(state(), "left")?.activeItem).toBe("task");
     });
   });

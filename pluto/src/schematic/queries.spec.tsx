@@ -69,9 +69,9 @@ const loadSchematic = async (
 
 describe("schematic queries", () => {
   let Wrapper: FC<PropsWithChildren>;
-  let ws: project.Project;
+  let proj: project.Project;
   beforeAll(async () => {
-    [Wrapper, ws] = await Promise.all([
+    [Wrapper, proj] = await Promise.all([
       createAsyncSynnaxWrapper({ client }),
       client.projects.create({ name: `ws_${uuid.create()}`, layout: {} }),
     ]);
@@ -79,7 +79,7 @@ describe("schematic queries", () => {
 
   describe("useRetrieveSuspended", () => {
     it("suspends until the schematic loads, then returns it", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
 
       const Display = (): ReactElement => {
         const s = Schematic.useRetrieveSuspended({ key: schem.key });
@@ -105,7 +105,7 @@ describe("schematic queries", () => {
 
   describe("useEnsureRetrieved", () => {
     it("populates the store so downstream selectors resolve", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
@@ -119,7 +119,7 @@ describe("schematic queries", () => {
   describe("selectors", () => {
     let schem: schematic.Schematic;
     beforeAll(async () => {
-      schem = await createTestSchematic(ws.key);
+      schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
     });
 
@@ -228,7 +228,7 @@ describe("schematic queries", () => {
     });
 
     it("useSelectNodes keeps its reference when an unrelated node changes", async () => {
-      const isolated = await createTestSchematic(ws.key);
+      const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
       const { result } = renderHook(
         () => ({
@@ -251,7 +251,7 @@ describe("schematic queries", () => {
     });
 
     it("useSelectNodes returns a new array when a requested node changes", async () => {
-      const isolated = await createTestSchematic(ws.key);
+      const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
       const { result } = renderHook(
         () => ({
@@ -276,7 +276,7 @@ describe("schematic queries", () => {
     });
 
     it("useSelectConfigs keeps its reference when an unrelated change occurs", async () => {
-      const isolated = await createTestSchematic(ws.key);
+      const isolated = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, isolated.key);
       const { result } = renderHook(
         () => ({
@@ -316,7 +316,7 @@ describe("schematic queries", () => {
         await result.current.create.updateAsync({
           key,
           name: "created_schematic",
-          project: ws.key,
+          project: proj.key,
         });
       });
 
@@ -324,7 +324,7 @@ describe("schematic queries", () => {
         expect(result.current.create.variant).toBe("success");
       });
       expect(result.current.create.data?.name).toBe("created_schematic");
-      expect(result.current.create.data?.project).toBe(ws.key);
+      expect(result.current.create.data?.project).toBe(proj.key);
 
       const stored = result.current.store.schematics.get(key);
       expect(stored).toBeDefined();
@@ -337,7 +337,7 @@ describe("schematic queries", () => {
 
   describe("useRename", () => {
     it("renames a schematic on the server", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
 
       const { result } = renderHook(() => Schematic.useRename(), {
         wrapper: Wrapper,
@@ -361,7 +361,7 @@ describe("schematic queries", () => {
 
   describe("useDelete", () => {
     it("deletes a schematic from the server", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
 
       const { result } = renderHook(() => Schematic.useDelete(), {
         wrapper: Wrapper,
@@ -380,7 +380,7 @@ describe("schematic queries", () => {
 
   describe("useDispatch", () => {
     it("applies actions to the schematic and updates the store", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
 
       const { result: nodes } = renderHook(
@@ -439,7 +439,7 @@ describe("schematic queries", () => {
     let cleanup: () => void;
 
     beforeEach(async () => {
-      schem = await createTestSchematic(ws.key);
+      schem = await createTestSchematic(proj.key);
       const loadUtils = await loadSchematic(Wrapper, schem.key);
 
       const edge = renderHook(

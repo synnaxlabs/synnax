@@ -168,14 +168,14 @@ describe("Access Queries", () => {
       const rendersWhenSettled = renders;
       // A project's group -> project link is not a role link, so the gate must
       // drop it: no re-evaluation, no re-render.
-      const ws = await userClient.projects.create({
+      const proj = await userClient.projects.create({
         name: id.create(),
         layout: {},
       });
       // Wait until the link reaches the store (event delivered)...
       await waitFor(() => {
         const rels = result.current.store.relationships.get(
-          (rel) => rel.to.type === "project" && rel.to.key === ws.key,
+          (rel) => rel.to.type === "project" && rel.to.key === proj.key,
         );
         expect(rels.length).toBeGreaterThan(0);
       });

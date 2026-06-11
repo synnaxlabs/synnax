@@ -134,7 +134,7 @@ var _ = Describe("Writer", func() {
 				{
 					Name:    "policy-2",
 					Key:     uuid.New(),
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Objects: []ontology.ID{{Type: "project", Key: "proj1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}

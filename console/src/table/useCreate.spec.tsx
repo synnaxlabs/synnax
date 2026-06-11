@@ -56,8 +56,8 @@ interface BuildHarnessArgs {
   activeProject?: project.Project;
 }
 
-const stripLayout = (ws: project.Project): Omit<project.Project, "layout"> => {
-  const { layout: _, ...rest } = ws;
+const stripLayout = (proj: project.Project): Omit<project.Project, "layout"> => {
+  const { layout: _, ...rest } = proj;
   return rest;
 };
 
@@ -94,7 +94,7 @@ const buildHarness = async ({
 };
 
 const newProject = async (): Promise<project.Project> =>
-  await client.projects.create({ name: `ws-${id.create()}`, layout: {} });
+  await client.projects.create({ name: `proj-${id.create()}`, layout: {} });
 
 const findPlacedTableLayout = (store: RootStore) =>
   Layout.selectByFilter(store.getState(), (l) => l.type === LAYOUT_TYPE);
