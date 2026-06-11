@@ -124,9 +124,12 @@ describe("Panel queries", () => {
       expect(result.current.variant).toEqual("success");
       expect(result.current.data?.name).toEqual("created-panel");
 
-      const fetched = await client.panels.retrieve(key);
-      expect(fetched.name).toEqual("created-panel");
-      expect(fetched.root).toEqual({ leaf: { tabs: [] } });
+      const { result: retrieved } = renderHook(() => Panel.useRetrieve({ key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(retrieved.current.variant).toEqual("success"));
+      expect(retrieved.current.data?.name).toEqual("created-panel");
+      expect(retrieved.current.data?.root).toEqual({ leaf: { tabs: [] } });
     });
 
     it("should store the created panel in the flux store", async () => {

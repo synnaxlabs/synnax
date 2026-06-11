@@ -149,7 +149,7 @@ export const useList = Flux.createList<
   retrieveByKey: async ({ key, ...rest }) =>
     await retrieveSingle({ ...rest, query: { key } }),
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.panels.onSet((p) => onChange(p.key, p)),
+    store.panels.onSet(onChange),
     store.panels.onDelete(onDelete),
   ],
 });
@@ -168,9 +168,9 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   update: async ({ client, data, store, rollbacks }) => {
     const { parent, ...rest } = data;
     const optimistic = panel.newZ.parse(rest);
-    rollbacks.push(store.panels.set(optimistic.key, optimistic));
+    rollbacks.push(store.panels.set(optimistic));
     const created = await client.panels.create(optimistic, parent);
-    store.panels.set(created.key, created);
+    store.panels.set(created);
     return created;
   },
 });

@@ -188,7 +188,7 @@ export const Tabs = ({
   contextMenu,
   actions,
   addTooltip,
-  Name,
+  tabName,
   size = "medium",
   variant,
   direction: dir = "y",
@@ -221,7 +221,7 @@ export const Tabs = ({
         onRename,
         onCreate,
         onDrop,
-        Name,
+        tabName,
       }}
     >
       <Selector

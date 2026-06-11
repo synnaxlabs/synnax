@@ -216,6 +216,8 @@ const TabName: ComponentType<Tabs.NameProps> = (props) => {
   return <Tabs.DefaultName {...props} />;
 };
 
+const renderTabName = Component.renderProp(TabName);
+
 interface MosaicProps {
   windowKey: string;
   mosaic: Base.Node;
@@ -387,7 +389,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onFileDrop={handleFileDrop}
         addTooltip="Create component"
         className={CSS.B("mosaic")}
-        Name={TabName}
+        tabName={renderTabName}
       >
         {renderProp}
       </Base.Mosaic>

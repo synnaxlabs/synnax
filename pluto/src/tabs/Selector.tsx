@@ -9,7 +9,6 @@
 
 import { box, type location, scale, type text, xy } from "@synnaxlabs/x";
 import {
-  type ComponentType,
   type DragEventHandler,
   type MouseEventHandler,
   type ReactElement,
@@ -25,7 +24,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
-import { type NameProps, type Spec } from "@/tabs/types";
+import { type NameProps, type NameRenderProp, type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
 
@@ -77,7 +76,7 @@ export const Selector = ({
     onDrop,
     onRename,
     onCreate,
-    Name,
+    tabName,
   } = useContext();
   const menuProps = Menu.useContextMenu();
   const [draggingOver, setDraggingOver] = useState<boolean>(false);
@@ -126,7 +125,7 @@ export const Selector = ({
               closable={tab.closable ?? closable}
               size={size}
               variant={variant}
-              Name={Name}
+              tabName={tabName}
               {...tab}
             />
           ))}
@@ -225,7 +224,7 @@ const SelectorButton = ({
   loading = false,
   onDrop,
   variant,
-  Name = DefaultName,
+  tabName,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLElement> = useCallback(
     (e) => onDragStart?.(e, { tabKey, name }),
@@ -268,6 +267,17 @@ const SelectorButton = ({
   const isPill = variant === "pill";
   const level = SIZE_TEXT_LEVELS[size];
   const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;
+  const nameProps: NameProps = {
+    name,
+    tabKey,
+    onRename,
+    editable,
+    level,
+    selected: isSelected,
+    icon,
+    unsavedChanges,
+    loading,
+  };
 
   return (
     <Button.Button
@@ -303,17 +313,7 @@ const SelectorButton = ({
       {...variantProps}
       borderColor={isPill ? (isSelected ? 7 : 5) : undefined}
     >
-      <Name
-        name={name}
-        tabKey={tabKey}
-        onRename={onRename}
-        editable={editable}
-        level={level}
-        selected={isSelected}
-        icon={icon}
-        unsavedChanges={unsavedChanges}
-        loading={loading}
-      />
+      {tabName != null ? tabName(nameProps) : <DefaultName {...nameProps} />}
       {closable && onClose != null && (
         <Button.Button
           aria-label="pluto-tabs__close"
@@ -340,7 +340,7 @@ export interface SelectorButtonProps extends Spec {
   onRename?: (key: string, name: string) => void;
   size: Size;
   variant: SelectorVariant;
-  Name?: ComponentType<NameProps>;
+  tabName?: NameRenderProp;
 }
 
 export interface DefaultNameProps

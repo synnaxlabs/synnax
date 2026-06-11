@@ -9,10 +9,9 @@
 
 import { ontology, panel } from "@synnaxlabs/client";
 import { type location, uuid } from "@synnaxlabs/x";
-import { type ComponentType, type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
-import { context } from "@/context";
 import { Mosaic as Base } from "@/mosaic";
 import {
   type TabContent,
@@ -22,7 +21,7 @@ import {
   useSelectTab,
 } from "@/panel/queries";
 import { Portal } from "@/portal";
-import { Tabs } from "@/tabs";
+import { type Tabs } from "@/tabs";
 
 export interface MosaicTabRenderProps extends TabContent {
   tabKey: string;
@@ -36,7 +35,7 @@ export interface MosaicProps extends Omit<
   | "root"
   | "activeTab"
   | "children"
-  | "Name"
+  | "tabName"
   | "onDrop"
   | "onResize"
   | "onClose"
@@ -77,22 +76,21 @@ const adaptToMosaic = (root: panel.Node, selected: string[] | undefined): Base.N
   return visit(root, panel.ROOT_PATH);
 };
 
-interface TabNameContextValue {
+interface TabNameProps extends Tabs.NameProps {
   panelKey: panel.Key;
-  tabName?: Component.RenderProp<MosaicTabNameProps>;
+  tabName: Component.RenderProp<MosaicTabNameProps>;
 }
 
-const [TabNameContext, useTabNameContext] = context.create<TabNameContextValue>({
-  displayName: "Panel.Mosaic.TabContext.Provider",
-  providerName: "Panel.Mosaic.TabContext.Provider",
-});
-
-const TabName: ComponentType<Tabs.NameProps> = (props) => {
-  const { tabKey } = props;
-  const { panelKey: key, tabName } = useTabNameContext("Panel.Mosaic.TabName");
-  const content = useSelectTab({ key, tabKey });
-  if (tabName == null) return <Tabs.DefaultName {...props} />;
-  return tabName({ ...props, ...content });
+// TabName must stay module-level: render-prop closures below only re-parameterize
+// it, so React updates name nodes in place. A component type created per render
+// would remount every name node, dropping rename-edit state.
+const TabName = ({
+  panelKey: key,
+  tabName,
+  ...rest
+}: TabNameProps): ReactElement | null => {
+  const content = useSelectTab({ key, tabKey: rest.tabKey });
+  return tabName({ ...rest, ...content });
 };
 
 interface ContentProps extends Pick<MosaicProps, "children"> {
@@ -176,8 +174,9 @@ export const Mosaic = ({
     ),
   });
 
-  const tabNameContext = useMemo<TabNameContextValue>(
-    () => ({ panelKey: key, tabName }),
+  const renderTabName = useCallback(
+    (props: Tabs.NameProps): ReactElement | null =>
+      tabName == null ? null : <TabName {...props} panelKey={key} tabName={tabName} />,
     [key, tabName],
   );
 
@@ -191,7 +190,7 @@ export const Mosaic = ({
   );
 
   return (
-    <TabNameContext value={tabNameContext}>
+    <>
       {portalNodes}
       <Base.Mosaic
         {...rest}
@@ -202,10 +201,10 @@ export const Mosaic = ({
         onResize={handleResize}
         onClose={handleClose}
         onCreate={handleCreate}
-        Name={tabName != null ? TabName : undefined}
+        tabName={tabName != null ? renderTabName : undefined}
       >
         {renderProp}
       </Base.Mosaic>
-    </TabNameContext>
+    </>
   );
 };

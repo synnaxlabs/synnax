@@ -41,7 +41,7 @@ export interface MosaicProps
       | "onRename"
       | "onClose"
       | "addTooltip"
-      | "Name"
+      | "tabName"
     >,
     Omit<
       Flex.BoxProps,
@@ -92,7 +92,7 @@ export const Mosaic = memo(
     contextMenu,
     addTooltip,
     className,
-    Name,
+    tabName,
     ...rest
   }: MosaicProps): ReactElement | null => {
     const { tabs, direction, first, last, key, size } = root;
@@ -108,19 +108,12 @@ export const Mosaic = memo(
       onRename,
       activeTab,
       addTooltip,
-      Name,
+      tabName,
     };
 
     const isSplit = first != null && last != null;
     const handleResize = useCallback(
-      ([size]: number[]) => {
-        // Only splits have a divider to resize. useMultiple fires onResize on mount
-        // (not just on drags), so without this guard a leaf node, e.g. a freshly
-        // created single-pane root, would emit a resize for a node that can't be
-        // resized, which strict consumers (the panel server reducer) reject.
-        if (!isSplit) return;
-        onResize(key, size);
-      },
+      ([size]: number[]) => isSplit && onResize(key, size),
       [onResize, key, isSplit],
     );
 
