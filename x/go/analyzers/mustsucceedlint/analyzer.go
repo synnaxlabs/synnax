@@ -215,6 +215,14 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 // usesIdent reports whether any identifier with the given name appears anywhere inside
 // the given AST node. Used to check whether intervening statements between an
 // assignment and an Expect(err) call still reference err.
+//
+// The match is purely by identifier name, not by lexical scope or types.Object —
+// an unrelated identifier that happens to share name (a struct field accessed as
+// obj.err, a label, a parameter in a nested function literal) will also stop the
+// backward walk. This is a deliberate, conservative trade-off: a stricter
+// scope-aware check would require running the analyzer with type information,
+// and the cost of a false-negative here is only that a valid MustSucceed
+// rewrite is skipped — never that an incorrect rewrite is emitted.
 func usesIdent(node ast.Node, name string) bool {
 	var found bool
 	ast.Inspect(node, func(n ast.Node) bool {
@@ -444,16 +452,19 @@ func reportDiagnostic(
 	return needsImport
 }
 
-// lineRange returns the start of the line containing stmt and the start of the
-// following line — i.e. the half-open range that covers the entire physical line,
-// including leading whitespace and the trailing newline.
+// lineRange returns the start of the first line that stmt occupies and the start of
+// the line after the last line stmt occupies — i.e. the half-open range that covers
+// every physical line of the statement, including leading whitespace and the trailing
+// newline. Multi-line statements (e.g. an Expect chain split across lines) are
+// covered in full so that deleting the range does not leave dangling tokens behind.
 func lineRange(fset *token.FileSet, stmt ast.Stmt) (token.Pos, token.Pos) {
 	f := fset.File(stmt.Pos())
-	line := fset.Position(stmt.Pos()).Line
-	start := f.LineStart(line)
+	startLine := fset.Position(stmt.Pos()).Line
+	endLine := fset.Position(stmt.End()).Line
+	start := f.LineStart(startLine)
 	var end token.Pos
-	if line < f.LineCount() {
-		end = f.LineStart(line + 1)
+	if endLine < f.LineCount() {
+		end = f.LineStart(endLine + 1)
 	} else {
 		end = token.Pos(f.Base() + f.Size())
 	}

@@ -78,6 +78,14 @@ func example() {
 	_ = 42
 	Expect(err).ToNot(HaveOccurred())
 
+	// Pattern H: non-adjacent case where the Expect call is split across multiple
+	// physical lines — the whole multi-line statement must be removed, not just
+	// the first line.
+	t2, err := returnsValErr() // want "can be replaced with MustSucceed"
+	_ = t2 + 1
+	Expect(err).
+		ToNot(HaveOccurred())
+
 	// Should NOT match: intervening statement reads err — removing the binding
 	// would break that read.
 	v2, err := returnsValErr()
