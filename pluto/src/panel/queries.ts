@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel } from "@synnaxlabs/client";
+import { NotFoundError, type ontology, panel } from "@synnaxlabs/client";
 import { array, deep } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -103,16 +103,22 @@ export interface SelectKeyArgs {
   key: panel.Key;
 }
 
+const requirePanel = (store: FluxSubStore, key: panel.Key): panel.Panel => {
+  const p = store.panels.get(key);
+  if (p == null) throw new NotFoundError(`Panel with key ${key} not found`);
+  return p;
+};
+
 // useSelectRoot selects the panel's stored tree root. The reference only
 // changes when the document changes, so consumers can memoize derivations on
 // it directly.
 export const useSelectRoot = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
-  panel.Node | undefined
+  panel.Node
 >({
   subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-  select: (store, { key }) => store.panels.get(key)?.root,
+  select: (store, { key }) => requirePanel(store, key).root,
 });
 
 export interface SelectTabContentArgs {
@@ -121,17 +127,17 @@ export interface SelectTabContentArgs {
 }
 
 // useSelectTabContent selects a single tab's content union, re-rendering only
-// when that tab's content changes. Returns null when the panel is not loaded
-// or the tab does not exist.
+// when that tab's content changes.
 export const useSelectTabContent = Flux.createSelector<
   FluxSubStore,
   SelectTabContentArgs,
-  TabContent | null
+  TabContent
 >({
   subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
   select: (store, { key, tabKey }) => {
-    const tab = panel.findTab(store.panels.get(key)?.root, tabKey);
-    if (tab == null) return null;
+    const tab = panel.findTab(requirePanel(store, key).root, tabKey);
+    if (tab == null)
+      throw new NotFoundError(`Tab with key ${tabKey} not found in panel ${key}`);
     return { resource: tab.resource, view: tab.view };
   },
   equal: deep.equal,

@@ -82,10 +82,7 @@ export interface MosaicProps extends Pick<
 // adaptToMosaic walks the typed panel tree and produces the Base.Node shape
 // with path-derived numeric keys (root = 1, first child = 2k, last child =
 // 2k + 1).
-const adaptToMosaic = (
-  root: panel.Node | undefined,
-  selected: string[] | undefined,
-): Base.Node => {
+const adaptToMosaic = (root: panel.Node, selected: string[] | undefined): Base.Node => {
   const preference = selected ?? [];
   const visit = (node: panel.Node | undefined, key: number): Base.Node => {
     if (node == null) return { key };
@@ -131,7 +128,7 @@ const TabName: ComponentType<Tabs.NameProps> = (props) => {
   const { panelKey, tabName } = useTabNameContext();
   const content = useSelectTabContent({ key: panelKey ?? "", tabKey: props.tabKey });
   if (tabName == null) return <Tabs.DefaultName {...props} />;
-  return tabName({ ...props, resource: content?.resource, view: content?.view });
+  return tabName({ ...props, resource: content.resource, view: content.view });
 };
 
 interface ContentProps {
@@ -150,29 +147,9 @@ const Content = ({
   children,
 }: ContentProps): ReactElement | null => {
   const content = useSelectTabContent({ key: panelKey, tabKey });
-  if (content == null) return null;
   return children({ tabKey, resource: content.resource, view: content.view, visible });
 };
 
-// Mosaic renders a Flux-backed Panel as a Base.Mosaic. The architecture is a
-// direct parallel of the legacy console layout mosaic; the only material
-// difference is that gestures dispatch panel actions through the SY-3038
-// substrate instead of mutating a Redux slice. Other connected consoles
-// observe each mutation through the panel action channel and apply it via
-// the panel reducer, so cross-client sync is automatic.
-//
-// Mosaic suspends while the panel document loads; wrap it in a Suspense
-// boundary.
-//
-// Tab content is delivered through the children render prop, which receives the
-// tabKey and its resolved content union. The portal pattern borrowed from
-// Base.Mosaic preserves content lifetime across structural changes, so moving a
-// tab between leaves does not unmount its content.
-//
-// Tab display names are the consumer's responsibility through the tabName render
-// prop, which receives the same content union. The default tab name on the
-// underlying Tabs.Tab is empty; consumers resolve a name (and rename) from the
-// referenced resource or view.
 export const Mosaic = ({
   panelKey: key,
   focused,
@@ -189,10 +166,6 @@ export const Mosaic = ({
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
 
-  // handleDrop maps Base.Mosaic's drop gesture onto a single MoveTab action: an
-  // edge drop carries the location, and the reducer splits the leaf and places
-  // the tab in the new sibling (a no-op when the tab is the leaf's only tab); a
-  // center drop moves or reorders within the target leaf.
   const handleDrop = useCallback(
     (targetLeaf: number, tabKey: string, loc: location.Location, index?: number) => {
       const action = panel.moveTab({
@@ -207,21 +180,18 @@ export const Mosaic = ({
   );
 
   const handleResize = useCallback(
-    (split: number, size: number) => {
-      dispatch({ key, actions: [panel.resizeSplit({ split, size })] });
-    },
+    (split: number, size: number) =>
+      dispatch({ key, actions: [panel.resizeSplit({ split, size })] }),
     [dispatch, key],
   );
 
   const handleClose = useCallback(
-    (tabKey: string) => {
-      dispatch({ key, actions: [panel.removeTab({ key: tabKey })] });
-    },
+    (tabKey: string) => dispatch({ key, actions: [panel.removeTab({ key: tabKey })] }),
     [dispatch, key],
   );
 
   const handleCreate = useCallback(
-    (key: number, loc: location.Location, tabKeys?: string[]) => {
+    (node: number, loc: location.Location, tabKeys?: string[]) => {
       const dropped = (tabKeys ?? []).flatMap((raw) => {
         const parsed = ontology.idZ.safeParse(raw);
         return parsed.success ? [parsed.data] : [];
@@ -231,11 +201,12 @@ export const Mosaic = ({
           ? [{ key: uuid.create() }]
           : dropped.map((resource) => ({ key: uuid.create(), resource }));
       const edge = loc === "center" ? undefined : loc;
-      const restLeaf = edge != null ? panel.childPath(key, panel.splitSide(edge)) : key;
+      const restLeaf =
+        edge != null ? panel.childPath(node, panel.splitSide(edge)) : node;
       const actions = tabs.map((tab, i) =>
         panel.insertTab({
           tab,
-          targetLeaf: i === 0 ? key : restLeaf,
+          targetLeaf: i === 0 ? node : restLeaf,
           location: i === 0 ? edge : undefined,
         }),
       );
