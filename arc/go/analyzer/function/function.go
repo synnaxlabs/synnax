@@ -9,16 +9,14 @@
 
 // Package function implements semantic analysis for Arc function declarations.
 //
-// Functions in Arc have three parameter categories:
-//   - Config: Compile-time configuration (in curly braces)
-//   - Inputs: Runtime parameters (in parentheses)
-//   - Outputs: Return values (after the parameter list)
+// A function has a list of inputs and a list of outputs. One input may be the
+// trigger: the param an upstream wire feeds in flow context. The analyzer collects
+// the declared params into Inputs and records the trigger.
 //
 // The analyzer validates:
 //   - Function names are unique
-//   - Parameter names are unique within their category
-//   - Input types are valid
-//   - Output types are valid
+//   - Parameter names are unique
+//   - Input and output types are valid
 //   - Optional parameters come after required parameters
 //   - Functions with return types return on all code paths
 //   - Named outputs are assigned in the function body
@@ -47,22 +45,29 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
 
-			// Collect signature (config, inputs, outputs) without adding params to scope
-			var config, inputs, outputs types.Params
-			collectConfig(ctx, fn.ConfigBlock(), &config)
+			// The brace block holds inputs and the parens block holds the trigger;
+			// they concatenate into one Inputs list, inputs first.
+			var inputs, outputs types.Params
+			collectConfig(ctx, fn.ConfigBlock(), &inputs)
+			parensStart := len(inputs)
 			collectInputs(acontext.Child(ctx, fn.InputList()), &inputs)
 			collectOutputs(ctx, fn.OutputType(), &outputs)
+
+			trigger := symbol.TriggerOnly
+			if len(inputs) > parensStart {
+				trigger = symbol.TriggerInput(inputs[parensStart].Name)
+			}
 
 			if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: name,
 				Kind: symbol.KindFunction,
 				Exec: symbol.ExecBoth,
 				Type: types.Function(types.FunctionProperties{
-					Config:  config,
 					Inputs:  inputs,
 					Outputs: outputs,
 				}),
-				AST: fn,
+				Trigger: trigger,
+				AST:     fn,
 			}); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, fn))
 			}
@@ -388,7 +393,7 @@ func IfStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 }
 
 // addConfigToScope adds config parameters to the function's scope.
-// The config types are already collected in fn.Type.Config by CollectDeclarations.
+// The config types are already collected in fn.Type.Inputs by CollectDeclarations.
 func addConfigToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	configBlock parser.IConfigBlockContext,

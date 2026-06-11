@@ -18,8 +18,8 @@ import (
 )
 
 // ResolveNodeTypes checks type compatibility across edges, unifies the constraint
-// system, applies substitutions to resolve concrete types in node inputs,
-// outputs, and config parameters, and verifies that every required input is
+// system, applies substitutions to resolve concrete types in node inputs and
+// outputs, and verifies that every required input is
 // satisfied by an incoming edge. A required input is one whose parameter has no
 // default Value; leaving it unconnected would force the runtime to materialize a
 // series from a nil value, so it is rejected here as a diagnostic instead.
@@ -68,9 +68,6 @@ func ResolveNodeTypes(
 		}
 		for j, p := range n.Inputs {
 			nodes[idx].Inputs[j].Type = cs.ApplySubstitutions(p.Type)
-		}
-		for j, p := range n.Config {
-			nodes[idx].Config[j].Type = cs.ApplySubstitutions(p.Type)
 		}
 	}
 	connected := set.New[ir.Handle]()
