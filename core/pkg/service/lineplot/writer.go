@@ -26,7 +26,7 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-func (w Writer) Create(ctx context.Context, ws project.Key, lp *LinePlot) error {
+func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot) error {
 	var (
 		exists bool
 		err    error
@@ -52,12 +52,12 @@ func (w Writer) Create(ctx context.Context, ws project.Key, lp *LinePlot) error 
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if ws == uuid.Nil {
+	if projectKey == uuid.Nil {
 		return nil
 	}
 	return w.otg.DefineRelationship(
 		ctx,
-		project.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
@@ -67,11 +67,11 @@ func (w Writer) Create(ctx context.Context, ws project.Key, lp *LinePlot) error 
 // with the same key already exist, they will be overwritten.
 func (w Writer) CreateMany(
 	ctx context.Context,
-	ws project.Key,
+	projectKey project.Key,
 	plots *[]LinePlot,
 ) error {
 	for i := range *plots {
-		if err := w.Create(ctx, ws, &(*plots)[i]); err != nil {
+		if err := w.Create(ctx, projectKey, &(*plots)[i]); err != nil {
 			return err
 		}
 	}
