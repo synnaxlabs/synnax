@@ -15,7 +15,6 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/analyzer/call"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -43,7 +42,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
 	args := inputArguments(ctx, ctx.AST.ConfigValues())
-	call.Analyze(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST)
+	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST)
 }
 
 // Analyze validates a flow statement's node chain and routing tables.
@@ -93,7 +92,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 	if prevNode != nil && funcType.Trigger.Target != "" {
 		externallySatisfied = append(externallySatisfied, funcType.Trigger.Target)
 	}
-	call.Analyze(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST, externallySatisfied...)
+	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST, externallySatisfied...)
 
 	if prevNode == nil {
 		return
@@ -591,7 +590,7 @@ func analyzeRoutingTargetWithParam(
 		if fnType.Trigger.Target != "" {
 			externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)
 		}
-		call.Analyze(ctx, fnName, fnType.Type, args, fnType.AnalyzeArguments, fn, externallySatisfied...)
+		expression.AnalyzeCall(ctx, fnName, fnType.Type, args, fnType.AnalyzeArguments, fn, externallySatisfied...)
 
 		if targetParam != nil {
 			var outputType types.Type

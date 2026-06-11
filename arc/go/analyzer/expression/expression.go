@@ -12,7 +12,6 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/analyzer/call"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -401,7 +400,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 					ctx.Diagnostics.Add(diagnostics.Errorf(funcCalls[0],
 						"cannot call function %s: functions with multiple named outputs are not callable", funcName))
 				} else {
-					call.Analyze(ctx, funcName, scope.Type, inputArguments(funcCalls[0]), scope.AnalyzeArguments, funcCalls[0])
+					AnalyzeCall(ctx, funcName, scope.Type, inputArguments(funcCalls[0]), scope.AnalyzeArguments, funcCalls[0])
 				}
 			}
 			if callerFn != nil {

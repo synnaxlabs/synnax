@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package call centralizes argument validation shared by the expression analyzer
-// (parens form, positional args) and the flow analyzer (brace form, named or
-// anonymous input values). Both surface forms erase to a single Inputs list, so one
-// routine validates them; the only per-argument difference is whether it binds by
-// name (Argument.Name != "") or by position.
-package call
+package expression
 
 import (
 	"fmt"
@@ -28,11 +23,11 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Analyze validates a call's arguments against fnType.Inputs (count, type, name, and
+// AnalyzeCall validates a call's arguments against fnType.Inputs (count, type, name, and
 // required-param coverage) and runs the symbol's optional hook. args bind by name or
 // position. externallySatisfied names params filled by something other than a
 // call-site argument (in flow, the wire-fed trigger), so they aren't reported missing.
-func Analyze[T antlr.ParserRuleContext](
+func AnalyzeCall[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	fnName string,
 	fnType types.Type,
