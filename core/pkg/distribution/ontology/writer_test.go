@@ -218,7 +218,7 @@ var _ = Describe("Writer", func() {
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&res).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(HaveLen(0))
+				Expect(res).To(BeEmpty())
 			})
 			Describe("DeleteOutgoingRelationshipsOfType", func() {
 				It("Should delete all outgoing relationships of a type", func(ctx SpecContext) {
@@ -232,7 +232,7 @@ var _ = Describe("Writer", func() {
 						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(HaveLen(0))
+					Expect(res).To(BeEmpty())
 				})
 			})
 			Describe("DeleteIncomingRelationshipsOfType", func() {
@@ -246,7 +246,7 @@ var _ = Describe("Writer", func() {
 						TraverseTo(ontology.ParentsTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(HaveLen(0))
+					Expect(res).To(BeEmpty())
 					var res2 []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idOne).
@@ -268,7 +268,7 @@ var _ = Describe("Writer", func() {
 						TraverseTo(ontology.ChildrenTraverser).
 						Entries(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res).To(HaveLen(0))
+					Expect(res).To(BeEmpty())
 					var res2 []ontology.Resource
 					Expect(w.NewRetrieve().
 						WhereIDs(idOne).

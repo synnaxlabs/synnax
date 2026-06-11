@@ -564,7 +564,7 @@ var _ = Describe("Writer Behavior", func() {
 							Eventually(func() error {
 								_, err := w.Write(cesium.Frame{})
 								return err
-							}, "1000s").Should(MatchError(validate.ErrValidation))
+							}, time.Minute*16+time.Second*40).Should(MatchError(validate.ErrValidation))
 
 							By("Checking that the first commit did not succeed")
 							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
@@ -1365,7 +1365,7 @@ var _ = Describe("Writer Behavior", func() {
 						ctx,
 						cesium.Channel{Key: idx, Name: "uneven 1", DataType: telem.TimeStampT, IsIndex: true},
 						cesium.Channel{Key: data, Name: "uneven 2", DataType: telem.Float32T, Index: idx},
-					))
+					)).To(Succeed())
 				})
 
 				Specify("Uneven Frame", func(ctx SpecContext) {

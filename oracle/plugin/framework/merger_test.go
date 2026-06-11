@@ -100,8 +100,8 @@ var _ = Describe("MergeTypes", func() {
 
 		_ = framework.MergeTypes(a, b)
 
-		Expect(len(a)).To(Equal(originalALen))
-		Expect(len(b)).To(Equal(originalBLen))
+		Expect(a).To(HaveLen(originalALen))
+		Expect(b).To(HaveLen(originalBLen))
 	})
 })
 

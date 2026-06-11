@@ -10,6 +10,8 @@
 package mock_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -50,7 +52,7 @@ var _ = Describe("Cluster", func() {
 					Exec(ctx, nil)).To(Succeed())
 
 				g.Expect(resCh.Key()).To(Equal(ch.Key()))
-			}, "200ms").Should(Succeed())
+			}, time.Millisecond*200).Should(Succeed())
 
 			Expect(mockCluster.Close()).To(Succeed())
 		})
