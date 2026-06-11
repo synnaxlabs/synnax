@@ -173,7 +173,9 @@ var _ = Describe("Bool", func() {
 			type MyBool bool
 			var dest *MyBool
 			Expect(zyn.Bool().Optional().Parse(true, &dest)).To(Succeed())
-			Expect(*dest).To(Equal(MyBool(true)))
+			// BeTrue() panics on custom bool types because it asserts the value is
+			// exactly bool; Equal(MyBool(true)) is the correct matcher here.
+			Expect(*dest).To(Equal(MyBool(true))) //nolint:ginkgolinter
 		})
 	})
 
