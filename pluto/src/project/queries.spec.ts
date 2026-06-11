@@ -296,7 +296,7 @@ describe("queries", () => {
 
   describe("useRename", () => {
     it("should correctly rename a project", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: `testProject-${id.create()}`,
         layout: { config: { setting1: "value1" } },
       });
@@ -304,13 +304,13 @@ describe("queries", () => {
       const newName = `newName-${id.create()}`;
       const { result } = renderHook(
         () => ({
-          retrieve: Project.useRetrieve({ key: ws.key }),
+          retrieve: Project.useRetrieve({ key: proj.key }),
           rename: Project.useRename(),
         }),
         { wrapper },
       );
       await act(async () => {
-        await result.current.rename.updateAsync({ key: ws.key, name: newName });
+        await result.current.rename.updateAsync({ key: proj.key, name: newName });
       });
       await waitFor(() => expect(result.current.retrieve.data?.name).toEqual(newName));
     });
@@ -331,24 +331,24 @@ describe("queries", () => {
 
   describe("useDelete", () => {
     it("should correctly delete a project", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "testProject",
         layout: { config: { setting1: "value1" } },
       });
 
       const { result } = renderHook(() => Project.useDelete(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync(ws.key);
+        await result.current.updateAsync(proj.key);
       });
       await waitFor(async () => {
-        await expect(client.projects.retrieve(ws.key)).rejects.toThrow(NotFoundError);
+        await expect(client.projects.retrieve(proj.key)).rejects.toThrow(NotFoundError);
       });
     });
   });
 
   describe("useSaveLayout", () => {
     it("should correctly save a project layout", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "testProject",
         layout: { config: { setting1: "value1" } },
       });
@@ -356,27 +356,27 @@ describe("queries", () => {
       const { result } = renderHook(
         () => ({
           saveLayout: Project.useSaveLayout(),
-          retrieve: Project.useRetrieve({ key: ws.key }),
+          retrieve: Project.useRetrieve({ key: proj.key }),
         }),
         { wrapper },
       );
       await waitFor(() => {
         expect(result.current.retrieve.variant).toEqual("success");
-        expect(result.current.retrieve.data?.key).toEqual(ws.key);
+        expect(result.current.retrieve.data?.key).toEqual(proj.key);
         expect(result.current.retrieve.data?.layout).toEqual({
           config: { setting1: "value1" },
         });
       });
       await act(async () => {
         await result.current.saveLayout.updateAsync({
-          key: ws.key,
+          key: proj.key,
           layout: { config: { setting1: "value2" } },
         });
       });
 
       await waitFor(() => {
         expect(result.current.saveLayout.variant).toEqual("success");
-        expect(result.current.retrieve.data?.key).toEqual(ws.key);
+        expect(result.current.retrieve.data?.key).toEqual(proj.key);
         expect(result.current.retrieve.data?.layout).toEqual({
           config: { setting1: "value2" },
         });
@@ -386,12 +386,12 @@ describe("queries", () => {
 
   describe("useRetrieveChildren", () => {
     it("should return children filtered by a single type", async () => {
-      const ws = await client.projects.create({ name: "single_type_ws", layout: {} });
-      const s1 = await client.schematics.create(ws.key, {
+      const proj = await client.projects.create({ name: "single_type_ws", layout: {} });
+      const s1 = await client.schematics.create(proj.key, {
         name: "A Schematic",
       });
-      const l1 = await client.logs.create(ws.key, { name: "My Log" });
-      await client.lineplots.create(ws.key, { name: "My Plot" });
+      const l1 = await client.logs.create(proj.key, { name: "My Log" });
+      await client.lineplots.create(proj.key, { name: "My Plot" });
 
       const { result } = renderHook(
         () =>
@@ -410,13 +410,13 @@ describe("queries", () => {
     });
 
     it("should return children filtered by multiple types", async () => {
-      const ws = await client.projects.create({ name: "multi_type_ws", layout: {} });
-      const s1 = await client.schematics.create(ws.key, {
+      const proj = await client.projects.create({ name: "multi_type_ws", layout: {} });
+      const s1 = await client.schematics.create(proj.key, {
         name: "Source Schematic",
       });
-      const lp = await client.lineplots.create(ws.key, { name: "A Plot" });
-      const t1 = await client.tables.create(ws.key, { name: "A Table" });
-      const l1 = await client.logs.create(ws.key, { name: "A Log" });
+      const lp = await client.lineplots.create(proj.key, { name: "A Plot" });
+      const t1 = await client.tables.create(proj.key, { name: "A Table" });
+      const l1 = await client.logs.create(proj.key, { name: "A Log" });
 
       const { result } = renderHook(
         () =>
@@ -437,19 +437,19 @@ describe("queries", () => {
     });
 
     it("should return all visualization types except the source type", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "all_but_schematic_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(ws.key, {
+      const s1 = await client.schematics.create(proj.key, {
         name: "Current Schematic",
       });
-      const s2 = await client.schematics.create(ws.key, {
+      const s2 = await client.schematics.create(proj.key, {
         name: "Other Schematic",
       });
-      const lp = await client.lineplots.create(ws.key, { name: "Plot" });
-      const t1 = await client.tables.create(ws.key, { name: "Table" });
-      const l1 = await client.logs.create(ws.key, { name: "Log" });
+      const lp = await client.lineplots.create(proj.key, { name: "Plot" });
+      const t1 = await client.tables.create(proj.key, { name: "Table" });
+      const l1 = await client.logs.create(proj.key, { name: "Log" });
 
       const { result } = renderHook(
         () =>
@@ -471,11 +471,11 @@ describe("queries", () => {
     });
 
     it("should exclude the source resource from results", async () => {
-      const ws = await client.projects.create({ name: "exclude_ws", layout: {} });
-      const s1 = await client.schematics.create(ws.key, {
+      const proj = await client.projects.create({ name: "exclude_ws", layout: {} });
+      const s1 = await client.schematics.create(proj.key, {
         name: "Self",
       });
-      const s2 = await client.schematics.create(ws.key, {
+      const s2 = await client.schematics.create(proj.key, {
         name: "Other",
       });
 
@@ -519,19 +519,19 @@ describe("queries", () => {
     });
 
     it("should find children inside groups", async () => {
-      const ws = await client.projects.create({ name: "grouped_ws", layout: {} });
-      const s1 = await client.schematics.create(ws.key, {
+      const proj = await client.projects.create({ name: "grouped_ws", layout: {} });
+      const s1 = await client.schematics.create(proj.key, {
         name: "Top Level",
       });
-      const s2 = await client.schematics.create(ws.key, {
+      const s2 = await client.schematics.create(proj.key, {
         name: "In Group",
       });
       const g = await client.groups.create({
-        parent: project.ontologyID(ws.key),
+        parent: project.ontologyID(proj.key),
         name: "My Group",
       });
       await client.ontology.moveChildren(
-        project.ontologyID(ws.key),
+        project.ontologyID(proj.key),
         group.ontologyID(g.key),
         schematic.ontologyID(s2.key),
       );
@@ -553,15 +553,15 @@ describe("queries", () => {
     });
 
     it("should find children in deeply nested groups", async () => {
-      const ws = await client.projects.create({ name: "deep_nested_ws", layout: {} });
-      const s1 = await client.schematics.create(ws.key, {
+      const proj = await client.projects.create({ name: "deep_nested_ws", layout: {} });
+      const s1 = await client.schematics.create(proj.key, {
         name: "Top Level",
       });
-      const s2 = await client.schematics.create(ws.key, {
+      const s2 = await client.schematics.create(proj.key, {
         name: "Deeply Nested",
       });
       const outerGroup = await client.groups.create({
-        parent: project.ontologyID(ws.key),
+        parent: project.ontologyID(proj.key),
         name: "Outer Group",
       });
       const innerGroup = await client.groups.create({
@@ -569,7 +569,7 @@ describe("queries", () => {
         name: "Inner Group",
       });
       await client.ontology.moveChildren(
-        project.ontologyID(ws.key),
+        project.ontologyID(proj.key),
         group.ontologyID(innerGroup.key),
         schematic.ontologyID(s2.key),
       );
@@ -652,29 +652,29 @@ describe("queries", () => {
 
       beforeEach(async () => {
         // --- TestSpace ---
-        const ws = await client.projects.create({ name: "TestSpace", layout: {} });
-        sA = await client.schematics.create(ws.key, {
+        const proj = await client.projects.create({ name: "TestSpace", layout: {} });
+        sA = await client.schematics.create(proj.key, {
           name: "Schematic A",
         });
-        sB = await client.schematics.create(ws.key, {
+        sB = await client.schematics.create(proj.key, {
           name: "Schematic B",
         });
-        sC = await client.schematics.create(ws.key, {
+        sC = await client.schematics.create(proj.key, {
           name: "Schematic C",
         });
-        sD = await client.schematics.create(ws.key, {
+        sD = await client.schematics.create(proj.key, {
           name: "Schematic D",
         });
-        sE = await client.schematics.create(ws.key, {
+        sE = await client.schematics.create(proj.key, {
           name: "Schematic E",
         });
 
         const g1 = await client.groups.create({
-          parent: project.ontologyID(ws.key),
+          parent: project.ontologyID(proj.key),
           name: "Group 1",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(ws.key),
+          project.ontologyID(proj.key),
           group.ontologyID(g1.key),
           schematic.ontologyID(sB.key),
         );
@@ -684,12 +684,12 @@ describe("queries", () => {
           name: "Group 2",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(ws.key),
+          project.ontologyID(proj.key),
           group.ontologyID(g2.key),
           schematic.ontologyID(sC.key),
         );
         await client.ontology.moveChildren(
-          project.ontologyID(ws.key),
+          project.ontologyID(proj.key),
           group.ontologyID(g2.key),
           schematic.ontologyID(sD.key),
         );
@@ -699,7 +699,7 @@ describe("queries", () => {
           name: "Group E",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(ws.key),
+          project.ontologyID(proj.key),
           group.ontologyID(gE.key),
           schematic.ontologyID(sE.key),
         );

@@ -42,8 +42,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
       layout: Layout.ZERO_SLICE_STATE,
     },
     afterSave: ({ value }) => {
-      const ws = value();
-      const { key, name, layout } = ws;
+      const { key, name, layout } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
       dispatch(setActive({ key, name }));
       if (active != null)

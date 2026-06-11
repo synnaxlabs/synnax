@@ -41,8 +41,8 @@ interface Harness {
   store: RootStore;
 }
 
-const stripLayout = (ws: project.Project): Omit<project.Project, "layout"> => {
-  const { layout: _, ...rest } = ws;
+const stripLayout = (proj: project.Project): Omit<project.Project, "layout"> => {
+  const { layout: _, ...rest } = proj;
   return rest;
 };
 
@@ -90,11 +90,11 @@ describe("useAdoptIntoActiveProject", () => {
 
   beforeEach(async () => {
     projectA = await client.projects.create({
-      name: `ws-a-${id.create()}`,
+      name: `proj-a-${id.create()}`,
       layout: {},
     });
     projectB = await client.projects.create({
-      name: `ws-b-${id.create()}`,
+      name: `proj-b-${id.create()}`,
       layout: {},
     });
   });

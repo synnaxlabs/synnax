@@ -179,10 +179,10 @@ const handleSelect: Ontology.HandleSelect = ({
     "project",
   );
   handleError(async () => {
-    const ws = await client.projects.retrieve(selection[0].id.key);
-    store.dispatch(setActive(ws));
+    const proj = await client.projects.retrieve(selection[0].id.key);
+    store.dispatch(setActive(proj));
     store.dispatch(
-      Layout.setProject({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+      Layout.setProject({ slice: proj.layout as Layout.SliceState, keepNav: false }),
     );
   }, `Failed to select ${names}`);
 };

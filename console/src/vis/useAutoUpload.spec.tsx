@@ -120,7 +120,7 @@ const buildHarness = ({
     },
     [Project.SLICE_NAME]: {
       ...Project.ZERO_SLICE_STATE,
-      active: projectKey != null ? { key: projectKey, name: "ws" } : null,
+      active: projectKey != null ? { key: projectKey, name: "proj" } : null,
     },
     [FAKE_SLICE]: {
       entries: pendingUpload != null ? { [key]: { pendingUpload } } : {},
@@ -140,7 +140,7 @@ describe("createUseAutoUpload", () => {
   it("returns true and never calls create when there is no pending upload", () => {
     const ctrl: CreateController = { succeed: true, calls: [] };
     const useAutoUpload = buildHook(ctrl);
-    const { wrapper } = buildHarness({ key: "k", name: "Settled", projectKey: "ws" });
+    const { wrapper } = buildHarness({ key: "k", name: "Settled", projectKey: "proj" });
     const { result } = renderHook(() => useAutoUpload("k"), { wrapper });
     expect(result.current).toBe(true);
     expect(ctrl.calls).toHaveLength(0);
@@ -152,7 +152,7 @@ describe("createUseAutoUpload", () => {
     const { wrapper, store } = buildHarness({
       key: "k",
       name: "Live Layout Name",
-      projectKey: "ws",
+      projectKey: "proj",
       pendingUpload: { key: "k", payload: 7 },
     });
     const { result } = renderHook(() => useAutoUpload("k"), { wrapper });
@@ -161,7 +161,7 @@ describe("createUseAutoUpload", () => {
     expect(ctrl.calls[0]).toMatchObject({
       key: "k",
       name: "Live Layout Name",
-      project: "ws",
+      project: "proj",
       payload: 7,
     });
     expect(selectPending(store, "k")).toBeUndefined();
@@ -188,7 +188,7 @@ describe("createUseAutoUpload", () => {
     const { wrapper } = buildHarness({
       key: "k",
       name: "Single Upload",
-      projectKey: "ws",
+      projectKey: "proj",
       pendingUpload: { key: "k" },
     });
     const { result, rerender } = renderHook(() => useAutoUpload("k"), { wrapper });
@@ -204,7 +204,7 @@ describe("createUseAutoUpload", () => {
     const { wrapper, store } = buildHarness({
       key: "k",
       name: "Retry",
-      projectKey: "ws",
+      projectKey: "proj",
       pendingUpload: { key: "k" },
     });
     const first = renderHook(() => useAutoUpload("k"), { wrapper });

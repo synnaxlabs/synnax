@@ -136,7 +136,7 @@ class ReadTaskConsoleVerify(ConsoleCase):
         self.log(f"Testing: Task form for '{self.task_name}' in console")
         console = self.console
 
-        task_page = console.workspace.open_from_search(TaskPage, self.task_name)
+        task_page = console.project.open_from_search(TaskPage, self.task_name)
 
         layout = console.layout
         assert layout.get_input_field("Name") == self.task_name, "Task name mismatch"

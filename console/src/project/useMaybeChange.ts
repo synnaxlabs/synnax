@@ -22,8 +22,8 @@ export const useMaybeChange = (): ((key: string) => Promise<void>) => {
   return async (key) => {
     if (activeWS === key) return;
     if (client == null) throw new DisconnectedError();
-    const { layout, ...ws } = await client.projects.retrieve(key);
-    dispatch(setActive(ws));
+    const { layout, ...proj } = await client.projects.retrieve(key);
+    dispatch(setActive(proj));
     dispatch(Layout.setProject({ slice: layout as Layout.SliceState, keepNav: false }));
   };
 };
