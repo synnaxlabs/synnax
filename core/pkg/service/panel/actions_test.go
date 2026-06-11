@@ -101,6 +101,32 @@ var _ = Describe("Actions", func() {
 			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
 		})
 
+		It("Should split the target leaf and insert into the new sibling when location is present", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:        tab(tab2),
+				TargetLeaf: 1,
+				Location:   new(spatial.LocationBottom),
+			}.Handle(p))
+			Expect(next.Root.Split).ToNot(BeNil())
+			Expect(next.Root.Split.Direction).To(Equal(spatial.DirectionY))
+			Expect(tabKeys(next.Root.Split.First)).To(Equal([]uuid.UUID{tab1}))
+			Expect(tabKeys(next.Root.Split.Last)).To(Equal([]uuid.UUID{tab2}))
+		})
+
+		It("Should place the new sibling first for a left location", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:        tab(tab2),
+				TargetLeaf: 1,
+				Location:   new(spatial.LocationLeft),
+			}.Handle(p))
+			Expect(next.Root.Split).ToNot(BeNil())
+			Expect(next.Root.Split.Direction).To(Equal(spatial.DirectionX))
+			Expect(tabKeys(next.Root.Split.First)).To(Equal([]uuid.UUID{tab2}))
+			Expect(tabKeys(next.Root.Split.Last)).To(Equal([]uuid.UUID{tab1}))
+		})
+
 		DescribeTable("Should error on bad inputs",
 			func(p panel.Panel, payload panel.InsertTabPayload, expected error) {
 				Expect(payload.Handle(p)).Error().To(MatchError(expected))
@@ -119,6 +145,11 @@ var _ = Describe("Actions", func() {
 				panel.Panel{Root: leafNode()},
 				panel.InsertTabPayload{Tab: panel.Tab{Key: uuid.New()}, TargetLeaf: 1, Index: new(int32(5))},
 				panel.ErrIndexOutOfRange,
+			),
+			Entry("location cannot produce a split",
+				panel.Panel{Root: leafNode()},
+				panel.InsertTabPayload{Tab: panel.Tab{Key: uuid.New()}, TargetLeaf: 1, Location: new(spatial.LocationCenter)},
+				panel.ErrInvalidSplitLocation,
 			),
 		)
 	})
@@ -220,10 +251,59 @@ var _ = Describe("Actions", func() {
 			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
 		})
 
+		It("Should split the target leaf and move the tab into the new sibling when location is present", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
+			next := MustSucceed(panel.MoveTabPayload{
+				Key:        tab2,
+				TargetLeaf: 1,
+				Location:   new(spatial.LocationRight),
+			}.Handle(p))
+			Expect(next.Root.Split).ToNot(BeNil())
+			Expect(next.Root.Split.Direction).To(Equal(spatial.DirectionX))
+			Expect(tabKeys(next.Root.Split.First)).To(Equal([]uuid.UUID{tab1}))
+			Expect(tabKeys(next.Root.Split.Last)).To(Equal([]uuid.UUID{tab2}))
+		})
+
+		It("Should no-op when moving a leaf's only tab to an edge of its own leaf", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			next := MustSucceed(panel.MoveTabPayload{
+				Key:        tab1,
+				TargetLeaf: 1,
+				Location:   new(spatial.LocationLeft),
+			}.Handle(p))
+			Expect(next.Root.Split).To(BeNil())
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1}))
+		})
+
+		It("Should split when the target leaf's only tab is a different tab", func() {
+			p := panel.Panel{Root: splitNode(
+				spatial.DirectionX, 0.5,
+				leafNode(tab(tab1)),
+				leafNode(tab(tab2)),
+			)}
+			next := MustSucceed(panel.MoveTabPayload{
+				Key:        tab1,
+				TargetLeaf: 3,
+				Location:   new(spatial.LocationTop),
+			}.Handle(p))
+			Expect(tabKeys(next.Root.Split.First)).To(Equal([]uuid.UUID{tab1}))
+			Expect(tabKeys(next.Root.Split.Last)).To(Equal([]uuid.UUID{tab2}))
+			Expect(next.Root.Split.Direction).To(Equal(spatial.DirectionY))
+		})
+
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			Expect(panel.MoveTabPayload{Key: uuid.New(), TargetLeaf: 1, Index: new(int32(0))}.Handle(p)).Error().
 				To(MatchError(panel.ErrTabNotFound))
+		})
+
+		It("Should return ErrInvalidSplitLocation when location cannot produce a split", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
+			Expect(panel.MoveTabPayload{
+				Key:        tab1,
+				TargetLeaf: 1,
+				Location:   new(spatial.LocationCenter),
+			}.Handle(p)).Error().To(MatchError(panel.ErrInvalidSplitLocation))
 		})
 	})
 

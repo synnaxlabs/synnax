@@ -84,6 +84,33 @@ const directionAndSideForLocation = (
   }
 };
 
+// splitLeafAt mirrors splitLeafAt + splitLeafForPlacement in
+// core/pkg/service/panel/tree.go, replacing the leaf at the given path with a
+// split holding the original leaf and a new empty sibling on the given side.
+// Returns the path key of the new empty leaf, or null when the path does not
+// resolve to a leaf or the location cannot produce a split.
+const splitLeafAt = (
+  root: Draft<Node>,
+  leafPath: number,
+  loc: spatial.Location,
+  size: number,
+): number | null => {
+  const node = walkPath(root, leafPath);
+  if (node == null || node.leaf == null) return null;
+  const ds = directionAndSideForLocation(loc);
+  if (ds == null) return null;
+  const original = node.leaf;
+  const empty: Leaf = { tabs: [] };
+  node.leaf = undefined;
+  node.split = {
+    direction: ds.direction,
+    size,
+    first: { leaf: ds.side === "first" ? empty : original },
+    last: { leaf: ds.side === "first" ? original : empty },
+  };
+  return ds.side === "first" ? leafPath * 2 : leafPath * 2 + 1;
+};
+
 const handlers: Handlers = {
   rename: (state, payload) => {
     state.name = payload.name;
@@ -92,7 +119,13 @@ const handlers: Handlers = {
 
   insertTab: (state, payload) => {
     if (state.root == null) return NO_OP;
-    const leaf = walkLeaf(state.root, payload.targetLeaf);
+    let targetLeaf = payload.targetLeaf;
+    if (payload.location != null) {
+      const placed = splitLeafAt(state.root, targetLeaf, payload.location, 0.5);
+      if (placed == null) return NO_OP;
+      targetLeaf = placed;
+    }
+    const leaf = walkLeaf(state.root, targetLeaf);
     if (leaf == null) return NO_OP;
     const idx = payload.index ?? leaf.tabs.length;
     if (idx < 0 || idx > leaf.tabs.length) return NO_OP;
@@ -114,7 +147,19 @@ const handlers: Handlers = {
   // created by a preceding SplitLeaf).
   moveTab: (state, payload) => {
     if (state.root == null) return NO_OP;
-    const target = walkLeaf(state.root, payload.targetLeaf);
+    let targetLeaf = payload.targetLeaf;
+    if (payload.location != null) {
+      const current = walkLeaf(state.root, targetLeaf);
+      if (current == null) return NO_OP;
+      // Moving a leaf's only tab to an edge of its own leaf is degenerate: the
+      // result would be the tab beside an empty pane.
+      if (current.tabs.length === 1 && current.tabs[0].key === payload.key)
+        return NO_OP;
+      const placed = splitLeafAt(state.root, targetLeaf, payload.location, 0.5);
+      if (placed == null) return NO_OP;
+      targetLeaf = placed;
+    }
+    const target = walkLeaf(state.root, targetLeaf);
     if (target == null) return NO_OP;
     const removed = removeTab(state.root, payload.key);
     if (removed == null) return NO_OP;
@@ -127,22 +172,13 @@ const handlers: Handlers = {
 
   splitLeaf: (state, payload) => {
     if (state.root == null) return NO_OP;
-    const node = walkPath(state.root, payload.leaf);
-    if (node == null || node.leaf == null) return NO_OP;
-    const ds = directionAndSideForLocation(payload.location);
-    if (ds == null) return NO_OP;
-    const original = node.leaf;
-    const empty: Leaf = { tabs: [] };
-    const firstLeaf = ds.side === "first" ? empty : original;
-    const lastLeaf = ds.side === "first" ? original : empty;
-    const size = payload.size ?? 0.5;
-    node.leaf = undefined;
-    node.split = {
-      direction: ds.direction,
-      size,
-      first: { leaf: firstLeaf },
-      last: { leaf: lastLeaf },
-    };
+    const placed = splitLeafAt(
+      state.root,
+      payload.leaf,
+      payload.location,
+      payload.size ?? 0.5,
+    );
+    if (placed == null) return NO_OP;
     return { inverse: [], targets: [String(payload.leaf)] };
   },
 
