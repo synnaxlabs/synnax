@@ -17,13 +17,24 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 
 // Handle inserts the tab into the leaf at the given path-derived key, at the
 // given index. The caller is responsible for choosing a valid index in
-// [0, len(leaf.Tabs)] — to append, pass len(leaf.Tabs). Returns ErrInvalidPath
-// when the target leaf path does not resolve, ErrNotALeaf when it resolves to a
-// split, or ErrIndexOutOfRange when index is outside [0, len(leaf.Tabs)]. On any
-// error the returned state is the zero Panel; the dispatch substrate aborts the
+// [0, len(leaf.Tabs)] — to append, pass len(leaf.Tabs). When Location is
+// present, the target leaf is first split at that location and the tab is
+// inserted into the new empty sibling leaf. Returns ErrInvalidPath when the
+// target leaf path does not resolve, ErrNotALeaf when it resolves to a split,
+// ErrIndexOutOfRange when index is outside [0, len(leaf.Tabs)], or
+// ErrInvalidSplitLocation when Location cannot produce a split. On any error
+// the returned state is the zero Panel; the dispatch substrate aborts the
 // transaction on error, so partial state would not be meaningful.
 func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
-	leaf, err := walkLeaf(&state.Root, p.TargetLeaf)
+	targetLeaf := p.TargetLeaf
+	if p.Location != nil {
+		var err error
+		targetLeaf, err = splitLeafForPlacement(&state.Root, p.TargetLeaf, *p.Location)
+		if err != nil {
+			return Panel{}, err
+		}
+	}
+	leaf, err := walkLeaf(&state.Root, targetLeaf)
 	if err != nil {
 		return Panel{}, err
 	}
@@ -31,7 +42,7 @@ func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
 	if p.Index != nil {
 		index = *p.Index
 	}
-	if err := insertTabAt(&state.Root, p.TargetLeaf, p.Tab, index); err != nil {
+	if err := insertTabAt(&state.Root, targetLeaf, p.Tab, index); err != nil {
 		return Panel{}, err
 	}
 	return state, nil
@@ -52,13 +63,31 @@ func (p RemoveTabPayload) Handle(state Panel) (Panel, error) {
 // Handle moves a tab to a position within the panel. The target leaf is resolved
 // before the remove, and empty-leaf collapse is deferred until after the insert,
 // so the destination may be a leaf the source's removal would otherwise collapse
-// away (e.g. the empty sibling created by a preceding SplitLeaf). Returns
-// ErrTabNotFound when no tab matches the key, ErrInvalidPath / ErrNotALeaf when
-// the target path is bad, or ErrIndexOutOfRange when index is outside
-// [0, len(targetLeaf.Tabs)] after the remove (the count may shrink by one when
-// moving within the same leaf).
+// away (e.g. the empty sibling created by a preceding SplitLeaf). When Location
+// is present, the target leaf is first split at that location and the tab moves
+// into the new empty sibling leaf; moving a leaf's only tab to an edge of its
+// own leaf is a no-op (the result would be the tab beside an empty pane).
+// Returns ErrTabNotFound when no tab matches the key, ErrInvalidPath /
+// ErrNotALeaf when the target path is bad, ErrIndexOutOfRange when index is
+// outside [0, len(targetLeaf.Tabs)] after the remove (the count may shrink by
+// one when moving within the same leaf), or ErrInvalidSplitLocation when
+// Location cannot produce a split.
 func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
-	target, err := walkLeaf(&state.Root, p.TargetLeaf)
+	targetLeaf := p.TargetLeaf
+	if p.Location != nil {
+		current, err := walkLeaf(&state.Root, p.TargetLeaf)
+		if err != nil {
+			return Panel{}, err
+		}
+		if len(current.Tabs) == 1 && current.Tabs[0].Key == p.Key {
+			return state, nil
+		}
+		targetLeaf, err = splitLeafForPlacement(&state.Root, p.TargetLeaf, *p.Location)
+		if err != nil {
+			return Panel{}, err
+		}
+	}
+	target, err := walkLeaf(&state.Root, targetLeaf)
 	if err != nil {
 		return Panel{}, err
 	}
