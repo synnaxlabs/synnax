@@ -51,7 +51,8 @@ var _ = Describe("api.Service.Create", func() {
 
 	It("Should create the panels under the provided parent", func(ctx SpecContext) {
 		p := panel.Panel{Key: uuid.New(), Name: "with-parent"}
-		grant(ctx, user.OntologyID(author.Key), access.ActionCreate, panel.OntologyID(p.Key))
+		grant(ctx, user.OntologyID(author.Key), access.ActionCreate,
+			ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
 		res := MustSucceed(apiSvc.Create(authedCtx(ctx, author), CreateRequest{
 			Parent: parentID,
 			Panels: []panel.Panel{p},
@@ -67,7 +68,8 @@ var _ = Describe("api.Service.Create", func() {
 
 	It("Should parent a parent-less panel to the creating user as a draft", func(ctx SpecContext) {
 		p := panel.Panel{Key: uuid.New(), Name: "draft"}
-		grant(ctx, user.OntologyID(author.Key), access.ActionCreate, panel.OntologyID(p.Key))
+		grant(ctx, user.OntologyID(author.Key), access.ActionCreate,
+			ontology.ID{Type: ontology.ResourceTypePanel})
 		Expect(apiSvc.Create(authedCtx(ctx, author), CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().To(Succeed())

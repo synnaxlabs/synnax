@@ -60,15 +60,20 @@ type (
 // Each panel is parented to req.Parent, or to the creating user as a draft when
 // Parent is zero.
 func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResponse, err error) {
+	subject := auth.GetSubject(ctx)
+	objects := []ontology.ID{{Type: ontology.ResourceTypePanel}}
+	if !req.Parent.IsZero() {
+		objects = append(objects, req.Parent)
+	}
 	if err = s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
+		Subject: subject,
 		Action:  access.ActionCreate,
-		Objects: panel.OntologyIDsFromPanels(req.Panels),
+		Objects: objects,
 	}); err != nil {
 		return res, err
 	}
 	// No parent -> draft, parented to the creating user.
-	parent := auth.GetSubject(ctx)
+	parent := subject
 	if !req.Parent.IsZero() {
 		parent = req.Parent
 	}
