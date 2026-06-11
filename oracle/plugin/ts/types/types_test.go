@@ -2497,8 +2497,35 @@ var _ = Describe("TS Union Generation", func() {
 				`export const scaleZ = z.discriminatedUnion("type", [`,
 				`scaleLinearZ,`,
 				`scaleNoneZ,`,
-				`export type Scale = z.infer<typeof scaleZ>;`,
+				`export type Scale = ScaleLinear | ScaleNone;`,
 			)
+	})
+
+	It("Should break the inference cycle when a variant struct references the union recursively", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Leaf struct { name string }
+
+			Split struct {
+				size float64
+				first Node
+				last Node
+			}
+
+			Node union on variant {
+				leaf Leaf
+				split Split
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`get first(): z.ZodType<Node> {`,
+				`return nodeZ;`,
+				`export type Node = NodeLeaf | NodeSplit;`,
+			).
+			ToNotContain(`get first(): typeof nodeZ {`)
 	})
 
 	It("Should camelize multi-word discriminators in the generated schemas", func(ctx SpecContext) {
