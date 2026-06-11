@@ -131,11 +131,13 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store }) => {
+  update: async ({ client, data, store, rollbacks }) => {
     const { parent, ...rest } = data;
-    const p = await client.panels.create(rest, parent);
-    store.panels.set(p.key, p);
-    return p;
+    const optimistic = panel.newZ.parse(rest);
+    rollbacks.push(store.panels.set(optimistic.key, optimistic));
+    const created = await client.panels.create(optimistic, parent);
+    store.panels.set(created.key, created);
+    return created;
   },
 });
 
