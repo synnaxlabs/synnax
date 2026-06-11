@@ -58,10 +58,8 @@ export const Out = ({ node }: OutProps): React.ReactElement => {
     const parent = placeholder.parentNode;
     if (parent == null) return;
     node.mount(parent, placeholder);
-    // Release through portal.current rather than the closed-over node: the
-    // node prop may have been swapped since mount, and unmounting the stale
-    // node would leave the current one in the DOM where React expects the
-    // placeholder.
+    // Release portal.current, not the closed-over node: the prop may have
+    // been swapped since mount.
     return () => {
       if (stub.current != null) portal.current.unmount(stub.current);
     };
