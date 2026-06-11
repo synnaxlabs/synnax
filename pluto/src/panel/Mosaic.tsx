@@ -144,7 +144,7 @@ export const Mosaic = ({
   );
 
   const handleCreate = useCallback(
-    (node: number, loc: location.Location, tabKeys?: string[]) => {
+    (node: number, location: location.Location, tabKeys?: string[]) => {
       let tabs: panel.Tab[];
       if (tabKeys == null) tabs = [{ key: uuid.create() }];
       else
@@ -152,11 +152,12 @@ export const Mosaic = ({
           const parsed = ontology.idZ.safeParse(raw);
           return parsed.success ? [{ key: uuid.create(), resource: parsed.data }] : [];
         });
+      if (tabs.length === 0) return;
       const restLeaf =
-        loc === "center" ? node : panel.childPath(node, panel.splitSide(loc));
+        location === "center" ? node : panel.childPath(node, panel.splitSide(location));
       const actions = tabs.map((tab, i) => {
-        let payload = { tab, targetLeaf: restLeaf, location: undefined };
-        if (i == 0) payload = { tab, targetLeaf: node, location: loc };
+        let payload: panel.InsertTabPayload = { tab, targetLeaf: restLeaf };
+        if (i === 0) payload = { tab, targetLeaf: node, location };
         return panel.insertTab(payload);
       });
       dispatch({ key, actions });

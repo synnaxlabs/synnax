@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, type ontology, panel } from "@synnaxlabs/client";
-import { array, deep } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -55,9 +55,6 @@ const undoableStoreConfig = Flux.createUndoableStore<
   kindOf: kindOfTransaction,
 });
 
-// createUndoableStore only wires the action channel listener. Add a delete
-// listener so other clients see panel deletions reactively (deletes go through
-// gorp with the set publisher disabled, so they emit only on the delete channel).
 const DELETE_PANEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof panel.keyZ> = {
   channel: panel.DELETE_CHANNEL_NAME,
   schema: panel.keyZ,
@@ -95,8 +92,6 @@ export const { useRetrieve, useEnsureRetrieved } = Flux.createRetrieve<
   ],
 });
 
-// TabContent is a tab's resolved content union. At most one of resource or view
-// is set; both absent means the tab has no content yet.
 export interface TabContent extends Pick<panel.Tab, "resource" | "view"> {}
 
 export interface SelectKeyArgs {
@@ -126,27 +121,21 @@ export interface SelectTabContentArgs {
   tabKey: string;
 }
 
-// useSelectTabContent selects a single tab's content union, re-rendering only
-// when that tab's content changes.
-export const useSelectTabContent = Flux.createSelector<
+export const useSelectTab = Flux.createSelector<
   FluxSubStore,
   SelectTabContentArgs,
-  TabContent
+  panel.Tab
 >({
   subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
   select: (store, { key, tabKey }) => {
     const tab = panel.findTab(requirePanel(store, key).root, tabKey);
     if (tab == null)
       throw new NotFoundError(`Tab with key ${tabKey} not found in panel ${key}`);
-    return { resource: tab.resource, view: tab.view };
+    return tab;
   },
-  equal: deep.equal,
 });
 
-export type ListParams = {
-  offset?: number;
-  limit?: number;
-};
+export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}
 
 export const useList = Flux.createList<
   ListParams,
@@ -169,9 +158,6 @@ export interface CreateParams extends panel.New {
   parent?: ontology.ID;
 }
 
-// useCreate creates a panel parented to the given resource: a project for a
-// project panel, a user for a draft. When parent is absent the server parents
-// the panel only to the root panel group.
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
   FluxSubStore,
@@ -189,14 +175,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   },
 });
 
-export interface RenameParams {
-  key: panel.Key;
-  name: string;
-}
+export interface RenameParams extends Pick<panel.Panel, "key" | "name"> {}
 
-// Rename routes through Flux.createUpdate (not dispatch) because the client
-// exposes it as its own method. The optimistic local updates roll back if the
-// server rejects the rename.
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
