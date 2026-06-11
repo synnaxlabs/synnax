@@ -29,17 +29,17 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("CreateMany", func() {
-		It("Should create multiple workspaces", func(ctx SpecContext) {
-			workspaces := []workspace.Workspace{
-				{Name: "workspace-1", Author: author.Key},
-				{Name: "workspace-2", Author: author.Key},
+		It("Should create multiple projects", func(ctx SpecContext) {
+			projects := []project.Project{
+				{Name: "project-1", Author: author.Key},
+				{Name: "project-2", Author: author.Key},
 			}
-			Expect(svc.NewWriter(tx).CreateMany(ctx, &workspaces)).To(Succeed())
+			Expect(svc.NewWriter(tx).CreateMany(ctx, &projects)).To(Succeed())
 
-			var retrieved []workspace.Workspace
-			Expect(svc.NewRetrieve().Where(workspace.MatchKeys(
-				workspaces[0].Key,
-				workspaces[1].Key,
+			var retrieved []project.Project
+			Expect(svc.NewRetrieve().Where(project.MatchKeys(
+				projects[0].Key,
+				projects[1].Key,
 			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved).To(HaveLen(2))
 		})
