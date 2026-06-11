@@ -195,32 +195,21 @@ export const Mosaic = ({
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
 
-  // handleDrop maps Base.Mosaic's drop gesture onto panel actions. A center drop
-  // moves (or reorders) the tab into the target leaf; an edge drop splits the leaf
-  // and moves the tab into the new sibling, mirroring handleCreate's composition.
+  // handleDrop maps Base.Mosaic's drop gesture onto a single MoveTab action: an
+  // edge drop carries the location, and the reducer splits the leaf and places
+  // the tab in the new sibling (a no-op when the tab is the leaf's only tab); a
+  // center drop moves or reorders within the target leaf.
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location, index?: number) => {
-      const actions: panel.Action[] = [];
-      let targetLeaf = key;
-      if (loc !== "center") {
-        // Splitting a leaf against its own only tab is a degenerate gesture: the
-        // result would be the tab next to an empty pane. Treat it as a no-op.
-        const treeRoot = store.panels.get(panelKey)?.root;
-        const sourceLeaf =
-          treeRoot != null ? panel.tabLeafPath(treeRoot, tabKey) : null;
-        const sourceTabCount =
-          sourceLeaf != null
-            ? (panel.walkPath(treeRoot, sourceLeaf)?.leaf?.tabs.length ?? 0)
-            : 0;
-        if (sourceLeaf === key && sourceTabCount <= 1) return;
-        actions.push(panel.splitLeaf({ leaf: key, location: loc, size: 0.5 }));
-        const side = loc === "left" || loc === "top" ? "first" : "last";
-        targetLeaf = panel.childPath(key, side);
-      }
-      actions.push(panel.moveTab({ key: tabKey, targetLeaf, index: index ?? 0 }));
-      dispatch({ key: panelKey, actions });
+      const action = panel.moveTab({
+        key: tabKey,
+        targetLeaf: key,
+        index: index ?? 0,
+        location: loc === "center" ? undefined : loc,
+      });
+      dispatch({ key: panelKey, actions: [action] });
     },
-    [dispatch, panelKey, store],
+    [dispatch, panelKey],
   );
 
   // Resize.useMultiple emits on mount as well as on drags, and a stale emission
@@ -243,15 +232,12 @@ export const Mosaic = ({
     [dispatch, panelKey],
   );
 
-  // handleCreate maps Base.Mosaic's create gesture onto panel actions. The
-  // location decides the structural shape:
-  //   - "center": add to the existing leaf (no split).
-  //   - an edge (left/right/top/bottom): split the leaf and place the new
-  //     content on that side.
-  // A bare "+" (no dropped content) inserts a single resourceless tab, a real,
-  // stored tab that renders the consumer's selector until SetTabResource fills it.
-  // Tabs append to the target leaf (insertTab without an index), and creating a
-  // tab selects it through the same onSelect seam as a click, so the consumer's
+  // handleCreate maps Base.Mosaic's create gesture onto InsertTab actions. A
+  // bare "+" (no dropped content) inserts a single resourceless tab, a real,
+  // stored tab that renders the consumer's selector until SetTabResource fills
+  // it. An edge location rides on the first insert, so the reducer splits the
+  // leaf; remaining tabs append to the leaf the split created. Creating a tab
+  // selects it through the same onSelect seam as a click, so the consumer's
   // session cursor lands on the new tab.
   const handleCreate = useCallback(
     (key: number, loc: location.Location, tabKeys?: string[]) => {
@@ -259,20 +245,19 @@ export const Mosaic = ({
         const parsed = ontology.idZ.safeParse(raw);
         return parsed.success ? [parsed.data] : [];
       });
-      const actions: panel.Action[] = [];
-      // For an edge split the new sibling lands on the child slot that matches
-      // the drop side: first (2k) for left/top, last (2k+1) otherwise.
-      let targetLeaf = key;
-      if (loc !== "center") {
-        actions.push(panel.splitLeaf({ leaf: key, location: loc, size: 0.5 }));
-        const side = loc === "left" || loc === "top" ? "first" : "last";
-        targetLeaf = panel.childPath(key, side);
-      }
       const tabs: panel.Tab[] =
         dropped.length === 0
           ? [{ key: uuid.create() }]
           : dropped.map((resource) => ({ key: uuid.create(), resource }));
-      for (const tab of tabs) actions.push(panel.insertTab({ tab, targetLeaf }));
+      const edge = loc === "center" ? undefined : loc;
+      const restLeaf = edge != null ? panel.childPath(key, panel.splitSide(edge)) : key;
+      const actions = tabs.map((tab, i) =>
+        panel.insertTab({
+          tab,
+          targetLeaf: i === 0 ? key : restLeaf,
+          location: i === 0 ? edge : undefined,
+        }),
+      );
       dispatch({ key: panelKey, actions });
       onSelect?.(tabs[tabs.length - 1].key);
     },
