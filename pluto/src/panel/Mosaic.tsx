@@ -12,10 +12,8 @@ import { type location, uuid } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement, useCallback, useMemo } from "react";
 
 import { context } from "@/context";
-import { Flux } from "@/flux";
 import { Mosaic as Base } from "@/mosaic";
 import {
-  type FluxSubStore,
   type TabContent,
   useDispatch,
   useEnsureRetrieved,
@@ -185,7 +183,6 @@ export const Mosaic = ({
   ...rest
 }: MosaicProps): ReactElement | null => {
   useEnsureRetrieved({ key: panelKey });
-  const store = Flux.useStore<FluxSubStore>();
   const { dispatch } = useDispatch();
   const treeRoot = useSelectRoot({ key: panelKey });
   const root = useMemo(
@@ -212,17 +209,14 @@ export const Mosaic = ({
     [dispatch, panelKey],
   );
 
-  // Resize.useMultiple emits on mount as well as on drags, and a stale emission
-  // can land after the panel (and its tree shape) has changed. Only dispatch when
-  // the node is currently a split whose stored size actually changed, so mounts
-  // and panel switches never send invalid or no-op resizes to the server.
+  // Resize.useMultiple emits on mount as well as on drags; the reducer treats
+  // resizes that change nothing as no-ops, and the dispatch substrate drops
+  // no-op vectors before they reach the server.
   const handleResize = useCallback(
     (key: number, size: number) => {
-      const node = panel.walkPath(store.panels.get(panelKey)?.root, key);
-      if (node?.split == null || node.split.size === size) return;
       dispatch({ key: panelKey, actions: [panel.resizeSplit({ split: key, size })] });
     },
-    [dispatch, panelKey, store],
+    [dispatch, panelKey],
   );
 
   const handleClose = useCallback(
