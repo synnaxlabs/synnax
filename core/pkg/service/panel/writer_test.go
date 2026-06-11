@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -54,6 +55,27 @@ var _ = Describe("Writer", func() {
 			Expect(leaf.Tabs).To(HaveLen(1))
 			Expect(leaf.Tabs[0].Key()).To(Equal(key))
 		})
+
+		DescribeTable("Should reject a caller-provided tree that violates invariants",
+			func(ctx SpecContext, root func() panel.Node, expected error) {
+				p := panel.Panel{Name: "invalid", Root: root()}
+				Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).
+					To(MatchError(expected))
+			},
+			Entry("duplicate tab keys", func() panel.Node {
+				key := uuid.New()
+				return splitNode(spatial.DirectionX, 0.5,
+					leafNode(tab(key)), leafNode(tab(key)))
+			}, panel.ErrDuplicateTab),
+			Entry("split size out of bounds", func() panel.Node {
+				return splitNode(spatial.DirectionX, 1.5,
+					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
+			}, panel.ErrInvalidSize),
+			Entry("nil child node", func() panel.Node {
+				return splitNode(spatial.DirectionX, 0.5,
+					leafNode(tab(uuid.New())), panel.Node{})
+			}, panel.ErrNilNode),
+		)
 
 		It("Should register the panel as an ontology resource", func(ctx SpecContext) {
 			p := panel.Panel{Name: "test"}
@@ -193,6 +215,15 @@ var _ = Describe("Writer", func() {
 				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 99}),
 			})).Error().To(MatchError(panel.ErrInvalidPath))
 			Expect(retrieve(ctx, key).Name).To(Equal("test"))
+		})
+
+		It("Should reject a dispatch that inserts a tab with a duplicate key", func(ctx SpecContext) {
+			tabKey := uuid.New()
+			key := create(ctx, leafNode(tab(tabKey)))
+			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
+			})).Error().To(MatchError(panel.ErrDuplicateTab))
+			Expect(MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs).To(HaveLen(1))
 		})
 
 		It("Should notify subscribers with the dispatched action on success", func(ctx SpecContext) {

@@ -25,7 +25,9 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 // [0, len(leaf.Tabs)] — to append, pass len(leaf.Tabs). When Location is an
 // edge, the target leaf is first split at that location and the tab is
 // inserted into the new empty sibling leaf; a center Location places the tab
-// directly in the target leaf, equivalent to absent. Returns ErrInvalidPath
+// directly in the target leaf, equivalent to absent. Empty leaves left under
+// a split are collapsed afterwards, so an edge insert into an empty leaf
+// degrades to a direct insert. Returns ErrInvalidPath
 // when the target leaf path does not resolve, ErrNotALeaf when it resolves to
 // a split, ErrIndexOutOfRange when index is outside [0, len(leaf.Tabs)], or
 // ErrInvalidSplitLocation when Location cannot produce a split. On any error
@@ -51,6 +53,7 @@ func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
 	if err := insertTabAt(&state.Root, targetLeaf, p.Tab, index); err != nil {
 		return Panel{}, err
 	}
+	collapseEmptyLeaves(&state.Root)
 	return state, nil
 }
 

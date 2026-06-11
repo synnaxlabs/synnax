@@ -143,6 +143,18 @@ describe("reduceAll", () => {
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual(["a", "b"]);
     });
+
+    it("should degrade an edge insert into an empty leaf to a direct insert", () => {
+      const { next } = panel.reduceAll(state(leaf()), [
+        panel.insertTab({
+          tab: { variant: "empty", key: "a" },
+          targetLeaf: panel.ROOT_PATH,
+          location: "right",
+        }),
+      ]);
+      expect(next.root.variant).toEqual("leaf");
+      expect(tabKeys(next.root)).toEqual(["a"]);
+    });
   });
 
   describe("removeTab", () => {

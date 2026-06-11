@@ -12,6 +12,7 @@ package panel
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -48,6 +49,44 @@ var ErrIndexOutOfRange = errors.New("index out of range")
 
 // ErrInvalidSize is returned when a split size ratio falls outside [0, 1].
 var ErrInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
+
+// ErrNilNode is returned when a node in the tree has no variant set.
+var ErrNilNode = errors.Wrap(validate.ErrValidation, "node has no variant")
+
+// ErrDuplicateTab is returned when two tabs in the same tree share a key.
+var ErrDuplicateTab = errors.Wrap(validate.ErrValidation, "duplicate tab key in panel tree")
+
+// validateTree checks the structural invariants every persisted panel tree must
+// uphold: every node has a variant, split sizes are within [0, 1], and tab keys
+// are unique across the tree. Called before any tree is persisted, both for
+// caller-provided trees on create and for reduced trees on dispatch.
+func validateTree(root Node) error {
+	return validateNode(root, set.New[uuid.UUID]())
+}
+
+func validateNode(n Node, seen set.Set[uuid.UUID]) error {
+	switch v := n.Variant.(type) {
+	case NodeLeaf:
+		for _, t := range v.Tabs {
+			key := t.Key()
+			if seen.Contains(key) {
+				return ErrDuplicateTab
+			}
+			seen.Add(key)
+		}
+		return nil
+	case NodeSplit:
+		if v.Size < 0 || v.Size > 1 {
+			return ErrInvalidSize
+		}
+		if err := validateNode(v.First, seen); err != nil {
+			return err
+		}
+		return validateNode(v.Last, seen)
+	default:
+		return ErrNilNode
+	}
+}
 
 // Key returns the stable identifier of the tab regardless of its content variant.
 // Returns uuid.Nil for a Tab with no variant set.

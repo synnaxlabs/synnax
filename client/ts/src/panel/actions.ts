@@ -155,6 +155,7 @@ const handlers: Handlers = {
     const idx = payload.index ?? leaf.tabs.length;
     if (idx < 0 || idx > leaf.tabs.length) return NO_OP;
     leaf.tabs.splice(idx, 0, payload.tab);
+    collapseEmptyLeaves(state);
     return { inverse: [], targets: [payload.tab.key] };
   },
 

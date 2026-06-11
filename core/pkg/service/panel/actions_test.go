@@ -155,6 +155,16 @@ var _ = Describe("Actions", func() {
 			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
 		})
 
+		It("Should degrade an edge insert into an empty leaf to a direct insert", func() {
+			p := panel.Panel{Root: leafNode()}
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:        tab(tab1),
+				TargetLeaf: 1,
+				Location:   new(spatial.LocationRight),
+			}.Handle(p))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1}))
+		})
+
 		DescribeTable("Should error on bad inputs",
 			func(p panel.Panel, payload panel.InsertTabPayload, expected error) {
 				Expect(payload.Handle(p)).Error().To(MatchError(expected))

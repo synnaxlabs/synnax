@@ -46,6 +46,9 @@ func (w Writer) Create(
 	if p.Root.Variant == nil {
 		p.Root = Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
 	}
+	if err := validateTree(p.Root); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}
@@ -86,7 +89,11 @@ func (w Writer) Dispatch(
 ) error {
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
 		ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-			return Reduce(p, acts...)
+			next, err := Reduce(p, acts...)
+			if err != nil {
+				return next, err
+			}
+			return next, validateTree(next.Root)
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
