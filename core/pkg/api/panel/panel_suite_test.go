@@ -41,6 +41,7 @@ var (
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
 	panelSvc *panel.Service
+	userSvc  *user.Service
 	apiSvc   *Service
 	author   user.User
 	parentID ontology.ID
@@ -56,7 +57,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:              db,
 		Ontology:        otg,
 		Group:           groupSvc,
@@ -90,6 +91,16 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", user.OntologyID(u.Key))
 	return fctx
+}
+
+// newUser creates a fresh user. RBAC state is committed and shared across specs, so
+// specs that grant a type-level permission (e.g. create on the panel type) must use a
+// dedicated subject, or the grant would leak into specs asserting that permission is
+// absent.
+func newUser(ctx SpecContext) user.User {
+	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+		Username: uuid.NewString(),
+	}))
 }
 
 // grant creates a policy permitting action on the given objects, binds it to a
