@@ -37,6 +37,15 @@ describe("tree", () => {
     });
   });
 
+  describe("splitSide", () => {
+    it("should match the side the reducer places the new empty leaf on", () => {
+      expect(panel.splitSide("left")).toEqual("first");
+      expect(panel.splitSide("top")).toEqual("first");
+      expect(panel.splitSide("right")).toEqual("last");
+      expect(panel.splitSide("bottom")).toEqual("last");
+    });
+  });
+
   describe("walkPath", () => {
     it("should return the root for ROOT_PATH", () => {
       expect(panel.walkPath(TREE, panel.ROOT_PATH)).toBe(TREE);
