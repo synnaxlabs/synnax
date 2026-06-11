@@ -1782,7 +1782,11 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 
 	case resolution.UnionForm:
-		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+		// A union schema's inferred type depends on every variant schema, so a
+		// `typeof xZ` annotation in a getter would re-enter the inference cycle the
+		// getter exists to break. z.ZodType<Name> references only the declared
+		// union type alias, which TypeScript resolves lazily.
+		return fmt.Sprintf("z.ZodType<%s%s>", prefix, tsName)
 	}
 
 	return "z.ZodType"
@@ -2599,7 +2603,7 @@ export const {{ .SchemaName }} = z.discriminatedUnion("{{ .Discriminator }}", [
 {{- end }}
 ]);
 {{- if $.GenerateTypes }}
-export type {{ .TSName }} = z.infer<typeof {{ .SchemaName }}>;
+export type {{ .TSName }} = {{ range $i, $v := .Variants }}{{ if $i }} | {{ end }}{{ $v.TypeName }}{{ end }};
 {{- end }}
 
 export const {{ .SchemasConst }}: {
