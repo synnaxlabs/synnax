@@ -19,7 +19,7 @@ import {
   useDispatch,
   useEnsureRetrieved,
   useSelectRoot,
-  useSelectTabContent,
+  useSelectTab,
 } from "@/panel/queries";
 import { Portal } from "@/portal";
 import { Tabs } from "@/tabs";
@@ -41,7 +41,6 @@ export interface MosaicProps extends Omit<
   | "onResize"
   | "onClose"
   | "onCreate"
-  | "onReorder"
   | "onSelect"
 > {
   panelKey: panel.Key;
@@ -91,7 +90,7 @@ const [TabNameContext, useTabNameContext] = context.create<TabNameContextValue>(
 const TabName: ComponentType<Tabs.NameProps> = (props) => {
   const { tabKey } = props;
   const { panelKey: key, tabName } = useTabNameContext("Panel.Mosaic.TabName");
-  const content = useSelectTabContent({ key, tabKey });
+  const content = useSelectTab({ key, tabKey });
   if (tabName == null) return <Tabs.DefaultName {...props} />;
   return tabName({ ...props, ...content });
 };
@@ -108,7 +107,7 @@ const Content = ({
   visible,
   children,
 }: ContentProps): ReactElement | null =>
-  children({ ...useSelectTabContent({ key, tabKey }), tabKey, visible });
+  children({ ...useSelectTab({ key, tabKey }), tabKey, visible });
 
 export const Mosaic = ({
   panelKey: key,
@@ -155,13 +154,11 @@ export const Mosaic = ({
         });
       const restLeaf =
         loc === "center" ? node : panel.childPath(node, panel.splitSide(loc));
-      const actions = tabs.map((tab, i) =>
-        panel.insertTab({
-          tab,
-          targetLeaf: i === 0 ? node : restLeaf,
-          location: i === 0 ? loc : undefined,
-        }),
-      );
+      const actions = tabs.map((tab, i) => {
+        let payload = { tab, targetLeaf: restLeaf, location: undefined };
+        if (i == 0) payload = { tab, targetLeaf: node, location: loc };
+        return panel.insertTab(payload);
+      });
       dispatch({ key, actions });
       onSelect?.(tabs[tabs.length - 1].key);
     },

@@ -56,12 +56,6 @@ export interface MosaicProps
   ) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
-  onReorder?: (
-    key: number,
-    droppedTabKey: string,
-    targetTabKey: string,
-    location: location.X,
-  ) => void;
   onFileDrop?: (key: number, loc: location.Location, event: DragEvent) => void;
   children: Tabs.RenderProp;
   activeTab?: string;
@@ -95,7 +89,6 @@ export const Mosaic = memo(
     onSelect,
     onClose,
     onRename,
-    onReorder,
     contextMenu,
     addTooltip,
     className,
@@ -113,7 +106,6 @@ export const Mosaic = memo(
       contextMenu,
       onSelect,
       onRename,
-      onReorder,
       activeTab,
       addTooltip,
       Name,
@@ -249,7 +241,6 @@ const TabLeaf = memo(
     activeTab,
     children,
     className,
-    onReorder,
     onFileDrop,
     addTooltip,
     ...rest
