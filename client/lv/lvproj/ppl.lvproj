@@ -35,7 +35,7 @@
 				<Property Name="Destination[1].path.type" Type="Str">relativeToProject</Property>
 				<Property Name="DestinationCount" Type="Int">2</Property>
 				<Property Name="PackedLib_callersAdapt" Type="Bool">true</Property>
-				<Property Name="Source[0].itemID" Type="Str">{3CED31B1-E478-4DCE-B8F2-7F935AA97DB3}</Property>
+				<Property Name="Source[0].itemID" Type="Str">{14F11880-9BAF-48D5-B18B-30376286B88E}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].destinationIndex" Type="Int">0</Property>
 				<Property Name="Source[1].itemID" Type="Ref">/My Computer/synnax_lib.lvlib</Property>
