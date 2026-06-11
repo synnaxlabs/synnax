@@ -95,7 +95,7 @@ type SetTabResourcePayload struct {
 // resource set on the tab.
 type SetTabViewPayload struct {
 	Key  uuid.UUID `json:"key" msgpack:"key"`
-	View TabView   `json:"view" msgpack:"view"`
+	View View      `json:"view" msgpack:"view"`
 }
 
 // Action is a discriminated union for all Panel mutations. Type names

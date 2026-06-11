@@ -50,6 +50,202 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("union translation", func() {
+			It("Should generate oneof translators for a discriminated union", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+						props record
+					}
+
+					Source union on value_type {
+						boolean Spec
+						number Spec
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func SourceToPB(r schematic.Source) (*Source, error)",
+						"if r.Variant == nil {",
+						"case schematic.SourceBoolean:",
+						"inner, err := SpecToPB(v.Spec)",
+						"pb.Variant = &Source_Boolean{Boolean: inner}",
+						`errors.Newf("Source: unknown variant %T", r.Variant)`,
+						"func SourceFromPB(pb *Source) (schematic.Source, error)",
+						"case *Source_Number:",
+						"r.Variant = schematic.SourceNumber{Spec: inner}",
+						"func SourcesToPB(rs []schematic.Source) ([]*Source, error)",
+					)
+			})
+
+			It("Should route union-typed fields through the union translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						source Source?
+						sources Source[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"sourceVal, err := SourceToPB(r.Source)",
+						"r.Source, err = SourceFromPB(pb.Source)",
+						"SourcesToPB(r.Sources)",
+						"SourcesFromPB(pb.Sources)",
+					)
+			})
+
+			It("Should camelize multi-word variant values in oneof wrapper names", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Body struct {
+						width float64
+					}
+
+					Shape union on variant {
+						isoCap Body
+						tJunction Body
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"case schematic.ShapeIsoCap:",
+						"pb.Variant = &Shape_IsoCap{IsoCap: inner}",
+						"case *Shape_TJunction:",
+						"r.Variant = schematic.ShapeTJunction{Body: inner}",
+					)
+			})
+
+			It("Should suffix oneof wrapper names that collide with protoc methods", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Sink union on value_type {
+						string Spec
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"pb.Variant = &Sink_String_{String_: inner}",
+						"case *Sink_String_:",
+					)
+			})
+
+			It("Should convert record array fields through shared helpers", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Config struct {
+						overrides record[]?
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"overridesVal, err := recordsToPB(r.Overrides)",
+						"r.Overrides = recordsFromPB(pb.Overrides)",
+						"func recordsToPB(rs []msgpack.EncodedJSON) ([]*structpb.Struct, error)",
+						"func recordsFromPB(pbs []*structpb.Struct) []msgpack.EncodedJSON",
+					)
+			})
+
+			It("Should convert union map values through union translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						sources map<string, Source>
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"SourceToPB(v)",
+						"SourceFromPB(v)",
+					)
+			})
+
+			It("Should deref hard-optional typedef fields for conversion", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key uint32 {
+						@doc value "is a channel key."
+					}
+
+					Config struct {
+						state_channel Key??
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"v := uint32(*r.StateChannel)",
+						"pb.StateChannel = &v",
+					)
+			})
+
+			It("Should reject pb unions that use extends", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Body struct {
+						width float64
+					}
+
+					Shape union on variant extends Base {
+						square Body
+					}
+				`
+				req := MustGenerateRequest(ctx, source, "schematic", loader)
+				Expect(pbPlugin.Generate(req)).Error().To(
+					MatchError(ContainSubstring(
+						"pb translators for unions with extends are not yet supported",
+					)),
+				)
+			})
+		})
+
 		Context("simple struct translation", func() {
 			It("Should generate ToPB and FromPB functions", func(ctx SpecContext) {
 				source := `

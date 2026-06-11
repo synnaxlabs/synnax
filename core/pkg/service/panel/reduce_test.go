@@ -38,7 +38,7 @@ var _ = Describe("Reduce", func() {
 			panel.Panel{Root: leafNode()},
 			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: 1}),
 		))
-		Expect(tabKeys(&next.Root)).To(ContainElement(k))
+		Expect(tabKeys(next.Root)).To(ContainElement(k))
 	})
 
 	It("Should route a RemoveTab action", func() {
@@ -47,7 +47,7 @@ var _ = Describe("Reduce", func() {
 			panel.Panel{Root: leafNode(tab(k))},
 			panel.NewRemoveTabAction(panel.RemoveTabPayload{Key: k}),
 		))
-		Expect(next.Root.Leaf.Tabs).To(BeEmpty())
+		Expect(tabKeys(next.Root)).To(BeEmpty())
 	})
 
 	It("Should route a MoveTab action", func() {
@@ -56,7 +56,7 @@ var _ = Describe("Reduce", func() {
 			panel.Panel{Root: leafNode(tab(k1), tab(k2))},
 			panel.NewMoveTabAction(panel.MoveTabPayload{Key: k1, TargetLeaf: 1, Index: new(int32(1))}),
 		))
-		Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{k2, k1}))
+		Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{k2, k1}))
 	})
 
 	It("Should route a SplitLeaf action", func() {
@@ -64,7 +64,7 @@ var _ = Describe("Reduce", func() {
 			panel.Panel{Root: leafNode()},
 			panel.NewSplitLeafAction(panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft}),
 		))
-		Expect(next.Root.Split).ToNot(BeNil())
+		MustBeOk(asSplit(next.Root))
 	})
 
 	It("Should route a ResizeSplit action", func() {
@@ -72,7 +72,8 @@ var _ = Describe("Reduce", func() {
 			panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
 			panel.NewResizeSplitAction(panel.ResizeSplitPayload{Split: 1, Size: 0.7}),
 		))
-		Expect(next.Root.Split.Size).To(Equal(0.7))
+		split := MustBeOk(asSplit(next.Root))
+		Expect(split.Size).To(Equal(0.7))
 	})
 
 	It("Should route a SetTabResource action", func() {
@@ -82,17 +83,23 @@ var _ = Describe("Reduce", func() {
 			panel.Panel{Root: leafNode(tab(k))},
 			panel.NewSetTabResourceAction(panel.SetTabResourcePayload{Key: k, Resource: res}),
 		))
-		Expect(next.Root.Leaf.Tabs[0].Resource).To(Equal(&res))
+		leaf := MustBeOk(asLeaf(next.Root))
+		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabResource{
+			ResourceTab: panel.ResourceTab{Key: k, Resource: res},
+		}))
 	})
 
 	It("Should route a SetTabView action", func() {
 		k := uuid.New()
-		view := panel.TabView{Type: "docs"}
+		view := panel.View{Type: "docs"}
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k))},
 			panel.NewSetTabViewAction(panel.SetTabViewPayload{Key: k, View: view}),
 		))
-		Expect(next.Root.Leaf.Tabs[0].View).To(Equal(&view))
+		leaf := MustBeOk(asLeaf(next.Root))
+		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
+			ViewTab: panel.ViewTab{Key: k, View: view},
+		}))
 	})
 
 	It("Should apply a multi-action sequence in order", func() {
@@ -103,7 +110,7 @@ var _ = Describe("Reduce", func() {
 			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: 1}),
 		))
 		Expect(next.Name).To(Equal("new"))
-		Expect(tabKeys(&next.Root)).To(ContainElement(k))
+		Expect(tabKeys(next.Root)).To(ContainElement(k))
 	})
 
 	DescribeTable("Should return a missing-payload error and leave state unchanged when an action carries no payload",

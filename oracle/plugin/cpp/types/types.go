@@ -267,6 +267,18 @@ func (p *Plugin) generateFile(
 				IsStruct: true,
 				Struct:   structData,
 			})
+		case resolution.UnionForm:
+			variants, ud := p.processUnion(typ, data)
+			for _, v := range variants {
+				data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+					IsStruct: true,
+					Struct:   v,
+				})
+			}
+			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+				IsUnion: true,
+				Union:   ud,
+			})
 		}
 	}
 
@@ -929,9 +941,27 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		return p.resolveDistinctType(resolved, data)
 	case resolution.AliasForm:
 		return p.resolveAliasType(resolved, typeRef.TypeArgs, data)
+	case resolution.UnionForm:
+		return p.resolveUnionType(resolved, data)
 	default:
 		return "void"
 	}
+}
+
+// resolveUnionType resolves a discriminated union to its C++ std::variant alias
+// name, adding the cross-namespace include when the union lives elsewhere.
+func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) string {
+	name := domain.GetName(resolved, "cpp")
+	if resolved.Namespace != data.rawNs {
+		targetOutputPath := output.GetPath(resolved, "cpp")
+		if targetOutputPath != "" {
+			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			data.includes.addInternal(includePath)
+			ns := deriveNamespace(targetOutputPath)
+			return fmt.Sprintf("::%s::%s", ns, name)
+		}
+	}
+	return name
 }
 
 func (p *Plugin) primitiveToCpp(primitive string, data *templateData) string {
@@ -1181,9 +1211,11 @@ type sortedDeclData struct {
 	Alias     aliasData
 	Struct    structData
 	TypeDef   typeDefData
+	Union     unionData
 	IsAlias   bool
 	IsStruct  bool
 	IsTypeDef bool
+	IsUnion   bool
 }
 
 type typeDefData struct {
@@ -1552,6 +1584,17 @@ using {{$td.Name}} = {{$td.CppType}};
 {{- end}}
 };
 {{- end}}
+{{- else if $d.IsUnion}}
+{{- $u := $d.Union}}
+{{if or $i (gt (len $.Enums) 0)}}
+{{end}}
+{{- if $u.Doc}}
+{{formatDoc $u.Name $u.Doc}}
+{{- end}}
+using {{$u.Name}} = std::variant<{{range $j, $v := $u.Variants}}{{if $j}}, {{end}}{{$v.TypeName}}{{end}}>;
+
+{{$u.Name}} parse_{{$u.SnakeName}}(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const {{$u.Name}}& value);
 {{- end}}
 {{- end}}
 {{- if .Ontology}}

@@ -9,7 +9,10 @@
 
 package panel
 
-import "github.com/synnaxlabs/x/spatial"
+import (
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/spatial"
+)
 
 // Handle replaces the panel's name.
 func (p RenamePayload) Handle(state Panel) (Panel, error) {
@@ -37,7 +40,7 @@ func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
 			return Panel{}, err
 		}
 	}
-	leaf, err := walkLeaf(&state.Root, targetLeaf)
+	leaf, err := walkLeaf(state.Root, targetLeaf)
 	if err != nil {
 		return Panel{}, err
 	}
@@ -79,11 +82,11 @@ func (p RemoveTabPayload) Handle(state Panel) (Panel, error) {
 func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 	targetLeaf := p.TargetLeaf
 	if p.Location != nil && *p.Location != spatial.LocationCenter {
-		current, err := walkLeaf(&state.Root, p.TargetLeaf)
+		current, err := walkLeaf(state.Root, p.TargetLeaf)
 		if err != nil {
 			return Panel{}, err
 		}
-		if len(current.Tabs) == 1 && current.Tabs[0].Key == p.Key {
+		if len(current.Tabs) == 1 && current.Tabs[0].Key() == p.Key {
 			return state, nil
 		}
 		targetLeaf, err = splitLeafForPlacement(&state.Root, p.TargetLeaf, *p.Location)
@@ -91,22 +94,30 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 			return Panel{}, err
 		}
 	}
-	target, err := walkLeaf(&state.Root, targetLeaf)
-	if err != nil {
+	if _, err := walkLeaf(state.Root, targetLeaf); err != nil {
 		return Panel{}, err
 	}
 	removed, ok := removeTab(&state.Root, p.Key)
 	if !ok {
 		return Panel{}, ErrTabNotFound
 	}
-	idx := len(target.Tabs)
-	if p.Index != nil {
-		idx = int(*p.Index)
+	if err := updateLeafAt(&state.Root, targetLeaf, func(leaf Leaf) (Leaf, error) {
+		idx := len(leaf.Tabs)
+		if p.Index != nil {
+			idx = int(*p.Index)
+		}
+		if idx < 0 || idx > len(leaf.Tabs) {
+			return Leaf{}, ErrIndexOutOfRange
+		}
+		tabs := make([]Tab, 0, len(leaf.Tabs)+1)
+		tabs = append(tabs, leaf.Tabs[:idx]...)
+		tabs = append(tabs, removed)
+		tabs = append(tabs, leaf.Tabs[idx:]...)
+		leaf.Tabs = tabs
+		return leaf, nil
+	}); err != nil {
+		return Panel{}, err
 	}
-	if idx < 0 || idx > len(target.Tabs) {
-		return Panel{}, ErrIndexOutOfRange
-	}
-	target.Tabs = append(target.Tabs[:idx], append([]Tab{removed}, target.Tabs[idx:]...)...)
 	collapseEmptyLeaves(&state.Root)
 	return state, nil
 }
@@ -132,11 +143,18 @@ func (p SplitLeafPayload) Handle(state Panel) (Panel, error) {
 // ErrInvalidPath when the split path does not resolve, or ErrNotASplit when
 // it resolves to a leaf.
 func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
-	split, err := walkSplit(&state.Root, p.Split)
+	updated, err := updateAt(state.Root, pathDirections(p.Split), func(n Node) (Node, error) {
+		split, ok := n.Variant.(NodeSplit)
+		if !ok {
+			return Node{}, ErrNotASplit
+		}
+		split.Size = p.Size
+		return Node{Variant: split}, nil
+	})
 	if err != nil {
 		return Panel{}, err
 	}
-	split.Size = p.Size
+	state.Root = updated
 	return state, nil
 }
 
@@ -145,13 +163,11 @@ func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
 // view set on the tab so that exactly one content arm is populated. Returns
 // ErrTabNotFound when no tab matches the key.
 func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
-	leaf, _, idx, ok := findTab(&state.Root, p.Key)
-	if !ok {
-		return Panel{}, ErrTabNotFound
+	if err := setTabContent(&state.Root, p.Key, TabResource{
+		ResourceTab: ResourceTab{Key: p.Key, Resource: p.Resource},
+	}); err != nil {
+		return Panel{}, err
 	}
-	resource := p.Resource
-	leaf.Tabs[idx].Resource = &resource
-	leaf.Tabs[idx].View = nil
 	return state, nil
 }
 
@@ -160,12 +176,26 @@ func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
 // on the tab so that exactly one content arm is populated. Returns ErrTabNotFound
 // when no tab matches the key.
 func (p SetTabViewPayload) Handle(state Panel) (Panel, error) {
-	leaf, _, idx, ok := findTab(&state.Root, p.Key)
-	if !ok {
-		return Panel{}, ErrTabNotFound
+	if err := setTabContent(&state.Root, p.Key, TabView{
+		ViewTab: ViewTab{Key: p.Key, View: p.View},
+	}); err != nil {
+		return Panel{}, err
 	}
-	view := p.View
-	leaf.Tabs[idx].View = &view
-	leaf.Tabs[idx].Resource = nil
 	return state, nil
+}
+
+// setTabContent replaces the variant of the tab with the given key, swapping its
+// content in place without changing the tab's position. Returns ErrTabNotFound
+// when no tab matches the key.
+func setTabContent(root *Node, key uuid.UUID, variant TabVariant) error {
+	path, idx, ok := findTab(*root, key)
+	if !ok {
+		return ErrTabNotFound
+	}
+	return updateLeafAt(root, path, func(leaf Leaf) (Leaf, error) {
+		tabs := append([]Tab{}, leaf.Tabs...)
+		tabs[idx] = Tab{Variant: variant}
+		leaf.Tabs = tabs
+		return leaf, nil
+	})
 }

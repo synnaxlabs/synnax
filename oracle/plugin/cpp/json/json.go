@@ -65,6 +65,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
+	unionCollector := framework.NewCollector("cpp", req)
+	if err := unionCollector.AddAll(req.Resolutions.UnionTypes()); err != nil {
+		return nil, err
+	}
+
 	allPaths := make(set.Set[string])
 	for _, path := range structCollector.Paths() {
 		allPaths.Add(path)
@@ -72,21 +77,27 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	for _, path := range distinctCollector.Paths() {
 		allPaths.Add(path)
 	}
+	for _, path := range unionCollector.Paths() {
+		allPaths.Add(path)
+	}
 
 	for outputPath := range allPaths {
 		structs := structCollector.Get(outputPath)
 		distinctTypes := distinctCollector.Get(outputPath)
+		unions := unionCollector.Get(outputPath)
 
 		var namespace string
 		if len(structs) > 0 {
 			namespace = structs[0].Namespace
 		} else if len(distinctTypes) > 0 {
 			namespace = distinctTypes[0].Namespace
+		} else if len(unions) > 0 {
+			namespace = unions[0].Namespace
 		} else {
 			continue
 		}
 
-		content, err := p.generateFile(outputPath, structs, distinctTypes, namespace, req)
+		content, err := p.generateFile(outputPath, structs, distinctTypes, unions, namespace, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate json for %s", outputPath)
 		}
@@ -105,6 +116,7 @@ func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Type,
 	distinctTypes []resolution.Type,
+	unions []resolution.Type,
 	namespace string,
 	req *plugin.Request,
 ) ([]byte, error) {
@@ -144,7 +156,16 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	if len(data.Serializers) == 0 && len(data.ArrayWrappers) == 0 {
+	for _, u := range unions {
+		if omit.IsType(u, "cpp") {
+			continue
+		}
+		variantSerializers, dispatch := p.processUnion(u, data)
+		data.Serializers = append(data.Serializers, variantSerializers...)
+		data.Unions = append(data.Unions, dispatch)
+	}
+
+	if len(data.Serializers) == 0 && len(data.ArrayWrappers) == 0 && len(data.Unions) == 0 {
 		return nil, nil
 	}
 
@@ -495,6 +516,25 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				}
 				return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, structType, jsonName)
 			}
+			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
+				parseFn := "parse_" + lo.SnakeCase(domain.GetName(elemResolved, "cpp"))
+				if elemResolved.Namespace != data.rawNs {
+					targetOutputPath := output.GetPath(elemResolved, "cpp")
+					if targetOutputPath != "" {
+						ns := deriveNamespace(targetOutputPath)
+						parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
+						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+					}
+				}
+				return fmt.Sprintf(
+					`[&] {
+        std::vector<%s> result;
+        parser.iter("%s", [&result](x::json::Parser& p) { result.push_back(%s(p)); });
+        return result;
+    }()`,
+					innerType, jsonName, parseFn,
+				)
+			}
 		}
 
 		return fmt.Sprintf(`parser.field<std::vector<%s>>("%s")`, innerType, jsonName)
@@ -553,6 +593,31 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, structType, jsonName)
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s")`, structType, jsonName)
+		}
+		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+			unionType := domain.GetName(resolved, "cpp")
+			parseFn := "parse_" + lo.SnakeCase(unionType)
+			if resolved.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(resolved, "cpp")
+				if targetOutputPath != "" {
+					ns := deriveNamespace(targetOutputPath)
+					parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
+					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+				}
+			}
+			if field.IsHardOptional {
+				return fmt.Sprintf(
+					`parser.has("%s") ? std::optional<%s>(%s(parser.child("%s"))) : std::nullopt`,
+					jsonName, cppType, parseFn, jsonName,
+				)
+			}
+			if hasDefault {
+				return fmt.Sprintf(
+					`parser.has("%s") ? %s(parser.child("%s")) : %s{}`,
+					jsonName, parseFn, jsonName, cppType,
+				)
+			}
+			return fmt.Sprintf(`%s(parser.child("%s"))`, parseFn, jsonName)
 		}
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
@@ -667,6 +732,19 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				return fmt.Sprintf(`j["%s"] = x::json::to_array(this->%s);`, jsonName, fieldName)
 			}
+			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
+				if elemResolved.Namespace != data.rawNs {
+					targetOutputPath := output.GetPath(elemResolved, "cpp")
+					if targetOutputPath != "" {
+						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+					}
+				}
+				return fmt.Sprintf(`{
+        auto arr = x::json::json::array();
+        for (const auto& item : this->%s) arr.push_back(to_json(item));
+        j["%s"] = arr;
+    }`, fieldName, jsonName)
+			}
 			// Nested-array-of-struct case: outer element resolves to another
 			// array (e.g., Members = []Member) whose inner element is a
 			// struct. nlohmann_json can't serialize vector<vector<Struct>>
@@ -698,6 +776,18 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
 			}
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
+		}
+		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+			if resolved.Namespace != data.rawNs {
+				targetOutputPath := output.GetPath(resolved, "cpp")
+				if targetOutputPath != "" {
+					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+				}
+			}
+			if field.IsHardOptional {
+				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = to_json(*this->%s);`, fieldName, jsonName, fieldName)
+			}
+			return fmt.Sprintf(`j["%s"] = to_json(this->%s);`, jsonName, fieldName)
 		}
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
@@ -850,6 +940,7 @@ type templateData struct {
 	rawNs         string
 	Serializers   []serializerData
 	ArrayWrappers []arrayWrapperData
+	Unions        []unionDispatchData
 }
 
 type arrayWrapperData struct {
