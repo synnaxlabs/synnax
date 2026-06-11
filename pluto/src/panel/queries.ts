@@ -102,6 +102,22 @@ export interface TabContent {
   view: panel.TabView | null;
 }
 
+export interface SelectKeyArgs {
+  key: panel.Key;
+}
+
+// useSelectRoot selects the panel's stored tree root. The reference only
+// changes when the document changes, so consumers can memoize derivations on
+// it directly.
+export const useSelectRoot = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  panel.Node | undefined
+>({
+  subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+  select: (store, { key }) => store.panels.get(key)?.root,
+});
+
 export interface SelectTabContentArgs {
   key: panel.Key;
   tabKey: string;

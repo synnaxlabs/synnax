@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, panel } from "@synnaxlabs/client";
-import { deep, type location, uuid } from "@synnaxlabs/x";
+import { type location, uuid } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement, useCallback, useMemo } from "react";
 
 import { context } from "@/context";
@@ -18,6 +18,7 @@ import {
   type FluxSubStore,
   useDispatch,
   useEnsureRetrieved,
+  useSelectRoot,
   useSelectTabContent,
 } from "@/panel/queries";
 import { Portal } from "@/portal";
@@ -121,22 +122,6 @@ const adaptToMosaic = (
   return visit(root, panel.ROOT_PATH);
 };
 
-interface SelectRootArgs {
-  key: panel.Key;
-  activeTab?: string;
-  recentTabs?: string[];
-}
-
-// useSelectRoot selects the panel tree adapted to the Base.Mosaic node shape.
-// Content-only changes (a tab's resource or view) produce a deep-equal tree
-// and do not re-render the mosaic shell.
-const useSelectRoot = Flux.createSelector<FluxSubStore, SelectRootArgs, Base.Node>({
-  subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-  select: (store, { key, activeTab, recentTabs }) =>
-    adaptToMosaic(store.panels.get(key)?.root, activeTab, recentTabs),
-  equal: deep.equal,
-});
-
 // TabNameContext carries the panel key and the consumer's tabName resolver down
 // to the Base.Mosaic tab strip, which only exposes Tabs.NameProps. A
 // module-stable Name component reads it so tab names never remount on tree
@@ -213,7 +198,11 @@ export const Mosaic = ({
   useEnsureRetrieved({ key: panelKey });
   const store = Flux.useStore<FluxSubStore>();
   const { dispatch } = useDispatch();
-  const root = useSelectRoot({ key: panelKey, activeTab, recentTabs });
+  const treeRoot = useSelectRoot({ key: panelKey });
+  const root = useMemo(
+    () => adaptToMosaic(treeRoot, activeTab, recentTabs),
+    [treeRoot, activeTab, recentTabs],
+  );
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
 
