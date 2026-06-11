@@ -97,6 +97,11 @@ type Panel struct {
 	Name string `json:"name" msgpack:"name"`
 	// Root is the root of the panel tree.
 	Root Node `json:"root" msgpack:"root"`
+	// Parent is an optional parent resource for the panel in the ontology. When absent on
+	// create, the panel is parented to the creating user as a draft. Parenthood lives in
+	// the ontology graph, so the field is not persisted on the panel record and is absent
+	// on retrieve.
+	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 
 type TabType string

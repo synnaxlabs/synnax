@@ -369,6 +369,13 @@ func PanelToPB(r panel.Panel) (*Panel, error) {
 		Key:  r.Key.String(),
 		Root: rootVal,
 	}
+	if r.Parent != nil {
+		var err error
+		pb.Parent, err = ontologypb.IDToPB(*r.Parent)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -389,6 +396,13 @@ func PanelFromPB(pb *Panel) (panel.Panel, error) {
 		return panel.Panel{}, err
 	}
 	r.Name = pb.Name
+	if pb.Parent != nil {
+		val, err := ontologypb.IDFromPB(pb.Parent)
+		if err != nil {
+			return panel.Panel{}, err
+		}
+		r.Parent = &val
+	}
 	return r, nil
 }
 

@@ -15,17 +15,104 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/spatial"
 )
+
+func (et EmptyTab) EncodeOrc(w *orc.Writer) error {
+	w.Write(et.Key[:])
+	return nil
+}
+
+func (et *EmptyTab) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(et.Key[:]); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (lv Leaf) EncodeOrc(w *orc.Writer) error {
+	w.Bool(lv.Tabs != nil)
+	if lv.Tabs != nil {
+		w.Uint32(uint32(len(lv.Tabs)))
+		for i := range lv.Tabs {
+			if err := lv.Tabs[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (lv *Leaf) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			lv.Tabs = make([]Tab, n)
+			for i := range lv.Tabs {
+				if err = lv.Tabs[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (nv Node) EncodeOrc(w *orc.Writer) error {
+	switch v := nv.Variant.(type) {
+	case NodeLeaf:
+		w.String("leaf")
+		if err := v.Leaf.EncodeOrc(w); err != nil {
+			return err
+		}
+	case NodeSplit:
+		w.String("split")
+		if err := v.Split.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Node: nil or unknown variant %T", nv.Variant)
+	}
+	return nil
+}
+
+func (nv *Node) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "leaf":
+		var v NodeLeaf
+		if err := v.Leaf.DecodeOrc(r); err != nil {
+			return err
+		}
+		nv.Variant = v
+	case "split":
+		var v NodeSplit
+		if err := v.Split.DecodeOrc(r); err != nil {
+			return err
+		}
+		nv.Variant = v
+	default:
+		return errors.Newf("Node: unknown variant %q", tag)
+	}
+	return nil
+}
 
 func (p Panel) EncodeOrc(w *orc.Writer) error {
 	w.Write(p.Key[:])
 	w.String(p.Name)
-	{
-		b, err := json.Marshal(p.Root)
-		if err != nil {
-			return err
-		}
-		w.WriteWithLen(b)
+	if err := p.Root.EncodeOrc(w); err != nil {
+		return err
 	}
 	return nil
 }
@@ -38,14 +125,165 @@ func (p *Panel) DecodeOrc(r *orc.Reader) error {
 	if p.Name, err = r.String(); err != nil {
 		return err
 	}
+	if err = p.Root.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rt ResourceTab) EncodeOrc(w *orc.Writer) error {
+	w.Write(rt.Key[:])
+	if err := rt.Resource.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rt *ResourceTab) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(rt.Key[:]); err != nil {
+		return err
+	}
+	if err = rt.Resource.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s Split) EncodeOrc(w *orc.Writer) error {
+	w.String(string(s.Direction))
+	w.Float64(float64(s.Size))
+	if err := s.First.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := s.Last.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *Split) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		s.Direction = spatial.Direction(v)
+	}
+	if s.Size, err = r.Float64(); err != nil {
+		return err
+	}
+	if err = s.First.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = s.Last.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t Tab) EncodeOrc(w *orc.Writer) error {
+	switch v := t.Variant.(type) {
+	case TabResource:
+		w.String("resource")
+		if err := v.ResourceTab.EncodeOrc(w); err != nil {
+			return err
+		}
+	case TabView:
+		w.String("view")
+		if err := v.ViewTab.EncodeOrc(w); err != nil {
+			return err
+		}
+	case TabEmpty:
+		w.String("empty")
+		if err := v.EmptyTab.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("Tab: nil or unknown variant %T", t.Variant)
+	}
+	return nil
+}
+
+func (t *Tab) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "resource":
+		var v TabResource
+		if err := v.ResourceTab.DecodeOrc(r); err != nil {
+			return err
+		}
+		t.Variant = v
+	case "view":
+		var v TabView
+		if err := v.ViewTab.DecodeOrc(r); err != nil {
+			return err
+		}
+		t.Variant = v
+	case "empty":
+		var v TabEmpty
+		if err := v.EmptyTab.DecodeOrc(r); err != nil {
+			return err
+		}
+		t.Variant = v
+	default:
+		return errors.Newf("Tab: unknown variant %q", tag)
+	}
+	return nil
+}
+
+func (vv View) EncodeOrc(w *orc.Writer) error {
+	w.String(vv.Type)
+	w.String(vv.Name)
+	{
+		b, err := json.Marshal(vv.Args)
+		if err != nil {
+			return err
+		}
+		w.WriteWithLen(b)
+	}
+	return nil
+}
+
+func (vv *View) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if vv.Type, err = r.String(); err != nil {
+		return err
+	}
+	if vv.Name, err = r.String(); err != nil {
+		return err
+	}
 	{
 		b, err := r.ReadWithLen()
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &p.Root); err != nil {
+		if err = json.Unmarshal(b, &vv.Args); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (vt ViewTab) EncodeOrc(w *orc.Writer) error {
+	w.Write(vt.Key[:])
+	if err := vt.View.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (vt *ViewTab) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(vt.Key[:]); err != nil {
+		return err
+	}
+	if err = vt.View.DecodeOrc(r); err != nil {
+		return err
 	}
 	return nil
 }

@@ -683,6 +683,8 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				`const auto discriminator = parser.field<std::string>("type");`,
 				`if (discriminator == "linear") return ScaleLinear::parse(parser);`,
 				`if (discriminator == "none") return ScaleNone::parse(parser);`,
+				`parser.field_err("type", "unknown Scale type: " + discriminator);`,
+				`return {};`,
 				`inline x::json::json to_json(const Scale& value) {`,
 				`return std::visit([](const auto& v) { return v.to_json(); }, value);`,
 			)
