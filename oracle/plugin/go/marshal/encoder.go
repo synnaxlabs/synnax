@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
@@ -100,6 +101,14 @@ func generateEncoderCodecFile(
 			packageName: packageName,
 			parentPath:  parentPath,
 			imports:     fo.ExtraImports,
+		}
+		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
+			uc, err := buildUnionCodec(e.Type, uform, table, fo.ExtraImports)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to generate union codec for %s", e.GoName)
+			}
+			fo.ConcreteCodecs = append(fo.ConcreteCodecs, uc)
+			continue
 		}
 		form, ok := e.Type.Form.(resolution.StructForm)
 		if !ok {
@@ -333,6 +342,16 @@ func (b *encoderBuilder) processValueByType(
 	switch form := actual.Form.(type) {
 	case resolution.StructForm:
 		return b.processStruct(actual, form, effectiveTypeArgs, getPath, setPath)
+	case resolution.UnionForm:
+		// Union wrappers carry their own generated EncodeOrc/DecodeOrc (a
+		// binary discriminator tag plus the variant's struct codecs), so
+		// union fields dispatch like struct fields.
+		ind := b.indent()
+		b.encodeLines = append(b.encodeLines,
+			ind+fmt.Sprintf("if err := %s.EncodeOrc(w); err != nil { return err }", getPath))
+		b.decodeWithErr(
+			ind + fmt.Sprintf("if err = %s.DecodeOrc(r); err != nil { return err }", setPath))
+		return nil
 	case resolution.BuiltinGenericForm:
 		if form.Name == "Array" {
 			typeArgs := ref.TypeArgs
@@ -432,6 +451,97 @@ func (b *encoderBuilder) processStruct(
 	b.decodeWithErr(
 		ind + fmt.Sprintf("if err = %s.DecodeOrc(r); err != nil { return err }", setPath))
 	return nil
+}
+
+// declaredGoName mirrors how go/types declares type names: the raw schema name
+// plus any @go name override. Routing through naming.GetGoName would
+// ToPascalCase the name and mangle acronym types (BaseAIChan -> BaseAiChan),
+// referencing identifiers the package never declares.
+func declaredGoName(t resolution.Type) string {
+	if override := domain.GetStringFromType(t, "go", "name"); override != "" {
+		return override
+	}
+	return t.Name
+}
+
+// buildUnionCodec generates the EncodeOrc/DecodeOrc bodies for a discriminated
+// union wrapper. The encoding is fully binary: a length-prefixed discriminator
+// string followed by the active variant's base and payload structs encoded
+// positionally through their own codecs. The discriminator string keeps stored
+// bytes stable under variant addition and reordering; variant field changes
+// version through frozen codecs like any struct change.
+func buildUnionCodec(
+	entry resolution.Type,
+	form resolution.UnionForm,
+	table *resolution.Table,
+	imports map[string]string,
+) (concreteCodec, error) {
+	goName := declaredGoName(entry)
+	recv := ReceiverName(goName)
+	if recv == "tag" {
+		recv += "v"
+	}
+	imports["github.com/synnaxlabs/x/errors"] = ""
+
+	var baseEmbeds []string
+	for _, ext := range form.Extends {
+		parent, ok := ext.Resolve(table)
+		if !ok {
+			return concreteCodec{}, errors.Newf(
+				"union %s: unresolved base %s", entry.Name, ext.Name)
+		}
+		baseEmbeds = append(baseEmbeds, declaredGoName(parent))
+	}
+
+	enc := []string{fmt.Sprintf("\tswitch v := %s.Variant.(type) {", recv)}
+	dec := []string{
+		"\ttag, err := r.String()",
+		"\tif err != nil { return err }",
+		"\tswitch tag {",
+	}
+	for _, v := range form.Variants {
+		payload, ok := v.Type.Resolve(table)
+		if !ok {
+			return concreteCodec{}, errors.Newf(
+				"union %s variant %q: unresolved payload %s",
+				entry.Name, v.Name, v.Type.Name)
+		}
+		variantType := casing.VariantTypeName(goName, v.Name)
+		embeds := append(append([]string{}, baseEmbeds...), declaredGoName(payload))
+		enc = append(enc,
+			fmt.Sprintf("\tcase %s:", variantType),
+			fmt.Sprintf("\t\tw.String(%q)", v.Name),
+		)
+		dec = append(dec,
+			fmt.Sprintf("\tcase %q:", v.Name),
+			fmt.Sprintf("\t\tvar v %s", variantType),
+		)
+		for _, embed := range embeds {
+			enc = append(enc, fmt.Sprintf(
+				"\t\tif err := v.%s.EncodeOrc(w); err != nil { return err }", embed))
+			dec = append(dec, fmt.Sprintf(
+				"\t\tif err := v.%s.DecodeOrc(r); err != nil { return err }", embed))
+		}
+		dec = append(dec, fmt.Sprintf("\t\t%s.Variant = v", recv))
+	}
+	enc = append(enc,
+		"\tdefault:",
+		fmt.Sprintf(
+			"\t\treturn errors.Newf(\"%s: nil or unknown variant %%T\", %s.Variant)",
+			goName, recv),
+		"\t}",
+	)
+	dec = append(dec,
+		"\tdefault:",
+		fmt.Sprintf("\t\treturn errors.Newf(\"%s: unknown variant %%q\", tag)", goName),
+		"\t}",
+	)
+	return concreteCodec{
+		GoName:     goName,
+		Receiver:   recv,
+		EncodeBody: strings.Join(enc, "\n"),
+		DecodeBody: strings.Join(dec, "\n"),
+	}, nil
 }
 
 func (b *encoderBuilder) processHardOptional(
@@ -814,9 +924,19 @@ func walkSerializableTypes(
 	visited.Add(typ.QualifiedName)
 	goPath := output.GetPath(typ, "go")
 	if goPath != "" {
-		if _, ok := typ.Form.(resolution.StructForm); ok {
+		switch typ.Form.(type) {
+		case resolution.StructForm, resolution.UnionForm:
 			result[goPath] = append(result[goPath], typ)
 		}
+	}
+	if uf, ok := typ.Form.(resolution.UnionForm); ok {
+		for _, ext := range uf.Extends {
+			walkSerializableRef(ext, table, result, visited)
+		}
+		for _, v := range uf.Variants {
+			walkSerializableRef(v.Type, table, result, visited)
+		}
+		return
 	}
 	if sf, ok := typ.Form.(resolution.StructForm); ok {
 		for _, ext := range sf.Extends {
@@ -843,7 +963,7 @@ func walkSerializableRef(
 		walkSerializableRef(arg, table, result, visited)
 	}
 	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
+	case resolution.StructForm, resolution.UnionForm:
 		walkSerializableTypes(resolved, table, result, visited)
 	case resolution.AliasForm:
 		walkSerializableRef(form.Target, table, result, visited)

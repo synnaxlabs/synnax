@@ -66,7 +66,7 @@ class SetOutput(ConsoleCase):
         )
 
         self.log("Creating schematic symbols")
-        schematic = console.workspace.create_schematic("set_output_schematic")
+        schematic = console.project.create_schematic("set_output_schematic")
         self._cleanup_pages.append(schematic.page_name)
 
         setpoint_symbol = schematic.create_symbol(

@@ -11,20 +11,34 @@ import { type spatial } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import {
-  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
 } from "@/panel/actions.gen";
-import { findTab, walkPath } from "@/panel/tree";
-import { type Leaf, type Node, type Tab } from "@/panel/types.gen";
+import { ROOT_PATH, walkPath } from "@/panel/tree";
+import { type Node, type NodeLeaf, type Panel, type Tab } from "@/panel/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
-const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<Leaf> | null => {
+const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<NodeLeaf> | null => {
   const n = walkPath(root, pathKey);
-  if (n == null || n.leaf == null) return null;
-  return n.leaf;
+  if (n == null || n.variant !== "leaf") return null;
+  return n;
+};
+
+// replaceNodeAt swaps the node at the given path key for next, assigning through
+// the parent split (or the panel root for ROOT_PATH). Returns false when the
+// path does not resolve to a node.
+const replaceNodeAt = (state: Draft<Panel>, pathKey: number, next: Node): boolean => {
+  if (pathKey === ROOT_PATH) {
+    state.root = next;
+    return true;
+  }
+  const parent = walkPath(state.root, pathKey >> 1);
+  if (parent == null || parent.variant !== "split") return false;
+  if ((pathKey & 1) === 1) parent.last = next;
+  else parent.first = next;
+  return true;
 };
 
 // removeTab mirrors removeTab in core/pkg/service/panel/tree.go, removing a tab
@@ -33,35 +47,34 @@ const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<Leaf> | null => {
 // sequence (e.g. SplitLeaf followed by MoveTab) can target a freshly created
 // empty sibling before the tree is tidied.
 const removeTab = (n: Draft<Node>, key: string): Tab | null => {
-  if (n.leaf != null) {
-    const idx = n.leaf.tabs.findIndex((t) => t.key === key);
+  if (n.variant === "leaf") {
+    const idx = n.tabs.findIndex((t) => t.key === key);
     if (idx < 0) return null;
-    const [removed] = n.leaf.tabs.splice(idx, 1);
+    const [removed] = n.tabs.splice(idx, 1);
     return removed ?? null;
   }
-  if (n.split == null) return null;
-  const fromFirst = n.split.first != null ? removeTab(n.split.first, key) : null;
-  if (fromFirst != null) return fromFirst;
-  return n.split.last != null ? removeTab(n.split.last, key) : null;
+  return removeTab(n.first, key) ?? removeTab(n.last, key);
 };
+
+const isEmptyLeaf = (n: Draft<Node>): boolean =>
+  n.variant === "leaf" && n.tabs.length === 0;
 
 // collapseEmptyLeaves mirrors collapseEmptyLeaves in core/pkg/service/panel/tree.go,
 // rewriting the tree bottom-up: every split with exactly one empty-leaf side is
-// replaced in place by its surviving sibling subtree.
-const collapseEmptyLeaves = (n: Draft<Node>): void => {
-  if (n.split == null) return;
-  const first = n.split.first;
-  const last = n.split.last;
-  if (first != null) collapseEmptyLeaves(first);
-  if (last != null) collapseEmptyLeaves(last);
-  const firstEmpty = first?.leaf != null && first.leaf.tabs.length === 0;
-  const lastEmpty = last?.leaf != null && last.leaf.tabs.length === 0;
-  let survivor: Draft<Node> | undefined;
-  if (firstEmpty && !lastEmpty) survivor = last;
-  else if (lastEmpty && !firstEmpty) survivor = first;
-  if (survivor == null) return;
-  n.leaf = survivor.leaf;
-  n.split = survivor.split;
+// replaced by its surviving sibling subtree.
+const collapseEmptyLeaves = (state: Draft<Panel>): void => {
+  state.root = collapseNode(state.root);
+};
+
+const collapseNode = (n: Draft<Node>): Draft<Node> => {
+  if (n.variant !== "split") return n;
+  n.first = collapseNode(n.first);
+  n.last = collapseNode(n.last);
+  const firstEmpty = isEmptyLeaf(n.first);
+  const lastEmpty = isEmptyLeaf(n.last);
+  if (firstEmpty && !lastEmpty) return n.last;
+  if (lastEmpty && !firstEmpty) return n.first;
+  return n;
 };
 
 // directionAndSideForLocation maps a spatial.Location onto the (direction, side)
@@ -90,25 +103,37 @@ const directionAndSideForLocation = (
 // Returns the path key of the new empty leaf, or null when the path does not
 // resolve to a leaf or the location cannot produce a split.
 const splitLeafAt = (
-  root: Draft<Node>,
+  state: Draft<Panel>,
   leafPath: number,
   loc: spatial.Location,
   size: number,
 ): number | null => {
-  const node = walkPath(root, leafPath);
-  if (node == null || node.leaf == null) return null;
+  const node = walkPath(state.root, leafPath);
+  if (node == null || node.variant !== "leaf") return null;
   const ds = directionAndSideForLocation(loc);
   if (ds == null) return null;
-  const original = node.leaf;
-  const empty: Leaf = { tabs: [] };
-  node.leaf = undefined;
-  node.split = {
+  const empty: Node = { variant: "leaf", tabs: [] };
+  const split: Node = {
+    variant: "split",
     direction: ds.direction,
     size,
-    first: { leaf: ds.side === "first" ? empty : original },
-    last: { leaf: ds.side === "first" ? original : empty },
+    first: ds.side === "first" ? empty : node,
+    last: ds.side === "first" ? node : empty,
   };
+  if (!replaceNodeAt(state, leafPath, split)) return null;
   return ds.side === "first" ? leafPath * 2 : leafPath * 2 + 1;
+};
+
+// replaceTab swaps the variant of the tab with the given key in place, keeping
+// its position within its leaf. Returns false when no tab matches the key.
+const replaceTab = (n: Draft<Node>, key: string, next: Tab): boolean => {
+  if (n.variant === "leaf") {
+    const idx = n.tabs.findIndex((t) => t.key === key);
+    if (idx < 0) return false;
+    n.tabs[idx] = next;
+    return true;
+  }
+  return replaceTab(n.first, key, next) || replaceTab(n.last, key, next);
 };
 
 const handlers: Handlers = {
@@ -118,10 +143,9 @@ const handlers: Handlers = {
   },
 
   insertTab: (state, payload) => {
-    if (state.root == null) return NO_OP;
     let targetLeaf = payload.targetLeaf;
     if (payload.location != null && payload.location !== "center") {
-      const placed = splitLeafAt(state.root, targetLeaf, payload.location, 0.5);
+      const placed = splitLeafAt(state, targetLeaf, payload.location, 0.5);
       if (placed == null) return NO_OP;
       targetLeaf = placed;
     }
@@ -130,14 +154,14 @@ const handlers: Handlers = {
     const idx = payload.index ?? leaf.tabs.length;
     if (idx < 0 || idx > leaf.tabs.length) return NO_OP;
     leaf.tabs.splice(idx, 0, payload.tab);
+    collapseEmptyLeaves(state);
     return { inverse: [], targets: [payload.tab.key] };
   },
 
   removeTab: (state, payload) => {
-    if (state.root == null) return NO_OP;
     const removed = removeTab(state.root, payload.key);
     if (removed == null) return NO_OP;
-    collapseEmptyLeaves(state.root);
+    collapseEmptyLeaves(state);
     return { inverse: [], targets: [payload.key] };
   },
 
@@ -146,7 +170,6 @@ const handlers: Handlers = {
   // source's removal would otherwise collapse away (e.g. the empty sibling
   // created by a preceding SplitLeaf).
   moveTab: (state, payload) => {
-    if (state.root == null) return NO_OP;
     let targetLeaf = payload.targetLeaf;
     if (payload.location != null && payload.location !== "center") {
       const current = walkLeaf(state.root, targetLeaf);
@@ -155,7 +178,7 @@ const handlers: Handlers = {
       // result would be the tab beside an empty pane.
       if (current.tabs.length === 1 && current.tabs[0].key === payload.key)
         return NO_OP;
-      const placed = splitLeafAt(state.root, targetLeaf, payload.location, 0.5);
+      const placed = splitLeafAt(state, targetLeaf, payload.location, 0.5);
       if (placed == null) return NO_OP;
       targetLeaf = placed;
     }
@@ -166,14 +189,13 @@ const handlers: Handlers = {
     const idx = payload.index ?? target.tabs.length;
     if (idx < 0 || idx > target.tabs.length) target.tabs.push(removed);
     else target.tabs.splice(idx, 0, removed);
-    collapseEmptyLeaves(state.root);
+    collapseEmptyLeaves(state);
     return { inverse: [], targets: [payload.key] };
   },
 
   splitLeaf: (state, payload) => {
-    if (state.root == null) return NO_OP;
     const placed = splitLeafAt(
-      state.root,
+      state,
       payload.leaf,
       payload.location,
       payload.size ?? 0.5,
@@ -183,40 +205,30 @@ const handlers: Handlers = {
   },
 
   resizeSplit: (state, payload) => {
-    if (state.root == null) return NO_OP;
     const node = walkPath(state.root, payload.split);
-    if (node == null || node.split == null) return NO_OP;
+    if (node == null || node.variant !== "split") return NO_OP;
     // An equal size must not touch the draft: the dispatch substrate detects
     // no-op vectors by reference equality and skips the server send.
-    if (node.split.size === payload.size) return NO_OP;
-    node.split.size = payload.size;
+    if (node.size === payload.size) return NO_OP;
+    node.size = payload.size;
     return { inverse: [], targets: [String(payload.split)] };
   },
 
   setTabResource: (state, payload) => {
-    if (state.root == null) return NO_OP;
-    const tab = findTab(state.root, payload.key);
-    if (tab == null) return NO_OP;
-    tab.resource = payload.resource;
-    tab.view = undefined;
+    const next: Tab = {
+      variant: "resource",
+      key: payload.key,
+      resource: payload.resource,
+    };
+    if (!replaceTab(state.root, payload.key, next)) return NO_OP;
     return { inverse: [], targets: [payload.key] };
   },
 
   setTabView: (state, payload) => {
-    if (state.root == null) return NO_OP;
-    const tab = findTab(state.root, payload.key);
-    if (tab == null) return NO_OP;
-    tab.view = payload.view;
-    tab.resource = undefined;
+    const next: Tab = { variant: "view", key: payload.key, view: payload.view };
+    if (!replaceTab(state.root, payload.key, next)) return NO_OP;
     return { inverse: [], targets: [payload.key] };
   },
 };
 
 export const reduceAll = createReduceAll(handlers);
-
-// All current panel actions are eligible for the undo stack from the substrate's
-// perspective. Inverse vectors are returned empty for Phase 1 so the substrate
-// records targets and remote-touched timestamps correctly without effecting
-// undoable replay; richer inverses follow once tree-collapse round-tripping is
-// implemented.
-export const isUndoable = (_action: Action): boolean => true;

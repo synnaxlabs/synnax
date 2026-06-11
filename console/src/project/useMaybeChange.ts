@@ -21,8 +21,8 @@ export const useMaybeChange = (): ((key: string) => Promise<void>) => {
   return async (key) => {
     if (activeWS === key) return;
     if (client == null) throw new DisconnectedError();
-    const { layout: _layout, ...ws } = await client.projects.retrieve(key);
-    dispatch(setActive(ws));
+    const { layout: _layout, ...proj } = await client.projects.retrieve(key);
+    dispatch(setActive(proj));
     // Layout loading is no longer a project-switch side effect: panels own the
     // project's tiling via the panel Flux store, and switching projects
     // re-subscribes the panel tab strip automatically.

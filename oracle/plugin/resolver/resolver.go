@@ -104,9 +104,29 @@ func (r *Resolver) ResolveTypeRef(typeRef resolution.TypeRef, ctx *Context) stri
 		return r.resolveDistinctType(resolved, ctx)
 	case resolution.AliasForm:
 		return r.resolveAliasType(resolved, typeRef.TypeArgs, ctx)
+	case resolution.UnionForm:
+		return r.resolveUnionType(resolved, ctx)
 	default:
 		return r.Formatter.FallbackType()
 	}
+}
+
+// resolveUnionType resolves a discriminated union type to a language-specific
+// string. A union is referenced by name, like an enum or distinct type.
+func (r *Resolver) resolveUnionType(resolved resolution.Type, ctx *Context) string {
+	typeName := ctx.GetTypeName(resolved)
+	if ctx.IsSameOutput(resolved) {
+		return typeName
+	}
+	targetOutputPath := ctx.GetOutputPath(resolved)
+	if targetOutputPath == "" {
+		return r.Formatter.FallbackType()
+	}
+	importPath, qualifier, shouldImport := r.ImportResolver.ResolveImport(targetOutputPath, ctx)
+	if shouldImport {
+		r.ImportAdder.AddImport("internal", importPath, qualifier)
+	}
+	return r.Formatter.FormatQualified(qualifier, typeName)
 }
 
 // resolveStructType resolves a struct type to a language-specific string.

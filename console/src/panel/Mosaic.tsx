@@ -45,7 +45,7 @@ interface RendererContentProps {
   // view is set when the tab's content is an inline view rather than a backing
   // resource. It is exposed to the renderer via RendererView so the renderer can read
   // the view's args/name and write changes back through the panel document.
-  view?: panel.TabView;
+  view?: panel.View;
   visible: boolean;
 }
 
@@ -57,7 +57,7 @@ interface FocusFrameProps extends PropsWithChildren {
   tabKey: string;
   type: string;
   layoutKey: string;
-  view?: panel.TabView;
+  view?: panel.View;
 }
 
 const FocusFrame = ({
@@ -290,7 +290,7 @@ const ViewTabName = ({
   ...props
 }: Tabs.NameProps & {
   panelKey: panel.Key;
-  view: panel.TabView;
+  view: panel.View;
 }): ReactElement => {
   const { dispatch } = Base.useDispatch();
   const handleRename = useCallback(

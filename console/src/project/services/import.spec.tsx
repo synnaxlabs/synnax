@@ -148,7 +148,7 @@ describe("project import", () => {
     );
     await waitFor(() => expect(result.current.granted).toBe(true));
     await act(async () => {
-      await ProjectServices.ingest(`ws-${id.create()}`, fileList, {
+      await ProjectServices.ingest(`proj-${id.create()}`, fileList, {
         client,
         fileIngesters: FILE_INGESTERS,
         placeLayout: result.current.placer,

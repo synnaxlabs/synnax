@@ -21,14 +21,14 @@ import { createConsoleWrapper } from "@/testUtils";
 
 const client: Synnax = createTestClient();
 
-const stripLayout = (ws: project.Project): Project.Project => {
-  const { layout: _, ...rest } = ws;
+const stripLayout = (proj: project.Project): Project.Project => {
+  const { layout: _, ...rest } = proj;
   return rest;
 };
 
-const activeState = (ws: project.Project): Project.SliceState => ({
+const activeState = (proj: project.Project): Project.SliceState => ({
   ...Project.ZERO_SLICE_STATE,
-  active: stripLayout(ws),
+  active: stripLayout(proj),
 });
 
 const placedLog = (store: EnhancedStore): Layout.State | undefined =>
@@ -43,11 +43,11 @@ describe("createUseCreate", () => {
 
   beforeEach(async () => {
     projectA = await client.projects.create({
-      name: `ws-a-${id.create()}`,
+      name: `proj-a-${id.create()}`,
       layout: {},
     });
     projectB = await client.projects.create({
-      name: `ws-b-${id.create()}`,
+      name: `proj-b-${id.create()}`,
       layout: {},
     });
   });

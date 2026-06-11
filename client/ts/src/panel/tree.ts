@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location } from "@synnaxlabs/x";
+import { type location, type spatial } from "@synnaxlabs/x";
 
 import { type Node, type Tab } from "@/panel/types.gen";
 
@@ -19,7 +19,7 @@ import { type Node, type Tab } from "@/panel/types.gen";
 export const ROOT_PATH = 1;
 
 /** childPath returns the path key of a split's child on the given side. */
-export const childPath = (pathKey: number, side: "first" | "last"): number =>
+export const childPath = (pathKey: number, side: spatial.Order): number =>
   side === "first" ? pathKey * 2 : pathKey * 2 + 1;
 
 /**
@@ -27,7 +27,7 @@ export const childPath = (pathKey: number, side: "first" | "last"): number =>
  * split at the given location: "first" for left/top, "last" otherwise. The
  * convention is shared by SplitLeaf and location-bearing InsertTab/MoveTab.
  */
-export const splitSide = (loc: location.Outer): "first" | "last" =>
+export const splitSide = (loc: location.Outer): spatial.Order =>
   loc === "left" || loc === "top" ? "first" : "last";
 
 const pathDirections = (pathKey: number): boolean[] => {
@@ -44,17 +44,15 @@ const pathDirections = (pathKey: number): boolean[] => {
  * walkPath returns the node at the given path key, or null when the path does
  * not exist in the tree.
  */
-export const walkPath = <N extends Node>(
-  root: N | undefined | null,
+export const walkPath = (
+  root: Node | undefined | null,
   pathKey: number,
-): N | null => {
+): Node | null => {
   if (root == null) return null;
-  let n: N = root;
+  let n: Node = root;
   for (const isLast of pathDirections(pathKey)) {
-    if (n.split == null) return null;
-    const next = isLast ? n.split.last : n.split.first;
-    if (next == null) return null;
-    n = next as N;
+    if (n.variant !== "split") return null;
+    n = isLast ? n.last : n.first;
   }
   return n;
 };
@@ -62,19 +60,15 @@ export const walkPath = <N extends Node>(
 /** findTab returns the tab with the given key, or null when absent. */
 export const findTab = (node: Node | undefined | null, key: string): Tab | null => {
   if (node == null) return null;
-  if (node.leaf != null) return node.leaf.tabs.find((t) => t.key === key) ?? null;
-  if (node.split != null)
-    return findTab(node.split.first, key) ?? findTab(node.split.last, key);
-  return null;
+  if (node.variant === "leaf") return node.tabs.find((t) => t.key === key) ?? null;
+  return findTab(node.first, key) ?? findTab(node.last, key);
 };
 
 /** firstTab returns the first tab in traversal order, or null for an empty tree. */
 export const firstTab = (node: Node | undefined | null): Tab | null => {
   if (node == null) return null;
-  if (node.leaf != null) return node.leaf.tabs[0] ?? null;
-  if (node.split != null)
-    return firstTab(node.split.first) ?? firstTab(node.split.last);
-  return null;
+  if (node.variant === "leaf") return node.tabs[0] ?? null;
+  return firstTab(node.first) ?? firstTab(node.last);
 };
 
 const findLeafPath = (
@@ -83,13 +77,11 @@ const findLeafPath = (
   match: (tabs: Tab[]) => boolean,
 ): number | null => {
   if (node == null) return null;
-  if (node.leaf != null) return match(node.leaf.tabs) ? path : null;
-  if (node.split != null)
-    return (
-      findLeafPath(node.split.first, childPath(path, "first"), match) ??
-      findLeafPath(node.split.last, childPath(path, "last"), match)
-    );
-  return null;
+  if (node.variant === "leaf") return match(node.tabs) ? path : null;
+  return (
+    findLeafPath(node.first, childPath(path, "first"), match) ??
+    findLeafPath(node.last, childPath(path, "last"), match)
+  );
 };
 
 /** tabLeafPath returns the path key of the leaf holding the given tab, or null. */

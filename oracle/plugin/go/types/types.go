@@ -75,6 +75,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		MergeByName:     false,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
+		CollectUnions:   true,
 	}
 	return gen.Generate(req)
 }
@@ -83,7 +84,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type goFileGenerator struct{}
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := GenerateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table, ctx.RepoRoot)
+	content, err := GenerateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table, ctx.RepoRoot)
 	if err != nil {
 		return "", err
 	}
@@ -99,6 +100,7 @@ func GenerateGoFile(
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
+	unions []resolution.Type,
 	table *resolution.Table,
 	repoRoot string,
 	importOverrides ...map[string]string,
@@ -106,6 +108,8 @@ func GenerateGoFile(
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
+	} else if len(unions) > 0 {
+		namespace = unions[0].Namespace
 	} else if len(typeDefs) > 0 {
 		namespace = typeDefs[0].Namespace
 	} else if len(enums) > 0 {
@@ -162,6 +166,13 @@ func GenerateGoFile(
 			continue
 		}
 		data.Structs = append(data.Structs, processStruct(entry, data))
+	}
+
+	for _, entry := range unions {
+		if omit.IsType(entry, "go") {
+			continue
+		}
+		data.Unions = append(data.Unions, processUnion(entry, data))
 	}
 
 	var buf bytes.Buffer
@@ -407,7 +418,15 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType
 func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	targetOutputPath := output.GetPath(parent, "go")
 
-	name := naming.GetGoName(parent)
+	// Use the parent's declared name (raw schema name plus any @go name
+	// override), matching how processStruct declares the type. Routing through
+	// GetGoName here would ToPascalCase the name and mangle acronym bases
+	// (BaseAIChan -> BaseAiChan), emitting an embed field that names a type the
+	// package never declares.
+	name := parent.Name
+	if override := domain.GetStringFromType(parent, "go", "name"); override != "" {
+		name = override
+	}
 
 	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return buildGenericType(name, extendsRef.TypeArgs, &parent, data)
@@ -433,6 +452,7 @@ type templateData struct {
 	Structs    []structData
 	Enums      []enumData
 	TypeDefs   []typeDefData
+	Unions     []unionData
 }
 
 // HasImports returns true if any imports are needed.
@@ -620,5 +640,92 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- end}}
 }
 {{end -}}
+{{end -}}
+{{- range .Unions}}
+{{- $u := .}}
+
+type {{.DiscType}} string
+
+const (
+{{- range .Variants}}
+	{{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
+{{- end}}
+)
+
+type {{.InterfaceName}} interface {
+	{{.Marker}}()
+}
+{{range .Variants}}
+{{- if .Doc}}
+{{formatDoc .TypeName .Doc}}
+{{- end}}
+type {{.TypeName}} struct {
+{{- range .Embeds}}
+	{{.}}
+{{- end}}
+}
+
+func ({{.TypeName}}) {{$u.Marker}}() {}
+{{end -}}
+{{if .Doc}}{{formatDoc .Name .Doc}}
+{{end -}}
+type {{.Name}} struct {
+	Variant {{.InterfaceName}}
+}
+
+func (u {{.Name}}) MarshalJSON() ([]byte, error) {
+	if u.Variant == nil {
+		return []byte("null"), nil
+	}
+	var t {{.DiscType}}
+	switch u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		t = {{.ConstName}}
+{{- end}}
+	default:
+		return nil, errors.Newf("{{.Name}}: nil or unknown variant %T", u.Variant)
+	}
+	raw, err := json.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["{{.DiscJSONName}}"] = tag
+	return json.Marshal(fields)
+}
+
+func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type {{.DiscType}} ` + "`" + `json:"{{.DiscJSONName}}"` + "`" + `
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+{{- range .Variants}}
+	case {{.ConstName}}:
+		var v {{.TypeName}}
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+{{- end}}
+	default:
+		return errors.Newf("{{.Name}}: unknown {{.DiscJSONName}} %q", disc.Type)
+	}
+	return nil
+}
 {{end -}}
 `))

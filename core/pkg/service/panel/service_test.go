@@ -20,7 +20,6 @@ var _ = Describe("ServiceConfig", func() {
 		return panel.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
-			Group:    dist.Group,
 			Search:   dist.Search,
 		}
 	}
@@ -38,7 +37,6 @@ var _ = Describe("ServiceConfig", func() {
 			},
 			Entry("db", func(c *panel.ServiceConfig) { c.DB = nil }, "db"),
 			Entry("ontology", func(c *panel.ServiceConfig) { c.Ontology = nil }, "ontology"),
-			Entry("group", func(c *panel.ServiceConfig) { c.Group = nil }, "group"),
 			Entry("search", func(c *panel.ServiceConfig) { c.Search = nil }, "search"),
 		)
 
@@ -54,7 +52,6 @@ var _ = Describe("ServiceConfig", func() {
 			merged := panel.ServiceConfig{}.Override(full())
 			Expect(merged.DB).To(BeIdenticalTo(dist.DB))
 			Expect(merged.Ontology).To(BeIdenticalTo(dist.Ontology))
-			Expect(merged.Group).To(BeIdenticalTo(dist.Group))
 			Expect(merged.Search).To(BeIdenticalTo(dist.Search))
 		})
 

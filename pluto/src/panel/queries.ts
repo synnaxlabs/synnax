@@ -51,7 +51,6 @@ const undoableStoreConfig = Flux.createUndoableStore<
   reduce: panel.reduceAll,
   channel: panel.SET_CHANNEL_NAME,
   schema: panel.scopedActionZ,
-  isUndoable: panel.isUndoable,
   kindOf: kindOfTransaction,
 });
 
@@ -92,7 +91,23 @@ export const { useRetrieve, useEnsureRetrieved } = Flux.createRetrieve<
   ],
 });
 
-export interface TabContent extends Pick<panel.Tab, "resource" | "view"> {}
+export interface TabContent {
+  resource?: ontology.ID;
+  view?: panel.View;
+}
+
+// tabContent flattens a tab's variant into the optional content pair consumed by
+// render props, so consumers can read resource/view without switching on variant.
+export const tabContent = (tab: panel.Tab): TabContent => {
+  switch (tab.variant) {
+    case "resource":
+      return { resource: tab.resource };
+    case "view":
+      return { view: tab.view };
+    case "empty":
+      return {};
+  }
+};
 
 export interface SelectKeyArgs {
   key: panel.Key;
@@ -154,9 +169,7 @@ export const useList = Flux.createList<
   ],
 });
 
-export interface CreateParams extends panel.New {
-  parent?: ontology.ID;
-}
+export interface CreateParams extends panel.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
@@ -166,10 +179,9 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const { parent, ...rest } = data;
-    const optimistic = panel.newZ.parse(rest);
+    const optimistic = panel.newZ.parse(data);
     rollbacks.push(store.panels.set(optimistic));
-    const created = await client.panels.create(optimistic, parent);
+    const created = await client.panels.create(optimistic);
     store.panels.set(created);
     return created;
   },

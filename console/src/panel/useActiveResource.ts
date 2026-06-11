@@ -34,7 +34,8 @@ export const useActiveResource = (): ontology.ID | null => {
   const selectedTab = useSelectActiveTabKey();
   const { data } = Panel.useRetrieve({ key: panelKey ?? "" });
   if (panelKey == null || data == null) return null;
-  return activeTab(data.root, selectedTab)?.resource ?? null;
+  const tab = activeTab(data.root, selectedTab);
+  return tab?.variant === "resource" ? tab.resource : null;
 };
 
 // getActiveResource is the imperative form of useActiveResource for callers outside
@@ -50,5 +51,6 @@ export const getActiveResource = (
   if (panelKey == null) return null;
   const p = fluxStore.panels.get(panelKey);
   if (p == null) return null;
-  return activeTab(p.root, selectedTab)?.resource ?? null;
+  const tab = activeTab(p.root, selectedTab);
+  return tab?.variant === "resource" ? tab.resource : null;
 };

@@ -56,14 +56,16 @@ const tabFor = (layout: State): panel.Tab => {
   if (resourceType.success)
     return {
       key: uuid.create(),
+      variant: "resource",
       resource: { type: resourceType.data, key: layout.key },
     };
   return {
     key: uuid.create(),
+    variant: "view",
     view: {
       type: layout.type,
       name: layout.name,
-      args: layout.args as panel.TabView["args"],
+      args: layout.args as panel.View["args"],
     },
   };
 };

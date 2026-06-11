@@ -133,6 +133,13 @@ func (t *Table) DistinctTypes() []Type {
 	})
 }
 
+func (t *Table) UnionTypes() []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		_, ok := typ.Form.(UnionForm)
+		return ok
+	})
+}
+
 func (t *Table) MarkImported(path string) { t.Imports.Add(path) }
 
 func (t *Table) IsImported(path string) bool { return t.Imports.Contains(path) }
@@ -271,6 +278,13 @@ func (t *Table) collectDependencies(typ Type) []string {
 		addDep(form.Target)
 	case DistinctForm:
 		addDep(form.Base)
+	case UnionForm:
+		for _, extendsRef := range form.Extends {
+			addDep(extendsRef)
+		}
+		for _, variant := range form.Variants {
+			addDep(variant.Type)
+		}
 	case EnumForm:
 		for _, extendsRef := range form.Extends {
 			addDep(extendsRef)

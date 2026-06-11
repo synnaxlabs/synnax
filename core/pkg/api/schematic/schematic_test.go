@@ -33,7 +33,7 @@ type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
 // access-control reads can observe the new ontology resource.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {
 	s := schematic.Schematic{Name: name}
-	Expect(schematicSvc.NewWriter(nil).Create(ctx, ws.Key, &s)).To(Succeed())
+	Expect(schematicSvc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
 	return s
 }
 

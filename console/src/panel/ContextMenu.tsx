@@ -32,10 +32,8 @@ export const TabMenuItems = ({ panelKey, tabKey }: TabMenuItemsProps): ReactElem
   const { dispatch: dispatchPanel } = Base.useDispatch();
   const { data: p } = Base.useRetrieve({ key: panelKey });
   const leafPath = p != null ? panel.tabLeafPath(p.root, tabKey) : null;
-  const leafTabCount =
-    p != null && leafPath != null
-      ? (panel.walkPath(p.root, leafPath)?.leaf?.tabs.length ?? 0)
-      : 0;
+  const leaf = p != null && leafPath != null ? panel.walkPath(p.root, leafPath) : null;
+  const leafTabCount = leaf?.variant === "leaf" ? leaf.tabs.length : 0;
   const canSplit = leafTabCount >= 2;
   const handleSplit = useCallback(
     (dir: direction.Direction) => {
@@ -117,7 +115,8 @@ export const ContextMenu = ({
   const tabKey: string | undefined = keys[0];
   const { data: p } = Base.useRetrieve({ key: panelKey });
   const tab = p != null && tabKey != null ? panel.findTab(p.root, tabKey) : null;
-  const type = tab?.resource?.type ?? tab?.view?.type ?? "";
+  const content = tab != null ? Base.tabContent(tab) : null;
+  const type = content?.resource?.type ?? content?.view?.type ?? "";
   const Custom = Layout.useContextMenuRenderer(type);
   if (tabKey == null)
     return (
@@ -127,7 +126,7 @@ export const ContextMenu = ({
     );
   if (tab == null) return null;
   if (Custom != null)
-    return <Custom layoutKey={tab.resource?.key ?? tabKey} tabKey={tabKey} />;
+    return <Custom layoutKey={content?.resource?.key ?? tabKey} tabKey={tabKey} />;
   return (
     <CMenu.Menu>
       <TabMenuItems panelKey={panelKey} tabKey={tabKey} />

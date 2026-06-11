@@ -28,15 +28,15 @@ type Writer struct {
 
 func (w Writer) Create(
 	ctx context.Context,
-	ws *Project,
+	p *Project,
 ) (err error) {
-	if ws.Key == uuid.Nil {
-		ws.Key = uuid.New()
+	if p.Key == uuid.Nil {
+		p.Key = uuid.New()
 	}
-	if err = w.table.NewCreate().Entry(ws).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}
-	otgID := OntologyID(ws.Key)
+	otgID := OntologyID(p.Key)
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (w Writer) Create(
 	}
 	if err := w.otg.DefineRelationship(
 		ctx,
-		user.OntologyID(ws.Author),
+		user.OntologyID(p.Author),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	); err != nil {
@@ -79,9 +79,9 @@ func (w Writer) Rename(
 	name string,
 ) error {
 	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Project](key)).
-		Change(func(_ gorp.Context, ws Project) Project {
-			ws.Name = name
-			return ws
+		Change(func(_ gorp.Context, p Project) Project {
+			p.Name = name
+			return p
 		}).Exec(ctx, w.tx)
 }
 
@@ -91,9 +91,9 @@ func (w Writer) SetLayout(
 	layout map[string]any,
 ) error {
 	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Project](key)).
-		Change(func(_ gorp.Context, ws Project) Project {
-			ws.Layout = layout
-			return ws
+		Change(func(_ gorp.Context, p Project) Project {
+			p.Layout = layout
+			return p
 		}).Exec(ctx, w.tx)
 }
 

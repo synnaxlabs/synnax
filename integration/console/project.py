@@ -35,7 +35,7 @@ from console.task_page import TaskPage
 from console.tree import Tree
 from framework.run_dir import resolve_results_path
 
-__all__ = ["WorkspaceClient", "PageType"]
+__all__ = ["ProjectClient", "PageType"]
 
 T = TypeVar("T", bound="ConsolePage")
 
@@ -73,10 +73,10 @@ window.showDirectoryPicker = async () => ({
 """
 
 
-class WorkspaceClient:
-    """Workspace management for Console UI automation."""
+class ProjectClient:
+    """Project management for Console UI automation."""
 
-    ITEM_PREFIX = "workspace:"
+    ITEM_PREFIX = "project:"
 
     def __init__(
         self,
@@ -205,7 +205,7 @@ class WorkspaceClient:
         """
         pane, tab, actual_name = self.create_page(page_type, page_name)
         page = page_class(self.layout, self.client, actual_name, pane_locator=pane)
-        page._initialize_from_workspace(tab, actual_name)
+        page._initialize_from_project(tab, actual_name)
         return page
 
     def close_page(self, page_name: str) -> None:
@@ -213,16 +213,16 @@ class WorkspaceClient:
         self.layout.close_tab(page_name)
 
     def get_item(self, name: str) -> Locator:
-        """Get a workspace item locator from the resources toolbar.
+        """Get a project item locator from the resources toolbar.
 
         Note: Returns a Locator that can be waited on, even if the item isn't
         visible yet. Use exists() to check if an item is currently visible.
 
         Args:
-            name: Name of the workspace
+            name: Name of the project
 
         Returns:
-            Locator for the workspace item
+            Locator for the project item
         """
         return (
             self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']")
@@ -231,15 +231,15 @@ class WorkspaceClient:
         )
 
     def exists(self, name: str) -> bool:
-        """Check if a workspace exists in the resources toolbar.
+        """Check if a project exists in the resources toolbar.
 
         Args:
-            name: Name of the workspace to check
+            name: Name of the project to check
 
         Returns:
-            True if workspace exists, False otherwise
+            True if project exists, False otherwise
         """
-        self.layout.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("project")
         try:
             self.layout.page.locator(f"div[id^='{self.ITEM_PREFIX}']").first.wait_for(
                 state="visible", timeout=5000
@@ -248,29 +248,29 @@ class WorkspaceClient:
             return False
         return self.tree.find_by_name(self.ITEM_PREFIX, name) is not None
 
-    def wait_for_workspace_removed(self, name: str) -> None:
-        """Wait for a workspace to be removed from the resources toolbar.
+    def wait_for_project_removed(self, name: str) -> None:
+        """Wait for a project to be removed from the resources toolbar.
 
         Args:
-            name: Name of the workspace to wait for removal
+            name: Name of the project to wait for removal
             timeout: Maximum time in milliseconds to wait
         """
-        self.layout.show_resource_toolbar("workspace")
-        workspace_item = self.layout.page.locator(
+        self.layout.show_resource_toolbar("project")
+        project_item = self.layout.page.locator(
             f"div[id^='{self.ITEM_PREFIX}']"
         ).filter(has_text=name)
-        workspace_item.first.wait_for(state="hidden", timeout=5000)
+        project_item.first.wait_for(state="hidden", timeout=5000)
 
     def expand_active(self) -> None:
-        """Expand the active workspace in the resources toolbar to show its contents."""
-        self.layout.show_resource_toolbar("workspace")
+        """Expand the active project in the resources toolbar to show its contents."""
+        self.layout.show_resource_toolbar("project")
         self.tree.expand_root(self.ITEM_PREFIX)
         self.layout.page.locator(".pluto-tree__item").first.wait_for(
             state="visible", timeout=5000
         )
 
     def get_page(self, name: str) -> Locator:
-        """Get a page item locator from the workspace resources toolbar.
+        """Get a page item locator from the project resources toolbar.
 
         Matches the page label exactly; substring matches are ignored so a
         rename to a superstring (e.g. ``foo`` → ``foo_renamed``) does not
@@ -288,7 +288,7 @@ class WorkspaceClient:
         )
 
     def _scroll_to_page(self, name: str) -> bool:
-        """Scroll the workspace tree to find a page that may be off-screen.
+        """Scroll the project tree to find a page that may be off-screen.
 
         The Pluto tree uses virtual scrolling, so items outside the viewport
         are not in the DOM. This method scrolls the tree container
@@ -328,7 +328,7 @@ class WorkspaceClient:
         return False
 
     def page_exists(self, name: str) -> bool:
-        """Check if a page (schematic, line plot, etc.) exists in the workspace."""
+        """Check if a page (schematic, line plot, etc.) exists in the project."""
         self.expand_active()
         if self._scroll_to_page(name):
             page_item = self.get_page(name)
@@ -340,12 +340,12 @@ class WorkspaceClient:
         return False
 
     def wait_for_page_removed(self, name: str) -> None:
-        """Wait for a page to be removed from the workspace."""
+        """Wait for a page to be removed from the project."""
         page_item = self.get_page(name)
         page_item.wait_for(state="hidden", timeout=5000)
 
     def _find_page(self, name: str) -> Locator:
-        """Find a page in the workspace tree, scrolling if needed.
+        """Find a page in the project tree, scrolling if needed.
 
         First tries a simple wait (handles most cases where the tree isn't
         crowded). Falls back to scrolling for virtual-scrolled trees.
@@ -361,13 +361,13 @@ class WorkspaceClient:
         except PlaywrightTimeoutError:
             pass
         if not self._scroll_to_page(name):
-            raise PlaywrightTimeoutError(f"Page '{name}' not found in workspace tree")
+            raise PlaywrightTimeoutError(f"Page '{name}' not found in project tree")
         page_item = self.get_page(name)
         page_item.wait_for(state="visible", timeout=5000)
         return page_item
 
     def open_page(self, name: str) -> None:
-        """Open a page by double-clicking it in the workspace resources toolbar.
+        """Open a page by double-clicking it in the project resources toolbar.
 
         Args:
             name: Name of the page to open
@@ -377,13 +377,13 @@ class WorkspaceClient:
         self.layout.close_left_toolbar()
 
     def drag_page_to_mosaic(self, name: str) -> None:
-        """Drag a page from the workspace resources toolbar onto the mosaic.
+        """Drag a page from the project resources toolbar onto the mosaic.
 
         Args:
             name: Name of the page to drag
         """
         for attempt in range(2):
-            self.layout.show_resource_toolbar("workspace")
+            self.layout.show_resource_toolbar("project")
             page_item = self._find_page(name)
             mosaic = self.layout.page.locator(".console-mosaic").first
             page_item.drag_to(mosaic)
@@ -396,7 +396,7 @@ class WorkspaceClient:
                     raise
 
     def rename_page(self, old_name: str, new_name: str) -> None:
-        """Rename a page via context menu in the workspace resources toolbar.
+        """Rename a page via context menu in the project resources toolbar.
 
         Args:
             old_name: Current name of the page
@@ -411,7 +411,7 @@ class WorkspaceClient:
         self.layout.close_left_toolbar()
 
     def delete_page(self, name: str) -> None:
-        """Delete a page via context menu in the workspace resources toolbar.
+        """Delete a page via context menu in the project resources toolbar.
 
         Args:
             name: Name of the page to delete
@@ -453,7 +453,7 @@ class WorkspaceClient:
         self.layout.close_left_toolbar()
 
     def delete_pages(self, page_names: list[str]) -> None:
-        """Delete pages by walking the workspace tree depth-first.
+        """Delete pages by walking the project tree depth-first.
 
         Expands groups as needed to find target pages, deletes each
         individually, and cleans up empty groups on the way back up.
@@ -600,7 +600,7 @@ class WorkspaceClient:
         ``{name}.json`` to control the resulting tab name independently of
         the source fixture's filename.
 
-        Waits for the page to appear in the workspace resource tree before
+        Waits for the page to appear in the project resource tree before
         returning. Non-schematic types (lineplot/log/table) only persist to
         the server via the mounted tab's debounced ``useSyncComponent`` hook;
         if the caller closes the tab before that debounce flushes, the save
@@ -620,30 +620,30 @@ class WorkspaceClient:
             self.layout.get_tab(name).wait_for(state="visible", timeout=10000)
             if not self.page_exists(name):
                 raise AssertionError(
-                    f"Imported page {name!r} did not appear in workspace tree"
+                    f"Imported page {name!r} did not appear in project tree"
                 )
             self.layout.close_left_toolbar()
 
-    def import_workspace_from_directory(self, directory_path: str) -> None:
-        """Import a workspace via the real "Import a workspace" command flow.
+    def import_project_from_directory(self, directory_path: str) -> None:
+        """Import a project via the real "Import a project" command flow.
 
         Opens the command palette, fulfills the resulting directory chooser
         with ``directory_path`` (Playwright walks it and uploads each file
-        with its webkitRelativePath set), then waits for the workspace
+        with its webkitRelativePath set), then waits for the project
         selector to display the directory's basename. The directory must
         contain ``LAYOUT.json`` and one ``{component_name}.json`` file per
         layout entry, matching the Console export format.
         """
         with self.layout.page.expect_file_chooser() as fc_info:
-            self.layout.command_palette("Import a workspace")
+            self.layout.command_palette("Import a project")
         fc_info.value.set_files(directory_path)
         expected_name = os.path.basename(directory_path.rstrip(os.sep))
         self.layout.page.get_by_role("button").filter(has_text=expected_name).wait_for(
             state="visible", timeout=10000
         )
 
-    def export_workspace(self, name: str) -> str:
-        """Export a workspace via the real Export context menu action.
+    def export_project(self, name: str) -> str:
+        """Export a project via the real Export context menu action.
 
         Installs an in-memory mock of ``window.showDirectoryPicker`` so the
         real export code path runs unchanged but writes captured into a JS
@@ -654,14 +654,14 @@ class WorkspaceClient:
         results dir.
         """
         self._install_directory_picker_mock()
-        self.layout.show_resource_toolbar("workspace")
-        workspace_item = self.get_item(name)
-        workspace_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(workspace_item, "Export")
+        self.layout.show_resource_toolbar("project")
+        project_item = self.get_item(name)
+        project_item.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(project_item, "Export")
 
         if not self.notifications.wait_for(f"Exported {name}"):
             raise AssertionError(
-                f"Export of workspace {name!r} did not emit a success notification"
+                f"Export of project {name!r} did not emit a success notification"
             )
         files = self._drain_exported_files()
 
@@ -728,24 +728,24 @@ class WorkspaceClient:
         self.layout.close_left_toolbar()
 
     def create(self, name: str) -> bool:
-        """Create a workspace via command palette.
+        """Create a project via command palette.
 
         Args:
-            name: Name of the workspace to create
+            name: Name of the project to create
 
         Returns:
-            True if workspace was created, False if it already exists
+            True if project was created, False if it already exists
         """
         if self.exists(name):
             return False
 
         if random.choice([True, False]):
-            self.layout.command_palette("Create a workspace")
+            self.layout.command_palette("Create a project")
         else:
             self.layout.close_left_toolbar()
             selector = (
                 self.layout.page.locator("button.pluto-dialog__trigger")
-                .filter(has=self.layout.page.locator(".pluto-icon--workspace"))
+                .filter(has=self.layout.page.locator(".pluto-icon--project"))
                 .first
             )
             selector.click(timeout=5000)
@@ -753,32 +753,32 @@ class WorkspaceClient:
                 timeout=5000
             )
 
-        name_input = self.layout.page.locator("input[placeholder='Workspace Name']")
+        name_input = self.layout.page.locator("input[placeholder='Project Name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.layout.page.get_by_role("button", name="Create", exact=True).click(
             timeout=5000
         )
         name_input.wait_for(state="hidden", timeout=5000)
-        self.layout.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("project")
         self.get_item(name).wait_for(state="visible", timeout=5000)
         self.layout.close_left_toolbar()
         return True
 
     def select(self, name: str) -> None:
-        """Select a workspace from the resources toolbar.
+        """Select a project from the resources toolbar.
 
         Args:
-            name: Name of the workspace to select
+            name: Name of the project to select
         """
         selector = (
             self.layout.page.locator("button.pluto-dialog__trigger")
-            .filter(has=self.layout.page.locator(".pluto-icon--workspace"))
+            .filter(has=self.layout.page.locator(".pluto-icon--project"))
             .first
         )
         if name in selector.inner_text():
             return
-        self.layout.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("project")
         self.get_item(name).dblclick(timeout=5000)
         self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
             state="visible", timeout=5000
@@ -786,46 +786,46 @@ class WorkspaceClient:
         self.layout.close_left_toolbar()
 
     def rename(self, *, old_name: str, new_name: str) -> None:
-        """Rename a workspace via context menu.
+        """Rename a project via context menu.
 
         Args:
-            old_name: Current name of the workspace
-            new_name: New name for the workspace
+            old_name: Current name of the project
+            new_name: New name for the project
         """
-        self.layout.show_resource_toolbar("workspace")
-        workspace = self.get_item(old_name)
-        workspace.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(workspace, "Rename")
+        self.layout.show_resource_toolbar("project")
+        project = self.get_item(old_name)
+        project.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(project, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         self.layout.close_left_toolbar()
 
     def delete(self, name: str) -> None:
-        """Delete a workspace via context menu.
+        """Delete a project via context menu.
 
         Args:
-            name: Name of the workspace to delete
+            name: Name of the project to delete
         """
-        self.layout.show_resource_toolbar("workspace")
+        self.layout.show_resource_toolbar("project")
 
-        workspace = self.get_item(name)
-        workspace.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(workspace, "Delete")
+        project = self.get_item(name)
+        project.wait_for(state="visible", timeout=5000)
+        self.ctx_menu.action(project, "Delete")
 
         delete_btn = self.layout.page.get_by_role("button", name="Delete", exact=True)
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
-        self.wait_for_workspace_removed(name)
+        self.wait_for_project_removed(name)
         self.layout.close_left_toolbar()
 
     def ensure_selected(self, name: str) -> None:
-        """Create a workspace if it doesn't exist and select it.
+        """Create a project if it doesn't exist and select it.
 
         Args:
-            name: Name of the workspace to ensure is selected
+            name: Name of the project to ensure is selected
         """
         selector = self.layout.page.locator("button.pluto-dialog__trigger").filter(
-            has=self.layout.page.locator(".pluto-icon--workspace")
+            has=self.layout.page.locator(".pluto-icon--project")
         )
         if name in selector.inner_text(timeout=5000):
             return
@@ -834,7 +834,7 @@ class WorkspaceClient:
         self.select(name)
 
     def open_plot(self, name: str) -> Plot:
-        """Open a plot by double-clicking it in the workspace resources toolbar.
+        """Open a plot by double-clicking it in the project resources toolbar.
 
         Args:
             name: Name of the plot to open.
@@ -846,7 +846,7 @@ class WorkspaceClient:
         return Plot.from_open_page(self.layout, self.client, name)
 
     def drag_plot_to_mosaic(self, name: str) -> Plot:
-        """Drag a plot from the workspace resources toolbar onto the mosaic.
+        """Drag a plot from the project resources toolbar onto the mosaic.
 
         Args:
             name: Name of the plot to drag.
@@ -980,7 +980,7 @@ class WorkspaceClient:
         return plot
 
     def open_log(self, name: str) -> Log:
-        """Open a log by double-clicking it in the workspace resources toolbar.
+        """Open a log by double-clicking it in the project resources toolbar.
 
         Args:
             name: Name of the log to open.
@@ -992,7 +992,7 @@ class WorkspaceClient:
         return Log.from_open_page(self.layout, self.client, name)
 
     def drag_log_to_mosaic(self, name: str) -> Log:
-        """Drag a log from the workspace resources toolbar onto the mosaic.
+        """Drag a log from the project resources toolbar onto the mosaic.
 
         Args:
             name: Name of the log to drag.
@@ -1006,7 +1006,7 @@ class WorkspaceClient:
         return Log.from_open_page(self.layout, self.client, name)
 
     def open_schematic(self, name: str) -> Schematic:
-        """Open a schematic by double-clicking it in the workspace resources toolbar.
+        """Open a schematic by double-clicking it in the project resources toolbar.
 
         Args:
             name: Name of the schematic to open.
@@ -1018,7 +1018,7 @@ class WorkspaceClient:
         return Schematic.from_open_page(self.layout, self.client, name)
 
     def drag_schematic_to_mosaic(self, name: str) -> Schematic:
-        """Drag a schematic from the workspace resources toolbar onto the mosaic.
+        """Drag a schematic from the project resources toolbar onto the mosaic.
 
         Args:
             name: Name of the schematic to drag.
@@ -1030,7 +1030,7 @@ class WorkspaceClient:
         return Schematic.from_open_page(self.layout, self.client, name)
 
     def open_table(self, name: str) -> Table:
-        """Open a table by double-clicking it in the workspace resources toolbar.
+        """Open a table by double-clicking it in the project resources toolbar.
 
         Args:
             name: Name of the table to open.
@@ -1042,7 +1042,7 @@ class WorkspaceClient:
         return Table.from_open_page(self.layout, self.client, name)
 
     def drag_table_to_mosaic(self, name: str) -> Table:
-        """Drag a table from the workspace resources toolbar onto the mosaic.
+        """Drag a table from the project resources toolbar onto the mosaic.
 
         Args:
             name: Name of the table to drag.

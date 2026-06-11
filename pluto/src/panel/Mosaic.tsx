@@ -15,6 +15,7 @@ import { type Component } from "@/component";
 import { Mosaic as Base } from "@/mosaic";
 import {
   type TabContent,
+  tabContent,
   useDispatch,
   useEnsureRetrieved,
   useSelectRoot,
@@ -54,20 +55,19 @@ const adaptToMosaic = (root: panel.Node, selected: string[] | undefined): Base.N
   const preference = selected ?? [];
   const visit = (node: panel.Node | undefined, key: number): Base.Node => {
     if (node == null) return { key };
-    if (node.split != null)
+    if (node.variant === "split")
       return {
         key,
-        direction: node.split.direction,
-        size: node.split.size,
-        first: visit(node.split.first, panel.childPath(key, "first")),
-        last: visit(node.split.last, panel.childPath(key, "last")),
+        direction: node.direction,
+        size: node.size,
+        first: visit(node.first, panel.childPath(key, "first")),
+        last: visit(node.last, panel.childPath(key, "last")),
       };
-    if (node.leaf == null) return { key, tabs: [] };
-    const tabs: Tabs.Tab[] = node.leaf.tabs.map((t) => ({
+    const tabs: Tabs.Tab[] = node.tabs.map((t) => ({
       tabKey: t.key,
       name: "",
       closable: true,
-      editable: t.resource != null || t.view != null,
+      editable: t.variant !== "empty",
     }));
     const selected =
       preference.find((key) => tabs.some((t) => t.tabKey === key)) ?? tabs[0]?.tabKey;
@@ -90,7 +90,7 @@ const TabName = ({
   ...rest
 }: TabNameProps): ReactElement | null => {
   const content = useSelectTab({ key, tabKey: rest.tabKey });
-  return tabName({ ...rest, ...content });
+  return tabName({ ...rest, ...tabContent(content) });
 };
 
 interface ContentProps extends Pick<MosaicProps, "children"> {
@@ -105,7 +105,7 @@ const Content = ({
   visible,
   children,
 }: ContentProps): ReactElement | null =>
-  children({ ...useSelectTab({ key, tabKey }), tabKey, visible });
+  children({ ...tabContent(useSelectTab({ key, tabKey })), tabKey, visible });
 
 export const Mosaic = ({
   panelKey: key,
@@ -144,11 +144,13 @@ export const Mosaic = ({
   const handleCreate = useCallback(
     (node: number, location: location.Location, tabKeys?: string[]) => {
       let tabs: panel.Tab[];
-      if (tabKeys == null) tabs = [{ key: uuid.create() }];
+      if (tabKeys == null) tabs = [{ variant: "empty", key: uuid.create() }];
       else
         tabs = tabKeys.flatMap((raw) => {
           const parsed = ontology.idZ.safeParse(raw);
-          return parsed.success ? [{ key: uuid.create(), resource: parsed.data }] : [];
+          return parsed.success
+            ? [{ variant: "resource", key: uuid.create(), resource: parsed.data }]
+            : [];
         });
       if (tabs.length === 0) return;
       const restLeaf =

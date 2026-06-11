@@ -53,7 +53,7 @@ class RoleViewerPermissions(ConsoleCase):
 
     def test_owner_creates_schematic(self) -> None:
         """As Owner: create a schematic with f64 setpoint and boolean button."""
-        schematic = self.console.workspace.create_schematic(SCHEMATIC_NAME)
+        schematic = self.console.project.create_schematic(SCHEMATIC_NAME)
         self._cleanup_pages.append(schematic.page_name)
 
         setpoint = schematic.create_symbol(
@@ -127,27 +127,27 @@ class RoleViewerPermissions(ConsoleCase):
         self.console.layout.press_escape()
         sy.sleep(0.3)
 
-        # Test 2: Try to create a workspace
-        self.log("Testing: Viewer should not be able to create workspace...")
+        # Test 2: Try to create a project
+        self.log("Testing: Viewer should not be able to create project...")
         self.page.keyboard.press("ControlOrMeta+Shift+p")
         sy.sleep(0.3)
 
         palette_input = self.page.locator(
             ".console-palette__input input[role='textbox']"
         )
-        palette_input.fill(">Create a workspace", timeout=2000)
+        palette_input.fill(">Create a project", timeout=2000)
         sy.sleep(0.3)
 
-        workspace_cmd = self.page.get_by_text("Create a workspace", exact=True)
-        workspace_cmd_exists = workspace_cmd.count() > 0
+        project_cmd = self.page.get_by_text("Create a project", exact=True)
+        project_cmd_exists = project_cmd.count() > 0
 
         self.console.layout.press_escape()
         sy.sleep(0.2)
 
-        if workspace_cmd_exists:
-            self.log("WARNING: Create workspace command exists for viewer")
+        if project_cmd_exists:
+            self.log("WARNING: Create project command exists for viewer")
         else:
-            self.log("PASS: Create workspace command not available for viewer")
+            self.log("PASS: Create project command not available for viewer")
 
         # Test 3: Try to create a line plot
         self.log("Testing: Viewer should not be able to create line plot...")
@@ -198,7 +198,7 @@ class RoleViewerPermissions(ConsoleCase):
     def test_viewer_can_view_schematic(self) -> None:
         """Viewer should be able to open and view an existing schematic."""
         self.log("Testing: Viewer can view schematic")
-        self._viewer_schematic = self.console.workspace.open_from_search(
+        self._viewer_schematic = self.console.project.open_from_search(
             Schematic, SCHEMATIC_NAME
         )
 

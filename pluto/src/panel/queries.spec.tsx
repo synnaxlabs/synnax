@@ -19,7 +19,7 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-const newTab = (): panel.Tab => ({ key: uuid.create() });
+const newTab = (): panel.Tab => ({ variant: "empty", key: uuid.create() });
 
 describe("Panel queries", () => {
   let controller: AbortController;
@@ -35,6 +35,12 @@ describe("Panel queries", () => {
 
   const createPanel = async (): Promise<panel.Panel> =>
     await client.panels.create({ name: `panel-${uuid.create()}` });
+
+  const asSplit = (node?: panel.Node): panel.NodeSplit | undefined =>
+    node?.variant === "split" ? node : undefined;
+
+  const leafTabKeys = (node?: panel.Node): string[] | undefined =>
+    node?.variant === "leaf" ? node.tabs.map((t) => t.key) : undefined;
 
   const loadAndUse = async <T,>(key: panel.Key, hook: () => T) => {
     const retrieve = renderHook(() => Panel.useRetrieve({ key }), { wrapper });
@@ -110,7 +116,7 @@ describe("Panel queries", () => {
       const { result } = renderHook(() => Panel.useSelectRoot({ key: created.key }), {
         wrapper,
       });
-      expect(result.current.leaf).toBeDefined();
+      expect(result.current.variant).toEqual("leaf");
     });
   });
 
@@ -129,7 +135,7 @@ describe("Panel queries", () => {
       });
       await waitFor(() => expect(retrieved.current.variant).toEqual("success"));
       expect(retrieved.current.data?.name).toEqual("created-panel");
-      expect(retrieved.current.data?.root).toEqual({ leaf: { tabs: [] } });
+      expect(retrieved.current.data?.root).toEqual({ variant: "leaf", tabs: [] });
     });
 
     it("should store the created panel in the flux store", async () => {
@@ -142,7 +148,7 @@ describe("Panel queries", () => {
       const { result: root } = renderHook(() => Panel.useSelectRoot({ key }), {
         wrapper,
       });
-      expect(root.current).toEqual({ leaf: { tabs: [] } });
+      expect(root.current).toEqual({ variant: "leaf", tabs: [] });
     });
 
     it("should parent the panel under the given resource", async () => {
@@ -251,9 +257,7 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.root.leaf?.tabs.map((t) => t.key)).toEqual(
-          [tab.key],
-        ),
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
       );
 
       const fresh = await client.panels.retrieve(created.key);
@@ -284,10 +288,10 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() => {
-        const root = result.current.retrieve.data?.root;
-        expect(root?.split?.direction).toEqual("x");
-        expect(root?.split?.first?.leaf?.tabs.map((t) => t.key)).toEqual([tabA.key]);
-        expect(root?.split?.last?.leaf?.tabs.map((t) => t.key)).toEqual([tabB.key]);
+        const root = asSplit(result.current.retrieve.data?.root);
+        expect(root?.direction).toEqual("x");
+        expect(leafTabKeys(root?.first)).toEqual([tabA.key]);
+        expect(leafTabKeys(root?.last)).toEqual([tabB.key]);
       });
 
       const fresh = await client.panels.retrieve(created.key);
@@ -311,11 +315,11 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() =>
-        expect(result.current.retrieve.data?.root.split?.size).toEqual(0.25),
+        expect(asSplit(result.current.retrieve.data?.root)?.size).toEqual(0.25),
       );
 
       const fresh = await client.panels.retrieve(created.key);
-      expect(fresh.root.split?.size).toEqual(0.25);
+      expect(asSplit(fresh.root)?.size).toEqual(0.25);
     });
 
     it("moves a tab into the sibling leaf created by a split", async () => {
@@ -348,9 +352,9 @@ describe("Panel queries", () => {
         });
       });
       await waitFor(() => {
-        const root = result.current.retrieve.data?.root;
-        expect(root?.split?.first?.leaf?.tabs.map((t) => t.key)).toEqual([tabB.key]);
-        expect(root?.split?.last?.leaf?.tabs.map((t) => t.key)).toEqual([tabA.key]);
+        const root = asSplit(result.current.retrieve.data?.root);
+        expect(leafTabKeys(root?.first)).toEqual([tabB.key]);
+        expect(leafTabKeys(root?.last)).toEqual([tabA.key]);
       });
 
       const fresh = await client.panels.retrieve(created.key);
@@ -381,8 +385,8 @@ describe("Panel queries", () => {
         });
       });
       const root = result.current.retrieve.data?.root;
-      expect(root?.split).toBeUndefined();
-      expect(root?.leaf?.tabs.map((t) => t.key)).toEqual([tab.key]);
+      expect(root?.variant).toEqual("leaf");
+      expect(leafTabKeys(root)).toEqual([tab.key]);
 
       const fresh = await client.panels.retrieve(created.key);
       expect(fresh.root).toEqual(root);
@@ -423,8 +427,8 @@ describe("Panel queries", () => {
       });
       await waitFor(() => {
         const root = result.current.retrieve.data?.root;
-        expect(root?.split).toBeUndefined();
-        expect(root?.leaf?.tabs.map((t) => t.key)).toEqual([tabB.key]);
+        expect(root?.variant).toEqual("leaf");
+        expect(leafTabKeys(root)).toEqual([tabB.key]);
       });
 
       const fresh = await client.panels.retrieve(created.key);
@@ -461,8 +465,9 @@ describe("Panel queries", () => {
         });
       });
       const withResource = panel.findTab(result.current.retrieve.data!.root, tab.key);
-      expect(withResource?.resource?.key).toEqual(plot.key);
-      expect(withResource?.view).toBeUndefined();
+      expect(withResource?.variant).toEqual("resource");
+      if (withResource?.variant === "resource")
+        expect(withResource.resource.key).toEqual(plot.key);
 
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
@@ -476,13 +481,13 @@ describe("Panel queries", () => {
         });
       });
       const withView = panel.findTab(result.current.retrieve.data!.root, tab.key);
-      expect(withView?.view?.type).toEqual("docs");
-      expect(withView?.resource).toBeUndefined();
+      expect(withView?.variant).toEqual("view");
+      if (withView?.variant === "view") expect(withView.view.type).toEqual("docs");
 
       const fresh = await client.panels.retrieve(created.key);
       const freshTab = panel.findTab(fresh.root, tab.key);
-      expect(freshTab?.view?.type).toEqual("docs");
-      expect(freshTab?.resource).toBeUndefined();
+      expect(freshTab?.variant).toEqual("view");
+      if (freshTab?.variant === "view") expect(freshTab.view.type).toEqual("docs");
     });
   });
 
@@ -621,7 +626,7 @@ describe("Panel queries", () => {
         root: Panel.useSelectRoot({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
-      expect(result.current.root.leaf).toBeDefined();
+      expect(result.current.root.variant).toEqual("leaf");
 
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
@@ -629,7 +634,7 @@ describe("Panel queries", () => {
           actions: [panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" })],
         });
       });
-      await waitFor(() => expect(result.current.root.split).toBeDefined());
+      await waitFor(() => expect(result.current.root.variant).toEqual("split"));
     });
 
     it("useSelectRoot keeps a stable reference across a rename", async () => {
@@ -676,7 +681,7 @@ describe("Panel queries", () => {
         { wrapper },
       );
       expect(result.current.key).toEqual(tab.key);
-      expect(result.current.view).toBeUndefined();
+      expect(result.current.variant).toEqual("empty");
 
       await act(async () => {
         await ops.result.current.dispatch.dispatchAsync({
@@ -689,7 +694,11 @@ describe("Panel queries", () => {
           ],
         });
       });
-      await waitFor(() => expect(result.current.view?.type).toEqual("docs"));
+      await waitFor(() => {
+        const current = result.current;
+        expect(current.variant).toEqual("view");
+        if (current.variant === "view") expect(current.view.type).toEqual("docs");
+      });
     });
 
     it("useSelectTab keeps a stable reference when a different tab changes", async () => {
@@ -750,7 +759,7 @@ describe("Panel queries", () => {
       const { result } = await loadAndUse(created.key, () =>
         Panel.useSelectRoot({ key: created.key }),
       );
-      expect(result.current.leaf).toBeDefined();
+      expect(result.current.variant).toEqual("leaf");
 
       const tab = newTab();
       await client.panels.dispatch(created.key, "", [
@@ -762,10 +771,9 @@ describe("Panel queries", () => {
       ]);
 
       await waitFor(() => {
-        expect(result.current.split).toBeDefined();
-        expect(result.current.split?.last?.leaf?.tabs.map((t) => t.key)).toEqual([
-          tab.key,
-        ]);
+        const root = asSplit(result.current);
+        expect(root).toBeDefined();
+        expect(leafTabKeys(root?.last)).toEqual([tab.key]);
       });
     });
 

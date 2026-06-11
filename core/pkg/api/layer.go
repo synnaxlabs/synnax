@@ -102,7 +102,7 @@ type Transport struct {
 	GroupCreate freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
 	GroupDelete freighter.UnaryServer[group.DeleteRequest, types.Nil]
 	GroupRename freighter.UnaryServer[group.RenameRequest, types.Nil]
-	// WORKSPACE
+	// PROJECT
 	ProjectCreate    freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
 	ProjectRetrieve  freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
 	ProjectDelete    freighter.UnaryServer[project.DeleteRequest, types.Nil]
@@ -293,7 +293,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AliasList,
 		t.AliasDelete,
 
-		// WORKSPACE
+		// PROJECT
 		t.ProjectDelete,
 		t.ProjectCreate,
 		t.ProjectRetrieve,
@@ -458,7 +458,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.AliasList.BindHandler(l.Alias.List)
 	t.AliasDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Alias.Delete))
 
-	// WORKSPACE
+	// PROJECT
 	t.ProjectCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Create))
 	t.ProjectDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Project.Delete))
 	t.ProjectRetrieve.BindHandler(l.Project.Retrieve)
@@ -491,10 +491,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Delete))
 
 	// PANEL
-	t.PanelCreate.BindHandler(l.Panel.Create)
+	t.PanelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Create))
 	t.PanelRetrieve.BindHandler(l.Panel.Retrieve)
-	t.PanelDelete.BindHandler(l.Panel.Delete)
-	t.PanelDispatch.BindHandler(l.Panel.Dispatch)
+	t.PanelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Delete))
+	t.PanelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Dispatch))
 
 	// LOG
 	t.LogCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Create))

@@ -18,22 +18,22 @@ const client = createTestClient();
 describe("LinePlot", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
       expect(linePlot.name).toEqual("Line Plot");
       expect(linePlot.key).not.toEqual(uuid.ZERO);
     });
   });
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
       await client.lineplots.rename(linePlot.key, "Line Plot2");
       const res = await client.lineplots.retrieve({ key: linePlot.key });
       expect(res.name).toEqual("Line Plot2");
@@ -41,11 +41,11 @@ describe("LinePlot", () => {
   });
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.projects.create({
+      const proj = await client.projects.create({
         name: "Line Plot",
         layout: { one: 1 },
       });
-      const linePlot = await client.lineplots.create(ws.key, { name: "Line Plot" });
+      const linePlot = await client.lineplots.create(proj.key, { name: "Line Plot" });
       await client.lineplots.delete(linePlot.key);
       await expect(client.lineplots.retrieve({ key: linePlot.key })).rejects.toThrow(
         NotFoundError,

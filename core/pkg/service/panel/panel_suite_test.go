@@ -44,7 +44,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
-		Group:    dist.Group,
 		Search:   dist.Search,
 		Signals:  dist.Signals,
 	}))

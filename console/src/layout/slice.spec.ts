@@ -396,18 +396,21 @@ describe("Layout Slice", () => {
   describe("setProject", () => {
     it("should preserve window-located layouts when applying a project", () => {
       store.dispatch(place(windowLayout("popup-1")));
-      const ws = {
+      const proj = {
         ...ZERO_SLICE_STATE,
-        layouts: { ...ZERO_SLICE_STATE.layouts, "ws-plot": mosaicLayout("ws-plot") },
+        layouts: {
+          ...ZERO_SLICE_STATE.layouts,
+          "proj-plot": mosaicLayout("proj-plot"),
+        },
       };
-      store.dispatch(setProject({ slice: ws }));
+      store.dispatch(setProject({ slice: proj }));
       expect(select(state(), "popup-1")).toBeDefined();
-      expect(select(state(), "ws-plot")).toBeDefined();
+      expect(select(state(), "proj-plot")).toBeDefined();
       expect(select(state(), "main")).toBeDefined();
     });
 
     it("should adopt the project's nav state when keepNav is false", () => {
-      const ws = {
+      const proj = {
         ...ZERO_SLICE_STATE,
         nav: {
           ...ZERO_SLICE_STATE.nav,
@@ -422,7 +425,7 @@ describe("Layout Slice", () => {
           },
         },
       };
-      store.dispatch(setProject({ slice: ws, keepNav: false }));
+      store.dispatch(setProject({ slice: proj, keepNav: false }));
       expect(selectNavDrawer(state(), "left")?.activeItem).toBe("task");
     });
   });

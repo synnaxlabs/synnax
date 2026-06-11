@@ -15,7 +15,7 @@ from x import random_name
 
 
 class Ontology(ConsoleCase):
-    """Test workspace ontology operations: groups, nesting, and drag-to-move."""
+    """Test project ontology operations: groups, nesting, and drag-to-move."""
 
     suffix: str
     page_a: str
@@ -36,22 +36,22 @@ class Ontology(ConsoleCase):
         """Create a mix of page types for grouping tests."""
         self.page_a = f"Ontology Schematic {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
-        self.console.workspace.import_page(json_path, self.page_a)
+        self.console.project.import_page(json_path, self.page_a)
         self.console.layout.close_tab(self.page_a)
 
         self.page_b = f"Ontology Log {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
-        self.console.workspace.import_page(json_path, self.page_b)
+        self.console.project.import_page(json_path, self.page_b)
         self.console.layout.close_tab(self.page_b)
 
         self.page_c = f"Ontology Table {self.suffix}"
-        table = self.console.workspace.create_table(self.page_c)
+        table = self.console.project.create_table(self.page_c)
         self.page_c = table.page_name
         table.close()
 
         self.page_d = f"Ontology Plot {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
-        self.console.workspace.import_page(json_path, self.page_d)
+        self.console.project.import_page(json_path, self.page_d)
         self.console.layout.close_tab(self.page_d)
 
     def run(self) -> None:
@@ -66,25 +66,25 @@ class Ontology(ConsoleCase):
     def test_create_group(self) -> None:
         """Test creating a group from multiple pages via multi-select."""
         self.log("Testing create group")
-        self.console.workspace.group_pages(
+        self.console.project.group_pages(
             names=[self.page_a, self.page_b],
             group_name=self.group_a,
         )
-        assert self.console.workspace.page_exists(self.group_a), (
+        assert self.console.project.page_exists(self.group_a), (
             f"Group '{self.group_a}' should exist after creation"
         )
 
     def test_move_page_to_group(self) -> None:
         """Test moving a page into a group via drag-and-drop."""
         self.log("Testing move page to group")
-        self.console.workspace.move_to_group(self.page_c, self.group_a)
+        self.console.project.move_to_group(self.page_c, self.group_a)
 
-        self.console.workspace.expand_active()
-        group_item = self.console.workspace.get_page(self.group_a)
-        if not self.console.workspace.tree.is_expanded(group_item):
-            self.console.workspace.tree.expand(group_item)
+        self.console.project.expand_active()
+        group_item = self.console.project.get_page(self.group_a)
+        if not self.console.project.tree.is_expanded(group_item):
+            self.console.project.tree.expand(group_item)
 
-        page_item = self.console.workspace.get_page(self.page_c)
+        page_item = self.console.project.get_page(self.page_c)
         assert page_item.is_visible(), (
             f"Page '{self.page_c}' should be visible inside '{self.group_a}'"
         )
@@ -94,10 +94,10 @@ class Ontology(ConsoleCase):
         """Test renaming a group via context menu."""
         self.log("Testing rename group")
         new_name = f"Renamed Group {self.suffix}"
-        self.console.workspace.rename_group(self.group_a, new_name)
+        self.console.project.rename_group(self.group_a, new_name)
         self.group_a = new_name
 
-        assert self.console.workspace.page_exists(self.group_a), (
+        assert self.console.project.page_exists(self.group_a), (
             f"Renamed group '{self.group_a}' should exist"
         )
 
@@ -106,22 +106,22 @@ class Ontology(ConsoleCase):
         self.log("Testing create nested group")
 
         # Pages are inside group_a, so expand it before grouping.
-        self.console.workspace.expand_active()
-        group_item = self.console.workspace.get_page(self.group_a)
-        if not self.console.workspace.tree.is_expanded(group_item):
-            self.console.workspace.tree.expand(group_item)
+        self.console.project.expand_active()
+        group_item = self.console.project.get_page(self.group_a)
+        if not self.console.project.tree.is_expanded(group_item):
+            self.console.project.tree.expand(group_item)
 
-        items = [self.console.workspace.get_page(n) for n in [self.page_a, self.page_b]]
-        self.console.workspace.tree.group(items, self.group_b)
+        items = [self.console.project.get_page(n) for n in [self.page_a, self.page_b]]
+        self.console.project.tree.group(items, self.group_b)
         self.console.layout.close_left_toolbar()
 
         # group_b was created inside group_a. Expand both to verify.
-        self.console.workspace.expand_active()
-        group_item = self.console.workspace.get_page(self.group_a)
-        if not self.console.workspace.tree.is_expanded(group_item):
-            self.console.workspace.tree.expand(group_item)
+        self.console.project.expand_active()
+        group_item = self.console.project.get_page(self.group_a)
+        if not self.console.project.tree.is_expanded(group_item):
+            self.console.project.tree.expand(group_item)
 
-        nested = self.console.workspace.get_page(self.group_b)
+        nested = self.console.project.get_page(self.group_b)
         assert nested.is_visible(), (
             f"Nested group '{self.group_b}' should be visible inside '{self.group_a}'"
         )
@@ -130,7 +130,7 @@ class Ontology(ConsoleCase):
     def test_delete_groups(self) -> None:
         """Test deleting groups via context menu."""
         self.log("Testing delete groups")
-        self.console.workspace.delete_pages(
+        self.console.project.delete_pages(
             [self.page_a, self.page_b, self.page_c, self.page_d],
         )
         self._pages_deleted = True
@@ -138,7 +138,7 @@ class Ontology(ConsoleCase):
     def teardown(self) -> None:
         if not self._pages_deleted:
             try:
-                self.console.workspace.delete_pages(
+                self.console.project.delete_pages(
                     [self.page_a, self.page_b, self.page_c, self.page_d],
                 )
             except PlaywrightTimeoutError:

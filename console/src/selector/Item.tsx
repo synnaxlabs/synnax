@@ -50,7 +50,7 @@ export const createSimpleItem = ({
           view: {
             type: layout.type,
             name: layout.name,
-            args: layout.args as panel.TabView["args"],
+            args: layout.args as panel.View["args"],
           },
         });
       else onPlace(layout);

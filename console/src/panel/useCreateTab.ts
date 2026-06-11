@@ -40,7 +40,7 @@ export const useCreateEmptyTab = (): (() => boolean) => {
       (activeTab != null ? panel.tabLeafPath(cached.root, activeTab) : null) ??
       panel.firstLeafPath(cached.root) ??
       panel.ROOT_PATH;
-    const tab: panel.Tab = { key: uuid.create() };
+    const tab: panel.Tab = { key: uuid.create(), variant: "empty" };
     dispatch({ key: panelKey, actions: [panel.insertTab({ tab, targetLeaf })] });
     reduxDispatch(setActiveTab({ windowKey, key: tab.key }));
     return true;
@@ -62,7 +62,7 @@ export const useCreatePanel = (): (() => void) => {
       ({ data }: Flux.AfterSuccessParams<panel.Panel>) => {
         if (windowKey == null) return;
         reduxDispatch(setActivePanel({ windowKey, key: data.key }));
-        const tab: panel.Tab = { key: uuid.create() };
+        const tab: panel.Tab = { key: uuid.create(), variant: "empty" };
         dispatch({
           key: data.key,
           actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_PATH })],

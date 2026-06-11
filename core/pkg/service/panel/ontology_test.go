@@ -63,8 +63,8 @@ var _ = Describe("Ontology", func() {
 		})
 
 		It("Should retrieve a panel as an ontology resource", func(ctx SpecContext) {
-			p := panel.Panel{Name: "resource"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "resource", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
 			Expect(res.ID).To(Equal(panel.OntologyID(p.Key)))
 			Expect(res.Name).To(Equal("resource"))
@@ -85,8 +85,8 @@ var _ = Describe("Ontology", func() {
 				defer mu.Unlock()
 				changes = append(changes, slices.Collect(seq)...)
 			}))
-			p := panel.Panel{Name: "observed"}
-			Expect(svc.NewWriter(nil).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "observed", Parent: &parentID}
+			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) { Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed()) })
 			Eventually(func(g Gomega) {
 				mu.Lock()
@@ -100,8 +100,8 @@ var _ = Describe("Ontology", func() {
 		})
 
 		It("Should iterate existing panels via OpenNexter", func(ctx SpecContext) {
-			p := panel.Panel{Name: "nexted"}
-			Expect(svc.NewWriter(nil).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "nexted", Parent: &parentID}
+			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) { Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed()) })
 			next, closer := MustSucceed2(svc.OpenNexter(ctx))
 			defer func() { Expect(closer.Close()).To(Succeed()) }()

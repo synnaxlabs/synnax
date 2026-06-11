@@ -15,7 +15,7 @@ import { createContext, use } from "react";
 // ontology-backed resource (for visualizations) or an inline view (for arg-driven
 // views such as task forms). The hosting panel routes these to SetTabResource /
 // SetTabView respectively.
-export type ResolvedContent = { resource: ontology.ID } | { view: panel.TabView };
+export type ResolvedContent = { resource: ontology.ID } | { view: panel.View };
 
 // RendererView is a renderer's connection to the host that mounts it: the hosting
 // panel tab (name and opaque args live on the tab, written back through the panel

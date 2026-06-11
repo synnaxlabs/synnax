@@ -16,7 +16,7 @@ export const purgeExcludedLayouts = (
 ): Layout.SliceState => {
   const copy = deep.copy(sliceState);
   Object.entries(copy.layouts).forEach(([key, layout]) => {
-    if (layout.excludeFromWorkspace == true || layout.location === "modal")
+    if (layout.excludeFromProject == true || layout.location === "modal")
       delete copy.layouts[key];
   });
   return copy;

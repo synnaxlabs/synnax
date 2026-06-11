@@ -19,10 +19,10 @@ import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/panel/pb";
 
-// TabView is a self-describing, inline view displayed by a tab. Unlike a resource, a
-// view has no backing core document: it carries its own type and opaque args. Used for
+// View is a self-describing, inline view displayed by a tab. Unlike a resource, a view
+// has no backing core document: it carries its own type and opaque args. Used for
 // app-views and tools (docs, explorers, about, the visualization picker).
-message TabView {
+message View {
   // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
   // a renderer.
   string type = 1;
@@ -35,25 +35,33 @@ message TabView {
   google.protobuf.Struct args = 3;
 }
 
-// Tab is a single tab in a leaf. Tab content is a union: either a resource (a backing
-// core document, e.g. a line plot) or a view (an inline, self-describing app-view, e.g.
-// docs). Exactly one of resource or view is set; when both are null the tab renders the
-// visualization selector. Display attributes (name, icon, closability) are resolved at
-// render time from the content. The same content may be referenced by multiple tabs in
-// the same or other panels.
-message Tab {
+// ResourceTab is a tab displaying a backing core document.
+message ResourceTab {
   // key is the stable unique identifier of this tab within the panel. It is independent
   // of the tab's content, so a tab's content may be swapped without changing the tab's
   // identity or position.
   string key = 1;
   // resource is the visualization resource displayed by this tab, set via SetTabResource.
-  // Exactly one of resource or view is set; when both are null the tab renders the
-  // visualization selector at render time. Setting one clears the other.
-  optional .distribution.ontology.pb.ID resource = 2;
-  // view is the inline view displayed by this tab, set via SetTabView. Exactly one of
-  // resource or view is set; when both are null the tab renders the visualization
-  // selector at render time. Setting one clears the other.
-  optional TabView view = 3;
+  .distribution.ontology.pb.ID resource = 2;
+}
+
+// ViewTab is a tab displaying an inline, self-describing view.
+message ViewTab {
+  // key is the stable unique identifier of this tab within the panel. It is independent
+  // of the tab's content, so a tab's content may be swapped without changing the tab's
+  // identity or position.
+  string key = 1;
+  // view is the inline view displayed by this tab, set via SetTabView.
+  View view = 2;
+}
+
+// EmptyTab is a tab with no content yet. An empty tab renders the visualization
+// selector at render time; SetTabResource or SetTabView fills it in place.
+message EmptyTab {
+  // key is the stable unique identifier of this tab within the panel. It is independent
+  // of the tab's content, so a tab's content may be swapped without changing the tab's
+  // identity or position.
+  string key = 1;
 }
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.
@@ -69,22 +77,10 @@ message Split {
   // size is the fraction in [0, 1] of the parent area allocated to first. The remainder
   // is allocated to last.
   double size = 2;
-  // first is the first child (left for x, top for y). Always present at runtime;
-  // double-optional only for Go pointer indirection over the recursive type.
-  optional Node first = 3;
-  // last is the second child (right for x, bottom for y). Always present at runtime;
-  // double-optional only for Go pointer indirection over the recursive type.
-  optional Node last = 4;
-}
-
-// Node is a node in the panel tree. Exactly one of leaf or split is set (the other is
-// null); nodes are identified by path-derived numeric keys during traversal (1 = root,
-// 2k = first child, 2k+1 = last child).
-message Node {
-  // leaf is set when this node is a leaf.
-  optional Leaf leaf = 1;
-  // split is set when this node is a split.
-  optional Split split = 2;
+  // first is the first child (left for x, top for y).
+  Node first = 3;
+  // last is the second child (right for x, bottom for y).
+  Node last = 4;
 }
 
 // Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
@@ -97,4 +93,32 @@ message Panel {
   string name = 2;
   // root is the root of the panel tree.
   Node root = 3;
+  // parent is an optional parent resource for the panel in the ontology. When absent on
+  // create, the panel is parented to the creating user as a draft. Parenthood lives in
+  // the ontology graph, so the field is not persisted on the panel record and is absent
+  // on retrieve.
+  optional .distribution.ontology.pb.ID parent = 4;
+}
+
+// Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
+// backing core document, e.g. a line plot), a view (an inline, self-describing
+// app-view, e.g. docs), or empty (the visualization selector). Display attributes
+// (name, icon, closability) are resolved at render time from the content. The same
+// content may be referenced by multiple tabs in the same or other panels.
+message Tab {
+  oneof variant {
+    ResourceTab resource = 1;
+    ViewTab view = 2;
+    EmptyTab empty = 3;
+  }
+}
+
+// Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
+// split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
+// 2k = first child, 2k+1 = last child).
+message Node {
+  oneof variant {
+    Leaf leaf = 1;
+    Split split = 2;
+  }
 }
