@@ -57,13 +57,12 @@ type Ontology struct {
 	relIndexes           relationshipIndexes
 }
 
-// relationshipIndexes bundles the secondary indexes registered on the
-// relationship table. relByTo answers "given an ID, which relationships
-// point at it" in O(1), which is the lookup that ParentsTraverser would
-// otherwise serve via a full pebble scan. relByFrom is the symmetric
-// from-keyed index used by ChildrenTraverser; it duplicates work that the
-// from-prefix scan already does cheaply, but having both directions in the
-// index lets the traverse dispatcher pick the index uniformly without
+// relationshipIndexes bundles the secondary indexes registered on the relationship
+// table. relByTo answers "given an ID, which relationships point at it" in O(1), which
+// is the lookup that ParentsTraverser would otherwise serve via a full pebble scan.
+// relByFrom is the symmetric from-keyed index used by ChildrenTraverser; it duplicates
+// work that the from-prefix scan already does cheaply, but having both directions in
+// the index lets the traverse dispatcher pick the index uniformly without
 // special-casing direction.
 type relationshipIndexes struct {
 	byTo   *gorp.LookupIndex[string, Relationship, ID]
@@ -72,11 +71,11 @@ type relationshipIndexes struct {
 
 func newRelationshipIndexes() relationshipIndexes {
 	return relationshipIndexes{
-		byTo: gorp.NewLookupIndex[string, Relationship, ID](
+		byTo: gorp.NewLookupIndex(
 			"relationship_by_to",
 			func(r *Relationship) ID { return r.To },
 		),
-		byFrom: gorp.NewLookupIndex[string, Relationship, ID](
+		byFrom: gorp.NewLookupIndex(
 			"relationship_by_from",
 			func(r *Relationship) ID { return r.From },
 		),
@@ -92,10 +91,7 @@ type Config struct {
 	alamos.Instrumentation
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 // Validate implements config.Config.
 func (c Config) Validate() error {
@@ -114,7 +110,7 @@ func (c Config) Override(other Config) Config {
 // Open opens the ontology using the given configuration. If the RootID resource does
 // not exist, it will be created.
 func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(Config{}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -159,31 +155,24 @@ func Open(ctx context.Context, configs ...Config) (o *Ontology, err error) {
 
 // Writer defines and deletes resources within the ontology.
 type Writer interface {
-	// DefineResource defines a new resource with the given ID. If the resource already
-	// exists, DefineResource does nothing.
-	DefineResource(context.Context, ID) error
+	// DefineResource defines one or more new resources with the given IDs. If any of
+	// the resources already exist, DefineResource does nothing for those. Returns nil
+	// if no IDs are provided.
+	DefineResource(context.Context, ...ID) error
 	// HasResource returns true if the resource with the given ID exists.
 	HasResource(context.Context, ID) (bool, error)
-	// DefineManyResources defines multiple resources with the given IDs. If any of the
-	// resources already exist, DefineManyResources does nothing.
-	DefineManyResources(context.Context, []ID) error
-	// DeleteResource deletes the resource with the given ID along with all of its
-	// incoming and outgoing relationships.  If the resource does not exist,
-	// DeleteResource does nothing.
-	DeleteResource(context.Context, ID) error
-	// DeleteManyResources deletes multiple resources with the given IDs along with all
-	// of their incoming and outgoing relationships. If any of the resources do not
-	// exist, DeleteManyResources does nothing.
-	DeleteManyResources(context.Context, []ID) error
+	// DeleteResource deletes one or more resources with the given IDs along with all of
+	// their incoming and outgoing relationships. If any of the resources do not exist,
+	// DeleteResource does nothing for those. Returns nil if no IDs are provided.
+	DeleteResource(context.Context, ...ID) error
 	HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error)
-	// DefineRelationship defines a directional relationship of type t between the
-	// resources with the given keys. If the relationship already exists,
-	// DefineRelationship does nothing.
-	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
-	// DefineFromOneToManyRelationships defines a directional relationship of type t
-	// from the resource with the given ID to multiple resources. If any of the
-	// relationships already exist, DefineFromOneToManyRelationships does nothing.
-	DefineFromOneToManyRelationships(ctx context.Context, from ID, t RelationshipType, to []ID) error
+	// DefineRelationship defines a directional relationship of type t from the resource
+	// with the given from ID to one or more to IDs. Already-existing relationships are
+	// silently skipped. Returns graph.ErrCyclicDependency if any of the new
+	// relationships would create a cycle (including the case where the
+	// reverse-direction relationship already exists). Returns nil if no to IDs are
+	// provided.
+	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ...ID) error
 	// DeleteRelationship deletes the relationship with the given keys and type. If the
 	// relationship does not exist, DeleteRelationship does nothing.
 	DeleteRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
@@ -191,12 +180,12 @@ type Writer interface {
 	// types from the resource with the given ID. If the resource does not exist, or if
 	// it has no outgoing relationships of the given types,
 	// DeleteOutgoingRelationshipsOfTypes does nothing.
-	DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, relationshipType RelationshipType) error
+	DeleteOutgoingRelationshipsOfType(context.Context, ID, RelationshipType) error
 	// DeleteIncomingRelationshipsOfType deletes all incoming relationships of the given
 	// types to the resource with the given ID. If the resource does not exist, or if it
 	// has no incoming relationships of the given types,
 	// DeleteIncomingRelationshipsOfTypes does nothing.
-	DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, relationshipType RelationshipType) error
+	DeleteIncomingRelationshipsOfType(context.Context, ID, RelationshipType) error
 	// NewRetrieve opens a new Retrieve query that provides a view of pending operations
 	// merged with the underlying database. If the Writer is executing directly against
 	// the underlying database, the Retrieve query behaves exactly as if calling

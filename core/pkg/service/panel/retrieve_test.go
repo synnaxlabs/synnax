@@ -23,19 +23,22 @@ var _ = Describe("Retrieve", func() {
 	createN := func(ctx context.Context, n int) []panel.Key {
 		keys := make([]panel.Key, n)
 		for i := range keys {
-			p := panel.Panel{Name: "test", Root: leafNode()}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "test", Root: leafNode(), Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			keys[i] = p.Key
 		}
 		return keys
 	}
 
 	It("Should retrieve a panel by key with its full tree intact", func(ctx SpecContext) {
-		p := panel.Panel{Name: "test", Root: leafNode(tab(uuid.New()))}
-		Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+		p := panel.Panel{Name: "test", Root: leafNode(tab(uuid.New())), Parent: &parentID}
+		Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		var res panel.Panel
 		Expect(svc.NewRetrieve().Where(panel.MatchKeys(p.Key)).Entry(&res).Exec(ctx, tx)).
 			To(Succeed())
+		// Parent lives in the ontology graph, not on the record, so it is absent
+		// on retrieve.
+		p.Parent = nil
 		Expect(res).To(Equal(p))
 	})
 

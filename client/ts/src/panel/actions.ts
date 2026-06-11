@@ -11,7 +11,6 @@ import { type spatial } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import {
-  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
@@ -155,6 +154,7 @@ const handlers: Handlers = {
     const idx = payload.index ?? leaf.tabs.length;
     if (idx < 0 || idx > leaf.tabs.length) return NO_OP;
     leaf.tabs.splice(idx, 0, payload.tab);
+    collapseEmptyLeaves(state);
     return { inverse: [], targets: [payload.tab.key] };
   },
 
@@ -232,10 +232,3 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
-
-// All current panel actions are eligible for the undo stack from the substrate's
-// perspective. Inverse vectors are returned empty for Phase 1 so the substrate
-// records targets and remote-touched timestamps correctly without effecting
-// undoable replay; richer inverses follow once tree-collapse round-tripping is
-// implemented.
-export const isUndoable = (_action: Action): boolean => true;

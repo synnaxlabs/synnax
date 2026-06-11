@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
 import { type Action, dispatchReqZ, rename as renameAction } from "@/panel/actions.gen";
 import { type Key, keyZ, type New, newZ, type Panel, panelZ } from "@/panel/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -23,10 +22,7 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
 });
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-const createReqZ = z.object({
-  parent: ontology.idZ.optional(),
-  panels: newZ.array(),
-});
+const createReqZ = z.object({ panels: newZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveResZ = z.object({ panels: array.nullishToEmpty(panelZ) });
@@ -43,13 +39,13 @@ export class Client {
     this.client = client;
   }
 
-  async create(panel: New, parent?: ontology.ID): Promise<Panel>;
-  async create(panels: New[], parent?: ontology.ID): Promise<Panel[]>;
-  async create(panels: New | New[], parent?: ontology.ID): Promise<Panel | Panel[]> {
+  async create(panel: New): Promise<Panel>;
+  async create(panels: New[]): Promise<Panel[]>;
+  async create(panels: New | New[]): Promise<Panel | Panel[]> {
     const isMany = Array.isArray(panels);
     const res = await this.client.send(
       "/panel/create",
-      { parent, panels: array.toArray(panels) },
+      { panels: array.toArray(panels) },
       createReqZ,
       createResZ,
     );

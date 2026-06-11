@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location } from "@synnaxlabs/x";
+import { type location, type spatial } from "@synnaxlabs/x";
 
 import { type Node, type Tab } from "@/panel/types.gen";
 
@@ -19,7 +19,7 @@ import { type Node, type Tab } from "@/panel/types.gen";
 export const ROOT_PATH = 1;
 
 /** childPath returns the path key of a split's child on the given side. */
-export const childPath = (pathKey: number, side: "first" | "last"): number =>
+export const childPath = (pathKey: number, side: spatial.Order): number =>
   side === "first" ? pathKey * 2 : pathKey * 2 + 1;
 
 /**
@@ -27,7 +27,7 @@ export const childPath = (pathKey: number, side: "first" | "last"): number =>
  * split at the given location: "first" for left/top, "last" otherwise. The
  * convention is shared by SplitLeaf and location-bearing InsertTab/MoveTab.
  */
-export const splitSide = (loc: location.Outer): "first" | "last" =>
+export const splitSide = (loc: location.Outer): spatial.Order =>
   loc === "left" || loc === "top" ? "first" : "last";
 
 const pathDirections = (pathKey: number): boolean[] => {

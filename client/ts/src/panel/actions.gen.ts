@@ -82,7 +82,7 @@ export type MoveTabPayload = z.infer<typeof moveTabPayloadZ>;
 export const splitLeafPayloadZ = z.object({
   leaf: z.int32(),
   location: spatial.locationZ,
-  size: z.number().optional(),
+  size: z.number().min(0).max(1).optional(),
 });
 
 export type SplitLeafPayload = z.infer<typeof splitLeafPayloadZ>;
@@ -90,7 +90,7 @@ export type SplitLeafPayload = z.infer<typeof splitLeafPayloadZ>;
 /** ResizeSplit adjusts the size ratio of a split node. size in [0, 1]. */
 export const resizeSplitPayloadZ = z.object({
   split: z.int32(),
-  size: z.number(),
+  size: z.number().min(0).max(1),
 });
 
 export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;

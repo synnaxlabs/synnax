@@ -78,7 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	apiSvc = &Service{db: db, access: rbacSvc, internal: panelSvc}
+	apiSvc = &Service{access: rbacSvc, internal: panelSvc}
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
 	parentID = MustSucceed(groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID)).
 		OntologyID()
