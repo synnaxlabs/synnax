@@ -32,6 +32,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -115,16 +116,19 @@ const RESIZE_CONTROLS: {
   position: ControlLinePosition | ControlPosition;
   variant?: ResizeControlVariant;
   keepAspectRatio?: boolean;
+  cursor: "ns-resize" | "ew-resize" | "nwse-resize" | "nesw-resize";
 }[] = [
-  { position: "top", variant: ResizeControlVariant.Line },
-  { position: "right", variant: ResizeControlVariant.Line },
-  { position: "bottom", variant: ResizeControlVariant.Line },
-  { position: "left", variant: ResizeControlVariant.Line },
-  { position: "top-left", keepAspectRatio: true },
-  { position: "top-right", keepAspectRatio: true },
-  { position: "bottom-left", keepAspectRatio: true },
-  { position: "bottom-right", keepAspectRatio: true },
+  { position: "top", variant: ResizeControlVariant.Line, cursor: "ns-resize" },
+  { position: "right", variant: ResizeControlVariant.Line, cursor: "ew-resize" },
+  { position: "bottom", variant: ResizeControlVariant.Line, cursor: "ns-resize" },
+  { position: "left", variant: ResizeControlVariant.Line, cursor: "ew-resize" },
+  { position: "top-left", keepAspectRatio: true, cursor: "nwse-resize" },
+  { position: "top-right", keepAspectRatio: true, cursor: "nesw-resize" },
+  { position: "bottom-left", keepAspectRatio: true, cursor: "nesw-resize" },
+  { position: "bottom-right", keepAspectRatio: true, cursor: "nwse-resize" },
 ];
+
+const RESIZE_OVERLAY_CLASS = CSS.B("resize-overlay");
 
 const reflowPane = (nodeKey: string) => {
   const node = selectNode(nodeKey);
@@ -236,20 +240,25 @@ export const Grid: FC<GridProps> = ({
     reflowPane(nodeKey);
     prevEditable.current = editable;
   }
+  const [resizeCursor, setResizeCursor] = useState<string | null>(null);
   const { items, body } = splitChildren(children);
   const handleRotate = () =>
     onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
   const resizeControls = useMemo(() => {
     if (!editable || onResize == null) return null;
-    return RESIZE_CONTROLS.map(({ position, variant, keepAspectRatio: corner }) => (
-      <NodeResizeControl
-        key={position}
-        position={position}
-        variant={variant}
-        keepAspectRatio={keepAspectRatio || corner}
-        onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
-      />
-    ));
+    return RESIZE_CONTROLS.map(
+      ({ position, variant, keepAspectRatio: corner, cursor }) => (
+        <NodeResizeControl
+          key={position}
+          position={position}
+          variant={variant}
+          keepAspectRatio={keepAspectRatio || corner}
+          onResizeStart={() => setResizeCursor(cursor)}
+          onResizeEnd={() => setResizeCursor(null)}
+          onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
+        />
+      ),
+    );
   }, [editable, onResize, keepAspectRatio]);
   return (
     <>
@@ -283,6 +292,11 @@ export const Grid: FC<GridProps> = ({
         </Button.Button>
       )}
       {resizeControls}
+      {resizeCursor != null &&
+        createPortal(
+          <div className={RESIZE_OVERLAY_CLASS} style={{ cursor: resizeCursor }} />,
+          document.body,
+        )}
       <div className={DRAG_HANDLE_CLASS}>{body}</div>
     </>
   );

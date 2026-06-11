@@ -46,6 +46,16 @@ describe("nodeChangesToActions", () => {
     ]);
   });
 
+  it("drops a dimensions change that originates from an active resize drag", () => {
+    const change: Base.NodeChange = {
+      type: "dimensions",
+      key: "n1",
+      dimensions: { width: 80, height: 40 },
+      resizing: true,
+    };
+    expect(nodeChangesToActions([change])).toEqual([]);
+  });
+
   it("translates a remove change to a removeNode action", () => {
     const change: Base.NodeChange = { type: "remove", key: "n1" };
     expect(nodeChangesToActions([change])).toEqual([
