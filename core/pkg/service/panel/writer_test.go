@@ -33,14 +33,14 @@ var _ = Describe("Writer", func() {
 
 	Describe("Create", func() {
 		It("Should assign a key when the panel's key is nil", func(ctx SpecContext) {
-			p := panel.Panel{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "test", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
 		})
 
 		It("Should default a freshly created panel to a single empty leaf", func(ctx SpecContext) {
-			p := panel.Panel{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "test", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := retrieve(ctx, p.Key)
 			leaf := MustBeOk(asLeaf(res.Root))
 			Expect(leaf.Tabs).To(BeEmpty())
@@ -48,8 +48,8 @@ var _ = Describe("Writer", func() {
 
 		It("Should preserve a caller-provided tree", func(ctx SpecContext) {
 			key := uuid.New()
-			p := panel.Panel{Name: "test", Root: leafNode(tab(key))}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "test", Root: leafNode(tab(key)), Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			res := retrieve(ctx, p.Key)
 			leaf := MustBeOk(asLeaf(res.Root))
 			Expect(leaf.Tabs).To(HaveLen(1))
@@ -58,8 +58,8 @@ var _ = Describe("Writer", func() {
 
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
 			func(ctx SpecContext, root func() panel.Node, expected error) {
-				p := panel.Panel{Name: "invalid", Root: root()}
-				Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).
+				p := panel.Panel{Name: "invalid", Root: root(), Parent: &parentID}
+				Expect(svc.NewWriter(tx).Create(ctx, &p)).
 					To(MatchError(expected))
 			},
 			Entry("duplicate tab keys", func() panel.Node {
@@ -78,8 +78,8 @@ var _ = Describe("Writer", func() {
 		)
 
 		It("Should register the panel as an ontology resource", func(ctx SpecContext) {
-			p := panel.Panel{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "test", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			var resource ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(panel.OntologyID(p.Key)).
@@ -91,8 +91,8 @@ var _ = Describe("Writer", func() {
 
 		It("Should parent the panel to the root Panels group", func(ctx SpecContext) {
 			group := MustSucceed(dist.Group.CreateOrRetrieve(ctx, "Panels", ontology.RootID))
-			p := panel.Panel{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "test", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(otg.NewWriter(tx).HasRelationship(
 				ctx,
 				group.OntologyID(),
@@ -102,8 +102,8 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should parent the panel to the provided parent", func(ctx SpecContext) {
-			p := panel.Panel{Name: "with-parent"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "with-parent", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(otg.NewWriter(tx).HasRelationship(
 				ctx,
 				parentID,
@@ -112,9 +112,9 @@ var _ = Describe("Writer", func() {
 			)).To(BeTrue())
 		})
 
-		It("Should create a draft with no parent relationship when parent is zero", func(ctx SpecContext) {
+		It("Should create a panel with no parent relationship when parent is absent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "draft"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, ontology.ID{})).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(otg.NewWriter(tx).HasRelationship(
 				ctx,
 				parentID,
@@ -123,9 +123,9 @@ var _ = Describe("Writer", func() {
 			)).To(BeFalse())
 		})
 
-		It("Should still register the resource when parent is zero", func(ctx SpecContext) {
+		It("Should still register the resource when parent is absent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "draft"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, ontology.ID{})).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(otg.NewRetrieve().
 				WhereIDs(panel.OntologyID(p.Key)).
 				Entry(&ontology.Resource{}).
@@ -134,36 +134,36 @@ var _ = Describe("Writer", func() {
 
 		It("Should update an existing panel when called with an existing key", func(ctx SpecContext) {
 			key := uuid.New()
-			first := panel.Panel{Key: key, Name: "first"}
-			Expect(svc.NewWriter(tx).Create(ctx, &first, parentID)).To(Succeed())
-			second := panel.Panel{Key: key, Name: "second"}
-			Expect(svc.NewWriter(tx).Create(ctx, &second, parentID)).To(Succeed())
+			first := panel.Panel{Key: key, Name: "first", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
+			second := panel.Panel{Key: key, Name: "second", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
 			Expect(retrieve(ctx, key).Name).To(Equal("second"))
 		})
 	})
 
 	Describe("Delete", func() {
 		It("Should delete a panel so it is no longer retrievable", func(ctx SpecContext) {
-			p := panel.Panel{Name: "to-delete"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "to-delete", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, p.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().Where(panel.MatchKeys(p.Key)).Entry(&panel.Panel{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should remove the panel's ontology resource", func(ctx SpecContext) {
-			p := panel.Panel{Name: "to-delete"}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "to-delete", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, p.Key)).To(Succeed())
 			Expect(otg.NewRetrieve().WhereIDs(panel.OntologyID(p.Key)).
 				Entry(&ontology.Resource{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple panels in one call", func(ctx SpecContext) {
-			a := panel.Panel{Name: "a"}
-			b := panel.Panel{Name: "b"}
-			Expect(svc.NewWriter(tx).Create(ctx, &a, parentID)).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &b, parentID)).To(Succeed())
+			a := panel.Panel{Name: "a", Parent: &parentID}
+			b := panel.Panel{Name: "b", Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key, b.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().Where(panel.MatchKeys(a.Key, b.Key)).
 				Entries(&[]panel.Panel{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
@@ -172,8 +172,8 @@ var _ = Describe("Writer", func() {
 
 	Describe("Dispatch", func() {
 		create := func(ctx context.Context, root panel.Node) panel.Key {
-			p := panel.Panel{Name: "test", Root: root}
-			Expect(svc.NewWriter(tx).Create(ctx, &p, parentID)).To(Succeed())
+			p := panel.Panel{Name: "test", Root: root, Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			return p.Key
 		}
 

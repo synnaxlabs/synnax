@@ -27,8 +27,8 @@ import (
 // with its key populated. Writes commit immediately (nil tx) so the api enforcer
 // can observe the new ontology resource.
 func createPanel(ctx context.Context, name string) panel.Panel {
-	p := panel.Panel{Name: name}
-	Expect(panelSvc.NewWriter(nil).Create(ctx, &p, parentID)).To(Succeed())
+	p := panel.Panel{Name: name, Parent: &parentID}
+	Expect(panelSvc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 	return p
 }
 
@@ -52,11 +52,10 @@ var _ = Describe("api.Service.Create", func() {
 
 	It("Should create the panels under the provided parent", func(ctx SpecContext) {
 		u := newUser(ctx)
-		p := panel.Panel{Key: uuid.New(), Name: "with-parent"}
+		p := panel.Panel{Key: uuid.New(), Name: "with-parent", Parent: &parentID}
 		grant(ctx, user.OntologyID(u.Key), access.ActionCreate,
 			ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
 		res := MustSucceed(apiSvc.Create(authedCtx(ctx, u), nil, CreateRequest{
-			Parent: parentID,
 			Panels: []panel.Panel{p},
 		}))
 		Expect(res.Panels).To(HaveLen(1))

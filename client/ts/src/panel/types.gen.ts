@@ -172,6 +172,14 @@ export const panelZ = z.object({
   get root(): z.ZodType<Node> {
     return nodeZ;
   },
+  /**
+   * parent is an optional parent resource for the panel in the ontology.
+   * When absent on create, the panel is parented to the creating
+   * user as a draft. Parenthood lives in the ontology graph, so the
+   * field is not persisted on the panel record and is absent on
+   * retrieve.
+   */
+  parent: ontology.idZ.optional(),
 });
 export interface Panel extends z.infer<typeof panelZ> {}
 

@@ -398,7 +398,12 @@ type Panel struct {
 	// name is a human-readable name for the panel.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// root is the root of the panel tree.
-	Root          *Node `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
+	Root *Node `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
+	// parent is an optional parent resource for the panel in the ontology. When absent on
+	// create, the panel is parented to the creating user as a draft. Parenthood lives in
+	// the ontology graph, so the field is not persisted on the panel record and is absent
+	// on retrieve.
+	Parent        *pb.ID `protobuf:"bytes,4,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -450,6 +455,13 @@ func (x *Panel) GetName() string {
 func (x *Panel) GetRoot() *Node {
 	if x != nil {
 		return x.Root
+	}
+	return nil
+}
+
+func (x *Panel) GetParent() *pb.ID {
+	if x != nil {
+		return x.Parent
 	}
 	return nil
 }
@@ -665,11 +677,13 @@ const file_core_pkg_service_panel_pb_panel_proto_rawDesc = "" +
 	"\tdirection\x18\x01 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x01R\x04size\x12,\n" +
 	"\x05first\x18\x03 \x01(\v2\x16.service.panel.pb.NodeR\x05first\x12*\n" +
-	"\x04last\x18\x04 \x01(\v2\x16.service.panel.pb.NodeR\x04last\"Y\n" +
+	"\x04last\x18\x04 \x01(\v2\x16.service.panel.pb.NodeR\x04last\"\x9f\x01\n" +
 	"\x05Panel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12*\n" +
-	"\x04root\x18\x03 \x01(\v2\x16.service.panel.pb.NodeR\x04root\"\xb2\x01\n" +
+	"\x04root\x18\x03 \x01(\v2\x16.service.panel.pb.NodeR\x04root\x129\n" +
+	"\x06parent\x18\x04 \x01(\v2\x1c.distribution.ontology.pb.IDH\x00R\x06parent\x88\x01\x01B\t\n" +
+	"\a_parent\"\xb2\x01\n" +
 	"\x03Tab\x12;\n" +
 	"\bresource\x18\x01 \x01(\v2\x1d.service.panel.pb.ResourceTabH\x00R\bresource\x12/\n" +
 	"\x04view\x18\x02 \x01(\v2\x19.service.panel.pb.ViewTabH\x00R\x04view\x122\n" +
@@ -718,16 +732,17 @@ var file_core_pkg_service_panel_pb_panel_proto_depIdxs = []int32{
 	8,  // 5: service.panel.pb.Split.first:type_name -> service.panel.pb.Node
 	8,  // 6: service.panel.pb.Split.last:type_name -> service.panel.pb.Node
 	8,  // 7: service.panel.pb.Panel.root:type_name -> service.panel.pb.Node
-	1,  // 8: service.panel.pb.Tab.resource:type_name -> service.panel.pb.ResourceTab
-	2,  // 9: service.panel.pb.Tab.view:type_name -> service.panel.pb.ViewTab
-	3,  // 10: service.panel.pb.Tab.empty:type_name -> service.panel.pb.EmptyTab
-	4,  // 11: service.panel.pb.Node.leaf:type_name -> service.panel.pb.Leaf
-	5,  // 12: service.panel.pb.Node.split:type_name -> service.panel.pb.Split
-	13, // [13:13] is the sub-list for method output_type
-	13, // [13:13] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	10, // 8: service.panel.pb.Panel.parent:type_name -> distribution.ontology.pb.ID
+	1,  // 9: service.panel.pb.Tab.resource:type_name -> service.panel.pb.ResourceTab
+	2,  // 10: service.panel.pb.Tab.view:type_name -> service.panel.pb.ViewTab
+	3,  // 11: service.panel.pb.Tab.empty:type_name -> service.panel.pb.EmptyTab
+	4,  // 12: service.panel.pb.Node.leaf:type_name -> service.panel.pb.Leaf
+	5,  // 13: service.panel.pb.Node.split:type_name -> service.panel.pb.Split
+	14, // [14:14] is the sub-list for method output_type
+	14, // [14:14] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_panel_pb_panel_proto_init() }
@@ -735,6 +750,7 @@ func file_core_pkg_service_panel_pb_panel_proto_init() {
 	if File_core_pkg_service_panel_pb_panel_proto != nil {
 		return
 	}
+	file_core_pkg_service_panel_pb_panel_proto_msgTypes[6].OneofWrappers = []any{}
 	file_core_pkg_service_panel_pb_panel_proto_msgTypes[7].OneofWrappers = []any{
 		(*Tab_Resource)(nil),
 		(*Tab_View)(nil),

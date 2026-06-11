@@ -45,19 +45,18 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		// Parent, when non-zero, parents each created panel to that resource in
-		// the ontology. When zero, the panels are parented to the creating user
-		// instead — a draft, visible only to its creator. Either way the panel is
-		// also parented to the root Panels group.
-		Parent ontology.ID   `json:"parent" msgpack:"parent"`
+		// Panels are the panels to create. Each panel carries its own optional
+		// Parent; when absent the panel is parented to the creating user instead
+		// — a draft, visible only to its creator. Either way the panel is also
+		// parented to the root Panels group.
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 	}
 	CreateResponse = CreateRequest
 )
 
 // Create persists the panels in req and returns them with their assigned keys.
-// Each panel is parented to req.Parent, or to the creating user as a draft when
-// Parent is zero.
+// Each panel is parented to its own Parent, or to the creating user as a draft
+// when Parent is absent.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -65,8 +64,13 @@ func (s *Service) Create(
 ) (res CreateResponse, err error) {
 	subject := auth.GetSubject(ctx)
 	objects := []ontology.ID{{Type: ontology.ResourceTypePanel}}
-	if !req.Parent.IsZero() {
-		objects = append(objects, req.Parent)
+	for i := range req.Panels {
+		// No parent -> draft, parented to the creating user.
+		if req.Panels[i].Parent == nil || req.Panels[i].Parent.IsZero() {
+			req.Panels[i].Parent = &subject
+		} else {
+			objects = append(objects, *req.Panels[i].Parent)
+		}
 	}
 	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: subject,
@@ -75,14 +79,9 @@ func (s *Service) Create(
 	}); err != nil {
 		return res, err
 	}
-	// No parent -> draft, parented to the creating user.
-	parent := subject
-	if !req.Parent.IsZero() {
-		parent = req.Parent
-	}
 	w := s.internal.NewWriter(tx)
 	for i, p := range req.Panels {
-		if err := w.Create(ctx, &p, parent); err != nil {
+		if err := w.Create(ctx, &p); err != nil {
 			return res, err
 		}
 		req.Panels[i] = p
