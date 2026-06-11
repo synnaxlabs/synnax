@@ -19,8 +19,8 @@ const client = createTestClient();
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.projects.create({ name: "Table", layout: { one: 1 } });
-      const t = await client.tables.create(ws.key, {
+      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const t = await client.tables.create(proj.key, {
         name: "Table",
       });
       expect(t.name).toEqual("Table");
@@ -32,8 +32,8 @@ describe("Table", () => {
 
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.projects.create({ name: "Table", layout: { one: 1 } });
-      const t = await client.tables.create(ws.key, {
+      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const t = await client.tables.create(proj.key, {
         name: "Table",
       });
       await client.tables.rename(t.key, "Table2");
@@ -44,8 +44,8 @@ describe("Table", () => {
 
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.projects.create({ name: "Table", layout: { one: 1 } });
-      const t = await client.tables.create(ws.key, {
+      const proj = await client.projects.create({ name: "Table", layout: { one: 1 } });
+      const t = await client.tables.create(proj.key, {
         name: "Table",
       });
       await client.tables.delete(t.key);
@@ -57,8 +57,8 @@ describe("Table", () => {
 
   describe("cell props case preservation", () => {
     test("preserves arbitrary key casing within cell props values", async () => {
-      const ws = await client.projects.create({ name: "CaseTest", layout: {} });
-      const t = await client.tables.create(ws.key, {
+      const proj = await client.projects.create({ name: "CaseTest", layout: {} });
+      const t = await client.tables.create(proj.key, {
         name: "CaseTest",
         cells: {
           a: {
@@ -98,8 +98,8 @@ describe("Table", () => {
 
   describe("dispatch", () => {
     const createTable = async () => {
-      const ws = await client.projects.create({ name: "Dispatch", layout: {} });
-      return await client.tables.create(ws.key, {
+      const proj = await client.projects.create({ name: "Dispatch", layout: {} });
+      return await client.tables.create(proj.key, {
         name: "Dispatch",
         rows: [{ size: 30, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],

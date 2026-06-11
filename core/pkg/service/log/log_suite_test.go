@@ -33,11 +33,11 @@ func TestLog(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db  *gorp.DB
-	otg *ontology.Ontology
-	ws  project.Project
-	svc *log.Service
-	tx  gorp.Tx
+	db   *gorp.DB
+	otg  *ontology.Ontology
+	proj project.Project
+	svc  *log.Service
+	tx   gorp.Tx
 )
 
 var (
@@ -72,8 +72,8 @@ var (
 		author := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 			Username: "test",
 		}))
-		ws.Author = author.Key
-		Expect(projectSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
+		proj.Author = author.Key
+		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

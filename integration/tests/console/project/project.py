@@ -24,19 +24,19 @@ from x import get_synnax_version
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
 
-class Workspace(ConsoleCase):
-    """Test workspace operations."""
+class Project(ConsoleCase):
+    """Test project operations."""
 
-    _cleanup_workspaces: list[str]
+    _cleanup_projects: list[str]
 
     def setup(self) -> None:
         super().setup()
-        self._cleanup_workspaces = []
+        self._cleanup_projects = []
 
     def teardown(self) -> None:
-        for name in self._cleanup_workspaces:
+        for name in self._cleanup_projects:
             try:
-                self.console.workspace.delete(name)
+                self.console.project.delete(name)
             except PlaywrightTimeoutError:
                 pass
         super().teardown()
@@ -44,27 +44,27 @@ class Workspace(ConsoleCase):
     def run(self) -> None:
         self.test_version_visible_in_navbar()
 
-        # Workspace Navigation
-        self.console.workspace.create("WorkspaceA")
-        self._cleanup_workspaces.append("WorkspaceA")
-        self.console.workspace.create("WorkspaceB")
-        self._cleanup_workspaces.append("WorkspaceB")
-        self.test_switch_workspaces_in_resources()
-        self.test_rename_workspace()
-        self.test_clear_workspace_from_selector()
-        self.test_delete_workspace()
+        # Project Navigation
+        self.console.project.create("ProjectA")
+        self._cleanup_projects.append("ProjectA")
+        self.console.project.create("ProjectB")
+        self._cleanup_projects.append("ProjectB")
+        self.test_switch_projects_in_resources()
+        self.test_rename_project()
+        self.test_clear_project_from_selector()
+        self.test_delete_project()
 
         # Import Pages
-        self.console.workspace.create("ImportSpace")
-        self._cleanup_workspaces.append("ImportSpace")
+        self.console.project.create("ImportSpace")
+        self._cleanup_projects.append("ImportSpace")
         self.test_import_line_plot()
         self.test_import_schematic()
         self.test_import_log()
         self.test_import_table()
 
         # Export/Import
-        self.test_export_workspace()
-        self.test_import_workspace()
+        self.test_export_project()
+        self.test_import_project()
 
     def test_version_visible_in_navbar(self) -> None:
         """Test that the correct version is displayed in the navbar."""
@@ -76,53 +76,49 @@ class Workspace(ConsoleCase):
             f"Version badge '{displayed}' does not start with expected '{expected}'"
         )
 
-    def test_switch_workspaces_in_resources(self) -> None:
-        """Test switching between workspaces by double-clicking in resources toolbar."""
-        self.log("Testing switch workspaces in resources view")
+    def test_switch_projects_in_resources(self) -> None:
+        """Test switching between projects by double-clicking in resources toolbar."""
+        self.log("Testing switch projects in resources view")
 
-        self.console.workspace.select("WorkspaceA")
+        self.console.project.select("ProjectA")
         assert (
-            self.page.get_by_role("button").filter(has_text="WorkspaceA").is_visible()
-        ), "WorkspaceA should be active after selection"
+            self.page.get_by_role("button").filter(has_text="ProjectA").is_visible()
+        ), "ProjectA should be active after selection"
 
-        self.console.workspace.select("WorkspaceB")
+        self.console.project.select("ProjectB")
         assert (
-            self.page.get_by_role("button").filter(has_text="WorkspaceB").is_visible()
-        ), "WorkspaceB should be active after selection"
+            self.page.get_by_role("button").filter(has_text="ProjectB").is_visible()
+        ), "ProjectB should be active after selection"
 
-    def test_rename_workspace(self) -> None:
-        """Test renaming a workspace via context menu and verify synchronization."""
-        self.log("Testing rename workspace with synchronization")
-        self.console.workspace.select("WorkspaceA")
-        self.console.workspace.rename(
-            old_name="WorkspaceA", new_name="RenamedWorkspace"
-        )
+    def test_rename_project(self) -> None:
+        """Test renaming a project via context menu and verify synchronization."""
+        self.log("Testing rename project with synchronization")
+        self.console.project.select("ProjectA")
+        self.console.project.rename(old_name="ProjectA", new_name="RenamedProject")
 
-        assert self.console.workspace.exists("RenamedWorkspace"), (
-            "Workspace should be renamed in Resources Toolbar"
+        assert self.console.project.exists("RenamedProject"), (
+            "Project should be renamed in Resources Toolbar"
         )
 
-        workspace_selector = self.page.get_by_role("button").filter(
-            has_text="RenamedWorkspace"
+        project_selector = self.page.get_by_role("button").filter(
+            has_text="RenamedProject"
         )
-        workspace_selector.wait_for(state="visible", timeout=5000)
-        assert workspace_selector.is_visible(), (
-            "Workspace Selector should show renamed workspace"
+        project_selector.wait_for(state="visible", timeout=5000)
+        assert project_selector.is_visible(), (
+            "Project Selector should show renamed project"
         )
 
-        self.console.workspace.rename(
-            old_name="RenamedWorkspace", new_name="WorkspaceA"
-        )
+        self.console.project.rename(old_name="RenamedProject", new_name="ProjectA")
         self.console.layout.close_left_toolbar()
 
     def test_import_line_plot(self) -> None:
         """Test importing a line plot from a JSON file."""
         self.log("Testing import line plot")
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
-        self.console.workspace.import_page(json_path, "Metrics Plot")
+        self.console.project.import_page(json_path, "Metrics Plot")
 
-        assert self.console.workspace.page_exists("Metrics Plot"), (
-            "Imported line plot should appear in workspace resources"
+        assert self.console.project.page_exists("Metrics Plot"), (
+            "Imported line plot should appear in project resources"
         )
 
         plot = Plot.from_open_page(self.console.layout, self.client, "Metrics Plot")
@@ -139,10 +135,10 @@ class Workspace(ConsoleCase):
         """Test importing a schematic from a JSON file."""
         self.log("Testing import schematic")
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
-        self.console.workspace.import_page(json_path, "Metrics Schematic")
+        self.console.project.import_page(json_path, "Metrics Schematic")
 
-        assert self.console.workspace.page_exists("Metrics Schematic"), (
-            "Imported schematic should appear in workspace resources"
+        assert self.console.project.page_exists("Metrics Schematic"), (
+            "Imported schematic should appear in project resources"
         )
 
         schematic = Schematic.from_open_page(
@@ -158,10 +154,10 @@ class Workspace(ConsoleCase):
         """Test importing a log from a JSON file."""
         self.log("Testing import log")
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
-        self.console.workspace.import_page(json_path, "Metrics Log")
+        self.console.project.import_page(json_path, "Metrics Log")
 
-        assert self.console.workspace.page_exists("Metrics Log"), (
-            "Imported log should appear in workspace resources"
+        assert self.console.project.page_exists("Metrics Log"), (
+            "Imported log should appear in project resources"
         )
 
         log = Log.from_open_page(self.console.layout, self.client, "Metrics Log")
@@ -175,10 +171,10 @@ class Workspace(ConsoleCase):
         """Test importing a table from a JSON file."""
         self.log("Testing import table")
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
-        self.console.workspace.import_page(json_path, "Metrics Table")
+        self.console.project.import_page(json_path, "Metrics Table")
 
-        assert self.console.workspace.page_exists("Metrics Table"), (
-            "Imported table should appear in workspace resources"
+        assert self.console.project.page_exists("Metrics Table"), (
+            "Imported table should appear in project resources"
         )
 
         table = Table.from_open_page(self.console.layout, self.client, "Metrics Table")
@@ -199,16 +195,16 @@ class Workspace(ConsoleCase):
 
         self.console.layout.close_tab("Metrics Table")
 
-    def test_export_workspace(self) -> None:
-        """Test exporting a workspace through the real Export action."""
-        self.log("Testing export workspace")
+    def test_export_project(self) -> None:
+        """Test exporting a project through the real Export action."""
+        self.log("Testing export project")
 
         # Re-open all imported pages so they exist in Redux state
         # (import tests close tabs, which removes layouts from Redux)
         for p in EXPECTED_PAGES:
-            self.console.workspace.open_page(p)
+            self.console.project.open_page(p)
 
-        self._export_dir = self.console.workspace.export_workspace("ImportSpace")
+        self._export_dir = self.console.project.export_project("ImportSpace")
 
         for p in EXPECTED_PAGES:
             self.console.layout.close_tab(p)
@@ -232,51 +228,49 @@ class Workspace(ConsoleCase):
                 os.path.join(self._export_dir, f"{page_name}.json")
             ), f"Export should contain {page_name}.json"
 
-    def test_import_workspace(self) -> None:
-        """Test importing a workspace through the real "Import a workspace" command."""
-        self.log("Testing import workspace via command palette")
+    def test_import_project(self) -> None:
+        """Test importing a project through the real "Import a project" command."""
+        self.log("Testing import project via command palette")
 
-        # Rename the export directory so the imported workspace has a
-        # distinct name from the original ImportSpace workspace.
+        # Rename the export directory so the imported project has a
+        # distinct name from the original ImportSpace project.
         imported_dir = os.path.join(os.path.dirname(self._export_dir), "ImportedSpace")
         if os.path.isdir(imported_dir):
             shutil.rmtree(imported_dir)
         os.rename(self._export_dir, imported_dir)
 
-        self.console.workspace.import_workspace_from_directory(imported_dir)
+        self.console.project.import_project_from_directory(imported_dir)
 
         for tab_name in EXPECTED_PAGES:
             tab = self.console.layout.get_tab(tab_name)
-            assert tab.is_visible(), f"Imported workspace should have tab '{tab_name}'"
+            assert tab.is_visible(), f"Imported project should have tab '{tab_name}'"
 
-        self.console.workspace.delete("ImportedSpace")
+        self.console.project.delete("ImportedSpace")
 
-    def test_clear_workspace_from_selector(self) -> None:
-        """Test clearing workspaces from the selector (switching to no workspace)."""
-        self.log("Testing clear workspace from selector")
+    def test_clear_project_from_selector(self) -> None:
+        """Test clearing projects from the selector (switching to no project)."""
+        self.log("Testing clear project from selector")
 
-        self.console.workspace.select("WorkspaceA")
+        self.console.project.select("ProjectA")
 
-        workspace_selector = self.page.get_by_role("button").filter(
-            has_text="WorkspaceA"
-        )
-        workspace_selector.click(timeout=5000)
+        project_selector = self.page.get_by_role("button").filter(has_text="ProjectA")
+        project_selector.click(timeout=5000)
         self.page.get_by_role("button", name="Clear").click(timeout=5000)
 
-        self.page.get_by_role("button", name="No workspace").wait_for(
+        self.page.get_by_role("button", name="No project").wait_for(
             state="visible", timeout=5000
         )
-        assert self.page.get_by_role("button", name="No workspace").is_visible(), (
-            "No workspace should be active after clearing"
+        assert self.page.get_by_role("button", name="No project").is_visible(), (
+            "No project should be active after clearing"
         )
 
         self.console.layout.close_left_toolbar()
 
-    def test_delete_workspace(self) -> None:
-        """Test deleting a workspace via context menu."""
-        self.log("Testing delete workspace")
+    def test_delete_project(self) -> None:
+        """Test deleting a project via context menu."""
+        self.log("Testing delete project")
 
-        self.console.workspace.delete("WorkspaceB")
-        self._cleanup_workspaces.remove("WorkspaceB")
-        self.console.workspace.delete("WorkspaceA")
-        self._cleanup_workspaces.remove("WorkspaceA")
+        self.console.project.delete("ProjectB")
+        self._cleanup_projects.remove("ProjectB")
+        self.console.project.delete("ProjectA")
+        self._cleanup_projects.remove("ProjectA")

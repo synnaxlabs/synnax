@@ -12,7 +12,7 @@ import { type Link } from "@/link";
 import { Project } from "@/project";
 
 export const handleLink: Link.Handler = async ({ client, dispatch, key }) => {
-  const { layout, ...ws } = await client.projects.retrieve(key);
+  const { layout, ...proj } = await client.projects.retrieve(key);
   dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
-  dispatch(Project.setActive(ws));
+  dispatch(Project.setActive(proj));
 };

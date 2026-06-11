@@ -45,9 +45,9 @@ export const export_ = (
       name = active.name;
     } else {
       if (client == null) throw new DisconnectedError();
-      const ws = await client.projects.retrieve(key);
-      toExport = ws.layout as Layout.SliceState;
-      name = ws.name;
+      const proj = await client.projects.retrieve(key);
+      toExport = proj.layout as Layout.SliceState;
+      name = proj.name;
     }
     const directory = await Runtime.pickWritableDirectory({
       title: `Select a location to export ${name}`,

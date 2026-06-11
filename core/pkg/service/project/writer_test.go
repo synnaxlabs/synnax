@@ -19,13 +19,13 @@ import (
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a project", func(ctx SpecContext) {
-			ws := project.Project{
+			proj := project.Project{
 				Name:   "test",
 				Author: author.Key,
 				Layout: map[string]any{"key": "data"},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
-			Expect(ws.Key).ToNot(Equal(uuid.Nil))
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+			Expect(proj.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
 	Describe("CreateMany", func() {
@@ -46,31 +46,31 @@ var _ = Describe("Writer", func() {
 	})
 	Describe("Update", func() {
 		It("Should rename a project", func(ctx SpecContext) {
-			ws := project.Project{Name: "test", Author: author.Key}
-			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, ws.Key, "test2")).To(Succeed())
+			proj := project.Project{Name: "test", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+			Expect(svc.NewWriter(tx).Rename(ctx, proj.Key, "test2")).To(Succeed())
 			var res project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchKeys(ws.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(project.MatchKeys(proj.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
 	Describe("SetLayout", func() {
 		It("Should set the layout of a project", func(ctx SpecContext) {
-			ws := project.Project{Name: "test", Author: author.Key}
-			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetLayout(ctx, ws.Key, map[string]any{"key": "data"})).To(Succeed())
+			proj := project.Project{Name: "test", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetLayout(ctx, proj.Key, map[string]any{"key": "data"})).To(Succeed())
 			var res project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchKeys(ws.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(project.MatchKeys(proj.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Layout["key"]).To(Equal("data"))
 		})
 	})
 	Describe("DeleteChannel", func() {
 		It("Should delete a project", func(ctx SpecContext) {
-			ws := project.Project{Name: "test", Author: author.Key}
-			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
-			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
+			proj := project.Project{Name: "test", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+			Expect(svc.NewWriter(tx).Delete(ctx, proj.Key)).To(Succeed())
 			var res project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchKeys(ws.Key)).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(svc.NewRetrieve().Where(project.MatchKeys(proj.Key)).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 })

@@ -118,7 +118,7 @@ class Tree:
 
         Waits for the item to appear, then clicks to expand if not already expanded.
 
-        :param prefix: The ID prefix (e.g., 'workspace:', 'channel:').
+        :param prefix: The ID prefix (e.g., 'project:', 'channel:').
         """
         self.page.locator(f"div[id^='{prefix}']").first.wait_for(
             state="visible", timeout=5000

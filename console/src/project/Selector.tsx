@@ -36,11 +36,11 @@ import { setActive } from "@/project/slice";
 const listItem = Component.renderProp(
   (props: List.ItemProps<project.Key>): ReactElement | null => {
     const { itemKey } = props;
-    const ws = List.useItem<project.Key, project.Project>(itemKey);
-    if (ws == null) return null;
+    const proj = List.useItem<project.Key, project.Project>(itemKey);
+    if (proj == null) return null;
     return (
       <Select.ListItem {...props}>
-        <Text.Text>{ws.name}</Text.Text>
+        <Text.Text>{proj.name}</Text.Text>
       </Select.ListItem>
     );
   },
@@ -59,11 +59,11 @@ export const Selector = (): ReactElement | null => {
   const handleChange = useCallback(
     (key: project.Key | null) => {
       if (key == null) return;
-      const ws = getItem(key);
-      if (ws == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(setActive(ws));
+      const proj = getItem(key);
+      if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
+      dispatch(setActive(proj));
       dispatch(
-        Layout.setProject({ slice: ws.layout as Layout.SliceState, keepNav: false }),
+        Layout.setProject({ slice: proj.layout as Layout.SliceState, keepNav: false }),
       );
       setDialogVisible(false);
     },
