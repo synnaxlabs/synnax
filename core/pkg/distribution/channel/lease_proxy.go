@@ -502,17 +502,17 @@ func (s *Service) maybeSetResources(
 		return OntologyID(ch.Key()), !ch.Internal
 	})
 	w := s.cfg.Ontology.NewWriter(txn)
-	if err := w.DefineManyResources(ctx, externalIDs); err != nil {
+	if err := w.DefineResource(ctx, externalIDs...); err != nil {
 		return err
 	}
 	if opts.CreateWithoutGroupRelationship {
 		return nil
 	}
-	return w.DefineFromOneToManyRelationships(
+	return w.DefineRelationship(
 		ctx,
 		group.OntologyID(s.group.Key),
 		ontology.RelationshipTypeParentOf,
-		externalIDs,
+		externalIDs...,
 	)
 }
 
@@ -619,7 +619,7 @@ func (s *Service) maybeDeleteResources(
 	}
 	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 	w := s.cfg.Ontology.NewWriter(tx)
-	return w.DeleteManyResources(ctx, ids)
+	return w.DeleteResource(ctx, ids...)
 }
 
 func (s *Service) deleteRemote(ctx context.Context, target node.Key, keys Keys) error {
