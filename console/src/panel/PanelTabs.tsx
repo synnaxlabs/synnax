@@ -83,9 +83,7 @@ const PanelTabName = ({ tabKey, name, ...rest }: Tabs.NameProps): ReactElement =
   return <Tabs.DefaultName tabKey={tabKey} name={data?.name ?? name} {...rest} />;
 };
 
-const renderPanelTabName: Tabs.NameRenderProp = (props) => (
-  <PanelTabName {...props} />
-);
+const renderPanelTabName: Tabs.NameRenderProp = (props) => <PanelTabName {...props} />;
 
 // PanelTabs renders the panel tab strip in the top nav. Source of truth is Flux
 // (panel.useList); per-window active panel state lives in the Redux layout
