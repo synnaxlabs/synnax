@@ -49,7 +49,8 @@ export const Controls = ({
   const handleError = BaseStatus.useErrorHandler();
   const client = Synnax.use();
   const key = useKey();
-  const hasTriggers = Layout.useSelectActiveMosaicTabKeyAndNotBlurred() != null;
+  const { tabKey: activeTabKey, blurred } = Layout.useSelectActiveTabState();
+  const hasTriggers = activeTabKey != null && !blurred;
 
   const [expanded, setExpanded] = useState(false);
 

@@ -13,8 +13,8 @@ import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
 
-import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/lineplot/layout";
+import { Panel } from "@/panel";
 import { add } from "@/range/slice";
 import { fromClientRange } from "@/range/translate";
 import { type RootState } from "@/store";
@@ -24,6 +24,9 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const handleError = Status.useErrorHandler();
   const store = useStore<RootState>();
   const client = Synnax.use();
+  // Resolved at render and captured by the callback so an add targets the plot the
+  // user had active when they triggered it.
+  const active = Panel.useActiveResource();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(
       ({ data, variant, status }) => {
@@ -31,7 +34,6 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           if (variant === "error") addStatus(status);
           return;
         }
-        const active = Layout.selectActiveMosaicLayout(store.getState());
         if (active == null || active.type !== LAYOUT_TYPE || client == null) return;
         store.dispatch(add({ ranges: fromClientRange(data) }));
         handleError(
@@ -46,8 +48,8 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           "Failed to add ranges to plot",
         );
       },
-      [store, client, addStatus, handleError],
+      [store, active, client, addStatus, handleError],
     ),
   });
-  return useCallback((keys: string[]) => retrieve({ keys }), []);
+  return useCallback((keys: string[]) => retrieve({ keys }), [retrieve]);
 };

@@ -12,17 +12,11 @@ import { Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 
-import {
-  selectActiveMosaicTabState,
-  selectFocused,
-  selectModals,
-} from "@/layout/selectors";
+import { selectFocused, selectModals } from "@/layout/selectors";
 import { setFocus } from "@/layout/slice";
-import { useOpenInNewWindow } from "@/layout/useOpenInNewWindow";
-import { usePlacer } from "@/layout/usePlacer";
 import { useRemover } from "@/layout/useRemover";
-import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
-import { Runtime } from "@/runtime";
+import { Panel } from "@/panel";
+import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
@@ -30,10 +24,12 @@ const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 export const useTriggers = (): void => {
   const store = useStore<RootState>();
   const remove = useRemover();
-  const openInNewWindow = useOpenInNewWindow();
-  const placeLayout = usePlacer();
+  const resolveActiveTab = Panel.useResolveActiveTab();
+  const closeActiveTab = Panel.useCloseActiveTab();
+  const createEmptyTab = Panel.useCreateEmptyTab();
+  const createPanel = Panel.useCreatePanel();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const createComponentEnabled = useSelectorVisible();
+  const createComponentEnabled = Selector.useVisible();
   Triggers.use({
     triggers: [["Control", "L"]],
     loose: true,
@@ -41,14 +37,14 @@ export const useTriggers = (): void => {
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
         const state = store.getState();
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
+        const active = resolveActiveTab();
         const windowKey = selectWindowKey(state);
         const { focused } = selectFocused(state);
         if (active == null || windowKey == null) return;
         if (focused != null) store.dispatch(setFocus({ key: null, windowKey }));
         else store.dispatch(setFocus({ key: active, windowKey }));
       },
-      [store],
+      [store, resolveActiveTab],
     ),
   });
   Triggers.use({
@@ -66,29 +62,13 @@ export const useTriggers = (): void => {
         const state = store.getState();
         const modals = selectModals(state);
         if (modals.length !== 0) return remove(modals[0].key);
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
-        if (active != null) return remove(active);
+        if (closeActiveTab()) return;
         closeWindowTimeout.current = setTimeout(
           () => store.dispatch(Drift.closeWindow({})),
           CLOSE_WINDOW_TIMEOUT.milliseconds,
         );
       },
-      [store, remove, openInNewWindow],
-    ),
-  });
-  Triggers.use({
-    triggers: [["Control", "O"]],
-    loose: true,
-    callback: useCallback(
-      ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
-        if (Runtime.ENGINE !== "tauri") return;
-        const state = store.getState();
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
-        if (active == null) return;
-        openInNewWindow(active);
-      },
-      [store, openInNewWindow],
+      [store, remove, closeActiveTab],
     ),
   });
   Triggers.use({
@@ -97,12 +77,11 @@ export const useTriggers = (): void => {
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start") return;
-        const state = store.getState();
-        const { layoutKey: active } = selectActiveMosaicTabState(state);
+        const active = resolveActiveTab();
         if (active == null) return;
         Text.edit(`pluto-tab-${active}`);
       },
-      [store],
+      [resolveActiveTab],
     ),
   });
   Triggers.use({
@@ -111,9 +90,11 @@ export const useTriggers = (): void => {
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start" || !createComponentEnabled) return;
-        placeLayout(createSelectorLayout({ tab: { location: "center" } }));
+        // Insert an empty (selector) tab into the active panel; when no panel
+        // exists yet, create one — its first empty tab lands via useCreatePanel.
+        if (!createEmptyTab()) createPanel();
       },
-      [createComponentEnabled, placeLayout],
+      [createComponentEnabled, createEmptyTab, createPanel],
     ),
   });
 };

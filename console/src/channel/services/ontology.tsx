@@ -35,18 +35,18 @@ import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
+import { Panel } from "@/panel";
 import { Project } from "@/project";
 import { Range } from "@/range";
 
 const handleSelect: Ontology.HandleSelect = ({
   client,
   store,
+  fluxStore,
   placeLayout,
-  selection,
   handleError,
+  selection,
 }): void => {
-  const state = store.getState();
-  const layout = Layout.selectActiveMosaicLayout(state);
   if (selection.length === 0) return;
 
   const nonVirtualSelection = selection
@@ -55,28 +55,27 @@ const handleSelect: Ontology.HandleSelect = ({
 
   if (nonVirtualSelection.length === 0) return;
 
-  // Otherwise, update the layout with the selected channels.
-  switch (layout?.type) {
-    case LinePlot.LAYOUT_TYPE: {
-      handleError(
-        () => LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
-        "Failed to add channels to plot",
-      );
-      break;
+  // Add to the active line plot when one is active; otherwise create a new one.
+  handleError(async () => {
+    const state = store.getState();
+    const active = Panel.getActiveResource(
+      fluxStore,
+      Layout.selectActivePanelKey(state),
+      Layout.selectActiveTabKey(state),
+    );
+    if (active?.type === LinePlot.LAYOUT_TYPE) {
+      await LinePlot.addChannelsToActivePlot(client, active.key, nonVirtualSelection);
+      return;
     }
-    default: {
-      const project = Project.selectActiveKey(state);
-      const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_KEY;
-      handleError(async () => {
-        const { key, name } = await client.lineplots.create(project, {
-          name: "Line Plot",
-          channels: { y1: nonVirtualSelection },
-          ranges: { x1: [activeRange] },
-        });
-        placeLayout(LinePlot.create({ key, name }));
-      }, "Failed to create plot");
-    }
-  }
+    const project = Project.selectActiveKey(state);
+    const activeRange = Range.selectActiveKey(state) ?? Range.RECENT_KEY;
+    const { key, name } = await client.lineplots.create(project, {
+      name: "Line Plot",
+      channels: { y1: nonVirtualSelection },
+      ranges: { x1: [activeRange] },
+    });
+    placeLayout(LinePlot.create({ key, name }));
+  }, "failed to add channels to the active plot");
 };
 
 const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {

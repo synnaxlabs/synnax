@@ -21,7 +21,7 @@ import {
 import { type lineplot as etherLineplot } from "@synnaxlabs/pluto/ether";
 import { box, location, scale, TimeRange, TimeSpan, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components";
 import { createEnsureState } from "@/hooks/useEnsureState";
@@ -48,7 +48,6 @@ import {
 } from "@/lineplot/slice";
 import { type DownloadLine, useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { Range } from "@/range";
-import { type RootState } from "@/store";
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
@@ -86,12 +85,11 @@ const RangeAnnotationContextMenu = ({
   );
 };
 
-const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
+const Loaded: Layout.Renderer = ({ layoutKey, focused, visible, active }) => {
   PLinePlot.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const name = PLinePlot.useSelectName({ key: layoutKey });
   const vis = useSelect(layoutKey);
   const dispatch = useDispatch();
-  const store = useStore<RootState>();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
 
   const ranges = PLinePlot.useSelectRanges({ key: layoutKey });
@@ -139,10 +137,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const enableTriggers = useCallback(
-    () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey &&
-      hasUpdatePermission,
-    [store, layoutKey, hasUpdatePermission],
+    () => active && hasUpdatePermission,
+    [active, hasUpdatePermission],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
@@ -311,3 +307,4 @@ LinePlot.useName = Layout.createUseFluxName(
   PLinePlot.useRename,
   PLinePlot.useRetrieveObservableName,
 );
+LinePlot.icon = <Icon.LinePlot />;

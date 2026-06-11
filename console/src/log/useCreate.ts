@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
 import { Log } from "@synnaxlabs/pluto";
 
 import { create } from "@/log/layout";
@@ -20,4 +21,5 @@ export const useCreate = Project.createUseCreate({
     project,
   }),
   createSessionState: create,
+  ontologyID: log.ontologyID,
 });

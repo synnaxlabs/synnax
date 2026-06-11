@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type project } from "@synnaxlabs/client";
+import { type ontology, type project } from "@synnaxlabs/client";
 import { type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useStore } from "react-redux";
@@ -20,6 +20,9 @@ import { type RootState } from "@/store";
 
 export interface UseCreateProps {
   project?: project.Key;
+  // onResolved, when provided, replaces opening the resource as a mosaic tab: the
+  // created record is handed back as a resource to fill a panel tab in place.
+  onResolved?: (content: { resource: ontology.ID }) => void;
 }
 
 interface CreatedRecord {
@@ -53,12 +56,15 @@ export interface CreateUseCreateArgs<Input, Output extends CreatedRecord> {
   // any per-render default fields. Constructed at the concrete call site so Input needs
   // no cast; a caller override in overrides wins by spreading over the defaults.
   toCreateParams: (params: ToCreateParams<Input>) => Input;
+  // ontologyID maps the created record's key to the resource handed to onResolved.
+  ontologyID: (key: string) => ontology.ID;
 }
 
 // createUseCreate builds a useCreate hook for a project-scoped layout resource. The
-// returned hook creates the record on the server through its Pluto flux store, switches
-// to the owning project, and places the resource's layout once the record exists, so
-// the connected component can retrieve it without a pendingUpload round-trip.
+// returned hook creates the record on the server through its Pluto flux store, then
+// either resolves it into a panel tab (when onResolved is provided) or switches to
+// the owning project and places the resource's layout, so the connected component
+// can retrieve it without a pendingUpload round-trip.
 export const createUseCreate =
   <
     Input extends { project?: project.Key; name: string },
@@ -67,8 +73,9 @@ export const createUseCreate =
     useCreate,
     createSessionState,
     toCreateParams,
+    ontologyID,
   }: CreateUseCreateArgs<Input, Output>) =>
-  ({ project }: UseCreateProps): ((init?: Partial<Input>) => void) => {
+  ({ project, onResolved }: UseCreateProps): ((init?: Partial<Input>) => void) => {
     const activeProject = useSelectActiveKey();
     const maybeChangeProject = useMaybeChange();
     const placeLayout = Layout.usePlacer();
@@ -77,10 +84,14 @@ export const createUseCreate =
     const { update } = useCreate({
       afterSuccess: useCallback(
         async ({ data: { key, name } }) => {
+          if (onResolved != null) {
+            onResolved({ resource: ontologyID(key) });
+            return;
+          }
           await maybeChangeProject(project);
           placeLayout(createSessionState({ key, name }));
         },
-        [project],
+        [project, onResolved],
       ),
     });
     return useCallback(

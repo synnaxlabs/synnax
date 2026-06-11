@@ -18,6 +18,7 @@ import { Hardware } from "@/hardware";
 import { LinePlotServices } from "@/lineplot/services";
 import { LogServices } from "@/log/services";
 import { Ontology } from "@/ontology";
+import { PanelServices } from "@/panel/services";
 import { ProjectServices } from "@/project/services";
 import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
@@ -42,6 +43,7 @@ export const SERVICES: Ontology.Services = {
   group: GroupServices.ONTOLOGY_SERVICE,
   range: RangeServices.ONTOLOGY_SERVICE,
   project: ProjectServices.ONTOLOGY_SERVICE,
+  panel: PanelServices.ONTOLOGY_SERVICE,
   lineplot: LinePlotServices.ONTOLOGY_SERVICE,
   "range-alias": createEmptyService("range-alias"),
   label: createEmptyService("label", <Icon.Label />),
@@ -53,7 +55,6 @@ export const SERVICES: Ontology.Services = {
   policy: Access.Policy.ONTOLOGY_SERVICE,
   log: LogServices.ONTOLOGY_SERVICE,
   table: TableServices.ONTOLOGY_SERVICE,
-  panel: createEmptyService("panel"),
   status: createEmptyService("status", <Icon.Status />),
   arc: ArcServices.ONTOLOGY_SERVICE,
   view: createEmptyService("view"),

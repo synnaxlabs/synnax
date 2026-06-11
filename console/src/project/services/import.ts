@@ -9,49 +9,16 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { DisconnectedError, project, type Synnax } from "@synnaxlabs/client";
-import { Access, Mosaic, type Pluto, type Status } from "@synnaxlabs/pluto";
-import { deep, uuid } from "@synnaxlabs/x";
+import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { Layout } from "@/layout";
 import { Project } from "@/project";
 import { Runtime } from "@/runtime";
 
-// Rewrites every reference to an imported component's original key with the key of the
-// resource actually created for it. Without it the original-key tabs resolve to nothing
-// and the ingesters' new-key tabs pile up as duplicates.
-const remapLayoutKeys = (
-  slice: Layout.SliceState,
-  remap: Map<string, string>,
-): Layout.SliceState => {
-  if (remap.size === 0) return slice;
-  const next = deep.copy(slice);
-  next.layouts = Object.fromEntries(
-    Object.entries(next.layouts).map(([key, layout]) => {
-      const newKey = remap.get(key) ?? key;
-      return [newKey, { ...layout, key: newKey }];
-    }),
-  );
-  Object.values(next.mosaics).forEach((mosaic) => {
-    Mosaic.forEachNode(mosaic.root, (node) => {
-      node.tabs?.forEach((tab) => {
-        const newKey = remap.get(tab.tabKey);
-        if (newKey != null) tab.tabKey = newKey;
-      });
-      if (node.selected != null)
-        node.selected = remap.get(node.selected) ?? node.selected;
-    });
-    if (mosaic.activeTab != null)
-      mosaic.activeTab = remap.get(mosaic.activeTab) ?? mosaic.activeTab;
-    if (mosaic.focused != null)
-      mosaic.focused = remap.get(mosaic.focused) ?? mosaic.focused;
-  });
-  return next;
-};
-
-// Swaps imported themes for the current defaults before validation. setProject
-// discards imported themes anyway, so a stale theme blob from an older export must not
-// fail anySliceStateZ and block the import.
+// Swaps imported themes for the current defaults before validation. A stale theme blob
+// from an older export must not fail anySliceStateZ and block the import.
 const stripThemes = (data: unknown): unknown => {
   if (typeof data !== "object" || data == null) return data;
   return {
@@ -71,16 +38,19 @@ export const ingest: Import.DirectoryIngester = async (
   if (client == null) throw new DisconnectedError();
   const layoutData = files.find((file) => file.name === Project.LAYOUT_FILE_NAME);
   if (layoutData == null) throw new Error(`${Project.LAYOUT_FILE_NAME} not found`);
+  // Parse the legacy layout blob for child-resource ingest (each child layout
+  // points at a viz JSON to import). The project's tiling no longer installs
+  // from the blob; a panel-aware import flow lands with the export/import
+  // rewrite.
   const layout = Layout.migrateSlice(
     Layout.anySliceStateZ.parse(stripThemes(layoutData.data)),
   );
   const projectKey = uuid.create();
-  const proj: project.Project = { key: projectKey, name, layout };
-  // Create the project first so imported components can be parented to it; its layout
-  // is rewritten and installed below once their real keys are known.
+  const proj: project.Project = { key: projectKey, name, layout: {} };
+  // Create the project first so imported components can be parented to it.
   await client.projects.create(proj);
+  store.dispatch(Project.setActive({ key: projectKey, name }));
 
-  const remap = new Map<string, string>();
   for (const [key, childLayout] of Object.entries(layout.layouts)) {
     const ingest = fileIngesters[childLayout.type];
     if (ingest == null) continue;
@@ -94,20 +64,14 @@ export const ingest: Import.DirectoryIngester = async (
             ("name" in file.data && file.data.name === childLayout.name))),
     )?.data;
     if (data == null) throw new Error(`Data for ${key} not found`);
-    const id = await ingest(data, {
+    await ingest(data, {
       layout: childLayout,
       placeLayout,
       store: fluxStore,
       client,
       projectKey,
     });
-    if (id != null && id.key !== key) remap.set(key, id.key);
   }
-
-  const remappedLayout = remapLayoutKeys(layout, remap);
-  store.dispatch(Project.setActive(proj));
-  store.dispatch(Layout.setProject({ slice: remappedLayout, keepNav: false }));
-  if (remap.size > 0) await client.projects.setLayout(projectKey, remappedLayout);
 };
 
 export interface IngestContext {

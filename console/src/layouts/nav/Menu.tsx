@@ -17,7 +17,7 @@ import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { selectActiveMosaicTabState } from "@/layout/selectors";
+import { selectActiveTabState } from "@/layout/selectors";
 import { setNavDrawerVisible, toggleNavHover } from "@/layout/slice";
 import { DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { type RootState } from "@/store";
@@ -65,7 +65,7 @@ const MenuItem = ({
         )
           return;
         const state = store.getState();
-        const { blurred } = selectActiveMosaicTabState(state, windowKey);
+        const { blurred } = selectActiveTabState(state, windowKey);
         if (blurred) return;
 
         const isDouble = e.triggers.some((t) => t.length === 2);

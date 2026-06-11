@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 
 import { Project } from "@/project";
@@ -20,4 +21,5 @@ export const useCreate = Project.createUseCreate({
     project,
   }),
   createSessionState: ({ key, name }) => create({ key, name, editable: true }),
+  ontologyID: schematic.ontologyID,
 });

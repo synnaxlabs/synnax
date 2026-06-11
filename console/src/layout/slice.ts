@@ -16,12 +16,11 @@ import {
 } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
-import { deep, type direction, id, type location } from "@synnaxlabs/x";
+import { type Color, type Haul, type Icon } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";
-import { type BaseState } from "@/layout/usePlacer";
 import { type RootState } from "@/store";
 
 export type State<A = unknown> = latest.State<A>;
@@ -29,8 +28,8 @@ export type SliceState = latest.SliceState;
 export type NavDrawerLocation = latest.NavDrawerLocation;
 export type NavDrawerEntryState = latest.NavDrawerEntryState;
 export type WindowProps = latest.WindowProps;
+export type WindowPanelsState = latest.WindowPanelsState;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
-export const ZERO_MOSAIC_STATE = latest.ZERO_MOSAIC_STATE;
 export const MAIN_LAYOUT = latest.MAIN_LAYOUT;
 export const migrateSlice = latest.migrateSlice;
 export const anySliceStateZ = latest.anySliceStateZ;
@@ -50,7 +49,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["hauling", "themes"].map(
+export const PERSIST_EXCLUDE = ["hauling", "themes", "tabUnsavedChanges"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<RootState>>;
 
@@ -64,30 +63,6 @@ export interface RemovePayload {
 
 /** Signature for the setTheme action. */
 export type SetActiveThemePayload = string | undefined;
-
-export interface MoveMosaicTabPayload {
-  tabKey: string;
-  windowKey?: string;
-  key?: number;
-  loc: location.Location;
-  index?: number;
-}
-
-interface ResizeMosaicTabPayload {
-  windowKey: string;
-  key: number;
-  size: number;
-}
-
-interface SplitMosaicNodePayload {
-  windowKey: string;
-  direction: direction.Direction;
-  tabKey: string;
-}
-
-interface SelectMosaicTabPayload {
-  tabKey: string;
-}
 
 interface RenamePayload {
   key: string;
@@ -103,11 +78,6 @@ interface ResizeNavDrawerPayload {
 interface SetFocusPayload {
   key: string | null;
   windowKey: string;
-}
-
-interface SetAltKeyPayload {
-  key: string;
-  altKey: string;
 }
 
 interface SetUnsavedChangesPayload {
@@ -159,122 +129,38 @@ export interface SetColorContextPayload {
   state: Color.ContextState;
 }
 
-const purgeEmptyMosaics = (state: SliceState) => {
-  Object.entries(state.mosaics).forEach(([key, mosaic]) => {
-    if (key === MAIN_WINDOW || !Mosaic.isEmpty(mosaic.root)) return;
-    delete state.mosaics[key];
-    delete state.layouts[key];
-    delete state.nav[key];
-  });
-};
+export interface SetActivePanelPayload {
+  windowKey: string;
+  key: string;
+}
 
-const select = (state: SliceState, key: string): State | null => {
-  const layout = state.layouts[key];
-  if (layout == null) {
-    const altKey = state.altKeyToKey[key];
-    if (altKey == null) return null;
-    const altLayout = state.layouts[altKey];
-    return altLayout ?? null;
-  }
-  return layout;
-};
+const select = (state: SliceState, key: string): State | null =>
+  state.layouts[key] ?? null;
+
+// TAB_HISTORY_CAP bounds the per-window MRU of active tab keys; entries beyond it
+// only matter for panels with more leaves than this, which do not occur in practice.
+const TAB_HISTORY_CAP = 16;
 
 const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State> =>
   Object.fromEntries(
-    Object.entries(layouts).filter(
-      ([, layout]) =>
-        layout.location === "window" && layout.type !== MOSAIC_WINDOW_TYPE,
-    ),
+    Object.entries(layouts).filter(([, layout]) => layout.location === "window"),
   );
-
-const tabFromLayout = (layout: State): Tabs.Spec => ({
-  closable: true,
-  editable: layout.tab?.editable,
-  icon: layout.icon,
-  name: layout.name,
-  tabKey: layout.key,
-});
-
-// Inserts a tab for every location:"mosaic" layout whose tab is missing
-// from its claimed mosaic, falling back to the main mosaic when the window
-// is gone. Persisted state can carry this shape of inconsistency, and
-// without reconciliation the next attempt to re-open the layout throws
-// "Tab not found" in place().
-const reconcileMosaicLayouts = (state: SliceState) => {
-  Object.values(state.layouts).forEach((layout) => {
-    if (layout.location !== "mosaic") return;
-    let target = state.mosaics[layout.windowKey];
-    if (target == null) {
-      layout.windowKey = MAIN_WINDOW;
-      target = state.mosaics[MAIN_WINDOW];
-      if (target == null) return;
-    }
-    if (Mosaic.findTabNode(target.root, layout.key) != null) return;
-    target.root = Mosaic.insertTab(target.root, tabFromLayout(layout));
-  });
-};
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
+    // place stores a window or modal layout. Document content (formerly
+    // location "mosaic") is routed into the active panel by usePlacer through
+    // panel actions and never reaches this reducer.
     place: (state, { payload: layout }: PayloadAction<PlacePayload>) => {
-      const { location, tab } = layout;
       let key = layout.key;
-
       const prev = select(state, key);
       if (prev != null) {
         key = prev.key;
         layout.key = prev.key;
       }
-
-      if (layout.type === MOSAIC_WINDOW_TYPE) state.mosaics[key] = ZERO_MOSAIC_STATE;
-
-      // Clean up the source mosaic when leaving the mosaic location or
-      // moving across windows. The source is keyed by prev.windowKey, not
-      // by the incoming layout.windowKey.
-      if (
-        prev != null &&
-        prev.location === "mosaic" &&
-        (location !== "mosaic" || prev.windowKey !== layout.windowKey)
-      ) {
-        const prevMosaic = state.mosaics[prev.windowKey];
-        if (prevMosaic != null)
-          [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, key);
-      }
-
-      const mosaic = state.mosaics[layout.windowKey];
-      const mosaicTab = tabFromLayout(layout);
-
-      let mosaicKey = tab?.mosaicKey;
-      // If we didn't explicitly specify a mosaic node to put the new tab in, and
-      // the user has selected an active tab, we'll put the new tab in the same node
-      // that the user has selected.
-      if (mosaic?.activeTab != null && mosaicKey == null)
-        mosaicKey = Mosaic.findTabNode(mosaic.root, mosaic.activeTab)?.key;
-
-      // Decide insert vs. select/update by mosaic membership: a layout can
-      // claim location "mosaic" without a matching mosaic node when
-      // persisted state is inconsistent.
-      if (location === "mosaic" && mosaic != null) {
-        if (Mosaic.findTabNode(mosaic.root, key) != null)
-          mosaic.root = Mosaic.updateTab(
-            Mosaic.selectTab(mosaic.root, key),
-            key,
-            () => mosaicTab,
-          );
-        else
-          mosaic.root = Mosaic.insertTab(
-            mosaic.root,
-            mosaicTab,
-            tab?.location,
-            mosaicKey,
-          );
-        mosaic.activeTab = key;
-      }
-
       state.layouts[key] = layout;
-      if (layout.type !== MOSAIC_WINDOW_TYPE) purgeEmptyMosaics(state);
     },
     setHauled: (state, { payload }: PayloadAction<SetHaulingPayload>) => {
       state.hauling = payload;
@@ -283,89 +169,8 @@ export const { actions, reducer } = createSlice({
       keys.forEach((contentKey) => {
         const layout = select(state, contentKey);
         if (layout == null || layout.key == MAIN_WINDOW) return;
-        const mosaic = state.mosaics[layout.windowKey];
-        if (layout == null || mosaic == null) return;
-        const { location } = layout;
-        if (location === "mosaic")
-          [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, layout.key);
         delete state.layouts[layout.key];
-        state.mosaics[layout.windowKey] = mosaic;
-        purgeEmptyMosaics(state);
       });
-    },
-    moveMosaicTab: (
-      state,
-      {
-        payload: { tabKey, windowKey, key, loc, index },
-      }: PayloadAction<MoveMosaicTabPayload>,
-    ) => {
-      const layout = select(state, tabKey);
-      if (layout == null) return;
-      const prevWindowKey = layout.windowKey;
-      if (windowKey == null || prevWindowKey === windowKey) {
-        // This is a redundant operation, so we leave everything as is.
-        if (key == null) return;
-        const mosaic = state.mosaics[prevWindowKey];
-        [mosaic.root] = Mosaic.moveTab(mosaic.root, layout.key, loc, key, index);
-        state.mosaics[prevWindowKey] = mosaic;
-        return;
-      }
-      const prevMosaic = state.mosaics[prevWindowKey];
-      [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, tabKey);
-      state.mosaics[prevWindowKey] = prevMosaic;
-      const mosaic = state.mosaics[windowKey];
-      mosaic.activeTab ??= tabKey;
-      state.layouts[layout.key].windowKey = windowKey;
-
-      const mosaicTab = {
-        closable: true,
-        icon: layout.icon,
-        ...layout.tab,
-        name: layout.name,
-        tabKey: layout.key,
-      };
-
-      mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
-      state.mosaics[windowKey] = mosaic;
-      purgeEmptyMosaics(state);
-    },
-    setAltKey: (
-      state,
-      { payload: { key, altKey } }: PayloadAction<SetAltKeyPayload>,
-    ) => {
-      state.keyToAltKey[key] = altKey;
-      state.altKeyToKey[altKey] = key;
-    },
-    splitMosaicNode: (
-      state,
-      {
-        payload: { windowKey, direction, tabKey },
-      }: PayloadAction<SplitMosaicNodePayload>,
-    ) => {
-      const mosaic = state.mosaics[windowKey];
-      mosaic.root = Mosaic.split(mosaic.root, tabKey, direction);
-      state.mosaics[windowKey] = mosaic;
-    },
-    selectMosaicTab: (
-      state,
-      { payload: { tabKey } }: PayloadAction<SelectMosaicTabPayload>,
-    ) => {
-      const layout = select(state, tabKey);
-      if (layout == null) return;
-      const { windowKey } = layout;
-      const mosaic = state.mosaics[windowKey];
-      if (mosaic.activeTab === tabKey) return;
-      mosaic.root = Mosaic.selectTab(mosaic.root, layout.key);
-      mosaic.activeTab = layout.key;
-      state.mosaics[windowKey] = mosaic;
-    },
-    resizeMosaicTab: (
-      state,
-      { payload: { key, size, windowKey } }: PayloadAction<ResizeMosaicTabPayload>,
-    ) => {
-      const mosaic = state.mosaics[windowKey];
-      mosaic.root = Mosaic.resizeNode(mosaic.root, key, size);
-      state.mosaics[windowKey] = mosaic;
     },
     rename: (
       state,
@@ -373,10 +178,7 @@ export const { actions, reducer } = createSlice({
     ) => {
       const layout = select(state, tabKey);
       if (layout == null) return;
-      const mosaic = state.mosaics[layout.windowKey];
       layout.name = name;
-      mosaic.root = Mosaic.renameTab(mosaic.root, layout.key, name);
-      state.mosaics[layout.windowKey] = mosaic;
     },
     setActiveTheme: (state, { payload: key }: PayloadAction<SetActiveThemePayload>) => {
       if (key != null) state.activeTheme = key;
@@ -501,13 +303,10 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { slice, keepNav = true } }: PayloadAction<SetProjectPayload>,
     ) => {
-      // Mosaic.insertTab mutates tabs arrays in place; clone before
-      // reconciling so the helper does not fight frozen nested objects
-      // carried over from the previous store snapshot. Snapshot the draft
-      // with current() first, since structuredClone cannot clone Immer's
-      // draft Proxies.
+      // Snapshot the draft with current() first, since structuredClone cannot
+      // clone Immer's draft Proxies.
       const s = current(state);
-      const next = deep.copy(
+      return deep.copy(
         migrateSlice({
           ...slice,
           layouts: {
@@ -521,8 +320,6 @@ export const { actions, reducer } = createSlice({
           nav: keepNav ? s.nav : slice.nav,
         }),
       );
-      reconcileMosaicLayouts(next);
-      return next;
     },
     clearProject: (state) => ({
       ...ZERO_SLICE_STATE,
@@ -540,19 +337,13 @@ export const { actions, reducer } = createSlice({
       if (layout == null) return;
       layout.args = args;
     },
+    // setFocus fullscreen-focuses one tab in a window (Ctrl+L), or clears focus
+    // when key is null. Focus is per-window session state in state.focused.
     setFocus: (
       state,
       { payload: { key, windowKey } }: PayloadAction<SetFocusPayload>,
     ) => {
-      if (key == null) {
-        const mosaic = state.mosaics[windowKey];
-        mosaic.focused = null;
-        return;
-      }
-      const layout = select(state, key);
-      if (layout == null) return;
-      const mosaic = state.mosaics[layout.windowKey];
-      mosaic.focused = key;
+      state.focused[windowKey] = key;
     },
     setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
       state.colorContext = payload.state;
@@ -564,14 +355,46 @@ export const { actions, reducer } = createSlice({
       const layout = select(state, payload.key);
       if (layout == null) return;
       layout.unsavedChanges = payload.unsavedChanges;
-
-      if (layout.location === "mosaic") {
-        const mosaic = state.mosaics[layout.windowKey];
-        mosaic.root = Mosaic.updateTab(mosaic.root, layout.key, () => ({
-          ...tabFromLayout(layout),
-          unsavedChanges: payload.unsavedChanges,
-        }));
-      }
+    },
+    setActivePanel: (state, { payload }: PayloadAction<SetActivePanelPayload>) => {
+      const wp = (state.windowPanels[payload.windowKey] ??= {
+        active: null,
+        activeTab: null,
+        tabHistory: [],
+      });
+      wp.active = payload.key;
+      // Tab focus is scoped to the active panel; reset on switch so the next
+      // panel's adapter falls back to its most recent (or first) tab.
+      wp.activeTab = null;
+    },
+    setActiveTab: (
+      state,
+      { payload }: PayloadAction<{ windowKey: string; key: string | null }>,
+    ) => {
+      const wp = (state.windowPanels[payload.windowKey] ??= {
+        active: null,
+        activeTab: null,
+        tabHistory: [],
+      });
+      wp.activeTab = payload.key;
+      if (payload.key == null) return;
+      // Persisted states from before tabHistory existed skip the schema's default
+      // (the migrator only parses on version changes), so tolerate its absence.
+      wp.tabHistory ??= [];
+      wp.tabHistory = [
+        payload.key,
+        ...wp.tabHistory.filter((k) => k !== payload.key),
+      ].slice(0, TAB_HISTORY_CAP);
+    },
+    // setTabUnsavedChanges records, per panel tab key, whether a view tab's form has
+    // unsaved edits. Session-only (this operator's draft state); absent entries mean
+    // saved, so cleared keys are deleted to keep the map a set of dirty tabs.
+    setTabUnsavedChanges: (
+      state,
+      { payload }: PayloadAction<{ key: string; unsavedChanges: boolean }>,
+    ) => {
+      if (payload.unsavedChanges) state.tabUnsavedChanges[payload.key] = true;
+      else delete state.tabUnsavedChanges[payload.key];
     },
     hideAllNavDrawers: (state) => {
       Object.values(state.nav).forEach((navState) => {
@@ -590,11 +413,6 @@ export const {
   remove,
   toggleActiveTheme,
   setActiveTheme,
-  moveMosaicTab,
-  selectMosaicTab,
-  resizeMosaicTab,
-  setAltKey,
-  splitMosaicNode,
   rename,
   setNavDrawer,
   resizeNavDrawer,
@@ -608,6 +426,9 @@ export const {
   stopNavHover,
   setUnsavedChanges,
   hideAllNavDrawers,
+  setActivePanel,
+  setActiveTab,
+  setTabUnsavedChanges,
 } = actions;
 
 export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload<T>> =>
@@ -615,22 +436,6 @@ export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
-
-export const MOSAIC_WINDOW_TYPE = "mosaicWindow";
-
-export const createMosaicWindow = (window?: WindowProps): BaseState => ({
-  key: `${MOSAIC_WINDOW_TYPE}-${id.create()}`,
-  name: "Mosaic",
-  type: MOSAIC_WINDOW_TYPE,
-  location: "window",
-  window: {
-    ...window,
-    size: { width: 800, height: 600 },
-    navTop: false,
-    visible: true,
-    showTitle: false,
-  },
-});
 
 /**
  * The props passed to a LayoutRenderer. Note that these props are minimal and only focus
@@ -647,6 +452,12 @@ export interface RendererProps {
   layoutKey: string;
   visible: boolean;
   focused: boolean;
+  /**
+   * active is true when this layout is the one the user is currently working in —
+   * the selected, non-blurred tab of the active panel (or the visible window/modal).
+   * Renderers gate keyboard shortcuts on it so input goes to a single layout.
+   */
+  active: boolean;
   /**
    * onClose should be called when the layout is ready to be closed. This function is
    * polymorphic and may have different behavior depending on the location of the layout.
@@ -674,10 +485,9 @@ export interface NameHookResult {
 
 /**
  * A hook bound to a layout {@link Renderer} that owns the name read/write path
- * for the layout. The hook is responsible for invoking {@link NameHookProps.onChange}
- * whenever its source-of-truth name updates and for persisting user-initiated
- * renames via {@link NameHookResult.onRename}. Display name is always read from
- * the layout slice; the hook keeps the slice in sync via `onChange`.
+ * for layouts/resources of its type. The hook invokes `onChange` whenever its
+ * source-of-truth name updates (e.g. a Flux subscription) and persists
+ * user-initiated renames via {@link NameHookResult.onRename}.
  */
 export type UseName = (
   layoutKey: string,
@@ -688,12 +498,20 @@ export type UseName = (
  * A React component that renders a layout for a given type. All layouts in state are
  * rendered by a layout renderer of a specific type. Renderers may optionally bind a
  * {@link UseName} via the `useName` property to take over the name read/write path
- * for layouts of their type.
+ * for layouts of their type, and an `icon` to display in tab strips and selectors for
+ * layouts of their type.
  */
-export type Renderer = ComponentType<RendererProps> & { useName?: UseName };
+export type Renderer = ComponentType<RendererProps> & {
+  useName?: UseName;
+  icon?: Icon.ReactElement;
+};
 
 export interface ContextMenuProps {
+  // layoutKey is the content's key: the backing resource's key for a resource
+  // tab, the tab key for a view tab.
   layoutKey: string;
+  // tabKey is the hosting panel tab's key.
+  tabKey: string;
 }
 
 export type ContextMenuRenderer = ComponentType<ContextMenuProps>;

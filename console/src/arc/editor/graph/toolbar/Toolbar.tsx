@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
+import { Access, Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -24,7 +24,6 @@ import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/arc/slice";
 import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 
 const TABS = [
   { tabKey: "stages", name: "Stages" },
@@ -71,7 +70,11 @@ export interface ToolbarProps {
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const dispatch = useDispatch();
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const { data: remote } = Arc.useRetrieve(
+    { key: layoutKey },
+    { addStatusOnFailure: false },
+  );
+  const name = remote?.name ?? "Arc";
   const toolbar = useSelectToolbar();
   const editMode = useSelectEditable(layoutKey);
   const handleExport = useExport();

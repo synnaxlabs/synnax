@@ -179,27 +179,35 @@ describe("project import", () => {
     return slice;
   };
 
-  it("places exactly one tab per imported schematic and table", async () => {
+  it("creates the project and makes it the active project", async () => {
     const store = await runImport();
-    expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(1);
-    expect(layoutsOfType(store, TABLE_TYPE)).toHaveLength(1);
+    const active = Project.selectActive(store.getState() as never);
+    expect(active).not.toBeNull();
+    await expect(client.projects.retrieve(active.key)).resolves.toBeDefined();
   });
 
-  it("links every imported tab to a resource that exists in the cluster", async () => {
+  // Document tabs are no longer installed into the layout slice: tiling lives in
+  // panels, and the panel-aware import flow lands with the export/import rewrite.
+  it("does not store imported components as slice layouts", async () => {
     const store = await runImport();
-    const [schematicLayout] = layoutsOfType(store, SCHEMATIC_TYPE);
-    const [tableLayout] = layoutsOfType(store, TABLE_TYPE);
-    await expect(
-      client.schematics.retrieve({ key: schematicLayout.key }),
-    ).resolves.toBeDefined();
-    await expect(
-      client.tables.retrieve({ key: tableLayout.key }),
-    ).resolves.toBeDefined();
+    expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(0);
+    expect(layoutsOfType(store, TABLE_TYPE)).toHaveLength(0);
+  });
+
+  it("creates every imported component under the new project", async () => {
+    const store = await runImport();
+    const active = Project.selectActive(store.getState() as never);
+    const children = await client.ontology.retrieveChildren(
+      project.ontologyID(active.key),
+    );
+    const childTypes = children.map(({ id }) => id.type);
+    expect(childTypes).toContain(SCHEMATIC_TYPE);
+    expect(childTypes).toContain(TABLE_TYPE);
   });
 
   it("imports a project whose exported themes predate current theme fields", async () => {
     const store = await runImport(files(staleThemesSlice()));
-    expect(layoutsOfType(store, SCHEMATIC_TYPE)).toHaveLength(1);
-    expect(layoutsOfType(store, TABLE_TYPE)).toHaveLength(1);
+    const active = Project.selectActive(store.getState() as never);
+    expect(active).not.toBeNull();
   });
 });

@@ -15,10 +15,10 @@ import { Selector } from "@/selector";
 import { LAYOUT_TYPE } from "@/table/layout";
 import { useCreate } from "@/table/useCreate";
 
-export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
+export const Selectable: Selector.Selectable = ({ onResolved }) => {
   const hasCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
-  const create = useCreate({});
-  const handleClick = useCallback(() => create({ key }), [create, key]);
+  const create = useCreate({ onResolved });
+  const handleClick = useCallback(() => create(), [create]);
   if (!hasCreatePermission) return null;
   return (
     <Selector.Item

@@ -22,7 +22,6 @@ export * from "@/project/types";
 export * from "@/project/useCheckCore";
 export * from "@/project/useMaybeChange";
 export * from "@/project/useSyncComponent";
-export * from "@/project/useSyncLayout";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CREATE_LAYOUT_TYPE]: Create,

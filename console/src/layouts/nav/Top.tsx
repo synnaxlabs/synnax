@@ -9,28 +9,16 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { Logo } from "@synnaxlabs/media";
 import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
-import { LOGO_LOCATION } from "@/layouts/nav/logo";
-import { Palette } from "@/palette";
+import { Panel } from "@/panel";
 import { Project } from "@/project";
 import { User } from "@/user";
 import { Version } from "@/version";
-
-const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
-  command: [["Control", "Shift", "P"]],
-  defaultMode: "command",
-  search: [["Control", "P"]],
-};
-
-const TopPalette = (): ReactElement => (
-  <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
-);
 
 export const Top = (): ReactElement | null => {
   const os = OS.use();
@@ -38,12 +26,9 @@ export const Top = (): ReactElement | null => {
     <Layout.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region gap="large">
         <Layout.Controls visibleIfOS="macOS" forceOS={os} />
-        {LOGO_LOCATION === "top" && <Logo variant="icon" />}
         <Project.Selector />
+        <Panel.PanelTabs />
       </Nav.Bar.Start>
-      <Nav.Bar.Center grow justify="center" data-tauri-drag-region>
-        <TopPalette />
-      </Nav.Bar.Center>
       <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
         <Version.Badge />
         <User.Badge />

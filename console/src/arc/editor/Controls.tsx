@@ -19,14 +19,17 @@ import { type State } from "@/arc/slice";
 import { translateGraphToServer } from "@/arc/types/translate";
 import { CSS } from "@/css";
 import { Controls as Base } from "@/hardware/common/task/controls";
-import { Layout } from "@/layout";
 
 interface ControlsProps {
   state: State;
 }
 
 export const Controls = ({ state }: ControlsProps) => {
-  const name = Layout.useSelectRequiredName(state.key);
+  const { data: remote } = Arc.useRetrieve(
+    { key: state.key },
+    { addStatusOnFailure: false },
+  );
+  const name = remote?.name ?? "Arc";
   const { running, onStartStop, taskStatus, taskKey } = useTask(state.key, name);
   const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();

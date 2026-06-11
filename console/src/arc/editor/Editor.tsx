@@ -11,6 +11,7 @@ import { arc } from "@synnaxlabs/client";
 import { Access, Arc, Icon } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
+import { useDispatch } from "react-redux";
 
 import { useCreateModal } from "@/arc/editor/CreateModal";
 import { Graph } from "@/arc/editor/graph";
@@ -18,7 +19,7 @@ import { Text } from "@/arc/editor/text";
 import { useSelectMode, useSelectVersion } from "@/arc/selectors";
 import { internalCreate, type State, ZERO_STATE } from "@/arc/slice";
 import { TYPE } from "@/arc/types";
-import { translateGraphToConsole } from "@/arc/types/translate";
+import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { Selector } from "@/selector";
@@ -52,6 +53,7 @@ export const Editor: Layout.Renderer = (props) => {
 };
 
 Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);
+Editor.icon = <Icon.Arc />;
 
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
@@ -79,20 +81,37 @@ export const create =
   };
 
 export const Selectable: Selector.Selectable = ({
-  layoutKey,
   onPlace,
+  onResolved,
   handleError,
 }) => {
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const createArcModal = useCreateModal();
+  const dispatch = useDispatch();
+  const { update } = Arc.useCreate();
 
   const handleClick = useCallback(() => {
     handleError(async () => {
       const result = await createArcModal({});
-      if (result != null)
-        onPlace(create({ key: layoutKey, name: result.name, mode: result.mode }));
+      if (result == null) return;
+      const key = uuid.create();
+      // In a panel, create the arc on the server (so the tab references a real
+      // resource) and seed the local editor's working copy, then fill the tab;
+      // otherwise open it as a mosaic tab as before.
+      if (onResolved != null) {
+        const zero = deep.copy(ZERO_STATE);
+        update({
+          key,
+          name: result.name,
+          mode: result.mode,
+          graph: translateGraphToServer(zero.graph),
+          text: zero.text,
+        });
+        dispatch(internalCreate({ ...zero, key, mode: result.mode }));
+        onResolved({ resource: arc.ontologyID(key) });
+      } else onPlace(create({ key, name: result.name, mode: result.mode }));
     }, "Failed to create Arc program");
-  }, [onPlace, layoutKey, createArcModal, handleError]);
+  }, [onResolved, onPlace, dispatch, createArcModal, handleError, update]);
 
   if (!hasCreatePermission) return null;
 

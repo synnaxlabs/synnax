@@ -12,6 +12,7 @@ import {
   Access,
   Control,
   Diagram,
+  Icon,
   Menu,
   Schematic as Base,
   Viewport,
@@ -38,7 +39,7 @@ import {
 } from "@/schematic/slice";
 import { type RootState } from "@/store";
 
-const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
+const Internal: Layout.Renderer = ({ layoutKey: key, visible, active }) => {
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
   const dispatch = useDispatch();
@@ -117,11 +118,8 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   const store = useStore<RootState>();
 
   const enableTriggers = useCallback(
-    () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key &&
-      hasUpdatePermission &&
-      selectEditable(store.getState(), key),
-    [store, key, hasUpdatePermission],
+    () => active && hasUpdatePermission && selectEditable(store.getState(), key),
+    [active, store, key, hasUpdatePermission],
   );
 
   const renderExtraMenuItems = useCallback(
@@ -193,3 +191,4 @@ Schematic.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
 );
+Schematic.icon = <Icon.Schematic />;

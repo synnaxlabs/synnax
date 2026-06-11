@@ -7,33 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Log as PLog } from "@synnaxlabs/pluto";
+import { Icon, Log as PLog } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import { useSelectExists } from "@/log/selectors";
 import { internalCreate, setActiveToolbarTab } from "@/log/slice";
-import { type RootState } from "@/store";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/log/layout";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
+const Loaded: Layout.Renderer = ({ layoutKey, visible, active }) => {
   PLog.useEnsureRetrieved({ key: layoutKey });
   const dispatch = useDispatch();
-  const store = useStore<RootState>();
   const channelKeys = PLog.useSelectChannelKeys({ key: layoutKey });
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 
-  const enableTriggers = useCallback(
-    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
-    [store, layoutKey],
-  );
+  const enableTriggers = useCallback(() => active, [active]);
 
   const handleDoubleClick = useCallback(() => {
     dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
@@ -78,3 +73,4 @@ export const Log: Layout.Renderer = (props) => {
 };
 
 Log.useName = Layout.createUseFluxName(PLog.useRename, PLog.useRetrieveObservableName);
+Log.icon = <Icon.Log />;

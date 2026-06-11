@@ -22,6 +22,7 @@ import {
   List,
   Menu,
   Ontology,
+  type Pluto,
   Status,
   Synnax,
   Text,
@@ -362,6 +363,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const removeLayout = Layout.useRemover();
   const addStatus = Status.useAdder();
   const store = useStore<RootState, RootAction>();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
 
   const moveChildren = Ontology.useMoveChildren({});
 
@@ -369,13 +371,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (client: Client): BaseProps => ({
       client,
       store,
+      fluxStore,
       placeLayout,
       removeLayout,
       addStatus,
       handleError,
       services,
     }),
-    [store, placeLayout, removeLayout, addStatus, handleError, services],
+    [store, fluxStore, placeLayout, removeLayout, addStatus, handleError, services],
   );
 
   const handleDrop = useCallback(

@@ -15,10 +15,10 @@ import { LAYOUT_TYPE } from "@/lineplot/layout";
 import { useCreate } from "@/lineplot/useCreate";
 import { Selector } from "@/selector";
 
-export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
+export const Selectable: Selector.Selectable = ({ onResolved }) => {
   const hasCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
-  const create = useCreate({});
-  const handleClick = useCallback(() => create({ key }), [create, key]);
+  const create = useCreate({ onResolved });
+  const handleClick = useCallback(() => create(), [create]);
   if (!hasCreatePermission) return null;
   return (
     <Selector.Item

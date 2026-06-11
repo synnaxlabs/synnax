@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
 import { type Link } from "@/link";
 import { Project } from "@/project";
 
 export const handleLink: Link.Handler = async ({ client, dispatch, key }) => {
-  const { layout, ...ws } = await client.projects.retrieve(key);
-  dispatch(Layout.setProject({ slice: layout as Layout.SliceState }));
+  const { layout: _layout, ...ws } = await client.projects.retrieve(key);
   dispatch(Project.setActive(ws));
 };

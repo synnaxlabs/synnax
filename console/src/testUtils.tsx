@@ -75,24 +75,30 @@ const createFluxClient = (client: Client | null): Flux.Client =>
 
 export const ConsoleTestProvider = ({
   store,
-  client,
+  client = null,
   fluxClient,
   children,
 }: PropsWithChildren<{
   store: EnhancedStore;
-  client: Client | null;
-  fluxClient: Flux.Client;
-}>): ReactElement => (
-  <AetherTestProvider>
-    <Status.Aggregator>
-      <Synnax.TestProvider client={client}>
-        <Flux.Provider client={fluxClient}>
-          <Provider store={store}>{children}</Provider>
-        </Flux.Provider>
-      </Synnax.TestProvider>
-    </Status.Aggregator>
-  </AetherTestProvider>
-);
+  client?: Client | null;
+  fluxClient?: Flux.Client;
+}>): ReactElement => {
+  const resolvedFluxClient = useMemo(
+    () => fluxClient ?? createFluxClient(client),
+    [fluxClient, client],
+  );
+  return (
+    <AetherTestProvider>
+      <Status.Aggregator>
+        <Synnax.TestProvider client={client}>
+          <Flux.Provider client={resolvedFluxClient}>
+            <Provider store={store}>{children}</Provider>
+          </Flux.Provider>
+        </Synnax.TestProvider>
+      </Status.Aggregator>
+    </AetherTestProvider>
+  );
+};
 
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;

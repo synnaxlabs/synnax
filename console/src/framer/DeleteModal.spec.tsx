@@ -24,7 +24,7 @@ const renderModal = (
 ) => ({
   result: render(
     <Wrapper>
-      <DeleteModal layoutKey="test" onClose={onClose} visible focused />
+      <DeleteModal layoutKey="test" onClose={onClose} visible focused active />
     </Wrapper>,
   ),
   onClose,

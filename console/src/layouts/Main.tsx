@@ -59,15 +59,6 @@ const SideEffect = (): null => {
   return null;
 };
 
-// ProjectSideEffect holds effects that only make sense with an active project. It is
-// rendered inside Project.Guard, so it mounts only once a project is active - layout
-// sync and the file-drop importer never run against the select-or-create screen.
-const ProjectSideEffect = (): null => {
-  Project.useSyncLayout();
-  Layout.useDropOutside();
-  return null;
-};
-
 export const MAIN_LAYOUT_TYPE = Drift.MAIN_WINDOW;
 
 /**
@@ -81,7 +72,6 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Auth.Guard>
       <Project.Guard>
-        <ProjectSideEffect />
         <Nav.Top />
         <Flex.Box
           x

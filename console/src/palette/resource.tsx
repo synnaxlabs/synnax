@@ -10,8 +10,10 @@
 import { ontology } from "@synnaxlabs/client";
 import {
   Component,
+  Flux,
   List,
   Ontology as POntology,
+  type Pluto,
   Select,
   Status,
   Synnax,
@@ -54,6 +56,7 @@ export const useResourceList = (): UseListReturn<ontology.Resource> => {
   const { data, getItem, subscribe, retrieve } = POntology.useResourceList({ filter });
   const client = Synnax.use();
   const store = useStore<RootState, RootAction>();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const addStatus = Status.useAdder();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
@@ -66,6 +69,7 @@ export const useResourceList = (): UseListReturn<ontology.Resource> => {
       services[type].onSelect?.({
         services,
         store,
+        fluxStore,
         addStatus,
         placeLayout,
         removeLayout,
@@ -74,7 +78,16 @@ export const useResourceList = (): UseListReturn<ontology.Resource> => {
         selection: getItem([key]),
       });
     },
-    [client, services, store, addStatus, placeLayout, removeLayout, handleError],
+    [
+      client,
+      services,
+      store,
+      fluxStore,
+      addStatus,
+      placeLayout,
+      removeLayout,
+      handleError,
+    ],
   );
 
   return { data, getItem, subscribe, handleSelect, listItem, retrieve };

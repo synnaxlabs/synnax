@@ -9,22 +9,27 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { Logo } from "@synnaxlabs/media";
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { LOGO_LOCATION } from "@/layouts/nav/logo";
 import { Menu } from "@/layouts/nav/Menu";
+import { Palette } from "@/palette";
+
+const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
+  command: [["Control", "Shift", "P"]],
+  defaultMode: "command",
+  search: [["Control", "P"]],
+};
+
+const SearchAndCommandPalette = (): ReactElement => (
+  <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
+);
 
 export const Left = (): ReactElement => (
   <Layout.Nav.Bar location="left" size="8rem">
-    {LOGO_LOCATION === "left" && (
-      <Nav.Bar.Start bordered>
-        <Logo />
-      </Nav.Bar.Start>
-    )}
-    <Nav.Bar.Content>
+    <Nav.Bar.Content align="center">
+      <SearchAndCommandPalette />
       <Menu location="left" />
     </Nav.Bar.Content>
     <Nav.Bar.End bordered>

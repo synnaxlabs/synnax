@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { box, id, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { Controls } from "@/arc/editor/Controls";
 import { Provider, useArcEditorContext } from "@/arc/editor/graph/Context";
@@ -47,7 +47,7 @@ import {
   setViewportMode,
   type State,
 } from "@/arc/slice";
-import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
+import { Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
@@ -108,13 +108,7 @@ const ArcDiagram = Base.create({
   node: Component.renderProp(NodeRenderer),
 });
 
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <CMenu.Menu>
-    <Layout.MenuItems layoutKey={layoutKey} />
-  </CMenu.Menu>
-);
-
-export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
+export const Editor: Layout.Renderer = ({ layoutKey, visible, active }) => {
   const state = useSelect(layoutKey);
 
   const dispatch = useDispatch();
@@ -258,12 +252,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
-  const store = useStore<RootState>();
-
-  const enableTriggers = useCallback(
-    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
-    [store, layoutKey],
-  );
+  const enableTriggers = useCallback(() => active, [active]);
 
   Diagram.useTriggers({
     onCopy: handleCopySelection,
