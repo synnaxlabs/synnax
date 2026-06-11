@@ -51,7 +51,6 @@ const undoableStoreConfig = Flux.createUndoableStore<
   reduce: panel.reduceAll,
   channel: panel.SET_CHANNEL_NAME,
   schema: panel.scopedActionZ,
-  isUndoable: panel.isUndoable,
   kindOf: kindOfTransaction,
 });
 
@@ -170,9 +169,7 @@ export const useList = Flux.createList<
   ],
 });
 
-export interface CreateParams extends panel.New {
-  parent?: ontology.ID;
-}
+export interface CreateParams extends panel.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
@@ -182,10 +179,9 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const { parent, ...rest } = data;
-    const optimistic = panel.newZ.parse(rest);
+    const optimistic = panel.newZ.parse(data);
     rollbacks.push(store.panels.set(optimistic));
-    const created = await client.panels.create(optimistic, parent);
+    const created = await client.panels.create(optimistic);
     store.panels.set(created);
     return created;
   },
