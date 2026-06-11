@@ -8,12 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, panel } from "@synnaxlabs/client";
-import { type location, uuid } from "@synnaxlabs/x";
+import { deep, type location, uuid } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement, useCallback, useMemo } from "react";
 
 import { context } from "@/context";
+import { Flux } from "@/flux";
 import { Mosaic as Base } from "@/mosaic";
-import { useDispatch, useRetrieve } from "@/panel/queries";
+import {
+  type FluxSubStore,
+  useDispatch,
+  useEnsureRetrieved,
+  useSelectTabContent,
+} from "@/panel/queries";
 import { Portal } from "@/portal";
 import { Tabs } from "@/tabs";
 
@@ -78,33 +84,17 @@ export interface MosaicProps extends Pick<
   tabName?: (props: MosaicTabNameProps) => ReactElement | null;
 }
 
-// TabContent is a tab's resolved content union. At most one of resource or view is
-// non-null; both null means the tab has no content yet.
-export interface TabContent {
-  resource: ontology.ID | null;
-  view: panel.TabView | null;
-}
-
 // adaptToMosaic walks the typed panel tree and produces the Base.Node shape
 // with path-derived numeric keys (root = 1, first child = 2k, last child =
-// 2k + 1). It also builds a tab → content map so the render props can
-// resolve a tab's content without re-traversing the tree.
-interface AdaptResult {
-  root: Base.Node;
-  // Maps every tab key to its content union. A key absent from the map is not a
-  // tab in this panel.
-  contents: Map<string, TabContent>;
-}
-
+// 2k + 1).
 const adaptToMosaic = (
   root: panel.Node | undefined,
   activeTab: string | undefined,
   recentTabs: string[] | undefined,
-): AdaptResult => {
+): Base.Node => {
   // Selection preference per leaf: the active tab first, then the MRU.
   const preference =
     activeTab != null ? [activeTab, ...(recentTabs ?? [])] : (recentTabs ?? []);
-  const contents = new Map<string, TabContent>();
   const visit = (node: panel.Node | undefined, key: number): Base.Node => {
     if (node == null) return { key };
     if (node.split != null)
@@ -117,48 +107,79 @@ const adaptToMosaic = (
       };
 
     if (node.leaf == null) return { key, tabs: [] };
-    const tabs: Tabs.Tab[] = node.leaf.tabs.map((t) => {
-      const resource = t.resource ?? null;
-      const view = t.view ?? null;
-      contents.set(t.key, { resource, view });
+    const tabs: Tabs.Tab[] = node.leaf.tabs.map((t) => ({
+      tabKey: t.key,
+      name: "",
+      closable: true,
       // Resource and view tabs carry a renameable name; empty (selector) tabs do not.
-      return {
-        tabKey: t.key,
-        name: "",
-        closable: true,
-        editable: resource != null || view != null,
-      };
-    });
+      editable: t.resource != null || t.view != null,
+    }));
     const selected =
       preference.find((key) => tabs.some((t) => t.tabKey === key)) ?? tabs[0]?.tabKey;
     return { key, tabs, selected };
   };
-  return { root: visit(root, panel.ROOT_PATH), contents };
+  return visit(root, panel.ROOT_PATH);
 };
 
-// TabNameContext carries the per-tab content map and the consumer's tabName
-// resolver down to the Base.Mosaic tab strip, which only exposes Tabs.NameProps.
-// A module-stable Name component reads it so tab names never remount on tree
+interface SelectRootArgs {
+  key: panel.Key;
+  activeTab?: string;
+  recentTabs?: string[];
+}
+
+// useSelectRoot selects the panel tree adapted to the Base.Mosaic node shape.
+// Content-only changes (a tab's resource or view) produce a deep-equal tree
+// and do not re-render the mosaic shell.
+const useSelectRoot = Flux.createSelector<FluxSubStore, SelectRootArgs, Base.Node>({
+  subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+  select: (store, { key, activeTab, recentTabs }) =>
+    adaptToMosaic(store.panels.get(key)?.root, activeTab, recentTabs),
+  equal: deep.equal,
+});
+
+// TabNameContext carries the panel key and the consumer's tabName resolver down
+// to the Base.Mosaic tab strip, which only exposes Tabs.NameProps. A
+// module-stable Name component reads it so tab names never remount on tree
 // changes.
 interface TabNameContextValue {
-  contents: Map<string, TabContent>;
+  panelKey: panel.Key | null;
   tabName?: (props: MosaicTabNameProps) => ReactElement | null;
 }
 
 const [TabNameContext, useTabNameContext] = context.create<TabNameContextValue>({
   displayName: "Panel.Mosaic.TabName",
-  defaultValue: { contents: new Map() },
+  defaultValue: { panelKey: null },
 });
 
 const TabName: ComponentType<Tabs.NameProps> = (props) => {
-  const { contents, tabName } = useTabNameContext();
+  const { panelKey, tabName } = useTabNameContext();
+  const content = useSelectTabContent({ key: panelKey ?? "", tabKey: props.tabKey });
   if (tabName == null) return <Tabs.DefaultName {...props} />;
-  const content = contents.get(props.tabKey);
   return tabName({
     ...props,
     resource: content?.resource ?? null,
     view: content?.view ?? null,
   });
+};
+
+interface ContentProps {
+  panelKey: panel.Key;
+  tabKey: string;
+  visible: boolean;
+  children: MosaicProps["children"];
+}
+
+// Content subscribes to a single tab's content union, so a resource or view
+// change re-renders only this tab.
+const Content = ({
+  panelKey,
+  tabKey,
+  visible,
+  children,
+}: ContentProps): ReactElement | null => {
+  const content = useSelectTabContent({ key: panelKey, tabKey });
+  if (content == null) return null;
+  return children({ tabKey, resource: content.resource, view: content.view, visible });
 };
 
 // Mosaic renders a Flux-backed Panel as a Base.Mosaic. The architecture is a
@@ -167,6 +188,9 @@ const TabName: ComponentType<Tabs.NameProps> = (props) => {
 // substrate instead of mutating a Redux slice. Other connected consoles
 // observe each mutation through the panel action channel and apply it via
 // the panel reducer, so cross-client sync is automatic.
+//
+// Mosaic suspends while the panel document loads; wrap it in a Suspense
+// boundary.
 //
 // Tab content is delivered through the children render prop, which receives the
 // tabKey and its resolved content union. The portal pattern borrowed from
@@ -186,13 +210,10 @@ export const Mosaic = ({
   tabName,
   ...rest
 }: MosaicProps): ReactElement | null => {
-  const { data: p } = useRetrieve({ key: panelKey });
+  useEnsureRetrieved({ key: panelKey });
+  const store = Flux.useStore<FluxSubStore>();
   const { dispatch } = useDispatch();
-
-  const { root, contents } = useMemo(
-    () => adaptToMosaic(p?.root, activeTab, recentTabs),
-    [p?.root, activeTab, recentTabs],
-  );
+  const root = useSelectRoot({ key: panelKey, activeTab, recentTabs });
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
 
@@ -206,11 +227,12 @@ export const Mosaic = ({
       if (loc !== "center") {
         // Splitting a leaf against its own only tab is a degenerate gesture: the
         // result would be the tab next to an empty pane. Treat it as a no-op.
-        const root = p?.root;
-        const sourceLeaf = root != null ? panel.tabLeafPath(root, tabKey) : null;
+        const treeRoot = store.panels.get(panelKey)?.root;
+        const sourceLeaf =
+          treeRoot != null ? panel.tabLeafPath(treeRoot, tabKey) : null;
         const sourceTabCount =
           sourceLeaf != null
-            ? (panel.walkPath(root, sourceLeaf)?.leaf?.tabs.length ?? 0)
+            ? (panel.walkPath(treeRoot, sourceLeaf)?.leaf?.tabs.length ?? 0)
             : 0;
         if (sourceLeaf === key && sourceTabCount <= 1) return;
         actions.push(panel.splitLeaf({ leaf: key, location: loc, size: 0.5 }));
@@ -220,7 +242,7 @@ export const Mosaic = ({
       actions.push(panel.moveTab({ key: tabKey, targetLeaf, index: index ?? 0 }));
       dispatch({ key: panelKey, actions });
     },
-    [dispatch, panelKey, p?.root],
+    [dispatch, panelKey, store],
   );
 
   // Resize.useMultiple emits on mount as well as on drags, and a stale emission
@@ -229,11 +251,11 @@ export const Mosaic = ({
   // and panel switches never send invalid or no-op resizes to the server.
   const handleResize = useCallback(
     (key: number, size: number) => {
-      const node = panel.walkPath(p?.root, key);
+      const node = panel.walkPath(store.panels.get(panelKey)?.root, key);
       if (node?.split == null || node.split.size === size) return;
       dispatch({ key: panelKey, actions: [panel.resizeSplit({ split: key, size })] });
     },
-    [dispatch, panelKey, p?.root],
+    [dispatch, panelKey, store],
   );
 
   const handleClose = useCallback(
@@ -282,21 +304,16 @@ export const Mosaic = ({
   const [portalRef, portalNodes] = Base.usePortal({
     root,
     onSelect: handleSelect,
-    children: ({ tabKey, visible }) => {
-      const content = contents.get(tabKey);
-      if (content == null) return null;
-      return children({
-        tabKey,
-        resource: content.resource,
-        view: content.view,
-        visible: visible !== false,
-      });
-    },
+    children: ({ tabKey, visible }) => (
+      <Content panelKey={panelKey} tabKey={tabKey} visible={visible !== false}>
+        {children}
+      </Content>
+    ),
   });
 
   const tabNameContext = useMemo<TabNameContextValue>(
-    () => ({ contents, tabName }),
-    [contents, tabName],
+    () => ({ panelKey, tabName }),
+    [panelKey, tabName],
   );
 
   const renderProp = useCallback<Tabs.RenderProp>(
@@ -307,8 +324,6 @@ export const Mosaic = ({
     },
     [portalRef],
   );
-
-  if (p == null) return null;
 
   return (
     <TabNameContext value={tabNameContext}>

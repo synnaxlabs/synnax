@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, panel } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, deep } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -23,7 +23,7 @@ export interface FluxStore extends Flux.UndoableUnaryStore<
   panel.Action
 > {}
 
-interface FluxSubStore extends Flux.Store {
+export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -83,7 +83,7 @@ const retrieveSingle = async ({
   return p;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<
+export const { useRetrieve, useEnsureRetrieved } = Flux.createRetrieve<
   RetrieveQuery,
   panel.Panel,
   FluxSubStore
@@ -93,6 +93,35 @@ export const { useRetrieve } = Flux.createRetrieve<
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.panels.onSet(onChange, key),
   ],
+});
+
+// TabContent is a tab's resolved content union. At most one of resource or view is
+// non-null; both null means the tab has no content yet.
+export interface TabContent {
+  resource: ontology.ID | null;
+  view: panel.TabView | null;
+}
+
+export interface SelectTabContentArgs {
+  key: panel.Key;
+  tabKey: string;
+}
+
+// useSelectTabContent selects a single tab's content union, re-rendering only
+// when that tab's content changes. Returns null when the panel is not loaded
+// or the tab does not exist.
+export const useSelectTabContent = Flux.createSelector<
+  FluxSubStore,
+  SelectTabContentArgs,
+  TabContent | null
+>({
+  subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+  select: (store, { key, tabKey }) => {
+    const tab = panel.findTab(store.panels.get(key)?.root, tabKey);
+    if (tab == null) return null;
+    return { resource: tab.resource ?? null, view: tab.view ?? null };
+  },
+  equal: deep.equal,
 });
 
 export type ListParams = {
