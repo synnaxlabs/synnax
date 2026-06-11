@@ -33,7 +33,7 @@ type Writer struct {
 
 // Create creates the given table within the project provided. If the table does not
 // have a key, a new key will be generated.
-func (w Writer) Create(ctx context.Context, ws project.Key, t *Table) error {
+func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) error {
 	var (
 		exists bool
 		err    error
@@ -56,12 +56,12 @@ func (w Writer) Create(ctx context.Context, ws project.Key, t *Table) error {
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if ws == uuid.Nil {
+	if projectKey == uuid.Nil {
 		return nil
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
-		project.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
@@ -71,11 +71,11 @@ func (w Writer) Create(ctx context.Context, ws project.Key, t *Table) error {
 // same key already exist, they will be overwritten.
 func (w Writer) CreateMany(
 	ctx context.Context,
-	ws project.Key,
+	projectKey project.Key,
 	tables *[]Table,
 ) error {
 	for i := range *tables {
-		if err := w.Create(ctx, ws, &(*tables)[i]); err != nil {
+		if err := w.Create(ctx, projectKey, &(*tables)[i]); err != nil {
 			return err
 		}
 	}

@@ -137,6 +137,9 @@ func analyze(c *analysisCtx) {
 		if td := def.TypeDefDef(); td != nil {
 			collectTypeDef(c, td)
 		}
+		if u := def.UnionDef(); u != nil {
+			collectUnion(c, u)
+		}
 	}
 
 	for _, imp := range c.ast.AllImportStmt() {
@@ -188,10 +191,12 @@ func analyze(c *analysisCtx) {
 	}
 
 	finalizeEnumExtensions(c)
+	finalizeUnionExtensions(c)
 
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
 		validateTypeParams(c, typ)
+		validateUnion(c, typ)
 		validateFieldOverrides(c, typ)
 	}
 
@@ -367,7 +372,9 @@ func finalizeEnumExtensions(c *analysisCtx) {
 	}
 }
 
-func addEnumDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
+// addTypeDiag records an error diagnostic attributed to the file that
+// declares typ.
+func addTypeDiag(c *analysisCtx, typ resolution.Type, format string, args ...any) {
 	d := diagnostics.Errorf(nil, format, args...)
 	d.File = typ.FilePath
 	c.diag.Add(d)
@@ -386,7 +393,7 @@ func effectiveEnumValues(
 		return nil, false, false
 	}
 	if visited.Contains(typ.QualifiedName) {
-		addEnumDiag(c, typ, "enum %s has a cyclic extends chain", typ.QualifiedName)
+		addTypeDiag(c, typ, "enum %s has a cyclic extends chain", typ.QualifiedName)
 		return nil, false, false
 	}
 	visited.Add(typ.QualifiedName)
@@ -400,7 +407,7 @@ func effectiveEnumValues(
 	add := func(parentName string, v resolution.EnumValue) bool {
 		if existing, dup := byName[v.Name]; dup {
 			if existing.Value != v.Value {
-				addEnumDiag(c, typ, "enum %s inherits member %q with conflicting values from %s",
+				addTypeDiag(c, typ, "enum %s inherits member %q with conflicting values from %s",
 					typ.QualifiedName, v.Name, parentName)
 				return false
 			}
@@ -414,11 +421,11 @@ func effectiveEnumValues(
 	for i := range form.Extends {
 		parent, ok := c.table.Get(form.Extends[i].Name)
 		if !ok {
-			addEnumDiag(c, typ, "enum %s extends unknown enum %q", typ.QualifiedName, form.Extends[i].Name)
+			addTypeDiag(c, typ, "enum %s extends unknown enum %q", typ.QualifiedName, form.Extends[i].Name)
 			return nil, false, false
 		}
 		if _, ok := parent.Form.(resolution.EnumForm); !ok {
-			addEnumDiag(c, typ, "enum %s extends %s, which is not an enum", typ.QualifiedName, parent.QualifiedName)
+			addTypeDiag(c, typ, "enum %s extends %s, which is not an enum", typ.QualifiedName, parent.QualifiedName)
 			return nil, false, false
 		}
 		// Each branch gets its own copy so visited tracks the ancestor path,
@@ -429,7 +436,7 @@ func effectiveEnumValues(
 			return nil, false, false
 		}
 		if kindSet && pInt != isInt {
-			addEnumDiag(c, typ, "enum %s extends enums of mixed integer and string kinds", typ.QualifiedName)
+			addTypeDiag(c, typ, "enum %s extends enums of mixed integer and string kinds", typ.QualifiedName)
 			return nil, false, false
 		}
 		isInt, kindSet = pInt, true
@@ -440,7 +447,7 @@ func effectiveEnumValues(
 		}
 	}
 	if kindSet && len(form.Values) > 0 && form.IsIntEnum != isInt {
-		addEnumDiag(c, typ, "enum %s adds members of a different kind than the enums it extends",
+		addTypeDiag(c, typ, "enum %s adds members of a different kind than the enums it extends",
 			typ.QualifiedName)
 		return nil, false, false
 	}
@@ -450,6 +457,132 @@ func effectiveEnumValues(
 		}
 	}
 	return merged, isInt, true
+}
+
+// finalizeUnionExtensions resolves each union whose extends targets are other
+// unions into a flat variant list: the variants of every extended union
+// (recursively), followed by the union's own declared variants. Extends
+// targets that are structs keep the shared-base-field semantics and are left
+// untouched; mixing the two in one declaration is an error. The table is
+// mutated in place so downstream plugins read a plain, fully populated union.
+func finalizeUnionExtensions(c *analysisCtx) {
+	for _, typ := range c.table.TypesInNamespace(c.namespace) {
+		form, ok := typ.Form.(resolution.UnionForm)
+		if !ok || len(form.Extends) == 0 {
+			continue
+		}
+		if !hasUnionBases(form, c.table) {
+			continue
+		}
+		merged, ok := effectiveUnionVariants(c, typ, set.New[string]())
+		if !ok {
+			continue
+		}
+		form.Variants = merged
+		form.Extends = nil
+		typ.Form = form
+		for i, t := range c.table.Types {
+			if t.QualifiedName == typ.QualifiedName {
+				c.table.Types[i] = typ
+				break
+			}
+		}
+	}
+}
+
+// hasUnionBases reports whether any of a union's extends targets resolves to
+// another union.
+func hasUnionBases(form resolution.UnionForm, table *resolution.Table) bool {
+	for _, ref := range form.Extends {
+		if base, ok := ref.Resolve(table); ok {
+			if _, isUnion := base.Form.(resolution.UnionForm); isUnion {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// effectiveUnionVariants returns a union's fully-resolved variant list: the
+// variants of every union it extends (recursively), followed by its own
+// declared variants. visited guards against cycles. The bool is false when the
+// union or a parent is malformed (a diagnostic is added in that case).
+func effectiveUnionVariants(
+	c *analysisCtx, typ resolution.Type, visited set.Set[string],
+) ([]resolution.UnionVariant, bool) {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return nil, false
+	}
+	if visited.Contains(typ.QualifiedName) {
+		addTypeDiag(c, typ, "union %s has a cyclic extends chain", typ.QualifiedName)
+		return nil, false
+	}
+	visited.Add(typ.QualifiedName)
+
+	var merged []resolution.UnionVariant
+	byName := make(map[string]resolution.UnionVariant)
+	add := func(parentName string, v resolution.UnionVariant) bool {
+		if existing, dup := byName[v.Name]; dup {
+			if existing.Type.Name != v.Type.Name {
+				addTypeDiag(c, typ,
+					"union %s inherits variant %q with conflicting payload types from %s (%s vs %s)",
+					typ.QualifiedName, v.Name, parentName, existing.Type.Name, v.Type.Name)
+				return false
+			}
+			return true
+		}
+		byName[v.Name] = v
+		merged = append(merged, v)
+		return true
+	}
+
+	for i := range form.Extends {
+		parent, ok := form.Extends[i].Resolve(c.table)
+		if !ok {
+			addTypeDiag(c, typ, "union %s extends unresolved type: %s",
+				typ.QualifiedName, form.Extends[i].Name)
+			return nil, false
+		}
+		pform, isUnion := parent.Form.(resolution.UnionForm)
+		if !isUnion {
+			addTypeDiag(c, typ,
+				"union %s cannot mix struct and union bases in extends; %s is not a union",
+				typ.QualifiedName, parent.QualifiedName)
+			return nil, false
+		}
+		if pform.Discriminator != form.Discriminator {
+			addTypeDiag(c, typ,
+				"union %s extends union %s with a different discriminator (%q vs %q)",
+				typ.QualifiedName, parent.QualifiedName, pform.Discriminator, form.Discriminator)
+			return nil, false
+		}
+		pVars := pform.Variants
+		if len(pform.Extends) > 0 {
+			if !hasUnionBases(pform, c.table) {
+				addTypeDiag(c, typ,
+					"union %s cannot extend union %s, which extends base structs",
+					typ.QualifiedName, parent.QualifiedName)
+				return nil, false
+			}
+			// Each branch gets its own copy so visited tracks the ancestor
+			// path, not every node seen, matching effectiveEnumValues.
+			if pVars, ok = effectiveUnionVariants(c, parent, visited.Copy()); !ok {
+				return nil, false
+			}
+		}
+		for _, v := range pVars {
+			if !add(parent.QualifiedName, v) {
+				return nil, false
+			}
+		}
+	}
+	for _, v := range form.Variants {
+		if !add(typ.QualifiedName, v) {
+			return nil, false
+		}
+	}
+	return merged, true
 }
 
 func collectStruct(c *analysisCtx, def parser.IStructDefContext) {
@@ -901,6 +1034,83 @@ func collectValue(v parser.IExpressionValueContext) resolution.ExpressionValue {
 	return resolution.ExpressionValue{Kind: resolution.ValueKindIdent}
 }
 
+func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
+	idents := def.AllIDENT()
+	if len(idents) < 3 {
+		return
+	}
+	name := idents[0].GetText()
+	if idents[1].GetText() != "on" {
+		d := diagnostics.Errorf(def,
+			"union %s: expected 'on' before the discriminator field, got %q",
+			name, idents[1].GetText())
+		d.File = c.filePath
+		c.diag.Add(d)
+		return
+	}
+	discriminator := idents[2].GetText()
+	qname := c.namespace + "." + name
+	if _, exists := c.table.Get(qname); exists {
+		d := diagnostics.Errorf(def, "duplicate type definition: %s", qname)
+		d.File = c.filePath
+		c.diag.Add(d)
+		return
+	}
+
+	form := resolution.UnionForm{Discriminator: discriminator}
+
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				form.Extends = append(form.Extends, collectTypeRef(tr, nil))
+			}
+		}
+	}
+
+	domains := make(map[string]resolution.Domain)
+	maps.Copy(domains, c.fileDomains)
+
+	if body := def.UnionBody(); body != nil {
+		for _, v := range body.AllUnionVariant() {
+			form.Variants = append(form.Variants, collectUnionVariant(v))
+		}
+		for _, d := range body.AllDomain() {
+			de := collectDomain(d)
+			if existing, ok := domains[de.Name]; ok {
+				domains[de.Name] = de.Merge(existing)
+			} else {
+				domains[de.Name] = de
+			}
+		}
+	}
+
+	lo.Must0(c.table.Add(resolution.Type{
+		Name:          name,
+		Namespace:     c.namespace,
+		QualifiedName: qname,
+		FilePath:      c.filePath,
+		Form:          form,
+		Domains:       domains,
+		AST:           def,
+	}))
+}
+
+func collectUnionVariant(def parser.IUnionVariantContext) resolution.UnionVariant {
+	variant := resolution.UnionVariant{
+		Name:    def.VariantName().GetText(),
+		Type:    collectTypeRef(def.TypeRef(), nil),
+		Domains: make(map[string]resolution.Domain),
+		AST:     def,
+	}
+	if body := def.UnionVariantBody(); body != nil {
+		for _, d := range body.AllDomain() {
+			de := collectDomain(d)
+			variant.Domains[de.Name] = de
+		}
+	}
+	return variant
+}
+
 func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 	name := def.IDENT().GetText()
 	qname := c.namespace + "." + name
@@ -1061,6 +1271,14 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 			if form.TypeParams[i].Default != nil {
 				resolveTypeRef(c, typ, form.TypeParams[i].Default)
 			}
+		}
+		typ.Form = form
+	case resolution.UnionForm:
+		for i := range form.Extends {
+			resolveTypeRef(c, typ, &form.Extends[i])
+		}
+		for i := range form.Variants {
+			resolveTypeRef(c, typ, &form.Variants[i].Type)
 		}
 		typ.Form = form
 	case resolution.EnumForm:
@@ -1291,6 +1509,121 @@ func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 				tp.Name, typ.Name, tp.Default.Name)
 			d.File = c.filePath
 			c.diag.Add(d)
+		}
+	}
+}
+
+// validateUnion checks the structural constraints on a discriminated union:
+//
+//   - At least one variant is declared.
+//   - Variant names (the JSON discriminator string values) are unique.
+//   - Each Extends target resolves to a struct type.
+//   - Each variant references a struct type.
+//   - Neither the base structs nor the variant structs redeclare the
+//     discriminator field; the union declaration owns it exclusively.
+//
+// Generic variant/base types are permitted but not yet type-checked: an open
+// question for a follow-up that introduces unions parameterized by a type
+// argument applied to every variant.
+func validateUnion(c *analysisCtx, typ resolution.Type) {
+	form, ok := typ.Form.(resolution.UnionForm)
+	if !ok {
+		return
+	}
+
+	if len(form.Variants) == 0 {
+		d := diagnostics.Errorf(nil, "union %s has no variants", typ.Name)
+		d.File = c.filePath
+		c.diag.Add(d)
+		return
+	}
+
+	seenValues := set.New[string]()
+	for _, variant := range form.Variants {
+		if variant.Name == form.Discriminator {
+			d := diagnostics.Errorf(nil,
+				"union %s declares a variant value %q that collides with the discriminator field name; the generated per-variant and discriminator type names would clash",
+				typ.Name, variant.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
+		if seenValues.Contains(variant.Name) {
+			d := diagnostics.Errorf(nil,
+				"union %s declares duplicate variant value %q",
+				typ.Name, variant.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
+		seenValues.Add(variant.Name)
+	}
+
+	baseFields := set.New[string]()
+	for i, baseRef := range form.Extends {
+		base, ok := baseRef.Resolve(c.table)
+		if !ok {
+			d := diagnostics.Errorf(nil,
+				"union %s extends unresolved type at position %d: %s",
+				typ.Name, i+1, baseRef.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+			d := diagnostics.Errorf(nil,
+				"union %s extends non-struct type at position %d: %s",
+				typ.Name, i+1, base.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(base, c.table) {
+			baseFields.Add(f.Name)
+		}
+	}
+
+	if baseFields.Contains(form.Discriminator) {
+		d := diagnostics.Errorf(nil,
+			"union %s base struct declares the discriminator field %q, which is owned by the union",
+			typ.Name, form.Discriminator)
+		d.File = c.filePath
+		c.diag.Add(d)
+	}
+
+	if baseFields.Contains("variant") {
+		d := diagnostics.Errorf(nil,
+			"union %s base struct declares a field named \"variant\", which is reserved for the union's generated protobuf oneof",
+			typ.Name)
+		d.File = c.filePath
+		c.diag.Add(d)
+	}
+
+	for _, variant := range form.Variants {
+		variantType, ok := variant.Type.Resolve(c.table)
+		if !ok {
+			d := diagnostics.Errorf(nil,
+				"union %s variant %q references unresolved type: %s",
+				typ.Name, variant.Name, variant.Type.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		if _, isStruct := variantType.Form.(resolution.StructForm); !isStruct {
+			d := diagnostics.Errorf(nil,
+				"union %s variant %q must reference a struct type, got: %s",
+				typ.Name, variant.Name, variantType.QualifiedName)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		for _, f := range resolution.UnifiedFields(variantType, c.table) {
+			if f.Name == form.Discriminator {
+				d := diagnostics.Errorf(nil,
+					"union %s variant %q (%s) declares the discriminator field %q, which is owned by the union",
+					typ.Name, variant.Name, variantType.QualifiedName, form.Discriminator)
+				d.File = c.filePath
+				c.diag.Add(d)
+				break
+			}
 		}
 	}
 }
