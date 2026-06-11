@@ -127,6 +127,17 @@ var _ = Describe("Actions", func() {
 			Expect(tabKeys(next.Root.Split.Last)).To(Equal([]uuid.UUID{tab1}))
 		})
 
+		It("Should place the tab directly in the target leaf for a center location", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:        tab(tab2),
+				TargetLeaf: 1,
+				Location:   new(spatial.LocationCenter),
+			}.Handle(p))
+			Expect(next.Root.Split).To(BeNil())
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
+		})
+
 		DescribeTable("Should error on bad inputs",
 			func(p panel.Panel, payload panel.InsertTabPayload, expected error) {
 				Expect(payload.Handle(p)).Error().To(MatchError(expected))
@@ -145,11 +156,6 @@ var _ = Describe("Actions", func() {
 				panel.Panel{Root: leafNode()},
 				panel.InsertTabPayload{Tab: panel.Tab{Key: uuid.New()}, TargetLeaf: 1, Index: new(int32(5))},
 				panel.ErrIndexOutOfRange,
-			),
-			Entry("location cannot produce a split",
-				panel.Panel{Root: leafNode()},
-				panel.InsertTabPayload{Tab: panel.Tab{Key: uuid.New()}, TargetLeaf: 1, Location: new(spatial.LocationCenter)},
-				panel.ErrInvalidSplitLocation,
 			),
 		)
 	})
@@ -297,13 +303,19 @@ var _ = Describe("Actions", func() {
 				To(MatchError(panel.ErrTabNotFound))
 		})
 
-		It("Should return ErrInvalidSplitLocation when location cannot produce a split", func() {
-			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
-			Expect(panel.MoveTabPayload{
+		It("Should place the tab directly in the target leaf for a center location", func() {
+			p := panel.Panel{Root: splitNode(
+				spatial.DirectionX, 0.5,
+				leafNode(tab(tab1)),
+				leafNode(tab(tab2)),
+			)}
+			next := MustSucceed(panel.MoveTabPayload{
 				Key:        tab1,
-				TargetLeaf: 1,
+				TargetLeaf: 3,
 				Location:   new(spatial.LocationCenter),
-			}.Handle(p)).Error().To(MatchError(panel.ErrInvalidSplitLocation))
+			}.Handle(p))
+			Expect(next.Root.Split).To(BeNil())
+			Expect(tabKeys(&next.Root)).To(Equal([]uuid.UUID{tab2, tab1}))
 		})
 	})
 
