@@ -54,14 +54,17 @@ export interface MosaicProps extends Pick<
   | "onFileDrop"
 > {
   panelKey: panel.Key;
-  // The tab the consumer wants displayed as active. Held externally so the
-  // session-level "what is the operator looking at" state lives outside the
-  // server-synced panel document.
-  activeTab?: string;
-  // recentTabs is the consumer's most-recently-active tab keys (most recent
-  // first). Each leaf selects the most recent of its tabs, so activating a tab
-  // in one leaf does not snap sibling leaves back to their first tab.
-  recentTabs?: string[];
+  // focused is the tab the operator is focused on, or absent when focus is
+  // elsewhere. It only drives the focus accent; a focused tab is expected to
+  // sit at the head of selected. Held externally so the session-level "what is
+  // the operator looking at" state lives outside the server-synced panel
+  // document.
+  focused?: string;
+  // selected is the operator's selection memory: tab keys ordered most
+  // recently selected first. Leaf selection derives from it alone: each leaf
+  // shows the most recent of its own tabs, so selecting a tab in one leaf does
+  // not snap sibling leaves back to their first tab.
+  selected?: string[];
   // onSelect fires when the operator clicks a tab. The panel-aware shell does
   // not persist this selection; consumers route it into their session-state store.
   onSelect?: (tabKey: string) => void;
@@ -81,12 +84,9 @@ export interface MosaicProps extends Pick<
 // 2k + 1).
 const adaptToMosaic = (
   root: panel.Node | undefined,
-  activeTab: string | undefined,
-  recentTabs: string[] | undefined,
+  selected: string[] | undefined,
 ): Base.Node => {
-  // Selection preference per leaf: the active tab first, then the MRU.
-  const preference =
-    activeTab != null ? [activeTab, ...(recentTabs ?? [])] : (recentTabs ?? []);
+  const preference = selected ?? [];
   const visit = (node: panel.Node | undefined, key: number): Base.Node => {
     if (node == null) return { key };
     if (node.split != null)
@@ -175,8 +175,8 @@ const Content = ({
 // referenced resource or view.
 export const Mosaic = ({
   panelKey,
-  activeTab,
-  recentTabs,
+  focused,
+  selected,
   onSelect,
   children,
   tabName,
@@ -185,10 +185,7 @@ export const Mosaic = ({
   useEnsureRetrieved({ key: panelKey });
   const { dispatch } = useDispatch();
   const treeRoot = useSelectRoot({ key: panelKey });
-  const root = useMemo(
-    () => adaptToMosaic(treeRoot, activeTab, recentTabs),
-    [treeRoot, activeTab, recentTabs],
-  );
+  const root = useMemo(() => adaptToMosaic(treeRoot, selected), [treeRoot, selected]);
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
 
@@ -288,7 +285,7 @@ export const Mosaic = ({
       <Base.Mosaic
         {...rest}
         root={root}
-        activeTab={activeTab}
+        activeTab={focused}
         onSelect={handleSelect}
         onDrop={handleDrop}
         onResize={handleResize}
