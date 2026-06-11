@@ -53,7 +53,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Label](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteManyResources(ctx, OntologyIDs(keys))
+	return w.otg.DeleteResource(ctx, OntologyIDs(keys)...)
 }
 
 // Label assigns a set of labels to the target resource. If the target resource already

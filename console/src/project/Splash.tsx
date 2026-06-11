@@ -74,6 +74,9 @@ export const Splash = (): ReactElement => {
       const p = getItem(key);
       if (p == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(setActive(p));
+      dispatch(
+        Layout.setProject({ slice: p.layout as Layout.SliceState, keepNav: false }),
+      );
     },
     [dispatch, getItem],
   );

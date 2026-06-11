@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/gorp"
@@ -22,21 +21,20 @@ import (
 type Writer struct {
 	tx         gorp.Tx
 	otg        ontology.Writer
-	group      group.Group
 	table      *gorp.Table[Key, Panel]
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // Create creates a new panel. If the panel's key is uuid.Nil, a new key is generated.
-// The panel is registered with the ontology and parented to the panel group.
+// The panel is registered with the ontology.
 //
-// Project-vs-draft ownership is enforced by the caller: pass parentID to attach the
-// panel to a project (project panel) or to a user (draft). When parentID is the
-// zero value, the panel is parented only to the root panel group.
+// Project-vs-draft ownership is enforced by the caller: set p.Parent to attach the
+// panel to a project (project panel) or to a user (draft). When Parent is nil or
+// zero, the panel has no parent in the ontology. Parent is not persisted on the
+// record; parenthood lives in the ontology graph.
 func (w Writer) Create(
 	ctx context.Context,
 	p *Panel,
-	parentID ontology.ID,
 ) (err error) {
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
@@ -46,6 +44,9 @@ func (w Writer) Create(
 	if p.Root.Variant == nil {
 		p.Root = Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
 	}
+	if err := validateTree(p.Root); err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
 	}
@@ -53,21 +54,24 @@ func (w Writer) Create(
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if err := w.otg.DefineRelationship(
-		ctx,
-		w.group.OntologyID(),
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	); err != nil {
-		return err
-	}
-	if (parentID != ontology.ID{}) {
+	if p.Parent != nil && !p.Parent.IsZero() {
 		if err := w.otg.DefineRelationship(
 			ctx,
-			parentID,
+			*p.Parent,
 			ontology.RelationshipTypeParentOf,
 			otgID,
 		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// CreateMany creates the given panels, applying the same key assignment, tree
+// defaulting, validation, and parenting as Create to each.
+func (w Writer) CreateMany(ctx context.Context, ps *[]Panel) error {
+	for i := range *ps {
+		if err := w.Create(ctx, &(*ps)[i]); err != nil {
 			return err
 		}
 	}
@@ -86,7 +90,11 @@ func (w Writer) Dispatch(
 ) error {
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
 		ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-			return Reduce(p, acts...)
+			next, err := Reduce(p, acts...)
+			if err != nil {
+				return next, err
+			}
+			return next, validateTree(next.Root)
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}

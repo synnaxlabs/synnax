@@ -93,6 +93,11 @@ message Panel {
   string name = 2;
   // root is the root of the panel tree.
   Node root = 3;
+  // parent is an optional parent resource for the panel in the ontology. When absent on
+  // create, the panel is parented to the creating user as a draft. Parenthood lives in
+  // the ontology graph, so the field is not persisted on the panel record and is absent
+  // on retrieve.
+  optional .distribution.ontology.pb.ID parent = 4;
 }
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a

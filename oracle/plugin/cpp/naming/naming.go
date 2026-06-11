@@ -14,9 +14,8 @@ package naming
 import "github.com/synnaxlabs/oracle/plugin/internal/casing"
 
 // VariantTypeName returns the C++ struct name for one variant of a discriminated
-// union: the union's C++ name followed by the PascalCased discriminator value
-// (e.g. union "Scale" + value "linear" -> "ScaleLinear", union "AIChannel" +
-// value "ai_voltage" -> "AIChannelAIVoltage"). cpp/types declares the variant
+// union (e.g. union "Scale" + value "linear" -> "ScaleLinear", union "AIChannel" +
+// value "ai_voltage" -> "AIVoltageChannel"). cpp/types declares the variant
 // struct under this name and cpp/json emits its parse/to_json bodies, so both
 // MUST derive it identically; routing through this one function guarantees they
 // cannot drift.
