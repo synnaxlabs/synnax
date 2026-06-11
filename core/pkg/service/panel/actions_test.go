@@ -166,23 +166,23 @@ var _ = Describe("Actions", func() {
 		})
 
 		DescribeTable("Should error on bad inputs",
-			func(p panel.Panel, payload panel.InsertTabPayload, expected error) {
-				Expect(payload.Handle(p)).Error().To(MatchError(expected))
+			func(p panel.Panel, payload panel.InsertTabPayload, expected string) {
+				Expect(payload.Handle(p)).Error().To(MatchError(ContainSubstring(expected)))
 			},
 			Entry("path does not resolve",
 				panel.Panel{Root: leafNode()},
 				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 7, Index: new(int32(0))},
-				panel.ErrInvalidPath,
+				"invalid node path",
 			),
 			Entry("path resolves to a split",
 				panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
 				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 1, Index: new(int32(0))},
-				panel.ErrNotALeaf,
+				"node at path is not a leaf",
 			),
 			Entry("index exceeds tab count",
 				panel.Panel{Root: leafNode()},
 				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 1, Index: new(int32(5))},
-				panel.ErrIndexOutOfRange,
+				"index out of range",
 			),
 		)
 	})
@@ -229,7 +229,7 @@ var _ = Describe("Actions", func() {
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			Expect(panel.RemoveTabPayload{Key: uuid.New()}.Handle(p)).Error().
-				To(MatchError(panel.ErrTabNotFound))
+				To(MatchError(ContainSubstring("tab not found in tree")))
 		})
 	})
 
@@ -326,7 +326,7 @@ var _ = Describe("Actions", func() {
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			Expect(panel.MoveTabPayload{Key: uuid.New(), TargetLeaf: 1, Index: new(int32(0))}.Handle(p)).Error().
-				To(MatchError(panel.ErrTabNotFound))
+				To(MatchError(ContainSubstring("tab not found in tree")))
 		})
 
 		It("Should place the tab directly in the target leaf for a center location", func() {
@@ -389,33 +389,33 @@ var _ = Describe("Actions", func() {
 		})
 
 		DescribeTable("Should error on bad inputs",
-			func(p panel.Panel, payload panel.SplitLeafPayload, expected error) {
-				Expect(payload.Handle(p)).Error().To(MatchError(expected))
+			func(p panel.Panel, payload panel.SplitLeafPayload, expected string) {
+				Expect(payload.Handle(p)).Error().To(MatchError(ContainSubstring(expected)))
 			},
 			Entry("path does not resolve",
 				panel.Panel{Root: leafNode()},
 				panel.SplitLeafPayload{Leaf: 7, Location: spatial.LocationLeft},
-				panel.ErrInvalidPath,
+				"invalid node path",
 			),
 			Entry("path resolves to a split",
 				panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
 				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft},
-				panel.ErrNotALeaf,
+				"node at path is not a leaf",
 			),
 			Entry("location does not divide the area",
 				panel.Panel{Root: leafNode()},
 				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationCenter},
-				panel.ErrInvalidSplitLocation,
+				"invalid split location",
 			),
 			Entry("size above 1",
 				panel.Panel{Root: leafNode(tab(uuid.New()))},
 				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft, Size: new(float64(1.5))},
-				panel.ErrInvalidSize,
+				"split size must be in [0, 1]",
 			),
 			Entry("size below 0",
 				panel.Panel{Root: leafNode(tab(uuid.New()))},
 				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft, Size: new(float64(-0.1))},
-				panel.ErrInvalidSize,
+				"split size must be in [0, 1]",
 			),
 		)
 	})
@@ -433,28 +433,28 @@ var _ = Describe("Actions", func() {
 		})
 
 		DescribeTable("Should error on bad inputs",
-			func(p panel.Panel, payload panel.ResizeSplitPayload, expected error) {
-				Expect(payload.Handle(p)).Error().To(MatchError(expected))
+			func(p panel.Panel, payload panel.ResizeSplitPayload, expected string) {
+				Expect(payload.Handle(p)).Error().To(MatchError(ContainSubstring(expected)))
 			},
 			Entry("path does not resolve",
 				panel.Panel{Root: leafNode()},
 				panel.ResizeSplitPayload{Split: 7, Size: 0.5},
-				panel.ErrInvalidPath,
+				"invalid node path",
 			),
 			Entry("path resolves to a leaf",
 				panel.Panel{Root: leafNode(tab(uuid.New()))},
 				panel.ResizeSplitPayload{Split: 1, Size: 0.5},
-				panel.ErrNotASplit,
+				"node at path is not a split",
 			),
 			Entry("size above 1",
 				panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
 				panel.ResizeSplitPayload{Split: 1, Size: 1.5},
-				panel.ErrInvalidSize,
+				"split size must be in [0, 1]",
 			),
 			Entry("size below 0",
 				panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
 				panel.ResizeSplitPayload{Split: 1, Size: -0.1},
-				panel.ErrInvalidSize,
+				"split size must be in [0, 1]",
 			),
 		)
 	})
@@ -483,7 +483,7 @@ var _ = Describe("Actions", func() {
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			Expect(panel.SetTabResourcePayload{Key: uuid.New()}.Handle(p)).Error().
-				To(MatchError(panel.ErrTabNotFound))
+				To(MatchError(ContainSubstring("tab not found in tree")))
 		})
 	})
 
@@ -511,7 +511,7 @@ var _ = Describe("Actions", func() {
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			Expect(panel.SetTabViewPayload{Key: uuid.New()}.Handle(p)).Error().
-				To(MatchError(panel.ErrTabNotFound))
+				To(MatchError(ContainSubstring("tab not found in tree")))
 		})
 	})
 })

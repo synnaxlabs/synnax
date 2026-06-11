@@ -57,24 +57,24 @@ var _ = Describe("Writer", func() {
 		})
 
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
-			func(ctx SpecContext, root func() panel.Node, expected error) {
+			func(ctx SpecContext, root func() panel.Node, expected string) {
 				p := panel.Panel{Name: "invalid", Root: root(), Parent: &parentID}
 				Expect(svc.NewWriter(tx).Create(ctx, &p)).
-					To(MatchError(expected))
+					To(MatchError(ContainSubstring(expected)))
 			},
 			Entry("duplicate tab keys", func() panel.Node {
 				key := uuid.New()
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(tab(key)), leafNode(tab(key)))
-			}, panel.ErrDuplicateTab),
+			}, "duplicate tab key in panel tree"),
 			Entry("split size out of bounds", func() panel.Node {
 				return splitNode(spatial.DirectionX, 1.5,
 					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
-			}, panel.ErrInvalidSize),
+			}, "split size must be in [0, 1]"),
 			Entry("nil child node", func() panel.Node {
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(tab(uuid.New())), panel.Node{})
-			}, panel.ErrNilNode),
+			}, "node has no variant"),
 		)
 
 		It("Should register the panel as an ontology resource", func(ctx SpecContext) {
@@ -181,7 +181,7 @@ var _ = Describe("Writer", func() {
 				)},
 			}
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).
-				To(MatchError(panel.ErrDuplicateTab))
+				To(MatchError(ContainSubstring("duplicate tab key in panel tree")))
 		})
 	})
 
@@ -256,7 +256,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
 				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 99}),
-			})).Error().To(MatchError(panel.ErrInvalidPath))
+			})).Error().To(MatchError(ContainSubstring("invalid node path")))
 			Expect(retrieve(ctx, key).Name).To(Equal("test"))
 		})
 
@@ -265,7 +265,7 @@ var _ = Describe("Writer", func() {
 			key := create(ctx, leafNode(tab(tabKey)))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
-			})).Error().To(MatchError(panel.ErrDuplicateTab))
+			})).Error().To(MatchError(ContainSubstring("duplicate tab key in panel tree")))
 			Expect(MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs).To(HaveLen(1))
 		})
 
@@ -305,7 +305,7 @@ var _ = Describe("Writer", func() {
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 99}),
-			})).Error().To(MatchError(panel.ErrInvalidPath))
+			})).Error().To(MatchError(ContainSubstring("invalid node path")))
 			Expect(rec.Snapshot()).To(BeEmpty())
 		})
 	})

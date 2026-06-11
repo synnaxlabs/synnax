@@ -27,34 +27,24 @@ import (
 
 const rootPathKey int32 = 1
 
-// ErrInvalidPath is returned when an action references a path-derived key that does
+// errInvalidPath is returned when an action references a path-derived key that does
 // not resolve to a node in the tree.
-var ErrInvalidPath = errors.New("invalid node path")
+var errInvalidPath = errors.New("invalid node path")
 
-// ErrNotALeaf is returned when an action requires a leaf at a given path but the
+// errNotALeaf is returned when an action requires a leaf at a given path but the
 // node at that path is a split.
-var ErrNotALeaf = errors.New("node at path is not a leaf")
+var errNotALeaf = errors.New("node at path is not a leaf")
 
-// ErrNotASplit is returned when an action requires a split at a given path but the
-// node at that path is a leaf.
-var ErrNotASplit = errors.New("node at path is not a split")
-
-// ErrTabNotFound is returned when an action references a tab key that does not exist
+// errTabNotFound is returned when an action references a tab key that does not exist
 // in the tree.
-var ErrTabNotFound = errors.New("tab not found in tree")
+var errTabNotFound = errors.New("tab not found in tree")
 
-// ErrIndexOutOfRange is returned when an InsertTab index exceeds the leaf's current
+// errIndexOutOfRange is returned when an InsertTab index exceeds the leaf's current
 // tab count.
-var ErrIndexOutOfRange = errors.New("index out of range")
+var errIndexOutOfRange = errors.New("index out of range")
 
-// ErrInvalidSize is returned when a split size ratio falls outside [0, 1].
-var ErrInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
-
-// ErrNilNode is returned when a node in the tree has no variant set.
-var ErrNilNode = errors.Wrap(validate.ErrValidation, "node has no variant")
-
-// ErrDuplicateTab is returned when two tabs in the same tree share a key.
-var ErrDuplicateTab = errors.Wrap(validate.ErrValidation, "duplicate tab key in panel tree")
+// errInvalidSize is returned when a split size ratio falls outside [0, 1].
+var errInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
 
 // validateTree checks the structural invariants every persisted panel tree must
 // uphold: every node has a variant, split sizes are within [0, 1], and tab keys
@@ -70,21 +60,21 @@ func validateNode(n Node, seen set.Set[uuid.UUID]) error {
 		for _, t := range v.Tabs {
 			key := t.Key()
 			if seen.Contains(key) {
-				return ErrDuplicateTab
+				return errors.Wrap(validate.ErrValidation, "duplicate tab key in panel tree")
 			}
 			seen.Add(key)
 		}
 		return nil
 	case NodeSplit:
 		if v.Size < 0 || v.Size > 1 {
-			return ErrInvalidSize
+			return errInvalidSize
 		}
 		if err := validateNode(v.First, seen); err != nil {
 			return err
 		}
 		return validateNode(v.Last, seen)
 	default:
-		return ErrNilNode
+		return errors.Wrap(validate.ErrValidation, "node has no variant")
 	}
 }
 
@@ -124,7 +114,7 @@ func walk(root Node, pathKey int32) (Node, error) {
 	for _, isLast := range pathDirections(pathKey) {
 		split, ok := n.Variant.(NodeSplit)
 		if !ok {
-			return Node{}, ErrInvalidPath
+			return Node{}, errInvalidPath
 		}
 		if isLast {
 			n = split.Last
@@ -133,24 +123,24 @@ func walk(root Node, pathKey int32) (Node, error) {
 		}
 	}
 	if n.Variant == nil {
-		return Node{}, ErrInvalidPath
+		return Node{}, errInvalidPath
 	}
 	return n, nil
 }
 
 // updateAt replaces the node at the given path key with f(node), rebuilding the
-// spine of the tree from the root down to that node. Returns ErrInvalidPath when
+// spine of the tree from the root down to that node. Returns errInvalidPath when
 // the path does not resolve.
 func updateAt(n Node, dirs []bool, f func(Node) (Node, error)) (Node, error) {
 	if n.Variant == nil {
-		return Node{}, ErrInvalidPath
+		return Node{}, errInvalidPath
 	}
 	if len(dirs) == 0 {
 		return f(n)
 	}
 	split, ok := n.Variant.(NodeSplit)
 	if !ok {
-		return Node{}, ErrInvalidPath
+		return Node{}, errInvalidPath
 	}
 	child := split.First
 	if dirs[0] {
@@ -169,13 +159,13 @@ func updateAt(n Node, dirs []bool, f func(Node) (Node, error)) (Node, error) {
 }
 
 // updateLeafAt replaces the leaf at the given path key with f(leaf), returning
-// ErrInvalidPath when the path does not resolve or ErrNotALeaf when it resolves
+// errInvalidPath when the path does not resolve or errNotALeaf when it resolves
 // to a split.
 func updateLeafAt(root *Node, pathKey int32, f func(Leaf) (Leaf, error)) error {
 	updated, err := updateAt(*root, pathDirections(pathKey), func(n Node) (Node, error) {
 		leaf, ok := n.Variant.(NodeLeaf)
 		if !ok {
-			return Node{}, ErrNotALeaf
+			return Node{}, errNotALeaf
 		}
 		next, err := f(leaf.Leaf)
 		if err != nil {
@@ -199,7 +189,7 @@ func walkLeaf(root Node, pathKey int32) (Leaf, error) {
 	}
 	leaf, ok := n.Variant.(NodeLeaf)
 	if !ok {
-		return Leaf{}, ErrNotALeaf
+		return Leaf{}, errNotALeaf
 	}
 	return leaf.Leaf, nil
 }
@@ -286,7 +276,7 @@ func insertTabAt(root *Node, leafPath int32, tab Tab, index int32) error {
 	return updateLeafAt(root, leafPath, func(leaf Leaf) (Leaf, error) {
 		idx := int(index)
 		if idx < 0 || idx > len(leaf.Tabs) {
-			return Leaf{}, ErrIndexOutOfRange
+			return Leaf{}, errIndexOutOfRange
 		}
 		tabs := make([]Tab, 0, len(leaf.Tabs)+1)
 		tabs = append(tabs, leaf.Tabs[:idx]...)
@@ -297,16 +287,12 @@ func insertTabAt(root *Node, leafPath int32, tab Tab, index int32) error {
 	})
 }
 
-// ErrInvalidSplitLocation is returned when SplitLeaf is given a location that
-// cannot produce a binary split (e.g., "center").
-var ErrInvalidSplitLocation = errors.New("invalid split location")
-
 // directionAndSideForLocation maps a spatial.Location onto the (direction, side)
 // pair that places a new empty leaf on that side of the original. "left"/"right"
 // split along the x axis; "top"/"bottom" split along y. The original leaf
 // always takes the opposite side; size is the fraction allocated to the
-// original. Returns ErrInvalidSplitLocation for locations that do not divide
-// the area in two.
+// original. Errors on locations that do not divide the area in two (e.g.,
+// "center").
 func directionAndSideForLocation(loc spatial.Location) (spatial.Direction, spatial.Order, error) {
 	switch loc {
 	case spatial.LocationLeft:
@@ -318,15 +304,15 @@ func directionAndSideForLocation(loc spatial.Location) (spatial.Direction, spati
 	case spatial.LocationBottom:
 		return spatial.DirectionY, spatial.OrderLast, nil
 	default:
-		return "", "", ErrInvalidSplitLocation
+		return "", "", errors.New("invalid split location")
 	}
 }
 
 // splitLeafAt replaces the leaf at leafPath with a split node containing the
 // original leaf and a new empty sibling leaf. loc determines which side the
-// new empty leaf occupies. Returns ErrInvalidPath when the path does not
-// resolve, ErrNotALeaf when it resolves to a split, or ErrInvalidSplitLocation
-// when loc is not one of left/right/top/bottom.
+// new empty leaf occupies. Returns errInvalidPath when the path does not
+// resolve, errNotALeaf when it resolves to a split, or an invalid-split-location
+// error when loc is not one of left/right/top/bottom.
 func splitLeafAt(root *Node, leafPath int32, loc spatial.Location, size float64) error {
 	direction, side, err := directionAndSideForLocation(loc)
 	if err != nil {
@@ -334,7 +320,7 @@ func splitLeafAt(root *Node, leafPath int32, loc spatial.Location, size float64)
 	}
 	updated, err := updateAt(*root, pathDirections(leafPath), func(n Node) (Node, error) {
 		if _, ok := n.Variant.(NodeLeaf); !ok {
-			return Node{}, ErrNotALeaf
+			return Node{}, errNotALeaf
 		}
 		empty := Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
 		split := Split{Direction: direction, Size: size}
