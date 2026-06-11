@@ -23,9 +23,44 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &ws1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &ws2)).To(Succeed())
 			var res []project.Project
-			Expect(svc.NewRetrieve().Where(project.MatchAuthor(author.Key)).Entries(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(project.MatchAuthor(author.Key)).
+				Entries(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(ConsistOf(ws1, ws2))
 		})
 	})
 
+	Describe("By Keys", func() {
+		It("Should retrieve only the projects matching the given keys", func(ctx SpecContext) {
+			a := project.Project{Name: "a", Author: author.Key}
+			b := project.Project{Name: "b", Author: author.Key}
+			c := project.Project{Name: "c", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+			var res []project.Project
+			Expect(svc.NewRetrieve().Where(project.MatchKeys(a.Key, c.Key)).
+				Entries(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(ConsistOf(a, c))
+		})
+	})
+
+	Describe("Limit and Offset", func() {
+		It("Should bound and page the result set", func(ctx SpecContext) {
+			keys := make([]project.Key, 3)
+			for i := range keys {
+				p := project.Project{Name: "page", Author: author.Key}
+				Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
+				keys[i] = p.Key
+			}
+			var limited []project.Project
+			Expect(svc.NewRetrieve().Where(project.MatchKeys(keys...)).Limit(2).
+				Entries(&limited).Exec(ctx, tx)).To(Succeed())
+			Expect(limited).To(HaveLen(2))
+
+			var offset []project.Project
+			Expect(svc.NewRetrieve().Where(project.MatchKeys(keys...)).Offset(2).
+				Entries(&offset).Exec(ctx, tx)).To(Succeed())
+			Expect(offset).To(HaveLen(1))
+		})
+	})
 })
