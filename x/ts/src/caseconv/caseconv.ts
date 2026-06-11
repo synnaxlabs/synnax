@@ -17,8 +17,16 @@ import { type record } from "@/record";
  */
 const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
 
+/**
+ * Global symbol used to mark Zod record schemas whose keys are semantic values
+ * but whose values are ordinary typed payloads: the keys are left untouched
+ * while the values still undergo case conversion.
+ */
+const PRESERVE_KEYS_SYMBOL = "synnax.caseconv.preserveKeys";
+
 interface ZodDef extends z.core.$ZodTypeDef {
   innerType?: z.core.SomeType;
+  valueType?: z.core.SomeType;
   options?: readonly z.core.SomeType[];
   in?: z.core.SomeType;
   out?: z.core.SomeType;
@@ -32,6 +40,7 @@ interface ZodInternals extends z.core.$ZodTypeInternals {
 
 interface ZodSchema extends z.core.$ZodType {
   [PRESERVE_CASE_SYMBOL]?: boolean;
+  [PRESERVE_KEYS_SYMBOL]?: boolean;
   _zod: ZodInternals;
   shape?: Record<string, z.ZodType>;
   sourceType?: () => { shape?: Record<string, z.ZodType> } | undefined;
@@ -55,6 +64,44 @@ interface ZodSchema extends z.core.$ZodType {
 export const preserveCase = <T extends z.ZodType>(schema: T): T => {
   (schema as ZodSchema)[PRESERVE_CASE_SYMBOL] = true;
   return schema;
+};
+
+/**
+ * Marks a Zod record schema so case conversion leaves its keys untouched while
+ * still converting the keys of its values. Use this for maps whose keys are
+ * semantic identifiers (element keys, channel names) but whose values are
+ * ordinary typed payloads.
+ *
+ * @param schema - The Zod record schema to mark
+ * @returns The same schema with a preserve keys marker
+ */
+export const preserveKeys = <T extends z.ZodType>(schema: T): T => {
+  (schema as ZodSchema)[PRESERVE_KEYS_SYMBOL] = true;
+  return schema;
+};
+
+const hasPreserveKeysMarker = (schema: unknown): boolean =>
+  schema != null && typeof schema === "object" && PRESERVE_KEYS_SYMBOL in schema;
+
+/**
+ * Extracts the value schema from a Zod record schema, traversing wrappers
+ * (optional, nullable, default, pipe) and unions to find the inner record.
+ */
+const getRecordValueSchema = (
+  schema: z.ZodType | z.core.SomeType | undefined,
+): z.ZodType | undefined => {
+  if (schema == null) return undefined;
+  const def = (schema as ZodSchema)._zod?.def;
+  if (def == null) return undefined;
+  if (def.type === "record" && def.valueType != null) return def.valueType as z.ZodType;
+  if (def.innerType != null) return getRecordValueSchema(def.innerType);
+  if (def.in != null) return getRecordValueSchema(def.in);
+  if (Array.isArray(def.options))
+    for (const option of def.options) {
+      const result = getRecordValueSchema(option);
+      if (result != null) return result;
+    }
+  return undefined;
 };
 
 /**
@@ -181,6 +228,34 @@ const createConverter = (
     if (!isValidObject(obj)) return obj;
 
     if (opt.schema != null && hasPreserveCaseMarker(opt.schema)) return obj;
+
+    if (opt.schema != null && hasPreserveKeysMarker(opt.schema)) {
+      const valueSchema = getRecordValueSchema(opt.schema);
+      const childOpt: Options = {
+        recursive: opt.recursive,
+        recursiveInArray: opt.recursiveInArray,
+        schema: valueSchema,
+      };
+      const res: record.Unknown = {};
+      const anyObj = obj as record.Unknown;
+      for (const key of Object.keys(anyObj)) {
+        let value = anyObj[key];
+        if (isValidObject(value)) {
+          if (!isPreservedType(value)) value = converter(value, childOpt);
+        } else if (Array.isArray(value)) {
+          const elemOpt: Options = {
+            recursive: opt.recursive,
+            recursiveInArray: opt.recursiveInArray,
+            schema: getArrayElementSchema(valueSchema),
+          };
+          value = (value as unknown[]).map((v) =>
+            isValidObject(v) && !isPreservedType(v) ? converter(v, elemOpt) : v,
+          );
+        }
+        res[key] = value;
+      }
+      return res as V;
+    }
 
     const recursive = opt.recursive ?? true;
     const recursiveInArray = opt.recursiveInArray ?? recursive;

@@ -942,3 +942,112 @@ var _ = Describe("Plugin", func() {
 		})
 	})
 })
+
+var _ = Describe("Protobuf Union Generation", func() {
+	var (
+		loader *MockFileLoader
+		p      *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		p = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a wrapper message with a oneof of variant messages", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain(
+				"message Scale {",
+				"oneof variant {",
+				"LinearScale linear = 1;",
+				"NoneScale none = 2;",
+			)
+	})
+
+	It("Should place shared base fields outside the oneof", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain(
+				"message AIChannel {",
+				"int32 port = 1;",
+				"oneof variant {",
+				"VoltageFields ai_voltage = 2;",
+			)
+	})
+
+	It("Should reference a union message from a union-typed field", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain("Scale custom_scale = 1;")
+	})
+	It("Should import a union field from another proto package", func(ctx SpecContext) {
+		loader.Add("schemas/scale", `
+			@pb
+			@go output "core/pkg/service/scale"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none   NoneScale
+			}
+		`)
+		source := `
+			import "schemas/scale"
+
+			@pb
+			@go output "core/pkg/service/ni"
+
+			Channel struct {
+				custom_scale scale.Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain(
+				`import "core/pkg/service/scale/pb/scale.proto";`,
+				"custom_scale = 1;",
+			)
+	})
+})

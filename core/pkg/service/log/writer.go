@@ -31,10 +31,10 @@ type Writer struct {
 }
 
 // Create creates the given log within the project provided. If the log does not have
-// a key, a new key will be generated. If ws is uuid.Nil, the log is created without a
+// a key, a new key will be generated. If projectKey is uuid.Nil, the log is created without a
 // project ParentOf relationship; this is used by the import path, which does not yet
 // wire project relationships.
-func (w Writer) Create(ctx context.Context, ws project.Key, l *Log) error {
+func (w Writer) Create(ctx context.Context, projectKey project.Key, l *Log) error {
 	var (
 		exists bool
 		err    error
@@ -59,12 +59,12 @@ func (w Writer) Create(ctx context.Context, ws project.Key, l *Log) error {
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if ws == uuid.Nil {
+	if projectKey == uuid.Nil {
 		return nil
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
-		project.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
@@ -72,9 +72,9 @@ func (w Writer) Create(ctx context.Context, ws project.Key, l *Log) error {
 
 // CreateMany creates the given logs within the project provided. If logs with the
 // same key already exist, they will be overwritten.
-func (w Writer) CreateMany(ctx context.Context, ws project.Key, logs *[]Log) error {
+func (w Writer) CreateMany(ctx context.Context, projectKey project.Key, logs *[]Log) error {
 	for i := range *logs {
-		if err := w.Create(ctx, ws, &(*logs)[i]); err != nil {
+		if err := w.Create(ctx, projectKey, &(*logs)[i]); err != nil {
 			return err
 		}
 	}

@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { actions } from "@/actions";
 import { ontology } from "@/ontology";
-import { keyZ, type Panel, tabViewZ, tabZ } from "@/panel/types.gen";
+import { keyZ, type Panel, tabZ, viewZ } from "@/panel/types.gen";
 
 /**
  * Rename renames the panel. When the panel is owned by a user (draft),
@@ -116,7 +116,7 @@ export type SetTabResourcePayload = z.infer<typeof setTabResourcePayloadZ>;
  */
 export const setTabViewPayloadZ = z.object({
   key: z.uuid(),
-  view: tabViewZ,
+  view: viewZ,
 });
 
 export type SetTabViewPayload = z.infer<typeof setTabViewPayloadZ>;

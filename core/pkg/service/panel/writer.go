@@ -43,8 +43,8 @@ func (w Writer) Create(
 	}
 	// Default a freshly-created panel to a single empty leaf so action dispatchers
 	// always operate against a well-formed tree.
-	if p.Root.Leaf == nil && p.Root.Split == nil {
-		p.Root = Node{Leaf: &Leaf{Tabs: []Tab{}}}
+	if p.Root.Variant == nil {
+		p.Root = Node{Variant: NodeLeaf{Leaf: Leaf{Tabs: []Tab{}}}}
 	}
 	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return
