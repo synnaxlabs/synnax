@@ -11,16 +11,6 @@
 		<Item Name="Synnax Client.lvclass" Type="LVClass" URL="../classes/Client/Synnax Client.lvclass"/>
 		<Item Name="Synnax Writer.lvclass" Type="LVClass" URL="../classes/Synnax Writer.lvclass"/>
 	</Item>
-	<Item Name="examples" Type="Folder">
-		<Item Name="1 Channel 1 Sample - Auto Indexing.vi" Type="VI" URL="../../../examples/1 Channel 1 Sample - Auto Indexing.vi"/>
-		<Item Name="1 Channel 1 Sample - Manual Timestamp.vi" Type="VI" URL="../../../examples/1 Channel 1 Sample - Manual Timestamp.vi"/>
-		<Item Name="1 Channel N Samples - Auto Indexing.vi" Type="VI" URL="../../../examples/1 Channel N Samples - Auto Indexing.vi"/>
-		<Item Name="1 Channel N Samples - Manual Timestamps.vi" Type="VI" URL="../../../examples/1 Channel N Samples - Manual Timestamps.vi"/>
-		<Item Name="N Channel 1 Sample - Auto Indexing.vi" Type="VI" URL="../../../examples/N Channel 1 Sample - Auto Indexing.vi"/>
-		<Item Name="N Channel 1 Sample - Manual Timestamp.vi" Type="VI" URL="../../../examples/N Channel 1 Sample - Manual Timestamp.vi"/>
-		<Item Name="N Channel N Samples - Auto Indexing.vi" Type="VI" URL="../../../examples/N Channel N Samples - Auto Indexing.vi"/>
-		<Item Name="N Channel N Samples - Manual Timestamp.vi" Type="VI" URL="../../../examples/N Channel N Samples - Manual Timestamp.vi"/>
-	</Item>
 	<Item Name="private" Type="Folder">
 		<Item Name="sy_err.vi" Type="VI" URL="../private/sy_err.vi"/>
 		<Item Name="Timestamp Conversion 1D Array.vi" Type="VI" URL="../private/Timestamp Conversion 1D Array.vi"/>
