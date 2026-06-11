@@ -333,6 +333,12 @@ func (b *encoderBuilder) processValueByType(
 	switch form := actual.Form.(type) {
 	case resolution.StructForm:
 		return b.processStruct(actual, form, effectiveTypeArgs, getPath, setPath)
+	case resolution.UnionForm:
+		// Unions encode as length-prefixed JSON: the generated MarshalJSON /
+		// UnmarshalJSON pair already implements the internally-tagged wire
+		// form, and JSON keeps the stored bytes self-describing across
+		// variant additions.
+		return b.processTypeParamField(getPath, setPath, true)
 	case resolution.BuiltinGenericForm:
 		if form.Name == "Array" {
 			typeArgs := ref.TypeArgs

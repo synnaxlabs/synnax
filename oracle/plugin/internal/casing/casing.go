@@ -13,7 +13,73 @@
 // domain names like axis keys (x1, y1) are not split on letter-digit boundaries.
 package casing
 
-import "github.com/samber/lo"
+import (
+	"strings"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/set"
+)
+
+// acronyms are initialisms that stay fully upper-cased in PascalCase identifiers
+// derived from snake_case (e.g. "ai_voltage" -> "AIVoltage"). The set covers the
+// hardware and signal initialisms used in Synnax schemas.
+var acronyms = set.New(
+	"ai", "ao", "ci", "co", "di", "do",
+	"rtd", "iepe", "rms", "dc", "ac",
+)
+
+// PascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase,
+// fully upper-casing any whole underscore-delimited segment that is a known
+// acronym. Whole-segment matching means a word that merely contains an acronym
+// (e.g. "email", "accel") is title-cased normally rather than mangled.
+func PascalAcronym(s string) string {
+	segs := strings.Split(TypeSnake(s), "_")
+	for i, seg := range segs {
+		if seg == "" {
+			continue
+		}
+		if acronyms.Contains(strings.ToLower(seg)) {
+			segs[i] = strings.ToUpper(seg)
+		} else {
+			segs[i] = lo.Capitalize(seg)
+		}
+	}
+	return strings.Join(segs, "")
+}
+
+// VariantTypeName derives a discriminated-union variant's type name from the
+// union's type name and the variant's discriminator value. When the variant
+// repeats the union's leading acronym (e.g. value "ai_voltage" under union
+// "AIChannel"), that acronym is factored out so the name reads naturally as
+// "AIVoltageChannel" rather than the doubled "AIChannelAIVoltage". Otherwise the
+// union name prefixes the PascalCased variant (e.g. "linear" under "Scale" ->
+// "ScaleLinear"), which keeps every variant unique and avoids colliding with a
+// field struct that shares the variant's bare name.
+func VariantTypeName(unionName, variantValue string) string {
+	variant := PascalAcronym(variantValue)
+	if acr := leadingAcronym(unionName); acr != "" &&
+		strings.HasPrefix(strings.ToLower(variant), strings.ToLower(acr)) {
+		return variant + unionName[len(acr):]
+	}
+	return unionName + variant
+}
+
+// leadingAcronym returns the run of leading uppercase letters of s that form an
+// acronym, excluding the final uppercase letter when it begins the next
+// PascalCase word ("AIChannel" -> "AI", "RTDConfig" -> "RTD", "Scale" -> "").
+func leadingAcronym(s string) string {
+	n := 0
+	for n < len(s) && isUpper(s[n]) {
+		n++
+	}
+	if n < len(s) && n > 0 && isLower(s[n]) {
+		n--
+	}
+	if n < 2 {
+		return ""
+	}
+	return s[:n]
+}
 
 // FieldSnake converts a schema field name to its canonical snake_case wire form.
 // When the input is already a valid snake_case identifier (starts with a lowercase

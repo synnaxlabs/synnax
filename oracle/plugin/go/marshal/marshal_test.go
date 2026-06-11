@@ -380,6 +380,30 @@ var _ = Describe("Go Marshal Plugin", func() {
 		})
 
 		Context("map field nil preservation", func() {
+			It("Should encode union map values as length-prefixed JSON", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/test"
+					@go marshal
+					@pb
+
+					TankConfig struct { width float64 }
+
+					ElementConfig union on variant {
+						tank TankConfig
+					}
+
+					Test struct {
+						configs map<string, ElementConfig>
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain(
+						"json.Marshal(val)",
+						"json.Unmarshal(b, &val)",
+					)
+			})
+
 			It("Should generate a presence bit before the map length", func() {
 				source := `
 					@go output "core/pkg/test"
