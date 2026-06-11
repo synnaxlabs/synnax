@@ -174,7 +174,7 @@ const Content = ({
 // underlying Tabs.Tab is empty; consumers resolve a name (and rename) from the
 // referenced resource or view.
 export const Mosaic = ({
-  panelKey,
+  panelKey: key,
   focused,
   selected,
   onSelect,
@@ -182,9 +182,9 @@ export const Mosaic = ({
   tabName,
   ...rest
 }: MosaicProps): ReactElement | null => {
-  useEnsureRetrieved({ key: panelKey });
+  useEnsureRetrieved({ key });
   const { dispatch } = useDispatch();
-  const treeRoot = useSelectRoot({ key: panelKey });
+  const treeRoot = useSelectRoot({ key });
   const root = useMemo(() => adaptToMosaic(treeRoot, selected), [treeRoot, selected]);
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);
@@ -194,42 +194,32 @@ export const Mosaic = ({
   // the tab in the new sibling (a no-op when the tab is the leaf's only tab); a
   // center drop moves or reorders within the target leaf.
   const handleDrop = useCallback(
-    (key: number, tabKey: string, loc: location.Location, index?: number) => {
+    (targetLeaf: number, tabKey: string, loc: location.Location, index?: number) => {
       const action = panel.moveTab({
         key: tabKey,
-        targetLeaf: key,
+        targetLeaf,
         index: index ?? 0,
         location: loc === "center" ? undefined : loc,
       });
-      dispatch({ key: panelKey, actions: [action] });
+      dispatch({ key, actions: [action] });
     },
-    [dispatch, panelKey],
+    [dispatch, key],
   );
 
-  // Resize.useMultiple emits on mount as well as on drags; the reducer treats
-  // resizes that change nothing as no-ops, and the dispatch substrate drops
-  // no-op vectors before they reach the server.
   const handleResize = useCallback(
-    (key: number, size: number) => {
-      dispatch({ key: panelKey, actions: [panel.resizeSplit({ split: key, size })] });
+    (split: number, size: number) => {
+      dispatch({ key, actions: [panel.resizeSplit({ split, size })] });
     },
-    [dispatch, panelKey],
+    [dispatch, key],
   );
 
   const handleClose = useCallback(
     (tabKey: string) => {
-      dispatch({ key: panelKey, actions: [panel.removeTab({ key: tabKey })] });
+      dispatch({ key, actions: [panel.removeTab({ key: tabKey })] });
     },
-    [dispatch, panelKey],
+    [dispatch, key],
   );
 
-  // handleCreate maps Base.Mosaic's create gesture onto InsertTab actions. A
-  // bare "+" (no dropped content) inserts a single resourceless tab, a real,
-  // stored tab that renders the consumer's selector until SetTabResource fills
-  // it. An edge location rides on the first insert, so the reducer splits the
-  // leaf; remaining tabs append to the leaf the split created. Creating a tab
-  // selects it through the same onSelect seam as a click, so the consumer's
-  // session cursor lands on the new tab.
   const handleCreate = useCallback(
     (key: number, loc: location.Location, tabKeys?: string[]) => {
       const dropped = (tabKeys ?? []).flatMap((raw) => {
@@ -249,25 +239,25 @@ export const Mosaic = ({
           location: i === 0 ? edge : undefined,
         }),
       );
-      dispatch({ key: panelKey, actions });
+      dispatch({ key, actions });
       onSelect?.(tabs[tabs.length - 1].key);
     },
-    [dispatch, panelKey, onSelect],
+    [dispatch, key, onSelect],
   );
 
   const [portalRef, portalNodes] = Base.usePortal({
     root,
     onSelect: handleSelect,
     children: ({ tabKey, visible }) => (
-      <Content panelKey={panelKey} tabKey={tabKey} visible={visible !== false}>
+      <Content panelKey={key} tabKey={tabKey} visible={visible !== false}>
         {children}
       </Content>
     ),
   });
 
   const tabNameContext = useMemo<TabNameContextValue>(
-    () => ({ panelKey, tabName }),
-    [panelKey, tabName],
+    () => ({ panelKey: key, tabName }),
+    [key, tabName],
   );
 
   const renderProp = useCallback<Tabs.RenderProp>(
