@@ -32,16 +32,10 @@ type dagWriter struct {
 var _ Writer = dagWriter{}
 
 // DefineResource implements the Writer interface.
-func (d dagWriter) DefineResource(ctx context.Context, tk ID) error {
-	if err := tk.Validate(); err != nil {
-		return err
+func (d dagWriter) DefineResource(ctx context.Context, ids ...ID) error {
+	if len(ids) == 0 {
+		return nil
 	}
-	return d.resourceTable.NewCreate().
-		Entry(&Resource{ID: tk}).
-		Exec(ctx, d.tx)
-}
-
-func (d dagWriter) DefineManyResources(ctx context.Context, ids []ID) error {
 	for _, id := range ids {
 		if err := id.Validate(); err != nil {
 			return err
@@ -49,18 +43,23 @@ func (d dagWriter) DefineManyResources(ctx context.Context, ids []ID) error {
 	}
 	resources := lo.Map(ids, func(id ID, _ int) Resource { return Resource{ID: id} })
 	return d.resourceTable.NewCreate().Entries(&resources).Exec(ctx, d.tx)
-
 }
 
 // DeleteResource implements the Writer interface.
-func (d dagWriter) DeleteResource(ctx context.Context, id ID) error {
-	if err := d.deleteIncomingRelationships(ctx, id); err != nil {
-		return err
+func (d dagWriter) DeleteResource(ctx context.Context, ids ...ID) error {
+	if len(ids) == 0 {
+		return nil
 	}
-	if err := d.deleteOutgoingRelationships(ctx, id); err != nil {
-		return err
+	for _, id := range ids {
+		if err := d.deleteIncomingRelationships(ctx, id); err != nil {
+			return err
+		}
+		if err := d.deleteOutgoingRelationships(ctx, id); err != nil {
+			return err
+		}
 	}
-	return d.resourceTable.NewDelete().Where(gorp.MatchKeys[string, Resource](id.String())).Exec(ctx, d.tx)
+	return d.resourceTable.NewDelete().
+		Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) HasResource(ctx context.Context, id ID) (bool, error) {
@@ -75,55 +74,44 @@ func (d dagWriter) HasRelationship(ctx context.Context, from ID, t RelationshipT
 	})
 }
 
-func (d dagWriter) DeleteManyResources(ctx context.Context, ids []ID) error {
-	for _, id := range ids {
-		if err := d.deleteIncomingRelationships(ctx, id); err != nil {
-			return err
-		}
-		if err := d.deleteOutgoingRelationships(ctx, id); err != nil {
-			return err
-		}
-	}
-	return d.resourceTable.NewDelete().Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, d.tx)
-}
-
 // DefineRelationship implements the Writer interface.
-func (d dagWriter) DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error {
-	rel := Relationship{From: from, To: to, Type: t}
-	exists, err := d.checkRelationshipExists(ctx, rel)
-	if err != nil || exists {
-		return err
+func (d dagWriter) DefineRelationship(
+	ctx context.Context,
+	from ID,
+	t RelationshipType,
+	to ...ID,
+) error {
+	if len(to) == 0 {
+		return nil
 	}
-	if err := d.validateResourcesExist(ctx, from, to); err != nil {
-		return err
-	}
-	descendants, err := d.retrieveDescendants(ctx, to)
-	if err != nil {
-		return err
-	}
-	if _, exists := descendants[from]; exists {
-		return graph.ErrCyclicDependency
-	}
-	return d.relationshipTable.NewCreate().Entry(&rel).Exec(ctx, d.tx)
-}
-
-// DefineFromOneToManyRelationships implements the Writer interface.
-func (d dagWriter) DefineFromOneToManyRelationships(ctx context.Context, from ID, t RelationshipType, to []ID) error {
-	rels := lo.Map(to, func(id ID, _ int) Relationship { return Relationship{From: from, To: id, Type: t} })
+	to = lo.Uniq(to)
 	if err := d.validateResourcesExist(ctx, from); err != nil {
 		return err
 	}
 	if err := d.validateResourcesExist(ctx, to...); err != nil {
 		return err
 	}
-	for _, rel := range rels {
-		descendants, err := d.retrieveDescendants(ctx, rel.To)
+	rels := make([]Relationship, 0, len(to))
+	for _, id := range to {
+		rel := Relationship{From: from, To: id, Type: t}
+		exists, err := d.checkRelationshipExists(ctx, rel)
 		if err != nil {
 			return err
 		}
-		if _, exists := descendants[from]; exists {
+		if exists {
+			continue
+		}
+		descendants, err := d.retrieveDescendants(ctx, id)
+		if err != nil {
+			return err
+		}
+		if _, cyclic := descendants[from]; cyclic {
 			return graph.ErrCyclicDependency
 		}
+		rels = append(rels, rel)
+	}
+	if len(rels) == 0 {
+		return nil
 	}
 	return d.relationshipTable.NewCreate().Entries(&rels).Exec(ctx, d.tx)
 }

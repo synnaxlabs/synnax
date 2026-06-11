@@ -116,5 +116,5 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DeleteManyResources(ctx, OntologyIDsFromKeys(keys))
+	return w.otg.DeleteResource(ctx, OntologyIDsFromKeys(keys)...)
 }
