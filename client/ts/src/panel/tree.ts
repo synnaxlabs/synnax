@@ -27,7 +27,7 @@ export const childPath = (pathKey: number, side: "first" | "last"): number =>
  * split at the given location: "first" for left/top, "last" otherwise. The
  * convention is shared by SplitLeaf and location-bearing InsertTab/MoveTab.
  */
-export const splitSide = (loc: location.Location): "first" | "last" =>
+export const splitSide = (loc: location.Outer): "first" | "last" =>
   loc === "left" || loc === "top" ? "first" : "last";
 
 const pathDirections = (pathKey: number): boolean[] => {

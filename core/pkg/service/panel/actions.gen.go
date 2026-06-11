@@ -36,8 +36,9 @@ type RenamePayload struct {
 }
 
 // InsertTabPayload inserts a tab into the leaf with the given path-derived key at the
-// given index. Appends when index is absent. When location is present, the target leaf
-// is first split at that location and the tab is inserted into the new empty leaf.
+// given index. Appends when index is absent. When location is an edge, the target leaf
+// is first split at that location and the tab is inserted into the new empty leaf; a
+// center location places the tab directly in the target leaf, equivalent to absent.
 type InsertTabPayload struct {
 	Tab        Tab               `json:"tab" msgpack:"tab"`
 	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
@@ -51,11 +52,12 @@ type RemoveTabPayload struct {
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
-// MoveTabPayload moves a tab to a position within the panel. When location is present,
+// MoveTabPayload moves a tab to a position within the panel. When location is an edge,
 // the target leaf is first split at that location and the tab moves into the new empty
-// leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. Cross-panel
-// moves are RemoveTab on the source plus InsertTab on the destination (two dispatches;
-// not atomic).
+// leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. A center
+// location places the tab directly in the target leaf, equivalent to absent.
+// Cross-panel moves are RemoveTab on the source plus InsertTab on the destination (two
+// dispatches; not atomic).
 type MoveTabPayload struct {
 	Key        uuid.UUID         `json:"key" msgpack:"key"`
 	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
