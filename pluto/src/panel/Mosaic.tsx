@@ -12,7 +12,6 @@ import { type location, uuid } from "@synnaxlabs/x";
 import { type ComponentType, type ReactElement, useCallback, useMemo } from "react";
 
 import { context } from "@/context";
-import { type Icon } from "@/icon";
 import { Mosaic as Base } from "@/mosaic";
 import { useDispatch, useRetrieve } from "@/panel/queries";
 import { Portal } from "@/portal";
@@ -70,19 +69,13 @@ export interface MosaicProps extends Pick<
   onSelect?: (tabKey: string) => void;
   // children renders a tab's content from its resolved content union.
   children: (props: MosaicTabRenderProps) => ReactElement | null;
-  // tabName renders a tab's display name from its content union. When omitted, tab
-  // strips show the default (empty) name. Rename, when supported, is the consumer's
-  // to wire through the underlying content (e.g. renaming the resource), so the
-  // panel layer needs no rename prop of its own.
+  // tabName renders a tab's display name from its content union: name text plus
+  // any passive indicators (icon, unsaved-changes dot), subscribing to the
+  // underlying resource as needed. When omitted, tab strips show the default
+  // (empty) name. Rename, when supported, is the consumer's to wire through the
+  // underlying content (e.g. renaming the resource), so the panel layer needs no
+  // rename prop of its own.
   tabName?: (props: MosaicTabNameProps) => ReactElement | null;
-  // tabInfo resolves a tab's passive display attributes (icon, unsaved-changes
-  // indicator) from its content union. Unlike tabName it returns data baked onto the
-  // tab spec, not a rendered node.
-  tabInfo?: (props: {
-    tabKey: string;
-    resource: ontology.ID | null;
-    view: panel.TabView | null;
-  }) => { icon?: Icon.ReactElement | string; unsavedChanges?: boolean };
 }
 
 // TabContent is a tab's resolved content union. At most one of resource or view is
@@ -107,7 +100,6 @@ const adaptToMosaic = (
   root: panel.Node | undefined,
   activeTab: string | undefined,
   recentTabs: string[] | undefined,
-  tabInfo?: MosaicProps["tabInfo"],
 ): AdaptResult => {
   // Selection preference per leaf: the active tab first, then the MRU.
   const preference =
@@ -129,15 +121,12 @@ const adaptToMosaic = (
       const resource = t.resource ?? null;
       const view = t.view ?? null;
       contents.set(t.key, { resource, view });
-      const info = tabInfo?.({ tabKey: t.key, resource, view }) ?? {};
       // Resource and view tabs carry a renameable name; empty (selector) tabs do not.
       return {
         tabKey: t.key,
         name: "",
         closable: true,
         editable: resource != null || view != null,
-        icon: info.icon,
-        unsavedChanges: info.unsavedChanges,
       };
     });
     const selected =
@@ -195,15 +184,14 @@ export const Mosaic = ({
   onSelect,
   children,
   tabName,
-  tabInfo,
   ...rest
 }: MosaicProps): ReactElement | null => {
   const { data: p } = useRetrieve({ key: panelKey });
   const { dispatch } = useDispatch();
 
   const { root, contents } = useMemo(
-    () => adaptToMosaic(p?.root, activeTab, recentTabs, tabInfo),
-    [p?.root, activeTab, recentTabs, tabInfo],
+    () => adaptToMosaic(p?.root, activeTab, recentTabs),
+    [p?.root, activeTab, recentTabs],
   );
 
   const handleSelect = useCallback((tabKey: string) => onSelect?.(tabKey), [onSelect]);

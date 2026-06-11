@@ -48,6 +48,9 @@ export interface NameProps {
   name: string;
   level: text.Level;
   selected: boolean;
+  icon?: Icon.ReactElement | string | unknown;
+  unsavedChanges?: boolean;
+  loading?: boolean;
   onRename?: (key: string, name: string) => void;
   editable?: boolean;
 }

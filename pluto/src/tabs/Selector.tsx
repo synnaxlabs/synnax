@@ -163,22 +163,6 @@ export const Selector = ({
   );
 };
 
-interface CloseIconProps extends Icon.IconProps {
-  unsavedChanges?: boolean;
-}
-
-const CloseIcon = ({ unsavedChanges, ...props }: CloseIconProps): ReactElement => {
-  const closeIcon = <Icon.Close {...props} />;
-  if (unsavedChanges)
-    return (
-      <>
-        <Icon.Circle />
-        {closeIcon}
-      </>
-    );
-  return closeIcon;
-};
-
 const TABS_SELECTOR_BUTTON_CLASS = CSS.BE("tabs-selector", "btn");
 
 const calculateDragOverPosition = (e: React.DragEvent<HTMLElement>): location.X => {
@@ -319,7 +303,6 @@ const SelectorButton = ({
       {...variantProps}
       borderColor={isPill ? (isSelected ? 7 : 5) : undefined}
     >
-      <StartIcon loading={loading} icon={icon} level={level} />
       <Name
         name={name}
         tabKey={tabKey}
@@ -327,6 +310,9 @@ const SelectorButton = ({
         editable={editable}
         level={level}
         selected={isSelected}
+        icon={icon}
+        unsavedChanges={unsavedChanges}
+        loading={loading}
       />
       {closable && onClose != null && (
         <Button.Button
@@ -336,7 +322,7 @@ const SelectorButton = ({
           variant="text"
           sharp
         >
-          <CloseIcon unsavedChanges={unsavedChanges} />
+          <Icon.Close />
         </Button.Button>
       )}
     </Button.Button>
@@ -367,23 +353,36 @@ export const DefaultName = ({
   tabKey,
   editable = true,
   level,
+  icon,
+  unsavedChanges = false,
+  loading = false,
   ...rest
 }: DefaultNameProps): ReactElement => {
+  const startIcon = <StartIcon loading={loading} icon={icon} level={level} />;
+  const unsaved = unsavedChanges && <Icon.Circle className={CSS.BE(CLS, "unsaved")} />;
   if (onRename == null || !editable)
     return (
-      <Text.Text overflow="ellipsis" level={level} {...rest}>
-        {name}
-      </Text.Text>
+      <>
+        {startIcon}
+        <Text.Text overflow="ellipsis" level={level} {...rest}>
+          {name}
+        </Text.Text>
+        {unsaved}
+      </>
     );
   return (
-    <Text.Editable
-      level={level}
-      id={CSS.B(`tab-${tabKey}`)}
-      onChange={(newText: string) => onRename?.(tabKey, newText)}
-      value={name}
-      overflow="ellipsis"
-      color={selected ? 11 : 8}
-      {...rest}
-    />
+    <>
+      {startIcon}
+      <Text.Editable
+        level={level}
+        id={CSS.B(`tab-${tabKey}`)}
+        onChange={(newText: string) => onRename?.(tabKey, newText)}
+        value={name}
+        overflow="ellipsis"
+        color={selected ? 11 : 8}
+        {...rest}
+      />
+      {unsaved}
+    </>
   );
 };

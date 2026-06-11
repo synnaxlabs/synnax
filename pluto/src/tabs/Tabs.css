@@ -169,22 +169,27 @@
             & svg {
                 fill: var(--pluto-gray-l8);
             }
-            .pluto-icon--circle {
-                height: 0.9em;
-                width: 0.9em;
+        }
+
+        & .pluto-tabs-selector__unsaved {
+            flex-shrink: 0;
+            height: 0.9em;
+            width: 0.9em;
+            fill: var(--pluto-gray-l8);
+        }
+
+        /* The dot occupies the close slot until the operator hovers, at which
+           point the close button takes its place. */
+        &:has(.pluto-tabs-selector__unsaved) {
+            .pluto-btn.pluto__close {
+                display: none;
             }
-            &:has(.pluto-icon--circle) {
-                opacity: 1;
-                .pluto-icon--close {
+            &.pluto--closable:hover {
+                .pluto-tabs-selector__unsaved {
                     display: none;
                 }
-                &:hover {
-                    .pluto-icon--circle {
-                        display: none;
-                    }
-                    .pluto-icon--close {
-                        display: block;
-                    }
+                .pluto-btn.pluto__close {
+                    display: flex;
                 }
             }
         }
