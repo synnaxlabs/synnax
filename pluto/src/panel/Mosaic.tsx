@@ -16,6 +16,7 @@ import { Flux } from "@/flux";
 import { Mosaic as Base } from "@/mosaic";
 import {
   type FluxSubStore,
+  type TabContent,
   useDispatch,
   useEnsureRetrieved,
   useSelectRoot,
@@ -29,23 +30,15 @@ import { Tabs } from "@/tabs";
 // inline view. The consumer decides how to render each; the panel layer is
 // intentionally renderer-agnostic so different consumers (console, integration
 // tests, future apps) plug in their own resolution.
-export interface MosaicTabRenderProps {
+export interface MosaicTabRenderProps extends TabContent {
   tabKey: string;
-  // resource and view are both null when the tab has no content yet. The consumer
-  // renders its selector in that case and swaps in content via SetTabResource /
-  // SetTabView. At most one is non-null.
-  resource: ontology.ID | null;
-  view: panel.TabView | null;
   visible: boolean;
 }
 
 // MosaicTabNameProps is the contract for the tabName render prop. It extends the
 // base tab-name props with the tab's content union so the consumer can resolve a
 // display name (and rename behavior) from the underlying resource or view.
-export interface MosaicTabNameProps extends Tabs.NameProps {
-  resource: ontology.ID | null;
-  view: panel.TabView | null;
-}
+export interface MosaicTabNameProps extends Tabs.NameProps, TabContent {}
 
 // MosaicProps mirrors Base.MosaicProps where the panel-aware shell adds value
 // (panelKey, the resource-aware children render prop) and otherwise passes
@@ -140,11 +133,7 @@ const TabName: ComponentType<Tabs.NameProps> = (props) => {
   const { panelKey, tabName } = useTabNameContext();
   const content = useSelectTabContent({ key: panelKey ?? "", tabKey: props.tabKey });
   if (tabName == null) return <Tabs.DefaultName {...props} />;
-  return tabName({
-    ...props,
-    resource: content?.resource ?? null,
-    view: content?.view ?? null,
-  });
+  return tabName({ ...props, resource: content?.resource, view: content?.view });
 };
 
 interface ContentProps {

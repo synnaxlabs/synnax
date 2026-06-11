@@ -95,12 +95,9 @@ export const { useRetrieve, useEnsureRetrieved } = Flux.createRetrieve<
   ],
 });
 
-// TabContent is a tab's resolved content union. At most one of resource or view is
-// non-null; both null means the tab has no content yet.
-export interface TabContent {
-  resource: ontology.ID | null;
-  view: panel.TabView | null;
-}
+// TabContent is a tab's resolved content union. At most one of resource or view
+// is set; both absent means the tab has no content yet.
+export interface TabContent extends Pick<panel.Tab, "resource" | "view"> {}
 
 export interface SelectKeyArgs {
   key: panel.Key;
@@ -135,7 +132,7 @@ export const useSelectTabContent = Flux.createSelector<
   select: (store, { key, tabKey }) => {
     const tab = panel.findTab(store.panels.get(key)?.root, tabKey);
     if (tab == null) return null;
-    return { resource: tab.resource ?? null, view: tab.view ?? null };
+    return { resource: tab.resource, view: tab.view };
   },
   equal: deep.equal,
 });
