@@ -43,17 +43,19 @@ func hasParent(ctx context.Context, parent ontology.ID, key panel.Key) bool {
 
 var _ = Describe("api.Service.Create", func() {
 	It("Should reject the request when the subject has no create policy", func(ctx SpecContext) {
+		u := newUser(ctx)
 		p := panel.Panel{Key: uuid.New(), Name: "no-policy"}
-		Expect(apiSvc.Create(authedCtx(ctx, author), CreateRequest{
+		Expect(apiSvc.Create(authedCtx(ctx, u), CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 
 	It("Should create the panels under the provided parent", func(ctx SpecContext) {
+		u := newUser(ctx)
 		p := panel.Panel{Key: uuid.New(), Name: "with-parent"}
-		grant(ctx, user.OntologyID(author.Key), access.ActionCreate,
+		grant(ctx, user.OntologyID(u.Key), access.ActionCreate,
 			ontology.ID{Type: ontology.ResourceTypePanel}, parentID)
-		res := MustSucceed(apiSvc.Create(authedCtx(ctx, author), CreateRequest{
+		res := MustSucceed(apiSvc.Create(authedCtx(ctx, u), CreateRequest{
 			Parent: parentID,
 			Panels: []panel.Panel{p},
 		}))
@@ -67,13 +69,14 @@ var _ = Describe("api.Service.Create", func() {
 	})
 
 	It("Should parent a parent-less panel to the creating user as a draft", func(ctx SpecContext) {
+		u := newUser(ctx)
 		p := panel.Panel{Key: uuid.New(), Name: "draft"}
-		grant(ctx, user.OntologyID(author.Key), access.ActionCreate,
+		grant(ctx, user.OntologyID(u.Key), access.ActionCreate,
 			ontology.ID{Type: ontology.ResourceTypePanel})
-		Expect(apiSvc.Create(authedCtx(ctx, author), CreateRequest{
+		Expect(apiSvc.Create(authedCtx(ctx, u), CreateRequest{
 			Panels: []panel.Panel{p},
 		})).Error().To(Succeed())
-		Expect(hasParent(ctx, user.OntologyID(author.Key), p.Key)).To(BeTrue())
+		Expect(hasParent(ctx, user.OntologyID(u.Key), p.Key)).To(BeTrue())
 	})
 })
 
