@@ -81,8 +81,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	// The group must exist before the table opens: the layout-to-panels migration
-	// runs at table open and parents the panels it creates under the group.
 	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Panels", ontology.RootID); !ok(err, nil) {
 		return nil, err
 	}

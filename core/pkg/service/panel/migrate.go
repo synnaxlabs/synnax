@@ -36,8 +36,7 @@ var migratableLayoutTypes = map[string]ontology.ResourceType{
 }
 
 // legacyLayout is the subset of the Console's persisted layout record consumed by the
-// migration. The full record carries rendering state (location, window props, tab
-// props) that has no server-side equivalent.
+// migration.
 type legacyLayout struct {
 	// Type identifies the Console renderer for the layout and, for visualization
 	// layouts, the ontology resource type of the backing document.
@@ -234,9 +233,6 @@ func convertNode(
 			continue
 		}
 		id := ontology.ID{Type: resourceType, Key: t.TabKey}
-		// Layout blobs routinely outlive the documents they reference (the Console
-		// synced them best-effort), so a tab only survives if its document still
-		// exists.
 		exists, err := gorp.NewRetrieve[string, ontology.Resource]().
 			Where(gorp.MatchKeys[string, ontology.Resource](id.String())).
 			Exists(ctx, tx)
