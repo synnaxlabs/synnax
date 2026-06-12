@@ -224,9 +224,15 @@ func (p *Plugin) generateFile(
 		for _, t := range allNamespaceTypes {
 			// Synthetic inline variant payloads flatten into their variant
 			// structs; they have no standalone C++ type.
-			if !existingQNames.Contains(t.QualifiedName) && !t.Synthetic {
-				combinedTypes = append(combinedTypes, t)
+			if existingQNames.Contains(t.QualifiedName) || t.Synthetic {
+				continue
 			}
+			// Types routed to a different file by a per-type @cpp output
+			// override belong to that file, not this one.
+			if p := output.GetPath(t, "cpp"); p != "" && p != outputPath {
+				continue
+			}
+			combinedTypes = append(combinedTypes, t)
 		}
 	}
 
