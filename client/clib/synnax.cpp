@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <exception>
+#include <memory>
 #include <string>
 
 #include "client/clib/internal.h"
@@ -62,7 +63,7 @@ int32_t synnax_client_open(
         if (clock_skew_threshold > 0)
             c.clock_skew_threshold = x::telem::TimeSpan(clock_skew_threshold);
 
-        auto *wrapper = new SynnaxClient(c);
+        auto wrapper = std::make_unique<SynnaxClient>(c);
         const auto state = wrapper->client.connectivity->check();
         if (state.status != synnax::connection::Status::CONNECTED) {
             const bool has_err = !state.error.ok();
@@ -72,10 +73,9 @@ int32_t synnax_client_open(
                 has_err ? state.error.type : std::string("sy.connection"),
                 has_err ? state.error.data : state.message
             );
-            delete wrapper;
             return CODE_ERROR;
         }
-        *out_client = wrapper;
+        *out_client = wrapper.release();
         return CODE_OK;
     } catch (const std::exception &e) {
         set_err(err, CODE_INTERNAL, "sy.internal", e.what());

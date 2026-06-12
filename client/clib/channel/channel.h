@@ -23,9 +23,9 @@
 extern "C" {
 #endif
 
-/// @brief resolves name_count '\n'-delimited names to keys (out_keys), index-channel
-/// keys (out_index_keys), and '\n'-joined dtype names (out_dtypes). NULL skips the last
-/// two. Caller pre-allocates each output; misses return NOT_FOUND.
+/// @brief resolves name_count '\n'-delimited names to caller-allocated out_keys,
+/// out_index_keys, and '\n'-joined out_dtypes; NULL skips the last two. Misses return
+/// NOT_FOUND but still fill every slot, aligned to the names: key 0 and an empty dtype.
 SYNNAX_EXPORT int32_t synnax_channel_retrieve_keys(
     SynnaxClient *client,
     const char *names,

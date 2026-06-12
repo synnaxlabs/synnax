@@ -117,4 +117,27 @@ TEST(ClibClient, testConnectsToLocalCluster) {
     ASSERT_NE(client, nullptr);
     synnax_client_close(client);
 }
+
+/// @brief it should report a connection error and leave out_client null (without
+/// leaking) when the target cluster is unreachable.
+TEST(ClibClient, testOpenAgainstUnreachableClusterReturnsError) {
+    SynnaxError err;
+    SynnaxClient *client = nullptr;
+    const int32_t code = synnax_client_open(
+        "localhost",
+        59999,
+        "synnax",
+        "seldon",
+        0,
+        nullptr,
+        nullptr,
+        nullptr,
+        1,
+        0,
+        &client,
+        &err
+    );
+    EXPECT_NE(code, OK);
+    EXPECT_EQ(client, nullptr);
+}
 }
