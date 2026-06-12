@@ -541,25 +541,33 @@ func (p *Plugin) typeDefBaseToTS(typeRef *resolution.TypeRef, data *templateData
 	return p.typeRefToTS(typeRef, data.Request.Resolutions, data, false)
 }
 
-// isUnionPayload reports whether entry is referenced by any union as a variant
-// payload or shared base, meaning its generated zod schema must stay a
-// ZodObject so the variant schemas can .extend it.
-func isUnionPayload(entry resolution.Type, table *resolution.Table) bool {
+// isExtendBase reports whether another type's generated zod schema calls
+// .extend on entry's schema: struct extends bases, union shared bases, and
+// union variant payloads. Such schemas must stay ZodObjects, since the
+// z.ZodType annotation used to break recursive inference has no .extend.
+func isExtendBase(entry resolution.Type, table *resolution.Table) bool {
+	matches := func(ref resolution.TypeRef) bool {
+		resolved, ok := ref.Resolve(table)
+		return ok && resolved.QualifiedName == entry.QualifiedName
+	}
 	for _, typ := range table.Types {
-		form, ok := typ.Form.(resolution.UnionForm)
-		if !ok {
-			continue
-		}
-		for _, ext := range form.Extends {
-			if resolved, ok := ext.Resolve(table); ok &&
-				resolved.QualifiedName == entry.QualifiedName {
-				return true
+		switch form := typ.Form.(type) {
+		case resolution.StructForm:
+			for _, ext := range form.Extends {
+				if matches(ext) {
+					return true
+				}
 			}
-		}
-		for _, v := range form.Variants {
-			if resolved, ok := v.Type.Resolve(table); ok &&
-				resolved.QualifiedName == entry.QualifiedName {
-				return true
+		case resolution.UnionForm:
+			for _, ext := range form.Extends {
+				if matches(ext) {
+					return true
+				}
+			}
+			for _, v := range form.Variants {
+				if matches(v.Type) {
+					return true
+				}
 			}
 		}
 	}
@@ -639,11 +647,11 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		IsGeneric:     form.IsGeneric(),
 		IsSingleParam: len(form.TypeParams) == 1,
 		IsAlias:       false,
-		// Union variant payloads must keep a ZodObject schema so the variant
-		// can .extend it; the recursive-interface branch would annotate the
-		// schema as z.ZodType, which has no .extend. Their inference cycles
-		// are broken by annotated forward-reference getters instead.
-		IsRecursive: form.IsRecursive && !isUnionPayload(entry, table),
+		// Extend bases must keep a ZodObject schema so extenders can .extend
+		// it; the recursive-interface branch would annotate the schema as
+		// z.ZodType, which has no .extend. Their inference cycles are broken
+		// by annotated forward-reference getters instead.
+		IsRecursive: form.IsRecursive && !isExtendBase(entry, table),
 	}
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {

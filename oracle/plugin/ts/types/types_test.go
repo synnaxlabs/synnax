@@ -967,6 +967,66 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`get last() {`))
 		})
 
+		It("Should keep recursive struct-extends bases extendable", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				FunctionProperties struct {
+					inputs Param[]?
+				}
+
+				Type struct extends FunctionProperties {
+					name string
+					elem Type?
+				}
+
+				Param struct {
+					name string
+					type Type
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp := MustSucceed(typesPlugin.Generate(req))
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const typeZ = functionPropertiesZ`))
+			Expect(content).To(ContainSubstring(`.extend({`))
+			Expect(content).ToNot(ContainSubstring(`functionPropertiesZ: z.ZodType`))
+			Expect(content).To(ContainSubstring(`export const paramZ: z.ZodType<Param> = z.object({`))
+		})
+
+		It("Should keep recursive union variant payloads extendable", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Group struct {
+					name string
+					children Node[]
+				}
+
+				Node union on type {
+					group Group
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "mosaic", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp := MustSucceed(typesPlugin.Generate(req))
+
+			content := string(resp.Files[0].Content)
+			Expect(content).ToNot(ContainSubstring(`groupZ: z.ZodType`))
+		})
+
 		It("Should generate getter for generic recursive struct with single param", func(ctx SpecContext) {
 			source := `
 				@ts output "out"

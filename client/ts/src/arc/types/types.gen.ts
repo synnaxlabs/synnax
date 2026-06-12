@@ -87,25 +87,21 @@ export const unitZ = z.object({
 export interface Unit extends z.infer<typeof unitZ> {}
 
 /** FunctionProperties contains common parameter definitions for function-like types. */
-export interface FunctionProperties {
-  inputs?: Params;
-  outputs?: Params;
-  config?: Params;
-}
-export const functionPropertiesZ: z.ZodType<FunctionProperties> = z.object({
+export const functionPropertiesZ = z.object({
   /** inputs contains input parameter definitions. */
-  get inputs() {
+  get inputs(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
   /** outputs contains output parameter definitions. */
-  get outputs() {
+  get outputs(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
   /** config contains configuration parameter definitions. */
-  get config() {
+  get config(): z.ZodOptional<typeof paramsZ> {
     return paramsZ.optional();
   },
 });
+export interface FunctionProperties extends z.infer<typeof functionPropertiesZ> {}
 
 export const typeZ = functionPropertiesZ.extend({
   kind: kindZ,
