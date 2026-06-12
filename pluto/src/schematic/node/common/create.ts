@@ -44,7 +44,6 @@ export const createStatic = <V extends string>({
   const configZ = Label.labeledConfigZ.extend({
     variant: z.literal(variant),
     color: color.crudeZ.optional(),
-    scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
   const defaultConfig = (): Config => ({
@@ -86,7 +85,6 @@ export const createToggle = <V extends string>({
   const configZ = Toggle.toggleConfigZ.extend({
     variant: z.literal(variant),
     color: color.crudeZ.optional(),
-    scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
   const defaultConfig = (): Config => ({
@@ -124,7 +122,6 @@ export const createDummyToggle = <V extends string>({
   const configZ = Toggle.dummyToggleConfigZ.extend({
     variant: z.literal(variant),
     color: color.crudeZ.optional(),
-    scale: z.number().optional(),
   });
   type Config = z.infer<typeof configZ>;
   const defaultConfig = (): Config => ({
