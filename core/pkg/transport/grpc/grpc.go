@@ -103,7 +103,6 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
 	t.SchematicDelete = noop.UnaryServer[schematic.DeleteRequest, types.Nil]{}
 	t.SchematicRetrieve = noop.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]{}
-	t.SchematicSetData = noop.UnaryServer[schematic.SetDataRequest, types.Nil]{}
 	t.SchematicDispatch = noop.UnaryServer[schematic.DispatchRequest, types.Nil]{}
 	t.SchematicCopy = noop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
 
@@ -118,22 +117,18 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
 	t.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, types.Nil]{}
-	t.LinePlotRename = noop.UnaryServer[lineplot.RenameRequest, types.Nil]{}
-	t.LinePlotSetData = noop.UnaryServer[lineplot.SetDataRequest, types.Nil]{}
+	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, types.Nil]{}
 
 	// LOG
 	t.LogCreate = noop.UnaryServer[log.CreateRequest, log.CreateResponse]{}
 	t.LogRetrieve = noop.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]{}
 	t.LogDelete = noop.UnaryServer[log.DeleteRequest, types.Nil]{}
-	t.LogRename = noop.UnaryServer[log.RenameRequest, types.Nil]{}
-	t.LogSetData = noop.UnaryServer[log.SetDataRequest, types.Nil]{}
+	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, types.Nil]{}
 
 	// TABLE
 	t.TableCreate = noop.UnaryServer[table.CreateRequest, table.CreateResponse]{}
 	t.TableRetrieve = noop.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]{}
 	t.TableDelete = noop.UnaryServer[table.DeleteRequest, types.Nil]{}
-	t.TableRename = noop.UnaryServer[table.RenameRequest, types.Nil]{}
-	t.TableSetData = noop.UnaryServer[table.SetDataRequest, types.Nil]{}
 	t.TableDispatch = noop.UnaryServer[table.DispatchRequest, types.Nil]{}
 
 	// LABEL

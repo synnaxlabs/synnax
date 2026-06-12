@@ -31,6 +31,9 @@
         filter: url("#goo");
 
         .outline {
+            --off-page-color: var(--pluto-symbol-display);
+            --off-page-text-color: var(--pluto-symbol-contrast);
+
             background-color: var(--off-page-color);
             padding: 1px;
             clip-path: polygon(

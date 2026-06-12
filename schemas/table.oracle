@@ -223,31 +223,10 @@ Table struct {
 }
 
 New struct extends Table {
-    key     Key?               {
-        @doc value """
-            is an optional key for the table. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    rows    Row[]?             {
-        @doc value """
-            are the table rows in display order, top to bottom. Defaults to an
-            empty list.
-        """
-    }
-    columns Column[]?          {
-        @doc value """
-            are the table columns in display order, left to right. Defaults to
-            an empty list.
-        """
-    }
-    cells   map<string, Cell>? {
-        @doc value        """
-            contains all cells in the table, keyed by cell key. Defaults to an
-            empty map.
-        """
-        @ts preserve_case
-    }
+    key     = create
+    rows    = []
+    columns = []
+    cells   = {}
 
     @doc value    "contains parameters for creating a new table."
     @ts use_input

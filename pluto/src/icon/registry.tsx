@@ -692,8 +692,8 @@ export const resolve = ((
     try {
       const C = deep.get<FC<IconProps>>(icons, icon);
       return <C {...overrides} />;
-    } catch {
-      throw new Error(`Unable to find icon with path ${icon} in registry`);
+    } catch (cause) {
+      throw new Error(`Unable to find icon with path ${icon} in registry`, { cause });
     }
 
   return cloneElement(icon, overrides);

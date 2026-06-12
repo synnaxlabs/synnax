@@ -10,46 +10,18 @@
 package schematic_test
 
 import (
-	"context"
-	"sync"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// scopedAction is a short local alias for the schematic's action envelope so
-// the test files don't have to spell out the generic parameters at every use.
-type scopedAction = actions.Scoped[schematic.Key, schematic.Action]
-
-// actionRecorder collects Scoped notifications emitted by the service's
-// action observer for assertions in tests.
-type actionRecorder struct {
-	mu      sync.Mutex
-	scopeds []scopedAction
-}
-
-func (r *actionRecorder) record(_ context.Context, sa scopedAction) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.scopeds = append(r.scopeds, sa)
-}
-
-func (r *actionRecorder) snapshot() []scopedAction {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	out := make([]scopedAction, len(r.scopeds))
-	copy(out, r.scopeds)
-	return out
-}
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
@@ -59,35 +31,22 @@ var _ = Describe("Writer", func() {
 			Expect(s.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("SetData", func() {
-		It("Should replace every body field on the Schematic while preserving Key and Name", func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, schematic.Schematic{
-				Name:  "ignored-name",
-				Nodes: []schematic.Node{{Key: "n1"}},
-			})).To(Succeed())
-			var res schematic.Schematic
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchKeys(s.Key)).
-				Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Name).To(Equal("test"))
-			Expect(res.Nodes).To(HaveLen(1))
-		})
-		It("Should preserve the Snapshot flag against caller overrides", func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, schematic.Schematic{
-				Snapshot: true,
-			})).To(Succeed())
-			var res schematic.Schematic
-			Expect(svc.NewRetrieve().
-				Where(schematic.MatchKeys(s.Key)).
-				Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Snapshot).To(BeFalse())
+	Describe("CreateMany", func() {
+		It("Should create multiple schematics", func(ctx SpecContext) {
+			schematics := []schematic.Schematic{
+				{Name: "schematic-1"},
+				{Name: "schematic-2"},
+			}
+			Expect(svc.NewWriter(tx).CreateMany(ctx, ws.Key, &schematics)).To(Succeed())
+
+			var retrieved []schematic.Schematic
+			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(
+				schematics[0].Key,
+				schematics[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
 		})
 	})
-
 	Describe("Dispatch", func() {
 		It("Should apply a single SetNodePosition action", func(ctx SpecContext) {
 			s := schematic.Schematic{
@@ -227,8 +186,8 @@ var _ = Describe("Writer", func() {
 		It("Should notify subscribers with the dispatched ScopedAction on success", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "observed"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			rec := &actionRecorder{}
-			disconnect := svc.OnAction(rec.record)
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			disconnect := svc.OnAction(rec.Record)
 			DeferCleanup(disconnect)
 			actions := []schematic.Action{
 				schematic.NewSetNodeAction(schematic.SetNodePayload{
@@ -240,7 +199,7 @@ var _ = Describe("Writer", func() {
 				}),
 			}
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "client-xyz", actions)).To(Succeed())
-			seen := rec.snapshot()
+			seen := rec.Snapshot()
 			Expect(seen).To(HaveLen(1))
 			Expect(seen[0].Key).To(Equal(s.Key))
 			Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
@@ -253,15 +212,15 @@ var _ = Describe("Writer", func() {
 		It("Should stamp strictly increasing Seq values onto successive Dispatch broadcasts", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "seq-test"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			rec := &actionRecorder{}
-			DeferCleanup(svc.OnAction(rec.record))
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
 			action := []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
 				Node: schematic.Node{Key: "n1"},
 			})}
 			for range 3 {
 				Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "client-xyz", action)).To(Succeed())
 			}
-			seen := rec.snapshot()
+			seen := rec.Snapshot()
 			Expect(seen).To(HaveLen(3))
 			Expect(seen[1].Seq).To(BeNumerically(">", seen[0].Seq))
 			Expect(seen[2].Seq).To(BeNumerically(">", seen[1].Seq))
@@ -272,21 +231,21 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var snap schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
-			rec := &actionRecorder{}
-			DeferCleanup(svc.OnAction(rec.record))
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
 				schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
 			})).To(MatchError(validate.ErrValidation))
-			Expect(rec.snapshot()).To(BeEmpty())
+			Expect(rec.Snapshot()).To(BeEmpty())
 		})
 
 		It("Should fail with query.ErrNotFound and not notify subscribers when the target schematic does not exist", func(ctx SpecContext) {
-			rec := &actionRecorder{}
-			DeferCleanup(svc.OnAction(rec.record))
+			rec := &Recorder[schematic.Key, schematic.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, uuid.New(), "client-xyz", []schematic.Action{
 				schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
 			})).To(MatchError(query.ErrNotFound))
-			Expect(rec.snapshot()).To(BeEmpty())
+			Expect(rec.Snapshot()).To(BeEmpty())
 		})
 	})
 
@@ -308,8 +267,10 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var cpy schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "test2", true, &cpy)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetData(ctx, cpy.Key, schematic.Schematic{
-				Nodes: []schematic.Node{{Key: "n1"}},
+			Expect(svc.NewWriter(tx).Dispatch(ctx, cpy.Key, "session-1", []schematic.Action{
+				schematic.NewSetNodeAction(schematic.SetNodePayload{
+					Node: schematic.Node{Key: "n1"},
+				}),
 			})).To(MatchError(validate.ErrValidation))
 		})
 	})

@@ -45,6 +45,7 @@
 
         &::placeholder,
         &::-webkit-input-placeholder {
+            color: var(--pluto-gray-l8);
             text-overflow: ellipsis;
             max-width: 100%;
         }

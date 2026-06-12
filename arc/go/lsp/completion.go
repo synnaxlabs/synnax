@@ -514,10 +514,10 @@ func (s *Server) getCompletionItems(
 			memberPrefix := prefix[len(modulePrefix):]
 			var mod *symbol.Symbol
 			if scopeAtCursor := doc.findScopeAtPosition(pos); scopeAtCursor != nil {
-				mod, _ = scopeAtCursor.Resolve(ctx, moduleName, symbol.IncludeInternal)
+				mod, _ = scopeAtCursor.Resolve(ctx, moduleName, symbol.IncludeInternal, symbol.WithoutUsageTracking)
 			}
 			if mod == nil && root != nil {
-				mod, _ = root.Resolve(ctx, moduleName, symbol.IncludeInternal)
+				mod, _ = root.Resolve(ctx, moduleName, symbol.IncludeInternal, symbol.WithoutUsageTracking)
 			}
 			// Resolve returns the alias for `import time as t`; follow Target
 			// to reach the module body for member enumeration. Aliased
@@ -1019,13 +1019,13 @@ func (s *Server) resolveFunctionType(
 	root *symbol.Symbol,
 ) (types.Type, bool) {
 	if doc.IR.Symbols != nil {
-		sym, err := doc.IR.Symbols.Resolve(ctx, name)
+		sym, err := doc.IR.Symbols.Resolve(ctx, name, symbol.WithoutUsageTracking)
 		if err == nil && sym.Type.Kind == types.KindFunction {
 			return sym.Type, true
 		}
 	}
 	if root != nil {
-		sym, err := root.Resolve(ctx, name)
+		sym, err := root.Resolve(ctx, name, symbol.WithoutUsageTracking)
 		if err == nil && sym.Type.Kind == types.KindFunction {
 			return sym.Type, true
 		}

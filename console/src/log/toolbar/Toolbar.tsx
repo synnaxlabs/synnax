@@ -10,7 +10,7 @@
 import "@/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
-import { Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -20,7 +20,11 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
-import { useSelectOptional } from "@/log/selectors";
+import {
+  useSelectActiveToolbarTab,
+  useSelectExists,
+  useSelectPendingUpload,
+} from "@/log/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/log/slice";
 import { Channels } from "@/log/toolbar/Channels";
 import { Properties } from "@/log/toolbar/Properties";
@@ -34,11 +38,11 @@ const TABS: Tabs.Tab[] = [
   { tabKey: "properties", name: "Properties" },
 ];
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
+  Log.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
-  const state = useSelectOptional(layoutKey);
   const dispatch = useDispatch();
-  const activeTab = state?.toolbar.activeTab ?? "channels";
+  const activeTab = useSelectActiveToolbarTab(layoutKey);
   const handleTabSelect = useCallback(
     (tab: string) =>
       dispatch(setActiveToolbarTab({ key: layoutKey, tab: tab as ToolbarTab })),
@@ -63,7 +67,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
     [activeTab, content, handleTabSelect],
   );
 
-  if (state == null) return null;
   return (
     <Base.Content className={CSS.B("log-toolbar")}>
       <Tabs.Provider value={tabsValue}>
@@ -74,7 +77,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
-                ontologyID={log.ontologyID(state.key)}
+                ontologyID={log.ontologyID(layoutKey)}
               />
             </Flex.Box>
             <Tabs.Selector className={CSS.BE("log-toolbar", "tabs")} />
@@ -84,4 +87,11 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       </Tabs.Provider>
     </Base.Content>
   );
+};
+
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  const exists = useSelectExists(layoutKey);
+  const pendingUpload = useSelectPendingUpload(layoutKey);
+  if (!exists || pendingUpload != null) return null;
+  return <Internal layoutKey={layoutKey} />;
 };

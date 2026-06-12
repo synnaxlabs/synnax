@@ -104,7 +104,7 @@ var _ = Describe("Label", Ordered, func() {
 				},
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
-			Expect(w.DeleteMany(ctx, []label.Key{ls[0].Key, ls[1].Key})).To(Succeed())
+			Expect(w.Delete(ctx, ls[0].Key, ls[1].Key)).To(Succeed())
 			for _, l := range ls {
 				Expect(svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			}
@@ -146,7 +146,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels[0].Key).To(Equal(l.Key))
 			Expect(w.RemoveLabel(ctx, label.OntologyID(labeled.Key), []label.Key{l.Key})).To(Succeed())
 			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
-			Expect(labels).To(HaveLen(0))
+			Expect(labels).To(BeEmpty())
 		})
 	})
 	Describe("Clear", func() {
@@ -167,7 +167,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels[0].Key).To(Equal(l.Key))
 			Expect(w.Clear(ctx, label.OntologyID(labeled.Key))).To(Succeed())
 			labels = MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
-			Expect(labels).To(HaveLen(0))
+			Expect(labels).To(BeEmpty())
 		})
 	})
 })

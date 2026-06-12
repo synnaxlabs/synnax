@@ -115,7 +115,7 @@ var _ = Describe("Plugin", func() {
 
 	Describe("Check", func() {
 		It("Should return nil (no validation required)", func() {
-			Expect(p.Check(&plugin.Request{})).To(BeNil())
+			Expect(p.Check(&plugin.Request{})).To(Succeed())
 		})
 	})
 
@@ -168,6 +168,36 @@ var _ = Describe("Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "test", loader, p)
 				ExpectContent(resp, "test.proto").ToContain("string key = 1;")
+			})
+
+			It("Should emit an extending enum as a standalone, proto3-valid enum", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/api/grpc/v1"
+					@pb
+
+					XAxisKey enum {
+						x1 = "x1"
+						x2 = "x2"
+					}
+
+					YAxisKey enum {
+						y1 = "y1"
+						y2 = "y2"
+					}
+
+					AxisKey enum extends XAxisKey, YAxisKey {}
+
+					Test struct {
+						axis_key AxisKey
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, p)
+				content := ExpectContent(resp, "test.proto")
+				content.ToContain("enum AxisKey")
+				// The union enum gets its own positional numbering starting at 0,
+				// so the generated enum satisfies proto3's mandatory zero member.
+				content.ToContain("AXIS_KEY_X_1 = 0;")
+				content.ToContain("AXIS_KEY_Y_2 = 3;")
 			})
 
 			It("Should map record to google.protobuf.Struct", func(ctx SpecContext) {

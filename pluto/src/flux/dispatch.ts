@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, id, type record } from "@synnaxlabs/x";
+import { type destructor, errors, id, type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type base } from "@/flux/base";
@@ -110,7 +110,8 @@ export const createDispatch = <
       async (input: DispatchInput<Key, Action>): Promise<boolean> => {
         if (client == null) return false;
         const actions = Array.isArray(input.actions) ? input.actions : [input.actions];
-        return apply(
+        if (actions.length === 0) return true;
+        return await apply(
           store,
           client,
           input.key,
@@ -144,7 +145,7 @@ export const createDispatch = <
             await send({ client, key: input.key, actions, dispatchKey });
           } catch (e) {
             addStatus(errorResult("commit transaction", e).status);
-            throw e;
+            throw errors.fromUnknown(e);
           }
         };
         return store[storeKey].beginTransaction(input.key, wrappedSend, input.kind);

@@ -30,9 +30,6 @@ import { workspace } from "@/workspace";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 
-const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
-export type SetDataBody = z.input<typeof setDataBodyZ>;
-const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -92,15 +89,6 @@ export class Client {
     await this.dispatch(key, "", [renameAction({ name })]);
   }
 
-  async setData(key: Key, data: SetDataBody): Promise<void> {
-    await this.client.send(
-      "/schematic/set-data",
-      { key, data },
-      setDataReqZ,
-      emptyResZ,
-    );
-  }
-
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
     await this.client.send(
       "/schematic/dispatch",
@@ -140,10 +128,3 @@ export class Client {
     return res.schematic;
   }
 }
-
-export const ZERO_NEW: New = {
-  name: "",
-  nodes: [],
-  edges: [],
-  configs: {},
-};

@@ -46,14 +46,9 @@ func KeyFromOntologyID(id ontology.ID) (Key, error) {
 }
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	keys := make([]Key, len(ids))
-	var err error
-	for i, id := range ids {
-		if keys[i], err = KeyFromOntologyID(id); err != nil {
-			return nil, err
-		}
-	}
-	return keys, nil
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return KeyFromOntologyID(id)
+	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

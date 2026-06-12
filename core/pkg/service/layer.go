@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -152,6 +153,9 @@ type Layer struct {
 	View *view.Service
 	// ImEx is the central import/export registry.
 	ImEx *imex.Service
+	// Node publishes the cluster's nodes as resources in the ontology and search
+	// index.
+	Node *node.Service
 	// Driver is the Go task executor that handles in-process task lifecycle.
 	Driver *driver.Driver
 	// closer is for properly shutting down the service layer.
@@ -176,6 +180,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		err = cleanup(err)
 	}()
 
+	if l.Node, err = node.NewService(ctx, node.ServiceConfig{
+		Instrumentation: cfg.Child("node"),
+		Cluster:         cfg.Distribution.Cluster,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
 		DB:              cfg.Distribution.DB,
@@ -265,20 +277,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
-	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
-		DB: cfg.Distribution.DB,
-	}); !ok(err, nil) {
-		return nil, err
-	}
+	l.ImEx = imex.NewService()
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
-		ImEx:            l.ImEx,
+		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Log) {
 		return nil, err
 	}

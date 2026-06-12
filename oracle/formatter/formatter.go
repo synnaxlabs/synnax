@@ -65,7 +65,7 @@ type errorListener struct {
 
 func (e *errorListener) SyntaxError(
 	_ antlr.Recognizer,
-	_ interface{},
+	_ any,
 	_, _ int,
 	_ string,
 	_ antlr.RecognitionException,
@@ -244,10 +244,7 @@ func (f *formatter) formatExpressionAligned(ctx parser.IExpressionContext, maxPr
 	if len(values) > 0 {
 		// Calculate padding needed to align values
 		fullPrefixLen := currentPrefixLen + 1 + len(command) // +1 for space after @domain
-		padding := maxPrefixLen - fullPrefixLen
-		if padding < 0 {
-			padding = 0
-		}
+		padding := max(maxPrefixLen-fullPrefixLen, 0)
 		f.writePadding(padding)
 		f.write(" ")
 		for i, val := range values {
@@ -452,7 +449,7 @@ func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
 	maxNameLen := 0
 	maxTypeLen := 0
 	for _, field := range fields {
-		nameLen := len(field.IDENT().GetText())
+		nameLen := len(fieldNameColumn(field))
 		if nameLen > maxNameLen {
 			maxNameLen = nameLen
 		}
@@ -562,31 +559,48 @@ func (f *formatter) formatFieldOmit(ctx parser.IFieldOmitContext) {
 func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth, typeWidth int) {
 	f.writeIndent()
 
-	// Write name with padding
-	name := ctx.IDENT().GetText()
-	f.write(name)
-	f.writePadding(nameWidth - len(name))
-	f.write(" ")
-
-	// Write type with padding (only if there are domains)
+	// The name column carries a standalone optionality marker (key? / key??) when
+	// the field omits its type to inherit it from the parent.
+	nameCol := fieldNameColumn(ctx)
 	typeStr := f.formatTypeRefToString(ctx.TypeRef())
-	f.write(typeStr)
-
+	hasDefault := ctx.EQUALS() != nil && ctx.FieldDefault() != nil
 	inlineDomains := ctx.AllInlineDomain()
-	hasDomains := len(inlineDomains) > 0 || ctx.FieldBody() != nil
+	domainOmits := ctx.AllDomainOmit()
+	hasDomains := len(inlineDomains) > 0 || len(domainOmits) > 0 || ctx.FieldBody() != nil
+
+	f.write(nameCol)
+
+	// Only pad the name column when content follows, so a bare typeless override
+	// (key?) does not trail whitespace.
+	if typeStr != "" || hasDefault || hasDomains {
+		f.writePadding(nameWidth - len(nameCol))
+	}
+	if typeStr != "" {
+		f.write(" ")
+		f.write(typeStr)
+	}
+
+	// Inline default value: name type = X. Struct and array literals that would
+	// overflow the line are broken across multiple lines.
+	if hasDefault {
+		f.write(" = ")
+		f.write(f.formatFieldDefaultPretty(ctx.FieldDefault(), f.currentLineLen(), f.currentIndent))
+	}
 
 	if hasDomains {
-		f.writePadding(typeWidth - len(typeStr))
+		// A typed field aligns domains in the type column; a default (= X) breaks
+		// that alignment. A typeless override has no type column, so its content
+		// follows the padded name column directly.
+		if !hasDefault && typeStr != "" {
+			f.writePadding(typeWidth - len(typeStr))
+		}
 
-		// Try inline first
-		inlineStr := f.formatInlineDomainsToString(inlineDomains)
-		lineLen := f.currentLineLen() + len(inlineStr)
+		inlineStr := f.formatInlineDomainsToString(inlineDomains) +
+			f.formatDomainOmitsToString(domainOmits)
 
-		if ctx.FieldBody() != nil || lineLen > maxLineLen {
-			// Use brace form
-			f.formatFieldWithBraces(inlineDomains, ctx.FieldBody())
+		if ctx.FieldBody() != nil || f.currentLineLen()+len(inlineStr) > maxLineLen {
+			f.formatFieldWithBraces(inlineDomains, domainOmits, ctx.FieldBody())
 		} else {
-			// Use inline form
 			f.write(inlineStr)
 			f.newline()
 		}
@@ -598,7 +612,7 @@ func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth
 }
 
 func (f *formatter) writePadding(n int) {
-	for i := 0; i < n; i++ {
+	for range n {
 		f.write(" ")
 	}
 }
@@ -647,6 +661,30 @@ func (f *formatter) formatTypeRefToString(ctx parser.ITypeRefContext) string {
 	return sb.String()
 }
 
+// standaloneFieldModifier returns the optionality marker of a typeless override
+// (key? / key??), or "" when the field declares a type or no marker.
+func standaloneFieldModifier(ctx parser.IFieldDefContext) string {
+	if ctx.TypeRef() != nil || ctx.TypeModifiers() == nil {
+		return ""
+	}
+	return strings.Repeat("?", len(ctx.TypeModifiers().AllQUESTION()))
+}
+
+// fieldNameColumn is the text occupying a field's name column: its name plus any
+// standalone optionality marker, which glues to the name when the type is omitted.
+func fieldNameColumn(ctx parser.IFieldDefContext) string {
+	return ctx.IDENT().GetText() + standaloneFieldModifier(ctx)
+}
+
+func (f *formatter) formatDomainOmitsToString(omits []parser.IDomainOmitContext) string {
+	var sb strings.Builder
+	for _, om := range omits {
+		sb.WriteString(" -@")
+		sb.WriteString(om.IDENT().GetText())
+	}
+	return sb.String()
+}
+
 func (f *formatter) currentLineLen() int {
 	s := f.sb.String()
 	lastNewline := strings.LastIndex(s, "\n")
@@ -690,6 +728,117 @@ func (f *formatter) formatExpressionToString(ctx parser.IExpressionContext) stri
 	return sb.String()
 }
 
+func (f *formatter) formatDefaultValueToString(ctx parser.IDefaultValueContext) string {
+	if ev := ctx.ExpressionValue(); ev != nil {
+		return f.formatExpressionValueToString(ev)
+	}
+	if arr := ctx.ArrayDefault(); arr != nil {
+		return f.formatArrayDefaultToString(arr)
+	}
+	if st := ctx.StructDefault(); st != nil {
+		return f.formatStructDefaultToString(st)
+	}
+	return ""
+}
+
+func (f *formatter) formatArrayDefaultToString(arr parser.IArrayDefaultContext) string {
+	parts := make([]string, 0, len(arr.AllDefaultValue()))
+	for _, el := range arr.AllDefaultValue() {
+		parts = append(parts, f.formatDefaultValueToString(el))
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
+}
+
+func (f *formatter) formatStructDefaultToString(st parser.IStructDefaultContext) string {
+	fields := st.AllStructFieldDefault()
+	if len(fields) == 0 {
+		return "{}"
+	}
+	parts := make([]string, 0, len(fields))
+	for _, sf := range fields {
+		parts = append(parts, sf.IDENT().GetText()+" = "+f.formatDefaultValueToString(sf.DefaultValue()))
+	}
+	return "{ " + strings.Join(parts, ", ") + " }"
+}
+
+// formatFieldDefaultPretty renders a field default starting at column col, where
+// indentLevel is the indent of the field declaration. Struct and array literals
+// whose single-line form would overflow maxLineLen are broken across lines, with
+// contents indented one level deeper and the closing bracket aligned to
+// indentLevel. Scalars and literals that fit stay on one line.
+func (f *formatter) formatFieldDefaultPretty(ctx parser.IFieldDefaultContext, col, indentLevel int) string {
+	if ev := ctx.ExpressionValue(); ev != nil {
+		return f.formatExpressionValueToString(ev)
+	}
+	if arr := ctx.ArrayDefault(); arr != nil {
+		return f.formatArrayDefaultPretty(arr, col, indentLevel)
+	}
+	if st := ctx.StructDefault(); st != nil {
+		return f.formatStructDefaultPretty(st, col, indentLevel)
+	}
+	return ""
+}
+
+func (f *formatter) formatDefaultValuePretty(ctx parser.IDefaultValueContext, col, indentLevel int) string {
+	if ev := ctx.ExpressionValue(); ev != nil {
+		return f.formatExpressionValueToString(ev)
+	}
+	if arr := ctx.ArrayDefault(); arr != nil {
+		return f.formatArrayDefaultPretty(arr, col, indentLevel)
+	}
+	if st := ctx.StructDefault(); st != nil {
+		return f.formatStructDefaultPretty(st, col, indentLevel)
+	}
+	return ""
+}
+
+func (f *formatter) formatStructDefaultPretty(st parser.IStructDefaultContext, col, indentLevel int) string {
+	single := f.formatStructDefaultToString(st)
+	if col+len(single) <= maxLineLen {
+		return single
+	}
+	fields := st.AllStructFieldDefault()
+	inner := strings.Repeat(indent, indentLevel+1)
+	var b strings.Builder
+	b.WriteString("{\n")
+	for i, sf := range fields {
+		prefix := sf.IDENT().GetText() + " = "
+		val := f.formatDefaultValuePretty(sf.DefaultValue(), len(inner)+len(prefix), indentLevel+1)
+		b.WriteString(inner)
+		b.WriteString(prefix)
+		b.WriteString(val)
+		if i < len(fields)-1 {
+			b.WriteString(",")
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString(strings.Repeat(indent, indentLevel))
+	b.WriteString("}")
+	return b.String()
+}
+
+func (f *formatter) formatArrayDefaultPretty(arr parser.IArrayDefaultContext, col, indentLevel int) string {
+	single := f.formatArrayDefaultToString(arr)
+	if col+len(single) <= maxLineLen {
+		return single
+	}
+	elems := arr.AllDefaultValue()
+	inner := strings.Repeat(indent, indentLevel+1)
+	var b strings.Builder
+	b.WriteString("[\n")
+	for i, el := range elems {
+		b.WriteString(inner)
+		b.WriteString(f.formatDefaultValuePretty(el, len(inner), indentLevel+1))
+		if i < len(elems)-1 {
+			b.WriteString(",")
+		}
+		b.WriteString("\n")
+	}
+	b.WriteString(strings.Repeat(indent, indentLevel))
+	b.WriteString("]")
+	return b.String()
+}
+
 func (f *formatter) formatExpressionValueToString(ctx parser.IExpressionValueContext) string {
 	if ctx.TRIPLE_STRING_LIT() != nil {
 		return ctx.TRIPLE_STRING_LIT().GetText()
@@ -722,6 +871,7 @@ func (f *formatter) formatQualifiedIdentToString(ctx parser.IQualifiedIdentConte
 
 func (f *formatter) formatFieldWithBraces(
 	inlineDomains []parser.IInlineDomainContext,
+	domainOmits []parser.IDomainOmitContext,
 	fieldBody parser.IFieldBodyContext,
 ) {
 	f.writeLine(" {")
@@ -777,6 +927,24 @@ func (f *formatter) formatFieldWithBraces(
 			}
 			f.newline()
 			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
+		}
+	}
+
+	// Domain removals (-@name): field-level markers first, then body markers.
+	for _, om := range domainOmits {
+		f.writeIndent()
+		f.write("-@")
+		f.write(om.IDENT().GetText())
+		f.newline()
+	}
+	if fieldBody != nil {
+		for _, om := range fieldBody.AllDomainOmit() {
+			f.emitCommentsBefore(om.GetStart().GetTokenIndex())
+			f.writeIndent()
+			f.write("-@")
+			f.write(om.IDENT().GetText())
+			f.newline()
+			f.lastTokenIdx = om.GetStop().GetTokenIndex()
 		}
 	}
 
@@ -928,6 +1096,16 @@ func (f *formatter) formatTypeModifiers(ctx parser.ITypeModifiersContext) {
 func (f *formatter) formatEnumDef(ctx parser.IEnumDefContext) {
 	f.write(ctx.IDENT().GetText())
 	f.write(" enum")
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
+		f.write(" extends ")
+		refs := ctx.TypeRefList().AllTypeRef()
+		for i, ref := range refs {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.write(ref.GetText())
+		}
+	}
 
 	body := ctx.EnumBody()
 	values := body.AllEnumValue()
@@ -977,7 +1155,7 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 
 	// Pad for alignment
 	padding := alignTo - len(name)
-	for i := 0; i < padding; i++ {
+	for range padding {
 		f.write(" ")
 	}
 

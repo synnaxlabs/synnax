@@ -42,31 +42,6 @@ describe("Table", () => {
     });
   });
 
-  describe("setData", () => {
-    test("set data replaces body fields while preserving key and name", async () => {
-      const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
-      const t = await client.tables.create(ws.key, {
-        name: "Table",
-      });
-      await client.tables.setData(t.key, {
-        rows: [{ size: 40, cells: ["a", "b"] }],
-        columns: [{ size: 80 }, { size: 100 }],
-        cells: {
-          a: { key: "a", variant: "text", props: { value: "hello" } },
-          b: { key: "b", variant: "value", props: { units: "psi" } },
-        },
-      });
-      const res = await client.tables.retrieve({ key: t.key });
-      expect(res.name).toEqual("Table");
-      expect(res.rows).toHaveLength(1);
-      expect(res.rows[0].cells).toEqual(["a", "b"]);
-      expect(res.columns).toHaveLength(2);
-      expect(res.cells.a.variant).toEqual("text");
-      expect((res.cells.a.props as Record<string, unknown>).value).toEqual("hello");
-      expect(res.cells.b.variant).toEqual("value");
-    });
-  });
-
   describe("delete", () => {
     test("delete one", async () => {
       const ws = await client.workspaces.create({ name: "Table", layout: { one: 1 } });
@@ -122,9 +97,9 @@ describe("Table", () => {
   });
 
   describe("dispatch", () => {
-    const seed = async () => {
+    const createTable = async () => {
       const ws = await client.workspaces.create({ name: "Dispatch", layout: {} });
-      return client.tables.create(ws.key, {
+      return await client.tables.create(ws.key, {
         name: "Dispatch",
         rows: [{ size: 30, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],
@@ -136,14 +111,14 @@ describe("Table", () => {
     };
 
     test("rename applies via dispatch", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [table.rename({ name: "renamed" })]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.name).toEqual("renamed");
     });
 
     test("addRow appends a row and its cells", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [
         table.addRow({
           index: 1,
@@ -161,7 +136,7 @@ describe("Table", () => {
     });
 
     test("removeRow drops the row and its cells", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [table.removeRow({ index: 0 })]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.rows).toEqual([]);
@@ -169,7 +144,7 @@ describe("Table", () => {
     });
 
     test("addCol inserts a column at the given index across every row", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [
         table.addCol({
           index: 1,
@@ -183,7 +158,7 @@ describe("Table", () => {
     });
 
     test("removeCol drops every cell in that column", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [table.removeCol({ index: 0 })]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.columns).toHaveLength(1);
@@ -192,7 +167,7 @@ describe("Table", () => {
     });
 
     test("resize actions update size in place", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [
         table.resizeRow({ index: 0, size: 55 }),
         table.resizeCol({ index: 1, size: 200 }),
@@ -203,7 +178,7 @@ describe("Table", () => {
     });
 
     test("setCell replaces an existing cell", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [
         table.setCell({
           cell: { key: "a", variant: "value", props: { units: "psi" } },
@@ -215,7 +190,7 @@ describe("Table", () => {
     });
 
     test("setCell is a no-op for an unknown key", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [
         table.setCell({ cell: { key: "ghost", variant: "text", props: {} } }),
       ]);
@@ -225,7 +200,7 @@ describe("Table", () => {
     });
 
     test("multi-action sequence applies atomically", async () => {
-      const t = await seed();
+      const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [
         table.rename({ name: "multi" }),
         table.addRow({
@@ -263,7 +238,7 @@ describe("Table", () => {
       cells: {},
     });
 
-    const seed2x2 = (): table.Table => ({
+    const createTable2x2 = (): table.Table => ({
       key: KEY,
       name: "before",
       rows: [
@@ -279,7 +254,7 @@ describe("Table", () => {
       },
     });
 
-    const seed3x3 = (): table.Table => {
+    const createTable3x3 = (): table.Table => {
       const keys = ["a", "b", "c", "d", "e", "f", "g", "h", "i"];
       return {
         key: KEY,
@@ -446,7 +421,7 @@ describe("Table", () => {
         expect(next.cells).toEqual({});
       });
 
-      test("addRow with template on an empty table seeds a 1x1 grid", () => {
+      test("addRow with template on an empty table produces a 1x1 grid", () => {
         const { next } = table.reduceAll(emptyState(), [
           table.addRow({ index: 0, size: 36, cells: [], cellTemplate: template }),
         ]);
@@ -548,7 +523,7 @@ describe("Table", () => {
           row0: ["d", "e"],
         },
       ])("$name", ({ cells, rows, columns, row0 }) => {
-        const { next } = table.reduceAll(seed3x3(), [
+        const { next } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells, template: textTemplate }),
         ]);
         expect(next.rows).toHaveLength(rows);
@@ -557,7 +532,7 @@ describe("Table", () => {
       });
 
       test("resets surviving cells to the template variant", () => {
-        const { next } = table.reduceAll(seed3x3(), [
+        const { next } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells: ["b", "e"], template: textTemplate }),
         ]);
         expect(next.cells.b.variant).toEqual("text");
@@ -566,15 +541,15 @@ describe("Table", () => {
       });
 
       test("drops cells from the map when their row is fully removed", () => {
-        const { next } = table.reduceAll(seed3x3(), [
+        const { next } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells: ["d", "e", "f"], template: textTemplate }),
         ]);
         for (const k of ["d", "e", "f"]) expect(next.cells[k]).toBeUndefined();
       });
 
       test("inverse restores the prior state on undo", () => {
-        const seed = seed3x3();
-        const { next, inverse } = table.reduceAll(seed, [
+        const state = createTable3x3();
+        const { next, inverse } = table.reduceAll(state, [
           table.eraseCells({
             cells: ["a", "b", "c", "e"],
             template: textTemplate,
@@ -582,30 +557,30 @@ describe("Table", () => {
         ]);
         expect(next.rows).toHaveLength(2);
         const { next: restored } = table.reduceAll(next, inverse);
-        expect(restored).toEqual(seed);
+        expect(restored).toEqual(state);
       });
 
       test("empty selection returns no inverse", () => {
-        const { inverse } = table.reduceAll(seed3x3(), [
+        const { inverse } = table.reduceAll(createTable3x3(), [
           table.eraseCells({ cells: [], template: textTemplate }),
         ]);
         expect(inverse).toEqual([]);
       });
 
       test("inverse round-trips when payload.cells contains duplicates", () => {
-        const seed = seed3x3();
-        const { next, inverse } = table.reduceAll(seed, [
+        const state = createTable3x3();
+        const { next, inverse } = table.reduceAll(state, [
           table.eraseCells({ cells: ["b", "b", "b"], template: textTemplate }),
         ]);
         expect(next.cells.b.variant).toEqual("text");
         const { next: restored } = table.reduceAll(next, inverse);
-        expect(restored).toEqual(seed);
+        expect(restored).toEqual(state);
       });
     });
 
     describe("round-trip", () => {
       const roundTrip = (forward: table.Action) => {
-        const original = seed2x2();
+        const original = createTable2x2();
         const { next, inverse } = table.reduceAll(original, [forward]);
         const { next: restored } = table.reduceAll(next, inverse);
         expect(restored).toEqual(original);

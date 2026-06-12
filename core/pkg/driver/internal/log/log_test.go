@@ -35,7 +35,7 @@ func (errClosedReader) Close() error             { return nil }
 
 func parseLogEntries(buffer *bytes.Buffer) []map[string]any {
 	var entries []map[string]any
-	for _, line := range strings.Split(strings.TrimSpace(buffer.String()), "\n") {
+	for line := range strings.SplitSeq(strings.TrimSpace(buffer.String()), "\n") {
 		if line == "" {
 			continue
 		}

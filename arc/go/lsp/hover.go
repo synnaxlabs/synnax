@@ -12,6 +12,7 @@ package lsp
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -342,8 +343,7 @@ func (s *Server) extractDocComment(content string, sym *symbol.Symbol) string {
 	}
 
 	var commentTokens []string
-	for i := len(tokens) - 1; i >= 0; i-- {
-		t := tokens[i]
+	for i, t := range slices.Backward(tokens) {
 		tokenType := t.GetTokenType()
 		tokenLine := t.GetLine()
 
@@ -439,7 +439,7 @@ func resolveDotted(
 	name string,
 ) (*symbol.Symbol, error) {
 	head, tail, hasDot := strings.Cut(name, ".")
-	sym, err := scope.Resolve(ctx, head)
+	sym, err := scope.Resolve(ctx, head, symbol.WithoutUsageTracking)
 	if err != nil {
 		return nil, err
 	}

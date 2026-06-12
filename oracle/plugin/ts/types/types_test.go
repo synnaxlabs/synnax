@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/ts/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestTypes(t *testing.T) {
@@ -93,7 +94,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		It("Should pass check", func() {
-			Expect(typesPlugin.Check(&plugin.Request{})).To(BeNil())
+			Expect(typesPlugin.Check(&plugin.Request{})).To(Succeed())
 		})
 	})
 
@@ -126,6 +127,48 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		It("Should generate a typeless override identically to a full restatement", func(ctx SpecContext) {
+			gen := func(childBody string) string {
+				source := `
+					@ts output "out"
+
+					Parent struct {
+						name  string
+						count int32 = 5
+						tag   string
+					}
+
+					Child struct extends Parent {
+						` + childBody + `
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				return string(resp.Files[0].Content)
+			}
+			// A typeless override desugars to the equivalent full restatement, so
+			// the generated schema is byte-identical (here, the parent's
+			// .partial()/.extend() merge chain rather than a flat object).
+			Expect(gen("count = 10")).To(Equal(gen("count int32 = 10")))
+			Expect(gen("tag?")).To(Equal(gen("tag string?")))
+		})
+
+		It("Should flatten a struct that removes an inherited domain", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Parent struct {
+					name string @validate { min_length 1 }
+				}
+
+				Child struct extends Parent {
+					name -@validate
+				}
+			`
+			resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(`export const childZ = z.object(`, `name: z.string()`)
+		})
+
 		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
@@ -144,8 +187,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Required arrays use nullishToEmpty with element schema (not wrapped in z.array)
@@ -179,8 +221,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`name: z.string().min(1).max(255)`))
@@ -209,8 +250,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Int enums generate a TypeScript enum and z.enum(EnumName)
@@ -243,13 +283,37 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// String enums generate a const array and z.enum(ARRAY)
 			Expect(content).To(ContainSubstring(`export const DATA_TYPES = ["float32", "float64", "int32"] as const`))
 			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum(DATA_TYPES)`))
+		})
+
+		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+
+				AxisKey enum extends XAxisKey, YAxisKey {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			resp := MustSucceed(typesPlugin.Generate(&plugin.Request{Resolutions: table}))
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const AXIS_KEYS = ["x1", "x2", "y1", "y2"] as const`))
+			Expect(content).To(ContainSubstring(`export const axisKeyZ = z.enum(AXIS_KEYS)`))
 		})
 
 		Context("primitive type mappings", func() {
@@ -331,8 +395,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`createdAt:`))
@@ -359,8 +422,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const newZ = z.object({`))
@@ -389,8 +451,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Soft optional (?) uses .optional() in TypeScript
@@ -415,8 +476,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Hard optional (??) also uses .optional() in TypeScript (no distinction from ?)
@@ -441,8 +501,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`import { array } from "@synnaxlabs/x"`))
@@ -467,8 +526,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Optional arrays use nullToUndefined with array schema
@@ -491,8 +549,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Required record fields use record.nullishToEmpty() to coerce null -> {}
@@ -515,8 +572,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Optional record fields use zod.nullToUndefined to convert null -> undefined
@@ -539,8 +595,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Hard optional record fields also use zod.nullToUndefined
@@ -565,8 +620,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Required record fields with preserve_case wrap with caseconv.preserveCase
@@ -592,8 +646,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Optional record fields with preserve_case wrap with caseconv.preserveCase
@@ -619,8 +672,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Type parameter fields with preserve_case wrap with caseconv.preserveCase
@@ -651,8 +703,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Parent should have preserve_case
@@ -680,8 +731,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`username: z.string().min(1, "Username is required")`))
@@ -707,8 +757,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface New extends z.input<typeof newZ> {}`))
@@ -736,8 +785,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Type should use z.input
@@ -760,8 +808,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface Workspace extends z.infer<typeof workspaceZ> {}`))
@@ -788,8 +835,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface Type {`))
@@ -815,8 +861,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface Node {`))
@@ -896,8 +941,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface MosaicNode {`))
@@ -923,8 +967,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const treeNodeZ = <K extends z.ZodType = z.ZodString>(k?: K) =>`))
@@ -950,8 +993,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export interface MapNodeSchemas<K extends z.ZodType = z.ZodType, V extends z.ZodType = z.ZodType>`))
@@ -979,8 +1021,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const simpleZ = z.object({`))
@@ -1009,8 +1050,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// The 'type' field should use: type ?? z.string() since Type extends string
@@ -1046,8 +1086,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const clientXYZ = z.object({`))
@@ -1076,8 +1115,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`import { numeric } from "@synnaxlabs/x"`))
@@ -1115,8 +1153,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Even with concrete_types, fields using type params should have the fallback pattern
@@ -1159,8 +1196,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// The parent Task should still have the fallback pattern
@@ -1185,8 +1221,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>`), "record constraint should generate record.Unknown")
@@ -1210,8 +1245,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`Data extends z.ZodType = z.ZodNever`), "optional param should have ZodNever default")
@@ -1238,8 +1272,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`Config extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>`), "constrained record param should use record.Unknown")
@@ -1268,8 +1301,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Parent should be a regular z.object
@@ -1305,8 +1337,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Child should use .omit() then .extend()
@@ -1340,8 +1371,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const childZ = parentZ`))
@@ -1370,8 +1400,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Child uses .partial() to make the field optional (not .extend())
@@ -1404,8 +1433,7 @@ var _ = Describe("TS Types Plugin", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
-			resp, err := typesPlugin.Generate(&plugin.Request{Resolutions: table})
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(&plugin.Request{Resolutions: table}))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(
@@ -1439,8 +1467,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`export const childZ = parentZ`))
@@ -1470,8 +1497,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// C should use .extend().shape to combine both parents
@@ -1505,8 +1531,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// C should extend parents and then omit
@@ -1542,8 +1567,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// C should chain extend calls for all three parents
@@ -1569,8 +1593,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			zebraIdx := strings.Index(content, "zebra:")
@@ -1605,8 +1628,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// The alias should call the generic struct's factory function with the type arg
@@ -1636,8 +1658,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Array type aliases should use array.nullishToEmpty with element schema
@@ -1673,8 +1694,7 @@ var _ = Describe("TS Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Should use operationZ directly, not z.array(operationZ)
@@ -2302,7 +2322,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -2325,7 +2345,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts output "client/ts/src/channel"
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
@@ -2343,7 +2363,7 @@ var _ = Describe("TS Types Plugin", func() {
 					}
 
 					Config struct {
-						level Level @validate default LevelInfo
+						level Level = LevelInfo
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -2366,7 +2386,7 @@ var _ = Describe("TS Types Plugin", func() {
 					@ts output "client/ts/src/lineplot"
 
 					Title struct {
-						level text.Level @validate default text.LevelP
+						level text.Level = text.LevelP
 					}
 				`
 				resp := MustGenerate(ctx, source, "lineplot", loader, typesPlugin)

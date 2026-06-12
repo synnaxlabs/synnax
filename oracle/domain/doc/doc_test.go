@@ -80,8 +80,8 @@ var _ = Describe("FormatGo", func() {
 		// This simulates the problematic input from .oracle files
 		awkwardDoc := "contains memory base addresses for multi-output\nfunctions, mapping\nfunction keys to their base addresses."
 		result := doc.FormatGo("output_memory_bases", awkwardDoc)
-		lines := strings.Split(result, "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(result, "\n")
+		for line := range lines {
 			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 		// Verify that "functions, mapping" is not on its own short line
@@ -160,8 +160,8 @@ var _ = Describe("FormatCpp", func() {
 	It("should normalize awkward line breaks in source text", func() {
 		awkwardDoc := "contains memory base addresses for multi-output\nfunctions, mapping\nfunction keys to their base addresses."
 		result := doc.FormatCpp("output_memory_bases", awkwardDoc)
-		lines := strings.Split(result, "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(result, "\n")
+		for line := range lines {
 			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 		// Verify that "functions, mapping" is not on its own short line
@@ -188,8 +188,8 @@ var _ = Describe("FormatProto", func() {
 	It("should wrap long text to 88 characters", func() {
 		longDoc := "contains memory base addresses for multi-output functions, mapping function keys to their base addresses."
 		result := doc.FormatProto("output_memory_bases", longDoc)
-		lines := strings.Split(result, "\n")
-		for _, line := range lines {
+		lines := strings.SplitSeq(result, "\n")
+		for line := range lines {
 			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 	})

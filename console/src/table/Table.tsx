@@ -21,20 +21,29 @@ import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import {
   useSelectEditable,
+  useSelectExists,
   useSelectHideIndicators,
-  useSelectOptional,
+  useSelectPendingUpload,
   useSelectSelectedCellKeys,
 } from "@/table/selectors";
 import {
+  clearPendingUpload,
   internalCreate,
   setEditable,
   setHideIndicators,
   setSelectedCells,
 } from "@/table/slice";
-import { useAutoUpload } from "@/table/useUpload";
+import { createUseAutoUpload } from "@/vis/useAutoUpload";
 import { Workspace } from "@/workspace";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/table/layout";
+
+const useAutoUpload = createUseAutoUpload({
+  useSelectPendingUpload,
+  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
+  useCreate: Base.useCreate,
+  clearPendingUpload,
+});
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const editable = useSelectEditable(layoutKey);
@@ -143,7 +152,7 @@ const TableControls = ({ tableKey }: TableControlsProps): ReactElement | null =>
 };
 
 const useEnsureState = createEnsureState({
-  useExists: (key) => useSelectOptional(key) != null,
+  useExists: useSelectExists,
   create: (key) => internalCreate({ key }),
 });
 

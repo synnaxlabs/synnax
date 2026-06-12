@@ -33,29 +33,15 @@ describe("Lineplot Slice", () => {
   });
 
   describe("create", () => {
-    it("should fill annotations with the default when absent from a v4 payload", () => {
+    it("should fill annotations with the default when absent from an older payload", () => {
       const { annotations: _omit, ...withoutAnnotations } = ZERO_STATE;
       const key = "plot-without-annotations";
-      // @ts-expect-error: simulate a persisted/imported v4 payload that predates
-      // the annotations field. The type forbids this shape, but the runtime
-      // reducer must defensively fill in defaults via the zod schema.
-      store.dispatch(actions.create({ ...withoutAnnotations, key }));
+      store.dispatch(
+        actions.create({ ...(withoutAnnotations as typeof ZERO_STATE), key }),
+      );
       expect(store.getState()[SLICE_NAME].plots[key].annotations).toEqual(
         ZERO_ANNOTATIONS_STATE,
       );
-    });
-    it("should not throw on a payload with a version newer than the latest", () => {
-      const key = "plot-from-newer-build";
-      expect(() =>
-        store.dispatch(
-          actions.create({
-            ...ZERO_STATE,
-            version: "99.0.0" as unknown as "0.0.0",
-            key,
-          }),
-        ),
-      ).not.toThrow();
-      expect(store.getState()[SLICE_NAME].plots[key]).toBeDefined();
     });
   });
 
