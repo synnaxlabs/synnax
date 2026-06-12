@@ -1357,10 +1357,10 @@ var _ = Describe("ProgramState", func() {
 			Expect(MustSucceed(n.ResolveInput("reset"))).To(Equal(1))
 		})
 
-		It("Should return an error naming an absent input", func(ctx SpecContext) {
+		It("Should return ErrInputNotFound for an absent input", func(ctx SpecContext) {
 			n := buildNode(ctx)
 			Expect(n.ResolveInput("missing")).Error().
-				To(MatchError(ContainSubstring(`no input named "missing"`)))
+				To(MatchError(node.ErrInputNotFound))
 		})
 	})
 

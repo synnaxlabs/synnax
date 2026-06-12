@@ -215,12 +215,17 @@ func (n *State) Input(paramIndex int) telem.Series {
 	return n.aligned.data[paramIndex]
 }
 
-// ResolveInput returns the position of the named input, or an error if the node
-// has no such param. Resolve at construction so wiring mistakes fail at load.
+// ErrInputNotFound is returned by ResolveInput when a node has no input param
+// matching the requested name.
+var ErrInputNotFound = errors.New("input not found")
+
+// ResolveInput returns the position of the named input, or ErrInputNotFound if
+// the node has no such param. Resolve at construction so wiring mistakes fail at
+// load.
 func (n *State) ResolveInput(name string) (int, error) {
 	idx, ok := n.inputIndex[name]
 	if !ok {
-		return 0, errors.Newf("node has no input named %q", name)
+		return 0, errors.Wrapf(ErrInputNotFound, "node has no input named %q", name)
 	}
 	return idx, nil
 }

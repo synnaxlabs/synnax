@@ -823,6 +823,6 @@ var _ = Describe("Construction validation", func() {
 		factory := MustSucceed(channels.NewHost(ctx, nil, nil, nil))
 		cfg := rnode.Config{Node: prog.Nodes[0], State: s.Node("write")}
 		Expect(factory.Create(ctx, cfg)).Error().
-			To(MatchError(ContainSubstring("no input named")))
+			To(MatchError(rnode.ErrInputNotFound))
 	})
 })

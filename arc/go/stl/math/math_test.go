@@ -827,8 +827,7 @@ var _ = Describe("Construction validation", func() {
 				State:   s.Node("math"),
 				Program: program.Program{IR: prog},
 			}
-			Expect(m.Create(ctx, cfg)).Error().
-				To(MatchError(ContainSubstring("no input named")))
+			Expect(m.Create(ctx, cfg)).Error().To(MatchError(node.ErrInputNotFound))
 		},
 		Entry("avg", "avg"),
 		Entry("min", "min"),

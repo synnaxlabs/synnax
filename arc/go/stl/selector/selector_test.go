@@ -508,6 +508,6 @@ var _ = Describe("Construction validation", func() {
 		s := node.New(prog)
 		cfg := node.Config{Node: prog.Nodes[0], State: s.Node("select")}
 		Expect(selector.NewHost().Create(ctx, cfg)).Error().
-			To(MatchError(ContainSubstring("no input named")))
+			To(MatchError(node.ErrInputNotFound))
 	})
 })

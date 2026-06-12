@@ -471,7 +471,7 @@ var _ = Describe("Construction validation", func() {
 			s := node.New(prog)
 			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("op")}
 			Expect(op.NewHost().Create(ctx, cfg)).Error().
-				To(MatchError(ContainSubstring("no input named")))
+				To(MatchError(node.ErrInputNotFound))
 		},
 		Entry("binary add", "add"),
 		Entry("unary neg", "neg"),
