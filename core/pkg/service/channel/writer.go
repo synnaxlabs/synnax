@@ -12,7 +12,7 @@ package channel
 import (
 	"context"
 
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -20,7 +20,7 @@ import (
 // Writer wraps the distribution-layer channel writer, adding DataType inference
 // for calculated channels before persisting.
 type Writer struct {
-	distchannel.Writer
+	channel.Writer
 	analyzer *analyzer.Analyzer
 	tx       gorp.Tx
 }

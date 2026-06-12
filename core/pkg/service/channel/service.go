@@ -26,6 +26,7 @@ import (
 type (
 	Key          = distchannel.Key
 	Keys         = distchannel.Keys
+	LocalKey     = distchannel.LocalKey
 	Channel      = distchannel.Channel
 	Operation    = distchannel.Operation
 	CreateOption = distchannel.CreateOption
@@ -38,6 +39,15 @@ var (
 	ParseKey                                    = distchannel.ParseKey
 	OntologyID                                  = distchannel.OntologyID
 	MatchKeys                                   = distchannel.MatchKeys
+	MatchNames                                  = distchannel.MatchNames
+	OntologyIDsFromChannels                     = distchannel.OntologyIDsFromChannels
+	KeysFromChannels                            = distchannel.KeysFromChannels
+	MatchLeaseholders                           = distchannel.MatchLeaseholders
+	MatchDataTypes                              = distchannel.MatchDataTypes
+	MatchVirtual                                = distchannel.MatchVirtual
+	MatchIsIndex                                = distchannel.MatchIsIndex
+	MatchInternal                               = distchannel.MatchInternal
+	Not                                         = distchannel.Not
 	NewRandomName                               = distchannel.NewRandomName
 )
 

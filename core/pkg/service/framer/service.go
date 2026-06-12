@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -112,7 +111,7 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 
 func (s *Service) DeleteTimeRange(
 	ctx context.Context,
-	keys distchannel.Keys,
+	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {
 	return s.cfg.Framer.DeleteTimeRange(ctx, keys, tr)

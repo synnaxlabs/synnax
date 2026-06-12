@@ -11,17 +11,14 @@ package alias_test
 
 import (
 	"context"
-	"time"
-
 	"fmt"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -59,7 +56,7 @@ var _ = Describe("Alias", Ordered, func() {
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              dist.DB,
 			Ontology:        dist.Ontology,
-			Channel:         svcchannel.Wrap(dist.Channel),
+			Channel:         channel.Wrap(dist.Channel),
 			ParentRetriever: rangerSvc,
 			Search:          dist.Search,
 		}))

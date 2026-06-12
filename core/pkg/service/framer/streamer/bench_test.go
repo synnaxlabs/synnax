@@ -16,12 +16,11 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -72,7 +71,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
-	channelSvc := svcchannel.Wrap(dist.Channel)
+	channelSvc := channel.Wrap(dist.Channel)
 	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:                dist.DB,
 		Framer:            dist.Framer,

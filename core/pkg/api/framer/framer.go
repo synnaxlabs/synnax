@@ -18,11 +18,11 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/address"
@@ -62,7 +62,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	return &Service{
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Service.Framer,
-		channel:         cfg.Distribution.Channel,
+		channel:         cfg.Service.Channel,
 		access:          cfg.Service.RBAC,
 		db:              cfg.Distribution.DB,
 	}, nil
