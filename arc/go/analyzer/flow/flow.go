@@ -104,6 +104,11 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 	if prevNode == nil {
 		return
 	}
+	// TriggerOnly: the upstream is pure activation, so there is no input to
+	// type-check against its value (or absence).
+	if funcType.Trigger.Target == "" {
+		return
+	}
 	upstreamType, ok := resolveUpstreamType(ctx, prevNode, name)
 	if !ok {
 		return
