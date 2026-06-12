@@ -25,8 +25,8 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-const createTestSchematic = async (wsKey: string): Promise<schematic.Schematic> =>
-  await client.schematics.create(wsKey, {
+const createTestSchematic = async (projectKey: string): Promise<schematic.Schematic> =>
+  await client.schematics.create(projectKey, {
     name: "test_schematic",
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -73,7 +73,7 @@ describe("schematic queries", () => {
   beforeAll(async () => {
     [Wrapper, proj] = await Promise.all([
       createAsyncSynnaxWrapper({ client }),
-      client.projects.create({ name: `ws_${uuid.create()}`, layout: {} }),
+      client.projects.create({ name: `project_${uuid.create()}`, layout: {} }),
     ]);
   });
 

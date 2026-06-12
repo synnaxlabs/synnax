@@ -50,7 +50,7 @@ const client = createTestClient();
 
 const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
   const proj = await client.projects.create({
-    name: `ws_${uuid.create()}`,
+    name: `project_${uuid.create()}`,
     layout: {},
   });
   return await client.schematics.create(proj.key, {

@@ -235,6 +235,7 @@ func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 }
 {{- end}}
 {{- range .UnionTranslators}}
+{{- $ut := .}}
 
 // {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}}.
 func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
@@ -245,10 +246,16 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 	switch v := r.Variant.(type) {
 {{- range .Variants}}
 	case {{.GoVariantType}}:
-		inner, err := {{.PayloadToPB}}(v.{{.PayloadGoField}})
+		inner, err := {{.PayloadToPB}}({{if .IsInline}}v{{else}}v.{{.PayloadGoField}}{{end}})
 		if err != nil {
 			return nil, err
 		}
+{{- range $ut.Bases}}
+		pb.{{.PBGoName}}, err = {{.ToPB}}(v.{{.GoEmbed}})
+		if err != nil {
+			return nil, err
+		}
+{{- end}}
 		pb.Variant = &{{.PBWrapper}}{{"{"}}{{.PBField}}: inner}
 {{- end}}
 	default:
@@ -270,7 +277,18 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 		if err != nil {
 			return r, err
 		}
+{{- if or $ut.Bases .IsInline}}
+		m := {{if .IsInline}}inner{{else}}{{.GoVariantType}}{{"{"}}{{.PayloadGoField}}: inner}{{end}}
+{{- range $ut.Bases}}
+		m.{{.GoEmbed}}, err = {{.FromPB}}(pb.{{.PBGoName}})
+		if err != nil {
+			return r, err
+		}
+{{- end}}
+		r.Variant = m
+{{- else}}
 		r.Variant = {{.GoVariantType}}{{"{"}}{{.PayloadGoField}}: inner}
+{{- end}}
 {{- end}}
 	}
 	return r, nil

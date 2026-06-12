@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -70,6 +71,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err := structCollector.AddAll(req.Resolutions.StructTypes()); err != nil {
 		return nil, err
 	}
+	// Inline union variant payloads have no standalone type in other targets,
+	// but protobuf oneof members must reference a named message, so synthetic
+	// payloads generate messages here.
+	if err := structCollector.AddAll(req.Resolutions.SyntheticStructTypes()); err != nil {
+		return nil, err
+	}
 
 	unionCollector := framework.NewCollector("pb", req).
 		WithPathFunc(output.GetPBPath).
@@ -91,6 +98,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		var unions []resolution.Type
 		if unionCollector.Has(outputPath) {
 			unions = unionCollector.Remove(outputPath)
+		}
+		if !hasEmittableType(structs, enums, unions) {
+			return nil
 		}
 		content, err := p.generateFile(outputPath, structs, enums, unions, req.Resolutions, req.RepoRoot)
 		if err != nil {
@@ -168,6 +178,19 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	return resp, nil
+}
+
+// hasEmittableType reports whether at least one type survives @pb omit
+// filtering, so an output path whose types are all omitted produces no file.
+func hasEmittableType(structs, enums, unions []resolution.Type) bool {
+	for _, group := range [][]resolution.Type{structs, enums, unions} {
+		if slices.ContainsFunc(group, func(t resolution.Type) bool {
+			return !omit.IsType(t, "pb")
+		}) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Plugin) generateFile(
@@ -613,10 +636,11 @@ func (p *Plugin) resolveUnionType(resolved resolution.Type, data *templateData) 
 }
 
 // processUnion builds the protobuf wrapper message for a discriminated union:
-// shared base fields (from extends) as ordinary fields, followed by a oneof
-// whose members are the variant payload messages keyed by discriminator value.
-// Protobuf is adjacently tagged (the oneof field number is the discriminator),
-// so the variant messages are referenced directly rather than flattened.
+// one message field per extends base, followed by a oneof whose members are
+// the variant payload messages keyed by discriminator value. Protobuf is
+// adjacently tagged (the oneof field number is the discriminator), so the
+// variant messages are referenced directly rather than flattened, and bases
+// nest as messages so translators can delegate to the bases' own translators.
 func (p *Plugin) processUnion(entry resolution.Type, data *templateData) (messageData, error) {
 	form := entry.Form.(resolution.UnionForm)
 	name := getPBName(entry)
@@ -634,14 +658,16 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) (messag
 		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
 			continue
 		}
-		for _, field := range resolution.UnifiedFields(base, data.table) {
-			fd, err := p.processField(field, fieldNumber, data)
-			if err != nil {
-				return messageData{}, errors.Wrapf(err, "union %q base field", entry.Name)
-			}
-			md.Fields = append(md.Fields, fd)
-			fieldNumber++
+		protoType, err := p.typeToProto(baseRef, data)
+		if err != nil {
+			return messageData{}, errors.Wrapf(err, "union %q base", entry.Name)
 		}
+		md.Fields = append(md.Fields, fieldData{
+			Name:   casing.FieldSnake(base.Name),
+			Type:   protoType,
+			Number: fieldNumber,
+		})
+		fieldNumber++
 	}
 
 	oneof := &oneofData{Name: "variant"}

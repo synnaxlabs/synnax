@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
@@ -460,7 +461,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Type, cppType string, data *templateData, isSelfRef bool) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
-	hasDefault := field.IsOptional
+	hasDefault := field.IsOptional || hasRenderableDefault(field, data.table)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		if field.IsHardOptional {
@@ -548,7 +549,11 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 					return fmt.Sprintf(`parser.field<std::optional<std::string>>("%s")`, jsonName)
 				}
 				if hasDefault {
-					return fmt.Sprintf(`parser.field<std::string>("%s", "")`, jsonName)
+					defaultVal := jsonDefaultLiteral(field, data.table)
+					if defaultVal == "" {
+						defaultVal = `""`
+					}
+					return fmt.Sprintf(`parser.field<std::string>("%s", %s)`, jsonName, defaultVal)
 				}
 				return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
 			}
@@ -644,8 +649,13 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 			return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
 		}
 		if hasDefault {
-			defaultVal := defaultValueForPrimitive(typeRef.Name)
-			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+			defaultVal := jsonDefaultLiteral(field, data.table)
+			if defaultVal == "" && field.IsOptional {
+				defaultVal = defaultValueForPrimitive(typeRef.Name)
+			}
+			if defaultVal != "" {
+				return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+			}
 		}
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 	}
@@ -733,17 +743,21 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 				return fmt.Sprintf(`j["%s"] = x::json::to_array(this->%s);`, jsonName, fieldName)
 			}
 			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
+				// Qualify the free to_json: unqualified lookup inside a member
+				// to_json() finds the member and never reaches the overload.
+				qualifier := "::" + data.Namespace
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
 						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						qualifier = "::" + deriveNamespace(targetOutputPath)
 					}
 				}
 				return fmt.Sprintf(`{
         auto arr = x::json::json::array();
-        for (const auto& item : this->%s) arr.push_back(to_json(item));
+        for (const auto& item : this->%s) arr.push_back(%s::to_json(item));
         j["%s"] = arr;
-    }`, fieldName, jsonName)
+    }`, fieldName, qualifier, jsonName)
 			}
 			// Nested-array-of-struct case: outer element resolves to another
 			// array (e.g., Members = []Member) whose inner element is a
@@ -778,16 +792,20 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 		}
 		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+			// Qualify the free to_json: unqualified lookup inside a member
+			// to_json() finds the member and never reaches the overload.
+			qualifier := "::" + data.Namespace
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+					qualifier = "::" + deriveNamespace(targetOutputPath)
 				}
 			}
 			if field.IsHardOptional {
-				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = to_json(*this->%s);`, fieldName, jsonName, fieldName)
+				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = %s::to_json(*this->%s);`, fieldName, jsonName, qualifier, fieldName)
 			}
-			return fmt.Sprintf(`j["%s"] = to_json(this->%s);`, jsonName, fieldName)
+			return fmt.Sprintf(`j["%s"] = %s::to_json(this->%s);`, jsonName, qualifier, fieldName)
 		}
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
@@ -814,6 +832,51 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 	}
 
 	return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+}
+
+// hasRenderableDefault reports whether the field declares a default the parse
+// expression can honor. Struct and array defaults count (their branches render
+// them); identifier defaults count only when they resolve to an enum variant or
+// boolean literal, so sentinels like create do not relax a required field.
+func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool {
+	if field.Default == nil {
+		return false
+	}
+	if field.Default.Kind != resolution.ValueKindIdent {
+		return true
+	}
+	return jsonDefaultLiteral(field, table) != ""
+}
+
+// jsonDefaultLiteral renders a field's schema default as a C++ literal usable as
+// parser.field's fallback argument. Returns "" when the default has no inline
+// scalar rendering (arrays, structs), leaving the caller's behavior unchanged.
+func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string {
+	if field.Default == nil {
+		return ""
+	}
+	v := *field.Default
+	switch v.Kind {
+	case resolution.ValueKindString:
+		return fmt.Sprintf("%q", v.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", v.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", v.FloatValue)
+	case resolution.ValueKindBool:
+		return fmt.Sprintf("%t", v.BoolValue)
+	case resolution.ValueKindIdent:
+		if ev, ok := validation.ResolveEnumVariant(v.IdentValue, field.Type, table); ok {
+			return fmt.Sprintf("%q", ev.Variant.StringValue())
+		}
+		if v.IdentValue == "true" || v.IdentValue == "false" {
+			return v.IdentValue
+		}
+		// Unresolvable idents (magic defaults like create/now) have no C++
+		// rendering; the field stays required.
+		return ""
+	}
+	return ""
 }
 
 func defaultValueForPrimitive(primitive string) string {

@@ -85,20 +85,21 @@ var _ = Describe("Reduce", func() {
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
 		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabResource{
-			ResourceTab: panel.ResourceTab{Key: k, Resource: res},
+			TabBase:  panel.TabBase{Key: k},
+			Resource: res,
 		}))
 	})
 
 	It("Should route a SetTabView action", func() {
 		k := uuid.New()
-		view := panel.View{Type: "docs"}
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k))},
-			panel.NewSetTabViewAction(panel.SetTabViewPayload{Key: k, View: view}),
+			panel.NewSetTabViewAction(panel.SetTabViewPayload{Key: k, Type: "docs"}),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
 		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
-			ViewTab: panel.ViewTab{Key: k, View: view},
+			TabBase: panel.TabBase{Key: k},
+			Type:    "docs",
 		}))
 	})
 

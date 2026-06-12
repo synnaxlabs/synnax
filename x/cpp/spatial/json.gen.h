@@ -94,7 +94,7 @@ inline x::json::json Dimensions::to_json() const {
 
 inline Viewport Viewport::parse(x::json::Parser parser) {
     return Viewport{
-        .zoom = parser.field<double>("zoom"),
+        .zoom = parser.field<double>("zoom", 1),
         .position = parser.field<XY>("position"),
     };
 }

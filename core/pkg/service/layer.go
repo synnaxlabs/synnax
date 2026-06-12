@@ -284,11 +284,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
-	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
-		DB: cfg.Distribution.DB,
-	}); !ok(err, nil) {
-		return nil, err
-	}
+	l.ImEx = imex.NewService()
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,

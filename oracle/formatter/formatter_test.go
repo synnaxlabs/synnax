@@ -449,6 +449,21 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("union on kind extends X, Y {"))
 		})
 
+		It("should format inline variant bodies with struct-body formatting", func() {
+			source := "Base struct {\n  k string\n}\nFoo union on type extends Base {\n  a {\n    width float64\n  }\n  b extends Base {\n    height float64\n  }\n  c {}\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("a {"))
+			Expect(result).To(ContainSubstring("width float64"))
+			Expect(result).To(ContainSubstring("b extends Base {"))
+			Expect(result).To(ContainSubstring("c {}"))
+		})
+
+		It("should be idempotent on inline variant bodies", func() {
+			source := "Foo union on type {\n  a {\n    width float64\n  }\n  b {}\n}\n"
+			once := format(source)
+			Expect(format(once)).To(Equal(once))
+		})
+
 		It("should format a union with per-variant domains", func() {
 			source := "A struct {}\nB struct {}\nFoo union on type {\n  a A {\n    @doc value \"variant a\"\n  }\n  b B\n}\n"
 			result := format(source)

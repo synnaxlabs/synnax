@@ -110,7 +110,7 @@ var _ = Describe("Symbol Suggestions", func() {
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "testing", Kind: symbol.KindVariable}))
 
 			suggestions := root.SuggestSimilar(bCtx, "tset", 3)
-			Expect(len(suggestions)).To(BeNumerically(">=", 1))
+			Expect(suggestions).ToNot(BeEmpty())
 			Expect(suggestions[0]).To(Equal("test"))
 		})
 

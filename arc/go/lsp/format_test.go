@@ -39,7 +39,7 @@ var _ = Describe("Formatting", func() {
 			}))
 
 			Expect(edits).ToNot(BeNil())
-			Expect(len(edits)).To(Equal(1))
+			Expect(edits).To(HaveLen(1))
 			Expect(edits[0].NewText).To(ContainSubstring("func add(x i32, y i32) i32"))
 			Expect(edits[0].NewText).To(ContainSubstring("return x + y"))
 		})

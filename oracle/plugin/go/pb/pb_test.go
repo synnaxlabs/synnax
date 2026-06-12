@@ -220,7 +220,7 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
-			It("Should reject pb unions that use extends", func(ctx SpecContext) {
+			It("Should translate union extends bases through the bases' own translators", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/schematic"
 					@pb
@@ -237,12 +237,73 @@ var _ = Describe("Go PB Plugin", func() {
 						square Body
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "schematic", loader)
-				Expect(pbPlugin.Generate(req)).Error().To(
-					MatchError(ContainSubstring(
-						"pb translators for unions with extends are not yet supported",
-					)),
-				)
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"pb.Base, err = BaseToPB(v.Base)",
+						"m := schematic.ShapeSquare{Body: inner}",
+						"m.Base, err = BaseFromPB(pb.Base)",
+						"r.Variant = m",
+					)
+			})
+
+			It("Should translate inline variants against the variant member", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Shape union on variant extends Base {
+						square {
+							width float64
+						}
+						empty {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func ShapeSquareToPB(r schematic.ShapeSquare) (*ShapeSquarePayload, error)",
+						"inner, err := ShapeSquareToPB(v)",
+						"m := inner",
+						"m.Base, err = BaseFromPB(pb.Base)",
+					)
+			})
+
+			It("Should translate inline variants inherited through union composition", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					NodeConfig union on variant {
+						box {
+							width float64
+						}
+					}
+
+					EdgeConfig union on variant {
+						pipe {
+							length float64
+						}
+					}
+
+					ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func NodeConfigBoxToPB(r schematic.NodeConfigBox) (*NodeConfigBoxPayload, error)",
+						"func ElementConfigBoxToPB(r schematic.ElementConfigBox) (*NodeConfigBoxPayload, error)",
+						"func ElementConfigPipeToPB(r schematic.ElementConfigPipe) (*EdgeConfigPipePayload, error)",
+						"pb.Variant = &ElementConfig_Box{Box: inner}",
+					).
+					ToNotContain("NodeConfigBoxPayloadToPB")
 			})
 		})
 
@@ -1044,8 +1105,8 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "x/go/telem"
 					@pb
 
-					timestamp = uint64
-					timespan = int64
+					TimeStamp = uint64
+					TimeSpan = int64
 				`)
 			})
 
@@ -1057,14 +1118,14 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						created_at telem.timestamp
+						created_at telem.TimeStamp
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("uint64(r.CreatedAt)").
-					ToContain("telem.Timestamp(pb.CreatedAt)")
+					ToContain("telem.TimeStamp(pb.CreatedAt)")
 			})
 
 			It("Should convert timespan typedef via int64", func(ctx SpecContext) {
@@ -1075,14 +1136,14 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						duration telem.timespan
+						duration telem.TimeSpan
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("int64(r.Duration)").
-					ToContain("telem.Timespan(pb.Duration)")
+					ToContain("telem.TimeSpan(pb.Duration)")
 			})
 		})
 
@@ -1852,7 +1913,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain(
 						"ranger_pb.RangeToPB(ranger.Range(r))",
 						"ranger_pb.RangeFromPB",
-						"ts.TsRange(result)",
+						"ts.TSRange(result)",
 					)
 			})
 		})

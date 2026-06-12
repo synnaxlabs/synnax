@@ -71,7 +71,7 @@ var _ = Describe("Signals", func() {
 			panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 		})).To(Succeed())
 		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), "5s").Should(Receive(&res))
+		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 		var decoded []actions.Scoped[panel.Key, panel.Action]
 		for sample := range res.Frame.SeriesAt(0).Samples() {
 			var sa actions.Scoped[panel.Key, panel.Action]
@@ -92,7 +92,7 @@ var _ = Describe("Signals", func() {
 		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
 		Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
 		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), "5s").Should(Receive(&res))
+		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 		var keys []uuid.UUID
 		for sample := range res.Frame.SeriesAt(0).Samples() {
 			keys = append(keys, MustSucceed(uuid.FromBytes(sample)))
