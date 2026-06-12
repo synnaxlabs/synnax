@@ -1501,6 +1501,25 @@ var _ = Describe("C++ Types Plugin", func() {
 					ToContain(`Mode mode = Mode::Automatic`)
 			})
 
+			It("Should reference string enum defaults via their generated constants", func(ctx SpecContext) {
+				source := `
+					@cpp output "out"
+
+					Units enum {
+						volts = "Volts"
+						amps  = "Amps"
+					}
+
+					Config struct {
+						units Units = volts
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				content := ExpectContent(resp, "types.gen.h")
+				content.ToContain(`units = UNITS_VOLTS`)
+				content.ToNotContain(`Units::Volts`)
+			})
+
 			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
 				loader.Add("schemas/control", `
 					@cpp output "x/cpp/control"

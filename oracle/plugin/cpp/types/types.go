@@ -869,17 +869,25 @@ func (p *Plugin) cppStructLiteral(typeRef resolution.TypeRef, val resolution.Exp
 }
 
 // cppEnumVariantRef renders a fully-qualified C++ reference to an enum variant.
+// Int enums generate as enum classes and are referenced Enum::Variant; string
+// enums generate as ENUM_VARIANT string constants and must be referenced as such.
 func (p *Plugin) cppEnumVariantRef(ev validation.EnumVariant, data *templateData) string {
-	variantName := toPascalCase(ev.Variant.Name)
-	enumName := ev.Type.Name
+	ref := fmt.Sprintf("%s::%s", ev.Type.Name, toPascalCase(ev.Variant.Name))
+	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		ref = fmt.Sprintf(
+			"%s_%s",
+			toScreamingSnake(ev.Type.Name),
+			toScreamingSnake(ev.Variant.Name),
+		)
+	}
 	if ev.Type.Namespace != data.rawNs {
 		targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
 		if targetOutputPath != "" {
 			ns := deriveNamespace(targetOutputPath)
-			enumName = fmt.Sprintf("::%s::%s", ns, enumName)
+			return fmt.Sprintf("::%s::%s", ns, ref)
 		}
 	}
-	return fmt.Sprintf("%s::%s", enumName, variantName)
+	return ref
 }
 
 // cppFieldName returns the C++ field name for a resolved field, mirroring the
