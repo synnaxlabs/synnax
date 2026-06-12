@@ -81,19 +81,11 @@ export const Symbol = ({
   });
 
   return (
-    <Grid.Grid
-      editable={selected}
-      nodeKey={nodeKey}
-      allowRotate={false}
-      resizeHandles={["left", "right"]}
-      onResize={({ width }) => onConfigChange({ inlineSize: width })}
-    >
+    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
       <Value
         color={color}
-        // Floor to inlineSize so widening from the left stays anchored. Shrinking still
-        // lags; the real bound is worker-measured text width, not worth chasing there.
-        dimensions={{ height: valueBoxHeight, width: Math.max(inlineSize, oWidth) }}
+        dimensions={{ height: valueBoxHeight, width: oWidth }}
         inlineSize={inlineSize}
         units={units}
         unitsLevel={text.downLevel(level)}
