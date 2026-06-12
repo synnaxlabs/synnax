@@ -15,7 +15,7 @@ import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { useSelectActiveKey } from "@/project/selectors";
+import { useSelectOptionalActiveKey } from "@/project/selectors";
 import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";
 
@@ -33,7 +33,7 @@ export const CREATE_LAYOUT: Layout.BaseState = {
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const dispatch = useDispatch();
-  const active = useSelectActiveKey();
+  const active = useSelectOptionalActiveKey();
 
   const { form, save, variant } = Project.useForm({
     query: {},

@@ -13,7 +13,6 @@ import { type lineplot } from "@synnaxlabs/pluto/ether";
 import { useMemoSelect } from "@/hooks";
 import {
   type ControlState,
-  type PendingUpload,
   type SelectionState,
   SLICE_NAME,
   type SliceState,
@@ -50,14 +49,6 @@ export const selectIsRemoteCreated = (
 
 export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
   useMemoSelect((state: StoreState) => selectIsRemoteCreated(state, key), [key]);
-
-export const selectPendingUpload = (
-  state: StoreState,
-  key: string,
-): PendingUpload | undefined => selectOptional(state, key)?.pendingUpload;
-
-export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
-  useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);
 
 export const selectToolbar = (
   state: StoreState,

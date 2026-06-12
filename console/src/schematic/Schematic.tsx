@@ -23,18 +23,11 @@ import { useDispatch, useStore } from "react-redux";
 import { ContextMenu } from "@/components/context-menu";
 import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
-import { Project } from "@/project";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
+import { selectEditable, useSelect, useSelectExists } from "@/schematic/selectors";
 import {
-  selectEditable,
-  useSelect,
-  useSelectExists,
-  useSelectPendingUpload,
-} from "@/schematic/selectors";
-import {
-  clearPendingUpload,
   internalCreate,
   setEditable,
   setFitViewOnResize,
@@ -44,20 +37,11 @@ import {
   setViewportMode,
 } from "@/schematic/slice";
 import { type RootState } from "@/store";
-import { createUseAutoUpload } from "@/vis/useAutoUpload";
-
-const useAutoUpload = createUseAutoUpload({
-  useSelectPendingUpload,
-  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
-  useCreate: Base.useCreate,
-  clearPendingUpload,
-});
 
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
   const dispatch = useDispatch();
-  Project.useAdoptIntoActiveProject(schematic.ontologyID(key));
   const {
     editable,
     viewport,
@@ -202,8 +186,7 @@ const useEnsureState = createEnsureState({
 export const Schematic: Layout.Renderer = (props) => {
   const { layoutKey } = props;
   const exists = useEnsureState(layoutKey);
-  const uploaded = useAutoUpload(layoutKey);
-  if (!exists || !uploaded) return null;
+  if (!exists) return null;
   return <Internal {...props} />;
 };
 Schematic.useName = Layout.createUseFluxName(

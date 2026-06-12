@@ -20,11 +20,7 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/export";
-import {
-  useSelectActiveToolbarTab,
-  useSelectExists,
-  useSelectPendingUpload,
-} from "@/lineplot/selectors";
+import { useSelectActiveToolbarTab, useSelectExists } from "@/lineplot/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
@@ -129,7 +125,6 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 
 export const Toolbar = (props: ToolbarProps): ReactElement | null => {
   const exists = useSelectExists(props.layoutKey);
-  const pendingUpload = useSelectPendingUpload(props.layoutKey);
-  if (!exists || pendingUpload != null) return null;
+  if (!exists) return null;
   return <Internal {...props} />;
 };

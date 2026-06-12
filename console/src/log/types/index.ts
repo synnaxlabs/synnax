@@ -22,7 +22,6 @@ export const ZERO_STATE = v2.ZERO_STATE;
 export type ToolbarTab = v2.ToolbarTab;
 export type ToolbarState = v2.ToolbarState;
 export const ZERO_TOOLBAR_STATE = v2.ZERO_TOOLBAR_STATE;
-export type PendingUpload = v2.PendingUpload;
 
 export type AnyState = v0.State | v1.State | v2.State;
 export type AnySliceState = v0.SliceState | v1.SliceState | v2.SliceState;

@@ -41,7 +41,7 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { useExport } from "@/project/export";
-import { selectActiveKey } from "@/project/selectors";
+import { selectOptionalActiveKey } from "@/project/selectors";
 import { maybeRename, setActive } from "@/project/slice";
 import { Schematic } from "@/schematic";
 import { Table } from "@/table";
@@ -52,7 +52,7 @@ const useDelete = createUseDelete({
   convertKey: String,
   afterSuccess: ({ data, store }) => {
     const s = store.getState();
-    const activeKey = selectActiveKey(s);
+    const activeKey = selectOptionalActiveKey(s);
     const active = array.toArray(data).find((k) => k === activeKey);
     if (active == null) return;
     store.dispatch(setActive(null));

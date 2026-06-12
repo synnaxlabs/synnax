@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
 import { Log as PLog } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -16,20 +15,11 @@ import { useDispatch, useStore } from "react-redux";
 import { ContextMenu, EmptyAction } from "@/components";
 import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
-import { useSelectExists, useSelectPendingUpload } from "@/log/selectors";
-import { clearPendingUpload, internalCreate, setActiveToolbarTab } from "@/log/slice";
-import { Project } from "@/project";
+import { useSelectExists } from "@/log/selectors";
+import { internalCreate, setActiveToolbarTab } from "@/log/slice";
 import { type RootState } from "@/store";
-import { createUseAutoUpload } from "@/vis/useAutoUpload";
 
 export { create, LAYOUT_TYPE, type LayoutType } from "@/log/layout";
-
-const useAutoUpload = createUseAutoUpload({
-  useSelectPendingUpload,
-  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
-  useCreate: PLog.useCreate,
-  clearPendingUpload,
-});
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
@@ -37,7 +27,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   PLog.useEnsureRetrieved({ key: layoutKey });
   const dispatch = useDispatch();
   const store = useStore<RootState>();
-  Project.useAdoptIntoActiveProject(log.ontologyID(layoutKey));
   const channelKeys = PLog.useSelectChannelKeys({ key: layoutKey });
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
 
@@ -84,8 +73,7 @@ const useEnsureState = createEnsureState({
 
 export const Log: Layout.Renderer = (props) => {
   const exists = useEnsureState(props.layoutKey);
-  const uploaded = useAutoUpload(props.layoutKey);
-  if (!exists || !uploaded) return null;
+  if (!exists) return null;
   return <Loaded {...props} />;
 };
 

@@ -73,11 +73,11 @@ export const createUseCreate =
     const maybeChangeProject = useMaybeChange();
     const placeLayout = Layout.usePlacer();
     const store = useStore<RootState>();
-    project ??= activeProject ?? undefined;
+    project ??= activeProject;
     const { update } = useCreate({
       afterSuccess: useCallback(
         async ({ data: { key, name } }) => {
-          if (project != null) await maybeChangeProject(project);
+          await maybeChangeProject(project);
           placeLayout(createSessionState({ key, name }));
         },
         [project],

@@ -57,14 +57,10 @@ export const Selector = (): ReactElement | null => {
   const { data, retrieve, getItem, subscribe } = Project.useList();
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
-    (v: string | null) => {
-      if (v === null) {
-        dispatch(setActive(null));
-        dispatch(Layout.clearProject());
-        return;
-      }
-      const proj = getItem(v);
-      if (proj == null) throw new UnexpectedError(`Project ${v} not found`);
+    (key: project.Key | null) => {
+      if (key == null) return;
+      const proj = getItem(key);
+      if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(setActive(proj));
       dispatch(
         Layout.setProject({ slice: proj.layout as Layout.SliceState, keepNav: false }),
@@ -85,7 +81,6 @@ export const Selector = (): ReactElement | null => {
         getItem={getItem}
         subscribe={subscribe}
         onFetchMore={() => retrieve({})}
-        allowNone
       >
         <Dialog.Trigger
           size="medium"
@@ -94,7 +89,7 @@ export const Selector = (): ReactElement | null => {
           weight={400}
         >
           <Icon.Project key="project" />
-          {active?.name ?? "No project"}
+          {active.name}
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Flex.Box pack rounded>
@@ -117,20 +112,6 @@ export const Selector = (): ReactElement | null => {
               style={{ borderBottomLeftRadius: 0 }}
               borderColor={6}
             />
-            <Button.Button
-              size="large"
-              variant="outlined"
-              onClick={() => {
-                handleChange(null);
-                setDialogVisible(false);
-              }}
-              gap="small"
-              tooltip="Switch to no project"
-              borderColor={6}
-            >
-              <Icon.Close />
-              Clear
-            </Button.Button>
             {hasCreatePermission && (
               <Button.Button
                 size="large"

@@ -22,7 +22,7 @@ import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { purgeExcludedLayouts } from "@/project/purgeExcludedLayouts";
-import { selectActiveKey } from "@/project/selectors";
+import { selectOptionalActiveKey } from "@/project/selectors";
 import { type RootState } from "@/store";
 
 export const useSyncLayout = (): void => {
@@ -34,7 +34,7 @@ export const useSyncLayout = (): void => {
     debounce: TimeSpan.milliseconds(250),
     beforeUpdate: useCallback(async () => {
       const s = store.getState();
-      const key = selectActiveKey(s);
+      const key = selectOptionalActiveKey(s);
       if (key == null) return false;
       if (
         !Access.updateGranted({

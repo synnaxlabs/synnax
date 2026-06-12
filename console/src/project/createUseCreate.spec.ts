@@ -135,19 +135,6 @@ describe("createUseCreate", () => {
     expect(await projectParents(placedLog(store)!.key)).toEqual([projectB.key]);
   });
 
-  it("creates the record outside any project when none is active or provided", async () => {
-    const { wrapper, store } = await createConsoleWrapper({ client });
-    const useCreate = buildUseCreate();
-    const { result } = renderHook(() => useCreate({}), { wrapper });
-
-    act(() => {
-      result.current();
-    });
-
-    await waitFor(() => expect(placedLog(store)).toBeDefined());
-    expect(await projectParents(placedLog(store)!.key)).toEqual([]);
-  });
-
   it("switches the active project to the project the record was created in", async () => {
     const { wrapper, store } = await createConsoleWrapper({
       client,

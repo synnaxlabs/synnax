@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Layout } from "@/layout";
-import { Selector, SELECTOR_LAYOUT_TYPE } from "@/vis/Selector";
+import { type PropsWithChildren, type ReactNode } from "react";
 
-export * from "@/vis/Canvas";
-export * from "@/vis/Selector";
-export * from "@/vis/Toolbar";
+import { useSelectOptionalActiveKey } from "@/project/selectors";
+import { Splash } from "@/project/Splash";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [SELECTOR_LAYOUT_TYPE]: Selector,
+export const Guard = ({ children }: PropsWithChildren): ReactNode => {
+  const active = useSelectOptionalActiveKey();
+  if (active != null) return children;
+  return <Splash />;
 };

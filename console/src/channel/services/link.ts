@@ -16,7 +16,7 @@ import { Range } from "@/range";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout, store }) => {
   const channel = await client.channels.retrieve(key);
-  const project = Project.selectActiveKey(store.getState()) ?? uuid.ZERO;
+  const project = Project.selectOptionalActiveKey(store.getState()) ?? uuid.ZERO;
   const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
   const { key: plotKey, name } = await client.lineplots.create(project, {
     name: `${channel.name} Plot`,

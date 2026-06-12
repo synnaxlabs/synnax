@@ -52,11 +52,18 @@ const SideEffect = (): null => {
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
   Range.useListenForChanges();
-  Project.useSyncLayout();
   Project.useCheckCore();
   Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
+  return null;
+};
+
+// ProjectSideEffect holds effects that only make sense with an active project. It is
+// rendered inside Project.Guard, so it mounts only once a project is active - layout
+// sync and the file-drop importer never run against the select-or-create screen.
+const ProjectSideEffect = (): null => {
+  Project.useSyncLayout();
   Layout.useDropOutside();
   return null;
 };
@@ -73,22 +80,25 @@ export const Main = (): ReactElement => (
     <Notifications />
     <SideEffect />
     <Auth.Guard>
-      <Nav.Top />
-      <Flex.Box
-        x
-        gap="tiny"
-        grow
-        style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
-      >
-        <Nav.Left />
-        <Flex.Box gap="tiny" grow style={{ width: 0 }}>
-          <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
-            <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
-            <Mosaic />
+      <Project.Guard>
+        <ProjectSideEffect />
+        <Nav.Top />
+        <Flex.Box
+          x
+          gap="tiny"
+          grow
+          style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
+        >
+          <Nav.Left />
+          <Flex.Box gap="tiny" grow style={{ width: 0 }}>
+            <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
+              <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
+              <Mosaic />
+            </Flex.Box>
+            <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
           </Flex.Box>
-          <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
         </Flex.Box>
-      </Flex.Box>
+      </Project.Guard>
     </Auth.Guard>
   </>
 );
