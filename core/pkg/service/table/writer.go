@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -31,9 +31,9 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-// Create creates the given table within the workspace provided. If the table does not
+// Create creates the given table within the project provided. If the table does not
 // have a key, a new key will be generated.
-func (w Writer) Create(ctx context.Context, ws workspace.Key, t *Table) error {
+func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) error {
 	var (
 		exists bool
 		err    error
@@ -56,26 +56,26 @@ func (w Writer) Create(ctx context.Context, ws workspace.Key, t *Table) error {
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if ws == uuid.Nil {
+	if projectKey == uuid.Nil {
 		return nil
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
-		workspace.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }
 
-// CreateMany creates the given tables within the workspace provided. If tables with the
+// CreateMany creates the given tables within the project provided. If tables with the
 // same key already exist, they will be overwritten.
 func (w Writer) CreateMany(
 	ctx context.Context,
-	ws workspace.Key,
+	projectKey project.Key,
 	tables *[]Table,
 ) error {
 	for i := range *tables {
-		if err := w.Create(ctx, ws, &(*tables)[i]); err != nil {
+		if err := w.Create(ctx, projectKey, &(*tables)[i]); err != nil {
 			return err
 		}
 	}

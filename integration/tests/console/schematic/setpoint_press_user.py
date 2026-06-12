@@ -39,7 +39,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
 
     def run(self) -> None:
         self.log("Creating schematic symbols")
-        schematic = self.console.workspace.create_schematic("setpoint_press_user")
+        schematic = self.console.project.create_schematic("setpoint_press_user")
 
         start_cmd = schematic.create_symbol(
             Valve(

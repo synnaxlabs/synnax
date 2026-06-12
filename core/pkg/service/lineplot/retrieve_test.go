@@ -18,7 +18,7 @@ import (
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a LinePlot", func(ctx SpecContext) {
 		p := lineplot.LinePlot{Name: "test"}
-		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &p)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &p)).To(Succeed())
 		var res lineplot.LinePlot
 		Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(p.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 		Expect(res).To(Equal(p))

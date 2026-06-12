@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, log, NotFoundError, type workspace } from "@synnaxlabs/client";
+import { type channel, log, NotFoundError, type project } from "@synnaxlabs/client";
 import { array, compare, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
@@ -218,7 +218,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
 });
 
 export interface CreateParams extends log.New {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -231,8 +231,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   update: async ({ client, data, store, rollbacks }) => {
     const optimistic = log.newZ.parse(data);
     rollbacks.push(store.logs.set(optimistic));
-    const workspace = data.workspace ?? uuid.ZERO;
-    const created = await client.logs.create(workspace, optimistic);
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.logs.create(project, optimistic);
     store.logs.set(created);
     return created;
   },

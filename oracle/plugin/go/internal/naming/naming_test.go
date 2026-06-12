@@ -127,9 +127,14 @@ var _ = Describe("LowerFirst", func() {
 })
 
 var _ = Describe("GetGoName", func() {
-	It("should return PascalCase of the type name by default", func() {
-		t := resolution.Type{Name: "user_key"}
+	It("should return the declared type name verbatim by default", func() {
+		t := resolution.Type{Name: "UserKey"}
 		Expect(naming.GetGoName(t)).To(Equal("UserKey"))
+	})
+
+	It("should preserve acronyms in the declared name", func() {
+		t := resolution.Type{Name: "RTDType"}
+		Expect(naming.GetGoName(t)).To(Equal("RTDType"))
 	})
 
 	It("should use the go name override when present", func() {

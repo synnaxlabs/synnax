@@ -24,11 +24,11 @@ describe("table", () => {
         objects: [],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      const randomTable = await client.tables.create(ws.key, {
+      const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
       await expect(
@@ -42,11 +42,11 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: ["retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      const randomTable = await client.tables.create(ws.key, {
+      const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
       const retrieved = await userClient.tables.retrieve({
@@ -62,11 +62,11 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: ["create"],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      await userClient.tables.create(ws.key, {
+      await userClient.tables.create(proj.key, {
         name: "test",
       });
     });
@@ -77,12 +77,12 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
       await expect(
-        userClient.tables.create(ws.key, {
+        userClient.tables.create(proj.key, {
           name: "test",
         }),
       ).rejects.toThrow(AuthError);
@@ -94,11 +94,11 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      const randomTable = await client.tables.create(ws.key, {
+      const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
       await userClient.tables.delete(randomTable.key);
@@ -113,11 +113,11 @@ describe("table", () => {
         objects: [table.ontologyID("")],
         actions: [],
       });
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "test",
         layout: {},
       });
-      const randomTable = await client.tables.create(ws.key, {
+      const randomTable = await client.tables.create(proj.key, {
         name: "test",
       });
       await expect(userClient.tables.delete(randomTable.key)).rejects.toThrow(

@@ -17,8 +17,8 @@ export const VERSION = "1.0.0";
 
 // pendingUploadZ is the table payload needed to upload a legacy v0 table on
 // first render. name is omitted because the live name lives in Layout.
-export const pendingUploadZ = table.tableZ.omit({ name: true });
-export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
+const pendingUploadZ = table.tableZ.omit({ name: true });
+interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 // v1 removes the structural model (layout / cells) from console state; rows,
 // columns, and cells live in the Pluto-owned flux store, and the slice only

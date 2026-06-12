@@ -32,7 +32,6 @@ export const ZERO_ANNOTATIONS_STATE = v4.ZERO_ANNOTATIONS_STATE;
 export const stateZ = v5.stateZ;
 export type State = v5.State;
 export const ZERO_STATE = v5.ZERO_STATE;
-export type PendingUpload = v5.PendingUpload;
 
 export const toolbarTabZ = v0.toolbarTabZ;
 export type ToolbarTab = v0.ToolbarTab;

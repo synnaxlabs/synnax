@@ -25,7 +25,9 @@ const (
 	ResourceTypeLineplot        ResourceType = "lineplot"
 	ResourceTypeLog             ResourceType = "log"
 	ResourceTypeNode            ResourceType = "node"
+	ResourceTypePanel           ResourceType = "panel"
 	ResourceTypePolicy          ResourceType = "policy"
+	ResourceTypeProject         ResourceType = "project"
 	ResourceTypeRack            ResourceType = "rack"
 	ResourceTypeRange           ResourceType = "range"
 	ResourceTypeRangeAlias      ResourceType = "range-alias"
@@ -37,13 +39,12 @@ const (
 	ResourceTypeTask            ResourceType = "task"
 	ResourceTypeUser            ResourceType = "user"
 	ResourceTypeView            ResourceType = "view"
-	ResourceTypeWorkspace       ResourceType = "workspace"
 )
 
 // IsValid reports whether r is one of the defined ResourceType values.
 func (r ResourceType) IsValid() bool {
 	switch r {
-	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePolicy, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView, ResourceTypeWorkspace:
+	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
 		return true
 	default:
 		return false

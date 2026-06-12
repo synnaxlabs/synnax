@@ -20,7 +20,6 @@ import {
   selectHideIndicators,
   selectLastSelected,
   selectOptional,
-  selectPendingUpload,
   selectSelectedCellKeys,
   selectSliceState,
   selectVersion,
@@ -132,17 +131,6 @@ describe("table selectors", () => {
       expect(selectVersion(buildState({}), "table-1")).toBe(ZERO_STATE.version);
       const state: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
       expect(selectVersion(state, "missing")).toBeUndefined();
-    });
-  });
-
-  describe("selectPendingUpload", () => {
-    it("returns the pending upload, undefined when absent", () => {
-      const state = buildState({});
-      expect(selectPendingUpload(state, "table-1")).toBe(
-        state[SLICE_NAME].tables["table-1"].pendingUpload,
-      );
-      const emptyState: StoreState = { [SLICE_NAME]: ZERO_SLICE_STATE };
-      expect(selectPendingUpload(emptyState, "missing")).toBeUndefined();
     });
   });
 

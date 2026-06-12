@@ -19,6 +19,7 @@ import * as v5 from "@/layout/types/v5";
 import * as v6 from "@/layout/types/v6";
 import * as v7 from "@/layout/types/v7";
 import * as v9 from "@/layout/types/v9";
+import * as v10 from "@/layout/types/v10";
 
 const STATES: AnySliceState[] = [
   v0.ZERO_SLICE_STATE,
@@ -77,6 +78,31 @@ describe("migrations", () => {
       expect(migrated.layouts.getStarted).toBeUndefined();
       expect(migrated.mosaics.main.activeTab).toBeNull();
       expect(migrated.mosaics.main.root.tabs).toEqual([]);
+    });
+
+    it("should rename the workspace nav menu item to project when migrating from v10", () => {
+      const state: v10.SliceState = {
+        ...v10.ZERO_SLICE_STATE,
+        nav: {
+          ...v10.ZERO_SLICE_STATE.nav,
+          main: {
+            drawers: {
+              ...v10.ZERO_SLICE_STATE.nav.main.drawers,
+              left: {
+                activeItem: "workspace",
+                menuItems: ["channel", "workspace", "user"],
+              },
+            },
+          },
+        },
+      };
+      const migrated = migrateSlice(state);
+      expect(migrated.nav.main.drawers.left.menuItems).toEqual([
+        "channel",
+        "project",
+        "user",
+      ]);
+      expect(migrated.nav.main.drawers.left.activeItem).toEqual("project");
     });
   });
 });

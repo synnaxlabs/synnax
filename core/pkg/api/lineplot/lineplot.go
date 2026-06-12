@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -43,7 +43,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type CreateRequest struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
-	Workspace workspace.Key       `json:"workspace" msgpack:"workspace"`
+	Project   project.Key         `json:"project" msgpack:"project"`
 }
 
 type CreateResponse struct {
@@ -62,7 +62,7 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Workspace, &req.LinePlots); err != nil {
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.LinePlots); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{LinePlots: req.LinePlots}, nil

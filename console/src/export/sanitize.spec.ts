@@ -13,7 +13,7 @@ import { sanitizeFileName } from "@/export/sanitize";
 
 describe("sanitizeFileName", () => {
   it("returns ordinary names unchanged", () => {
-    expect(sanitizeFileName("My Workspace")).toEqual("My Workspace");
+    expect(sanitizeFileName("My Project")).toEqual("My Project");
     expect(sanitizeFileName("metrics_2025")).toEqual("metrics_2025");
     expect(sanitizeFileName("name-with-dashes")).toEqual("name-with-dashes");
     expect(sanitizeFileName("file.json")).toEqual("file.json");

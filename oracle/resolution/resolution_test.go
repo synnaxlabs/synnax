@@ -1005,6 +1005,89 @@ var _ = Describe("RefersTo", func() {
 		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
 	})
 
+	It("returns true when the match is reachable through a struct extends base", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "Base", QualifiedName: "ns.Base", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "t", Type: resolution.TypeRef{Name: target}},
+				},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "Child", QualifiedName: "ns.Child", Namespace: "ns",
+			Form: resolution.StructForm{
+				Extends: []resolution.TypeRef{{Name: "ns.Base"}},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.Child"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is reachable through a union variant payload", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "Payload", QualifiedName: "ns.Payload", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "t", Type: resolution.TypeRef{Name: target}},
+				},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "Union", QualifiedName: "ns.Union", Namespace: "ns",
+			Form: resolution.UnionForm{
+				Discriminator: "variant",
+				Variants: []resolution.UnionVariant{
+					{Name: "payload", Type: resolution.TypeRef{Name: "ns.Payload"}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.Union"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is reachable through a union extends base", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "UnionBase", QualifiedName: "ns.UnionBase", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "t", Type: resolution.TypeRef{Name: target}},
+				},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "Union", QualifiedName: "ns.Union", Namespace: "ns",
+			Form: resolution.UnionForm{
+				Discriminator: "variant",
+				Extends:       []resolution.TypeRef{{Name: "ns.UnionBase"}},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.Union"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns false when a union references only unrelated payloads", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "Other", QualifiedName: "ns.Other", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "x", Type: resolution.TypeRef{Name: "int32"}},
+				},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "Union", QualifiedName: "ns.Union", Namespace: "ns",
+			Form: resolution.UnionForm{
+				Discriminator: "variant",
+				Variants: []resolution.UnionVariant{
+					{Name: "other", Type: resolution.TypeRef{Name: "ns.Other"}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.Union"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeFalse())
+	})
+
 	It("returns true when the match is reachable through an alias target", func() {
 		Expect(table.Add(resolution.Type{
 			Name: "AliasToTarget", QualifiedName: "ns.AliasToTarget", Namespace: "ns",

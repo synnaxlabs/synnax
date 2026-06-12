@@ -657,18 +657,20 @@ func generateFrozenTypesFile(
 	table *resolution.Table,
 	outputPath, repoRoot string,
 ) ([]byte, error) {
-	var structs, enums, typeDefs []resolution.Type
+	var structs, enums, typeDefs, unions []resolution.Type
 	for _, typ := range types {
 		switch typ.Form.(type) {
 		case resolution.StructForm:
 			structs = append(structs, typ)
 		case resolution.EnumForm:
 			enums = append(enums, typ)
+		case resolution.UnionForm:
+			unions = append(unions, typ)
 		default:
 			typeDefs = append(typeDefs, typ)
 		}
 	}
-	return gotypes.GenerateGoFile(outputPath, structs, enums, typeDefs, table, repoRoot)
+	return gotypes.GenerateGoFile(outputPath, structs, enums, typeDefs, unions, table, repoRoot)
 }
 
 func generateGorpEntryMethods(types []resolution.Type, migrateEntryNames set.Set[string]) []byte {

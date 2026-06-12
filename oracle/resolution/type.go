@@ -24,6 +24,10 @@ type Type struct {
 	Namespace     string
 	QualifiedName string
 	FilePath      string
+	// Synthetic marks analyzer-fabricated types (inline union variant
+	// payloads) that resolve like any other type but are excluded from
+	// standalone code generation.
+	Synthetic bool
 }
 
 type TypeForm interface {
@@ -73,6 +77,44 @@ func (EnumForm) typeForm() {}
 
 // IsExtension reports whether the enum extends one or more other enums.
 func (f EnumForm) IsExtension() bool { return len(f.Extends) > 0 }
+
+// UnionForm describes a discriminated union: a closed set of struct variants
+// distinguished by the string value of a single shared discriminator field.
+// All variants share an optional set of base fields contributed by Extends.
+//
+// The discriminator field is owned by the union declaration and must not be
+// declared by any variant struct or by any base in Extends. Plugins read
+// Discriminator and the per-variant Name to emit the discriminator field in
+// their target language (Zod literal, Go tagged field, Pydantic Literal, etc.).
+type UnionForm struct {
+	// Discriminator is the JSON field name whose string value selects a variant.
+	Discriminator string
+	// Variants lists every concrete shape the union admits, in declaration order.
+	Variants []UnionVariant
+	// Extends names struct types whose fields are shared across all variants.
+	// Resolved later by the analyzer; struct-form is validated there.
+	Extends []TypeRef
+}
+
+func (UnionForm) typeForm() {}
+
+func (f UnionForm) Variant(name string) (UnionVariant, bool) {
+	return lo.Find(f.Variants, func(v UnionVariant) bool { return v.Name == name })
+}
+
+// UnionVariant is one concrete shape inside a UnionForm. Name is both the
+// variant's identifier in source and the string the discriminator field takes
+// in JSON. Type references the variant's payload struct.
+type UnionVariant struct {
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Type    TypeRef
+	// Inline reports that the payload was declared inline in the union body.
+	// Type then references a Synthetic struct whose fields generators flatten
+	// into the variant member instead of embedding a named payload type.
+	Inline bool
+}
 
 type DistinctForm struct {
 	Base       TypeRef
@@ -182,9 +224,10 @@ func (r TypeRef) MustResolve(table *Table) Type {
 
 // RefersTo reports whether ref directly or transitively references a type
 // identified by targetQualifiedName. The search follows type arguments, struct
-// field types, alias targets, and distinct bases, so mutual-recursion cycles
-// (A → B → A) are detected, not just direct self-reference (A → A). A visited
-// set prevents infinite loops on non-target cycles.
+// field types and extends bases, union bases and variant payloads, alias
+// targets, and distinct bases, so mutual-recursion cycles (A → B → A) are
+// detected, not just direct self-reference (A → A). A visited set prevents
+// infinite loops on non-target cycles.
 //
 // This is the shared primitive behind the analyzer's IsRecursive detection
 // and the C++ plugin's decision between std::optional<T> and
@@ -212,8 +255,24 @@ func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string
 	}
 	switch form := resolved.Form.(type) {
 	case StructForm:
+		for _, ext := range form.Extends {
+			if refersTo(ext, targetQN, table, visited) {
+				return true
+			}
+		}
 		for _, f := range form.Fields {
 			if refersTo(f.Type, targetQN, table, visited) {
+				return true
+			}
+		}
+	case UnionForm:
+		for _, ext := range form.Extends {
+			if refersTo(ext, targetQN, table, visited) {
+				return true
+			}
+		}
+		for _, v := range form.Variants {
+			if refersTo(v.Type, targetQN, table, visited) {
 				return true
 			}
 		}
@@ -330,6 +389,57 @@ func UnifiedFields(typ Type, table *Table) []Field {
 			result = append(result, cf)
 		}
 	}
+	return result
+}
+
+// UnifiedVariantFields returns the flattened field list for one variant of a
+// discriminated union: fields contributed by the union's Extends (with their
+// own inheritance resolved), followed by the variant struct's own fields (also
+// with its inheritance resolved). Duplicate names are dropped after the first
+// occurrence, matching UnifiedFields' first-wins semantics for struct mixins.
+//
+// The discriminator field is NOT included in the returned list. Callers know
+// its name from UnionForm.Discriminator and its value from variant.Name, and
+// are responsible for emitting it in the form their target language requires
+// (a Zod literal, a Go tagged field, a Pydantic Literal, etc.).
+//
+// If union is not a UnionForm, or the variant resolves to a non-struct type,
+// the result is the best effort possible: the bases that did resolve, and
+// nothing for the variant.
+func UnifiedVariantFields(union Type, variant UnionVariant, table *Table) []Field {
+	form, ok := union.Form.(UnionForm)
+	if !ok {
+		return nil
+	}
+	seen := make(set.Set[string])
+	var result []Field
+	appendUnique := func(fields []Field) {
+		for _, f := range fields {
+			if seen.Contains(f.Name) {
+				continue
+			}
+			seen.Add(f.Name)
+			result = append(result, f)
+		}
+	}
+	for _, baseRef := range form.Extends {
+		base, ok := baseRef.Resolve(table)
+		if !ok {
+			continue
+		}
+		if _, isStruct := base.Form.(StructForm); !isStruct {
+			continue
+		}
+		appendUnique(UnifiedFields(base, table))
+	}
+	variantType, ok := variant.Type.Resolve(table)
+	if !ok {
+		return result
+	}
+	if _, isStruct := variantType.Form.(StructForm); !isStruct {
+		return result
+	}
+	appendUnique(UnifiedFields(variantType, table))
 	return result
 }
 

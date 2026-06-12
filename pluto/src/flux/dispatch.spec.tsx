@@ -21,11 +21,11 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 
 const createSchem = async () => {
-  const ws = await client.workspaces.create({
-    name: `ws_${uuid.create()}`,
+  const proj = await client.projects.create({
+    name: `project_${uuid.create()}`,
     layout: {},
   });
-  return await client.schematics.create(ws.key, {
+  return await client.schematics.create(proj.key, {
     name: `dispatch_test_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -216,6 +216,32 @@ describe("Flux.createDispatch", () => {
       });
       expect(ok).toBe(true);
       expect(send).not.toHaveBeenCalled();
+      expect(result.current.undo.canUndo).toBe(false);
+    });
+
+    it("returns true without sending when the replay leaves state unchanged", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      const before = getDoc(result.current.store, key);
+      let ok = false;
+      await act(async () => {
+        ok = await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({
+            key: "nonexistent",
+            position: { x: 1, y: 1 },
+          }),
+        });
+      });
+      expect(ok).toBe(true);
+      expect(send).not.toHaveBeenCalled();
+      expect(getDoc(result.current.store, key)).toBe(before);
       expect(result.current.undo.canUndo).toBe(false);
     });
 

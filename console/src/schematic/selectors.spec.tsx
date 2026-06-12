@@ -24,7 +24,6 @@ import {
   selectLegend,
   selectLegendVisible,
   selectOptional,
-  selectPendingUpload,
   selectSelected,
   selectSelectedSymbolGroup,
   selectSliceState,
@@ -131,10 +130,6 @@ describe("schematic selectors", () => {
       expect(selectControlStatus(state, KEY)).toBe("acquired");
       expect(selectAuthority(state, KEY)).toBe(5);
     });
-
-    it("should read the pending upload from the entry", () => {
-      expect(selectPendingUpload(state, KEY)).toBe(entry.pendingUpload);
-    });
   });
 
   describe("defensive selectors (absent entry)", () => {
@@ -143,7 +138,6 @@ describe("schematic selectors", () => {
       expect(selectControlStatus(empty, "absent")).toBe("released");
       expect(selectAuthority(empty, "absent")).toBe(1);
       expect(selectLegend(empty, "absent")).toBe(ZERO_STATE.legend);
-      expect(selectPendingUpload(empty, "absent")).toBeUndefined();
     });
   });
 
