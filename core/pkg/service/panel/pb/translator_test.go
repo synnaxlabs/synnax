@@ -28,32 +28,32 @@ func TestPanelPB(t *testing.T) {
 	RunSpecs(t, "Panel PB Suite")
 }
 
-// view builds a non-trivial view, including an opaque Args map whose string and
-// bool values survive the structpb round-trip unchanged.
-func view() panel.View {
-	return panel.View{
-		Type: "docs",
-		Name: "Docs",
-		Args: msgpack.EncodedJSON{"path": "/intro", "pinned": true},
+// viewVariant builds a non-trivial view member, including an opaque Args map
+// whose string and bool values survive the structpb round-trip unchanged.
+func viewVariant() panel.TabView {
+	return panel.TabView{
+		TabBase: panel.TabBase{Key: uuid.New()},
+		Type:    "docs",
+		Name:    "Docs",
+		Args:    msgpack.EncodedJSON{"path": "/intro", "pinned": true},
 	}
 }
 
 func resourceTab() panel.Tab {
 	id := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: uuid.New().String()}
 	return panel.Tab{Variant: panel.TabResource{
-		ResourceTab: panel.ResourceTab{Key: uuid.New(), Resource: id},
+		TabBase:  panel.TabBase{Key: uuid.New()},
+		Resource: id,
 	}}
 }
 
 func viewTab() panel.Tab {
-	return panel.Tab{Variant: panel.TabView{
-		ViewTab: panel.ViewTab{Key: uuid.New(), View: view()},
-	}}
+	return panel.Tab{Variant: viewVariant()}
 }
 
 func emptyTab() panel.Tab {
 	return panel.Tab{Variant: panel.TabEmpty{
-		EmptyTab: panel.EmptyTab{Key: uuid.New()},
+		TabBase: panel.TabBase{Key: uuid.New()},
 	}}
 }
 
@@ -106,10 +106,11 @@ var _ = Describe("Translator", func() {
 			p := panel.Panel{
 				Key:  uuid.New(),
 				Name: "bad-args",
-				Root: leafNode(panel.Tab{Variant: panel.TabView{ViewTab: panel.ViewTab{
-					Key:  uuid.New(),
-					View: panel.View{Type: "x", Args: msgpack.EncodedJSON{"bad": make(chan int)}},
-				}}}),
+				Root: leafNode(panel.Tab{Variant: panel.TabView{
+					TabBase: panel.TabBase{Key: uuid.New()},
+					Type:    "x",
+					Args:    msgpack.EncodedJSON{"bad": make(chan int)},
+				}}),
 			}
 			Expect(pb.PanelToPB(p)).Error().To(MatchError(ContainSubstring("invalid type")))
 		})
@@ -140,14 +141,17 @@ var _ = Describe("Translator", func() {
 			Expect(back).To(Equal(ts))
 		})
 
-		It("Should round-trip a slice of views", func() {
-			vs := []panel.View{view(), {Type: "about", Args: msgpack.EncodedJSON{}}}
-			back := MustSucceed(pb.ViewsFromPB(MustSucceed(pb.ViewsToPB(vs))))
+		It("Should round-trip a slice of view members without the wrapper-owned base", func() {
+			vs := []panel.TabView{
+				{Type: "docs", Name: "Docs", Args: msgpack.EncodedJSON{"path": "/intro"}},
+				{Type: "about", Args: msgpack.EncodedJSON{}},
+			}
+			back := MustSucceed(pb.TabViewPayloadsFromPB(MustSucceed(pb.TabViewPayloadsToPB(vs))))
 			Expect(back).To(Equal(vs))
 		})
 
-		It("Should return a zero View when decoding nil", func() {
-			Expect(pb.ViewFromPB(nil)).To(Equal(panel.View{}))
+		It("Should return a zero view member when decoding nil", func() {
+			Expect(pb.TabViewPayloadFromPB(nil)).To(Equal(panel.TabView{}))
 		})
 	})
 

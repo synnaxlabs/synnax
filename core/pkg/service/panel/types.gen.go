@@ -23,45 +23,8 @@ import (
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
 
-// View is a self-describing, inline view displayed by a tab. Unlike a resource, a view
-// has no backing core document: it carries its own type and opaque args. Used for
-// app-views and tools (docs, explorers, about, the visualization picker).
-type View struct {
-	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-	// a renderer.
-	Type string `json:"type" msgpack:"type"`
-	// Name is the human-readable tab name for the view. A view has no backing resource to
-	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-	// the Console falls back to a type-derived default.
-	Name string `json:"name" msgpack:"name"`
-	// Args is an opaque, Console-owned configuration payload for the view. Core never
-	// interprets it; it round-trips as-is.
-	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
-}
-
-// ResourceTab is a tab displaying a backing core document.
-type ResourceTab struct {
-	// Key is the stable unique identifier of this tab within the panel. It is independent
-	// of the tab's content, so a tab's content may be swapped without changing the tab's
-	// identity or position.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
-}
-
-// ViewTab is a tab displaying an inline, self-describing view.
-type ViewTab struct {
-	// Key is the stable unique identifier of this tab within the panel. It is independent
-	// of the tab's content, so a tab's content may be swapped without changing the tab's
-	// identity or position.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-	// View is the inline view displayed by this tab, set via SetTabView.
-	View View `json:"view" msgpack:"view"`
-}
-
-// EmptyTab is a tab with no content yet. An empty tab renders the visualization
-// selector at render time; SetTabResource or SetTabView fills it in place.
-type EmptyTab struct {
+// TabBase carries the identity shared by every tab variant.
+type TabBase struct {
 	// Key is the stable unique identifier of this tab within the panel. It is independent
 	// of the tab's content, so a tab's content may be swapped without changing the tab's
 	// identity or position.
@@ -116,20 +79,38 @@ type TabVariant interface {
 	isTabVariant()
 }
 
+// TabResource is a tab displaying a backing core document.
 type TabResource struct {
-	ResourceTab
+	TabBase
+	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
+	Resource ontology.ID `json:"resource" msgpack:"resource"`
 }
 
 func (TabResource) isTabVariant() {}
 
+// TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
+// view has no backing core document: it carries its own type and opaque args. Used for
+// app-views and tools (docs, explorers, about, the visualization picker).
 type TabView struct {
-	ViewTab
+	TabBase
+	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
+	// a renderer.
+	Type string `json:"type" msgpack:"type"`
+	// Name is the human-readable tab name for the view. A view has no backing resource to
+	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
+	// the Console falls back to a type-derived default.
+	Name string `json:"name" msgpack:"name"`
+	// Args is an opaque, Console-owned configuration payload for the view. Core never
+	// interprets it; it round-trips as-is.
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
 func (TabView) isTabVariant() {}
 
+// TabEmpty is a tab with no content yet. An empty tab renders the visualization
+// selector at render time; SetTabResource or SetTabView fills it in place.
 type TabEmpty struct {
-	EmptyTab
+	TabBase
 }
 
 func (TabEmpty) isTabVariant() {}

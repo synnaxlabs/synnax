@@ -14,6 +14,7 @@ package panel
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
@@ -94,8 +95,10 @@ type SetTabResourcePayload struct {
 // swapping it in place without changing the tab's identity or position. Clears any
 // resource set on the tab.
 type SetTabViewPayload struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	View View      `json:"view" msgpack:"view"`
+	Key  uuid.UUID           `json:"key" msgpack:"key"`
+	Type string              `json:"type" msgpack:"type"`
+	Name string              `json:"name" msgpack:"name"`
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
 // Action is a discriminated union for all Panel mutations. Type names
