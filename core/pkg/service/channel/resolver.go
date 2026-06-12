@@ -19,13 +19,13 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// channelResolver resolves cluster channels into Arc symbols by name or numeric
-// key. It is the dynamic resolver attached to a program root's GlobalResolver:
-// cluster channels can appear or disappear at runtime, so they cannot be
-// snapshotted into the ambient prelude at analysis time.
+// channelResolver resolves cluster channels into Arc symbols by name or numeric key. It
+// is the dynamic resolver attached to a program root's GlobalResolver: cluster channels
+// can appear or disappear at runtime, so they cannot be snapshotted into the ambient
+// prelude at analysis time.
 type channelResolver struct {
-	dist *Service
-	tx   gorp.Tx
+	svc *Service
+	tx  gorp.Tx
 }
 
 var _ symbol.Resolver = (*channelResolver)(nil)
@@ -43,8 +43,8 @@ func channelToSymbol(ch Channel) *symbol.Symbol {
 // Resolve resolves a single cluster channel by name or numeric key.
 func (r *channelResolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
 	key, err := strconv.Atoi(name)
-	ch := Channel{}
-	q := r.dist.NewRetrieve().Entry(&ch)
+	var ch Channel
+	q := r.svc.NewRetrieve().Entry(&ch)
 	if err == nil {
 		q = q.Where(MatchKeys(Key(key)))
 	} else {
@@ -59,7 +59,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (*symbol.Sym
 // Search fuzzy-searches non-internal cluster channels by name.
 func (r *channelResolver) Search(ctx context.Context, name string) ([]*symbol.Symbol, error) {
 	var results []Channel
-	if err := r.dist.NewRetrieve().
+	if err := r.svc.NewRetrieve().
 		Where(MatchInternal(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.tx); err != nil {

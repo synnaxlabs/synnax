@@ -21,14 +21,14 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// StateConfig describes the channels a compiled calculation reads from and
-// writes to, along with the channel digests and IR needed to execute it.
+// StateConfig describes the channels a compiled calculation reads from and writes to,
+// along with the channel digests and IR needed to execute it.
 type StateConfig struct {
-	// Reads is the set of channel keys the calculation reads from, including the
-	// index channels of any non-virtual channels it reads.
+	// Reads is the set of channel keys the calculation reads from, including the index
+	// channels of any non-virtual channels it reads.
 	Reads set.Set[channel.Key]
-	// Writes is the set of channel keys the calculation writes to, including the
-	// index channels of any non-virtual channels it writes.
+	// Writes is the set of channel keys the calculation writes to, including the index
+	// channels of any non-virtual channels it writes.
 	Writes set.Set[channel.Key]
 	// ChannelDigests holds the key, data type, and index for every channel the
 	// calculation touches.
@@ -62,8 +62,8 @@ func retrieveChannels(
 }
 
 // NewStateConfig derives the read/write channel sets and digests for a compiled
-// program. Non-virtual channels pull in their index channels so the executor can
-// align samples. It returns an error if any referenced channel cannot be retrieved.
+// program. Non-virtual channels pull in their index channels so the executor can align
+// samples. It returns an error if any referenced channel cannot be retrieved.
 func NewStateConfig(
 	ctx context.Context,
 	channelSvc *channel.Service,

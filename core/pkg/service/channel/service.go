@@ -81,17 +81,17 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-// Service is the top-level channel service. It wraps the distribution-layer
-// channel service and adds DataType inference for calculated channels on write.
-// The calculated channel dependency graph (type repair, status reporting) is a
-// separate reactive component opened independently of this Service.
+// Service is the top-level channel service. It wraps the distribution-layer channel
+// service and adds DataType inference for calculated channels on write. The calculated
+// channel dependency graph (type repair, status reporting) is a separate reactive
+// component opened independently of this Service.
 type Service struct {
 	*channel.Service
 	cfg ServiceConfig
 }
 
-// OpenService opens a channel Service. The ctx is accepted for consistency with
-// other service constructors and may be used by future initialization work.
+// OpenService opens a channel Service. The ctx is accepted for consistency with other
+// service constructors and may be used by future initialization work.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -109,20 +109,18 @@ func Wrap(dist *channel.Service) *Service {
 
 // Close is a no-op that intentionally shadows the embedded distribution-layer
 // Service.Close. Closing the service-layer Service must not tear down the shared
-// distribution channel service, which is owned and closed by the distribution
-// layer.
+// distribution channel service, which is owned and closed by the distribution layer.
 func (s *Service) Close() error { return nil }
 
-// NewArcSymbolResolver returns a resolver that maps cluster channels to Arc
-// symbols by name or numeric key, for analyzing and compiling Arc expressions
-// such as calculated channels. tx scopes channel lookups; nil consults the
-// service DB directly.
+// NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
+// name or numeric key, for analyzing and compiling Arc expressions such as calculated
+// channels. tx scopes channel lookups; nil consults the service DB directly.
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return &channelResolver{dist: s, tx: tx}
+	return &channelResolver{svc: s, tx: tx}
 }
 
-// NewWriter returns a Writer that infers DataTypes for calculated channels
-// before delegating to the distribution-layer writer.
+// NewWriter returns a Writer that infers DataTypes for calculated channels before
+// delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
 	w.tx = gorp.OverrideTx(s.cfg.DB, tx)
