@@ -11,29 +11,34 @@ import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/light/config";
-import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
+import { Primitive } from "@/schematic/node/common/primitive";
+import { type Config } from "@/schematic/node/general/polygon/config";
+import { Polygon } from "@/schematic/node/general/polygon/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Light as BaseLight } from "@/vis/light";
 
 export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, source, orientation = "left", ...rest },
+  config,
 }: NodeProps<Config>): ReactElement => {
-  const { enabled } = BaseLight.use({ aetherKey: nodeKey, source });
+  const { label, orientation = "left", ...rest } = config;
   return (
     <Grid.Grid
-      orientation={orientation}
-      onRotate={onConfigChange}
+      keepAspectRatio
       editable={selected}
       nodeKey={nodeKey}
-      keepAspectRatio
-      onResize={({ width }) => onConfigChange({ scale: width / WIDTH_PER_SCALE })}
+      orientation={orientation}
+      onRotate={onConfigChange}
+      onResize={({ width }) =>
+        onConfigChange({
+          sideLength:
+            (width * Math.sin(Math.PI / config.numSides)) / Primitive.BASE_SCALE,
+        })
+      }
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      <Light enabled={enabled} orientation={orientation} {...rest} />
+      <Polygon orientation={orientation} {...rest} />
     </Grid.Grid>
   );
 };

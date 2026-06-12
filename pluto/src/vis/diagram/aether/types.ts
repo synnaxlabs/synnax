@@ -118,6 +118,7 @@ export type NodeChange =
       type: "dimensions";
       key: string;
       dimensions: { width: number; height: number };
+      resizing?: boolean;
     };
 
 export const translateNodeChangeForward = (
@@ -142,6 +143,7 @@ export const translateNodeChangeForward = (
         type: "dimensions",
         key: change.id,
         dimensions: change.dimensions,
+        resizing: change.resizing ?? false,
       };
     default:
       return null;
