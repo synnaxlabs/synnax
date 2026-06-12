@@ -997,7 +997,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 			)
 	})
 
-	It("Should place shared base fields outside the oneof", func(ctx SpecContext) {
+	It("Should nest shared bases as message fields outside the oneof", func(ctx SpecContext) {
 		source := `
 			@go output "core/pkg/hw/ni"
 			@pb
@@ -1013,9 +1013,36 @@ var _ = Describe("Protobuf Union Generation", func() {
 		ExpectContent(resp, "ni.proto").
 			ToContain(
 				"message AIChannel {",
-				"int32 port = 1;",
+				"BaseAIChan base_ai_chan = 1;",
 				"oneof variant {",
 				"VoltageFields ai_voltage = 2;",
+			)
+	})
+
+	It("Should generate messages for inline variant payloads", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/panel"
+			@pb
+
+			TabBase struct { key string }
+
+			Tab union on variant extends TabBase {
+				view {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, p)
+		ExpectContent(resp, "panel.proto").
+			ToContain(
+				"message TabViewPayload {",
+				"message TabEmptyPayload {",
+				"message Tab {",
+				"TabBase tab_base = 1;",
+				"oneof variant {",
+				"TabViewPayload view = 2;",
+				"TabEmptyPayload empty = 3;",
 			)
 	})
 

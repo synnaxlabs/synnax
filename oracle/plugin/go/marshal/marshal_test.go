@@ -912,6 +912,46 @@ var _ = Describe("Union Codecs", func() {
 			)
 	})
 
+	It("Should encode inline variant fields directly in the union codec", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			TabBase struct { key string }
+
+			Tab union on variant extends TabBase {
+				view {
+					type string
+				}
+				empty {}
+			}
+
+			Test struct {
+				tab Tab
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		content := ExpectContent(resp, "codec.gen.go")
+		content.ToBeValidGoSource()
+		content.ToContain(
+			`case TabView:`,
+			"if err := v.TabBase.EncodeOrc(w); err != nil { return err }",
+			"w.String(v.Type)",
+			"if err := v.TabBase.DecodeOrc(r); err != nil { return err }",
+			"v.Type, err = r.String()",
+		)
+		content.ToNotContain("TabViewPayload")
+		ExpectContent(resp, "codec_gen_test.go").
+			ToBeValidGoSource().
+			ToContain(
+				`Entry("view variant"`,
+				`Entry("empty variant"`,
+				"TabBase: fullyPopulatedTabBase",
+				"Type:",
+			)
+	})
+
 	It("Should share fully populated fixtures between union entries and type tables", func(ctx SpecContext) {
 		source := `
 			@go output "core/pkg/test"

@@ -90,7 +90,7 @@ func generateTestCodecFile(
 	varNameOwner := make(map[string]string)
 	ensureShared := func(typ resolution.Type, ref resolution.TypeRef) error {
 		form, ok := typ.Form.(resolution.StructForm)
-		if !ok || form.IsGeneric() {
+		if !ok || form.IsGeneric() || typ.Synthetic {
 			return nil
 		}
 		if _, ok := sharedVars[typ.QualifiedName]; ok {
@@ -140,9 +140,22 @@ func generateTestCodecFile(
 			}
 		}
 		for _, v := range uform.Variants {
-			if payload, ok := v.Type.Resolve(table); ok {
-				if err := ensureShared(payload, v.Type); err != nil {
-					return nil, err
+			payload, ok := v.Type.Resolve(table)
+			if !ok {
+				continue
+			}
+			if err := ensureShared(payload, v.Type); err != nil {
+				return nil, err
+			}
+			pform, ok := payload.Form.(resolution.StructForm)
+			if !ok || !v.Inline {
+				continue
+			}
+			for _, ext := range pform.Extends {
+				if parent, ok := ext.Resolve(table); ok {
+					if err := ensureShared(parent, ext); err != nil {
+						return nil, err
+					}
 				}
 			}
 		}
@@ -703,7 +716,39 @@ func (b *testValueBuilder) unionExpr(
 		embeds = append(embeds,
 			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
 	}
-	if varName, ok := b.sharedVars[payload.QualifiedName]; ok &&
+	if v.Inline {
+		pform, ok := payload.Form.(resolution.StructForm)
+		if !ok {
+			return "", errors.Newf(
+				"union %s variant %q: inline payload is not a struct", actual.Name, v.Name)
+		}
+		for _, ext := range pform.Extends {
+			parent, ok := ext.Resolve(b.table)
+			if !ok {
+				continue
+			}
+			if varName, ok := b.sharedVars[parent.QualifiedName]; ok &&
+				b.mode == modeFullyPopulated {
+				embeds = append(embeds, naming.GetGoName(parent)+": "+varName)
+				continue
+			}
+			parentGoType, err := b.goTypeName(parent)
+			if err != nil {
+				return "", err
+			}
+			parentExprs, err := b.buildStructFieldExprs(parent)
+			if err != nil {
+				return "", err
+			}
+			embeds = append(embeds,
+				naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
+		}
+		fieldExprs, err := b.buildFieldExprs(pform.Fields)
+		if err != nil {
+			return "", err
+		}
+		embeds = append(embeds, fieldExprs...)
+	} else if varName, ok := b.sharedVars[payload.QualifiedName]; ok &&
 		b.mode == modeFullyPopulated {
 		embeds = append(embeds, naming.GetGoName(payload)+": "+varName)
 	} else {

@@ -220,7 +220,7 @@ var _ = Describe("Go PB Plugin", func() {
 					)
 			})
 
-			It("Should reject pb unions that use extends", func(ctx SpecContext) {
+			It("Should translate union extends bases through the bases' own translators", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/schematic"
 					@pb
@@ -237,12 +237,42 @@ var _ = Describe("Go PB Plugin", func() {
 						square Body
 					}
 				`
-				req := MustGenerateRequest(ctx, source, "schematic", loader)
-				Expect(pbPlugin.Generate(req)).Error().To(
-					MatchError(ContainSubstring(
-						"pb translators for unions with extends are not yet supported",
-					)),
-				)
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"pb.Base, err = BaseToPB(v.Base)",
+						"m := schematic.ShapeSquare{Body: inner}",
+						"m.Base, err = BaseFromPB(pb.Base)",
+						"r.Variant = m",
+					)
+			})
+
+			It("Should translate inline variants against the variant member", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Shape union on variant extends Base {
+						square {
+							width float64
+						}
+						empty {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func ShapeSquarePayloadToPB(r schematic.ShapeSquare) (*ShapeSquarePayload, error)",
+						"inner, err := ShapeSquarePayloadToPB(v)",
+						"m := inner",
+						"m.Base, err = BaseFromPB(pb.Base)",
+					)
 			})
 		})
 

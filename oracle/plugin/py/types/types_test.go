@@ -1630,6 +1630,32 @@ var _ = Describe("Python Union Generation", func() {
 			)
 	})
 
+	It("Should declare inline variant fields directly on the variant model", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			TabBase struct { key string }
+			Labeled struct { label string }
+
+			Tab union on variant extends TabBase {
+				view extends Labeled {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		content := ExpectContent(resp, "types_gen.py")
+		content.ToContain(
+			`class TabView(TabBase, Labeled):`,
+			`variant: Literal["view"]`,
+			`type: str`,
+			`class TabEmpty(TabBase):`,
+			`variant: Literal["empty"]`,
+		)
+		content.ToNotContain("TabViewPayload")
+	})
+
 	It("Should inherit the union base and the payload in every variant, not flatten", func(ctx SpecContext) {
 		source := `
 			@py output "out"

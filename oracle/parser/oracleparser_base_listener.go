@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -293,11 +284,17 @@ func (s *BaseOracleParserListener) EnterUnionBody(ctx *UnionBodyContext) {}
 // ExitUnionBody is called when production unionBody is exited.
 func (s *BaseOracleParserListener) ExitUnionBody(ctx *UnionBodyContext) {}
 
-// EnterUnionVariant is called when production unionVariant is entered.
-func (s *BaseOracleParserListener) EnterUnionVariant(ctx *UnionVariantContext) {}
+// EnterNamedVariant is called when production NamedVariant is entered.
+func (s *BaseOracleParserListener) EnterNamedVariant(ctx *NamedVariantContext) {}
 
-// ExitUnionVariant is called when production unionVariant is exited.
-func (s *BaseOracleParserListener) ExitUnionVariant(ctx *UnionVariantContext) {}
+// ExitNamedVariant is called when production NamedVariant is exited.
+func (s *BaseOracleParserListener) ExitNamedVariant(ctx *NamedVariantContext) {}
+
+// EnterInlineVariant is called when production InlineVariant is entered.
+func (s *BaseOracleParserListener) EnterInlineVariant(ctx *InlineVariantContext) {}
+
+// ExitInlineVariant is called when production InlineVariant is exited.
+func (s *BaseOracleParserListener) ExitInlineVariant(ctx *InlineVariantContext) {}
 
 // EnterVariantName is called when production variantName is entered.
 func (s *BaseOracleParserListener) EnterVariantName(ctx *VariantNameContext) {}

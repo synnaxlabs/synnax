@@ -2614,8 +2614,14 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{ if .Doc -}}
 {{ formatDoc .TypeName .Doc }}
 {{ end -}}
-export const {{ .SchemaName }} = {{ range $i, $p := .ParentSchemas }}{{ if $i }}.extend({{ end }}{{ $p }}{{ if $i }}.shape){{ end }}{{ end }}.extend({
+export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .ParentSchemas }}{{ if $i }}.extend({{ end }}{{ $p }}{{ if $i }}.shape){{ end }}{{ end }}.extend({{ else }}z.object({{ end }}{
   {{ $disc }}: z.literal("{{ .Value }}"),
+{{- range .Fields }}
+{{- if .Doc }}
+  {{ formatDoc .TSName .Doc }}
+{{- end }}
+  {{ .TSName }}: {{ .ZodType }},
+{{- end }}
 });
 {{- if $.GenerateTypes }}
 export interface {{ .TypeName }} extends z.infer<typeof {{ .SchemaName }}> {}

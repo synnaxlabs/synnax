@@ -1600,6 +1600,31 @@ var _ = Describe("C++ Union Generation", func() {
 			)
 	})
 
+	It("Should declare inline variant fields directly on the variant struct", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			TabBase struct { key string }
+			Labeled struct { label string }
+
+			Tab union on variant extends TabBase {
+				view extends Labeled {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, cppPlugin)
+		content := ExpectContent(resp, "types.gen.h")
+		content.ToContain(
+			`struct TabView : public TabBase, public Labeled {`,
+			`std::string type;`,
+			`struct TabEmpty : public TabBase {`,
+			`using Tab = std::variant<TabView, TabEmpty>;`,
+		)
+		content.ToNotContain("TabViewPayload")
+	})
+
 	It("Should inherit the union base and payload in every variant struct, not flatten", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"

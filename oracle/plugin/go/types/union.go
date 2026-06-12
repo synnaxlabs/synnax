@@ -51,8 +51,13 @@ type unionVariantData struct {
 	// Doc is the rendered per-variant documentation comment, if any.
 	Doc string
 	// Embeds are the embedded type names contributing the variant's fields:
-	// the union's shared base structs followed by the variant payload struct.
+	// the union's shared base structs followed by the variant payload struct
+	// (or, for inline variants, the payload's extends bases).
 	Embeds []string
+	// Fields are the variant's own fields, declared directly on the variant
+	// struct. Populated only for inline variants, whose Synthetic payload has
+	// no standalone type to embed.
+	Fields []fieldData
 }
 
 func processUnion(entry resolution.Type, data *templateData) unionData {
@@ -92,7 +97,21 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			Doc:       doc.Get(v.Domains),
 		}
 		vd.Embeds = append(vd.Embeds, baseEmbeds...)
-		vd.Embeds = append(vd.Embeds, data.resolver.ResolveTypeRef(v.Type, data.ctx))
+		if v.Inline {
+			if payload, ok := v.Type.Resolve(data.table); ok {
+				pform := payload.Form.(resolution.StructForm)
+				for _, ext := range pform.Extends {
+					if parent, ok := ext.Resolve(data.table); ok {
+						vd.Embeds = append(vd.Embeds, resolveExtendsType(ext, parent, data))
+					}
+				}
+				for _, f := range pform.Fields {
+					vd.Fields = append(vd.Fields, processField(f, data))
+				}
+			}
+		} else {
+			vd.Embeds = append(vd.Embeds, data.resolver.ResolveTypeRef(v.Type, data.ctx))
+		}
 		ud.Variants = append(ud.Variants, vd)
 	}
 	return ud

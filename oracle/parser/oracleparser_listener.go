@@ -1,12 +1,3 @@
-// Copyright 2026 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 // Code generated from OracleParser.g4 by ANTLR 4.13.2. DO NOT EDIT.
 
 package parser // OracleParser
@@ -148,8 +139,11 @@ type OracleParserListener interface {
 	// EnterUnionBody is called when entering the unionBody production.
 	EnterUnionBody(c *UnionBodyContext)
 
-	// EnterUnionVariant is called when entering the unionVariant production.
-	EnterUnionVariant(c *UnionVariantContext)
+	// EnterNamedVariant is called when entering the NamedVariant production.
+	EnterNamedVariant(c *NamedVariantContext)
+
+	// EnterInlineVariant is called when entering the InlineVariant production.
+	EnterInlineVariant(c *InlineVariantContext)
 
 	// EnterVariantName is called when entering the variantName production.
 	EnterVariantName(c *VariantNameContext)
@@ -289,8 +283,11 @@ type OracleParserListener interface {
 	// ExitUnionBody is called when exiting the unionBody production.
 	ExitUnionBody(c *UnionBodyContext)
 
-	// ExitUnionVariant is called when exiting the unionVariant production.
-	ExitUnionVariant(c *UnionVariantContext)
+	// ExitNamedVariant is called when exiting the NamedVariant production.
+	ExitNamedVariant(c *NamedVariantContext)
+
+	// ExitInlineVariant is called when exiting the InlineVariant production.
+	ExitInlineVariant(c *InlineVariantContext)
 
 	// ExitVariantName is called when exiting the variantName production.
 	ExitVariantName(c *VariantNameContext)

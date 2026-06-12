@@ -315,6 +315,35 @@ func (p *Plugin) generateFile(
 			return nil, errors.Wrapf(err, "failed to process union %s", u.Name)
 		}
 		data.UnionTranslators = append(data.UnionTranslators, *ut)
+
+		// Inline variants have no standalone Go payload type, so their payload
+		// message translates against the variant member itself: the member
+		// declares the payload's fields directly (and promotes base-embed
+		// fields), so field access lines up with the payload message.
+		goName := naming.GetGoName(u)
+		for _, v := range form.Variants {
+			if !v.Inline {
+				continue
+			}
+			payload, ok := v.Type.Resolve(data.table)
+			if !ok {
+				continue
+			}
+			pform, ok := payload.Form.(resolution.StructForm)
+			if !ok {
+				continue
+			}
+			pt, err := p.processStructForTranslation(payload, pform, data, req)
+			if err != nil || pt == nil {
+				return nil, errors.Wrapf(err,
+					"failed to process inline payload for union %s variant %q",
+					u.Name, v.Name)
+			}
+			memberName := casing.VariantTypeName(goName, v.Name)
+			pt.GoType = fmt.Sprintf("%s.%s", data.parentAlias, memberName)
+			pt.GoTypeShort = memberName
+			data.Translators = append(data.Translators, *pt)
+		}
 	}
 	if len(data.UnionTranslators) > 0 {
 		data.imports.AddExternal("github.com/synnaxlabs/x/errors")
@@ -384,8 +413,24 @@ type unionTranslatorData struct {
 	PBType      string
 	GoTypeShort string
 	PBTypeShort string
+	// Bases lists the union's extends bases, which nest as message fields on
+	// the wrapper and translate through the bases' own translator functions.
+	Bases []unionBaseTranslatorData
 	// Variants lists every variant in declaration order.
 	Variants []unionVariantTranslatorData
+}
+
+// unionBaseTranslatorData holds data for one extends base of a union
+// translator.
+type unionBaseTranslatorData struct {
+	// GoEmbed is the embedded base field on the Go variant struct (e.g. "TabBase").
+	GoEmbed string
+	// PBGoName is the protoc-generated Go field for the base message on the
+	// wrapper (e.g. "TabBase" for proto field "tab_base").
+	PBGoName string
+	// ToPB and FromPB are the base struct's translator functions.
+	ToPB   string
+	FromPB string
 }
 
 // unionVariantTranslatorData holds data for one variant of a union translator.
@@ -396,7 +441,11 @@ type unionVariantTranslatorData struct {
 	PBWrapper string
 	// PBField is the field name inside the oneof wrapper (e.g. "Cap").
 	PBField string
+	// IsInline marks an inline variant: the payload translators take the
+	// variant member itself rather than an embedded payload field.
+	IsInline bool
 	// PayloadGoField is the embedded payload field on the Go variant struct.
+	// Empty for inline variants.
 	PayloadGoField string
 	// PayloadToPB and PayloadFromPB are the payload struct's translator functions.
 	PayloadToPB   string
@@ -411,12 +460,6 @@ func (p *Plugin) processUnionForTranslation(
 	form resolution.UnionForm,
 	data *templateData,
 ) (*unionTranslatorData, error) {
-	if len(form.Extends) > 0 {
-		return nil, errors.Newf(
-			"union %s: pb translators for unions with extends are not yet supported",
-			u.Name,
-		)
-	}
 	goName := naming.GetGoName(u)
 	pbName := getPBName(u)
 	if pbName == "" {
@@ -429,6 +472,22 @@ func (p *Plugin) processUnionForTranslation(
 		GoTypeShort: goName,
 		PBTypeShort: pbName,
 	}
+	for _, ext := range form.Extends {
+		base, ok := ext.Resolve(data.table)
+		if !ok {
+			return nil, errors.Newf("union %s: unresolved base %s", u.Name, ext.Name)
+		}
+		if _, isStruct := base.Form.(resolution.StructForm); !isStruct {
+			continue
+		}
+		prefix, baseName := p.resolvePBTranslatorInfo(base, data)
+		ut.Bases = append(ut.Bases, unionBaseTranslatorData{
+			GoEmbed:  naming.GetGoName(base),
+			PBGoName: lo.PascalCase(casing.FieldSnake(base.Name)),
+			ToPB:     prefix + baseName + "ToPB",
+			FromPB:   prefix + baseName + "FromPB",
+		})
+	}
 	for _, v := range form.Variants {
 		payload, ok := v.Type.Resolve(data.table)
 		if !ok {
@@ -436,14 +495,18 @@ func (p *Plugin) processUnionForTranslation(
 		}
 		prefix, payloadName := p.resolvePBTranslatorInfo(payload, data)
 		pbField := protocOneofGoName(v.Name)
-		ut.Variants = append(ut.Variants, unionVariantTranslatorData{
-			GoVariantType:  fmt.Sprintf("%s.%s", data.parentAlias, casing.VariantTypeName(goName, v.Name)),
-			PBWrapper:      fmt.Sprintf("%s_%s", pbName, pbField),
-			PBField:        pbField,
-			PayloadGoField: naming.GetGoName(payload),
-			PayloadToPB:    prefix + payloadName + "ToPB",
-			PayloadFromPB:  prefix + payloadName + "FromPB",
-		})
+		vt := unionVariantTranslatorData{
+			GoVariantType: fmt.Sprintf("%s.%s", data.parentAlias, casing.VariantTypeName(goName, v.Name)),
+			PBWrapper:     fmt.Sprintf("%s_%s", pbName, pbField),
+			PBField:       pbField,
+			IsInline:      v.Inline,
+			PayloadToPB:   prefix + payloadName + "ToPB",
+			PayloadFromPB: prefix + payloadName + "FromPB",
+		}
+		if !v.Inline {
+			vt.PayloadGoField = naming.GetGoName(payload)
+		}
+		ut.Variants = append(ut.Variants, vt)
 	}
 	return ut, nil
 }

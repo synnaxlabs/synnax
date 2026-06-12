@@ -24,6 +24,10 @@ type Type struct {
 	Namespace     string
 	QualifiedName string
 	FilePath      string
+	// Synthetic marks analyzer-fabricated types (inline union variant
+	// payloads) that resolve like any other type but are excluded from
+	// standalone code generation.
+	Synthetic bool
 }
 
 type TypeForm interface {
@@ -106,6 +110,10 @@ type UnionVariant struct {
 	Domains map[string]Domain
 	Name    string
 	Type    TypeRef
+	// Inline reports that the payload was declared inline in the union body.
+	// Type then references a Synthetic struct whose fields generators flatten
+	// into the variant member instead of embedding a named payload type.
+	Inline bool
 }
 
 type DistinctForm struct {
