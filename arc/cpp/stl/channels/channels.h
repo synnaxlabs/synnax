@@ -108,15 +108,20 @@ public:
 class Write : public runtime::node::Node {
     runtime::state::Node state;
     types::ChannelKey channel_key;
+    size_t input_idx;
     ::x::telem::MonoClock clock;
 
 public:
-    Write(runtime::state::Node &&state, const types::ChannelKey channel_key):
-        state(std::move(state)), channel_key(channel_key) {}
+    Write(
+        runtime::state::Node &&state,
+        const types::ChannelKey channel_key,
+        size_t input_idx
+    ):
+        state(std::move(state)), channel_key(channel_key), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &data = this->state.input_named(ir::default_input_param);
+        const auto &data = this->state.input(this->input_idx);
         if (data->empty()) return x::errors::NIL;
         const auto start = this->clock.now();
         const auto time = x::mem::local_shared(
@@ -179,8 +184,10 @@ public:
                 std::make_unique<On>(std::move(cfg.state), channel_key),
                 x::errors::NIL
             };
+        auto [input_idx, in_err] = cfg.state.resolve_input(ir::default_input_param);
+        if (in_err) return {nullptr, in_err};
         return {
-            std::make_unique<Write>(std::move(cfg.state), channel_key),
+            std::make_unique<Write>(std::move(cfg.state), channel_key, input_idx),
             x::errors::NIL
         };
     }

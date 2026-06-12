@@ -441,3 +441,20 @@ var _ = Describe("StableFor", func() {
 		})
 	})
 })
+
+var _ = Describe("Construction validation", func() {
+	It("Should error at construction when the input param is missing", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "stable",
+			Type: "stable_for",
+			Inputs: types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
+		Expect(stable.NewHost().Create(ctx, cfg)).Error().
+			To(MatchError(ContainSubstring("no input named")))
+	})
+})

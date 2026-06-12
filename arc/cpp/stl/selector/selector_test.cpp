@@ -416,4 +416,28 @@ TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
     EXPECT_EQ(checker.output_time(1)->time_range, x::telem::TimeRange(1000, 2000));
 }
 
+/// @brief A select node missing its input param must fail at construction.
+TEST(SelectConstructionTest, ErrorsWhenInputMissing) {
+    types::Param out;
+    out.name = "true";
+    out.type = types::Type{.kind = types::Kind::U8};
+    ir::Node n;
+    n.key = "select";
+    n.type = "select";
+    n.outputs.push_back(out);
+    ir::IR ir;
+    ir.nodes.push_back(n);
+    runtime::state::State state(
+        runtime::state::Config{.ir = ir, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    Module module;
+    ASSERT_OCCURRED_AS_P(
+        module.create(
+            runtime::node::Config(ir, ir.nodes[0], ASSERT_NIL_P(state.node("select")))
+        ),
+        x::errors::VALIDATION
+    );
+}
+
 }

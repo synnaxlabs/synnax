@@ -497,4 +497,34 @@ TEST(StableModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
     );
     ASSERT_NE(node, nullptr);
 }
+
+/// @brief A stable_for node carrying its duration config but missing the data
+/// input must fail at construction.
+TEST(StableConstructionTest, ErrorsWhenInputMissing) {
+    types::Param duration;
+    duration.name = "duration";
+    duration.type = types::Type{.kind = types::Kind::I64};
+    duration.value = 5 * x::telem::SECOND.nanoseconds();
+    types::Param out;
+    out.name = ir::default_output_param;
+    out.type = types::Type{.kind = types::Kind::U8};
+    ir::Node n;
+    n.key = "stable";
+    n.type = "stable_for";
+    n.inputs.push_back(duration);
+    n.outputs.push_back(out);
+    ir::IR ir;
+    ir.nodes.push_back(n);
+    runtime::state::State state(
+        runtime::state::Config{.ir = ir, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    Module module;
+    ASSERT_OCCURRED_AS_P(
+        module.create(
+            runtime::node::Config(ir, ir.nodes[0], ASSERT_NIL_P(state.node("stable")))
+        ),
+        x::errors::VALIDATION
+    );
+}
 }

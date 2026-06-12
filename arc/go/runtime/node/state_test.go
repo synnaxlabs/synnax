@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ProgramState", func() {
@@ -1329,6 +1330,37 @@ var _ = Describe("ProgramState", func() {
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
+		})
+	})
+
+	Describe("ResolveInput", func() {
+		buildNode := func(ctx SpecContext) *node.State {
+			g := graph.Graph{
+				Nodes: []graph.Node{{Key: "n", Type: "n"}},
+				Functions: []graph.Function{{
+					Key: "n",
+					Inputs: types.Params{
+						{Name: ir.DefaultInputParam, Type: types.F32()},
+						{Name: "reset", Type: types.U8(), Value: uint8(0)},
+					},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+				}},
+			}
+			prog, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			return node.New(prog).Node("n")
+		}
+
+		It("Should return the position of a present input", func(ctx SpecContext) {
+			n := buildNode(ctx)
+			Expect(MustSucceed(n.ResolveInput(ir.DefaultInputParam))).To(Equal(0))
+			Expect(MustSucceed(n.ResolveInput("reset"))).To(Equal(1))
+		})
+
+		It("Should return an error naming an absent input", func(ctx SpecContext) {
+			n := buildNode(ctx)
+			Expect(n.ResolveInput("missing")).Error().
+				To(MatchError(ContainSubstring(`no input named "missing"`)))
 		})
 	})
 

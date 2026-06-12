@@ -811,3 +811,28 @@ var _ = Describe("Derivative", func() {
 		Expect(result.TimeRange.End).To(Equal(200 * telem.SecondTS))
 	})
 })
+
+var _ = Describe("Construction validation", func() {
+	DescribeTable("Should error at construction when the input param is missing",
+		func(ctx SpecContext, nodeType string) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:     "math",
+				Type:    nodeType,
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+			}}}
+			s := node.New(prog)
+			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			cfg := node.Config{
+				Node:    prog.Nodes[0],
+				State:   s.Node("math"),
+				Program: program.Program{IR: prog},
+			}
+			Expect(m.Create(ctx, cfg)).Error().
+				To(MatchError(ContainSubstring("no input named")))
+		},
+		Entry("avg", "avg"),
+		Entry("min", "min"),
+		Entry("max", "max"),
+		Entry("derivative", "derivative"),
+	)
+})

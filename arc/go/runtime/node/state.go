@@ -13,6 +13,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -214,22 +215,14 @@ func (n *State) Input(paramIndex int) telem.Series {
 	return n.aligned.data[paramIndex]
 }
 
-// InputNamed returns the data series for the named input: a constant series if
-// literal-fed, the upstream series if wire-fed.
-func (n *State) InputNamed(name string) telem.Series {
-	return n.aligned.data[n.inputIndex[name]]
-}
-
-// InputTimeNamed returns the timestamp series for the named input.
-func (n *State) InputTimeNamed(name string) telem.Series {
-	return n.aligned.time[n.inputIndex[name]]
-}
-
-// InitInputNamed initializes the source series for the named input.
-func (n *State) InitInputNamed(name string, data, time telem.Series) {
-	if idx, ok := n.inputIndex[name]; ok {
-		n.InitInput(idx, data, time)
+// ResolveInput returns the position of the named input, or an error if the node
+// has no such param. Resolve at construction so wiring mistakes fail at load.
+func (n *State) ResolveInput(name string) (int, error) {
+	idx, ok := n.inputIndex[name]
+	if !ok {
+		return 0, errors.Newf("node has no input named %q", name)
 	}
+	return idx, nil
 }
 
 // Output returns a mutable pointer to the data series for the output at the

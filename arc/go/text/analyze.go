@@ -467,8 +467,8 @@ func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (n
 		Type:     "write",
 		Channels: types.NewChannels(),
 		Inputs: types.Params{
-			{Name: "channel", Type: sym.Type, Value: chKey},
 			{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()},
+			{Name: "channel", Type: sym.Type, Value: chKey},
 		},
 		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 	}

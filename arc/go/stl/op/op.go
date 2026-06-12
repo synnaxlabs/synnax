@@ -27,34 +27,54 @@ type Host struct{}
 // NewHost constructs an op Host.
 func NewHost() *Host { return &Host{} }
 
+func resolveBinary(s *node.State) (lhs, rhs int, err error) {
+	if lhs, err = s.ResolveInput(ir.LHSInputParam); err != nil {
+		return
+	}
+	rhs, err = s.ResolveInput(ir.RHSInputParam)
+	return
+}
+
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	cat, ok := typedOps[cfg.Node.Type]
-	if ok {
-		return &binary{State: cfg.State, op: cat[cfg.State.InputNamed(ir.LHSInputParam).DataType]}, nil
+	if cat, ok := typedOps[cfg.Node.Type]; ok {
+		lhsIdx, rhsIdx, err := resolveBinary(cfg.State)
+		if err != nil {
+			return nil, err
+		}
+		op := cat[cfg.State.Input(lhsIdx).DataType]
+		return &binary{State: cfg.State, lhsIdx: lhsIdx, rhsIdx: rhsIdx, op: op}, nil
 	}
-	opFn, ok := logicalOps[cfg.Node.Type]
-	if ok {
-		return &binary{State: cfg.State, op: opFn}, nil
+	if opFn, ok := logicalOps[cfg.Node.Type]; ok {
+		lhsIdx, rhsIdx, err := resolveBinary(cfg.State)
+		if err != nil {
+			return nil, err
+		}
+		return &binary{State: cfg.State, lhsIdx: lhsIdx, rhsIdx: rhsIdx, op: opFn}, nil
 	}
-	unOpFn, ok := unaryOps[cfg.Node.Type]
-	if ok {
-		return &unary{State: cfg.State, op: unOpFn}, nil
+	if unOpFn, ok := unaryOps[cfg.Node.Type]; ok {
+		inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+		if err != nil {
+			return nil, err
+		}
+		return &unary{State: cfg.State, inputIdx: inputIdx, op: unOpFn}, nil
 	}
 	return nil, query.ErrNotFound
 }
 
 type binary struct {
 	*node.State
-	op telemOp.Binary
+	op     telemOp.Binary
+	lhsIdx int
+	rhsIdx int
 }
 
 func (n *binary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {
 		return
 	}
-	lhs, rhs := n.InputNamed(ir.LHSInputParam), n.InputNamed(ir.RHSInputParam)
+	lhs, rhs := n.Input(n.lhsIdx), n.Input(n.rhsIdx)
 	n.op(lhs, rhs, n.Output(0))
-	*n.OutputTime(0) = n.InputTimeNamed(ir.LHSInputParam)
+	*n.OutputTime(0) = n.InputTime(n.lhsIdx)
 	alignment := lhs.Alignment + rhs.Alignment
 	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
 	if !rhs.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || rhs.TimeRange.Start < timeRange.Start) {
@@ -72,7 +92,8 @@ func (n *binary) Next(ctx node.Context) {
 
 type unary struct {
 	*node.State
-	op telemOp.Unary
+	op       telemOp.Unary
+	inputIdx int
 }
 
 var _ node.Node = (*unary)(nil)
@@ -81,9 +102,9 @@ func (n *unary) Next(ctx node.Context) {
 	if !n.RefreshInputs() {
 		return
 	}
-	input := n.InputNamed(ir.DefaultInputParam)
+	input := n.Input(n.inputIdx)
 	n.op(input, n.Output(0))
-	*n.OutputTime(0) = n.InputTimeNamed(ir.DefaultInputParam)
+	*n.OutputTime(0) = n.InputTime(n.inputIdx)
 	n.Output(0).Alignment = input.Alignment
 	n.Output(0).TimeRange = input.TimeRange
 	n.OutputTime(0).Alignment = input.Alignment

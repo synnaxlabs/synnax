@@ -109,12 +109,10 @@ public:
 
     [[nodiscard]] const Series &input_time(size_t param_index) const;
 
-    /// @brief returns the data series for the named input: a constant series if
-    /// literal-fed, the upstream series if wire-fed.
-    [[nodiscard]] const Series &input_named(const std::string &name) const;
-
-    /// @brief returns the timestamp series for the named input.
-    [[nodiscard]] const Series &input_time_named(const std::string &name) const;
+    /// @brief returns the position of the named input, or an error if the node
+    /// has no such param. Resolve at construction so wiring mistakes fail at load.
+    [[nodiscard]] std::pair<size_t, x::errors::Error>
+    resolve_input(const std::string &name) const;
 
     [[nodiscard]] Series &output(size_t param_index) const;
     [[nodiscard]] Series &output_time(size_t param_index) const;
@@ -153,11 +151,6 @@ public:
     /// Used to seed optional inputs (e.g., reset signals) so that
     /// refresh_inputs does not block on them before they receive real data.
     void init_input(size_t param_index, const Series &data, const Series &time);
-
-    /// @brief initializes the source series for the named input. A no-op when
-    /// the name does not match any of this node's inputs.
-    void
-    init_input_named(const std::string &name, const Series &data, const Series &time);
 
     /// @brief Resets accumulated input state for runtime restart.
     void reset() {

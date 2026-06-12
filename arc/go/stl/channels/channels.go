@@ -131,7 +131,11 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			state: h.state,
 		}, nil
 	}
-	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel, inputIdx: inputIdx}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -202,16 +206,17 @@ func (s *source) Next(ctx node.Context) {
 
 type sink struct {
 	*node.State
-	state *ProgramState
-	key   uint32
+	state    *ProgramState
+	key      uint32
+	inputIdx int
 }
 
 func (s *sink) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
-	data := s.InputNamed(ir.DefaultInputParam)
-	time := s.InputTimeNamed(ir.DefaultInputParam)
+	data := s.Input(s.inputIdx)
+	time := s.InputTime(s.inputIdx)
 	if data.Len() == 0 {
 		return
 	}

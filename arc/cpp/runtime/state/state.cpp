@@ -281,21 +281,14 @@ const Series &Node::input_time(const size_t param_index) const {
     return this->aligned_time[param_index];
 }
 
-const Series &Node::input_named(const std::string &name) const {
-    return this->aligned_data[this->input_index.at(name)];
-}
-
-const Series &Node::input_time_named(const std::string &name) const {
-    return this->aligned_time[this->input_index.at(name)];
-}
-
-void Node::init_input_named(
-    const std::string &name,
-    const Series &data,
-    const Series &time
-) {
-    if (const auto it = this->input_index.find(name); it != this->input_index.end())
-        this->init_input(it->second, data, time);
+std::pair<size_t, x::errors::Error> Node::resolve_input(const std::string &name) const {
+    const auto it = this->input_index.find(name);
+    if (it == this->input_index.end())
+        return {
+            0,
+            x::errors::Error(x::errors::VALIDATION, "node has no input named " + name)
+        };
+    return {it->second, x::errors::NIL};
 }
 Series &Node::output(const size_t param_index) const {
     return this->state.values[this->output_idx[param_index]].data;

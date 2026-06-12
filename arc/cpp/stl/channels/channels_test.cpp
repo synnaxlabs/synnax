@@ -1053,4 +1053,33 @@ TEST(ChannelStateTest, WriteSeries_RoundTripsViaReadSeries) {
     EXPECT_EQ(out.at<int64_t>(2, 1), 400);
 }
 
+/// @brief A write node carrying its channel config but missing the data input
+/// must fail at construction.
+TEST(ChannelWriteConstructionTest, ErrorsWhenInputMissing) {
+    types::Param channel;
+    channel.name = "channel";
+    channel.type = types::Type{.kind = types::Kind::U32};
+    channel.value = static_cast<uint32_t>(10);
+    types::Param out;
+    out.name = ir::default_output_param;
+    out.type = types::Type{.kind = types::Kind::U8};
+    ir::Node n;
+    n.key = "write";
+    n.type = "write";
+    n.inputs.push_back(channel);
+    n.outputs.push_back(out);
+    ir::IR ir;
+    ir.nodes.push_back(n);
+    runtime::state::State state(
+        runtime::state::Config{.ir = ir, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    auto state_node = ASSERT_NIL_P(state.node("write"));
+    channels::Module module(nullptr, nullptr);
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(ir, ir.nodes[0], std::move(state_node))),
+        x::errors::VALIDATION
+    );
+}
+
 }

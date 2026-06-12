@@ -82,17 +82,24 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	return &selectNode{State: cfg.State}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultOutputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &selectNode{State: cfg.State, inputIdx: inputIdx}, nil
 }
 
-type selectNode struct{ *node.State }
+type selectNode struct {
+	*node.State
+	inputIdx int
+}
 
 func (s *selectNode) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
-	data := s.InputNamed(ir.DefaultOutputParam)
-	time := s.InputTimeNamed(ir.DefaultOutputParam)
+	data := s.Input(s.inputIdx)
+	time := s.InputTime(s.inputIdx)
 	if data.Len() == 0 {
 		return
 	}

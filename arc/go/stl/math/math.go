@@ -226,18 +226,21 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 	if !ok {
 		return nil, query.ErrNotFound
 	}
-	var (
-		inputData      = nodeCfg.State.InputNamed(ir.DefaultInputParam)
-		reductionFn    = reductionMap[inputData.DataType]
-		resetConnected = false
-	)
+	inputIdx, err := nodeCfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	reductionFn := reductionMap[nodeCfg.State.Input(inputIdx).DataType]
+	resetIdx := -1
 	if _, found := nodeCfg.Program.Edges.FindByTarget(ir.Handle{
 		Node:  nodeCfg.Node.Key,
 		Param: resetInputParam,
 	}); found {
-		resetConnected = true
-		nodeCfg.State.InitInputNamed(
-			resetInputParam,
+		if resetIdx, err = nodeCfg.State.ResolveInput(resetInputParam); err != nil {
+			return nil, err
+		}
+		nodeCfg.State.InitInput(
+			resetIdx,
 			telem.NewSeriesV[uint8](0),
 			telem.NewSeriesV[telem.TimeStamp](1),
 		)
@@ -247,11 +250,12 @@ func (h *Host) Create(_ context.Context, nodeCfg node.Config) (node.Node, error)
 		return nil, err
 	}
 	return &avgNode{
-		State:          nodeCfg.State,
-		resetConnected: resetConnected,
-		process:        reductionFn,
-		sampleCount:    0,
-		cfg:            cfg,
+		State:       nodeCfg.State,
+		inputIdx:    inputIdx,
+		resetIdx:    resetIdx,
+		process:     reductionFn,
+		sampleCount: 0,
+		cfg:         cfg,
 	}, nil
 }
 
@@ -267,12 +271,13 @@ var windowConfigSchema = zyn.Object(map[string]zyn.Schema{
 
 type avgNode struct {
 	*node.State
-	process        reductionFn
-	cfg            WindowConfig
-	resetConnected bool
-	sampleCount    int64
-	startTime      telem.TimeStamp
-	lastResetTime  telem.TimeStamp
+	process       reductionFn
+	cfg           WindowConfig
+	inputIdx      int
+	resetIdx      int
+	sampleCount   int64
+	startTime     telem.TimeStamp
+	lastResetTime telem.TimeStamp
 }
 
 var _ node.Node = (*avgNode)(nil)
@@ -289,16 +294,16 @@ func (r *avgNode) Next(ctx node.Context) {
 		return
 	}
 
-	inputTime := r.InputTimeNamed(ir.DefaultInputParam)
+	inputTime := r.InputTime(r.inputIdx)
 	if r.startTime == 0 && inputTime.Len() > 0 {
 		r.startTime = telem.ValueAt[telem.TimeStamp](inputTime, 0)
 	}
 
 	shouldReset := false
 
-	if r.resetConnected {
-		resetData := r.InputNamed(resetInputParam)
-		resetTime := r.InputTimeNamed(resetInputParam)
+	if r.resetIdx >= 0 {
+		resetData := r.Input(r.resetIdx)
+		resetTime := r.InputTime(r.resetIdx)
 		for i := int64(0); i < resetData.Len(); i++ {
 			ts := telem.ValueAt[telem.TimeStamp](resetTime, int(i))
 			if ts > r.lastResetTime && telem.ValueAt[uint8](resetData, int(i)) == 1 {
@@ -326,9 +331,9 @@ func (r *avgNode) Next(ctx node.Context) {
 	if shouldReset {
 		r.sampleCount = 0
 		r.Output(0).Resize(0)
-		inputTime = r.InputTimeNamed(ir.DefaultInputParam)
+		inputTime = r.InputTime(r.inputIdx)
 	}
-	inputData := r.InputNamed(ir.DefaultInputParam)
+	inputData := r.Input(r.inputIdx)
 	if inputData.Len() == 0 {
 		return
 	}
@@ -339,8 +344,8 @@ func (r *avgNode) Next(ctx node.Context) {
 	}
 	alignment := inputData.Alignment
 	timeRange := inputData.TimeRange
-	if r.resetConnected {
-		resetData := r.InputNamed(resetInputParam)
+	if r.resetIdx >= 0 {
+		resetData := r.Input(r.resetIdx)
 		alignment += resetData.Alignment
 		if !resetData.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
 			timeRange.Start = resetData.TimeRange.Start
@@ -410,17 +415,21 @@ var (
 )
 
 func createDerivative(cfg node.Config) (node.Node, error) {
-	inputData := cfg.State.InputNamed(ir.DefaultInputParam)
-	derivFn, ok := derivOps[inputData.DataType]
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	derivFn, ok := derivOps[cfg.State.Input(inputIdx).DataType]
 	if !ok {
 		return nil, query.ErrNotFound
 	}
-	return &derivativeNode{State: cfg.State, process: derivFn}, nil
+	return &derivativeNode{State: cfg.State, inputIdx: inputIdx, process: derivFn}, nil
 }
 
 type derivativeNode struct {
 	*node.State
 	process       derivativeFn
+	inputIdx      int
 	prevValue     float64
 	prevTimestamp telem.TimeStamp
 	hasPrev       bool
@@ -439,8 +448,8 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	if !d.RefreshInputs() {
 		return
 	}
-	inputData := d.InputNamed(ir.DefaultInputParam)
-	inputTime := d.InputTimeNamed(ir.DefaultInputParam)
+	inputData := d.Input(d.inputIdx)
+	inputTime := d.InputTime(d.inputIdx)
 	if inputData.Len() == 0 {
 		return
 	}

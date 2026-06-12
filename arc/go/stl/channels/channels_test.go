@@ -808,3 +808,21 @@ var _ = Describe("Channel", func() {
 		})
 	})
 })
+
+var _ = Describe("Construction validation", func() {
+	It("Should error at construction when the input param is missing", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "write",
+			Type: "write",
+			Inputs: types.Params{
+				{Name: "channel", Type: types.U32(), Value: uint32(1)},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := rnode.New(prog)
+		factory := MustSucceed(channels.NewHost(ctx, nil, nil, nil))
+		cfg := rnode.Config{Node: prog.Nodes[0], State: s.Node("write")}
+		Expect(factory.Create(ctx, cfg)).Error().
+			To(MatchError(ContainSubstring("no input named")))
+	})
+})

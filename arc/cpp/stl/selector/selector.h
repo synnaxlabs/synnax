@@ -40,14 +40,16 @@ inline constexpr size_t FALSE_OUTPUT_IDX = 1;
 /// a truthy-gated transition whether the matched route is true or false.
 class Select : public runtime::node::Node {
     runtime::state::Node state;
+    size_t input_idx;
 
 public:
-    explicit Select(runtime::state::Node &&state): state(std::move(state)) {}
+    Select(runtime::state::Node &&state, size_t input_idx):
+        state(std::move(state)), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &data = this->state.input_named(ir::default_output_param);
-        const auto &time = this->state.input_time_named(ir::default_output_param);
+        const auto &data = this->state.input(this->input_idx);
+        const auto &time = this->state.input_time(this->input_idx);
         const auto n = data->size();
         if (n == 0) return x::errors::NIL;
 
@@ -106,7 +108,12 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        return {std::make_unique<Select>(std::move(cfg.state)), x::errors::NIL};
+        auto [input_idx, err] = cfg.state.resolve_input(ir::default_output_param);
+        if (err) return {nullptr, err};
+        return {
+            std::make_unique<Select>(std::move(cfg.state), input_idx),
+            x::errors::NIL
+        };
     }
 };
 

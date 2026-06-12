@@ -102,7 +102,16 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if err := configSchema.Parse(cfg.Node.Inputs.ValueMap(), &cfgVals); err != nil {
 		return nil, err
 	}
-	return &forNode{State: cfg.State, duration: cfgVals.Duration, now: h.now}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &forNode{
+		State:    cfg.State,
+		inputIdx: inputIdx,
+		duration: cfgVals.Duration,
+		now:      h.now,
+	}, nil
 }
 
 type config struct {
@@ -118,6 +127,7 @@ type forNode struct {
 	value       *uint8
 	lastSent    *uint8
 	now         func() telem.TimeStamp
+	inputIdx    int
 	duration    telem.TimeSpan
 	lastChanged telem.TimeStamp
 }
@@ -133,8 +143,8 @@ var _ node.Node = (*forNode)(nil)
 
 func (s *forNode) Next(ctx node.Context) {
 	if s.RefreshInputs() {
-		inputData := s.InputNamed(ir.DefaultInputParam)
-		inputTime := s.InputTimeNamed(ir.DefaultInputParam)
+		inputData := s.Input(s.inputIdx)
+		inputTime := s.InputTime(s.inputIdx)
 		if inputData.Len() > 0 {
 			for i := int64(0); i < inputData.Len(); i++ {
 				currentValue := telem.ValueAt[uint8](inputData, int(i))
