@@ -17,10 +17,10 @@ import { setActive } from "@/project/slice";
 
 export const useMaybeChange = (): ((key: string) => Promise<void>) => {
   const dispatch = useDispatch();
-  const activeWS = useSelectActiveKey();
+  const activeKey = useSelectActiveKey();
   const client = Synnax.use();
   return async (key) => {
-    if (activeWS === key) return;
+    if (activeKey === key) return;
     if (client == null) throw new DisconnectedError();
     const { layout, ...proj } = await client.projects.retrieve(key);
     dispatch(setActive(proj));

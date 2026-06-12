@@ -28,19 +28,19 @@ var _ = Describe("Clock", func() {
 			Expect(got).To(BeTemporally("<=", after))
 		})
 		It("Should deliver a value on After after the duration elapses", func() {
-			Eventually(xtime.Real.After(5*time.Millisecond), "100ms").
+			Eventually(xtime.Real.After(5*time.Millisecond), time.Millisecond*100).
 				Should(Receive())
 		})
 		It("Should call AfterFunc functions after the duration elapses", func() {
 			done := make(chan struct{})
 			xtime.Real.AfterFunc(5*time.Millisecond, func() { close(done) })
-			Eventually(done, "100ms").Should(BeClosed())
+			Eventually(done, time.Millisecond*100).Should(BeClosed())
 		})
 		It("Should let Stop cancel a pending AfterFunc timer", func() {
 			var called atomic.Bool
 			t := xtime.Real.AfterFunc(time.Hour, func() { called.Store(true) })
 			Expect(t.Stop()).To(BeTrue())
-			Consistently(called.Load, "20ms").Should(BeFalse())
+			Consistently(called.Load, time.Millisecond*20).Should(BeFalse())
 		})
 	})
 
@@ -75,7 +75,7 @@ var _ = Describe("Clock", func() {
 				f := &xtime.Fake{}
 				ch := f.After(time.Second)
 				f.Advance(500 * time.Millisecond)
-				Consistently(ch, "50ms").ShouldNot(Receive())
+				Consistently(ch, time.Millisecond*50).ShouldNot(Receive())
 			})
 			It("Should fire only timers whose deadline has been crossed", func() {
 				f := &xtime.Fake{}
@@ -83,7 +83,7 @@ var _ = Describe("Clock", func() {
 				late := f.After(10 * time.Second)
 				go f.Advance(2 * time.Second)
 				Eventually(early).Should(Receive())
-				Consistently(late, "50ms").ShouldNot(Receive())
+				Consistently(late, time.Millisecond*50).ShouldNot(Receive())
 			})
 			It("Should fire previously-registered timers on a later Advance", func() {
 				f := &xtime.Fake{}
@@ -107,7 +107,7 @@ var _ = Describe("Clock", func() {
 				var called atomic.Int32
 				f.AfterFunc(time.Second, func() { called.Add(1) })
 				f.Advance(500 * time.Millisecond)
-				Consistently(called.Load, "20ms").Should(Equal(int32(0)))
+				Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(0)))
 			})
 			It("Should call only functions whose deadline has been crossed", func() {
 				f := &xtime.Fake{}
@@ -117,7 +117,7 @@ var _ = Describe("Clock", func() {
 				f.AfterFunc(10*time.Second, func() { late.Add(1) })
 				go f.Advance(2 * time.Second)
 				Eventually(earlyFired).Should(BeClosed())
-				Consistently(late.Load, "20ms").Should(Equal(int32(0)))
+				Consistently(late.Load, time.Millisecond*20).Should(Equal(int32(0)))
 			})
 			It("Should let Stop cancel a pending timer", func() {
 				f := &xtime.Fake{}
@@ -125,7 +125,7 @@ var _ = Describe("Clock", func() {
 				t := f.AfterFunc(time.Second, func() { called.Add(1) })
 				Expect(t.Stop()).To(BeTrue())
 				go f.Advance(2 * time.Second)
-				Consistently(called.Load, "20ms").Should(Equal(int32(0)))
+				Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(0)))
 			})
 			It("Should return false from Stop once the timer has fired", func() {
 				f := &xtime.Fake{}

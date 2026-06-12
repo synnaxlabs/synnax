@@ -690,6 +690,28 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			)
 	})
 
+	It("Should parse inline variant fields directly on the variant struct", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			TabBase struct { key string }
+
+			Tab union on variant extends TabBase {
+				view {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, jsonPlugin)
+		content := ExpectContent(resp, "json.gen.h")
+		content.ToContain(
+			`if (discriminator == "view") return TabView::parse(parser);`,
+			`if (discriminator == "empty") return TabEmpty::parse(parser);`,
+		)
+		content.ToNotContain("TabViewPayload")
+	})
+
 	It("Should generate per-variant parse/to_json bodies", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
@@ -734,7 +756,48 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`.custom_scale = parse_scale(parser.child("custom_scale")),`,
-				`j["custom_scale"] = to_json(this->custom_scale);`,
+				`j["custom_scale"] = ::synnax::out::to_json(this->custom_scale);`,
+			)
+	})
+
+	It("Should parse defaulted fields with their schema defaults", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Units enum {
+				volts = "Volts"
+				amps  = "Amps"
+			}
+
+			Config struct {
+				enabled bool = true
+				units   Units = volts
+				label   string = ""
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`.enabled = parser.field<bool>("enabled", true),`,
+				`.units = parser.field<std::string>("units", "Volts"),`,
+				`.label = parser.field<std::string>("label", ""),`,
+			)
+	})
+
+	It("Should keep fields with sentinel defaults required", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Status struct {
+				key  string = create
+				name string = ""
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`.key = parser.field<std::string>("key"),`,
+				`.name = parser.field<std::string>("name", ""),`,
 			)
 	})
 })
@@ -770,7 +833,7 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`parser.iter("scales", [&result](x::json::Parser& p) { result.push_back(parse_scale(p)); });`,
-				`for (const auto& item : this->scales) arr.push_back(to_json(item));`,
+				`for (const auto& item : this->scales) arr.push_back(::synnax::out::to_json(item));`,
 			)
 	})
 })

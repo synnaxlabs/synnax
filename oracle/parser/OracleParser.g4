@@ -379,12 +379,21 @@ unionBody
 //   linear LinearScale
 //   ai_voltage AIVoltageFields { @doc value "..." }
 //
+// A variant may instead declare its payload inline, with an optional extends
+// clause for mixins. The body is a full structBody, so inline variants carry
+// fields and domains directly and no standalone payload type is generated:
+//   view extends Labeled {
+//       type string
+//   }
+//   empty {}
+//
 // variantName accepts IDENT or any Oracle keyword so that discriminator string
 // values that collide with reserved words (e.g. "map" in NI's Scale union)
 // can be expressed without quoting. The value carried is always the raw
 // token text.
 unionVariant
-    : variantName typeRef unionVariantBody?
+    : variantName typeRef unionVariantBody?                               # NamedVariant
+    | variantName (EXTENDS typeRefList)? nl* LBRACE nl* structBody RBRACE # InlineVariant
     ;
 
 variantName

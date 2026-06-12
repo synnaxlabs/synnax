@@ -184,13 +184,15 @@ describe("reduceAll", () => {
 
   describe("setTabView", () => {
     it("should swap the tab variant in place without changing its position", () => {
-      const view = { type: "docs", args: {} };
       const { next } = panel.reduceAll(state(leaf("a")), [
-        panel.setTabView({ key: "a", view }),
+        panel.setTabView({ key: "a", type: "docs", args: {} }),
       ]);
       const tab = panel.findTab(next.root, "a");
       expect(tab?.variant).toEqual("view");
-      if (tab?.variant === "view") expect(tab.view).toEqual(view);
+      if (tab?.variant === "view") {
+        expect(tab.type).toEqual("docs");
+        expect(tab.args).toEqual({});
+      }
     });
   });
 });

@@ -90,7 +90,7 @@ var _ = Describe("Zyn", func() {
 	})
 	DescribeTable("DataType Literals", func(literal zyn.Schema, dataType zyn.DataType) {
 		var dest zyn.DataType
-		Expect(literal.Parse(dataType, &dest)).Should(Succeed())
+		Expect(literal.Parse(dataType, &dest)).To(Succeed())
 		Expect(dest).To(Equal(dataType))
 		Expect(literal.Parse("cat", &dest)).To(HaveOccurred())
 	},

@@ -66,7 +66,7 @@ describe("Project", () => {
       await expect
         .poll(async () => {
           const results = await client.projects.retrieve({ searchTerm: prefix });
-          return results.map((w) => w.name).sort();
+          return results.map((p) => p.name).sort();
         })
         .toEqual(names);
     });

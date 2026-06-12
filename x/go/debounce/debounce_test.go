@@ -133,7 +133,7 @@ var _ = Describe("Debounce", func() {
 			}))
 			DeferCleanup(d.Stop)
 			d.Trigger()
-			Consistently(called.Load, "20ms").Should(Equal(int32(0)))
+			Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(0)))
 			clk.Advance(5 * time.Millisecond)
 			Eventually(called.Load).Should(Equal(int32(1)))
 		})
@@ -153,7 +153,7 @@ var _ = Describe("Debounce", func() {
 			clk.Advance(20 * time.Millisecond)
 			Eventually(called.Load).Should(Equal(int32(1)))
 			clk.Advance(time.Hour)
-			Consistently(called.Load, "20ms").Should(Equal(int32(1)))
+			Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(1)))
 		})
 
 		It("Should cancel in-flight work when re-triggered", func() {
@@ -244,7 +244,7 @@ var _ = Describe("Debounce", func() {
 			d.Trigger()
 			d.Stop()
 			clk.Advance(time.Hour)
-			Consistently(called.Load, "20ms").Should(Equal(int32(0)))
+			Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(0)))
 		})
 
 		It("Should cancel in-flight work", func() {
@@ -296,7 +296,7 @@ var _ = Describe("Debounce", func() {
 			clk.Advance(2 * time.Hour)
 			d.Trigger()
 			clk.Advance(4 * time.Millisecond)
-			Consistently(called.Load, "20ms").Should(Equal(int32(1)))
+			Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(1)))
 			clk.Advance(time.Millisecond)
 			Eventually(called.Load).Should(Equal(int32(2)))
 		})
