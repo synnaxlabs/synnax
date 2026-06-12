@@ -106,11 +106,11 @@ class ConsoleCase(TestCase):
             ".console-palette button", state="visible", timeout=10000
         )
 
-        # Default workspace for all tests
-        self.console.workspace.ensure_selected("TestSpace")
+        # Default project for all tests
+        self.console.project.ensure_selected("TestSpace")
 
         # Prevent state pollution
-        # Selecting workspace restores tabs
+        # Selecting project restores tabs
         self.console.close_all_tabs()
         self.console.notifications.close_connection()
         self._cleanup_pages: list[str] = []
@@ -124,7 +124,7 @@ class ConsoleCase(TestCase):
         # so teardown still closes the browser instead of raising.
         if getattr(self, "_cleanup_pages", None):
             try:
-                self.console.workspace.delete_pages(self._cleanup_pages)
+                self.console.project.delete_pages(self._cleanup_pages)
             except PlaywrightTimeoutError:
                 pass
         self.context.close()

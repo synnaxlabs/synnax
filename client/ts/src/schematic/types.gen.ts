@@ -169,6 +169,8 @@ export const labeledConfigZ = z.object({
   label: labelConfigZ.optional(),
   /** orientation is the orientation of the symbol's primitive within the diagram. */
   orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
 });
 export interface LabeledConfig extends z.infer<typeof labeledConfigZ> {}
 
@@ -263,7 +265,6 @@ export interface ToggleConfig extends z.infer<typeof toggleConfigZ> {}
 
 export const staticSymbolConfigZ = labeledConfigZ.extend({
   color: color.colorZ.optional(),
-  scale: z.number().optional(),
 });
 export interface StaticSymbolConfig extends z.infer<typeof staticSymbolConfigZ> {}
 
@@ -271,7 +272,6 @@ export const dummyToggleSymbolConfigZ = labeledConfigZ.extend({
   enabled: z.boolean().optional(),
   clickable: z.boolean().optional(),
   color: color.colorZ.optional(),
-  scale: z.number().optional(),
 });
 export interface DummyToggleSymbolConfig extends z.infer<
   typeof dummyToggleSymbolConfigZ
@@ -279,7 +279,6 @@ export interface DummyToggleSymbolConfig extends z.infer<
 
 export const toggleSymbolConfigZ = toggleConfigZ.extend({
   color: color.colorZ.optional(),
-  scale: z.number().optional(),
 });
 export interface ToggleSymbolConfig extends z.infer<typeof toggleSymbolConfigZ> {}
 
@@ -553,8 +552,6 @@ export const nodeConfigLightZ = labeledConfigZ.extend({
   threshold: spatial.boundsZ().optional(),
   /** color is the illuminated color of the light. */
   color: color.colorZ.optional(),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().optional(),
 });
 export interface NodeConfigLight extends z.infer<typeof nodeConfigLightZ> {}
 
@@ -1122,8 +1119,6 @@ export const nodeConfigCustomActuatorZ = toggleConfigZ.extend({
   specKey: z.string(),
   /** color is the stroke color of the symbol. */
   color: color.colorZ.optional(),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().optional(),
   /**
    * stateOverrides contains per-instance overrides of the spec's visual states. Each
    * entry mirrors the symbol service's State shape; the wire format
@@ -1143,8 +1138,6 @@ export const nodeConfigCustomStaticZ = labeledConfigZ.extend({
   specKey: z.string(),
   /** color is the stroke color of the symbol. */
   color: color.colorZ.optional(),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().optional(),
   /**
    * stateOverrides contains per-instance overrides of the spec's visual states. Each
    * entry mirrors the symbol service's State shape; the wire format
@@ -1848,8 +1841,6 @@ export const elementConfigLightZ = labeledConfigZ.extend({
   threshold: spatial.boundsZ().optional(),
   /** color is the illuminated color of the light. */
   color: color.colorZ.optional(),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().optional(),
 });
 export interface ElementConfigLight extends z.infer<typeof elementConfigLightZ> {}
 
@@ -2450,8 +2441,6 @@ export const elementConfigCustomActuatorZ = toggleConfigZ.extend({
   specKey: z.string(),
   /** color is the stroke color of the symbol. */
   color: color.colorZ.optional(),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().optional(),
   /**
    * stateOverrides contains per-instance overrides of the spec's visual states. Each
    * entry mirrors the symbol service's State shape; the wire format
@@ -2471,8 +2460,6 @@ export const elementConfigCustomStaticZ = labeledConfigZ.extend({
   specKey: z.string(),
   /** color is the stroke color of the symbol. */
   color: color.colorZ.optional(),
-  /** scale is the rendered scale multiplier of the symbol. */
-  scale: z.number().optional(),
   /**
    * stateOverrides contains per-instance overrides of the spec's visual states. Each
    * entry mirrors the symbol service's State shape; the wire format

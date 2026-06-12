@@ -103,6 +103,12 @@ func (dtsc DummyToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if dtsc.Scale != nil {
+		w.Bool(true)
+		w.Float64(float64((*dtsc.Scale)))
+	} else {
+		w.Bool(false)
+	}
 	w.Bool(dtsc.Enabled)
 	w.Bool(dtsc.Clickable)
 	if dtsc.Color != nil {
@@ -110,12 +116,6 @@ func (dtsc DummyToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
 		if err := (*dtsc.Color).EncodeOrc(w); err != nil {
 			return err
 		}
-	} else {
-		w.Bool(false)
-	}
-	if dtsc.Scale != nil {
-		w.Bool(true)
-		w.Float64(float64((*dtsc.Scale)))
 	} else {
 		w.Bool(false)
 	}
@@ -154,6 +154,19 @@ func (dtsc *DummyToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			dtsc.Orientation = &hv
 		}
 	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			dtsc.Scale = &hv
+		}
+	}
 	if dtsc.Enabled, err = r.Bool(); err != nil {
 		return err
 	}
@@ -171,19 +184,6 @@ func (dtsc *DummyToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			dtsc.Color = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv float64
-			if hv, err = r.Float64(); err != nil {
-				return err
-			}
-			dtsc.Scale = &hv
 		}
 	}
 	return nil
@@ -617,12 +617,6 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 			if err := (*v.Color).EncodeOrc(w); err != nil {
 				return err
 			}
-		} else {
-			w.Bool(false)
-		}
-		if v.Scale != nil {
-			w.Bool(true)
-			w.Float64(float64((*v.Scale)))
 		} else {
 			w.Bool(false)
 		}
@@ -1366,12 +1360,6 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		if v.Scale != nil {
-			w.Bool(true)
-			w.Float64(float64((*v.Scale)))
-		} else {
-			w.Bool(false)
-		}
 		if v.StateOverrides != nil {
 			w.Bool(true)
 			w.Uint32(uint32(len(v.StateOverrides)))
@@ -1398,12 +1386,6 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 			if err := (*v.Color).EncodeOrc(w); err != nil {
 				return err
 			}
-		} else {
-			w.Bool(false)
-		}
-		if v.Scale != nil {
-			w.Bool(true)
-			w.Float64(float64((*v.Scale)))
 		} else {
 			w.Bool(false)
 		}
@@ -2179,19 +2161,6 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 				v.Color = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv float64
-				if hv, err = r.Float64(); err != nil {
-					return err
-				}
-				v.Scale = &hv
 			}
 		}
 		ec.Variant = v
@@ -3416,19 +3385,6 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			if present {
-				var hv float64
-				if hv, err = r.Float64(); err != nil {
-					return err
-				}
-				v.Scale = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
 				n, err := r.CollectionLen()
 				if err != nil {
 					return err
@@ -3467,19 +3423,6 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 				v.Color = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv float64
-				if hv, err = r.Float64(); err != nil {
-					return err
-				}
-				v.Scale = &hv
 			}
 		}
 		{
@@ -3711,6 +3654,12 @@ func (lc LabeledConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if lc.Scale != nil {
+		w.Bool(true)
+		w.Float64(float64((*lc.Scale)))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -3743,6 +3692,19 @@ func (lc *LabeledConfig) DecodeOrc(r *orc.Reader) error {
 				hv = spatial.OuterLocation(v)
 			}
 			lc.Orientation = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			lc.Scale = &hv
 		}
 	}
 	return nil
@@ -4064,17 +4026,17 @@ func (ssc StaticSymbolConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if ssc.Scale != nil {
+		w.Bool(true)
+		w.Float64(float64((*ssc.Scale)))
+	} else {
+		w.Bool(false)
+	}
 	if ssc.Color != nil {
 		w.Bool(true)
 		if err := (*ssc.Color).EncodeOrc(w); err != nil {
 			return err
 		}
-	} else {
-		w.Bool(false)
-	}
-	if ssc.Scale != nil {
-		w.Bool(true)
-		w.Float64(float64((*ssc.Scale)))
 	} else {
 		w.Bool(false)
 	}
@@ -4118,11 +4080,11 @@ func (ssc *StaticSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
-			if err = hv.DecodeOrc(r); err != nil {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
 				return err
 			}
-			ssc.Color = &hv
+			ssc.Scale = &hv
 		}
 	}
 	{
@@ -4131,11 +4093,11 @@ func (ssc *StaticSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv float64
-			if hv, err = r.Float64(); err != nil {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
-			ssc.Scale = &hv
+			ssc.Color = &hv
 		}
 	}
 	return nil
@@ -4153,6 +4115,12 @@ func (tc ToggleConfig) EncodeOrc(w *orc.Writer) error {
 	if tc.Orientation != nil {
 		w.Bool(true)
 		w.String(string((*tc.Orientation)))
+	} else {
+		w.Bool(false)
+	}
+	if tc.Scale != nil {
+		w.Bool(true)
+		w.Float64(float64((*tc.Scale)))
 	} else {
 		w.Bool(false)
 	}
@@ -4210,6 +4178,19 @@ func (tc *ToggleConfig) DecodeOrc(r *orc.Reader) error {
 				hv = spatial.OuterLocation(v)
 			}
 			tc.Orientation = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tc.Scale = &hv
 		}
 	}
 	{
@@ -4280,6 +4261,12 @@ func (tsc ToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if tsc.Scale != nil {
+		w.Bool(true)
+		w.Float64(float64((*tsc.Scale)))
+	} else {
+		w.Bool(false)
+	}
 	if tsc.StateChannel != nil {
 		w.Bool(true)
 		w.Uint32(uint32((*tsc.StateChannel)))
@@ -4306,12 +4293,6 @@ func (tsc ToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
 		if err := (*tsc.Color).EncodeOrc(w); err != nil {
 			return err
 		}
-	} else {
-		w.Bool(false)
-	}
-	if tsc.Scale != nil {
-		w.Bool(true)
-		w.Float64(float64((*tsc.Scale)))
 	} else {
 		w.Bool(false)
 	}
@@ -4348,6 +4329,19 @@ func (tsc *ToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 				hv = spatial.OuterLocation(v)
 			}
 			tsc.Orientation = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tsc.Scale = &hv
 		}
 	}
 	{
@@ -4411,19 +4405,6 @@ func (tsc *ToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			tsc.Color = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv float64
-			if hv, err = r.Float64(); err != nil {
-				return err
-			}
-			tsc.Scale = &hv
 		}
 	}
 	return nil

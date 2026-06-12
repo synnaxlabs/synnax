@@ -20,11 +20,7 @@ import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
-import {
-  useSelectActiveToolbarTab,
-  useSelectExists,
-  useSelectPendingUpload,
-} from "@/log/selectors";
+import { useSelectActiveToolbarTab, useSelectExists } from "@/log/selectors";
 import { setActiveToolbarTab, type ToolbarTab } from "@/log/slice";
 import { Channels } from "@/log/toolbar/Channels";
 import { Properties } from "@/log/toolbar/Properties";
@@ -91,7 +87,6 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const exists = useSelectExists(layoutKey);
-  const pendingUpload = useSelectPendingUpload(layoutKey);
-  if (!exists || pendingUpload != null) return null;
+  if (!exists) return null;
   return <Internal layoutKey={layoutKey} />;
 };

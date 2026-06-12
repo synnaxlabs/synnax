@@ -56,10 +56,10 @@ export const legendStateZ = z.object({
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 
-export const pendingUploadZ = schematic.schematicZ
+const pendingUploadZ = schematic.schematicZ
   .omit({ configs: true, name: true })
   .extend({ configs: z.record(z.string(), elementConfigZ) });
-export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
+interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = z.object({
   version: z.literal(VERSION),

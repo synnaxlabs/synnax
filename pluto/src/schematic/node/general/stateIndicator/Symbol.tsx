@@ -30,7 +30,13 @@ export const Symbol = ({
     options,
   });
   return (
-    <Grid.Grid allowRotate={false} editable={selected} nodeKey={nodeKey}>
+    <Grid.Grid
+      allowRotate={false}
+      editable={selected}
+      nodeKey={nodeKey}
+      resizeHandles={["left", "right"]}
+      onResize={({ width }) => onConfigChange({ inlineSize: width })}
+    >
       <Label.Label config={label} onChange={onConfigChange} />
       <StateIndicator
         matchedOptionKey={optKey}

@@ -601,7 +601,9 @@ type LabeledConfig struct {
 	// label is the symbol's label configuration.
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
-	Orientation   *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale         *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -648,6 +650,13 @@ func (x *LabeledConfig) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *LabeledConfig) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 // ControlStateConfig is the control authority and state display configuration for
@@ -742,14 +751,16 @@ type ToggleConfig struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// state_channel is the channel whose value drives the symbol's active state.
-	StateChannel *uint32 `protobuf:"varint,3,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
+	StateChannel *uint32 `protobuf:"varint,4,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
 	// command_channel is the channel actuation commands are written to.
-	CommandChannel *uint32 `protobuf:"varint,4,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
+	CommandChannel *uint32 `protobuf:"varint,5,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
 	// control is the control state display configuration.
-	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3,oneof" json:"control,omitempty"`
+	Control *ControlStateConfig `protobuf:"bytes,6,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay  float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	OnClickDelay  float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -798,6 +809,13 @@ func (x *ToggleConfig) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *ToggleConfig) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *ToggleConfig) GetStateChannel() uint32 {
 	if x != nil && x.StateChannel != nil {
 		return *x.StateChannel
@@ -833,10 +851,10 @@ type StaticSymbolConfig struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
-	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale         *float64 `protobuf:"fixed64,4,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	// color is the stroke color of the symbol.
+	Color         *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -885,18 +903,18 @@ func (x *StaticSymbolConfig) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
-func (x *StaticSymbolConfig) GetColor() *pb1.Color {
-	if x != nil {
-		return x.Color
-	}
-	return nil
-}
-
 func (x *StaticSymbolConfig) GetScale() float64 {
 	if x != nil && x.Scale != nil {
 		return *x.Scale
 	}
 	return 0
+}
+
+func (x *StaticSymbolConfig) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
 }
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
@@ -906,18 +924,18 @@ type ToggleSymbolConfig struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
-	// state_channel is the channel whose value drives the symbol's active state.
-	StateChannel *uint32 `protobuf:"varint,3,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
-	// command_channel is the channel actuation commands are written to.
-	CommandChannel *uint32 `protobuf:"varint,4,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
-	// control is the control state display configuration.
-	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3,oneof" json:"control,omitempty"`
-	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
-	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale         *float64 `protobuf:"fixed64,8,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	// state_channel is the channel whose value drives the symbol's active state.
+	StateChannel *uint32 `protobuf:"varint,4,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
+	// command_channel is the channel actuation commands are written to.
+	CommandChannel *uint32 `protobuf:"varint,5,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
+	// control is the control state display configuration.
+	Control *ControlStateConfig `protobuf:"bytes,6,opt,name=control,proto3,oneof" json:"control,omitempty"`
+	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	// color is the stroke color of the symbol.
+	Color         *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -966,6 +984,13 @@ func (x *ToggleSymbolConfig) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *ToggleSymbolConfig) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *ToggleSymbolConfig) GetStateChannel() uint32 {
 	if x != nil && x.StateChannel != nil {
 		return *x.StateChannel
@@ -1001,13 +1026,6 @@ func (x *ToggleSymbolConfig) GetColor() *pb1.Color {
 	return nil
 }
 
-func (x *ToggleSymbolConfig) GetScale() float64 {
-	if x != nil && x.Scale != nil {
-		return *x.Scale
-	}
-	return 0
-}
-
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
 // from local state without binding to telemetry.
 type DummyToggleSymbolConfig struct {
@@ -1016,14 +1034,14 @@ type DummyToggleSymbolConfig struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
-	// enabled indicates whether the symbol renders in its active state.
-	Enabled bool `protobuf:"varint,3,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	// clickable indicates whether clicking the symbol toggles its state.
-	Clickable bool `protobuf:"varint,4,opt,name=clickable,proto3" json:"clickable,omitempty"`
-	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale         *float64 `protobuf:"fixed64,6,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	// enabled indicates whether the symbol renders in its active state.
+	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// clickable indicates whether clicking the symbol toggles its state.
+	Clickable bool `protobuf:"varint,5,opt,name=clickable,proto3" json:"clickable,omitempty"`
+	// color is the stroke color of the symbol.
+	Color         *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1072,6 +1090,13 @@ func (x *DummyToggleSymbolConfig) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *DummyToggleSymbolConfig) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *DummyToggleSymbolConfig) GetEnabled() bool {
 	if x != nil {
 		return x.Enabled
@@ -1091,13 +1116,6 @@ func (x *DummyToggleSymbolConfig) GetColor() *pb1.Color {
 		return x.Color
 	}
 	return nil
-}
-
-func (x *DummyToggleSymbolConfig) GetScale() float64 {
-	if x != nil && x.Scale != nil {
-		return *x.Scale
-	}
-	return 0
 }
 
 // StateMapping maps a numeric channel value to a named, colored state.
@@ -1427,20 +1445,22 @@ type NodeConfigButtonPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// size is the rendered size preset of the button.
-	Size *ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
+	Size *ComponentSize `protobuf:"varint,4,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
 	// level is the typography level of the button text.
-	Level *pb2.Level `protobuf:"varint,4,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
+	Level *pb2.Level `protobuf:"varint,5,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `protobuf:"fixed64,5,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
 	// command_channel is the channel button presses are written to.
-	CommandChannel *uint32 `protobuf:"varint,6,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
+	CommandChannel *uint32 `protobuf:"varint,7,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
 	// mode is the actuation behavior of the button.
-	Mode *ButtonMode `protobuf:"varint,7,opt,name=mode,proto3,enum=service.schematic.pb.ButtonMode,oneof" json:"mode,omitempty"`
+	Mode *ButtonMode `protobuf:"varint,8,opt,name=mode,proto3,enum=service.schematic.pb.ButtonMode,oneof" json:"mode,omitempty"`
 	// color is the background color of the button.
-	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,9,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// control is the control state display configuration.
-	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3,oneof" json:"control,omitempty"`
+	Control       *ControlStateConfig `protobuf:"bytes,10,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1487,6 +1507,13 @@ func (x *NodeConfigButtonPayload) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *NodeConfigButtonPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 func (x *NodeConfigButtonPayload) GetSize() ComponentSize {
@@ -1544,14 +1571,16 @@ type NodeConfigCirclePayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// radius is the radius of the circle in pixels.
-	Radius float64 `protobuf:"fixed64,3,opt,name=radius,proto3" json:"radius,omitempty"`
+	Radius float64 `protobuf:"fixed64,4,opt,name=radius,proto3" json:"radius,omitempty"`
 	// color is the border color of the circle.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the circle.
-	BackgroundColor *pb1.Color `protobuf:"bytes,5,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,6,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	// stroke_width is the border stroke width in pixels.
-	StrokeWidth   *float64 `protobuf:"fixed64,6,opt,name=stroke_width,json=strokeWidth,proto3,oneof" json:"stroke_width,omitempty"`
+	StrokeWidth   *float64 `protobuf:"fixed64,7,opt,name=stroke_width,json=strokeWidth,proto3,oneof" json:"stroke_width,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1600,6 +1629,13 @@ func (x *NodeConfigCirclePayload) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *NodeConfigCirclePayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *NodeConfigCirclePayload) GetRadius() float64 {
 	if x != nil {
 		return x.Radius
@@ -1634,32 +1670,34 @@ type NodeConfigGaugePayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// position is the offset of the gauge contents within the symbol.
-	Position *pb.XY `protobuf:"bytes,3,opt,name=position,proto3,oneof" json:"position,omitempty"`
+	Position *pb.XY `protobuf:"bytes,4,opt,name=position,proto3,oneof" json:"position,omitempty"`
 	// color is the accent color of the gauge arc.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// bounds is the numeric range displayed by the gauge.
-	Bounds *pb.Bounds `protobuf:"bytes,5,opt,name=bounds,proto3,oneof" json:"bounds,omitempty"`
+	Bounds *pb.Bounds `protobuf:"bytes,6,opt,name=bounds,proto3,oneof" json:"bounds,omitempty"`
 	// bar_width is the thickness of the gauge arc in pixels.
-	BarWidth *float64 `protobuf:"fixed64,6,opt,name=bar_width,json=barWidth,proto3,oneof" json:"bar_width,omitempty"`
+	BarWidth *float64 `protobuf:"fixed64,7,opt,name=bar_width,json=barWidth,proto3,oneof" json:"bar_width,omitempty"`
 	// channel is the channel whose value the gauge displays.
-	Channel *uint32 `protobuf:"varint,7,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
+	Channel *uint32 `protobuf:"varint,8,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
 	// rolling_average is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `protobuf:"varint,8,opt,name=rolling_average,json=rollingAverage,proto3,oneof" json:"rolling_average,omitempty"`
+	RollingAverage *int32 `protobuf:"varint,9,opt,name=rolling_average,json=rollingAverage,proto3,oneof" json:"rolling_average,omitempty"`
 	// precision is the number of decimal places shown.
-	Precision *float64 `protobuf:"fixed64,9,opt,name=precision,proto3,oneof" json:"precision,omitempty"`
+	Precision *float64 `protobuf:"fixed64,10,opt,name=precision,proto3,oneof" json:"precision,omitempty"`
 	// min_width is the minimum rendered width of the value in pixels.
-	MinWidth *float64 `protobuf:"fixed64,10,opt,name=min_width,json=minWidth,proto3,oneof" json:"min_width,omitempty"`
+	MinWidth *float64 `protobuf:"fixed64,11,opt,name=min_width,json=minWidth,proto3,oneof" json:"min_width,omitempty"`
 	// width is the rendered width of the gauge in pixels.
-	Width *float64 `protobuf:"fixed64,11,opt,name=width,proto3,oneof" json:"width,omitempty"`
+	Width *float64 `protobuf:"fixed64,12,opt,name=width,proto3,oneof" json:"width,omitempty"`
 	// notation is the numeric notation used to format the value.
-	Notation *pb3.Notation `protobuf:"varint,12,opt,name=notation,proto3,enum=x.notation.pb.Notation,oneof" json:"notation,omitempty"`
+	Notation *pb3.Notation `protobuf:"varint,13,opt,name=notation,proto3,enum=x.notation.pb.Notation,oneof" json:"notation,omitempty"`
 	// location is the anchor of the value within the gauge.
-	Location *pb.LocationXY `protobuf:"bytes,13,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	Location *pb.LocationXY `protobuf:"bytes,14,opt,name=location,proto3,oneof" json:"location,omitempty"`
 	// units is the unit suffix displayed after the value.
-	Units string `protobuf:"bytes,14,opt,name=units,proto3" json:"units,omitempty"`
+	Units string `protobuf:"bytes,15,opt,name=units,proto3" json:"units,omitempty"`
 	// level is the typography level of the displayed value.
-	Level         *pb2.Level `protobuf:"varint,15,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
+	Level         *pb2.Level `protobuf:"varint,16,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1706,6 +1744,13 @@ func (x *NodeConfigGaugePayload) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *NodeConfigGaugePayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 func (x *NodeConfigGaugePayload) GetPosition() *pb.XY {
@@ -1805,18 +1850,20 @@ type NodeConfigInputPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// size is the rendered size preset of the input.
-	Size *ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
+	Size *ComponentSize `protobuf:"varint,4,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
 	// command_channel is the channel submitted values are written to.
-	CommandChannel *uint32 `protobuf:"varint,4,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
+	CommandChannel *uint32 `protobuf:"varint,5,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
 	// dimensions is the rendered size of the input in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,6,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// color is the accent color of the input.
-	Color *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// disabled indicates whether the input rejects interaction.
-	Disabled bool `protobuf:"varint,7,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	Disabled bool `protobuf:"varint,8,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	// control is the control state display configuration.
-	Control       *ControlStateConfig `protobuf:"bytes,8,opt,name=control,proto3,oneof" json:"control,omitempty"`
+	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1863,6 +1910,13 @@ func (x *NodeConfigInputPayload) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *NodeConfigInputPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 func (x *NodeConfigInputPayload) GetSize() ComponentSize {
@@ -1913,14 +1967,14 @@ type NodeConfigLightPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
-	// channel is the channel whose value drives the light's on state.
-	Channel *uint32 `protobuf:"varint,3,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
-	// threshold is the value range within which the light is considered on.
-	Threshold *pb.Bounds `protobuf:"bytes,4,opt,name=threshold,proto3,oneof" json:"threshold,omitempty"`
-	// color is the illuminated color of the light.
-	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale         *float64 `protobuf:"fixed64,6,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	// channel is the channel whose value drives the light's on state.
+	Channel *uint32 `protobuf:"varint,4,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
+	// threshold is the value range within which the light is considered on.
+	Threshold *pb.Bounds `protobuf:"bytes,5,opt,name=threshold,proto3,oneof" json:"threshold,omitempty"`
+	// color is the illuminated color of the light.
+	Color         *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1969,6 +2023,13 @@ func (x *NodeConfigLightPayload) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *NodeConfigLightPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *NodeConfigLightPayload) GetChannel() uint32 {
 	if x != nil && x.Channel != nil {
 		return *x.Channel
@@ -1988,13 +2049,6 @@ func (x *NodeConfigLightPayload) GetColor() *pb1.Color {
 		return x.Color
 	}
 	return nil
-}
-
-func (x *NodeConfigLightPayload) GetScale() float64 {
-	if x != nil && x.Scale != nil {
-		return *x.Scale
-	}
-	return 0
 }
 
 type NodeConfigOffPageReferencePayload struct {
@@ -2093,20 +2147,22 @@ type NodeConfigPolygonPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// num_sides is the number of sides of the polygon.
-	NumSides float64 `protobuf:"fixed64,3,opt,name=num_sides,json=numSides,proto3" json:"num_sides,omitempty"`
+	NumSides float64 `protobuf:"fixed64,4,opt,name=num_sides,json=numSides,proto3" json:"num_sides,omitempty"`
 	// side_length is the length of each side in pixels.
-	SideLength float64 `protobuf:"fixed64,4,opt,name=side_length,json=sideLength,proto3" json:"side_length,omitempty"`
+	SideLength float64 `protobuf:"fixed64,5,opt,name=side_length,json=sideLength,proto3" json:"side_length,omitempty"`
 	// rotation is the rotation of the polygon in degrees.
-	Rotation *float64 `protobuf:"fixed64,5,opt,name=rotation,proto3,oneof" json:"rotation,omitempty"`
+	Rotation *float64 `protobuf:"fixed64,6,opt,name=rotation,proto3,oneof" json:"rotation,omitempty"`
 	// corner_rounding is the corner rounding radius in pixels.
-	CornerRounding *float64 `protobuf:"fixed64,6,opt,name=corner_rounding,json=cornerRounding,proto3,oneof" json:"corner_rounding,omitempty"`
+	CornerRounding *float64 `protobuf:"fixed64,7,opt,name=corner_rounding,json=cornerRounding,proto3,oneof" json:"corner_rounding,omitempty"`
 	// color is the border color of the polygon.
-	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the polygon.
-	BackgroundColor *pb1.Color `protobuf:"bytes,8,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,9,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	// stroke_width is the border stroke width in pixels.
-	StrokeWidth   *float64 `protobuf:"fixed64,9,opt,name=stroke_width,json=strokeWidth,proto3,oneof" json:"stroke_width,omitempty"`
+	StrokeWidth   *float64 `protobuf:"fixed64,10,opt,name=stroke_width,json=strokeWidth,proto3,oneof" json:"stroke_width,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2153,6 +2209,13 @@ func (x *NodeConfigPolygonPayload) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *NodeConfigPolygonPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 func (x *NodeConfigPolygonPayload) GetNumSides() float64 {
@@ -2210,20 +2273,22 @@ type NodeConfigSelectPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// size is the rendered size preset of the select.
-	Size *ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
+	Size *ComponentSize `protobuf:"varint,4,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
 	// command_channel is the channel the selected value is written to.
-	CommandChannel *uint32 `protobuf:"varint,4,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
+	CommandChannel *uint32 `protobuf:"varint,5,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
 	// color is the accent color of the select.
-	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// inline_size is the inline size of the select in pixels.
-	InlineSize *float64 `protobuf:"fixed64,6,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
+	InlineSize *float64 `protobuf:"fixed64,7,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
 	// options is the set of selectable states.
-	Options []*StateMapping `protobuf:"bytes,7,rep,name=options,proto3" json:"options,omitempty"`
+	Options []*StateMapping `protobuf:"bytes,8,rep,name=options,proto3" json:"options,omitempty"`
 	// disabled indicates whether the select rejects interaction.
-	Disabled bool `protobuf:"varint,8,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	Disabled bool `protobuf:"varint,9,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	// control is the control state display configuration.
-	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3,oneof" json:"control,omitempty"`
+	Control       *ControlStateConfig `protobuf:"bytes,10,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2270,6 +2335,13 @@ func (x *NodeConfigSelectPayload) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *NodeConfigSelectPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 func (x *NodeConfigSelectPayload) GetSize() ComponentSize {
@@ -2327,22 +2399,24 @@ type NodeConfigSetpointPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// size is the rendered size preset of the setpoint.
-	Size *ComponentSize `protobuf:"varint,3,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
+	Size *ComponentSize `protobuf:"varint,4,opt,name=size,proto3,enum=service.schematic.pb.ComponentSize,oneof" json:"size,omitempty"`
 	// state_channel is the channel whose value displays as the current setpoint.
-	StateChannel *uint32 `protobuf:"varint,4,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
+	StateChannel *uint32 `protobuf:"varint,5,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
 	// command_channel is the channel submitted setpoints are written to.
-	CommandChannel *uint32 `protobuf:"varint,5,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
+	CommandChannel *uint32 `protobuf:"varint,6,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
 	// dimensions is the rendered size of the setpoint in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,6,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,7,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// color is the accent color of the setpoint.
-	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// units is the unit suffix displayed after the value.
-	Units string `protobuf:"bytes,8,opt,name=units,proto3" json:"units,omitempty"`
+	Units string `protobuf:"bytes,9,opt,name=units,proto3" json:"units,omitempty"`
 	// disabled indicates whether the setpoint rejects interaction.
-	Disabled bool `protobuf:"varint,9,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	Disabled bool `protobuf:"varint,10,opt,name=disabled,proto3" json:"disabled,omitempty"`
 	// control is the control state display configuration.
-	Control       *ControlStateConfig `protobuf:"bytes,10,opt,name=control,proto3,oneof" json:"control,omitempty"`
+	Control       *ControlStateConfig `protobuf:"bytes,11,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2389,6 +2463,13 @@ func (x *NodeConfigSetpointPayload) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *NodeConfigSetpointPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 func (x *NodeConfigSetpointPayload) GetSize() ComponentSize {
@@ -2453,14 +2534,16 @@ type NodeConfigStateIndicatorPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// channel is the channel whose value selects the displayed state.
-	Channel *uint32 `protobuf:"varint,3,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
+	Channel *uint32 `protobuf:"varint,4,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
 	// color is the fallback color when no state matches.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// inline_size is the inline size of the indicator in pixels.
-	InlineSize *float64 `protobuf:"fixed64,5,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
+	InlineSize *float64 `protobuf:"fixed64,6,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
 	// options is the set of displayable states.
-	Options       []*StateMapping `protobuf:"bytes,6,rep,name=options,proto3" json:"options,omitempty"`
+	Options       []*StateMapping `protobuf:"bytes,7,rep,name=options,proto3" json:"options,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2509,6 +2592,13 @@ func (x *NodeConfigStateIndicatorPayload) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *NodeConfigStateIndicatorPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *NodeConfigStateIndicatorPayload) GetChannel() uint32 {
 	if x != nil && x.Channel != nil {
 		return *x.Channel
@@ -2543,18 +2633,20 @@ type NodeConfigTextBoxPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// color is the text color.
-	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// width is the rendered width of the text box in pixels.
-	Width *float64 `protobuf:"fixed64,4,opt,name=width,proto3,oneof" json:"width,omitempty"`
+	Width *float64 `protobuf:"fixed64,5,opt,name=width,proto3,oneof" json:"width,omitempty"`
 	// align is the alignment of the text within the box.
-	Align *FlexAlignment `protobuf:"varint,5,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment,oneof" json:"align,omitempty"`
+	Align *FlexAlignment `protobuf:"varint,6,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment,oneof" json:"align,omitempty"`
 	// auto_fit indicates whether the box resizes to fit its content.
-	AutoFit bool `protobuf:"varint,6,opt,name=auto_fit,json=autoFit,proto3" json:"auto_fit,omitempty"`
+	AutoFit bool `protobuf:"varint,7,opt,name=auto_fit,json=autoFit,proto3" json:"auto_fit,omitempty"`
 	// level is the typography level of the text.
-	Level *pb2.Level `protobuf:"varint,7,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
+	Level *pb2.Level `protobuf:"varint,8,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// value is the text content of the box.
-	Value         string `protobuf:"bytes,8,opt,name=value,proto3" json:"value,omitempty"`
+	Value         string `protobuf:"bytes,9,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2601,6 +2693,13 @@ func (x *NodeConfigTextBoxPayload) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *NodeConfigTextBoxPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 func (x *NodeConfigTextBoxPayload) GetColor() *pb1.Color {
@@ -2651,46 +2750,48 @@ type NodeConfigValuePayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// position is the offset of the value contents within the symbol.
-	Position *pb.XY `protobuf:"bytes,3,opt,name=position,proto3,oneof" json:"position,omitempty"`
+	Position *pb.XY `protobuf:"bytes,4,opt,name=position,proto3,oneof" json:"position,omitempty"`
 	// color is the background color of the value.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// text_color is the color of the displayed text.
-	TextColor *pb1.Color `protobuf:"bytes,5,opt,name=text_color,json=textColor,proto3,oneof" json:"text_color,omitempty"`
+	TextColor *pb1.Color `protobuf:"bytes,6,opt,name=text_color,json=textColor,proto3,oneof" json:"text_color,omitempty"`
 	// tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `protobuf:"bytes,6,rep,name=tooltip,proto3" json:"tooltip,omitempty"`
+	Tooltip []string `protobuf:"bytes,7,rep,name=tooltip,proto3" json:"tooltip,omitempty"`
 	// redline is the bounds-to-gradient mapping applied to the background.
-	Redline *Redline `protobuf:"bytes,7,opt,name=redline,proto3,oneof" json:"redline,omitempty"`
+	Redline *Redline `protobuf:"bytes,8,opt,name=redline,proto3,oneof" json:"redline,omitempty"`
 	// units is the unit suffix displayed after the value.
-	Units string `protobuf:"bytes,8,opt,name=units,proto3" json:"units,omitempty"`
+	Units string `protobuf:"bytes,9,opt,name=units,proto3" json:"units,omitempty"`
 	// inline_size is the inline size of the value in pixels.
-	InlineSize *float64 `protobuf:"fixed64,9,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
+	InlineSize *float64 `protobuf:"fixed64,10,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
 	// channel is the channel whose value the symbol displays.
-	Channel *uint32 `protobuf:"varint,10,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
+	Channel *uint32 `protobuf:"varint,11,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
 	// rolling_average is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `protobuf:"varint,11,opt,name=rolling_average,json=rollingAverage,proto3,oneof" json:"rolling_average,omitempty"`
+	RollingAverage *int32 `protobuf:"varint,12,opt,name=rolling_average,json=rollingAverage,proto3,oneof" json:"rolling_average,omitempty"`
 	// level is the typography level of the displayed value.
-	Level *pb2.Level `protobuf:"varint,12,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
+	Level *pb2.Level `protobuf:"varint,13,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// precision is the number of decimal places shown.
-	Precision *float64 `protobuf:"fixed64,13,opt,name=precision,proto3,oneof" json:"precision,omitempty"`
+	Precision *float64 `protobuf:"fixed64,14,opt,name=precision,proto3,oneof" json:"precision,omitempty"`
 	// staleness_timeout is the duration in seconds after which the value is considered
 	// stale.
-	StalenessTimeout *float64 `protobuf:"fixed64,14,opt,name=staleness_timeout,json=stalenessTimeout,proto3,oneof" json:"staleness_timeout,omitempty"`
+	StalenessTimeout *float64 `protobuf:"fixed64,15,opt,name=staleness_timeout,json=stalenessTimeout,proto3,oneof" json:"staleness_timeout,omitempty"`
 	// staleness_color is the color applied when the value is stale.
-	StalenessColor *pb1.Color `protobuf:"bytes,15,opt,name=staleness_color,json=stalenessColor,proto3,oneof" json:"staleness_color,omitempty"`
+	StalenessColor *pb1.Color `protobuf:"bytes,16,opt,name=staleness_color,json=stalenessColor,proto3,oneof" json:"staleness_color,omitempty"`
 	// min_width is the minimum rendered width of the value in pixels.
-	MinWidth *float64 `protobuf:"fixed64,16,opt,name=min_width,json=minWidth,proto3,oneof" json:"min_width,omitempty"`
+	MinWidth *float64 `protobuf:"fixed64,17,opt,name=min_width,json=minWidth,proto3,oneof" json:"min_width,omitempty"`
 	// notation is the numeric notation used to format the value.
-	Notation *pb3.Notation `protobuf:"varint,17,opt,name=notation,proto3,enum=x.notation.pb.Notation,oneof" json:"notation,omitempty"`
+	Notation *pb3.Notation `protobuf:"varint,18,opt,name=notation,proto3,enum=x.notation.pb.Notation,oneof" json:"notation,omitempty"`
 	// location is the anchor of the value within the symbol.
-	Location *pb.LocationXY `protobuf:"bytes,18,opt,name=location,proto3,oneof" json:"location,omitempty"`
+	Location *pb.LocationXY `protobuf:"bytes,19,opt,name=location,proto3,oneof" json:"location,omitempty"`
 	// use_width_for_background indicates whether the background spans the full configured
 	// width.
-	UseWidthForBackground bool `protobuf:"varint,19,opt,name=use_width_for_background,json=useWidthForBackground,proto3" json:"use_width_for_background,omitempty"`
+	UseWidthForBackground bool `protobuf:"varint,20,opt,name=use_width_for_background,json=useWidthForBackground,proto3" json:"use_width_for_background,omitempty"`
 	// value_background_shift is the offset applied to the value background.
-	ValueBackgroundShift *pb.XY `protobuf:"bytes,20,opt,name=value_background_shift,json=valueBackgroundShift,proto3,oneof" json:"value_background_shift,omitempty"`
+	ValueBackgroundShift *pb.XY `protobuf:"bytes,21,opt,name=value_background_shift,json=valueBackgroundShift,proto3,oneof" json:"value_background_shift,omitempty"`
 	// value_background_over_scan is the extra padding applied around the value background.
-	ValueBackgroundOverScan *pb.XY `protobuf:"bytes,21,opt,name=value_background_over_scan,json=valueBackgroundOverScan,proto3,oneof" json:"value_background_over_scan,omitempty"`
+	ValueBackgroundOverScan *pb.XY `protobuf:"bytes,22,opt,name=value_background_over_scan,json=valueBackgroundOverScan,proto3,oneof" json:"value_background_over_scan,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -2737,6 +2838,13 @@ func (x *NodeConfigValuePayload) GetOrientation() pb.OuterLocation {
 		return *x.Orientation
 	}
 	return pb.OuterLocation(0)
+}
+
+func (x *NodeConfigValuePayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
 }
 
 func (x *NodeConfigValuePayload) GetPosition() *pb.XY {
@@ -2878,18 +2986,18 @@ type NodeConfigSolenoidValvePayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
-	// state_channel is the channel whose value drives the symbol's active state.
-	StateChannel *uint32 `protobuf:"varint,3,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
-	// command_channel is the channel actuation commands are written to.
-	CommandChannel *uint32 `protobuf:"varint,4,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
-	// control is the control state display configuration.
-	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3,oneof" json:"control,omitempty"`
-	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
-	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `protobuf:"fixed64,8,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	// state_channel is the channel whose value drives the symbol's active state.
+	StateChannel *uint32 `protobuf:"varint,4,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
+	// command_channel is the channel actuation commands are written to.
+	CommandChannel *uint32 `protobuf:"varint,5,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
+	// control is the control state display configuration.
+	Control *ControlStateConfig `protobuf:"bytes,6,opt,name=control,proto3,oneof" json:"control,omitempty"`
+	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// normally_open indicates whether the valve is open when unpowered.
 	NormallyOpen  bool `protobuf:"varint,9,opt,name=normally_open,json=normallyOpen,proto3" json:"normally_open,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2940,6 +3048,13 @@ func (x *NodeConfigSolenoidValvePayload) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *NodeConfigSolenoidValvePayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *NodeConfigSolenoidValvePayload) GetStateChannel() uint32 {
 	if x != nil && x.StateChannel != nil {
 		return *x.StateChannel
@@ -2975,13 +3090,6 @@ func (x *NodeConfigSolenoidValvePayload) GetColor() *pb1.Color {
 	return nil
 }
 
-func (x *NodeConfigSolenoidValvePayload) GetScale() float64 {
-	if x != nil && x.Scale != nil {
-		return *x.Scale
-	}
-	return 0
-}
-
 func (x *NodeConfigSolenoidValvePayload) GetNormallyOpen() bool {
 	if x != nil {
 		return x.NormallyOpen
@@ -2995,14 +3103,16 @@ type NodeConfigCylinderPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// dimensions is the rendered size of the cylinder in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,3,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,4,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// border_radius is the corner radius of the cylinder.
-	BorderRadius *pb4.Radius `protobuf:"bytes,4,opt,name=border_radius,json=borderRadius,proto3,oneof" json:"border_radius,omitempty"`
+	BorderRadius *pb4.Radius `protobuf:"bytes,5,opt,name=border_radius,json=borderRadius,proto3,oneof" json:"border_radius,omitempty"`
 	// color is the border color of the cylinder.
-	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the cylinder.
-	BackgroundColor *pb1.Color `protobuf:"bytes,6,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,7,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -3051,6 +3161,13 @@ func (x *NodeConfigCylinderPayload) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *NodeConfigCylinderPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *NodeConfigCylinderPayload) GetDimensions() *pb.Dimensions {
 	if x != nil {
 		return x.Dimensions
@@ -3085,14 +3202,16 @@ type NodeConfigTankPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
+	// scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// color is the border color of the tank.
-	Color *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// background_color is the fill color of the tank.
-	BackgroundColor *pb1.Color `protobuf:"bytes,4,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
+	BackgroundColor *pb1.Color `protobuf:"bytes,5,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	// dimensions is the rendered size of the tank in pixels.
-	Dimensions *pb.Dimensions `protobuf:"bytes,5,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
+	Dimensions *pb.Dimensions `protobuf:"bytes,6,opt,name=dimensions,proto3,oneof" json:"dimensions,omitempty"`
 	// border_radius is the corner radius of the tank.
-	BorderRadius  *pb4.Radius `protobuf:"bytes,6,opt,name=border_radius,json=borderRadius,proto3,oneof" json:"border_radius,omitempty"`
+	BorderRadius  *pb4.Radius `protobuf:"bytes,7,opt,name=border_radius,json=borderRadius,proto3,oneof" json:"border_radius,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3141,6 +3260,13 @@ func (x *NodeConfigTankPayload) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *NodeConfigTankPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *NodeConfigTankPayload) GetColor() *pb1.Color {
 	if x != nil {
 		return x.Color
@@ -3175,20 +3301,20 @@ type NodeConfigCustomActuatorPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
-	// state_channel is the channel whose value drives the symbol's active state.
-	StateChannel *uint32 `protobuf:"varint,3,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
-	// command_channel is the channel actuation commands are written to.
-	CommandChannel *uint32 `protobuf:"varint,4,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
-	// control is the control state display configuration.
-	Control *ControlStateConfig `protobuf:"bytes,5,opt,name=control,proto3,oneof" json:"control,omitempty"`
-	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
-	// spec_key is the key of the custom symbol spec this instance renders.
-	SpecKey string `protobuf:"bytes,7,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
-	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `protobuf:"fixed64,9,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	// state_channel is the channel whose value drives the symbol's active state.
+	StateChannel *uint32 `protobuf:"varint,4,opt,name=state_channel,json=stateChannel,proto3,oneof" json:"state_channel,omitempty"`
+	// command_channel is the channel actuation commands are written to.
+	CommandChannel *uint32 `protobuf:"varint,5,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
+	// control is the control state display configuration.
+	Control *ControlStateConfig `protobuf:"bytes,6,opt,name=control,proto3,oneof" json:"control,omitempty"`
+	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	// spec_key is the key of the custom symbol spec this instance renders.
+	SpecKey string `protobuf:"bytes,8,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,9,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// state_overrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
@@ -3241,6 +3367,13 @@ func (x *NodeConfigCustomActuatorPayload) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *NodeConfigCustomActuatorPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *NodeConfigCustomActuatorPayload) GetStateChannel() uint32 {
 	if x != nil && x.StateChannel != nil {
 		return *x.StateChannel
@@ -3283,13 +3416,6 @@ func (x *NodeConfigCustomActuatorPayload) GetColor() *pb1.Color {
 	return nil
 }
 
-func (x *NodeConfigCustomActuatorPayload) GetScale() float64 {
-	if x != nil && x.Scale != nil {
-		return *x.Scale
-	}
-	return 0
-}
-
 func (x *NodeConfigCustomActuatorPayload) GetStateOverrides() []*structpb.Struct {
 	if x != nil {
 		return x.StateOverrides
@@ -3303,12 +3429,12 @@ type NodeConfigCustomStaticPayload struct {
 	Label *LabelConfig `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *pb.OuterLocation `protobuf:"varint,2,opt,name=orientation,proto3,enum=x.spatial.pb.OuterLocation,oneof" json:"orientation,omitempty"`
-	// spec_key is the key of the custom symbol spec this instance renders.
-	SpecKey string `protobuf:"bytes,3,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
-	// color is the stroke color of the symbol.
-	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `protobuf:"fixed64,5,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
+	// spec_key is the key of the custom symbol spec this instance renders.
+	SpecKey string `protobuf:"bytes,4,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
+	// color is the stroke color of the symbol.
+	Color *pb1.Color `protobuf:"bytes,5,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// state_overrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
@@ -3361,6 +3487,13 @@ func (x *NodeConfigCustomStaticPayload) GetOrientation() pb.OuterLocation {
 	return pb.OuterLocation(0)
 }
 
+func (x *NodeConfigCustomStaticPayload) GetScale() float64 {
+	if x != nil && x.Scale != nil {
+		return *x.Scale
+	}
+	return 0
+}
+
 func (x *NodeConfigCustomStaticPayload) GetSpecKey() string {
 	if x != nil {
 		return x.SpecKey
@@ -3373,13 +3506,6 @@ func (x *NodeConfigCustomStaticPayload) GetColor() *pb1.Color {
 		return x.Color
 	}
 	return nil
-}
-
-func (x *NodeConfigCustomStaticPayload) GetScale() float64 {
-	if x != nil && x.Scale != nil {
-		return *x.Scale
-	}
-	return 0
 }
 
 func (x *NodeConfigCustomStaticPayload) GetStateOverrides() []*structpb.Struct {
@@ -7005,12 +7131,14 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
 	"_directionB\x12\n" +
 	"\x10_max_inline_sizeB\b\n" +
-	"\x06_align\"\xab\x01\n" +
+	"\x06_align\"\xd0\x01\n" +
 	"\rLabeledConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01B\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientation\"\xec\x01\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scale\"\xec\x01\n" +
 	"\x12ControlStateConfig\x12!\n" +
 	"\tauthority\x18\x01 \x01(\rH\x00R\tauthority\x88\x01\x01\x12\x12\n" +
 	"\x04show\x18\x02 \x01(\bR\x04show\x12\x1b\n" +
@@ -7019,57 +7147,59 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\vorientation\x18\x05 \x01(\x0e2\x16.x.spatial.pb.LocationH\x01R\vorientation\x88\x01\x01B\f\n" +
 	"\n" +
 	"_authorityB\x0e\n" +
-	"\f_orientation\"\xa3\x03\n" +
+	"\f_orientation\"\xc8\x03\n" +
 	"\fToggleConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12(\n" +
-	"\rstate_channel\x18\x03 \x01(\rH\x02R\fstateChannel\x88\x01\x01\x12,\n" +
-	"\x0fcommand_channel\x18\x04 \x01(\rH\x03R\x0ecommandChannel\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x04R\acontrol\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelayB\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12(\n" +
+	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
+	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\a \x01(\x01R\fonClickDelayB\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\x10\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\n" +
 	"\n" +
 	"\b_control\"\x8d\x02\n" +
 	"\x12StaticSymbolConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x19\n" +
-	"\x05scale\x18\x04 \x01(\x01H\x03R\x05scale\x88\x01\x01B\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
-	"\x06_colorB\b\n" +
-	"\x06_scale\"\x86\x04\n" +
+	"\x06_scaleB\b\n" +
+	"\x06_color\"\x86\x04\n" +
 	"\x12ToggleSymbolConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12(\n" +
-	"\rstate_channel\x18\x03 \x01(\rH\x02R\fstateChannel\x88\x01\x01\x12,\n" +
-	"\x0fcommand_channel\x18\x04 \x01(\rH\x03R\x0ecommandChannel\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x04R\acontrol\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12,\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12\x19\n" +
-	"\x05scale\x18\b \x01(\x01H\x06R\x05scale\x88\x01\x01B\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12(\n" +
+	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
+	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\a \x01(\x01R\fonClickDelay\x12,\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\x10\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\n" +
 	"\n" +
 	"\b_controlB\b\n" +
-	"\x06_colorB\b\n" +
-	"\x06_scale\"\xca\x02\n" +
+	"\x06_color\"\xca\x02\n" +
 	"\x17DummyToggleSymbolConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x18\n" +
-	"\aenabled\x18\x03 \x01(\bR\aenabled\x12\x1c\n" +
-	"\tclickable\x18\x04 \x01(\bR\tclickable\x12,\n" +
-	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x19\n" +
-	"\x05scale\x18\x06 \x01(\x01H\x03R\x05scale\x88\x01\x01B\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x18\n" +
+	"\aenabled\x18\x04 \x01(\bR\aenabled\x12\x1c\n" +
+	"\tclickable\x18\x05 \x01(\bR\tclickable\x12,\n" +
+	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
-	"\x06_colorB\b\n" +
-	"\x06_scale\"\x82\x01\n" +
+	"\x06_scaleB\b\n" +
+	"\x06_color\"\x82\x01\n" +
 	"\fStateMapping\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x14\n" +
@@ -7105,58 +7235,65 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x11_background_colorB\r\n" +
 	"\v_dimensionsB\x10\n" +
 	"\x0e_border_radiusB\x0f\n" +
-	"\r_stroke_width\"\xec\x04\n" +
+	"\r_stroke_width\"\x91\x05\n" +
 	"\x17NodeConfigButtonPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12<\n" +
-	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x02R\x04size\x88\x01\x01\x12+\n" +
-	"\x05level\x18\x04 \x01(\x0e2\x10.x.text.pb.LevelH\x03R\x05level\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\x05 \x01(\x01R\fonClickDelay\x12,\n" +
-	"\x0fcommand_channel\x18\x06 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x129\n" +
-	"\x04mode\x18\a \x01(\x0e2 .service.schematic.pb.ButtonModeH\x05R\x04mode\x88\x01\x01\x12,\n" +
-	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigH\aR\acontrol\x88\x01\x01B\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12<\n" +
+	"\x04size\x18\x04 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x03R\x04size\x88\x01\x01\x12+\n" +
+	"\x05level\x18\x05 \x01(\x0e2\x10.x.text.pb.LevelH\x04R\x05level\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12,\n" +
+	"\x0fcommand_channel\x18\a \x01(\rH\x05R\x0ecommandChannel\x88\x01\x01\x129\n" +
+	"\x04mode\x18\b \x01(\x0e2 .service.schematic.pb.ButtonModeH\x06R\x04mode\x88\x01\x01\x12,\n" +
+	"\x05color\x18\t \x01(\v2\x11.x.color.pb.ColorH\aR\x05color\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\n" +
+	" \x01(\v2(.service.schematic.pb.ControlStateConfigH\bR\acontrol\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\a\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\a\n" +
 	"\x05_sizeB\b\n" +
 	"\x06_levelB\x12\n" +
 	"\x10_command_channelB\a\n" +
 	"\x05_modeB\b\n" +
 	"\x06_colorB\n" +
 	"\n" +
-	"\b_control\"\x96\x03\n" +
+	"\b_control\"\xbb\x03\n" +
 	"\x17NodeConfigCirclePayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x16\n" +
-	"\x06radius\x18\x03 \x01(\x01R\x06radius\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12A\n" +
-	"\x10background_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x03R\x0fbackgroundColor\x88\x01\x01\x12&\n" +
-	"\fstroke_width\x18\x06 \x01(\x01H\x04R\vstrokeWidth\x88\x01\x01B\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x16\n" +
+	"\x06radius\x18\x04 \x01(\x01R\x06radius\x12,\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x04R\x0fbackgroundColor\x88\x01\x01\x12&\n" +
+	"\fstroke_width\x18\a \x01(\x01H\x05R\vstrokeWidth\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
+	"\x06_scaleB\b\n" +
 	"\x06_colorB\x13\n" +
 	"\x11_background_colorB\x0f\n" +
-	"\r_stroke_width\"\xe9\x06\n" +
+	"\r_stroke_width\"\x8e\a\n" +
 	"\x16NodeConfigGaugePayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x121\n" +
-	"\bposition\x18\x03 \x01(\v2\x10.x.spatial.pb.XYH\x02R\bposition\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x121\n" +
-	"\x06bounds\x18\x05 \x01(\v2\x14.x.spatial.pb.BoundsH\x04R\x06bounds\x88\x01\x01\x12 \n" +
-	"\tbar_width\x18\x06 \x01(\x01H\x05R\bbarWidth\x88\x01\x01\x12\x1d\n" +
-	"\achannel\x18\a \x01(\rH\x06R\achannel\x88\x01\x01\x12,\n" +
-	"\x0frolling_average\x18\b \x01(\x05H\aR\x0erollingAverage\x88\x01\x01\x12!\n" +
-	"\tprecision\x18\t \x01(\x01H\bR\tprecision\x88\x01\x01\x12 \n" +
-	"\tmin_width\x18\n" +
-	" \x01(\x01H\tR\bminWidth\x88\x01\x01\x12\x19\n" +
-	"\x05width\x18\v \x01(\x01H\n" +
-	"R\x05width\x88\x01\x01\x128\n" +
-	"\bnotation\x18\f \x01(\x0e2\x17.x.notation.pb.NotationH\vR\bnotation\x88\x01\x01\x129\n" +
-	"\blocation\x18\r \x01(\v2\x18.x.spatial.pb.LocationXYH\fR\blocation\x88\x01\x01\x12\x14\n" +
-	"\x05units\x18\x0e \x01(\tR\x05units\x12+\n" +
-	"\x05level\x18\x0f \x01(\x0e2\x10.x.text.pb.LevelH\rR\x05level\x88\x01\x01B\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x121\n" +
+	"\bposition\x18\x04 \x01(\v2\x10.x.spatial.pb.XYH\x03R\bposition\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x121\n" +
+	"\x06bounds\x18\x06 \x01(\v2\x14.x.spatial.pb.BoundsH\x05R\x06bounds\x88\x01\x01\x12 \n" +
+	"\tbar_width\x18\a \x01(\x01H\x06R\bbarWidth\x88\x01\x01\x12\x1d\n" +
+	"\achannel\x18\b \x01(\rH\aR\achannel\x88\x01\x01\x12,\n" +
+	"\x0frolling_average\x18\t \x01(\x05H\bR\x0erollingAverage\x88\x01\x01\x12!\n" +
+	"\tprecision\x18\n" +
+	" \x01(\x01H\tR\tprecision\x88\x01\x01\x12 \n" +
+	"\tmin_width\x18\v \x01(\x01H\n" +
+	"R\bminWidth\x88\x01\x01\x12\x19\n" +
+	"\x05width\x18\f \x01(\x01H\vR\x05width\x88\x01\x01\x128\n" +
+	"\bnotation\x18\r \x01(\x0e2\x17.x.notation.pb.NotationH\fR\bnotation\x88\x01\x01\x129\n" +
+	"\blocation\x18\x0e \x01(\v2\x18.x.spatial.pb.LocationXYH\rR\blocation\x88\x01\x01\x12\x14\n" +
+	"\x05units\x18\x0f \x01(\tR\x05units\x12+\n" +
+	"\x05level\x18\x10 \x01(\x0e2\x10.x.text.pb.LevelH\x0eR\x05level\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\v\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\v\n" +
 	"\t_positionB\b\n" +
 	"\x06_colorB\t\n" +
 	"\a_boundsB\f\n" +
@@ -7172,20 +7309,22 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06_widthB\v\n" +
 	"\t_notationB\v\n" +
 	"\t_locationB\b\n" +
-	"\x06_level\"\xb4\x04\n" +
+	"\x06_level\"\xd9\x04\n" +
 	"\x16NodeConfigInputPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12<\n" +
-	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x02R\x04size\x88\x01\x01\x12,\n" +
-	"\x0fcommand_channel\x18\x04 \x01(\rH\x03R\x0ecommandChannel\x88\x01\x01\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12<\n" +
+	"\x04size\x18\x04 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x03R\x04size\x88\x01\x01\x12,\n" +
+	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12=\n" +
 	"\n" +
-	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsH\x04R\n" +
+	"dimensions\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsH\x05R\n" +
 	"dimensions\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12\x1a\n" +
-	"\bdisabled\x18\a \x01(\bR\bdisabled\x12G\n" +
-	"\acontrol\x18\b \x01(\v2(.service.schematic.pb.ControlStateConfigH\x06R\acontrol\x88\x01\x01B\b\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12\x1a\n" +
+	"\bdisabled\x18\b \x01(\bR\bdisabled\x12G\n" +
+	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigH\aR\acontrol\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\a\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\a\n" +
 	"\x05_sizeB\x12\n" +
 	"\x10_command_channelB\r\n" +
 	"\v_dimensionsB\b\n" +
@@ -7194,19 +7333,19 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\b_control\"\x83\x03\n" +
 	"\x16NodeConfigLightPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x1d\n" +
-	"\achannel\x18\x03 \x01(\rH\x02R\achannel\x88\x01\x01\x127\n" +
-	"\tthreshold\x18\x04 \x01(\v2\x14.x.spatial.pb.BoundsH\x03R\tthreshold\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x12\x19\n" +
-	"\x05scale\x18\x06 \x01(\x01H\x05R\x05scale\x88\x01\x01B\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x1d\n" +
+	"\achannel\x18\x04 \x01(\rH\x03R\achannel\x88\x01\x01\x127\n" +
+	"\tthreshold\x18\x05 \x01(\v2\x14.x.spatial.pb.BoundsH\x04R\tthreshold\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\n" +
 	"\n" +
 	"\b_channelB\f\n" +
 	"\n" +
 	"_thresholdB\b\n" +
-	"\x06_colorB\b\n" +
-	"\x06_scale\"\xd7\x02\n" +
+	"\x06_color\"\xd7\x02\n" +
 	"!NodeConfigOffPageReferencePayload\x12B\n" +
 	"\vorientation\x18\x01 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x00R\vorientation\x88\x01\x01\x127\n" +
 	"\x05label\x18\x02 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12+\n" +
@@ -7216,125 +7355,138 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\rdbl_click_nav\x18\x06 \x01(\bR\vdblClickNavB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_levelB\b\n" +
-	"\x06_color\"\xad\x04\n" +
+	"\x06_color\"\xd2\x04\n" +
 	"\x18NodeConfigPolygonPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x1b\n" +
-	"\tnum_sides\x18\x03 \x01(\x01R\bnumSides\x12\x1f\n" +
-	"\vside_length\x18\x04 \x01(\x01R\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x1b\n" +
+	"\tnum_sides\x18\x04 \x01(\x01R\bnumSides\x12\x1f\n" +
+	"\vside_length\x18\x05 \x01(\x01R\n" +
 	"sideLength\x12\x1f\n" +
-	"\brotation\x18\x05 \x01(\x01H\x02R\brotation\x88\x01\x01\x12,\n" +
-	"\x0fcorner_rounding\x18\x06 \x01(\x01H\x03R\x0ecornerRounding\x88\x01\x01\x12,\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x12A\n" +
-	"\x10background_color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x05R\x0fbackgroundColor\x88\x01\x01\x12&\n" +
-	"\fstroke_width\x18\t \x01(\x01H\x06R\vstrokeWidth\x88\x01\x01B\b\n" +
+	"\brotation\x18\x06 \x01(\x01H\x03R\brotation\x88\x01\x01\x12,\n" +
+	"\x0fcorner_rounding\x18\a \x01(\x01H\x04R\x0ecornerRounding\x88\x01\x01\x12,\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\t \x01(\v2\x11.x.color.pb.ColorH\x06R\x0fbackgroundColor\x88\x01\x01\x12&\n" +
+	"\fstroke_width\x18\n" +
+	" \x01(\x01H\aR\vstrokeWidth\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\v\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\v\n" +
 	"\t_rotationB\x12\n" +
 	"\x10_corner_roundingB\b\n" +
 	"\x06_colorB\x13\n" +
 	"\x11_background_colorB\x0f\n" +
-	"\r_stroke_width\"\xdb\x04\n" +
+	"\r_stroke_width\"\x80\x05\n" +
 	"\x17NodeConfigSelectPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12<\n" +
-	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x02R\x04size\x88\x01\x01\x12,\n" +
-	"\x0fcommand_channel\x18\x04 \x01(\rH\x03R\x0ecommandChannel\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x12$\n" +
-	"\vinline_size\x18\x06 \x01(\x01H\x05R\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12<\n" +
+	"\x04size\x18\x04 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x03R\x04size\x88\x01\x01\x12,\n" +
+	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12$\n" +
+	"\vinline_size\x18\a \x01(\x01H\x06R\n" +
 	"inlineSize\x88\x01\x01\x12<\n" +
-	"\aoptions\x18\a \x03(\v2\".service.schematic.pb.StateMappingR\aoptions\x12\x1a\n" +
-	"\bdisabled\x18\b \x01(\bR\bdisabled\x12G\n" +
-	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigH\x06R\acontrol\x88\x01\x01B\b\n" +
+	"\aoptions\x18\b \x03(\v2\".service.schematic.pb.StateMappingR\aoptions\x12\x1a\n" +
+	"\bdisabled\x18\t \x01(\bR\bdisabled\x12G\n" +
+	"\acontrol\x18\n" +
+	" \x01(\v2(.service.schematic.pb.ControlStateConfigH\aR\acontrol\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\a\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\a\n" +
 	"\x05_sizeB\x12\n" +
 	"\x10_command_channelB\b\n" +
 	"\x06_colorB\x0e\n" +
 	"\f_inline_sizeB\n" +
 	"\n" +
-	"\b_control\"\x89\x05\n" +
+	"\b_control\"\xae\x05\n" +
 	"\x19NodeConfigSetpointPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12<\n" +
-	"\x04size\x18\x03 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x02R\x04size\x88\x01\x01\x12(\n" +
-	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
-	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12<\n" +
+	"\x04size\x18\x04 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x03R\x04size\x88\x01\x01\x12(\n" +
+	"\rstate_channel\x18\x05 \x01(\rH\x04R\fstateChannel\x88\x01\x01\x12,\n" +
+	"\x0fcommand_channel\x18\x06 \x01(\rH\x05R\x0ecommandChannel\x88\x01\x01\x12=\n" +
 	"\n" +
-	"dimensions\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsH\x05R\n" +
+	"dimensions\x18\a \x01(\v2\x18.x.spatial.pb.DimensionsH\x06R\n" +
 	"dimensions\x88\x01\x01\x12,\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12\x14\n" +
-	"\x05units\x18\b \x01(\tR\x05units\x12\x1a\n" +
-	"\bdisabled\x18\t \x01(\bR\bdisabled\x12G\n" +
-	"\acontrol\x18\n" +
-	" \x01(\v2(.service.schematic.pb.ControlStateConfigH\aR\acontrol\x88\x01\x01B\b\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\aR\x05color\x88\x01\x01\x12\x14\n" +
+	"\x05units\x18\t \x01(\tR\x05units\x12\x1a\n" +
+	"\bdisabled\x18\n" +
+	" \x01(\bR\bdisabled\x12G\n" +
+	"\acontrol\x18\v \x01(\v2(.service.schematic.pb.ControlStateConfigH\bR\acontrol\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\a\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\a\n" +
 	"\x05_sizeB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\r\n" +
 	"\v_dimensionsB\b\n" +
 	"\x06_colorB\n" +
 	"\n" +
-	"\b_control\"\x94\x03\n" +
+	"\b_control\"\xb9\x03\n" +
 	"\x1fNodeConfigStateIndicatorPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x1d\n" +
-	"\achannel\x18\x03 \x01(\rH\x02R\achannel\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12$\n" +
-	"\vinline_size\x18\x05 \x01(\x01H\x04R\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x1d\n" +
+	"\achannel\x18\x04 \x01(\rH\x03R\achannel\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x12$\n" +
+	"\vinline_size\x18\x06 \x01(\x01H\x05R\n" +
 	"inlineSize\x88\x01\x01\x12<\n" +
-	"\aoptions\x18\x06 \x03(\v2\".service.schematic.pb.StateMappingR\aoptionsB\b\n" +
+	"\aoptions\x18\a \x03(\v2\".service.schematic.pb.StateMappingR\aoptionsB\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\n" +
 	"\n" +
 	"\b_channelB\b\n" +
 	"\x06_colorB\x0e\n" +
-	"\f_inline_size\"\xc5\x03\n" +
+	"\f_inline_size\"\xea\x03\n" +
 	"\x18NodeConfigTextBoxPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x19\n" +
-	"\x05width\x18\x04 \x01(\x01H\x03R\x05width\x88\x01\x01\x12>\n" +
-	"\x05align\x18\x05 \x01(\x0e2#.service.schematic.pb.FlexAlignmentH\x04R\x05align\x88\x01\x01\x12\x19\n" +
-	"\bauto_fit\x18\x06 \x01(\bR\aautoFit\x12+\n" +
-	"\x05level\x18\a \x01(\x0e2\x10.x.text.pb.LevelH\x05R\x05level\x88\x01\x01\x12\x14\n" +
-	"\x05value\x18\b \x01(\tR\x05valueB\b\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05width\x18\x05 \x01(\x01H\x04R\x05width\x88\x01\x01\x12>\n" +
+	"\x05align\x18\x06 \x01(\x0e2#.service.schematic.pb.FlexAlignmentH\x05R\x05align\x88\x01\x01\x12\x19\n" +
+	"\bauto_fit\x18\a \x01(\bR\aautoFit\x12+\n" +
+	"\x05level\x18\b \x01(\x0e2\x10.x.text.pb.LevelH\x06R\x05level\x88\x01\x01\x12\x14\n" +
+	"\x05value\x18\t \x01(\tR\x05valueB\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
+	"\x06_scaleB\b\n" +
 	"\x06_colorB\b\n" +
 	"\x06_widthB\b\n" +
 	"\x06_alignB\b\n" +
-	"\x06_level\"\xe7\n" +
-	"\n" +
+	"\x06_level\"\x8c\v\n" +
 	"\x16NodeConfigValuePayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x121\n" +
-	"\bposition\x18\x03 \x01(\v2\x10.x.spatial.pb.XYH\x02R\bposition\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x125\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x121\n" +
+	"\bposition\x18\x04 \x01(\v2\x10.x.spatial.pb.XYH\x03R\bposition\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x125\n" +
 	"\n" +
-	"text_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\ttextColor\x88\x01\x01\x12\x18\n" +
-	"\atooltip\x18\x06 \x03(\tR\atooltip\x12<\n" +
-	"\aredline\x18\a \x01(\v2\x1d.service.schematic.pb.RedlineH\x05R\aredline\x88\x01\x01\x12\x14\n" +
-	"\x05units\x18\b \x01(\tR\x05units\x12$\n" +
-	"\vinline_size\x18\t \x01(\x01H\x06R\n" +
+	"text_color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\ttextColor\x88\x01\x01\x12\x18\n" +
+	"\atooltip\x18\a \x03(\tR\atooltip\x12<\n" +
+	"\aredline\x18\b \x01(\v2\x1d.service.schematic.pb.RedlineH\x06R\aredline\x88\x01\x01\x12\x14\n" +
+	"\x05units\x18\t \x01(\tR\x05units\x12$\n" +
+	"\vinline_size\x18\n" +
+	" \x01(\x01H\aR\n" +
 	"inlineSize\x88\x01\x01\x12\x1d\n" +
-	"\achannel\x18\n" +
-	" \x01(\rH\aR\achannel\x88\x01\x01\x12,\n" +
-	"\x0frolling_average\x18\v \x01(\x05H\bR\x0erollingAverage\x88\x01\x01\x12+\n" +
-	"\x05level\x18\f \x01(\x0e2\x10.x.text.pb.LevelH\tR\x05level\x88\x01\x01\x12!\n" +
-	"\tprecision\x18\r \x01(\x01H\n" +
-	"R\tprecision\x88\x01\x01\x120\n" +
-	"\x11staleness_timeout\x18\x0e \x01(\x01H\vR\x10stalenessTimeout\x88\x01\x01\x12?\n" +
-	"\x0fstaleness_color\x18\x0f \x01(\v2\x11.x.color.pb.ColorH\fR\x0estalenessColor\x88\x01\x01\x12 \n" +
-	"\tmin_width\x18\x10 \x01(\x01H\rR\bminWidth\x88\x01\x01\x128\n" +
-	"\bnotation\x18\x11 \x01(\x0e2\x17.x.notation.pb.NotationH\x0eR\bnotation\x88\x01\x01\x129\n" +
-	"\blocation\x18\x12 \x01(\v2\x18.x.spatial.pb.LocationXYH\x0fR\blocation\x88\x01\x01\x127\n" +
-	"\x18use_width_for_background\x18\x13 \x01(\bR\x15useWidthForBackground\x12K\n" +
-	"\x16value_background_shift\x18\x14 \x01(\v2\x10.x.spatial.pb.XYH\x10R\x14valueBackgroundShift\x88\x01\x01\x12R\n" +
-	"\x1avalue_background_over_scan\x18\x15 \x01(\v2\x10.x.spatial.pb.XYH\x11R\x17valueBackgroundOverScan\x88\x01\x01B\b\n" +
+	"\achannel\x18\v \x01(\rH\bR\achannel\x88\x01\x01\x12,\n" +
+	"\x0frolling_average\x18\f \x01(\x05H\tR\x0erollingAverage\x88\x01\x01\x12+\n" +
+	"\x05level\x18\r \x01(\x0e2\x10.x.text.pb.LevelH\n" +
+	"R\x05level\x88\x01\x01\x12!\n" +
+	"\tprecision\x18\x0e \x01(\x01H\vR\tprecision\x88\x01\x01\x120\n" +
+	"\x11staleness_timeout\x18\x0f \x01(\x01H\fR\x10stalenessTimeout\x88\x01\x01\x12?\n" +
+	"\x0fstaleness_color\x18\x10 \x01(\v2\x11.x.color.pb.ColorH\rR\x0estalenessColor\x88\x01\x01\x12 \n" +
+	"\tmin_width\x18\x11 \x01(\x01H\x0eR\bminWidth\x88\x01\x01\x128\n" +
+	"\bnotation\x18\x12 \x01(\x0e2\x17.x.notation.pb.NotationH\x0fR\bnotation\x88\x01\x01\x129\n" +
+	"\blocation\x18\x13 \x01(\v2\x18.x.spatial.pb.LocationXYH\x10R\blocation\x88\x01\x01\x127\n" +
+	"\x18use_width_for_background\x18\x14 \x01(\bR\x15useWidthForBackground\x12K\n" +
+	"\x16value_background_shift\x18\x15 \x01(\v2\x10.x.spatial.pb.XYH\x11R\x14valueBackgroundShift\x88\x01\x01\x12R\n" +
+	"\x1avalue_background_over_scan\x18\x16 \x01(\v2\x10.x.spatial.pb.XYH\x12R\x17valueBackgroundOverScan\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\v\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\v\n" +
 	"\t_positionB\b\n" +
 	"\x06_colorB\r\n" +
 	"\v_text_colorB\n" +
@@ -7357,83 +7509,87 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x1b_value_background_over_scan\"\xb7\x04\n" +
 	"\x1eNodeConfigSolenoidValvePayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12(\n" +
-	"\rstate_channel\x18\x03 \x01(\rH\x02R\fstateChannel\x88\x01\x01\x12,\n" +
-	"\x0fcommand_channel\x18\x04 \x01(\rH\x03R\x0ecommandChannel\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x04R\acontrol\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12,\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12\x19\n" +
-	"\x05scale\x18\b \x01(\x01H\x06R\x05scale\x88\x01\x01\x12#\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12(\n" +
+	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
+	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\a \x01(\x01R\fonClickDelay\x12,\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12#\n" +
 	"\rnormally_open\x18\t \x01(\bR\fnormallyOpenB\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\x10\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\n" +
 	"\n" +
 	"\b_controlB\b\n" +
-	"\x06_colorB\b\n" +
-	"\x06_scale\"\xe6\x03\n" +
+	"\x06_color\"\x8b\x04\n" +
 	"\x19NodeConfigCylinderPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12=\n" +
 	"\n" +
-	"dimensions\x18\x03 \x01(\v2\x18.x.spatial.pb.DimensionsH\x02R\n" +
+	"dimensions\x18\x04 \x01(\v2\x18.x.spatial.pb.DimensionsH\x03R\n" +
 	"dimensions\x88\x01\x01\x12=\n" +
-	"\rborder_radius\x18\x04 \x01(\v2\x13.x.border.pb.RadiusH\x03R\fborderRadius\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x12A\n" +
-	"\x10background_color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x0fbackgroundColor\x88\x01\x01B\b\n" +
+	"\rborder_radius\x18\x05 \x01(\v2\x13.x.border.pb.RadiusH\x04R\fborderRadius\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x06R\x0fbackgroundColor\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\r\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\r\n" +
 	"\v_dimensionsB\x10\n" +
 	"\x0e_border_radiusB\b\n" +
 	"\x06_colorB\x13\n" +
-	"\x11_background_color\"\xe2\x03\n" +
+	"\x11_background_color\"\x87\x04\n" +
 	"\x15NodeConfigTankPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12A\n" +
-	"\x10background_color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x0fbackgroundColor\x88\x01\x01\x12=\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x0fbackgroundColor\x88\x01\x01\x12=\n" +
 	"\n" +
-	"dimensions\x18\x05 \x01(\v2\x18.x.spatial.pb.DimensionsH\x04R\n" +
+	"dimensions\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsH\x05R\n" +
 	"dimensions\x88\x01\x01\x12=\n" +
-	"\rborder_radius\x18\x06 \x01(\v2\x13.x.border.pb.RadiusH\x05R\fborderRadius\x88\x01\x01B\b\n" +
+	"\rborder_radius\x18\a \x01(\v2\x13.x.border.pb.RadiusH\x06R\fborderRadius\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
+	"\x06_scaleB\b\n" +
 	"\x06_colorB\x13\n" +
 	"\x11_background_colorB\r\n" +
 	"\v_dimensionsB\x10\n" +
 	"\x0e_border_radius\"\xf0\x04\n" +
 	"\x1fNodeConfigCustomActuatorPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
-	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12(\n" +
-	"\rstate_channel\x18\x03 \x01(\rH\x02R\fstateChannel\x88\x01\x01\x12,\n" +
-	"\x0fcommand_channel\x18\x04 \x01(\rH\x03R\x0ecommandChannel\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\x05 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x04R\acontrol\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12\x19\n" +
-	"\bspec_key\x18\a \x01(\tR\aspecKey\x12,\n" +
-	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12\x19\n" +
-	"\x05scale\x18\t \x01(\x01H\x06R\x05scale\x88\x01\x01\x12@\n" +
+	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12(\n" +
+	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
+	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12$\n" +
+	"\x0eon_click_delay\x18\a \x01(\x01R\fonClickDelay\x12\x19\n" +
+	"\bspec_key\x18\b \x01(\tR\aspecKey\x12,\n" +
+	"\x05color\x18\t \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12@\n" +
 	"\x0fstate_overrides\x18\n" +
 	" \x03(\v2\x17.google.protobuf.StructR\x0estateOverridesB\b\n" +
 	"\x06_labelB\x0e\n" +
-	"\f_orientationB\x10\n" +
+	"\f_orientationB\b\n" +
+	"\x06_scaleB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\n" +
 	"\n" +
 	"\b_controlB\b\n" +
-	"\x06_colorB\b\n" +
-	"\x06_scale\"\xf5\x02\n" +
+	"\x06_color\"\xf5\x02\n" +
 	"\x1dNodeConfigCustomStaticPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
-	"\bspec_key\x18\x03 \x01(\tR\aspecKey\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x19\n" +
-	"\x05scale\x18\x05 \x01(\x01H\x03R\x05scale\x88\x01\x01\x12@\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x19\n" +
+	"\bspec_key\x18\x04 \x01(\tR\aspecKey\x12,\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12@\n" +
 	"\x0fstate_overrides\x18\x06 \x03(\v2\x17.google.protobuf.StructR\x0estateOverridesB\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
-	"\x06_colorB\b\n" +
-	"\x06_scale\"\x8c\x04\n" +
+	"\x06_scaleB\b\n" +
+	"\x06_color\"\x8c\x04\n" +
 	"\n" +
 	"EdgeConfig\x12?\n" +
 	"\x04pipe\x18\x01 \x01(\v2).service.schematic.pb.SegmentedEdgeConfigH\x00R\x04pipe\x12G\n" +

@@ -45,7 +45,9 @@ export const createToggle = <C extends ToggleConfig>(
     nodeKey,
     onConfigChange,
     selected,
-    config: {
+    config,
+  }: NodeProps<ToggleConfig>): ReactElement => {
+    const {
       control,
       stateChannel,
       commandChannel,
@@ -53,8 +55,7 @@ export const createToggle = <C extends ToggleConfig>(
       orientation = "left",
       onClickDelay,
       ...rest
-    },
-  }: NodeProps<ToggleConfig>): ReactElement => {
+    } = config;
     const source = useMemo(
       () => CommonTelem.booleanSource(stateChannel),
       [stateChannel],
@@ -64,6 +65,7 @@ export const createToggle = <C extends ToggleConfig>(
       [commandChannel],
     );
     const { enabled, toggle } = Base.use({ aetherKey: nodeKey, source, sink });
+    const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid
         editable={selected}
@@ -71,6 +73,7 @@ export const createToggle = <C extends ToggleConfig>(
         orientation={orientation}
         onRotate={onConfigChange}
         {...overrides?.grid}
+        {...scaleResize}
       >
         <Label.Label config={label} onChange={onConfigChange} />
         <Control.State
@@ -93,10 +96,7 @@ export const createToggle = <C extends ToggleConfig>(
   return M;
 };
 
-export type DummyToggleConfig = Omit<
-  schematic.DummyToggleSymbolConfig,
-  "color" | "scale"
->;
+export type DummyToggleConfig = Omit<schematic.DummyToggleSymbolConfig, "color">;
 
 export const createDummyToggle = <C extends DummyToggleConfig>(
   Primitive: FC<Omit<C, "label"> & ButtonProps>,
@@ -106,24 +106,27 @@ export const createDummyToggle = <C extends DummyToggleConfig>(
     nodeKey,
     onConfigChange,
     selected,
-    config: {
+    config,
+  }: NodeProps<DummyToggleConfig>): ReactElement => {
+    const {
       label,
       orientation = "left",
       enabled = false,
       clickable = false,
       ...rest
-    },
-  }: NodeProps<DummyToggleConfig>): ReactElement => {
+    } = config;
     const handleToggleChange = () => {
       if (!clickable) return;
       onConfigChange({ enabled: !enabled });
     };
+    const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid
         editable={selected}
         nodeKey={nodeKey}
         orientation={orientation}
         onRotate={onConfigChange}
+        {...scaleResize}
       >
         <Label.Label config={label} onChange={onConfigChange} />
         <Sym

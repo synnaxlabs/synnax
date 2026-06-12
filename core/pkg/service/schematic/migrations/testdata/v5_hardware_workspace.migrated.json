@@ -57,6 +57,7 @@
         "gradient": []
       },
       "rolling_average": 1,
+      "scale": 1,
       "staleness_color": {
         "r": 194,
         "g": 157,

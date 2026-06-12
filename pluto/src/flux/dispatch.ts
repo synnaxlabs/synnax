@@ -78,6 +78,10 @@ export const createDispatch = <
     const r = store[storeKey].replay(key, actions, { skipPreprocess });
     if (r == null) return false;
     const stackRollback = commitStack(r);
+    // A replay that left the state untouched has nothing for the server: no
+    // document change, no broadcast worth echoing. The stack mutation still
+    // runs above so undo/redo consume their entry instead of pinning it.
+    if (!r.changed) return true;
     const dispatchKey = id.create();
     store[storeKey].registerOutstandingDispatch(key, dispatchKey);
     try {

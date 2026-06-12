@@ -160,6 +160,8 @@ type LabeledConfig struct {
 	Label *LabelConfig `json:"label,omitempty" msgpack:"label,omitempty"`
 	// Orientation is the orientation of the symbol's primitive within the diagram.
 	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
 // ControlStateConfig is the control authority and state display configuration for
@@ -197,8 +199,6 @@ type StaticSymbolConfig struct {
 	LabeledConfig
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
@@ -206,8 +206,6 @@ type ToggleSymbolConfig struct {
 	ToggleConfig
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
@@ -220,8 +218,6 @@ type DummyToggleSymbolConfig struct {
 	Clickable bool `json:"clickable" msgpack:"clickable"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
 // StateMapping maps a numeric channel value to a named, colored state.
@@ -802,8 +798,6 @@ type NodeConfigLight struct {
 	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
 	// Color is the illuminated color of the light.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
 func (NodeConfigLight) isNodeConfigVariant() {}
@@ -1360,8 +1354,6 @@ type NodeConfigCustomActuator struct {
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
@@ -1377,8 +1369,6 @@ type NodeConfigCustomStatic struct {
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
@@ -2619,8 +2609,6 @@ type ElementConfigLight struct {
 	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
 	// Color is the illuminated color of the light.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
 func (ElementConfigLight) isElementConfigVariant() {}
@@ -3177,8 +3165,6 @@ type ElementConfigCustomActuator struct {
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
@@ -3194,8 +3180,6 @@ type ElementConfigCustomStatic struct {
 	SpecKey string `json:"spec_key" msgpack:"spec_key"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.

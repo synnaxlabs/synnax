@@ -11,6 +11,7 @@ import { color } from "@synnaxlabs/x";
 
 import { removeProps } from "@/component/removeProps";
 import { Label } from "@/schematic/node/common/label";
+import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config, VARIANT } from "@/schematic/node/general/circle/config";
 import { CircleForm } from "@/schematic/node/general/circle/Form";
 import { Circle } from "@/schematic/node/general/circle/Primitive";
@@ -34,7 +35,10 @@ export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: NAME,
   Form: CircleForm,
-  Node: Label.createLabeled<Config>(Circle, { grid: { allowRotate: false } }),
+  Node: Label.createLabeled<Config>(Circle, {
+    grid: { allowRotate: false, keepAspectRatio: true },
+    onResize: ({ width }) => ({ radius: width / (2 * Primitive.BASE_SCALE) }),
+  }),
   Preview: removeProps(Circle, ["clickable"]),
   defaultConfig,
   zIndex: 2,

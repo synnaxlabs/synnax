@@ -159,6 +159,9 @@ export interface Bounds<T extends numeric.Value = number> {
   upper: T;
 }
 
+export const decimalZ = z.number().min(0).max(1);
+export type Decimal = z.infer<typeof decimalZ>;
+
 /** Viewport is the camera state of a viewport. */
 export const viewportZ = z.object({
   /** zoom is the zoom level where 1.0 equals 100%. */

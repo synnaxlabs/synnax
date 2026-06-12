@@ -442,6 +442,9 @@ func LabeledConfigToPB(r schematic.LabeledConfig) (*LabeledConfig, error) {
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	return pb, nil
 }
 
@@ -464,6 +467,9 @@ func LabeledConfigFromPB(pb *LabeledConfig) (schematic.LabeledConfig, error) {
 			return schematic.LabeledConfig{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -583,6 +589,9 @@ func ToggleConfigToPB(r schematic.ToggleConfig) (*ToggleConfig, error) {
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.StateChannel != nil {
 		v := uint32(*r.StateChannel)
 		pb.StateChannel = &v
@@ -621,6 +630,9 @@ func ToggleConfigFromPB(pb *ToggleConfig) (schematic.ToggleConfig, error) {
 			return schematic.ToggleConfig{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.StateChannel != nil {
 		v := channel.Key(*pb.StateChannel)
@@ -683,15 +695,15 @@ func StaticSymbolConfigToPB(r schematic.StaticSymbolConfig) (*StaticSymbolConfig
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -716,15 +728,15 @@ func StaticSymbolConfigFromPB(pb *StaticSymbolConfig) (schematic.StaticSymbolCon
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return schematic.StaticSymbolConfig{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -774,6 +786,9 @@ func ToggleSymbolConfigToPB(r schematic.ToggleSymbolConfig) (*ToggleSymbolConfig
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.StateChannel != nil {
 		v := uint32(*r.StateChannel)
 		pb.StateChannel = &v
@@ -795,9 +810,6 @@ func ToggleSymbolConfigToPB(r schematic.ToggleSymbolConfig) (*ToggleSymbolConfig
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -823,6 +835,9 @@ func ToggleSymbolConfigFromPB(pb *ToggleSymbolConfig) (schematic.ToggleSymbolCon
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.StateChannel != nil {
 		v := channel.Key(*pb.StateChannel)
 		r.StateChannel = &v
@@ -844,9 +859,6 @@ func ToggleSymbolConfigFromPB(pb *ToggleSymbolConfig) (schematic.ToggleSymbolCon
 			return schematic.ToggleSymbolConfig{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -897,15 +909,15 @@ func DummyToggleSymbolConfigToPB(r schematic.DummyToggleSymbolConfig) (*DummyTog
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -932,15 +944,15 @@ func DummyToggleSymbolConfigFromPB(pb *DummyToggleSymbolConfig) (schematic.Dummy
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return schematic.DummyToggleSymbolConfig{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -1327,6 +1339,9 @@ func NodeConfigButtonToPB(r schematic.NodeConfigButton) (*NodeConfigButtonPayloa
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Size != nil {
 		val, err := ComponentSizeToPB(*r.Size)
 		if err != nil {
@@ -1389,6 +1404,9 @@ func NodeConfigButtonFromPB(pb *NodeConfigButtonPayload) (schematic.NodeConfigBu
 			return schematic.NodeConfigButton{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
@@ -1477,6 +1495,9 @@ func NodeConfigCircleToPB(r schematic.NodeConfigCircle) (*NodeConfigCirclePayloa
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
@@ -1517,6 +1538,9 @@ func NodeConfigCircleFromPB(pb *NodeConfigCirclePayload) (schematic.NodeConfigCi
 			return schematic.NodeConfigCircle{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -1582,6 +1606,9 @@ func NodeConfigGaugeToPB(r schematic.NodeConfigGauge) (*NodeConfigGaugePayload, 
 			return nil, err
 		}
 		pb.Orientation = &val
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
 	}
 	if r.Position != nil {
 		var err error
@@ -1667,6 +1694,9 @@ func NodeConfigGaugeFromPB(pb *NodeConfigGaugePayload) (schematic.NodeConfigGaug
 			return schematic.NodeConfigGauge{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Position != nil {
 		val, err := spatialpb.XYFromPB(pb.Position)
@@ -1777,6 +1807,9 @@ func NodeConfigInputToPB(r schematic.NodeConfigInput) (*NodeConfigInputPayload, 
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Size != nil {
 		val, err := ComponentSizeToPB(*r.Size)
 		if err != nil {
@@ -1832,6 +1865,9 @@ func NodeConfigInputFromPB(pb *NodeConfigInputPayload) (schematic.NodeConfigInpu
 			return schematic.NodeConfigInput{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
@@ -1911,6 +1947,9 @@ func NodeConfigLightToPB(r schematic.NodeConfigLight) (*NodeConfigLightPayload, 
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Channel != nil {
 		v := uint32(*r.Channel)
 		pb.Channel = &v
@@ -1928,9 +1967,6 @@ func NodeConfigLightToPB(r schematic.NodeConfigLight) (*NodeConfigLightPayload, 
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -1955,6 +1991,9 @@ func NodeConfigLightFromPB(pb *NodeConfigLightPayload) (schematic.NodeConfigLigh
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.Channel != nil {
 		v := channel.Key(*pb.Channel)
 		r.Channel = &v
@@ -1972,9 +2011,6 @@ func NodeConfigLightFromPB(pb *NodeConfigLightPayload) (schematic.NodeConfigLigh
 			return schematic.NodeConfigLight{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -2123,6 +2159,9 @@ func NodeConfigPolygonToPB(r schematic.NodeConfigPolygon) (*NodeConfigPolygonPay
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Rotation != nil {
 		pb.Rotation = r.Rotation
 	}
@@ -2170,6 +2209,9 @@ func NodeConfigPolygonFromPB(pb *NodeConfigPolygonPayload) (schematic.NodeConfig
 			return schematic.NodeConfigPolygon{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Rotation != nil {
 		r.Rotation = pb.Rotation
@@ -2247,6 +2289,9 @@ func NodeConfigSelectToPB(r schematic.NodeConfigSelect) (*NodeConfigSelectPayloa
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Size != nil {
 		val, err := ComponentSizeToPB(*r.Size)
 		if err != nil {
@@ -2303,6 +2348,9 @@ func NodeConfigSelectFromPB(pb *NodeConfigSelectPayload) (schematic.NodeConfigSe
 			return schematic.NodeConfigSelect{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
@@ -2381,6 +2429,9 @@ func NodeConfigSetpointToPB(r schematic.NodeConfigSetpoint) (*NodeConfigSetpoint
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Size != nil {
 		val, err := ComponentSizeToPB(*r.Size)
 		if err != nil {
@@ -2441,6 +2492,9 @@ func NodeConfigSetpointFromPB(pb *NodeConfigSetpointPayload) (schematic.NodeConf
 			return schematic.NodeConfigSetpoint{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
@@ -2530,6 +2584,9 @@ func NodeConfigStateIndicatorToPB(r schematic.NodeConfigStateIndicator) (*NodeCo
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Channel != nil {
 		v := uint32(*r.Channel)
 		pb.Channel = &v
@@ -2571,6 +2628,9 @@ func NodeConfigStateIndicatorFromPB(pb *NodeConfigStateIndicatorPayload) (schema
 			return schematic.NodeConfigStateIndicator{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Channel != nil {
 		v := channel.Key(*pb.Channel)
@@ -2635,6 +2695,9 @@ func NodeConfigTextBoxToPB(r schematic.NodeConfigTextBox) (*NodeConfigTextBoxPay
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
@@ -2683,6 +2746,9 @@ func NodeConfigTextBoxFromPB(pb *NodeConfigTextBoxPayload) (schematic.NodeConfig
 			return schematic.NodeConfigTextBox{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -2757,6 +2823,9 @@ func NodeConfigValueToPB(r schematic.NodeConfigValue) (*NodeConfigValuePayload, 
 			return nil, err
 		}
 		pb.Orientation = &val
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
 	}
 	if r.Position != nil {
 		var err error
@@ -2872,6 +2941,9 @@ func NodeConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.NodeConfigValu
 			return schematic.NodeConfigValue{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Position != nil {
 		val, err := spatialpb.XYFromPB(pb.Position)
@@ -3011,6 +3083,9 @@ func NodeConfigSolenoidValveToPB(r schematic.NodeConfigSolenoidValve) (*NodeConf
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.StateChannel != nil {
 		v := uint32(*r.StateChannel)
 		pb.StateChannel = &v
@@ -3032,9 +3107,6 @@ func NodeConfigSolenoidValveToPB(r schematic.NodeConfigSolenoidValve) (*NodeConf
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -3061,6 +3133,9 @@ func NodeConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schemati
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.StateChannel != nil {
 		v := channel.Key(*pb.StateChannel)
 		r.StateChannel = &v
@@ -3082,9 +3157,6 @@ func NodeConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schemati
 			return schematic.NodeConfigSolenoidValve{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -3131,6 +3203,9 @@ func NodeConfigCylinderToPB(r schematic.NodeConfigCylinder) (*NodeConfigCylinder
 			return nil, err
 		}
 		pb.Orientation = &val
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
 	}
 	if r.Dimensions != nil {
 		var err error
@@ -3182,6 +3257,9 @@ func NodeConfigCylinderFromPB(pb *NodeConfigCylinderPayload) (schematic.NodeConf
 			return schematic.NodeConfigCylinder{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Dimensions != nil {
 		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
@@ -3257,6 +3335,9 @@ func NodeConfigTankToPB(r schematic.NodeConfigTank) (*NodeConfigTankPayload, err
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
@@ -3307,6 +3388,9 @@ func NodeConfigTankFromPB(pb *NodeConfigTankPayload) (schematic.NodeConfigTank, 
 			return schematic.NodeConfigTank{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -3390,6 +3474,9 @@ func NodeConfigCustomActuatorToPB(r schematic.NodeConfigCustomActuator) (*NodeCo
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.StateChannel != nil {
 		v := uint32(*r.StateChannel)
 		pb.StateChannel = &v
@@ -3411,9 +3498,6 @@ func NodeConfigCustomActuatorToPB(r schematic.NodeConfigCustomActuator) (*NodeCo
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -3441,6 +3525,9 @@ func NodeConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (schema
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.StateChannel != nil {
 		v := channel.Key(*pb.StateChannel)
 		r.StateChannel = &v
@@ -3462,9 +3549,6 @@ func NodeConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (schema
 			return schematic.NodeConfigCustomActuator{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -3519,15 +3603,15 @@ func NodeConfigCustomStaticToPB(r schematic.NodeConfigCustomStatic) (*NodeConfig
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -3554,15 +3638,15 @@ func NodeConfigCustomStaticFromPB(pb *NodeConfigCustomStaticPayload) (schematic.
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return schematic.NodeConfigCustomStatic{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -3735,6 +3819,9 @@ func ElementConfigButtonToPB(r schematic.ElementConfigButton) (*NodeConfigButton
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Size != nil {
 		val, err := ComponentSizeToPB(*r.Size)
 		if err != nil {
@@ -3797,6 +3884,9 @@ func ElementConfigButtonFromPB(pb *NodeConfigButtonPayload) (schematic.ElementCo
 			return schematic.ElementConfigButton{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
@@ -3885,6 +3975,9 @@ func ElementConfigCircleToPB(r schematic.ElementConfigCircle) (*NodeConfigCircle
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
@@ -3925,6 +4018,9 @@ func ElementConfigCircleFromPB(pb *NodeConfigCirclePayload) (schematic.ElementCo
 			return schematic.ElementConfigCircle{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -3990,6 +4086,9 @@ func ElementConfigGaugeToPB(r schematic.ElementConfigGauge) (*NodeConfigGaugePay
 			return nil, err
 		}
 		pb.Orientation = &val
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
 	}
 	if r.Position != nil {
 		var err error
@@ -4075,6 +4174,9 @@ func ElementConfigGaugeFromPB(pb *NodeConfigGaugePayload) (schematic.ElementConf
 			return schematic.ElementConfigGauge{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Position != nil {
 		val, err := spatialpb.XYFromPB(pb.Position)
@@ -4185,6 +4287,9 @@ func ElementConfigInputToPB(r schematic.ElementConfigInput) (*NodeConfigInputPay
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Size != nil {
 		val, err := ComponentSizeToPB(*r.Size)
 		if err != nil {
@@ -4240,6 +4345,9 @@ func ElementConfigInputFromPB(pb *NodeConfigInputPayload) (schematic.ElementConf
 			return schematic.ElementConfigInput{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
@@ -4319,6 +4427,9 @@ func ElementConfigLightToPB(r schematic.ElementConfigLight) (*NodeConfigLightPay
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Channel != nil {
 		v := uint32(*r.Channel)
 		pb.Channel = &v
@@ -4336,9 +4447,6 @@ func ElementConfigLightToPB(r schematic.ElementConfigLight) (*NodeConfigLightPay
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -4363,6 +4471,9 @@ func ElementConfigLightFromPB(pb *NodeConfigLightPayload) (schematic.ElementConf
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.Channel != nil {
 		v := channel.Key(*pb.Channel)
 		r.Channel = &v
@@ -4380,9 +4491,6 @@ func ElementConfigLightFromPB(pb *NodeConfigLightPayload) (schematic.ElementConf
 			return schematic.ElementConfigLight{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -4531,6 +4639,9 @@ func ElementConfigPolygonToPB(r schematic.ElementConfigPolygon) (*NodeConfigPoly
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Rotation != nil {
 		pb.Rotation = r.Rotation
 	}
@@ -4578,6 +4689,9 @@ func ElementConfigPolygonFromPB(pb *NodeConfigPolygonPayload) (schematic.Element
 			return schematic.ElementConfigPolygon{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Rotation != nil {
 		r.Rotation = pb.Rotation
@@ -4655,6 +4769,9 @@ func ElementConfigSelectToPB(r schematic.ElementConfigSelect) (*NodeConfigSelect
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Size != nil {
 		val, err := ComponentSizeToPB(*r.Size)
 		if err != nil {
@@ -4711,6 +4828,9 @@ func ElementConfigSelectFromPB(pb *NodeConfigSelectPayload) (schematic.ElementCo
 			return schematic.ElementConfigSelect{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
@@ -4789,6 +4909,9 @@ func ElementConfigSetpointToPB(r schematic.ElementConfigSetpoint) (*NodeConfigSe
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Size != nil {
 		val, err := ComponentSizeToPB(*r.Size)
 		if err != nil {
@@ -4849,6 +4972,9 @@ func ElementConfigSetpointFromPB(pb *NodeConfigSetpointPayload) (schematic.Eleme
 			return schematic.ElementConfigSetpoint{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
@@ -4938,6 +5064,9 @@ func ElementConfigStateIndicatorToPB(r schematic.ElementConfigStateIndicator) (*
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Channel != nil {
 		v := uint32(*r.Channel)
 		pb.Channel = &v
@@ -4979,6 +5108,9 @@ func ElementConfigStateIndicatorFromPB(pb *NodeConfigStateIndicatorPayload) (sch
 			return schematic.ElementConfigStateIndicator{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Channel != nil {
 		v := channel.Key(*pb.Channel)
@@ -5043,6 +5175,9 @@ func ElementConfigTextBoxToPB(r schematic.ElementConfigTextBox) (*NodeConfigText
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
@@ -5091,6 +5226,9 @@ func ElementConfigTextBoxFromPB(pb *NodeConfigTextBoxPayload) (schematic.Element
 			return schematic.ElementConfigTextBox{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -5165,6 +5303,9 @@ func ElementConfigValueToPB(r schematic.ElementConfigValue) (*NodeConfigValuePay
 			return nil, err
 		}
 		pb.Orientation = &val
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
 	}
 	if r.Position != nil {
 		var err error
@@ -5280,6 +5421,9 @@ func ElementConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.ElementConf
 			return schematic.ElementConfigValue{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Position != nil {
 		val, err := spatialpb.XYFromPB(pb.Position)
@@ -5419,6 +5563,9 @@ func ElementConfigSolenoidValveToPB(r schematic.ElementConfigSolenoidValve) (*No
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.StateChannel != nil {
 		v := uint32(*r.StateChannel)
 		pb.StateChannel = &v
@@ -5440,9 +5587,6 @@ func ElementConfigSolenoidValveToPB(r schematic.ElementConfigSolenoidValve) (*No
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -5469,6 +5613,9 @@ func ElementConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schem
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.StateChannel != nil {
 		v := channel.Key(*pb.StateChannel)
 		r.StateChannel = &v
@@ -5490,9 +5637,6 @@ func ElementConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schem
 			return schematic.ElementConfigSolenoidValve{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -5539,6 +5683,9 @@ func ElementConfigCylinderToPB(r schematic.ElementConfigCylinder) (*NodeConfigCy
 			return nil, err
 		}
 		pb.Orientation = &val
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
 	}
 	if r.Dimensions != nil {
 		var err error
@@ -5590,6 +5737,9 @@ func ElementConfigCylinderFromPB(pb *NodeConfigCylinderPayload) (schematic.Eleme
 			return schematic.ElementConfigCylinder{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Dimensions != nil {
 		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
@@ -5665,6 +5815,9 @@ func ElementConfigTankToPB(r schematic.ElementConfigTank) (*NodeConfigTankPayloa
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
@@ -5715,6 +5868,9 @@ func ElementConfigTankFromPB(pb *NodeConfigTankPayload) (schematic.ElementConfig
 			return schematic.ElementConfigTank{}, err
 		}
 		r.Orientation = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -5798,6 +5954,9 @@ func ElementConfigCustomActuatorToPB(r schematic.ElementConfigCustomActuator) (*
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.StateChannel != nil {
 		v := uint32(*r.StateChannel)
 		pb.StateChannel = &v
@@ -5819,9 +5978,6 @@ func ElementConfigCustomActuatorToPB(r schematic.ElementConfigCustomActuator) (*
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -5849,6 +6005,9 @@ func ElementConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (sch
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.StateChannel != nil {
 		v := channel.Key(*pb.StateChannel)
 		r.StateChannel = &v
@@ -5870,9 +6029,6 @@ func ElementConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (sch
 			return schematic.ElementConfigCustomActuator{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }
@@ -5927,15 +6083,15 @@ func ElementConfigCustomStaticToPB(r schematic.ElementConfigCustomStatic) (*Node
 		}
 		pb.Orientation = &val
 	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
 	}
 	return pb, nil
 }
@@ -5962,15 +6118,15 @@ func ElementConfigCustomStaticFromPB(pb *NodeConfigCustomStaticPayload) (schemat
 		}
 		r.Orientation = &val
 	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return schematic.ElementConfigCustomStatic{}, err
 		}
 		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
 	}
 	return r, nil
 }

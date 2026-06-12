@@ -42,14 +42,14 @@ var (
 				Align:         new(schematic.FlexAlignment("start")),
 			}),
 			Orientation: new(spatial.OuterLocation("top")),
+			Scale:       new(float64(9.5)),
 		},
 		Color: new(color.Color{
-			R: 11,
-			G: 12,
-			B: 13,
-			A: 13.5,
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
 		}),
-		Scale: new(float64(14.5)),
 	}
 	fullyPopulatedToggleSymbolConfig = schematic.ToggleSymbolConfig{
 		ToggleConfig: schematic.ToggleConfig{
@@ -63,25 +63,25 @@ var (
 					Align:         new(schematic.FlexAlignment("start")),
 				}),
 				Orientation: new(spatial.OuterLocation("top")),
+				Scale:       new(float64(9.5)),
 			},
-			StateChannel:   new(channel.Key(10)),
-			CommandChannel: new(channel.Key(11)),
+			StateChannel:   new(channel.Key(11)),
+			CommandChannel: new(channel.Key(12)),
 			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(13)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
+				Authority:     new(uint8(14)),
+				Show:          false,
+				ShowChip:      true,
+				ShowIndicator: false,
 				Orientation:   new(spatial.Location("top")),
 			}),
-			OnClickDelay: 17.5,
+			OnClickDelay: 18.5,
 		},
 		Color: new(color.Color{
-			R: 20,
-			G: 21,
-			B: 22,
-			A: 22.5,
+			R: 21,
+			G: 22,
+			B: 23,
+			A: 23.5,
 		}),
-		Scale: new(float64(23.5)),
 	}
 	fullyPopulatedLabeledConfig = schematic.LabeledConfig{
 		Label: new(schematic.LabelConfig{
@@ -93,6 +93,7 @@ var (
 			Align:         new(schematic.FlexAlignment("start")),
 		}),
 		Orientation: new(spatial.OuterLocation("top")),
+		Scale:       new(float64(9.5)),
 	}
 	fullyPopulatedDummyToggleSymbolConfig = schematic.DummyToggleSymbolConfig{
 		LabeledConfig: schematic.LabeledConfig{
@@ -105,16 +106,16 @@ var (
 				Align:         new(schematic.FlexAlignment("start")),
 			}),
 			Orientation: new(spatial.OuterLocation("top")),
+			Scale:       new(float64(9.5)),
 		},
-		Enabled:   true,
-		Clickable: false,
+		Enabled:   false,
+		Clickable: true,
 		Color: new(color.Color{
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 15.5,
+			R: 14,
+			G: 15,
+			B: 16,
+			A: 16.5,
 		}),
-		Scale: new(float64(16.5)),
 	}
 	fullyPopulatedToggleConfig = schematic.ToggleConfig{
 		LabeledConfig: schematic.LabeledConfig{
@@ -127,17 +128,18 @@ var (
 				Align:         new(schematic.FlexAlignment("start")),
 			}),
 			Orientation: new(spatial.OuterLocation("top")),
+			Scale:       new(float64(9.5)),
 		},
-		StateChannel:   new(channel.Key(10)),
-		CommandChannel: new(channel.Key(11)),
+		StateChannel:   new(channel.Key(11)),
+		CommandChannel: new(channel.Key(12)),
 		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(13)),
-			Show:          true,
-			ShowChip:      false,
-			ShowIndicator: true,
+			Authority:     new(uint8(14)),
+			Show:          false,
+			ShowChip:      true,
+			ShowIndicator: false,
 			Orientation:   new(spatial.Location("top")),
 		}),
-		OnClickDelay: 17.5,
+		OnClickDelay: 18.5,
 	}
 	fullyPopulatedSegmentedEdgeConfig = schematic.SegmentedEdgeConfig{
 		Color: new(color.Color{
@@ -191,11 +193,14 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedDummyToggleSymbolConfig),
 			Entry("zero values", schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Enabled:       false,
-				Clickable:     false,
-				Color:         nil,
-				Scale:         nil,
+				LabeledConfig: schematic.LabeledConfig{
+					Label:       nil,
+					Orientation: nil,
+					Scale:       nil,
+				},
+				Enabled:   false,
+				Clickable: false,
+				Color:     nil,
 			}),
 		)
 	})
@@ -424,7 +429,6 @@ var _ = Describe("Codec", func() {
 					B: 7,
 					A: 7.5,
 				}),
-				Scale: new(float64(8.5)),
 			}}),
 			Entry("off_page_reference variant", schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
 				Orientation: new(spatial.OuterLocation("top")),
@@ -837,8 +841,7 @@ var _ = Describe("Codec", func() {
 					B: 6,
 					A: 6.5,
 				}),
-				Scale:          new(float64(7.5)),
-				StateOverrides: []msgpack.EncodedJSON{{"key_8": "value_8"}},
+				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
 			}}),
 			Entry("custom_static variant", schematic.ElementConfig{Variant: schematic.ElementConfigCustomStatic{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -849,8 +852,7 @@ var _ = Describe("Codec", func() {
 					B: 6,
 					A: 6.5,
 				}),
-				Scale:          new(float64(7.5)),
-				StateOverrides: []msgpack.EncodedJSON{{"key_8": "value_8"}},
+				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
 			}}),
 			Entry("pipe variant", schematic.ElementConfig{Variant: schematic.ElementConfigPipe{
 				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
@@ -931,7 +933,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedLabeledConfig),
-			Entry("zero values", schematic.LabeledConfig{Label: nil, Orientation: nil}),
+			Entry("zero values", schematic.LabeledConfig{
+				Label:       nil,
+				Orientation: nil,
+				Scale:       nil,
+			}),
 		)
 	})
 	Describe("Node", func() {
@@ -1122,9 +1128,12 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedStaticSymbolConfig),
 			Entry("zero values", schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Color:         nil,
-				Scale:         nil,
+				LabeledConfig: schematic.LabeledConfig{
+					Label:       nil,
+					Orientation: nil,
+					Scale:       nil,
+				},
+				Color: nil,
 			}),
 		)
 	})
@@ -1141,7 +1150,11 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedToggleConfig),
 			Entry("zero values", schematic.ToggleConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				LabeledConfig: schematic.LabeledConfig{
+					Label:       nil,
+					Orientation: nil,
+					Scale:       nil,
+				},
 				StateChannel:   nil,
 				CommandChannel: nil,
 				Control:        nil,
@@ -1163,14 +1176,17 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", fullyPopulatedToggleSymbolConfig),
 			Entry("zero values", schematic.ToggleSymbolConfig{
 				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+					LabeledConfig: schematic.LabeledConfig{
+						Label:       nil,
+						Orientation: nil,
+						Scale:       nil,
+					},
 					StateChannel:   nil,
 					CommandChannel: nil,
 					Control:        nil,
 					OnClickDelay:   0,
 				},
 				Color: nil,
-				Scale: nil,
 			}),
 		)
 	})
@@ -1584,11 +1600,14 @@ func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.DummyToggleSymbolConfig{
-			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Enabled:       false,
-			Clickable:     false,
-			Color:         nil,
-			Scale:         nil,
+			LabeledConfig: schematic.LabeledConfig{
+				Label:       nil,
+				Orientation: nil,
+				Scale:       nil,
+			},
+			Enabled:   false,
+			Clickable: false,
+			Color:     nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2082,7 +2101,6 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 7,
 				A: 7.5,
 			}),
-			Scale: new(float64(8.5)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2971,8 +2989,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 6,
 				A: 6.5,
 			}),
-			Scale:          new(float64(7.5)),
-			StateOverrides: []msgpack.EncodedJSON{{"key_8": "value_8"}},
+			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2990,8 +3007,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 6,
 				A: 6.5,
 			}),
-			Scale:          new(float64(7.5)),
-			StateOverrides: []msgpack.EncodedJSON{{"key_8": "value_8"}},
+			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3214,7 +3230,11 @@ func FuzzDecodeLabeledConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.LabeledConfig{Label: nil, Orientation: nil}
+		seed := schematic.LabeledConfig{
+			Label:       nil,
+			Orientation: nil,
+			Scale:       nil,
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3643,9 +3663,12 @@ func FuzzDecodeStaticSymbolConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.StaticSymbolConfig{
-			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Color:         nil,
-			Scale:         nil,
+			LabeledConfig: schematic.LabeledConfig{
+				Label:       nil,
+				Orientation: nil,
+				Scale:       nil,
+			},
+			Color: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3693,7 +3716,11 @@ func FuzzDecodeToggleConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ToggleConfig{
-			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+			LabeledConfig: schematic.LabeledConfig{
+				Label:       nil,
+				Orientation: nil,
+				Scale:       nil,
+			},
 			StateChannel:   nil,
 			CommandChannel: nil,
 			Control:        nil,
@@ -3746,14 +3773,17 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 	{
 		seed := schematic.ToggleSymbolConfig{
 			ToggleConfig: schematic.ToggleConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				LabeledConfig: schematic.LabeledConfig{
+					Label:       nil,
+					Orientation: nil,
+					Scale:       nil,
+				},
 				StateChannel:   nil,
 				CommandChannel: nil,
 				Control:        nil,
 				OnClickDelay:   0,
 			},
 			Color: nil,
-			Scale: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

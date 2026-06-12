@@ -13,7 +13,6 @@ import { type control } from "@synnaxlabs/x";
 import { useMemoSelect } from "@/hooks";
 import {
   type LegendState,
-  type PendingUpload,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -110,11 +109,3 @@ export const selectViewport = (state: StoreState, key: string): Viewport =>
 
 export const useSelectViewport = (key: string): Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
-
-export const selectPendingUpload = (
-  state: StoreState,
-  key: string,
-): PendingUpload | undefined => select(state, key)?.pendingUpload;
-
-export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
-  useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);

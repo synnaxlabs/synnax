@@ -40,7 +40,13 @@ export const Symbol = ({
   const handleSelectionChange = (key: string | null): void =>
     setSelectedKey(key ?? undefined);
   return (
-    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected}>
+    <Grid.Grid
+      nodeKey={nodeKey}
+      allowRotate={false}
+      editable={selected}
+      resizeHandles={["left", "right"]}
+      onResize={({ width }) => onConfigChange({ inlineSize: width })}
+    >
       <Control.State
         config={control}
         channel={commandChannel}

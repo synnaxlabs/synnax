@@ -1096,6 +1096,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "in",
       "use_width_for_background": false,
@@ -1119,6 +1120,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -1222,6 +1224,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -1263,6 +1266,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -1305,6 +1309,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -1328,6 +1333,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -1351,6 +1357,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "C",
       "use_width_for_background": false,
@@ -1457,6 +1464,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -1761,6 +1769,7 @@
         "align": "center"
       },
       "orientation": "left",
+      "scale": 1,
       "variant": "tank"
     },
     "KjMLsHPXXv2": {
@@ -1781,6 +1790,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -1804,6 +1814,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -1827,6 +1838,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "C",
       "use_width_for_background": false,
@@ -1890,6 +1902,7 @@
         "align": "center"
       },
       "orientation": "left",
+      "scale": 1,
       "variant": "tank"
     },
     "OOkLb5RngOz": {
@@ -1954,6 +1967,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -2037,6 +2051,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -2148,6 +2163,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "C",
       "use_width_for_background": false,
@@ -2281,6 +2297,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -2304,6 +2321,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -2576,6 +2594,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "C",
       "use_width_for_background": false,
@@ -3103,6 +3122,7 @@
         "align": "center"
       },
       "orientation": "left",
+      "scale": 1,
       "variant": "tank"
     },
     "s7ibSMcZAgG": {
@@ -3166,6 +3186,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "C",
       "use_width_for_background": false,
@@ -3208,6 +3229,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -3256,6 +3278,7 @@
         "align": "center"
       },
       "orientation": "left",
+      "scale": 1,
       "variant": "tank"
     },
     "uSKBe4MSMqr": {
@@ -3301,6 +3324,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -3344,6 +3368,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "C",
       "use_width_for_background": false,
@@ -3367,6 +3392,7 @@
       "level": "h5",
       "orientation": "left",
       "rolling_average": 1,
+      "scale": 1,
       "tooltip": null,
       "units": "psi",
       "use_width_for_background": false,
@@ -3415,6 +3441,7 @@
         "align": "center"
       },
       "orientation": "left",
+      "scale": 1,
       "variant": "tank"
     },
     "xpOYKYNFNfV": {
@@ -3503,6 +3530,7 @@
         "align": "center"
       },
       "orientation": "left",
+      "scale": 1,
       "variant": "tank"
     }
   }

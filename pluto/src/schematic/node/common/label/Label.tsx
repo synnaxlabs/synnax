@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
+import { type dimensions } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   type FC,
@@ -91,35 +92,48 @@ export const defaultConfig = (label: string): Config => ({
 export const labeledConfigZ = schematic.labeledConfigZ;
 export type LabeledConfig = schematic.LabeledConfig;
 
-interface LabeledOverrides {
-  grid: Partial<Omit<Grid.GridProps, "editable">>;
+interface LabeledOverrides<C extends LabeledConfig> {
+  grid?: Pick<Grid.GridProps, "allowRotate" | "keepAspectRatio">;
+  onResize?: (dimensions: dimensions.Dimensions) => Partial<C>;
 }
 
 export const createLabeled = <C extends LabeledConfig>(
   BaseSymbol: FC<Omit<C, "label"> & Primitive.SVGBasedProps>,
-  overrides?: LabeledOverrides,
+  overrides?: LabeledOverrides<C>,
 ): FC<NodeProps<C>> => {
   // BaseSymbol's prop type is derived from C so callers are checked, but the node only
   // renders it with the shared SVG props; the config's symbol-specific fields reach it
   // at runtime via the rest spread.
   const Sym = BaseSymbol as FC<Primitive.SVGBasedProps>;
+  const { grid, onResize } = overrides ?? {};
   const Inner = ({
     nodeKey,
     onConfigChange,
     selected,
-    config: { label, orientation = "left", ...rest },
-  }: NodeProps<LabeledConfig>): ReactElement => (
-    <Grid.Grid
-      {...overrides?.grid}
-      editable={selected}
-      nodeKey={nodeKey}
-      orientation={orientation}
-      onRotate={onConfigChange}
-    >
-      <Label config={label} onChange={onConfigChange} />
-      <Sym orientation={orientation} {...rest} />
-    </Grid.Grid>
-  );
+    config,
+  }: NodeProps<LabeledConfig>): ReactElement => {
+    const { label, orientation = "left", ...rest } = config;
+    const scaleResize = Grid.useScaleResize(config, onConfigChange);
+    // A custom onResize override (e.g. circle's radius) takes over; otherwise the symbol
+    // resizes by scale.
+    const resize =
+      onResize == null
+        ? scaleResize
+        : { onResize: (d: dimensions.Dimensions) => onConfigChange(onResize(d)) };
+    return (
+      <Grid.Grid
+        {...grid}
+        editable={selected}
+        nodeKey={nodeKey}
+        orientation={orientation}
+        onRotate={onConfigChange}
+        {...resize}
+      >
+        <Label config={label} onChange={onConfigChange} />
+        <Sym orientation={orientation} {...rest} />
+      </Grid.Grid>
+    );
+  };
   const M = memo(Inner) as FC<NodeProps<C>>;
   M.displayName = BaseSymbol.displayName;
   return M;

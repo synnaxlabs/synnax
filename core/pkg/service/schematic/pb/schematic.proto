@@ -119,6 +119,8 @@ message LabeledConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
 }
 
 // ControlStateConfig is the control authority and state display configuration for
@@ -144,14 +146,16 @@ message ToggleConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // state_channel is the channel whose value drives the symbol's active state.
-  optional uint32 state_channel = 3;
+  optional uint32 state_channel = 4;
   // command_channel is the channel actuation commands are written to.
-  optional uint32 command_channel = 4;
+  optional uint32 command_channel = 5;
   // control is the control state display configuration.
-  optional ControlStateConfig control = 5;
+  optional ControlStateConfig control = 6;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 6;
+  double on_click_delay = 7;
 }
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
@@ -160,10 +164,10 @@ message StaticSymbolConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // color is the stroke color of the symbol.
-  optional .x.color.pb.Color color = 3;
   // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 4;
+  optional double scale = 3;
+  // color is the stroke color of the symbol.
+  optional .x.color.pb.Color color = 4;
 }
 
 // ToggleSymbolConfig is the configuration for telemetry-actuated toggle symbols.
@@ -172,18 +176,18 @@ message ToggleSymbolConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // state_channel is the channel whose value drives the symbol's active state.
-  optional uint32 state_channel = 3;
-  // command_channel is the channel actuation commands are written to.
-  optional uint32 command_channel = 4;
-  // control is the control state display configuration.
-  optional ControlStateConfig control = 5;
-  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 6;
-  // color is the stroke color of the symbol.
-  optional .x.color.pb.Color color = 7;
   // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 8;
+  optional double scale = 3;
+  // state_channel is the channel whose value drives the symbol's active state.
+  optional uint32 state_channel = 4;
+  // command_channel is the channel actuation commands are written to.
+  optional uint32 command_channel = 5;
+  // control is the control state display configuration.
+  optional ControlStateConfig control = 6;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 7;
+  // color is the stroke color of the symbol.
+  optional .x.color.pb.Color color = 8;
 }
 
 // DummyToggleSymbolConfig is the configuration for symbols that toggle their appearance
@@ -193,14 +197,14 @@ message DummyToggleSymbolConfig {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // enabled indicates whether the symbol renders in its active state.
-  bool enabled = 3;
-  // clickable indicates whether clicking the symbol toggles its state.
-  bool clickable = 4;
-  // color is the stroke color of the symbol.
-  optional .x.color.pb.Color color = 5;
   // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 6;
+  optional double scale = 3;
+  // enabled indicates whether the symbol renders in its active state.
+  bool enabled = 4;
+  // clickable indicates whether clicking the symbol toggles its state.
+  bool clickable = 5;
+  // color is the stroke color of the symbol.
+  optional .x.color.pb.Color color = 6;
 }
 
 // StateMapping maps a numeric channel value to a named, colored state.
@@ -262,98 +266,106 @@ message NodeConfigButtonPayload {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // size is the rendered size preset of the button.
-  optional ComponentSize size = 3;
+  optional ComponentSize size = 4;
   // level is the typography level of the button text.
-  optional .x.text.pb.Level level = 4;
+  optional .x.text.pb.Level level = 5;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 5;
+  double on_click_delay = 6;
   // command_channel is the channel button presses are written to.
-  optional uint32 command_channel = 6;
+  optional uint32 command_channel = 7;
   // mode is the actuation behavior of the button.
-  optional ButtonMode mode = 7;
+  optional ButtonMode mode = 8;
   // color is the background color of the button.
-  optional .x.color.pb.Color color = 8;
+  optional .x.color.pb.Color color = 9;
   // control is the control state display configuration.
-  optional ControlStateConfig control = 9;
+  optional ControlStateConfig control = 10;
 }
 message NodeConfigCirclePayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // radius is the radius of the circle in pixels.
-  double radius = 3;
+  double radius = 4;
   // color is the border color of the circle.
-  optional .x.color.pb.Color color = 4;
+  optional .x.color.pb.Color color = 5;
   // background_color is the fill color of the circle.
-  optional .x.color.pb.Color background_color = 5;
+  optional .x.color.pb.Color background_color = 6;
   // stroke_width is the border stroke width in pixels.
-  optional double stroke_width = 6;
+  optional double stroke_width = 7;
 }
 message NodeConfigGaugePayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // position is the offset of the gauge contents within the symbol.
-  optional .x.spatial.pb.XY position = 3;
+  optional .x.spatial.pb.XY position = 4;
   // color is the accent color of the gauge arc.
-  optional .x.color.pb.Color color = 4;
+  optional .x.color.pb.Color color = 5;
   // bounds is the numeric range displayed by the gauge.
-  optional .x.spatial.pb.Bounds bounds = 5;
+  optional .x.spatial.pb.Bounds bounds = 6;
   // bar_width is the thickness of the gauge arc in pixels.
-  optional double bar_width = 6;
+  optional double bar_width = 7;
   // channel is the channel whose value the gauge displays.
-  optional uint32 channel = 7;
+  optional uint32 channel = 8;
   // rolling_average is the sample window for rolling-average smoothing.
-  optional int32 rolling_average = 8;
+  optional int32 rolling_average = 9;
   // precision is the number of decimal places shown.
-  optional double precision = 9;
+  optional double precision = 10;
   // min_width is the minimum rendered width of the value in pixels.
-  optional double min_width = 10;
+  optional double min_width = 11;
   // width is the rendered width of the gauge in pixels.
-  optional double width = 11;
+  optional double width = 12;
   // notation is the numeric notation used to format the value.
-  optional .x.notation.pb.Notation notation = 12;
+  optional .x.notation.pb.Notation notation = 13;
   // location is the anchor of the value within the gauge.
-  optional .x.spatial.pb.LocationXY location = 13;
+  optional .x.spatial.pb.LocationXY location = 14;
   // units is the unit suffix displayed after the value.
-  string units = 14;
+  string units = 15;
   // level is the typography level of the displayed value.
-  optional .x.text.pb.Level level = 15;
+  optional .x.text.pb.Level level = 16;
 }
 message NodeConfigInputPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // size is the rendered size preset of the input.
-  optional ComponentSize size = 3;
+  optional ComponentSize size = 4;
   // command_channel is the channel submitted values are written to.
-  optional uint32 command_channel = 4;
+  optional uint32 command_channel = 5;
   // dimensions is the rendered size of the input in pixels.
-  optional .x.spatial.pb.Dimensions dimensions = 5;
+  optional .x.spatial.pb.Dimensions dimensions = 6;
   // color is the accent color of the input.
-  optional .x.color.pb.Color color = 6;
+  optional .x.color.pb.Color color = 7;
   // disabled indicates whether the input rejects interaction.
-  bool disabled = 7;
+  bool disabled = 8;
   // control is the control state display configuration.
-  optional ControlStateConfig control = 8;
+  optional ControlStateConfig control = 9;
 }
 message NodeConfigLightPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // channel is the channel whose value drives the light's on state.
-  optional uint32 channel = 3;
-  // threshold is the value range within which the light is considered on.
-  optional .x.spatial.pb.Bounds threshold = 4;
-  // color is the illuminated color of the light.
-  optional .x.color.pb.Color color = 5;
   // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 6;
+  optional double scale = 3;
+  // channel is the channel whose value drives the light's on state.
+  optional uint32 channel = 4;
+  // threshold is the value range within which the light is considered on.
+  optional .x.spatial.pb.Bounds threshold = 5;
+  // color is the illuminated color of the light.
+  optional .x.color.pb.Color color = 6;
 }
 message NodeConfigOffPageReferencePayload {
   // orientation is the direction the reference arrow points.
@@ -374,158 +386,170 @@ message NodeConfigPolygonPayload {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // num_sides is the number of sides of the polygon.
-  double num_sides = 3;
+  double num_sides = 4;
   // side_length is the length of each side in pixels.
-  double side_length = 4;
+  double side_length = 5;
   // rotation is the rotation of the polygon in degrees.
-  optional double rotation = 5;
+  optional double rotation = 6;
   // corner_rounding is the corner rounding radius in pixels.
-  optional double corner_rounding = 6;
+  optional double corner_rounding = 7;
   // color is the border color of the polygon.
-  optional .x.color.pb.Color color = 7;
+  optional .x.color.pb.Color color = 8;
   // background_color is the fill color of the polygon.
-  optional .x.color.pb.Color background_color = 8;
+  optional .x.color.pb.Color background_color = 9;
   // stroke_width is the border stroke width in pixels.
-  optional double stroke_width = 9;
+  optional double stroke_width = 10;
 }
 message NodeConfigSelectPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // size is the rendered size preset of the select.
-  optional ComponentSize size = 3;
+  optional ComponentSize size = 4;
   // command_channel is the channel the selected value is written to.
-  optional uint32 command_channel = 4;
+  optional uint32 command_channel = 5;
   // color is the accent color of the select.
-  optional .x.color.pb.Color color = 5;
+  optional .x.color.pb.Color color = 6;
   // inline_size is the inline size of the select in pixels.
-  optional double inline_size = 6;
+  optional double inline_size = 7;
   // options is the set of selectable states.
-  repeated StateMapping options = 7;
+  repeated StateMapping options = 8;
   // disabled indicates whether the select rejects interaction.
-  bool disabled = 8;
+  bool disabled = 9;
   // control is the control state display configuration.
-  optional ControlStateConfig control = 9;
+  optional ControlStateConfig control = 10;
 }
 message NodeConfigSetpointPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // size is the rendered size preset of the setpoint.
-  optional ComponentSize size = 3;
+  optional ComponentSize size = 4;
   // state_channel is the channel whose value displays as the current setpoint.
-  optional uint32 state_channel = 4;
+  optional uint32 state_channel = 5;
   // command_channel is the channel submitted setpoints are written to.
-  optional uint32 command_channel = 5;
+  optional uint32 command_channel = 6;
   // dimensions is the rendered size of the setpoint in pixels.
-  optional .x.spatial.pb.Dimensions dimensions = 6;
+  optional .x.spatial.pb.Dimensions dimensions = 7;
   // color is the accent color of the setpoint.
-  optional .x.color.pb.Color color = 7;
+  optional .x.color.pb.Color color = 8;
   // units is the unit suffix displayed after the value.
-  string units = 8;
+  string units = 9;
   // disabled indicates whether the setpoint rejects interaction.
-  bool disabled = 9;
+  bool disabled = 10;
   // control is the control state display configuration.
-  optional ControlStateConfig control = 10;
+  optional ControlStateConfig control = 11;
 }
 message NodeConfigStateIndicatorPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // channel is the channel whose value selects the displayed state.
-  optional uint32 channel = 3;
+  optional uint32 channel = 4;
   // color is the fallback color when no state matches.
-  optional .x.color.pb.Color color = 4;
+  optional .x.color.pb.Color color = 5;
   // inline_size is the inline size of the indicator in pixels.
-  optional double inline_size = 5;
+  optional double inline_size = 6;
   // options is the set of displayable states.
-  repeated StateMapping options = 6;
+  repeated StateMapping options = 7;
 }
 message NodeConfigTextBoxPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // color is the text color.
-  optional .x.color.pb.Color color = 3;
+  optional .x.color.pb.Color color = 4;
   // width is the rendered width of the text box in pixels.
-  optional double width = 4;
+  optional double width = 5;
   // align is the alignment of the text within the box.
-  optional FlexAlignment align = 5;
+  optional FlexAlignment align = 6;
   // auto_fit indicates whether the box resizes to fit its content.
-  bool auto_fit = 6;
+  bool auto_fit = 7;
   // level is the typography level of the text.
-  optional .x.text.pb.Level level = 7;
+  optional .x.text.pb.Level level = 8;
   // value is the text content of the box.
-  string value = 8;
+  string value = 9;
 }
 message NodeConfigValuePayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // position is the offset of the value contents within the symbol.
-  optional .x.spatial.pb.XY position = 3;
+  optional .x.spatial.pb.XY position = 4;
   // color is the background color of the value.
-  optional .x.color.pb.Color color = 4;
+  optional .x.color.pb.Color color = 5;
   // text_color is the color of the displayed text.
-  optional .x.color.pb.Color text_color = 5;
+  optional .x.color.pb.Color text_color = 6;
   // tooltip is the list of tooltip lines shown on hover.
-  repeated string tooltip = 6;
+  repeated string tooltip = 7;
   // redline is the bounds-to-gradient mapping applied to the background.
-  optional Redline redline = 7;
+  optional Redline redline = 8;
   // units is the unit suffix displayed after the value.
-  string units = 8;
+  string units = 9;
   // inline_size is the inline size of the value in pixels.
-  optional double inline_size = 9;
+  optional double inline_size = 10;
   // channel is the channel whose value the symbol displays.
-  optional uint32 channel = 10;
+  optional uint32 channel = 11;
   // rolling_average is the sample window for rolling-average smoothing.
-  optional int32 rolling_average = 11;
+  optional int32 rolling_average = 12;
   // level is the typography level of the displayed value.
-  optional .x.text.pb.Level level = 12;
+  optional .x.text.pb.Level level = 13;
   // precision is the number of decimal places shown.
-  optional double precision = 13;
+  optional double precision = 14;
   // staleness_timeout is the duration in seconds after which the value is considered
   // stale.
-  optional double staleness_timeout = 14;
+  optional double staleness_timeout = 15;
   // staleness_color is the color applied when the value is stale.
-  optional .x.color.pb.Color staleness_color = 15;
+  optional .x.color.pb.Color staleness_color = 16;
   // min_width is the minimum rendered width of the value in pixels.
-  optional double min_width = 16;
+  optional double min_width = 17;
   // notation is the numeric notation used to format the value.
-  optional .x.notation.pb.Notation notation = 17;
+  optional .x.notation.pb.Notation notation = 18;
   // location is the anchor of the value within the symbol.
-  optional .x.spatial.pb.LocationXY location = 18;
+  optional .x.spatial.pb.LocationXY location = 19;
   // use_width_for_background indicates whether the background spans the full configured
   // width.
-  bool use_width_for_background = 19;
+  bool use_width_for_background = 20;
   // value_background_shift is the offset applied to the value background.
-  optional .x.spatial.pb.XY value_background_shift = 20;
+  optional .x.spatial.pb.XY value_background_shift = 21;
   // value_background_over_scan is the extra padding applied around the value background.
-  optional .x.spatial.pb.XY value_background_over_scan = 21;
+  optional .x.spatial.pb.XY value_background_over_scan = 22;
 }
 message NodeConfigSolenoidValvePayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // state_channel is the channel whose value drives the symbol's active state.
-  optional uint32 state_channel = 3;
-  // command_channel is the channel actuation commands are written to.
-  optional uint32 command_channel = 4;
-  // control is the control state display configuration.
-  optional ControlStateConfig control = 5;
-  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 6;
-  // color is the stroke color of the symbol.
-  optional .x.color.pb.Color color = 7;
   // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 8;
+  optional double scale = 3;
+  // state_channel is the channel whose value drives the symbol's active state.
+  optional uint32 state_channel = 4;
+  // command_channel is the channel actuation commands are written to.
+  optional uint32 command_channel = 5;
+  // control is the control state display configuration.
+  optional ControlStateConfig control = 6;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 7;
+  // color is the stroke color of the symbol.
+  optional .x.color.pb.Color color = 8;
   // normally_open indicates whether the valve is open when unpowered.
   bool normally_open = 9;
 }
@@ -534,48 +558,52 @@ message NodeConfigCylinderPayload {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // dimensions is the rendered size of the cylinder in pixels.
-  optional .x.spatial.pb.Dimensions dimensions = 3;
+  optional .x.spatial.pb.Dimensions dimensions = 4;
   // border_radius is the corner radius of the cylinder.
-  optional .x.border.pb.Radius border_radius = 4;
+  optional .x.border.pb.Radius border_radius = 5;
   // color is the border color of the cylinder.
-  optional .x.color.pb.Color color = 5;
+  optional .x.color.pb.Color color = 6;
   // background_color is the fill color of the cylinder.
-  optional .x.color.pb.Color background_color = 6;
+  optional .x.color.pb.Color background_color = 7;
 }
 message NodeConfigTankPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 3;
   // color is the border color of the tank.
-  optional .x.color.pb.Color color = 3;
+  optional .x.color.pb.Color color = 4;
   // background_color is the fill color of the tank.
-  optional .x.color.pb.Color background_color = 4;
+  optional .x.color.pb.Color background_color = 5;
   // dimensions is the rendered size of the tank in pixels.
-  optional .x.spatial.pb.Dimensions dimensions = 5;
+  optional .x.spatial.pb.Dimensions dimensions = 6;
   // border_radius is the corner radius of the tank.
-  optional .x.border.pb.Radius border_radius = 6;
+  optional .x.border.pb.Radius border_radius = 7;
 }
 message NodeConfigCustomActuatorPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // state_channel is the channel whose value drives the symbol's active state.
-  optional uint32 state_channel = 3;
-  // command_channel is the channel actuation commands are written to.
-  optional uint32 command_channel = 4;
-  // control is the control state display configuration.
-  optional ControlStateConfig control = 5;
-  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 6;
-  // spec_key is the key of the custom symbol spec this instance renders.
-  string spec_key = 7;
-  // color is the stroke color of the symbol.
-  optional .x.color.pb.Color color = 8;
   // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 9;
+  optional double scale = 3;
+  // state_channel is the channel whose value drives the symbol's active state.
+  optional uint32 state_channel = 4;
+  // command_channel is the channel actuation commands are written to.
+  optional uint32 command_channel = 5;
+  // control is the control state display configuration.
+  optional ControlStateConfig control = 6;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 7;
+  // spec_key is the key of the custom symbol spec this instance renders.
+  string spec_key = 8;
+  // color is the stroke color of the symbol.
+  optional .x.color.pb.Color color = 9;
   // state_overrides contains per-instance overrides of the spec's visual states. Each
   // entry mirrors the symbol service's State shape; the wire format stores it opaquely,
   // consistent with how the symbol service stores specs.
@@ -586,12 +614,12 @@ message NodeConfigCustomStaticPayload {
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // spec_key is the key of the custom symbol spec this instance renders.
-  string spec_key = 3;
-  // color is the stroke color of the symbol.
-  optional .x.color.pb.Color color = 4;
   // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 5;
+  optional double scale = 3;
+  // spec_key is the key of the custom symbol spec this instance renders.
+  string spec_key = 4;
+  // color is the stroke color of the symbol.
+  optional .x.color.pb.Color color = 5;
   // state_overrides contains per-instance overrides of the spec's visual states. Each
   // entry mirrors the symbol service's State shape; the wire format stores it opaquely,
   // consistent with how the symbol service stores specs.

@@ -14,12 +14,12 @@ import { NotFoundError, ValidationError } from "@/errors";
 import { schematic } from "@/schematic";
 import { createTestClient } from "@/testutil/client";
 
-const newWorkspaceSchematic = async (client: ReturnType<typeof createTestClient>) => {
-  const ws = await client.workspaces.create({ name: "dispatch", layout: {} });
-  const schem = await client.schematics.create(ws.key, {
+const newProjectSchematic = async (client: ReturnType<typeof createTestClient>) => {
+  const proj = await client.projects.create({ name: "dispatch", layout: {} });
+  const schem = await client.schematics.create(proj.key, {
     name: "dispatch",
   });
-  return { ws, schem };
+  return { proj, schem };
 };
 
 const client = createTestClient();
@@ -27,11 +27,11 @@ const client = createTestClient();
 describe("Schematic", () => {
   describe("create", () => {
     test("create one", async () => {
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schem = await client.schematics.create(ws.key, {
+      const schem = await client.schematics.create(proj.key, {
         name: "Schematic",
       });
       expect(schem.name).toEqual("Schematic");
@@ -43,11 +43,11 @@ describe("Schematic", () => {
 
   describe("rename", () => {
     test("rename one", async () => {
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schem = await client.schematics.create(ws.key, {
+      const schem = await client.schematics.create(proj.key, {
         name: "Schematic",
       });
       await client.schematics.rename(schem.key, "Schematic2");
@@ -58,11 +58,11 @@ describe("Schematic", () => {
 
   describe("delete", () => {
     test("delete one", async () => {
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schem = await client.schematics.create(ws.key, {
+      const schem = await client.schematics.create(proj.key, {
         name: "Schematic",
       });
       await client.schematics.delete(schem.key);
@@ -74,8 +74,8 @@ describe("Schematic", () => {
 
   describe("config case preservation", () => {
     test("preserves element key casing and round-trips telem args", async () => {
-      const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
-      const schem = await client.schematics.create(ws.key, {
+      const proj = await client.projects.create({ name: "CaseTest", layout: {} });
+      const schem = await client.schematics.create(proj.key, {
         name: "CaseTest",
         configs: {
           myNode_A1: { variant: "value", channel: 42, rollingAverage: 5 },
@@ -93,11 +93,11 @@ describe("Schematic", () => {
 
   describe("copy", () => {
     test("copy one", async () => {
-      const ws = await client.workspaces.create({
+      const proj = await client.projects.create({
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schem = await client.schematics.create(ws.key, {
+      const schem = await client.schematics.create(proj.key, {
         name: "Schematic",
       });
       const schem2 = await client.schematics.copy({
@@ -111,11 +111,11 @@ describe("Schematic", () => {
 
     describe("snapshot", () => {
       it("should not allow the caller to edit the snapshot", async () => {
-        const ws = await client.workspaces.create({
+        const proj = await client.projects.create({
           name: "Schematic",
           layout: { one: 1 },
         });
-        const schem = await client.schematics.create(ws.key, {
+        const schem = await client.schematics.create(proj.key, {
           name: "Schematic",
         });
         const schem2 = await client.schematics.copy({
@@ -134,7 +134,7 @@ describe("Schematic", () => {
 
   describe("dispatch", () => {
     test("setNodePosition moves the matching node", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({ node: { key: "n1", position: { x: 0, y: 0 } } }),
       ]);
@@ -147,7 +147,7 @@ describe("Schematic", () => {
     });
 
     test("setNode inserts a node and writes its config", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
           node: { key: "n1", position: { x: 1, y: 2 } },
@@ -164,7 +164,7 @@ describe("Schematic", () => {
     });
 
     test("removeNode removes the node and drops its config", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({
           node: { key: "n1", position: { x: 0, y: 0 } },
@@ -189,7 +189,7 @@ describe("Schematic", () => {
     });
 
     test("addEdge appends new edges and is a no-op on duplicate keys", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       const e = (
         key: string,
         srcNode: string,
@@ -218,7 +218,7 @@ describe("Schematic", () => {
     });
 
     test("removeEdge removes the matching edge", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.addEdge({
           edge: {
@@ -236,7 +236,7 @@ describe("Schematic", () => {
     });
 
     test("setConfig upserts config under the given key", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setConfig({
           key: "n1",
@@ -252,7 +252,7 @@ describe("Schematic", () => {
     });
 
     test("applies a multi-action sequence atomically", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
         schematic.setNode({ node: { key: "valve", position: { x: 100, y: 0 } } }),
@@ -278,7 +278,7 @@ describe("Schematic", () => {
     });
 
     test("converges to the final position after a 30-action drag storm", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
       ]);
@@ -291,7 +291,7 @@ describe("Schematic", () => {
     });
 
     test("round-trips telem args through dispatch", async () => {
-      const { schem } = await newWorkspaceSchematic(client);
+      const { schem } = await newProjectSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
         schematic.setConfig({
           key: "valveNode_B2",

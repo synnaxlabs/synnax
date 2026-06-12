@@ -11,6 +11,10 @@
 
 package spatial
 
+// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
+// such as a container's extent.
+type Decimal = float64
+
 // XLocation is a horizontal-axis location at the left or right edge.
 type XLocation string
 
