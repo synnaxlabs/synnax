@@ -146,7 +146,7 @@ export const splitZ = z.object({
    * size is the fraction in [0, 1] of the parent area allocated to first.
    * The remainder is allocated to last.
    */
-  size: z.number().min(0).max(1),
+  size: spatial.decimalZ,
   /** first is the first child (left for x, top for y). */
   get first(): z.ZodType<Node> {
     return nodeZ;

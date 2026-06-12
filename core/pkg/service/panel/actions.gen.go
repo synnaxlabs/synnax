@@ -72,13 +72,13 @@ type MoveTabPayload struct {
 type SplitLeafPayload struct {
 	Leaf     int32            `json:"leaf" msgpack:"leaf"`
 	Location spatial.Location `json:"location" msgpack:"location"`
-	Size     *float64         `json:"size,omitempty" msgpack:"size,omitempty"`
+	Size     *spatial.Decimal `json:"size,omitempty" msgpack:"size,omitempty"`
 }
 
 // ResizeSplitPayload adjusts the size ratio of a split node. size in [0, 1].
 type ResizeSplitPayload struct {
-	Split int32   `json:"split" msgpack:"split"`
-	Size  float64 `json:"size" msgpack:"size"`
+	Split int32           `json:"split" msgpack:"split"`
+	Size  spatial.Decimal `json:"size" msgpack:"size"`
 }
 
 // SetTabResourcePayload sets the visualization resource displayed by the tab with the

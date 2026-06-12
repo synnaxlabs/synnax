@@ -80,7 +80,7 @@ type Split struct {
 	Direction spatial.Direction `json:"direction" msgpack:"direction"`
 	// Size is the fraction in [0, 1] of the parent area allocated to first. The remainder
 	// is allocated to last.
-	Size float64 `json:"size" msgpack:"size"`
+	Size spatial.Decimal `json:"size" msgpack:"size"`
 	// First is the first child (left for x, top for y).
 	First Node `json:"first" msgpack:"first"`
 	// Last is the second child (right for x, bottom for y).

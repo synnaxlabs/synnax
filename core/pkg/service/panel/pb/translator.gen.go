@@ -16,6 +16,7 @@ import (
 	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/spatial"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -301,7 +302,7 @@ func SplitToPB(r panel.Split) (*Split, error) {
 		return nil, err
 	}
 	pb := &Split{
-		Size:      r.Size,
+		Size:      float64(r.Size),
 		Direction: directionVal,
 		First:     firstVal,
 		Last:      lastVal,
@@ -328,7 +329,7 @@ func SplitFromPB(pb *Split) (panel.Split, error) {
 	if err != nil {
 		return panel.Split{}, err
 	}
-	r.Size = pb.Size
+	r.Size = spatial.Decimal(pb.Size)
 	return r, nil
 }
 
