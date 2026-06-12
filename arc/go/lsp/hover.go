@@ -477,6 +477,9 @@ func (s *Server) getUserSymbolHover(
 		d = doc.New(doc.TitleWithKind(displayName, kindDesc))
 		d.Add(doc.Divider())
 		d.Add(doc.Code("arc", formatFunctionSignatureContent(sym)))
+		if sym.Trigger.Target != "" {
+			d.Add(doc.Detail("Trigger", sym.Trigger.Target, true))
+		}
 	case symbol.KindModule, symbol.KindModuleAlias:
 		d = doc.New(doc.TitleWithKind(displayName, "Module"))
 		if members := formatModuleMembersList(sym); len(members) > 0 {
