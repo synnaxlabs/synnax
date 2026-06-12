@@ -795,13 +795,8 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 
 	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
 	if field.Default != nil {
-		switch field.Default.Kind {
-		case resolution.ValueKindIdent:
-			if ev, ok := validation.ResolveEnumVariant(field.Default.IdentValue, field.Type, data.table); ok {
-				defaultValue = p.cppEnumVariantRef(ev, data)
-			}
-		case resolution.ValueKindArray, resolution.ValueKindStruct:
-			defaultValue = p.cppDefaultLiteral(field.Type, *field.Default, data)
+		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
+			defaultValue = lit
 		}
 	}
 

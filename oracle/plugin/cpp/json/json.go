@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
@@ -460,7 +461,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Type, cppType string, data *templateData, isSelfRef bool) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
-	hasDefault := field.IsOptional
+	hasDefault := field.IsOptional || field.Default != nil
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		if field.IsHardOptional {
@@ -548,7 +549,11 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 					return fmt.Sprintf(`parser.field<std::optional<std::string>>("%s")`, jsonName)
 				}
 				if hasDefault {
-					return fmt.Sprintf(`parser.field<std::string>("%s", "")`, jsonName)
+					defaultVal := jsonDefaultLiteral(field, data.table)
+					if defaultVal == "" {
+						defaultVal = `""`
+					}
+					return fmt.Sprintf(`parser.field<std::string>("%s", %s)`, jsonName, defaultVal)
 				}
 				return fmt.Sprintf(`parser.field<std::string>("%s")`, jsonName)
 			}
@@ -644,7 +649,10 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 			return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
 		}
 		if hasDefault {
-			defaultVal := defaultValueForPrimitive(typeRef.Name)
+			defaultVal := jsonDefaultLiteral(field, data.table)
+			if defaultVal == "" {
+				defaultVal = defaultValueForPrimitive(typeRef.Name)
+			}
 			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
 		}
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
@@ -822,6 +830,32 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 	}
 
 	return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
+}
+
+// jsonDefaultLiteral renders a field's schema default as a C++ literal usable as
+// parser.field's fallback argument. Returns "" when the default has no inline
+// scalar rendering (arrays, structs), leaving the caller's behavior unchanged.
+func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string {
+	if field.Default == nil {
+		return ""
+	}
+	v := *field.Default
+	switch v.Kind {
+	case resolution.ValueKindString:
+		return fmt.Sprintf("%q", v.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", v.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", v.FloatValue)
+	case resolution.ValueKindBool:
+		return fmt.Sprintf("%t", v.BoolValue)
+	case resolution.ValueKindIdent:
+		if ev, ok := validation.ResolveEnumVariant(v.IdentValue, field.Type, table); ok {
+			return fmt.Sprintf("%q", ev.Variant.StringValue())
+		}
+		return v.IdentValue
+	}
+	return ""
 }
 
 func defaultValueForPrimitive(primitive string) string {
