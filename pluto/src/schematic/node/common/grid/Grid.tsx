@@ -9,7 +9,13 @@
 
 import "@/schematic/node/common/grid/grid.css";
 
-import { location } from "@synnaxlabs/x";
+import { type dimensions, location } from "@synnaxlabs/x";
+import {
+  type ControlLinePosition,
+  type ControlPosition,
+  NodeResizeControl,
+  ResizeControlVariant,
+} from "@xyflow/react";
 import {
   Children,
   cloneElement,
@@ -26,6 +32,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -91,10 +98,58 @@ export interface GridProps extends PropsWithChildren<{}> {
   onRotate?: (params: { orientation: location.Outer }) => void;
   allowCenter?: boolean;
   allowRotate?: boolean;
+  onResize?: (dimensions: dimensions.Dimensions) => void;
+  // Locks every resize handle (edges included) to aspect ratio, so vertical
+  // edges also drive width. Use for single-dimension symbols (circle, polygon).
+  keepAspectRatio?: boolean;
+  // Restricts which resize handles render. Defaults to all eight.
+  resizeHandles?: (ControlLinePosition | ControlPosition)[];
+  // Fires once when a resize drag begins, with the node's starting dimensions.
+  onResizeStart?: (dimensions: dimensions.Dimensions) => void;
 }
+
+// useScaleResize returns Grid resize props that resize a symbol by its scale, using the
+// ratio of the dragged width to the width at drag start, so it works for any base size.
+export const useScaleResize = (
+  config: { scale?: number },
+  onConfigChange: (config: { scale?: number }) => void,
+): Pick<GridProps, "keepAspectRatio" | "onResizeStart" | "onResize"> => {
+  const start = useRef({ width: 1, scale: 1 });
+  return {
+    keepAspectRatio: true,
+    onResizeStart: ({ width }) => {
+      start.current = { width, scale: config.scale ?? 1 };
+    },
+    onResize: ({ width }) =>
+      onConfigChange({ scale: start.current.scale * (width / start.current.width) }),
+  };
+};
 
 const HAUL_TYPE = "schematic_grid";
 export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
+
+const roundDimensions = (width: number, height: number): dimensions.Dimensions => ({
+  width: Math.round(width),
+  height: Math.round(height),
+});
+
+const RESIZE_CONTROLS: {
+  position: ControlLinePosition | ControlPosition;
+  variant?: ResizeControlVariant;
+  keepAspectRatio?: boolean;
+  cursor: "ns-resize" | "ew-resize" | "nwse-resize" | "nesw-resize";
+}[] = [
+  { position: "top", variant: ResizeControlVariant.Line, cursor: "ns-resize" },
+  { position: "right", variant: ResizeControlVariant.Line, cursor: "ew-resize" },
+  { position: "bottom", variant: ResizeControlVariant.Line, cursor: "ns-resize" },
+  { position: "left", variant: ResizeControlVariant.Line, cursor: "ew-resize" },
+  { position: "top-left", keepAspectRatio: true, cursor: "nwse-resize" },
+  { position: "top-right", keepAspectRatio: true, cursor: "nesw-resize" },
+  { position: "bottom-left", keepAspectRatio: true, cursor: "nesw-resize" },
+  { position: "bottom-right", keepAspectRatio: true, cursor: "nwse-resize" },
+];
+
+const RESIZE_OVERLAY_CLASS = CSS.B("resize-overlay");
 
 const reflowPane = (nodeKey: string) => {
   const node = selectNode(nodeKey);
@@ -196,6 +251,10 @@ export const Grid: FC<GridProps> = ({
   children,
   allowCenter = false,
   onRotate,
+  onResize,
+  onResizeStart,
+  keepAspectRatio = false,
+  resizeHandles,
   nodeKey,
   orientation = "left",
 }) => {
@@ -204,9 +263,31 @@ export const Grid: FC<GridProps> = ({
     reflowPane(nodeKey);
     prevEditable.current = editable;
   }
+  const [resizeCursor, setResizeCursor] = useState<string | null>(null);
   const { items, body } = splitChildren(children);
   const handleRotate = () =>
     onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
+  const resizeControls = useMemo(() => {
+    if (!editable || onResize == null) return null;
+    const controls =
+      resizeHandles == null
+        ? RESIZE_CONTROLS
+        : RESIZE_CONTROLS.filter(({ position }) => resizeHandles.includes(position));
+    return controls.map(({ position, variant, keepAspectRatio: corner, cursor }) => (
+      <NodeResizeControl
+        key={position}
+        position={position}
+        variant={variant}
+        keepAspectRatio={keepAspectRatio || corner}
+        onResizeStart={(_, { width, height }) => {
+          setResizeCursor(cursor);
+          onResizeStart?.(roundDimensions(width, height));
+        }}
+        onResizeEnd={() => setResizeCursor(null)}
+        onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
+      />
+    ));
+  }, [editable, onResize, onResizeStart, keepAspectRatio, resizeHandles]);
   return (
     <>
       <Zone key="top" loc="top" editable={editable} nodeKey={nodeKey} items={items} />
@@ -238,6 +319,12 @@ export const Grid: FC<GridProps> = ({
           <Icon.Rotate />
         </Button.Button>
       )}
+      {resizeControls}
+      {resizeCursor != null &&
+        createPortal(
+          <div className={RESIZE_OVERLAY_CLASS} style={{ cursor: resizeCursor }} />,
+          document.body,
+        )}
       <div className={DRAG_HANDLE_CLASS}>{body}</div>
     </>
   );

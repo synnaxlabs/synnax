@@ -9,7 +9,7 @@
 
 import "@/schematic/node/vessels/tank/tank.css";
 
-import { color, type dimensions } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -21,7 +21,6 @@ import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
-  onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
   strokeWidth?: number;
 }
