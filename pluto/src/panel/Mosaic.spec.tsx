@@ -131,7 +131,7 @@ describe("Panel.Mosaic", () => {
       const viewTab: panel.TabView = {
         variant: "view",
         key: uuid.create(),
-        view: { type: "docs" },
+        type: "docs",
       };
       const emptyTab: panel.TabEmpty = { variant: "empty", key: uuid.create() };
       const p = await createPanel(resourceTab, viewTab, emptyTab);

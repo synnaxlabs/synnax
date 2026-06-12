@@ -475,19 +475,21 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              view: { type: "docs", name: "Docs", args: {} },
+              type: "docs",
+              name: "Docs",
+              args: {},
             }),
           ],
         });
       });
       const withView = panel.findTab(result.current.retrieve.data!.root, tab.key);
       expect(withView?.variant).toEqual("view");
-      if (withView?.variant === "view") expect(withView.view.type).toEqual("docs");
+      if (withView?.variant === "view") expect(withView.type).toEqual("docs");
 
       const fresh = await client.panels.retrieve(created.key);
       const freshTab = panel.findTab(fresh.root, tab.key);
       expect(freshTab?.variant).toEqual("view");
-      if (freshTab?.variant === "view") expect(freshTab.view.type).toEqual("docs");
+      if (freshTab?.variant === "view") expect(freshTab.type).toEqual("docs");
     });
   });
 
@@ -689,7 +691,9 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              view: { type: "docs", name: "Docs", args: {} },
+              type: "docs",
+              name: "Docs",
+              args: {},
             }),
           ],
         });
@@ -697,7 +701,7 @@ describe("Panel queries", () => {
       await waitFor(() => {
         const current = result.current;
         expect(current.variant).toEqual("view");
-        if (current.variant === "view") expect(current.view.type).toEqual("docs");
+        if (current.variant === "view") expect(current.type).toEqual("docs");
       });
     });
 
@@ -729,7 +733,9 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tabB.key,
-              view: { type: "docs", name: "Docs", args: {} },
+              type: "docs",
+              name: "Docs",
+              args: {},
             }),
           ],
         });
