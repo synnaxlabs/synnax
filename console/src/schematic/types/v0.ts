@@ -52,7 +52,8 @@ export const labelZ = z.looseObject({
 });
 
 export const nodePropsZ = z.looseObject({
-  key: Schematic.Node.variantZ,
+  // Legacy camelCase registry key; converted to a variant by the v6 migration.
+  key: z.string(),
   color: color.crudeZ.optional(),
   label: labelZ.optional(),
 });
