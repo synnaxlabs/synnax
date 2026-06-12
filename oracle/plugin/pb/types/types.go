@@ -577,11 +577,11 @@ func (p *Plugin) resolveStructType(typeRef resolution.TypeRef, resolved resoluti
 }
 
 func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) string {
-	if resolved.Namespace == data.Namespace {
+	targetOutputPath := enum.FindPBOutputPath(resolved, data.table)
+	if targetOutputPath == data.OutputPath {
 		return resolved.Name
 	}
 
-	targetOutputPath := enum.FindPBOutputPath(resolved, data.table)
 	if targetOutputPath == "" {
 		return "int32"
 	}

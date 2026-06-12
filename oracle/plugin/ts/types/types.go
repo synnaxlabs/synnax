@@ -650,20 +650,22 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 
 			parentTSName := domain.GetName(parentType, "ts")
 			schemaName := camelCase(parentTSName) + "Z"
+			typeName := parentTSName
 
-			if parentType.Namespace != data.Namespace {
+			targetOutputPath := output.GetPath(parentType, "ts")
+			if targetOutputPath == "" {
+				targetOutputPath = parentType.Namespace
+			}
+			if targetOutputPath != data.OutputPath {
 				ns := parentType.Namespace
-				targetOutputPath := output.GetPath(parentType, "ts")
-				if targetOutputPath == "" {
-					targetOutputPath = ns
-				}
 				data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 				schemaName = ns + "." + schemaName
+				typeName = ns + "." + typeName
 			}
 
 			parentInfo := extendsParentInfo{
 				Name:     schemaName,
-				TypeName: parentTSName,
+				TypeName: typeName,
 			}
 
 			if parentForm.IsGeneric() {
@@ -930,6 +932,23 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	return result
 }
 
+// enumNamespaceQualifier returns the namespace prefix (e.g. "status.") needed to
+// reference resolved from the file being generated, or "" when resolved lives in the
+// same output file. An enum that shares a namespace with the current file but is
+// routed to a different output path still requires a qualified, imported reference.
+func (p *Plugin) enumNamespaceQualifier(resolved resolution.Type, table *resolution.Table, data *templateData) string {
+	targetOutputPath := enum.FindOutputPath(resolved, table, "ts")
+	if targetOutputPath == "" {
+		targetOutputPath = resolved.Namespace
+	}
+	if targetOutputPath == data.OutputPath {
+		return ""
+	}
+	ns := resolved.Namespace
+	data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+	return ns + "."
+}
+
 func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table, data *templateData) typeParamData {
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
@@ -947,7 +966,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 		resolved, ok := tp.Constraint.Resolve(table)
 		if ok {
 			if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-				enumTypeName := lo.Capitalize(camelCase(resolved.Name))
+				enumTypeName := p.enumNamespaceQualifier(resolved, table, data) + lo.Capitalize(camelCase(resolved.Name))
 				tpd.Constraint = "z.ZodType<" + enumTypeName + ">"
 			}
 		}
@@ -962,7 +981,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 		resolved, ok := tp.Default.Resolve(table)
 		if ok {
 			if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-				enumZodName := camelCase(resolved.Name) + "Z"
+				enumZodName := p.enumNamespaceQualifier(resolved, table, data) + camelCase(resolved.Name) + "Z"
 				tpd.Default = "typeof " + enumZodName
 				tpd.DefaultValue = enumZodName
 			} else {
