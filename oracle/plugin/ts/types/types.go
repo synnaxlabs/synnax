@@ -553,21 +553,18 @@ func isExtendBase(entry resolution.Type, table *resolution.Table) bool {
 	for _, typ := range table.Types {
 		switch form := typ.Form.(type) {
 		case resolution.StructForm:
-			for _, ext := range form.Extends {
-				if matches(ext) {
-					return true
-				}
+			if slices.ContainsFunc(form.Extends, matches) {
+				return true
 			}
 		case resolution.UnionForm:
-			for _, ext := range form.Extends {
-				if matches(ext) {
-					return true
-				}
+			if slices.ContainsFunc(form.Extends, matches) {
+				return true
 			}
-			for _, v := range form.Variants {
-				if matches(v.Type) {
-					return true
-				}
+			if slices.ContainsFunc(
+				form.Variants,
+				func(v resolution.UnionVariant) bool { return matches(v.Type) },
+			) {
+				return true
 			}
 		}
 	}
