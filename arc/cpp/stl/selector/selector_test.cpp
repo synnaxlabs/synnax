@@ -64,7 +64,7 @@ private:
         source_node.outputs.push_back(source_output);
 
         types::Param select_input;
-        select_input.name = ir::default_input_param;
+        select_input.name = ir::default_output_param;
         select_input.type = types::Type{.kind = types::Kind::U8};
 
         types::Param true_output;
@@ -84,7 +84,7 @@ private:
 
         ir::Edge edge;
         edge.source = ir::Handle("source", ir::default_output_param);
-        edge.target = ir::Handle("select", ir::default_input_param);
+        edge.target = ir::Handle("select", ir::default_output_param);
 
         ir::Function fn;
         fn.key = "test";
@@ -137,7 +137,7 @@ TEST(SelectModuleTest, CreatesSelectNode) {
 /// @brief Test that no input produces no output.
 TEST(SelectTest, HandlesNoInput) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     bool changed = false;
     auto ctx = make_context();
@@ -149,7 +149,7 @@ TEST(SelectTest, HandlesNoInput) {
 /// @brief Test that all-true input routes entirely to true output.
 TEST(SelectTest, AllTrueInput) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {1, 1, 1}, {100, 200, 300});
@@ -173,7 +173,7 @@ TEST(SelectTest, AllTrueInput) {
 /// @brief Test that all-false input routes entirely to false output.
 TEST(SelectTest, AllFalseInput) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {0, 0, 0}, {100, 200, 300});
@@ -197,7 +197,7 @@ TEST(SelectTest, AllFalseInput) {
 /// @brief Test that mixed input is split correctly.
 TEST(SelectTest, MixedInput) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {1, 0, 1, 0}, {100, 200, 300, 400});
@@ -222,7 +222,7 @@ TEST(SelectTest, MixedInput) {
 /// @brief Test that true output timestamps match source timestamps.
 TEST(SelectTest, TrueTimestampsMatchSource) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {0, 1, 0, 1}, {100, 200, 300, 400});
@@ -240,7 +240,7 @@ TEST(SelectTest, TrueTimestampsMatchSource) {
 /// @brief Test that false output timestamps match source timestamps.
 TEST(SelectTest, FalseTimestampsMatchSource) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {0, 1, 0, 1}, {100, 200, 300, 400});
@@ -258,7 +258,7 @@ TEST(SelectTest, FalseTimestampsMatchSource) {
 /// @brief Test single true value. Mirrors Go test "Should handle single true value".
 TEST(SelectTest, SingleTrueValue) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {1}, {100});
@@ -280,7 +280,7 @@ TEST(SelectTest, SingleTrueValue) {
 /// value".
 TEST(SelectTest, SingleFalseValue) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {0}, {100});
@@ -302,7 +302,7 @@ TEST(SelectTest, SingleFalseValue) {
 /// long series".
 TEST(SelectTest, LongSeries) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     std::vector<uint8_t> data(1000);
     std::vector<int64_t> timestamps(1000);
@@ -326,7 +326,7 @@ TEST(SelectTest, LongSeries) {
 /// Mirrors Go test "Should handle consecutive true values".
 TEST(SelectTest, ConsecutiveTrueValues) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {0, 0, 1, 1, 1, 0}, {100, 200, 300, 400, 500, 600});
@@ -346,7 +346,7 @@ TEST(SelectTest, ConsecutiveTrueValues) {
 /// Mirrors Go test "Should handle consecutive false values".
 TEST(SelectTest, ConsecutiveFalseValues) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {1, 1, 0, 0, 0, 1}, {100, 200, 300, 400, 500, 600});
@@ -365,7 +365,7 @@ TEST(SelectTest, ConsecutiveFalseValues) {
 /// @brief Test that non-one values (e.g., 2, 255) are treated as false.
 TEST(SelectTest, NonOneValuesAreFalse) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     write_source(source, {2, 255, 1, 0}, {100, 200, 300, 400});
@@ -381,7 +381,7 @@ TEST(SelectTest, NonOneValuesAreFalse) {
 /// @brief Test that is_output_truthy delegates to state.
 TEST(SelectTest, IsOutputTruthyDelegatesToState) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     // Before any output, should be false.
     EXPECT_FALSE(node.is_output_truthy(TRUE_OUTPUT_IDX));
@@ -391,7 +391,7 @@ TEST(SelectTest, IsOutputTruthyDelegatesToState) {
 /// @brief Test that alignment and time_range are propagated to outputs.
 TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
     TestSetup setup;
-    Select node(setup.make_select_node());
+    Select node(setup.make_select_node(), 0);
 
     auto source = setup.make_source_node();
     auto data = x::mem::make_local_shared<x::telem::Series>(std::vector<uint8_t>{1, 0});

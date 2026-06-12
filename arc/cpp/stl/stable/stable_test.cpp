@@ -164,6 +164,7 @@ TEST(StableForTest, DoesNotEmitBeforeDuration) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -190,6 +191,7 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -226,6 +228,7 @@ TEST(StableForTest, ResetsTimerOnValueChange) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -267,6 +270,7 @@ TEST(StableForTest, DoesNotEmitSameValueTwice) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -295,6 +299,7 @@ TEST(StableForTest, EmitsDifferentValueAfterStablePeriod) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -332,6 +337,7 @@ TEST(StableForTest, HandlesMultipleValuesInSingleInput) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -361,6 +367,7 @@ TEST(StableForTest, ResetClearsState) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -387,6 +394,7 @@ TEST(StableForTest, HandlesEmptyInput) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -404,6 +412,7 @@ TEST(StableForTest, IsOutputTruthyDelegatesToState) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -427,6 +436,7 @@ TEST(StableForTest, HandlesSameValueRepeatedInInput) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
@@ -455,6 +465,7 @@ TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
     StableFor node(
         ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
         setup.make_stable_node(),
+        0,
         make_now(current_time)
     );
 
