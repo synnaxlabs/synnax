@@ -20,10 +20,10 @@ field.
 
 ```oracle
 Scale union on type {
-    linear  LinearScale
-    map     MapScale
-    table   TableScale
-    none    NoneScale
+    linear  LinearScaleFields
+    map     MapScaleFields
+    table   TableScaleFields
+    none    NoneScaleFields
 }
 
 AIChannel union on type extends BaseAIChannel {
@@ -290,7 +290,7 @@ an `@enum` domain annotation.
 Generate Zod discriminated union schemas, with base fields spread into each variant:
 
 ```typescript
-const linearScaleZ = z.object({
+const scaleLinearZ = z.object({
   type: z.literal("linear"),
   slope: z.number(),
   yIntercept: z.number(),
@@ -299,10 +299,10 @@ const linearScaleZ = z.object({
 });
 
 const scaleZ = z.discriminatedUnion("type", [
-  linearScaleZ,
-  mapScaleZ,
-  tableScaleZ,
-  noneScaleZ,
+  scaleLinearZ,
+  scaleMapZ,
+  scaleTableZ,
+  scaleNoneZ,
 ]);
 
 type Scale = z.infer<typeof scaleZ>;
@@ -314,7 +314,7 @@ Alongside the union, generate a self-narrowing schema map for per-variant parsin
 ```typescript
 const SCALE_SCHEMAS: {
   [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;
-} = { linear: linearScaleZ /* ... */ };
+} = { linear: scaleLinearZ /* ... */ };
 ```
 
 ## 5.1 - Go
@@ -335,7 +335,7 @@ type ScaleVariant interface{ isScaleVariant() }
 // One concrete struct per variant. Each embeds the variant payload struct (and,
 // for a union with extends, the shared base struct ahead of it). The
 // discriminator is NOT stored on the variant; the wrapper owns it.
-type ScaleLinear struct{ LinearScale }
+type ScaleLinear struct{ LinearScaleFields }
 
 func (ScaleLinear) isScaleVariant() {}
 
@@ -365,7 +365,7 @@ codec.
   representation.
 - **Python**: one Pydantic model per variant with a `Literal` discriminator field,
   combined via `Annotated[Union[...], Field(discriminator="type")]`.
-- **C++**: a `std::variant<LinearScale, MapScale, ...>` alias with generated
+- **C++**: a `std::variant<ScaleLinear, ScaleMap, ...>` alias with generated
   `parse`/`to_json` free functions; base fields are repeated into each variant struct.
 
 ---
@@ -424,10 +424,13 @@ Oracle, starting with the simplest (Modbus) and working up to NI.
   codec; see section 5.1), Python, C++, and Protobuf (including pb translators for union
   fields, record arrays, and union map values). Union-typed fields resolve to the union
   in every target.
-- **Storage + wire integration.** Unions encode as length-prefixed JSON in the orc
-  codec; nil-variant unions marshal as `null`; optional union fields tolerate `null` on
-  decode; migration auto-copy skips fields whose union-ness changed so the hand-written
-  hook owns the conversion.
+- **Storage + wire integration.** Unions encode fully binary in the orc codec: a
+  length-prefixed discriminator string followed by the active variant's base and payload
+  structs encoded positionally through their own codecs. The string tag keeps stored
+  bytes stable under variant addition and reordering; variant field changes version
+  through frozen codecs like any struct change. Nil-variant unions fail encode (matching
+  the JSON codec); unknown tags fail decode. Migration auto-copy skips fields whose
+  union-ness changed so the hand-written hook owns the conversion.
 
 **Deferred:**
 
