@@ -799,6 +799,28 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			ToContain(`.device = parser.field<Key>("device", ""),`)
 	})
 
+	It("Should wrap telem-typed numeric defaults in their constructors", func(ctx SpecContext) {
+		loader.Add("schemas/telem", `
+			@cpp output "x/cpp/telem"
+
+			TimeSpan int64 {
+				@cpp omit
+			}
+		`)
+		source := `
+			import "schemas/telem"
+
+			@cpp output "out"
+
+			Config struct {
+				duration telem.TimeSpan = 0
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "out/json.gen.h").
+			ToContain(`.duration = parser.field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0)),`)
+	})
+
 	It("Should keep fields with sentinel defaults required", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
