@@ -104,7 +104,26 @@ export interface GridProps extends PropsWithChildren<{}> {
   keepAspectRatio?: boolean;
   // Restricts which resize handles render. Defaults to all eight.
   resizeHandles?: (ControlLinePosition | ControlPosition)[];
+  // Fires once when a resize drag begins, with the node's starting dimensions.
+  onResizeStart?: (dimensions: dimensions.Dimensions) => void;
 }
+
+// useScaleResize returns Grid resize props that resize a symbol by its scale, using the
+// ratio of the dragged width to the width at drag start, so it works for any base size.
+export const useScaleResize = (
+  config: { scale?: number },
+  onConfigChange: (config: { scale?: number }) => void,
+): Pick<GridProps, "keepAspectRatio" | "onResizeStart" | "onResize"> => {
+  const start = useRef({ width: 1, scale: 1 });
+  return {
+    keepAspectRatio: true,
+    onResizeStart: ({ width }) => {
+      start.current = { width, scale: config.scale ?? 1 };
+    },
+    onResize: ({ width }) =>
+      onConfigChange({ scale: start.current.scale * (width / start.current.width) }),
+  };
+};
 
 const HAUL_TYPE = "schematic_grid";
 export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
@@ -233,6 +252,7 @@ export const Grid: FC<GridProps> = ({
   allowCenter = false,
   onRotate,
   onResize,
+  onResizeStart,
   keepAspectRatio = false,
   resizeHandles,
   nodeKey,
@@ -259,12 +279,15 @@ export const Grid: FC<GridProps> = ({
         position={position}
         variant={variant}
         keepAspectRatio={keepAspectRatio || corner}
-        onResizeStart={() => setResizeCursor(cursor)}
+        onResizeStart={(_, { width, height }) => {
+          setResizeCursor(cursor);
+          onResizeStart?.(roundDimensions(width, height));
+        }}
         onResizeEnd={() => setResizeCursor(null)}
         onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
       />
     ));
-  }, [editable, onResize, keepAspectRatio, resizeHandles]);
+  }, [editable, onResize, onResizeStart, keepAspectRatio, resizeHandles]);
   return (
     <>
       <Zone key="top" loc="top" editable={editable} nodeKey={nodeKey} items={items} />

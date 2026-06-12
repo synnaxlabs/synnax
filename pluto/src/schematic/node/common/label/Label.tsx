@@ -100,6 +100,7 @@ export const defaultConfig = (label: string): Config => ({
 export const labeledConfigZ = z.object({
   label: configZ.optional(),
   orientation: location.outerZ.optional(),
+  scale: z.number().optional(),
 });
 export type LabeledConfig = z.infer<typeof labeledConfigZ>;
 
@@ -121,20 +122,30 @@ export const createLabeled = <C extends LabeledConfig>(
     nodeKey,
     onConfigChange,
     selected,
-    config: { label, orientation = "left", ...rest },
-  }: NodeProps<LabeledConfig>): ReactElement => (
-    <Grid.Grid
-      {...grid}
-      editable={selected}
-      nodeKey={nodeKey}
-      orientation={orientation}
-      onRotate={onConfigChange}
-      onResize={onResize == null ? undefined : (d) => onConfigChange(onResize(d))}
-    >
-      <Label config={label} onChange={onConfigChange} />
-      <Sym orientation={orientation} {...rest} />
-    </Grid.Grid>
-  );
+    config,
+  }: NodeProps<LabeledConfig>): ReactElement => {
+    const { label, orientation = "left", ...rest } = config;
+    const scaleResize = Grid.useScaleResize(config, onConfigChange);
+    // A custom onResize override (e.g. circle's radius) takes over; otherwise the symbol
+    // resizes by scale.
+    const resize =
+      onResize == null
+        ? scaleResize
+        : { onResize: (d: dimensions.Dimensions) => onConfigChange(onResize(d)) };
+    return (
+      <Grid.Grid
+        {...grid}
+        editable={selected}
+        nodeKey={nodeKey}
+        orientation={orientation}
+        onRotate={onConfigChange}
+        {...resize}
+      >
+        <Label config={label} onChange={onConfigChange} />
+        <Sym orientation={orientation} {...rest} />
+      </Grid.Grid>
+    );
+  };
   const M = memo(Inner) as FC<NodeProps<C>>;
   M.displayName = BaseSymbol.displayName;
   return M;
