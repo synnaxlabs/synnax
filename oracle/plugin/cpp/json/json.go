@@ -666,6 +666,11 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		}
 		return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
 	}
+	if hasDefault {
+		if defaultVal := jsonDefaultLiteral(field, data.table); defaultVal != "" {
+			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+		}
+	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 

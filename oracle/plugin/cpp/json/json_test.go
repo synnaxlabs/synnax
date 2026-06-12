@@ -784,6 +784,21 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			)
 	})
 
+	It("Should parse defaulted distinct-typed fields with their schema defaults", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Key string {}
+
+			Config struct {
+				device Key = ""
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(`.device = parser.field<Key>("device", ""),`)
+	})
+
 	It("Should keep fields with sentinel defaults required", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"
