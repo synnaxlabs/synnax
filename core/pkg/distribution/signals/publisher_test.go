@@ -84,7 +84,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 			Key:     uid[:],
 		}})
 		var streamRes framer.StreamerResponse
-		Eventually(responses.Outlet(), "5s").Should(Receive(&streamRes))
+		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&streamRes))
 		Expect(streamRes.Frame.KeysSlice()).To(ConsistOf(cfg.SetChannel.Key()))
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(HaveLen(int(telem.Bit128)))
 		Expect(streamRes.Frame.SeriesAt(0).Data).To(Equal(uid[:]))

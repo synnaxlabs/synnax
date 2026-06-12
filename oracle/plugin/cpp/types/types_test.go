@@ -99,7 +99,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 	Describe("Check", func() {
 		It("Should return nil (no validation required)", func() {
-			Expect(cppPlugin.Check(&plugin.Request{})).To(BeNil())
+			Expect(cppPlugin.Check(&plugin.Request{})).To(Succeed())
 		})
 	})
 
@@ -260,8 +260,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Soft optionals (?) are just the bare type in C++
@@ -286,8 +285,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Only hard optionals (??) use std::optional in C++
@@ -312,8 +310,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include <vector>`))
@@ -338,8 +335,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Soft optional array is just the vector without std::optional
@@ -362,8 +358,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Hard optional array wraps the vector with std::optional
@@ -386,8 +381,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include "x/cpp/json/json.h"`))
@@ -410,8 +404,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include <unordered_map>`))
@@ -440,8 +433,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// New struct should have flattened fields with key hard optional and task_counter omitted
@@ -469,8 +461,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`struct RackPayload {`))
@@ -497,8 +488,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// The field should be renamed to is_virtual instead of virtual
@@ -523,8 +513,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`default_`))
@@ -553,8 +542,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`struct Rack {`))
@@ -577,8 +565,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`template <typename D>`))
@@ -602,8 +589,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`template <typename D>`))
@@ -628,8 +614,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`static Status parse(x::json::Parser parser);`))
@@ -652,8 +637,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`std::optional<D> details;`))
@@ -677,8 +661,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`#include <type_traits>`))
@@ -720,8 +703,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`template <typename Details = std::monostate>`))
@@ -746,8 +728,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`using Status = StatusDetails;`))
@@ -769,8 +750,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`std::vector<std::uint8_t> wasm;`))
@@ -794,8 +774,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Array distinct types should generate wrapper structs, not using aliases
@@ -826,8 +805,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Array distinct types should generate wrapper structs
@@ -854,8 +832,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Param struct definition must appear before Params wrapper
@@ -883,8 +860,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Forward declaration must appear before array wrapper
@@ -921,8 +897,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// All structs should have forward declarations
@@ -954,8 +929,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`enum class Variant : std::uint8_t {`))
@@ -1010,8 +984,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Self-referential fields should use x::mem::indirect, not optional
@@ -1108,8 +1081,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Non-self-referential optional fields should use std::optional
@@ -1154,8 +1126,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(cppPlugin.Generate(req))
 			Expect(resp.Files).To(HaveLen(1))
 
 			content := string(resp.Files[0].Content)
@@ -1180,9 +1151,8 @@ var _ = Describe("C++ Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
-			Expect(resp.Files).To(HaveLen(0))
+			resp := MustSucceed(cppPlugin.Generate(req))
+			Expect(resp.Files).To(BeEmpty())
 		})
 
 		Context("declaration and field order", func() {
@@ -1209,8 +1179,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := cppPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(cppPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				zebraIdx := strings.Index(content, "struct Zebra")
@@ -1237,8 +1206,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := cppPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(cppPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Fields now have default values, so match the field names in declaration context
@@ -1342,8 +1310,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := cppPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(cppPlugin.Generate(req))
 				// Both channel and control files are generated when importing
 				Expect(resp.Files).To(HaveLen(2))
 
