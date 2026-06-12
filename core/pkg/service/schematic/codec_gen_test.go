@@ -30,6 +30,660 @@ import (
 	"github.com/synnaxlabs/x/text"
 )
 
+var (
+	fullyPopulatedStaticSymbolConfig = schematic.StaticSymbolConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Color: new(color.Color{
+			R: 11,
+			G: 12,
+			B: 13,
+			A: 13.5,
+		}),
+		Scale: new(float64(14.5)),
+	}
+	fullyPopulatedToggleSymbolConfig = schematic.ToggleSymbolConfig{
+		ToggleConfig: schematic.ToggleConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: new(schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         new(text.Level("h1")),
+					Orientation:   new(spatial.Location("top")),
+					Direction:     new(spatial.Direction("x")),
+					MaxInlineSize: new(float64(6.5)),
+					Align:         new(schematic.FlexAlignment("start")),
+				}),
+				Orientation: new(spatial.OuterLocation("top")),
+			},
+			StateChannel:   new(channel.Key(10)),
+			CommandChannel: new(channel.Key(11)),
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(13)),
+				Show:          true,
+				ShowChip:      false,
+				ShowIndicator: true,
+				Orientation:   new(spatial.Location("top")),
+			}),
+			OnClickDelay: 17.5,
+		},
+		Color: new(color.Color{
+			R: 20,
+			G: 21,
+			B: 22,
+			A: 22.5,
+		}),
+		Scale: new(float64(23.5)),
+	}
+	fullyPopulatedBoxConfig = schematic.BoxConfig{
+		Label: new(schematic.LabelConfig{
+			Label:         "test_2",
+			Level:         new(text.Level("h1")),
+			Orientation:   new(spatial.Location("top")),
+			Direction:     new(spatial.Direction("x")),
+			MaxInlineSize: new(float64(6.5)),
+			Align:         new(schematic.FlexAlignment("start")),
+		}),
+		Orientation: new(spatial.OuterLocation("top")),
+		Color: new(color.Color{
+			R: 11,
+			G: 12,
+			B: 13,
+			A: 13.5,
+		}),
+		BackgroundColor: new(color.Color{
+			R: 16,
+			G: 17,
+			B: 18,
+			A: 18.5,
+		}),
+		Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
+		BorderRadius: new(float64(22.5)),
+		StrokeWidth:  new(float64(23.5)),
+	}
+	fullyPopulatedButtonConfig = schematic.ButtonConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Size:           new(schematic.ComponentSize("tiny")),
+		Level:          new(text.Level("h1")),
+		OnClickDelay:   11.5,
+		CommandChannel: new(channel.Key(13)),
+		Mode:           new(schematic.ButtonMode("fire")),
+		Color: new(color.Color{
+			R: 16,
+			G: 17,
+			B: 18,
+			A: 18.5,
+		}),
+		Control: new(schematic.ControlStateConfig{
+			Authority:     new(uint8(21)),
+			Show:          true,
+			ShowChip:      false,
+			ShowIndicator: true,
+			Orientation:   new(spatial.Location("top")),
+		}),
+	}
+	fullyPopulatedCircleConfig = schematic.CircleConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Radius: 9.5,
+		Color: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
+		}),
+		BackgroundColor: new(color.Color{
+			R: 17,
+			G: 18,
+			B: 19,
+			A: 19.5,
+		}),
+		StrokeWidth: new(float64(20.5)),
+	}
+	fullyPopulatedGaugeConfig = schematic.GaugeConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Position: new(spatial.XY{X: 10.5, Y: 11.5}),
+		Color: new(color.Color{
+			R: 14,
+			G: 15,
+			B: 16,
+			A: 16.5,
+		}),
+		Bounds:         new(spatial.Bounds{}),
+		BarWidth:       new(float64(18.5)),
+		Channel:        new(channel.Key(20)),
+		RollingAverage: new(int32(21)),
+		Precision:      new(float64(21.5)),
+		MinWidth:       new(float64(22.5)),
+		Width:          new(float64(23.5)),
+		Notation:       new(notation.Notation("standard")),
+		Location: new(spatial.LocationXY{
+			X: spatial.XCenterLocation("left"),
+			Y: spatial.YCenterLocation("top"),
+		}),
+		Units: "test_28",
+		Level: new(text.Level("h1")),
+	}
+	fullyPopulatedInputConfig = schematic.InputConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Size:           new(schematic.ComponentSize("tiny")),
+		CommandChannel: new(channel.Key(11)),
+		Dimensions:     new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
+		Color: new(color.Color{
+			R: 16,
+			G: 17,
+			B: 18,
+			A: 18.5,
+		}),
+		Disabled: true,
+		Control: new(schematic.ControlStateConfig{
+			Authority:     new(uint8(22)),
+			Show:          false,
+			ShowChip:      true,
+			ShowIndicator: false,
+			Orientation:   new(spatial.Location("top")),
+		}),
+	}
+	fullyPopulatedLightConfig = schematic.LightConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Channel:   new(channel.Key(10)),
+		Threshold: new(spatial.Bounds{}),
+		Color: new(color.Color{
+			R: 13,
+			G: 14,
+			B: 15,
+			A: 15.5,
+		}),
+		Scale: new(float64(16.5)),
+	}
+	fullyPopulatedOffPageReferenceConfig = schematic.OffPageReferenceConfig{
+		Orientation: new(spatial.OuterLocation("top")),
+		Label: schematic.LabelConfig{
+			Label:         "test_3",
+			Level:         new(text.Level("h1")),
+			Orientation:   new(spatial.Location("top")),
+			Direction:     new(spatial.Direction("x")),
+			MaxInlineSize: new(float64(7.5)),
+			Align:         new(schematic.FlexAlignment("start")),
+		},
+		Level: new(text.Level("h1")),
+		Color: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
+		}),
+		Page:        "test_15",
+		DblClickNav: false,
+	}
+	fullyPopulatedPolygonConfig = schematic.PolygonConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		NumSides:       9.5,
+		SideLength:     10.5,
+		Rotation:       new(float64(11.5)),
+		CornerRounding: new(float64(12.5)),
+		Color: new(color.Color{
+			R: 15,
+			G: 16,
+			B: 17,
+			A: 17.5,
+		}),
+		BackgroundColor: new(color.Color{
+			R: 20,
+			G: 21,
+			B: 22,
+			A: 22.5,
+		}),
+		StrokeWidth: new(float64(23.5)),
+	}
+	fullyPopulatedSelectConfig = schematic.SelectConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Size:           new(schematic.ComponentSize("tiny")),
+		CommandChannel: new(channel.Key(11)),
+		Color: new(color.Color{
+			R: 13,
+			G: 14,
+			B: 15,
+			A: 15.5,
+		}),
+		InlineSize: new(float64(16.5)),
+		Options: []schematic.StateMapping{
+			{
+				Key:   "test_18",
+				Name:  "test_19",
+				Value: 20.5,
+				Color: new(color.Color{
+					R: 23,
+					G: 24,
+					B: 25,
+					A: 25.5,
+				}),
+			},
+		},
+		Disabled: false,
+		Control: new(schematic.ControlStateConfig{
+			Authority:     new(uint8(29)),
+			Show:          true,
+			ShowChip:      false,
+			ShowIndicator: true,
+			Orientation:   new(spatial.Location("top")),
+		}),
+	}
+	fullyPopulatedSetpointConfig = schematic.SetpointConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Size:           new(schematic.ComponentSize("tiny")),
+		StateChannel:   new(channel.Key(11)),
+		CommandChannel: new(channel.Key(12)),
+		Dimensions:     new(spatial.Dimensions{Width: 13.5, Height: 14.5}),
+		Color: new(color.Color{
+			R: 17,
+			G: 18,
+			B: 19,
+			A: 19.5,
+		}),
+		Units:    "test_20",
+		Disabled: true,
+		Control: new(schematic.ControlStateConfig{
+			Authority:     new(uint8(24)),
+			Show:          false,
+			ShowChip:      true,
+			ShowIndicator: false,
+			Orientation:   new(spatial.Location("top")),
+		}),
+	}
+	fullyPopulatedStateIndicatorConfig = schematic.StateIndicatorConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Channel: new(channel.Key(10)),
+		Color: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
+		}),
+		InlineSize: new(float64(15.5)),
+		Options: []schematic.StateMapping{
+			{
+				Key:   "test_17",
+				Name:  "test_18",
+				Value: 19.5,
+				Color: new(color.Color{
+					R: 22,
+					G: 23,
+					B: 24,
+					A: 24.5,
+				}),
+			},
+		},
+	}
+	fullyPopulatedTextBoxConfig = schematic.TextBoxConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Color: new(color.Color{
+			R: 11,
+			G: 12,
+			B: 13,
+			A: 13.5,
+		}),
+		Width:   new(float64(14.5)),
+		Align:   new(schematic.FlexAlignment("start")),
+		AutoFit: false,
+		Level:   new(text.Level("h1")),
+		Value:   "test_18",
+	}
+	fullyPopulatedValueConfig = schematic.ValueConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Position: new(spatial.XY{X: 10.5, Y: 11.5}),
+		Color: new(color.Color{
+			R: 14,
+			G: 15,
+			B: 16,
+			A: 16.5,
+		}),
+		TextColor: new(color.Color{
+			R: 19,
+			G: 20,
+			B: 21,
+			A: 21.5,
+		}),
+		Tooltip: []string{"test_22"},
+		Redline: new(schematic.Redline{
+			Bounds: spatial.Bounds{},
+			Gradient: []color.Stop{
+				{
+					Key:      "test_26",
+					Color:    color.Color{},
+					Position: 28.5,
+					Switched: true,
+				},
+			},
+		}),
+		Units:            "test_30",
+		InlineSize:       new(float64(31.5)),
+		Channel:          new(channel.Key(33)),
+		RollingAverage:   new(int32(34)),
+		Level:            new(text.Level("h1")),
+		Precision:        new(float64(35.5)),
+		StalenessTimeout: new(float64(36.5)),
+		StalenessColor: new(color.Color{
+			R: 39,
+			G: 40,
+			B: 41,
+			A: 41.5,
+		}),
+		MinWidth: new(float64(42.5)),
+		Notation: new(notation.Notation("standard")),
+		Location: new(spatial.LocationXY{
+			X: spatial.XCenterLocation("left"),
+			Y: spatial.YCenterLocation("top"),
+		}),
+		UseWidthForBackground:   true,
+		ValueBackgroundShift:    new(spatial.XY{X: 49.5, Y: 50.5}),
+		ValueBackgroundOverScan: new(spatial.XY{X: 52.5, Y: 53.5}),
+	}
+	fullyPopulatedDummyToggleSymbolConfig = schematic.DummyToggleSymbolConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Enabled:   true,
+		Clickable: false,
+		Color: new(color.Color{
+			R: 13,
+			G: 14,
+			B: 15,
+			A: 15.5,
+		}),
+		Scale: new(float64(16.5)),
+	}
+	fullyPopulatedSolenoidValveConfig = schematic.SolenoidValveConfig{
+		ToggleSymbolConfig: schematic.ToggleSymbolConfig{
+			ToggleConfig: schematic.ToggleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: new(schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         new(text.Level("h1")),
+						Orientation:   new(spatial.Location("top")),
+						Direction:     new(spatial.Direction("x")),
+						MaxInlineSize: new(float64(6.5)),
+						Align:         new(schematic.FlexAlignment("start")),
+					}),
+					Orientation: new(spatial.OuterLocation("top")),
+				},
+				StateChannel:   new(channel.Key(10)),
+				CommandChannel: new(channel.Key(11)),
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(13)),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   new(spatial.Location("top")),
+				}),
+				OnClickDelay: 17.5,
+			},
+			Color: new(color.Color{
+				R: 20,
+				G: 21,
+				B: 22,
+				A: 22.5,
+			}),
+			Scale: new(float64(23.5)),
+		},
+		NormallyOpen: false,
+	}
+	fullyPopulatedCylinderConfig = schematic.CylinderConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Dimensions: new(spatial.Dimensions{Width: 10.5, Height: 11.5}),
+		BorderRadius: new(border.Radius{
+			TopLeft:     spatial.XY{X: 14.5, Y: 15.5},
+			TopRight:    spatial.XY{X: 17.5, Y: 18.5},
+			BottomLeft:  spatial.XY{X: 20.5, Y: 21.5},
+			BottomRight: spatial.XY{X: 23.5, Y: 24.5},
+		}),
+		Color: new(color.Color{
+			R: 27,
+			G: 28,
+			B: 29,
+			A: 29.5,
+		}),
+		BackgroundColor: new(color.Color{
+			R: 32,
+			G: 33,
+			B: 34,
+			A: 34.5,
+		}),
+	}
+	fullyPopulatedTankConfig = schematic.TankConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		Color: new(color.Color{
+			R: 11,
+			G: 12,
+			B: 13,
+			A: 13.5,
+		}),
+		BackgroundColor: new(color.Color{
+			R: 16,
+			G: 17,
+			B: 18,
+			A: 18.5,
+		}),
+		Dimensions: new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
+		BorderRadius: new(border.Radius{
+			TopLeft:     spatial.XY{X: 24.5, Y: 25.5},
+			TopRight:    spatial.XY{X: 27.5, Y: 28.5},
+			BottomLeft:  spatial.XY{X: 30.5, Y: 31.5},
+			BottomRight: spatial.XY{X: 33.5, Y: 34.5},
+		}),
+	}
+	fullyPopulatedCustomActuatorConfig = schematic.CustomActuatorConfig{
+		ToggleConfig: schematic.ToggleConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: new(schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         new(text.Level("h1")),
+					Orientation:   new(spatial.Location("top")),
+					Direction:     new(spatial.Direction("x")),
+					MaxInlineSize: new(float64(6.5)),
+					Align:         new(schematic.FlexAlignment("start")),
+				}),
+				Orientation: new(spatial.OuterLocation("top")),
+			},
+			StateChannel:   new(channel.Key(10)),
+			CommandChannel: new(channel.Key(11)),
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(13)),
+				Show:          true,
+				ShowChip:      false,
+				ShowIndicator: true,
+				Orientation:   new(spatial.Location("top")),
+			}),
+			OnClickDelay: 17.5,
+		},
+		SpecKey: "test_18",
+		Color: new(color.Color{
+			R: 21,
+			G: 22,
+			B: 23,
+			A: 23.5,
+		}),
+		Scale:          new(float64(24.5)),
+		StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
+	}
+	fullyPopulatedCustomStaticConfig = schematic.CustomStaticConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+		},
+		SpecKey: "test_9",
+		Color: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
+		}),
+		Scale:          new(float64(15.5)),
+		StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
+	}
+	fullyPopulatedSegmentedEdgeConfig = schematic.SegmentedEdgeConfig{
+		Color: new(color.Color{
+			R: 3,
+			G: 4,
+			B: 5,
+			A: 5.5,
+		}),
+		Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+	}
+)
+
 var _ = Describe("Codec", func() {
 	Describe("BoxConfig", func() {
 		DescribeTable("should round-trip encode and decode",
@@ -42,32 +696,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.BoxConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 18.5,
-				}),
-				Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-				BorderRadius: new(float64(22.5)),
-				StrokeWidth:  new(float64(23.5)),
-			}),
+			Entry("fully populated", fullyPopulatedBoxConfig),
 			Entry("zero values", schematic.BoxConfig{
 				Label:           nil,
 				Orientation:     nil,
@@ -90,37 +719,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.ButtonConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				Level:          new(text.Level("h1")),
-				OnClickDelay:   11.5,
-				CommandChannel: new(channel.Key(13)),
-				Mode:           new(schematic.ButtonMode("fire")),
-				Color: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 18.5,
-				}),
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(21)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			}),
+			Entry("fully populated", fullyPopulatedButtonConfig),
 			Entry("zero values", schematic.ButtonConfig{
 				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Size:           nil,
@@ -144,33 +743,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.CircleConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Radius: 9.5,
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 17,
-					G: 18,
-					B: 19,
-					A: 19.5,
-				}),
-				StrokeWidth: new(float64(20.5)),
-			}),
+			Entry("fully populated", fullyPopulatedCircleConfig),
 			Entry("zero values", schematic.CircleConfig{
 				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Radius:          0,
@@ -218,40 +791,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.CustomActuatorConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				SpecKey: "test_18",
-				Color: new(color.Color{
-					R: 21,
-					G: 22,
-					B: 23,
-					A: 23.5,
-				}),
-				Scale:          new(float64(24.5)),
-				StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
-			}),
+			Entry("fully populated", fullyPopulatedCustomActuatorConfig),
 			Entry("zero values", schematic.CustomActuatorConfig{
 				ToggleConfig: schematic.ToggleConfig{
 					LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
@@ -312,28 +852,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.CustomStaticConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				SpecKey: "test_9",
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				Scale:          new(float64(15.5)),
-				StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
-			}),
+			Entry("fully populated", fullyPopulatedCustomStaticConfig),
 			Entry("zero values", schematic.CustomStaticConfig{
 				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
 				SpecKey:        "",
@@ -376,38 +895,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.CylinderConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Dimensions: new(spatial.Dimensions{Width: 10.5, Height: 11.5}),
-				BorderRadius: new(border.Radius{
-					TopLeft:     spatial.XY{X: 14.5, Y: 15.5},
-					TopRight:    spatial.XY{X: 17.5, Y: 18.5},
-					BottomLeft:  spatial.XY{X: 20.5, Y: 21.5},
-					BottomRight: spatial.XY{X: 23.5, Y: 24.5},
-				}),
-				Color: new(color.Color{
-					R: 27,
-					G: 28,
-					B: 29,
-					A: 29.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 32,
-					G: 33,
-					B: 34,
-					A: 34.5,
-				}),
-			}),
+			Entry("fully populated", fullyPopulatedCylinderConfig),
 			Entry("zero values", schematic.CylinderConfig{
 				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Dimensions:      nil,
@@ -428,28 +916,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Enabled:   true,
-				Clickable: false,
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			}),
+			Entry("fully populated", fullyPopulatedDummyToggleSymbolConfig),
 			Entry("zero values", schematic.DummyToggleSymbolConfig{
 				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Enabled:       false,
@@ -493,2859 +960,298 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("cap variant", schematic.ElementConfig{Variant: schematic.ElementConfigCap{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
-			}}),
+			Entry("cap variant", schematic.ElementConfig{Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
 			Entry("filter variant", schematic.ElementConfig{Variant: schematic.ElementConfigFilter{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flow_straightener variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowStraightener{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("heater_element variant", schematic.ElementConfig{Variant: schematic.ElementConfigHeaterElement{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("iso_cap variant", schematic.ElementConfig{Variant: schematic.ElementConfigIsoCap{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("iso_filter variant", schematic.ElementConfig{Variant: schematic.ElementConfigIsoFilter{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("nozzle variant", schematic.ElementConfig{Variant: schematic.ElementConfigNozzle{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("orifice variant", schematic.ElementConfig{Variant: schematic.ElementConfigOrifice{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("orifice_plate variant", schematic.ElementConfig{Variant: schematic.ElementConfigOrificePlate{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("strainer variant", schematic.ElementConfig{Variant: schematic.ElementConfigStrainer{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("strainer_cone variant", schematic.ElementConfig{Variant: schematic.ElementConfigStrainerCone{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("thruster variant", schematic.ElementConfig{Variant: schematic.ElementConfigThruster{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("vent variant", schematic.ElementConfig{Variant: schematic.ElementConfigVent{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_general variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterGeneral{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_electromagnetic variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterElectromagnetic{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_variable_area variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterVariableArea{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_coriolis variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterCoriolis{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_nozzle variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterNozzle{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_venturi variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterVenturi{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_ring_piston variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterRingPiston{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_positive_displacement variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterPositiveDisplacement{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_turbine variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterTurbine{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_pulse variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterPulse{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_float_sensor variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterFloatSensor{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flowmeter_orifice variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterOrifice{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("box variant", schematic.ElementConfig{Variant: schematic.ElementConfigBox{
-				BoxConfig: schematic.BoxConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					BackgroundColor: new(color.Color{
-						R: 16,
-						G: 17,
-						B: 18,
-						A: 18.5,
-					}),
-					Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-					BorderRadius: new(float64(22.5)),
-					StrokeWidth:  new(float64(23.5)),
-				},
-			}}),
-			Entry("button variant", schematic.ElementConfig{Variant: schematic.ElementConfigButton{
-				ButtonConfig: schematic.ButtonConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Size:           new(schematic.ComponentSize("tiny")),
-					Level:          new(text.Level("h1")),
-					OnClickDelay:   11.5,
-					CommandChannel: new(channel.Key(13)),
-					Mode:           new(schematic.ButtonMode("fire")),
-					Color: new(color.Color{
-						R: 16,
-						G: 17,
-						B: 18,
-						A: 18.5,
-					}),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(21)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-				},
-			}}),
-			Entry("circle variant", schematic.ElementConfig{Variant: schematic.ElementConfigCircle{
-				CircleConfig: schematic.CircleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Radius: 9.5,
-					Color: new(color.Color{
-						R: 12,
-						G: 13,
-						B: 14,
-						A: 14.5,
-					}),
-					BackgroundColor: new(color.Color{
-						R: 17,
-						G: 18,
-						B: 19,
-						A: 19.5,
-					}),
-					StrokeWidth: new(float64(20.5)),
-				},
-			}}),
-			Entry("gauge variant", schematic.ElementConfig{Variant: schematic.ElementConfigGauge{
-				GaugeConfig: schematic.GaugeConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-					Color: new(color.Color{
-						R: 14,
-						G: 15,
-						B: 16,
-						A: 16.5,
-					}),
-					Bounds:         new(spatial.Bounds{}),
-					BarWidth:       new(float64(18.5)),
-					Channel:        new(channel.Key(20)),
-					RollingAverage: new(int32(21)),
-					Precision:      new(float64(21.5)),
-					MinWidth:       new(float64(22.5)),
-					Width:          new(float64(23.5)),
-					Notation:       new(notation.Notation("standard")),
-					Location: new(spatial.LocationXY{
-						X: spatial.XCenterLocation("left"),
-						Y: spatial.YCenterLocation("top"),
-					}),
-					Units: "test_28",
-					Level: new(text.Level("h1")),
-				},
-			}}),
-			Entry("input variant", schematic.ElementConfig{Variant: schematic.ElementConfigInput{
-				InputConfig: schematic.InputConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Size:           new(schematic.ComponentSize("tiny")),
-					CommandChannel: new(channel.Key(11)),
-					Dimensions:     new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
-					Color: new(color.Color{
-						R: 16,
-						G: 17,
-						B: 18,
-						A: 18.5,
-					}),
-					Disabled: true,
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(22)),
-						Show:          false,
-						ShowChip:      true,
-						ShowIndicator: false,
-						Orientation:   new(spatial.Location("top")),
-					}),
-				},
-			}}),
-			Entry("light variant", schematic.ElementConfig{Variant: schematic.ElementConfigLight{
-				LightConfig: schematic.LightConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Channel:   new(channel.Key(10)),
-					Threshold: new(spatial.Bounds{}),
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Scale: new(float64(16.5)),
-				},
-			}}),
+			Entry("box variant", schematic.ElementConfig{Variant: schematic.ElementConfigBox{BoxConfig: fullyPopulatedBoxConfig}}),
+			Entry("button variant", schematic.ElementConfig{Variant: schematic.ElementConfigButton{ButtonConfig: fullyPopulatedButtonConfig}}),
+			Entry("circle variant", schematic.ElementConfig{Variant: schematic.ElementConfigCircle{CircleConfig: fullyPopulatedCircleConfig}}),
+			Entry("gauge variant", schematic.ElementConfig{Variant: schematic.ElementConfigGauge{GaugeConfig: fullyPopulatedGaugeConfig}}),
+			Entry("input variant", schematic.ElementConfig{Variant: schematic.ElementConfigInput{InputConfig: fullyPopulatedInputConfig}}),
+			Entry("light variant", schematic.ElementConfig{Variant: schematic.ElementConfigLight{LightConfig: fullyPopulatedLightConfig}}),
 			Entry("off_page_reference variant", schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
-				OffPageReferenceConfig: schematic.OffPageReferenceConfig{
-					Orientation: new(spatial.OuterLocation("top")),
-					Label: schematic.LabelConfig{
-						Label:         "test_3",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(7.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					},
-					Level: new(text.Level("h1")),
-					Color: new(color.Color{
-						R: 12,
-						G: 13,
-						B: 14,
-						A: 14.5,
-					}),
-					Page:        "test_15",
-					DblClickNav: false,
-				},
+				OffPageReferenceConfig: fullyPopulatedOffPageReferenceConfig,
 			}}),
-			Entry("polygon variant", schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{
-				PolygonConfig: schematic.PolygonConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					NumSides:       9.5,
-					SideLength:     10.5,
-					Rotation:       new(float64(11.5)),
-					CornerRounding: new(float64(12.5)),
-					Color: new(color.Color{
-						R: 15,
-						G: 16,
-						B: 17,
-						A: 17.5,
-					}),
-					BackgroundColor: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					StrokeWidth: new(float64(23.5)),
-				},
-			}}),
-			Entry("select variant", schematic.ElementConfig{Variant: schematic.ElementConfigSelect{
-				SelectConfig: schematic.SelectConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Size:           new(schematic.ComponentSize("tiny")),
-					CommandChannel: new(channel.Key(11)),
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					InlineSize: new(float64(16.5)),
-					Options: []schematic.StateMapping{
-						{
-							Key:   "test_18",
-							Name:  "test_19",
-							Value: 20.5,
-							Color: new(color.Color{}),
-						},
-					},
-					Disabled: false,
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(25)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-				},
-			}}),
-			Entry("setpoint variant", schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{
-				SetpointConfig: schematic.SetpointConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Size:           new(schematic.ComponentSize("tiny")),
-					StateChannel:   new(channel.Key(11)),
-					CommandChannel: new(channel.Key(12)),
-					Dimensions:     new(spatial.Dimensions{Width: 13.5, Height: 14.5}),
-					Color: new(color.Color{
-						R: 17,
-						G: 18,
-						B: 19,
-						A: 19.5,
-					}),
-					Units:    "test_20",
-					Disabled: true,
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(24)),
-						Show:          false,
-						ShowChip:      true,
-						ShowIndicator: false,
-						Orientation:   new(spatial.Location("top")),
-					}),
-				},
-			}}),
+			Entry("polygon variant", schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{PolygonConfig: fullyPopulatedPolygonConfig}}),
+			Entry("select variant", schematic.ElementConfig{Variant: schematic.ElementConfigSelect{SelectConfig: fullyPopulatedSelectConfig}}),
+			Entry("setpoint variant", schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{SetpointConfig: fullyPopulatedSetpointConfig}}),
 			Entry("state_indicator variant", schematic.ElementConfig{Variant: schematic.ElementConfigStateIndicator{
-				StateIndicatorConfig: schematic.StateIndicatorConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Channel: new(channel.Key(10)),
-					Color: new(color.Color{
-						R: 12,
-						G: 13,
-						B: 14,
-						A: 14.5,
-					}),
-					InlineSize: new(float64(15.5)),
-					Options: []schematic.StateMapping{
-						{
-							Key:   "test_17",
-							Name:  "test_18",
-							Value: 19.5,
-							Color: new(color.Color{}),
-						},
-					},
-				},
+				StateIndicatorConfig: fullyPopulatedStateIndicatorConfig,
 			}}),
 			Entry("switch variant", schematic.ElementConfig{Variant: schematic.ElementConfigSwitch{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
-			Entry("text_box variant", schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{
-				TextBoxConfig: schematic.TextBoxConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Width:   new(float64(14.5)),
-					Align:   new(schematic.FlexAlignment("start")),
-					AutoFit: false,
-					Level:   new(text.Level("h1")),
-					Value:   "test_18",
-				},
-			}}),
-			Entry("value variant", schematic.ElementConfig{Variant: schematic.ElementConfigValue{
-				ValueConfig: schematic.ValueConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-					Color: new(color.Color{
-						R: 14,
-						G: 15,
-						B: 16,
-						A: 16.5,
-					}),
-					TextColor: new(color.Color{
-						R: 19,
-						G: 20,
-						B: 21,
-						A: 21.5,
-					}),
-					Tooltip: []string{"test_22"},
-					Redline: new(schematic.Redline{
-						Bounds:   spatial.Bounds{},
-						Gradient: []color.Stop{{}},
-					}),
-					Units:            "test_26",
-					InlineSize:       new(float64(27.5)),
-					Channel:          new(channel.Key(29)),
-					RollingAverage:   new(int32(30)),
-					Level:            new(text.Level("h1")),
-					Precision:        new(float64(31.5)),
-					StalenessTimeout: new(float64(32.5)),
-					StalenessColor: new(color.Color{
-						R: 35,
-						G: 36,
-						B: 37,
-						A: 37.5,
-					}),
-					MinWidth: new(float64(38.5)),
-					Notation: new(notation.Notation("standard")),
-					Location: new(spatial.LocationXY{
-						X: spatial.XCenterLocation("left"),
-						Y: spatial.YCenterLocation("top"),
-					}),
-					UseWidthForBackground:   true,
-					ValueBackgroundShift:    new(spatial.XY{X: 45.5, Y: 46.5}),
-					ValueBackgroundOverScan: new(spatial.XY{X: 48.5, Y: 49.5}),
-				},
-			}}),
+			Entry("text_box variant", schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{TextBoxConfig: fullyPopulatedTextBoxConfig}}),
+			Entry("value variant", schematic.ElementConfig{Variant: schematic.ElementConfigValue{ValueConfig: fullyPopulatedValueConfig}}),
 			Entry("agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigAgitator{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("cross_beam_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigCrossBeamAgitator{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("flat_blade_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlatBladeAgitator{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("heat_exchanger_general variant", schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerGeneral{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("heat_exchanger_m variant", schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerM{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("heat_exchanger_straight_tube variant", schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerStraightTube{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("helical_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigHelicalAgitator{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("paddle_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigPaddleAgitator{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("propeller_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigPropellerAgitator{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("rotary_mixer variant", schematic.ElementConfig{Variant: schematic.ElementConfigRotaryMixer{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("static_mixer variant", schematic.ElementConfig{Variant: schematic.ElementConfigStaticMixer{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("cavity_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigCavityPump{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("centrifugal_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigCentrifugalCompressor{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigCompressor{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("diaphragm_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigDiaphragmPump{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("ejection_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigEjectionPump{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("ejector_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigEjectorCompressor{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("liquid_ring_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigLiquidRingCompressor{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("piston_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigPistonPump{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigPump{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("roller_vane_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigRollerVaneCompressor{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("screw_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigScrewPump{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("turbo_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigTurboCompressor{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("vacuum_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigVacuumPump{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("burst_disc variant", schematic.ElementConfig{Variant: schematic.ElementConfigBurstDisc{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flame_arrestor variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestor{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flame_arrestor_detonation variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorDetonation{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flame_arrestor_explosion variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorExplosion{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flame_arrestor_fire_res variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorFireRes{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("flame_arrestor_fire_res_detonation variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorFireResDetonation{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("iso_burst_disc variant", schematic.ElementConfig{Variant: schematic.ElementConfigIsoBurstDisc{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("angled_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigAngledValve{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("angled_relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigAngledReliefValve{
-				DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Enabled:   true,
-					Clickable: false,
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Scale: new(float64(16.5)),
-				},
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 			}}),
 			Entry("angled_spring_loaded_relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigAngledSpringLoadedReliefValve{
-				DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Enabled:   true,
-					Clickable: false,
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Scale: new(float64(16.5)),
-				},
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 			}}),
 			Entry("ball_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigBallValve{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("breather_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigBreatherValve{
-				DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Enabled:   true,
-					Clickable: false,
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Scale: new(float64(16.5)),
-				},
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 			}}),
 			Entry("butterfly_valve_one variant", schematic.ElementConfig{Variant: schematic.ElementConfigButterflyValveOne{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("butterfly_valve_two variant", schematic.ElementConfig{Variant: schematic.ElementConfigButterflyValveTwo{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("check_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigCheckValve{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("check_valve_with_arrow variant", schematic.ElementConfig{Variant: schematic.ElementConfigCheckValveWithArrow{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("electric_regulator variant", schematic.ElementConfig{Variant: schematic.ElementConfigElectricRegulator{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("electric_regulator_motorized variant", schematic.ElementConfig{Variant: schematic.ElementConfigElectricRegulatorMotorized{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("four_way_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigFourWayValve{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("gate_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigGateValve{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("iso_check_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigIsoCheckValve{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("manual_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigManualValve{
-				DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Enabled:   true,
-					Clickable: false,
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Scale: new(float64(16.5)),
-				},
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 			}}),
 			Entry("needle_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigNeedleValve{
-				DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Enabled:   true,
-					Clickable: false,
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Scale: new(float64(16.5)),
-				},
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 			}}),
 			Entry("regulator variant", schematic.ElementConfig{Variant: schematic.ElementConfigRegulator{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("regulator_manual variant", schematic.ElementConfig{Variant: schematic.ElementConfigRegulatorManual{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigReliefValve{
-				DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Enabled:   true,
-					Clickable: false,
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Scale: new(float64(16.5)),
-				},
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 			}}),
 			Entry("solenoid_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigSolenoidValve{
-				SolenoidValveConfig: schematic.SolenoidValveConfig{
-					ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-						ToggleConfig: schematic.ToggleConfig{
-							LabeledConfig: schematic.LabeledConfig{
-								Label: new(schematic.LabelConfig{
-									Label:         "test_2",
-									Level:         new(text.Level("h1")),
-									Orientation:   new(spatial.Location("top")),
-									Direction:     new(spatial.Direction("x")),
-									MaxInlineSize: new(float64(6.5)),
-									Align:         new(schematic.FlexAlignment("start")),
-								}),
-								Orientation: new(spatial.OuterLocation("top")),
-							},
-							StateChannel:   new(channel.Key(10)),
-							CommandChannel: new(channel.Key(11)),
-							Control: new(schematic.ControlStateConfig{
-								Authority:     new(uint8(13)),
-								Show:          true,
-								ShowChip:      false,
-								ShowIndicator: true,
-								Orientation:   new(spatial.Location("top")),
-							}),
-							OnClickDelay: 17.5,
-						},
-						Color: new(color.Color{
-							R: 20,
-							G: 21,
-							B: 22,
-							A: 22.5,
-						}),
-						Scale: new(float64(23.5)),
-					},
-					NormallyOpen: false,
-				},
+				SolenoidValveConfig: fullyPopulatedSolenoidValveConfig,
 			}}),
 			Entry("spring_loaded_relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigSpringLoadedReliefValve{
-				DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Enabled:   true,
-					Clickable: false,
-					Color: new(color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					}),
-					Scale: new(float64(16.5)),
-				},
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 			}}),
 			Entry("three_way_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigThreeWayValve{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("three_way_ball_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigThreeWayBallValve{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigValve{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
 			Entry("cross_junction variant", schematic.ElementConfig{Variant: schematic.ElementConfigCrossJunction{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("cylinder variant", schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{
-				CylinderConfig: schematic.CylinderConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Dimensions: new(spatial.Dimensions{Width: 10.5, Height: 11.5}),
-					BorderRadius: new(border.Radius{
-						TopLeft:     spatial.XY{},
-						TopRight:    spatial.XY{},
-						BottomLeft:  spatial.XY{},
-						BottomRight: spatial.XY{},
-					}),
-					Color: new(color.Color{
-						R: 19,
-						G: 20,
-						B: 21,
-						A: 21.5,
-					}),
-					BackgroundColor: new(color.Color{
-						R: 24,
-						G: 25,
-						B: 26,
-						A: 26.5,
-					}),
-				},
-			}}),
-			Entry("tank variant", schematic.ElementConfig{Variant: schematic.ElementConfigTank{
-				TankConfig: schematic.TankConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					BackgroundColor: new(color.Color{
-						R: 16,
-						G: 17,
-						B: 18,
-						A: 18.5,
-					}),
-					Dimensions: new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-					BorderRadius: new(border.Radius{
-						TopLeft:     spatial.XY{},
-						TopRight:    spatial.XY{},
-						BottomLeft:  spatial.XY{},
-						BottomRight: spatial.XY{},
-					}),
-				},
-			}}),
+			Entry("cylinder variant", schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{CylinderConfig: fullyPopulatedCylinderConfig}}),
+			Entry("tank variant", schematic.ElementConfig{Variant: schematic.ElementConfigTank{TankConfig: fullyPopulatedTankConfig}}),
 			Entry("t_junction variant", schematic.ElementConfig{Variant: schematic.ElementConfigTJunction{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 11,
-						G: 12,
-						B: 13,
-						A: 13.5,
-					}),
-					Scale: new(float64(14.5)),
-				},
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("custom_actuator variant", schematic.ElementConfig{Variant: schematic.ElementConfigCustomActuator{
-				CustomActuatorConfig: schematic.CustomActuatorConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					SpecKey: "test_18",
-					Color: new(color.Color{
-						R: 21,
-						G: 22,
-						B: 23,
-						A: 23.5,
-					}),
-					Scale:          new(float64(24.5)),
-					StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
-				},
+				CustomActuatorConfig: fullyPopulatedCustomActuatorConfig,
 			}}),
 			Entry("custom_static variant", schematic.ElementConfig{Variant: schematic.ElementConfigCustomStatic{
-				CustomStaticConfig: schematic.CustomStaticConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					SpecKey: "test_9",
-					Color: new(color.Color{
-						R: 12,
-						G: 13,
-						B: 14,
-						A: 14.5,
-					}),
-					Scale:          new(float64(15.5)),
-					StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
-				},
+				CustomStaticConfig: fullyPopulatedCustomStaticConfig,
 			}}),
 			Entry("pipe variant", schematic.ElementConfig{Variant: schematic.ElementConfigPipe{
-				SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-					Color: new(color.Color{
-						R: 3,
-						G: 4,
-						B: 5,
-						A: 5.5,
-					}),
-					Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-				},
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 			}}),
 			Entry("electric variant", schematic.ElementConfig{Variant: schematic.ElementConfigElectric{
-				SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-					Color: new(color.Color{
-						R: 3,
-						G: 4,
-						B: 5,
-						A: 5.5,
-					}),
-					Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-				},
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 			}}),
 			Entry("secondary variant", schematic.ElementConfig{Variant: schematic.ElementConfigSecondary{
-				SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-					Color: new(color.Color{
-						R: 3,
-						G: 4,
-						B: 5,
-						A: 5.5,
-					}),
-					Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-				},
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 			}}),
 			Entry("jacketed variant", schematic.ElementConfig{Variant: schematic.ElementConfigJacketed{
-				SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-					Color: new(color.Color{
-						R: 3,
-						G: 4,
-						B: 5,
-						A: 5.5,
-					}),
-					Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-				},
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 			}}),
 			Entry("hydraulic variant", schematic.ElementConfig{Variant: schematic.ElementConfigHydraulic{
-				SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-					Color: new(color.Color{
-						R: 3,
-						G: 4,
-						B: 5,
-						A: 5.5,
-					}),
-					Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-				},
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 			}}),
 			Entry("pneumatic variant", schematic.ElementConfig{Variant: schematic.ElementConfigPneumatic{
-				SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-					Color: new(color.Color{
-						R: 3,
-						G: 4,
-						B: 5,
-						A: 5.5,
-					}),
-					Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-				},
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 			}}),
 			Entry("data variant", schematic.ElementConfig{Variant: schematic.ElementConfigData{
-				SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-					Color: new(color.Color{
-						R: 3,
-						G: 4,
-						B: 5,
-						A: 5.5,
-					}),
-					Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-				},
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 			}}),
 		)
 	})
@@ -3360,40 +1266,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.GaugeConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-				Color: new(color.Color{
-					R: 14,
-					G: 15,
-					B: 16,
-					A: 16.5,
-				}),
-				Bounds:         new(spatial.Bounds{}),
-				BarWidth:       new(float64(18.5)),
-				Channel:        new(channel.Key(20)),
-				RollingAverage: new(int32(21)),
-				Precision:      new(float64(21.5)),
-				MinWidth:       new(float64(22.5)),
-				Width:          new(float64(23.5)),
-				Notation:       new(notation.Notation("standard")),
-				Location: new(spatial.LocationXY{
-					X: spatial.XCenterLocation("left"),
-					Y: spatial.YCenterLocation("top"),
-				}),
-				Units: "test_28",
-				Level: new(text.Level("h1")),
-			}),
+			Entry("fully populated", fullyPopulatedGaugeConfig),
 			Entry("zero values", schematic.GaugeConfig{
 				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Position:       nil,
@@ -3438,36 +1311,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.InputConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				CommandChannel: new(channel.Key(11)),
-				Dimensions:     new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
-				Color: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 18.5,
-				}),
-				Disabled: true,
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(22)),
-					Show:          false,
-					ShowChip:      true,
-					ShowIndicator: false,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			}),
+			Entry("fully populated", fullyPopulatedInputConfig),
 			Entry("zero values", schematic.InputConfig{
 				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Size:           nil,
@@ -3544,28 +1388,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.LightConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Channel:   new(channel.Key(10)),
-				Threshold: new(spatial.Bounds{}),
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			}),
+			Entry("fully populated", fullyPopulatedLightConfig),
 			Entry("zero values", schematic.LightConfig{
 				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Channel:       nil,
@@ -3611,26 +1434,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.OffPageReferenceConfig{
-				Orientation: new(spatial.OuterLocation("top")),
-				Label: schematic.LabelConfig{
-					Label:         "test_3",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(7.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				},
-				Level: new(text.Level("h1")),
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				Page:        "test_15",
-				DblClickNav: false,
-			}),
+			Entry("fully populated", fullyPopulatedOffPageReferenceConfig),
 			Entry("zero values", schematic.OffPageReferenceConfig{
 				Orientation: nil,
 				Label: schematic.LabelConfig{
@@ -3659,36 +1463,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.PolygonConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				NumSides:       9.5,
-				SideLength:     10.5,
-				Rotation:       new(float64(11.5)),
-				CornerRounding: new(float64(12.5)),
-				Color: new(color.Color{
-					R: 15,
-					G: 16,
-					B: 17,
-					A: 17.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				StrokeWidth: new(float64(23.5)),
-			}),
+			Entry("fully populated", fullyPopulatedPolygonConfig),
 			Entry("zero values", schematic.PolygonConfig{
 				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
 				NumSides:        0,
@@ -3762,30 +1537,7 @@ var _ = Describe("Codec", func() {
 						Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 					},
 				},
-				Configs: map[string]schematic.ElementConfig{
-					"test_21": {Variant: schematic.ElementConfigCap{
-						StaticSymbolConfig: schematic.StaticSymbolConfig{
-							LabeledConfig: schematic.LabeledConfig{
-								Label: new(schematic.LabelConfig{
-									Label:         "test_23",
-									Level:         new(text.Level("h1")),
-									Orientation:   new(spatial.Location("top")),
-									Direction:     new(spatial.Direction("x")),
-									MaxInlineSize: new(float64(27.5)),
-									Align:         new(schematic.FlexAlignment("start")),
-								}),
-								Orientation: new(spatial.OuterLocation("top")),
-							},
-							Color: new(color.Color{
-								R: 32,
-								G: 33,
-								B: 34,
-								A: 34.5,
-							}),
-							Scale: new(float64(35.5)),
-						},
-					}},
-				},
+				Configs: map[string]schematic.ElementConfig{"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 			}),
 			Entry("zero values", schematic.Schematic{
 				Key:      uuid.Nil,
@@ -3831,15 +1583,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.SegmentedEdgeConfig{
-				Color: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 5.5,
-				}),
-				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-			}),
+			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
 			Entry("zero values", schematic.SegmentedEdgeConfig{Color: nil, Segments: nil}),
 			Entry("empty collections", schematic.SegmentedEdgeConfig{
 				Color: new(color.Color{
@@ -3863,49 +1607,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.SelectConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				CommandChannel: new(channel.Key(11)),
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				InlineSize: new(float64(16.5)),
-				Options: []schematic.StateMapping{
-					{
-						Key:   "test_18",
-						Name:  "test_19",
-						Value: 20.5,
-						Color: new(color.Color{
-							R: 23,
-							G: 24,
-							B: 25,
-							A: 25.5,
-						}),
-					},
-				},
-				Disabled: false,
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(29)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			}),
+			Entry("fully populated", fullyPopulatedSelectConfig),
 			Entry("zero values", schematic.SelectConfig{
 				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Size:           nil,
@@ -3960,38 +1662,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.SetpointConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				StateChannel:   new(channel.Key(11)),
-				CommandChannel: new(channel.Key(12)),
-				Dimensions:     new(spatial.Dimensions{Width: 13.5, Height: 14.5}),
-				Color: new(color.Color{
-					R: 17,
-					G: 18,
-					B: 19,
-					A: 19.5,
-				}),
-				Units:    "test_20",
-				Disabled: true,
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(24)),
-					Show:          false,
-					ShowChip:      true,
-					ShowIndicator: false,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			}),
+			Entry("fully populated", fullyPopulatedSetpointConfig),
 			Entry("zero values", schematic.SetpointConfig{
 				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Size:           nil,
@@ -4016,41 +1687,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.SolenoidValveConfig{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
-				NormallyOpen: false,
-			}),
+			Entry("fully populated", fullyPopulatedSolenoidValveConfig),
 			Entry("zero values", schematic.SolenoidValveConfig{
 				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
 					ToggleConfig: schematic.ToggleConfig{
@@ -4078,40 +1715,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.StateIndicatorConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Channel: new(channel.Key(10)),
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				InlineSize: new(float64(15.5)),
-				Options: []schematic.StateMapping{
-					{
-						Key:   "test_17",
-						Name:  "test_18",
-						Value: 19.5,
-						Color: new(color.Color{
-							R: 22,
-							G: 23,
-							B: 24,
-							A: 24.5,
-						}),
-					},
-				},
-			}),
+			Entry("fully populated", fullyPopulatedStateIndicatorConfig),
 			Entry("zero values", schematic.StateIndicatorConfig{
 				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Channel:       nil,
@@ -4184,26 +1788,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			}),
+			Entry("fully populated", fullyPopulatedStaticSymbolConfig),
 			Entry("zero values", schematic.StaticSymbolConfig{
 				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Color:         nil,
@@ -4222,38 +1807,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.TankConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 18.5,
-				}),
-				Dimensions: new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-				BorderRadius: new(border.Radius{
-					TopLeft:     spatial.XY{X: 24.5, Y: 25.5},
-					TopRight:    spatial.XY{X: 27.5, Y: 28.5},
-					BottomLeft:  spatial.XY{X: 30.5, Y: 31.5},
-					BottomRight: spatial.XY{X: 33.5, Y: 34.5},
-				}),
-			}),
+			Entry("fully populated", fullyPopulatedTankConfig),
 			Entry("zero values", schematic.TankConfig{
 				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Color:           nil,
@@ -4274,30 +1828,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.TextBoxConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Width:   new(float64(14.5)),
-				Align:   new(schematic.FlexAlignment("start")),
-				AutoFit: false,
-				Level:   new(text.Level("h1")),
-				Value:   "test_18",
-			}),
+			Entry("fully populated", fullyPopulatedTextBoxConfig),
 			Entry("zero values", schematic.TextBoxConfig{
 				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Color:         nil,
@@ -4363,38 +1894,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			}),
+			Entry("fully populated", fullyPopulatedToggleSymbolConfig),
 			Entry("zero values", schematic.ToggleSymbolConfig{
 				ToggleConfig: schematic.ToggleConfig{
 					LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
@@ -4419,71 +1919,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.ValueConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-				Color: new(color.Color{
-					R: 14,
-					G: 15,
-					B: 16,
-					A: 16.5,
-				}),
-				TextColor: new(color.Color{
-					R: 19,
-					G: 20,
-					B: 21,
-					A: 21.5,
-				}),
-				Tooltip: []string{"test_22"},
-				Redline: new(schematic.Redline{
-					Bounds: spatial.Bounds{},
-					Gradient: []color.Stop{
-						{
-							Key: "test_26",
-							Color: color.Color{
-								R: 29,
-								G: 30,
-								B: 31,
-								A: 31.5,
-							},
-							Position: 32.5,
-							Switched: true,
-						},
-					},
-				}),
-				Units:            "test_34",
-				InlineSize:       new(float64(35.5)),
-				Channel:          new(channel.Key(37)),
-				RollingAverage:   new(int32(38)),
-				Level:            new(text.Level("h1")),
-				Precision:        new(float64(39.5)),
-				StalenessTimeout: new(float64(40.5)),
-				StalenessColor: new(color.Color{
-					R: 43,
-					G: 44,
-					B: 45,
-					A: 45.5,
-				}),
-				MinWidth: new(float64(46.5)),
-				Notation: new(notation.Notation("standard")),
-				Location: new(spatial.LocationXY{
-					X: spatial.XCenterLocation("left"),
-					Y: spatial.YCenterLocation("top"),
-				}),
-				UseWidthForBackground:   true,
-				ValueBackgroundShift:    new(spatial.XY{X: 53.5, Y: 54.5}),
-				ValueBackgroundOverScan: new(spatial.XY{X: 56.5, Y: 57.5}),
-			}),
+			Entry("fully populated", fullyPopulatedValueConfig),
 			Entry("zero values", schematic.ValueConfig{
 				LabeledConfig:           schematic.LabeledConfig{Label: nil, Orientation: nil},
 				Position:                nil,
@@ -4561,32 +1997,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeBoxConfig(b *testing.B) {
-	bc := schematic.BoxConfig{
-		Label: new(schematic.LabelConfig{
-			Label:         "test_2",
-			Level:         new(text.Level("h1")),
-			Orientation:   new(spatial.Location("top")),
-			Direction:     new(spatial.Direction("x")),
-			MaxInlineSize: new(float64(6.5)),
-			Align:         new(schematic.FlexAlignment("start")),
-		}),
-		Orientation: new(spatial.OuterLocation("top")),
-		Color: new(color.Color{
-			R: 11,
-			G: 12,
-			B: 13,
-			A: 13.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 18.5,
-		}),
-		Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-		BorderRadius: new(float64(22.5)),
-		StrokeWidth:  new(float64(23.5)),
-	}
+	bc := fullyPopulatedBoxConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -4603,37 +2014,7 @@ func BenchmarkEncodeDecodeBoxConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeButtonConfig(b *testing.B) {
-	bc := schematic.ButtonConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Size:           new(schematic.ComponentSize("tiny")),
-		Level:          new(text.Level("h1")),
-		OnClickDelay:   11.5,
-		CommandChannel: new(channel.Key(13)),
-		Mode:           new(schematic.ButtonMode("fire")),
-		Color: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 18.5,
-		}),
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(21)),
-			Show:          true,
-			ShowChip:      false,
-			ShowIndicator: true,
-			Orientation:   new(spatial.Location("top")),
-		}),
-	}
+	bc := fullyPopulatedButtonConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -4650,33 +2031,7 @@ func BenchmarkEncodeDecodeButtonConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeCircleConfig(b *testing.B) {
-	cc := schematic.CircleConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Radius: 9.5,
-		Color: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 17,
-			G: 18,
-			B: 19,
-			A: 19.5,
-		}),
-		StrokeWidth: new(float64(20.5)),
-	}
+	cc := fullyPopulatedCircleConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -4716,40 +2071,7 @@ func BenchmarkEncodeDecodeControlStateConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeCustomActuatorConfig(b *testing.B) {
-	cac := schematic.CustomActuatorConfig{
-		ToggleConfig: schematic.ToggleConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			StateChannel:   new(channel.Key(10)),
-			CommandChannel: new(channel.Key(11)),
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(13)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
-				Orientation:   new(spatial.Location("top")),
-			}),
-			OnClickDelay: 17.5,
-		},
-		SpecKey: "test_18",
-		Color: new(color.Color{
-			R: 21,
-			G: 22,
-			B: 23,
-			A: 23.5,
-		}),
-		Scale:          new(float64(24.5)),
-		StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
-	}
+	cac := fullyPopulatedCustomActuatorConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -4766,28 +2088,7 @@ func BenchmarkEncodeDecodeCustomActuatorConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeCustomStaticConfig(b *testing.B) {
-	csc := schematic.CustomStaticConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		SpecKey: "test_9",
-		Color: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		Scale:          new(float64(15.5)),
-		StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
-	}
+	csc := fullyPopulatedCustomStaticConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -4804,38 +2105,7 @@ func BenchmarkEncodeDecodeCustomStaticConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeCylinderConfig(b *testing.B) {
-	cc := schematic.CylinderConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Dimensions: new(spatial.Dimensions{Width: 10.5, Height: 11.5}),
-		BorderRadius: new(border.Radius{
-			TopLeft:     spatial.XY{X: 14.5, Y: 15.5},
-			TopRight:    spatial.XY{X: 17.5, Y: 18.5},
-			BottomLeft:  spatial.XY{X: 20.5, Y: 21.5},
-			BottomRight: spatial.XY{X: 23.5, Y: 24.5},
-		}),
-		Color: new(color.Color{
-			R: 27,
-			G: 28,
-			B: 29,
-			A: 29.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 32,
-			G: 33,
-			B: 34,
-			A: 34.5,
-		}),
-	}
+	cc := fullyPopulatedCylinderConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -4852,28 +2122,7 @@ func BenchmarkEncodeDecodeCylinderConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeDummyToggleSymbolConfig(b *testing.B) {
-	dtsc := schematic.DummyToggleSymbolConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Enabled:   true,
-		Clickable: false,
-		Color: new(color.Color{
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 15.5,
-		}),
-		Scale: new(float64(16.5)),
-	}
+	dtsc := fullyPopulatedDummyToggleSymbolConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -4911,28 +2160,7 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
-	ec := schematic.ElementConfig{Variant: schematic.ElementConfigCap{
-		StaticSymbolConfig: schematic.StaticSymbolConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Color: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 13.5,
-			}),
-			Scale: new(float64(14.5)),
-		},
-	}}
+	ec := schematic.ElementConfig{Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -4949,40 +2177,7 @@ func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeGaugeConfig(b *testing.B) {
-	gc := schematic.GaugeConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-		Color: new(color.Color{
-			R: 14,
-			G: 15,
-			B: 16,
-			A: 16.5,
-		}),
-		Bounds:         new(spatial.Bounds{}),
-		BarWidth:       new(float64(18.5)),
-		Channel:        new(channel.Key(20)),
-		RollingAverage: new(int32(21)),
-		Precision:      new(float64(21.5)),
-		MinWidth:       new(float64(22.5)),
-		Width:          new(float64(23.5)),
-		Notation:       new(notation.Notation("standard")),
-		Location: new(spatial.LocationXY{
-			X: spatial.XCenterLocation("left"),
-			Y: spatial.YCenterLocation("top"),
-		}),
-		Units: "test_28",
-		Level: new(text.Level("h1")),
-	}
+	gc := fullyPopulatedGaugeConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5016,36 +2211,7 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeInputConfig(b *testing.B) {
-	ic := schematic.InputConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Size:           new(schematic.ComponentSize("tiny")),
-		CommandChannel: new(channel.Key(11)),
-		Dimensions:     new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
-		Color: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 18.5,
-		}),
-		Disabled: true,
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(22)),
-			Show:          false,
-			ShowChip:      true,
-			ShowIndicator: false,
-			Orientation:   new(spatial.Location("top")),
-		}),
-	}
+	ic := fullyPopulatedInputConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5113,28 +2279,7 @@ func BenchmarkEncodeDecodeLabeledConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeLightConfig(b *testing.B) {
-	lc := schematic.LightConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Channel:   new(channel.Key(10)),
-		Threshold: new(spatial.Bounds{}),
-		Color: new(color.Color{
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 15.5,
-		}),
-		Scale: new(float64(16.5)),
-	}
+	lc := fullyPopulatedLightConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5173,26 +2318,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeOffPageReferenceConfig(b *testing.B) {
-	oprc := schematic.OffPageReferenceConfig{
-		Orientation: new(spatial.OuterLocation("top")),
-		Label: schematic.LabelConfig{
-			Label:         "test_3",
-			Level:         new(text.Level("h1")),
-			Orientation:   new(spatial.Location("top")),
-			Direction:     new(spatial.Direction("x")),
-			MaxInlineSize: new(float64(7.5)),
-			Align:         new(schematic.FlexAlignment("start")),
-		},
-		Level: new(text.Level("h1")),
-		Color: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		Page:        "test_15",
-		DblClickNav: false,
-	}
+	oprc := fullyPopulatedOffPageReferenceConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5209,36 +2335,7 @@ func BenchmarkEncodeDecodeOffPageReferenceConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodePolygonConfig(b *testing.B) {
-	pc := schematic.PolygonConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		NumSides:       9.5,
-		SideLength:     10.5,
-		Rotation:       new(float64(11.5)),
-		CornerRounding: new(float64(12.5)),
-		Color: new(color.Color{
-			R: 15,
-			G: 16,
-			B: 17,
-			A: 17.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 20,
-			G: 21,
-			B: 22,
-			A: 22.5,
-		}),
-		StrokeWidth: new(float64(23.5)),
-	}
+	pc := fullyPopulatedPolygonConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5306,30 +2403,7 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 			},
 		},
-		Configs: map[string]schematic.ElementConfig{
-			"test_21": {Variant: schematic.ElementConfigCap{
-				StaticSymbolConfig: schematic.StaticSymbolConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_23",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(27.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					Color: new(color.Color{
-						R: 32,
-						G: 33,
-						B: 34,
-						A: 34.5,
-					}),
-					Scale: new(float64(35.5)),
-				},
-			}},
-		},
+		Configs: map[string]schematic.ElementConfig{"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -5364,15 +2438,7 @@ func BenchmarkEncodeDecodeSegment(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
-	sec := schematic.SegmentedEdgeConfig{
-		Color: new(color.Color{
-			R: 3,
-			G: 4,
-			B: 5,
-			A: 5.5,
-		}),
-		Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-	}
+	sec := fullyPopulatedSegmentedEdgeConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5389,49 +2455,7 @@ func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeSelectConfig(b *testing.B) {
-	sc := schematic.SelectConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Size:           new(schematic.ComponentSize("tiny")),
-		CommandChannel: new(channel.Key(11)),
-		Color: new(color.Color{
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 15.5,
-		}),
-		InlineSize: new(float64(16.5)),
-		Options: []schematic.StateMapping{
-			{
-				Key:   "test_18",
-				Name:  "test_19",
-				Value: 20.5,
-				Color: new(color.Color{
-					R: 23,
-					G: 24,
-					B: 25,
-					A: 25.5,
-				}),
-			},
-		},
-		Disabled: false,
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(29)),
-			Show:          true,
-			ShowChip:      false,
-			ShowIndicator: true,
-			Orientation:   new(spatial.Location("top")),
-		}),
-	}
+	sc := fullyPopulatedSelectConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5448,38 +2472,7 @@ func BenchmarkEncodeDecodeSelectConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeSetpointConfig(b *testing.B) {
-	sc := schematic.SetpointConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Size:           new(schematic.ComponentSize("tiny")),
-		StateChannel:   new(channel.Key(11)),
-		CommandChannel: new(channel.Key(12)),
-		Dimensions:     new(spatial.Dimensions{Width: 13.5, Height: 14.5}),
-		Color: new(color.Color{
-			R: 17,
-			G: 18,
-			B: 19,
-			A: 19.5,
-		}),
-		Units:    "test_20",
-		Disabled: true,
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(24)),
-			Show:          false,
-			ShowChip:      true,
-			ShowIndicator: false,
-			Orientation:   new(spatial.Location("top")),
-		}),
-	}
+	sc := fullyPopulatedSetpointConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5496,41 +2489,7 @@ func BenchmarkEncodeDecodeSetpointConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeSolenoidValveConfig(b *testing.B) {
-	svc := schematic.SolenoidValveConfig{
-		ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-			ToggleConfig: schematic.ToggleConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				StateChannel:   new(channel.Key(10)),
-				CommandChannel: new(channel.Key(11)),
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(13)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-				OnClickDelay: 17.5,
-			},
-			Color: new(color.Color{
-				R: 20,
-				G: 21,
-				B: 22,
-				A: 22.5,
-			}),
-			Scale: new(float64(23.5)),
-		},
-		NormallyOpen: false,
-	}
+	svc := fullyPopulatedSolenoidValveConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5547,40 +2506,7 @@ func BenchmarkEncodeDecodeSolenoidValveConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStateIndicatorConfig(b *testing.B) {
-	sic := schematic.StateIndicatorConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Channel: new(channel.Key(10)),
-		Color: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		InlineSize: new(float64(15.5)),
-		Options: []schematic.StateMapping{
-			{
-				Key:   "test_17",
-				Name:  "test_18",
-				Value: 19.5,
-				Color: new(color.Color{
-					R: 22,
-					G: 23,
-					B: 24,
-					A: 24.5,
-				}),
-			},
-		},
-	}
+	sic := fullyPopulatedStateIndicatorConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5624,26 +2550,7 @@ func BenchmarkEncodeDecodeStateMapping(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStaticSymbolConfig(b *testing.B) {
-	ssc := schematic.StaticSymbolConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Color: new(color.Color{
-			R: 11,
-			G: 12,
-			B: 13,
-			A: 13.5,
-		}),
-		Scale: new(float64(14.5)),
-	}
+	ssc := fullyPopulatedStaticSymbolConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5660,38 +2567,7 @@ func BenchmarkEncodeDecodeStaticSymbolConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTankConfig(b *testing.B) {
-	tc := schematic.TankConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Color: new(color.Color{
-			R: 11,
-			G: 12,
-			B: 13,
-			A: 13.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 18.5,
-		}),
-		Dimensions: new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-		BorderRadius: new(border.Radius{
-			TopLeft:     spatial.XY{X: 24.5, Y: 25.5},
-			TopRight:    spatial.XY{X: 27.5, Y: 28.5},
-			BottomLeft:  spatial.XY{X: 30.5, Y: 31.5},
-			BottomRight: spatial.XY{X: 33.5, Y: 34.5},
-		}),
-	}
+	tc := fullyPopulatedTankConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5708,30 +2584,7 @@ func BenchmarkEncodeDecodeTankConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTextBoxConfig(b *testing.B) {
-	tbc := schematic.TextBoxConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Color: new(color.Color{
-			R: 11,
-			G: 12,
-			B: 13,
-			A: 13.5,
-		}),
-		Width:   new(float64(14.5)),
-		Align:   new(schematic.FlexAlignment("start")),
-		AutoFit: false,
-		Level:   new(text.Level("h1")),
-		Value:   "test_18",
-	}
+	tbc := fullyPopulatedTextBoxConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5787,38 +2640,7 @@ func BenchmarkEncodeDecodeToggleConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
-	tsc := schematic.ToggleSymbolConfig{
-		ToggleConfig: schematic.ToggleConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			StateChannel:   new(channel.Key(10)),
-			CommandChannel: new(channel.Key(11)),
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(13)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
-				Orientation:   new(spatial.Location("top")),
-			}),
-			OnClickDelay: 17.5,
-		},
-		Color: new(color.Color{
-			R: 20,
-			G: 21,
-			B: 22,
-			A: 22.5,
-		}),
-		Scale: new(float64(23.5)),
-	}
+	tsc := fullyPopulatedToggleSymbolConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5835,71 +2657,7 @@ func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeValueConfig(b *testing.B) {
-	vc := schematic.ValueConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-		Color: new(color.Color{
-			R: 14,
-			G: 15,
-			B: 16,
-			A: 16.5,
-		}),
-		TextColor: new(color.Color{
-			R: 19,
-			G: 20,
-			B: 21,
-			A: 21.5,
-		}),
-		Tooltip: []string{"test_22"},
-		Redline: new(schematic.Redline{
-			Bounds: spatial.Bounds{},
-			Gradient: []color.Stop{
-				{
-					Key: "test_26",
-					Color: color.Color{
-						R: 29,
-						G: 30,
-						B: 31,
-						A: 31.5,
-					},
-					Position: 32.5,
-					Switched: true,
-				},
-			},
-		}),
-		Units:            "test_34",
-		InlineSize:       new(float64(35.5)),
-		Channel:          new(channel.Key(37)),
-		RollingAverage:   new(int32(38)),
-		Level:            new(text.Level("h1")),
-		Precision:        new(float64(39.5)),
-		StalenessTimeout: new(float64(40.5)),
-		StalenessColor: new(color.Color{
-			R: 43,
-			G: 44,
-			B: 45,
-			A: 45.5,
-		}),
-		MinWidth: new(float64(46.5)),
-		Notation: new(notation.Notation("standard")),
-		Location: new(spatial.LocationXY{
-			X: spatial.XCenterLocation("left"),
-			Y: spatial.YCenterLocation("top"),
-		}),
-		UseWidthForBackground:   true,
-		ValueBackgroundShift:    new(spatial.XY{X: 53.5, Y: 54.5}),
-		ValueBackgroundOverScan: new(spatial.XY{X: 56.5, Y: 57.5}),
-	}
+	vc := fullyPopulatedValueConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -5917,32 +2675,7 @@ func BenchmarkEncodeDecodeValueConfig(b *testing.B) {
 
 func FuzzDecodeBoxConfig(f *testing.F) {
 	{
-		seed := schematic.BoxConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-			Color: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 13.5,
-			}),
-			BackgroundColor: new(color.Color{
-				R: 16,
-				G: 17,
-				B: 18,
-				A: 18.5,
-			}),
-			Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-			BorderRadius: new(float64(22.5)),
-			StrokeWidth:  new(float64(23.5)),
-		}
+		seed := fullyPopulatedBoxConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -5996,37 +2729,7 @@ func FuzzDecodeBoxConfig(f *testing.F) {
 
 func FuzzDecodeButtonConfig(f *testing.F) {
 	{
-		seed := schematic.ButtonConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Size:           new(schematic.ComponentSize("tiny")),
-			Level:          new(text.Level("h1")),
-			OnClickDelay:   11.5,
-			CommandChannel: new(channel.Key(13)),
-			Mode:           new(schematic.ButtonMode("fire")),
-			Color: new(color.Color{
-				R: 16,
-				G: 17,
-				B: 18,
-				A: 18.5,
-			}),
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(21)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
-				Orientation:   new(spatial.Location("top")),
-			}),
-		}
+		seed := fullyPopulatedButtonConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -6081,33 +2784,7 @@ func FuzzDecodeButtonConfig(f *testing.F) {
 
 func FuzzDecodeCircleConfig(f *testing.F) {
 	{
-		seed := schematic.CircleConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Radius: 9.5,
-			Color: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 14.5,
-			}),
-			BackgroundColor: new(color.Color{
-				R: 17,
-				G: 18,
-				B: 19,
-				A: 19.5,
-			}),
-			StrokeWidth: new(float64(20.5)),
-		}
+		seed := fullyPopulatedCircleConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -6217,40 +2894,7 @@ func FuzzDecodeControlStateConfig(f *testing.F) {
 
 func FuzzDecodeCustomActuatorConfig(f *testing.F) {
 	{
-		seed := schematic.CustomActuatorConfig{
-			ToggleConfig: schematic.ToggleConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				StateChannel:   new(channel.Key(10)),
-				CommandChannel: new(channel.Key(11)),
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(13)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-				OnClickDelay: 17.5,
-			},
-			SpecKey: "test_18",
-			Color: new(color.Color{
-				R: 21,
-				G: 22,
-				B: 23,
-				A: 23.5,
-			}),
-			Scale:          new(float64(24.5)),
-			StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
-		}
+		seed := fullyPopulatedCustomActuatorConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -6349,28 +2993,7 @@ func FuzzDecodeCustomActuatorConfig(f *testing.F) {
 
 func FuzzDecodeCustomStaticConfig(f *testing.F) {
 	{
-		seed := schematic.CustomStaticConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			SpecKey: "test_9",
-			Color: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 14.5,
-			}),
-			Scale:          new(float64(15.5)),
-			StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
-		}
+		seed := fullyPopulatedCustomStaticConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -6451,38 +3074,7 @@ func FuzzDecodeCustomStaticConfig(f *testing.F) {
 
 func FuzzDecodeCylinderConfig(f *testing.F) {
 	{
-		seed := schematic.CylinderConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Dimensions: new(spatial.Dimensions{Width: 10.5, Height: 11.5}),
-			BorderRadius: new(border.Radius{
-				TopLeft:     spatial.XY{X: 14.5, Y: 15.5},
-				TopRight:    spatial.XY{X: 17.5, Y: 18.5},
-				BottomLeft:  spatial.XY{X: 20.5, Y: 21.5},
-				BottomRight: spatial.XY{X: 23.5, Y: 24.5},
-			}),
-			Color: new(color.Color{
-				R: 27,
-				G: 28,
-				B: 29,
-				A: 29.5,
-			}),
-			BackgroundColor: new(color.Color{
-				R: 32,
-				G: 33,
-				B: 34,
-				A: 34.5,
-			}),
-		}
+		seed := fullyPopulatedCylinderConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -6534,28 +3126,7 @@ func FuzzDecodeCylinderConfig(f *testing.F) {
 
 func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
 	{
-		seed := schematic.DummyToggleSymbolConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Enabled:   true,
-			Clickable: false,
-			Color: new(color.Color{
-				R: 13,
-				G: 14,
-				B: 15,
-				A: 15.5,
-			}),
-			Scale: new(float64(16.5)),
-		}
+		seed := fullyPopulatedDummyToggleSymbolConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -6661,28 +3232,7 @@ func FuzzDecodeEdge(f *testing.F) {
 
 func FuzzDecodeElementConfig(f *testing.F) {
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCap{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -6691,26 +3241,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFilter{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6720,26 +3251,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowStraightener{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6749,26 +3261,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHeaterElement{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6778,26 +3271,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigIsoCap{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6807,26 +3281,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigIsoFilter{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6836,26 +3291,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigNozzle{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6865,26 +3301,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOrifice{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6894,26 +3311,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOrificePlate{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6923,26 +3321,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStrainer{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6952,26 +3331,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStrainerCone{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -6981,38 +3341,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigThruster{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7022,26 +3351,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigVent{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7051,26 +3361,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterGeneral{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7080,26 +3371,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterElectromagnetic{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7109,26 +3381,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterVariableArea{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7138,26 +3391,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterCoriolis{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7167,26 +3401,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterNozzle{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7196,26 +3411,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterVenturi{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7225,26 +3421,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterRingPiston{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7254,26 +3431,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterPositiveDisplacement{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7283,26 +3441,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterTurbine{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7312,26 +3451,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterPulse{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7341,26 +3461,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterFloatSensor{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7370,26 +3471,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterOrifice{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7398,34 +3480,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBox{
-			BoxConfig: schematic.BoxConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 18.5,
-				}),
-				Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-				BorderRadius: new(float64(22.5)),
-				StrokeWidth:  new(float64(23.5)),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBox{BoxConfig: fullyPopulatedBoxConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7433,39 +3488,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButton{
-			ButtonConfig: schematic.ButtonConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				Level:          new(text.Level("h1")),
-				OnClickDelay:   11.5,
-				CommandChannel: new(channel.Key(13)),
-				Mode:           new(schematic.ButtonMode("fire")),
-				Color: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 18.5,
-				}),
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(21)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButton{ButtonConfig: fullyPopulatedButtonConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7473,35 +3496,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCircle{
-			CircleConfig: schematic.CircleConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Radius: 9.5,
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 17,
-					G: 18,
-					B: 19,
-					A: 19.5,
-				}),
-				StrokeWidth: new(float64(20.5)),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCircle{CircleConfig: fullyPopulatedCircleConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7509,42 +3504,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigGauge{
-			GaugeConfig: schematic.GaugeConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-				Color: new(color.Color{
-					R: 14,
-					G: 15,
-					B: 16,
-					A: 16.5,
-				}),
-				Bounds:         new(spatial.Bounds{}),
-				BarWidth:       new(float64(18.5)),
-				Channel:        new(channel.Key(20)),
-				RollingAverage: new(int32(21)),
-				Precision:      new(float64(21.5)),
-				MinWidth:       new(float64(22.5)),
-				Width:          new(float64(23.5)),
-				Notation:       new(notation.Notation("standard")),
-				Location: new(spatial.LocationXY{
-					X: spatial.XCenterLocation("left"),
-					Y: spatial.YCenterLocation("top"),
-				}),
-				Units: "test_28",
-				Level: new(text.Level("h1")),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigGauge{GaugeConfig: fullyPopulatedGaugeConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7552,38 +3512,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigInput{
-			InputConfig: schematic.InputConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				CommandChannel: new(channel.Key(11)),
-				Dimensions:     new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
-				Color: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 18.5,
-				}),
-				Disabled: true,
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(22)),
-					Show:          false,
-					ShowChip:      true,
-					ShowIndicator: false,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigInput{InputConfig: fullyPopulatedInputConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7591,30 +3520,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigLight{
-			LightConfig: schematic.LightConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Channel:   new(channel.Key(10)),
-				Threshold: new(spatial.Bounds{}),
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigLight{LightConfig: fullyPopulatedLightConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7623,26 +3529,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
-			OffPageReferenceConfig: schematic.OffPageReferenceConfig{
-				Orientation: new(spatial.OuterLocation("top")),
-				Label: schematic.LabelConfig{
-					Label:         "test_3",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(7.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				},
-				Level: new(text.Level("h1")),
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				Page:        "test_15",
-				DblClickNav: false,
-			},
+			OffPageReferenceConfig: fullyPopulatedOffPageReferenceConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7651,38 +3538,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{
-			PolygonConfig: schematic.PolygonConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				NumSides:       9.5,
-				SideLength:     10.5,
-				Rotation:       new(float64(11.5)),
-				CornerRounding: new(float64(12.5)),
-				Color: new(color.Color{
-					R: 15,
-					G: 16,
-					B: 17,
-					A: 17.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				StrokeWidth: new(float64(23.5)),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{PolygonConfig: fullyPopulatedPolygonConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7690,46 +3546,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSelect{
-			SelectConfig: schematic.SelectConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				CommandChannel: new(channel.Key(11)),
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				InlineSize: new(float64(16.5)),
-				Options: []schematic.StateMapping{
-					{
-						Key:   "test_18",
-						Name:  "test_19",
-						Value: 20.5,
-						Color: new(color.Color{}),
-					},
-				},
-				Disabled: false,
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(25)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSelect{SelectConfig: fullyPopulatedSelectConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7737,40 +3554,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{
-			SetpointConfig: schematic.SetpointConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				StateChannel:   new(channel.Key(11)),
-				CommandChannel: new(channel.Key(12)),
-				Dimensions:     new(spatial.Dimensions{Width: 13.5, Height: 14.5}),
-				Color: new(color.Color{
-					R: 17,
-					G: 18,
-					B: 19,
-					A: 19.5,
-				}),
-				Units:    "test_20",
-				Disabled: true,
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(24)),
-					Show:          false,
-					ShowChip:      true,
-					ShowIndicator: false,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{SetpointConfig: fullyPopulatedSetpointConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7779,35 +3563,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStateIndicator{
-			StateIndicatorConfig: schematic.StateIndicatorConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Channel: new(channel.Key(10)),
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				InlineSize: new(float64(15.5)),
-				Options: []schematic.StateMapping{
-					{
-						Key:   "test_17",
-						Name:  "test_18",
-						Value: 19.5,
-						Color: new(color.Color{}),
-					},
-				},
-			},
+			StateIndicatorConfig: fullyPopulatedStateIndicatorConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7817,38 +3573,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSwitch{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7857,32 +3582,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{
-			TextBoxConfig: schematic.TextBoxConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Width:   new(float64(14.5)),
-				Align:   new(schematic.FlexAlignment("start")),
-				AutoFit: false,
-				Level:   new(text.Level("h1")),
-				Value:   "test_18",
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{TextBoxConfig: fullyPopulatedTextBoxConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7890,61 +3590,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigValue{
-			ValueConfig: schematic.ValueConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-				Color: new(color.Color{
-					R: 14,
-					G: 15,
-					B: 16,
-					A: 16.5,
-				}),
-				TextColor: new(color.Color{
-					R: 19,
-					G: 20,
-					B: 21,
-					A: 21.5,
-				}),
-				Tooltip: []string{"test_22"},
-				Redline: new(schematic.Redline{
-					Bounds:   spatial.Bounds{},
-					Gradient: []color.Stop{{}},
-				}),
-				Units:            "test_26",
-				InlineSize:       new(float64(27.5)),
-				Channel:          new(channel.Key(29)),
-				RollingAverage:   new(int32(30)),
-				Level:            new(text.Level("h1")),
-				Precision:        new(float64(31.5)),
-				StalenessTimeout: new(float64(32.5)),
-				StalenessColor: new(color.Color{
-					R: 35,
-					G: 36,
-					B: 37,
-					A: 37.5,
-				}),
-				MinWidth: new(float64(38.5)),
-				Notation: new(notation.Notation("standard")),
-				Location: new(spatial.LocationXY{
-					X: spatial.XCenterLocation("left"),
-					Y: spatial.YCenterLocation("top"),
-				}),
-				UseWidthForBackground:   true,
-				ValueBackgroundShift:    new(spatial.XY{X: 45.5, Y: 46.5}),
-				ValueBackgroundOverScan: new(spatial.XY{X: 48.5, Y: 49.5}),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigValue{ValueConfig: fullyPopulatedValueConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -7953,38 +3599,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigAgitator{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -7994,38 +3609,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCrossBeamAgitator{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8035,38 +3619,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlatBladeAgitator{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8076,26 +3629,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerGeneral{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8105,26 +3639,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerM{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8134,26 +3649,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerStraightTube{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8163,38 +3659,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHelicalAgitator{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8204,38 +3669,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPaddleAgitator{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8245,38 +3679,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPropellerAgitator{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8286,38 +3689,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigRotaryMixer{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8327,26 +3699,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStaticMixer{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8356,38 +3709,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCavityPump{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8397,38 +3719,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCentrifugalCompressor{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8438,38 +3729,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCompressor{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8479,38 +3739,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigDiaphragmPump{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8520,38 +3749,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigEjectionPump{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8561,38 +3759,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigEjectorCompressor{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8602,38 +3769,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigLiquidRingCompressor{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8643,38 +3779,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPistonPump{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8684,38 +3789,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPump{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8725,38 +3799,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigRollerVaneCompressor{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8766,38 +3809,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigScrewPump{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8807,38 +3819,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTurboCompressor{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8848,38 +3829,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigVacuumPump{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8889,26 +3839,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBurstDisc{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8918,26 +3849,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestor{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8947,26 +3859,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorDetonation{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -8976,26 +3869,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorExplosion{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9005,26 +3879,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorFireRes{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9034,26 +3889,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorFireResDetonation{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9063,26 +3899,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigIsoBurstDisc{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9092,38 +3909,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigAngledValve{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9133,28 +3919,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigAngledReliefValve{
-			DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Enabled:   true,
-				Clickable: false,
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			},
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9164,28 +3929,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigAngledSpringLoadedReliefValve{
-			DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Enabled:   true,
-				Clickable: false,
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			},
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9195,38 +3939,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBallValve{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9236,28 +3949,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBreatherValve{
-			DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Enabled:   true,
-				Clickable: false,
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			},
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9267,38 +3959,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButterflyValveOne{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9308,38 +3969,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButterflyValveTwo{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9349,26 +3979,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCheckValve{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9378,26 +3989,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCheckValveWithArrow{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9407,26 +3999,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigElectricRegulator{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9436,26 +4009,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigElectricRegulatorMotorized{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9465,38 +4019,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFourWayValve{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9506,38 +4029,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigGateValve{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9547,26 +4039,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigIsoCheckValve{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9576,28 +4049,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigManualValve{
-			DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Enabled:   true,
-				Clickable: false,
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			},
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9607,28 +4059,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigNeedleValve{
-			DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Enabled:   true,
-				Clickable: false,
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			},
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9638,26 +4069,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigRegulator{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9667,26 +4079,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigRegulatorManual{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9696,28 +4089,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigReliefValve{
-			DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Enabled:   true,
-				Clickable: false,
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			},
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9727,41 +4099,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSolenoidValve{
-			SolenoidValveConfig: schematic.SolenoidValveConfig{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_2",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(6.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						StateChannel:   new(channel.Key(10)),
-						CommandChannel: new(channel.Key(11)),
-						Control: new(schematic.ControlStateConfig{
-							Authority:     new(uint8(13)),
-							Show:          true,
-							ShowChip:      false,
-							ShowIndicator: true,
-							Orientation:   new(spatial.Location("top")),
-						}),
-						OnClickDelay: 17.5,
-					},
-					Color: new(color.Color{
-						R: 20,
-						G: 21,
-						B: 22,
-						A: 22.5,
-					}),
-					Scale: new(float64(23.5)),
-				},
-				NormallyOpen: false,
-			},
+			SolenoidValveConfig: fullyPopulatedSolenoidValveConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9771,28 +4109,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSpringLoadedReliefValve{
-			DummyToggleSymbolConfig: schematic.DummyToggleSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Enabled:   true,
-				Clickable: false,
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				Scale: new(float64(16.5)),
-			},
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9802,38 +4119,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigThreeWayValve{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9843,38 +4129,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigThreeWayBallValve{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9884,38 +4139,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigValve{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9925,26 +4149,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCrossJunction{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -9953,40 +4158,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{
-			CylinderConfig: schematic.CylinderConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Dimensions: new(spatial.Dimensions{Width: 10.5, Height: 11.5}),
-				BorderRadius: new(border.Radius{
-					TopLeft:     spatial.XY{},
-					TopRight:    spatial.XY{},
-					BottomLeft:  spatial.XY{},
-					BottomRight: spatial.XY{},
-				}),
-				Color: new(color.Color{
-					R: 19,
-					G: 20,
-					B: 21,
-					A: 21.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 24,
-					G: 25,
-					B: 26,
-					A: 26.5,
-				}),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{CylinderConfig: fullyPopulatedCylinderConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -9994,40 +4166,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTank{
-			TankConfig: schematic.TankConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				BackgroundColor: new(color.Color{
-					R: 16,
-					G: 17,
-					B: 18,
-					A: 18.5,
-				}),
-				Dimensions: new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-				BorderRadius: new(border.Radius{
-					TopLeft:     spatial.XY{},
-					TopRight:    spatial.XY{},
-					BottomLeft:  spatial.XY{},
-					BottomRight: spatial.XY{},
-				}),
-			},
-		}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTank{TankConfig: fullyPopulatedTankConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -10036,26 +4175,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTJunction{
-			StaticSymbolConfig: schematic.StaticSymbolConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Color: new(color.Color{
-					R: 11,
-					G: 12,
-					B: 13,
-					A: 13.5,
-				}),
-				Scale: new(float64(14.5)),
-			},
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10065,40 +4185,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCustomActuator{
-			CustomActuatorConfig: schematic.CustomActuatorConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				SpecKey: "test_18",
-				Color: new(color.Color{
-					R: 21,
-					G: 22,
-					B: 23,
-					A: 23.5,
-				}),
-				Scale:          new(float64(24.5)),
-				StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
-			},
+			CustomActuatorConfig: fullyPopulatedCustomActuatorConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10108,28 +4195,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCustomStatic{
-			CustomStaticConfig: schematic.CustomStaticConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				SpecKey: "test_9",
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				Scale:          new(float64(15.5)),
-				StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
-			},
+			CustomStaticConfig: fullyPopulatedCustomStaticConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10139,15 +4205,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPipe{
-			SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-				Color: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 5.5,
-				}),
-				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-			},
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10157,15 +4215,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigElectric{
-			SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-				Color: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 5.5,
-				}),
-				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-			},
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10175,15 +4225,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSecondary{
-			SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-				Color: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 5.5,
-				}),
-				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-			},
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10193,15 +4235,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigJacketed{
-			SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-				Color: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 5.5,
-				}),
-				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-			},
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10211,15 +4245,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHydraulic{
-			SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-				Color: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 5.5,
-				}),
-				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-			},
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10229,15 +4255,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPneumatic{
-			SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-				Color: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 5.5,
-				}),
-				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-			},
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10247,15 +4265,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigData{
-			SegmentedEdgeConfig: schematic.SegmentedEdgeConfig{
-				Color: new(color.Color{
-					R: 3,
-					G: 4,
-					B: 5,
-					A: 5.5,
-				}),
-				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-			},
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -10294,40 +4304,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 
 func FuzzDecodeGaugeConfig(f *testing.F) {
 	{
-		seed := schematic.GaugeConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-			Color: new(color.Color{
-				R: 14,
-				G: 15,
-				B: 16,
-				A: 16.5,
-			}),
-			Bounds:         new(spatial.Bounds{}),
-			BarWidth:       new(float64(18.5)),
-			Channel:        new(channel.Key(20)),
-			RollingAverage: new(int32(21)),
-			Precision:      new(float64(21.5)),
-			MinWidth:       new(float64(22.5)),
-			Width:          new(float64(23.5)),
-			Notation:       new(notation.Notation("standard")),
-			Location: new(spatial.LocationXY{
-				X: spatial.XCenterLocation("left"),
-				Y: spatial.YCenterLocation("top"),
-			}),
-			Units: "test_28",
-			Level: new(text.Level("h1")),
-		}
+		seed := fullyPopulatedGaugeConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -10434,36 +4411,7 @@ func FuzzDecodeHandle(f *testing.F) {
 
 func FuzzDecodeInputConfig(f *testing.F) {
 	{
-		seed := schematic.InputConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Size:           new(schematic.ComponentSize("tiny")),
-			CommandChannel: new(channel.Key(11)),
-			Dimensions:     new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
-			Color: new(color.Color{
-				R: 16,
-				G: 17,
-				B: 18,
-				A: 18.5,
-			}),
-			Disabled: true,
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(22)),
-				Show:          false,
-				ShowChip:      true,
-				ShowIndicator: false,
-				Orientation:   new(spatial.Location("top")),
-			}),
-		}
+		seed := fullyPopulatedInputConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -10633,28 +4581,7 @@ func FuzzDecodeLabeledConfig(f *testing.F) {
 
 func FuzzDecodeLightConfig(f *testing.F) {
 	{
-		seed := schematic.LightConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Channel:   new(channel.Key(10)),
-			Threshold: new(spatial.Bounds{}),
-			Color: new(color.Color{
-				R: 13,
-				G: 14,
-				B: 15,
-				A: 15.5,
-			}),
-			Scale: new(float64(16.5)),
-		}
+		seed := fullyPopulatedLightConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -10762,26 +4689,7 @@ func FuzzDecodeNode(f *testing.F) {
 
 func FuzzDecodeOffPageReferenceConfig(f *testing.F) {
 	{
-		seed := schematic.OffPageReferenceConfig{
-			Orientation: new(spatial.OuterLocation("top")),
-			Label: schematic.LabelConfig{
-				Label:         "test_3",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(7.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			},
-			Level: new(text.Level("h1")),
-			Color: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 14.5,
-			}),
-			Page:        "test_15",
-			DblClickNav: false,
-		}
+		seed := fullyPopulatedOffPageReferenceConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -10841,36 +4749,7 @@ func FuzzDecodeOffPageReferenceConfig(f *testing.F) {
 
 func FuzzDecodePolygonConfig(f *testing.F) {
 	{
-		seed := schematic.PolygonConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			NumSides:       9.5,
-			SideLength:     10.5,
-			Rotation:       new(float64(11.5)),
-			CornerRounding: new(float64(12.5)),
-			Color: new(color.Color{
-				R: 15,
-				G: 16,
-				B: 17,
-				A: 17.5,
-			}),
-			BackgroundColor: new(color.Color{
-				R: 20,
-				G: 21,
-				B: 22,
-				A: 22.5,
-			}),
-			StrokeWidth: new(float64(23.5)),
-		}
+		seed := fullyPopulatedPolygonConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -11013,30 +4892,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Target: schematic.Handle{Node: "test_19", Param: "test_20"},
 				},
 			},
-			Configs: map[string]schematic.ElementConfig{
-				"test_21": {Variant: schematic.ElementConfigCap{
-					StaticSymbolConfig: schematic.StaticSymbolConfig{
-						LabeledConfig: schematic.LabeledConfig{
-							Label: new(schematic.LabelConfig{
-								Label:         "test_23",
-								Level:         new(text.Level("h1")),
-								Orientation:   new(spatial.Location("top")),
-								Direction:     new(spatial.Direction("x")),
-								MaxInlineSize: new(float64(27.5)),
-								Align:         new(schematic.FlexAlignment("start")),
-							}),
-							Orientation: new(spatial.OuterLocation("top")),
-						},
-						Color: new(color.Color{
-							R: 32,
-							G: 33,
-							B: 34,
-							A: 34.5,
-						}),
-						Scale: new(float64(35.5)),
-					},
-				}},
-			},
+			Configs: map[string]schematic.ElementConfig{"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -11151,15 +5007,7 @@ func FuzzDecodeSegment(f *testing.F) {
 
 func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 	{
-		seed := schematic.SegmentedEdgeConfig{
-			Color: new(color.Color{
-				R: 3,
-				G: 4,
-				B: 5,
-				A: 5.5,
-			}),
-			Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-		}
+		seed := fullyPopulatedSegmentedEdgeConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -11221,49 +5069,7 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 
 func FuzzDecodeSelectConfig(f *testing.F) {
 	{
-		seed := schematic.SelectConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Size:           new(schematic.ComponentSize("tiny")),
-			CommandChannel: new(channel.Key(11)),
-			Color: new(color.Color{
-				R: 13,
-				G: 14,
-				B: 15,
-				A: 15.5,
-			}),
-			InlineSize: new(float64(16.5)),
-			Options: []schematic.StateMapping{
-				{
-					Key:   "test_18",
-					Name:  "test_19",
-					Value: 20.5,
-					Color: new(color.Color{
-						R: 23,
-						G: 24,
-						B: 25,
-						A: 25.5,
-					}),
-				},
-			},
-			Disabled: false,
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(29)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
-				Orientation:   new(spatial.Location("top")),
-			}),
-		}
+		seed := fullyPopulatedSelectConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -11356,38 +5162,7 @@ func FuzzDecodeSelectConfig(f *testing.F) {
 
 func FuzzDecodeSetpointConfig(f *testing.F) {
 	{
-		seed := schematic.SetpointConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Size:           new(schematic.ComponentSize("tiny")),
-			StateChannel:   new(channel.Key(11)),
-			CommandChannel: new(channel.Key(12)),
-			Dimensions:     new(spatial.Dimensions{Width: 13.5, Height: 14.5}),
-			Color: new(color.Color{
-				R: 17,
-				G: 18,
-				B: 19,
-				A: 19.5,
-			}),
-			Units:    "test_20",
-			Disabled: true,
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(24)),
-				Show:          false,
-				ShowChip:      true,
-				ShowIndicator: false,
-				Orientation:   new(spatial.Location("top")),
-			}),
-		}
+		seed := fullyPopulatedSetpointConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -11443,41 +5218,7 @@ func FuzzDecodeSetpointConfig(f *testing.F) {
 
 func FuzzDecodeSolenoidValveConfig(f *testing.F) {
 	{
-		seed := schematic.SolenoidValveConfig{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				Color: new(color.Color{
-					R: 20,
-					G: 21,
-					B: 22,
-					A: 22.5,
-				}),
-				Scale: new(float64(23.5)),
-			},
-			NormallyOpen: false,
-		}
+		seed := fullyPopulatedSolenoidValveConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -11536,40 +5277,7 @@ func FuzzDecodeSolenoidValveConfig(f *testing.F) {
 
 func FuzzDecodeStateIndicatorConfig(f *testing.F) {
 	{
-		seed := schematic.StateIndicatorConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Channel: new(channel.Key(10)),
-			Color: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 14.5,
-			}),
-			InlineSize: new(float64(15.5)),
-			Options: []schematic.StateMapping{
-				{
-					Key:   "test_17",
-					Name:  "test_18",
-					Value: 19.5,
-					Color: new(color.Color{
-						R: 22,
-						G: 23,
-						B: 24,
-						A: 24.5,
-					}),
-				},
-			},
-		}
+		seed := fullyPopulatedStateIndicatorConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -11711,26 +5419,7 @@ func FuzzDecodeStateMapping(f *testing.F) {
 
 func FuzzDecodeStaticSymbolConfig(f *testing.F) {
 	{
-		seed := schematic.StaticSymbolConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Color: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 13.5,
-			}),
-			Scale: new(float64(14.5)),
-		}
+		seed := fullyPopulatedStaticSymbolConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -11780,38 +5469,7 @@ func FuzzDecodeStaticSymbolConfig(f *testing.F) {
 
 func FuzzDecodeTankConfig(f *testing.F) {
 	{
-		seed := schematic.TankConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Color: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 13.5,
-			}),
-			BackgroundColor: new(color.Color{
-				R: 16,
-				G: 17,
-				B: 18,
-				A: 18.5,
-			}),
-			Dimensions: new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-			BorderRadius: new(border.Radius{
-				TopLeft:     spatial.XY{X: 24.5, Y: 25.5},
-				TopRight:    spatial.XY{X: 27.5, Y: 28.5},
-				BottomLeft:  spatial.XY{X: 30.5, Y: 31.5},
-				BottomRight: spatial.XY{X: 33.5, Y: 34.5},
-			}),
-		}
+		seed := fullyPopulatedTankConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -11863,30 +5521,7 @@ func FuzzDecodeTankConfig(f *testing.F) {
 
 func FuzzDecodeTextBoxConfig(f *testing.F) {
 	{
-		seed := schematic.TextBoxConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Color: new(color.Color{
-				R: 11,
-				G: 12,
-				B: 13,
-				A: 13.5,
-			}),
-			Width:   new(float64(14.5)),
-			Align:   new(schematic.FlexAlignment("start")),
-			AutoFit: false,
-			Level:   new(text.Level("h1")),
-			Value:   "test_18",
-		}
+		seed := fullyPopulatedTextBoxConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -12014,38 +5649,7 @@ func FuzzDecodeToggleConfig(f *testing.F) {
 
 func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 	{
-		seed := schematic.ToggleSymbolConfig{
-			ToggleConfig: schematic.ToggleConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				StateChannel:   new(channel.Key(10)),
-				CommandChannel: new(channel.Key(11)),
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(13)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-				OnClickDelay: 17.5,
-			},
-			Color: new(color.Color{
-				R: 20,
-				G: 21,
-				B: 22,
-				A: 22.5,
-			}),
-			Scale: new(float64(23.5)),
-		}
+		seed := fullyPopulatedToggleSymbolConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -12101,71 +5705,7 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 
 func FuzzDecodeValueConfig(f *testing.F) {
 	{
-		seed := schematic.ValueConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-			Color: new(color.Color{
-				R: 14,
-				G: 15,
-				B: 16,
-				A: 16.5,
-			}),
-			TextColor: new(color.Color{
-				R: 19,
-				G: 20,
-				B: 21,
-				A: 21.5,
-			}),
-			Tooltip: []string{"test_22"},
-			Redline: new(schematic.Redline{
-				Bounds: spatial.Bounds{},
-				Gradient: []color.Stop{
-					{
-						Key: "test_26",
-						Color: color.Color{
-							R: 29,
-							G: 30,
-							B: 31,
-							A: 31.5,
-						},
-						Position: 32.5,
-						Switched: true,
-					},
-				},
-			}),
-			Units:            "test_34",
-			InlineSize:       new(float64(35.5)),
-			Channel:          new(channel.Key(37)),
-			RollingAverage:   new(int32(38)),
-			Level:            new(text.Level("h1")),
-			Precision:        new(float64(39.5)),
-			StalenessTimeout: new(float64(40.5)),
-			StalenessColor: new(color.Color{
-				R: 43,
-				G: 44,
-				B: 45,
-				A: 45.5,
-			}),
-			MinWidth: new(float64(46.5)),
-			Notation: new(notation.Notation("standard")),
-			Location: new(spatial.LocationXY{
-				X: spatial.XCenterLocation("left"),
-				Y: spatial.YCenterLocation("top"),
-			}),
-			UseWidthForBackground:   true,
-			ValueBackgroundShift:    new(spatial.XY{X: 53.5, Y: 54.5}),
-			ValueBackgroundOverScan: new(spatial.XY{X: 56.5, Y: 57.5}),
-		}
+		seed := fullyPopulatedValueConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
