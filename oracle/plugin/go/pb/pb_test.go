@@ -268,11 +268,42 @@ var _ = Describe("Go PB Plugin", func() {
 				ExpectContent(resp, "translator.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"func ShapeSquarePayloadToPB(r schematic.ShapeSquare) (*ShapeSquarePayload, error)",
-						"inner, err := ShapeSquarePayloadToPB(v)",
+						"func ShapeSquareToPB(r schematic.ShapeSquare) (*ShapeSquarePayload, error)",
+						"inner, err := ShapeSquareToPB(v)",
 						"m := inner",
 						"m.Base, err = BaseFromPB(pb.Base)",
 					)
+			})
+
+			It("Should translate inline variants inherited through union composition", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					NodeConfig union on variant {
+						box {
+							width float64
+						}
+					}
+
+					EdgeConfig union on variant {
+						pipe {
+							length float64
+						}
+					}
+
+					ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func NodeConfigBoxToPB(r schematic.NodeConfigBox) (*NodeConfigBoxPayload, error)",
+						"func ElementConfigBoxToPB(r schematic.ElementConfigBox) (*NodeConfigBoxPayload, error)",
+						"func ElementConfigPipeToPB(r schematic.ElementConfigPipe) (*EdgeConfigPipePayload, error)",
+						"pb.Variant = &ElementConfig_Box{Box: inner}",
+					).
+					ToNotContain("NodeConfigBoxPayloadToPB")
 			})
 		})
 

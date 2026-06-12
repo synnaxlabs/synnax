@@ -1501,6 +1501,101 @@ var _ = Describe("C++ Types Plugin", func() {
 					ToContain(`Mode mode = Mode::Automatic`)
 			})
 
+			It("Should reference string enum defaults via their generated constants", func(ctx SpecContext) {
+				source := `
+					@cpp output "out"
+
+					Units enum {
+						volts = "Volts"
+						amps  = "Amps"
+					}
+
+					Config struct {
+						units Units = volts
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				content := ExpectContent(resp, "types.gen.h")
+				content.ToContain(`units = UNITS_VOLTS`)
+				content.ToNotContain(`Units::Volts`)
+			})
+
+			It("Should emit scalar field defaults as member initializers", func(ctx SpecContext) {
+				source := `
+					@cpp output "out"
+
+					Config struct {
+						enabled     bool = true
+						sample_rate float64 = 10
+						label       string = "dflt"
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						`bool enabled = true;`,
+						`double sample_rate = 10;`,
+						`std::string label = "dflt";`,
+					)
+			})
+
+			It("Should wrap numeric defaults on telem-typed fields in their constructors", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp omit
+					}
+
+					TimeSpan int64 {
+						@cpp omit
+					}
+				`)
+				source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						duration telem.TimeSpan = 0
+						start    telem.TimeStamp = 5
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				ExpectContent(resp, "out/types.gen.h").
+					ToContain(
+						`duration = x::telem::TimeSpan(0);`,
+						`start = x::telem::TimeStamp(5);`,
+					)
+			})
+
+			It("Should map the now sentinel to TimeStamp::now and skip unrenderable sentinels", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp omit
+					}
+				`)
+				source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Status struct {
+						key  string = create
+						time telem.TimeStamp = now
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				content := ExpectContent(resp, "out/types.gen.h")
+				content.ToContain(
+					`std::string key;`,
+					`time = x::telem::TimeStamp::now();`,
+				)
+				content.ToNotContain(`= create;`, `= now;`)
+			})
+
 			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
 				loader.Add("schemas/control", `
 					@cpp output "x/cpp/control"
@@ -1726,5 +1821,25 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
 		ExpectContent(resp, "types.gen.h").
 			ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear : public LinearScale {")
+	})
+
+	It("Should route per-type cpp output overrides to their own file", func(ctx SpecContext) {
+		source := `
+			@cpp output "client/cpp/task"
+
+			Task struct { key string }
+
+			BaseConfig struct {
+				auto_start bool
+				@cpp output "client/cpp/task/common"
+			}
+		`
+		resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+		taskContent := ExpectContent(resp, "client/cpp/task/types.gen.h")
+		taskContent.ToContain("struct Task {")
+		taskContent.ToNotContain("struct BaseConfig {")
+		commonContent := ExpectContent(resp, "client/cpp/task/common/types.gen.h")
+		commonContent.ToContain("struct BaseConfig {")
+		commonContent.ToNotContain("struct Task {")
 	})
 })

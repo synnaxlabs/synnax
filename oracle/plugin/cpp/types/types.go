@@ -224,9 +224,15 @@ func (p *Plugin) generateFile(
 		for _, t := range allNamespaceTypes {
 			// Synthetic inline variant payloads flatten into their variant
 			// structs; they have no standalone C++ type.
-			if !existingQNames.Contains(t.QualifiedName) && !t.Synthetic {
-				combinedTypes = append(combinedTypes, t)
+			if existingQNames.Contains(t.QualifiedName) || t.Synthetic {
+				continue
 			}
+			// Types routed to a different file by a per-type @cpp output
+			// override belong to that file, not this one.
+			if p := output.GetPath(t, "cpp"); p != "" && p != outputPath {
+				continue
+			}
+			combinedTypes = append(combinedTypes, t)
 		}
 	}
 
@@ -789,13 +795,8 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 
 	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
 	if field.Default != nil {
-		switch field.Default.Kind {
-		case resolution.ValueKindIdent:
-			if ev, ok := validation.ResolveEnumVariant(field.Default.IdentValue, field.Type, data.table); ok {
-				defaultValue = p.cppEnumVariantRef(ev, data)
-			}
-		case resolution.ValueKindArray, resolution.ValueKindStruct:
-			defaultValue = p.cppDefaultLiteral(field.Type, *field.Default, data)
+		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
+			defaultValue = lit
 		}
 	}
 
@@ -816,6 +817,15 @@ func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.Ex
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
 	case resolution.ValueKindInt:
+		// Telem time types have explicit integer constructors, so a bare
+		// numeric literal would not compile as a member initializer.
+		cppType := p.typeRefToCpp(typeRef, data)
+		if strings.Contains(cppType, "::telem::TimeStamp") {
+			return fmt.Sprintf("x::telem::TimeStamp(%d)", val.IntValue)
+		}
+		if strings.Contains(cppType, "::telem::TimeSpan") {
+			return fmt.Sprintf("x::telem::TimeSpan(%d)", val.IntValue)
+		}
 		return fmt.Sprintf("%d", val.IntValue)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", val.FloatValue)
@@ -825,7 +835,16 @@ func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.Ex
 		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, data.table); ok {
 			return p.cppEnumVariantRef(ev, data)
 		}
-		return val.IdentValue
+		if val.IdentValue == "true" || val.IdentValue == "false" {
+			return val.IdentValue
+		}
+		if val.IdentValue == "now" &&
+			strings.Contains(p.typeRefToCpp(typeRef, data), "::telem::TimeStamp") {
+			return "x::telem::TimeStamp::now()"
+		}
+		// Unresolvable idents (magic defaults like create) have no C++
+		// rendering; the caller falls back to the type's zero value.
+		return ""
 	case resolution.ValueKindArray:
 		elem := cppArrayElementType(typeRef)
 		parts := make([]string, 0, len(val.Elements))
@@ -863,17 +882,25 @@ func (p *Plugin) cppStructLiteral(typeRef resolution.TypeRef, val resolution.Exp
 }
 
 // cppEnumVariantRef renders a fully-qualified C++ reference to an enum variant.
+// Int enums generate as enum classes and are referenced Enum::Variant; string
+// enums generate as ENUM_VARIANT string constants and must be referenced as such.
 func (p *Plugin) cppEnumVariantRef(ev validation.EnumVariant, data *templateData) string {
-	variantName := toPascalCase(ev.Variant.Name)
-	enumName := ev.Type.Name
+	ref := fmt.Sprintf("%s::%s", ev.Type.Name, toPascalCase(ev.Variant.Name))
+	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		ref = fmt.Sprintf(
+			"%s_%s",
+			toScreamingSnake(ev.Type.Name),
+			toScreamingSnake(ev.Variant.Name),
+		)
+	}
 	if ev.Type.Namespace != data.rawNs {
 		targetOutputPath := enum.FindOutputPath(ev.Type, data.table, "cpp")
 		if targetOutputPath != "" {
 			ns := deriveNamespace(targetOutputPath)
-			enumName = fmt.Sprintf("::%s::%s", ns, enumName)
+			return fmt.Sprintf("::%s::%s", ns, ref)
 		}
 	}
-	return fmt.Sprintf("%s::%s", enumName, variantName)
+	return ref
 }
 
 // cppFieldName returns the C++ field name for a resolved field, mirroring the
