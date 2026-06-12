@@ -15,9 +15,9 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
