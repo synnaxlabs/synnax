@@ -415,15 +415,19 @@ public:
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
     }
 
-    /// @brief Returns a WASM function wrapper for the given function name.
-    /// @param node_inputs Per-node input params with values; falls back to the
-    /// function's declared inputs when empty.
-    /// @param edge_fed Per-input wire-fed flags; all inputs are treated as
-    /// wire-fed when its length does not match.
+    /// @brief Wraps the WASM export `name` using its declared inputs, all wire-fed.
+    /// Use the three-arg overload for nodes with literal/config inputs.
+    std::pair<Function, x::errors::Error> func(const std::string &name) {
+        return this->func(name, {}, {});
+    }
+
+    /// @brief Wraps the WASM export `name` for a node's inputs. edge_fed is parallel
+    /// to node_inputs (true = wire-fed, false = literal-fed) and required, derived
+    /// from the graph edges (see wasm::Factory::create); omitting it cannot compile.
     std::pair<Function, x::errors::Error> func(
         const std::string &name,
-        const types::Params &node_inputs = {},
-        const std::vector<bool> &edge_fed = {}
+        const types::Params &node_inputs,
+        const std::vector<bool> &edge_fed
     ) {
         const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
@@ -458,7 +462,16 @@ public:
 
         const auto &inputs_to_use = node_inputs.empty() ? func.inputs : node_inputs;
         std::vector<bool> ef = edge_fed;
-        if (ef.size() != inputs_to_use.size()) ef.assign(inputs_to_use.size(), true);
+        if (ef.empty())
+            ef.assign(inputs_to_use.size(), true);
+        else if (ef.size() != inputs_to_use.size())
+            return {
+                zero_func,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "edge_fed length must match inputs"
+                )
+            };
         return {
             Function(
                 *this,
