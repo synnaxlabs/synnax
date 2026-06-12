@@ -51,11 +51,12 @@ fileDomain
 // Definitions
 // =============================================================================
 
-// Top-level definitions are structs, enums, or type definitions
+// Top-level definitions are structs, enums, type definitions, or discriminated unions
 definition
     : structDef
     | enumDef
     | typeDefDef
+    | unionDef
     ;
 
 // =============================================================================
@@ -342,5 +343,71 @@ typeDefDef
 
 // Optional body for type definitions (domains only, no fields)
 typeDefBody
+    : nl* LBRACE nl* (domain nl*)* RBRACE
+    ;
+
+// =============================================================================
+// Union Definitions
+// =============================================================================
+
+// Name-first discriminated union definition:
+//   Scale union on type {
+//       linear LinearScale
+//       map    MapScale
+//   }
+//   AIChannel union on type extends BaseAIChannel {
+//       ai_voltage AIVoltageFields
+//       ai_accel   AIAccelFields { @doc value "..." }
+//   }
+//
+// The `on` clause names the discriminator field whose string value selects
+// which variant struct shape applies. The discriminator field is owned by the
+// union declaration and must not appear in the base or variant structs.
+// The first IDENT after UNION is the soft keyword `on` (validated by the
+// analyzer); the second is the discriminator field name. `on` is intentionally
+// not a reserved lexer keyword so existing schemas may keep fields named `on`.
+unionDef
+    : IDENT UNION IDENT IDENT (EXTENDS typeRefList)? nl* LBRACE nl* unionBody RBRACE
+    ;
+
+// Union body contains variants and/or union-level domains
+unionBody
+    : ((unionVariant | domain) nl*)*
+    ;
+
+// Single variant: discriminator value + struct type + optional per-variant domains
+//   linear LinearScale
+//   ai_voltage AIVoltageFields { @doc value "..." }
+//
+// A variant may instead declare its payload inline, with an optional extends
+// clause for mixins. The body is a full structBody, so inline variants carry
+// fields and domains directly and no standalone payload type is generated:
+//   view extends Labeled {
+//       type string
+//   }
+//   empty {}
+//
+// variantName accepts IDENT or any Oracle keyword so that discriminator string
+// values that collide with reserved words (e.g. "map" in NI's Scale union)
+// can be expressed without quoting. The value carried is always the raw
+// token text.
+unionVariant
+    : variantName typeRef unionVariantBody?                               # NamedVariant
+    | variantName (EXTENDS typeRefList)? nl* LBRACE nl* structBody RBRACE # InlineVariant
+    ;
+
+variantName
+    : IDENT
+    | MAP
+    | UNION
+    | STRUCT
+    | ENUM
+    | EXTENDS
+    | IMPORT
+    | ACTION
+    ;
+
+// Optional body for union variants (domains only)
+unionVariantBody
     : nl* LBRACE nl* (domain nl*)* RBRACE
     ;
