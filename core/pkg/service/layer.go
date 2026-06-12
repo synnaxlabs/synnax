@@ -351,12 +351,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
-	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
+	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		DB:              cfg.Distribution.DB,
 		Distribution:    cfg.Distribution.Channel,
 		Status:          l.Status,
-	}); !ok(err, l.Channel) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Task, err = task.OpenService(ctx, task.ServiceConfig{

@@ -90,9 +90,9 @@ type Service struct {
 	cfg ServiceConfig
 }
 
-// OpenService opens a channel Service. The ctx is accepted for consistency with other
+// NewService opens a channel Service. The ctx is accepted for consistency with other
 // service constructors and may be used by future initialization work.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -106,11 +106,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 func Wrap(dist *channel.Service) *Service {
 	return &Service{Service: dist, cfg: ServiceConfig{Distribution: dist}}
 }
-
-// Close is a no-op that intentionally shadows the embedded distribution-layer
-// Service.Close. Closing the service-layer Service must not tear down the shared
-// distribution channel service, which is owned and closed by the distribution layer.
-func (s *Service) Close() error { return nil }
 
 // NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
 // name or numeric key, for analyzing and compiling Arc expressions such as calculated

@@ -56,7 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  dist.Signals,
 		Search:   searchIdx,
 	}))
-	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
