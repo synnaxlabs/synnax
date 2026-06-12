@@ -13,20 +13,108 @@
 
 #include "client/clib/synnax.h"
 
-TEST(ClibVersion, ReturnsNonEmptyVersion) {
-    char buf[64];
-    const int32_t n = synnax_version(buf, sizeof(buf));
-    EXPECT_GT(n, 0);
-    EXPECT_EQ(static_cast<size_t>(n), std::strlen(buf));
+namespace synnax::clib {
+constexpr int32_t OK = 0;
+
+/// @brief it should return a non-empty version string.
+TEST(ClibClient, testReturnsNonEmptyVersion) {
+    const char *version = synnax_client_version();
+    ASSERT_NE(version, nullptr);
+    EXPECT_GT(std::strlen(version), 0u);
 }
 
-TEST(ClibVersion, TruncatesToBuffer) {
-    char buf[4] = {'x', 'x', 'x', 'x'};
-    const int32_t n = synnax_version(buf, sizeof(buf));
-    EXPECT_EQ('\0', buf[sizeof(buf) - 1]);
-    EXPECT_GT(static_cast<size_t>(n), sizeof(buf) - 1);
+/// @brief it should reject a client open with a null out_client pointer.
+TEST(ClibClient, testOpenWithNullOutClientReturnsValidationError) {
+    SynnaxError err;
+    const int32_t code = synnax_client_open(
+        "localhost",
+        9090,
+        "synnax",
+        "seldon",
+        0,
+        nullptr,
+        nullptr,
+        nullptr,
+        0,
+        0,
+        nullptr,
+        &err
+    );
+    EXPECT_NE(code, OK);
+    EXPECT_EQ(err.code, code);
+    EXPECT_STREQ(err.type, "sy.validation");
 }
 
-TEST(ClibVersion, ReturnsLengthWithNullBuffer) {
-    EXPECT_GT(synnax_version(nullptr, 0), 0);
+/// @brief it should reject a secure client open that omits the CA certificate.
+TEST(ClibClient, testOpenSecureWithoutCACertReturnsValidationError) {
+    SynnaxError err;
+    SynnaxClient *client = nullptr;
+    const int32_t code = synnax_client_open(
+        "localhost",
+        9090,
+        "synnax",
+        "seldon",
+        1,
+        nullptr,
+        nullptr,
+        nullptr,
+        0,
+        0,
+        &client,
+        &err
+    );
+    EXPECT_NE(code, OK);
+    EXPECT_EQ(client, nullptr);
+    EXPECT_STREQ(err.type, "sy.validation");
+    EXPECT_NE(std::strstr(err.message, "ca_cert_file"), nullptr);
+}
+
+/// @brief it should tolerate a null error pointer on a failing client open.
+TEST(ClibClient, testOpenWithNullErrorDoesNotCrash) {
+    EXPECT_NE(
+        synnax_client_open(
+            "localhost",
+            9090,
+            "synnax",
+            "seldon",
+            1,
+            nullptr,
+            nullptr,
+            nullptr,
+            0,
+            0,
+            nullptr,
+            nullptr
+        ),
+        OK
+    );
+}
+
+/// @brief it should safely ignore a close on a null client.
+TEST(ClibClient, testCloseClientOnNullIsSafe) {
+    synnax_client_close(nullptr);
+}
+
+/// @brief it should connect to the local test cluster and return a handle.
+TEST(ClibClient, testConnectsToLocalCluster) {
+    SynnaxError err;
+    SynnaxClient *client = nullptr;
+    const int32_t code = synnax_client_open(
+        "localhost",
+        9090,
+        "synnax",
+        "seldon",
+        0,
+        nullptr,
+        nullptr,
+        nullptr,
+        0,
+        0,
+        &client,
+        &err
+    );
+    ASSERT_EQ(code, OK) << err.message;
+    ASSERT_NE(client, nullptr);
+    synnax_client_close(client);
+}
 }

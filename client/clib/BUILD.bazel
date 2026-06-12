@@ -1,5 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_shared_library.bzl", "cc_shared_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "clib",
@@ -30,4 +31,35 @@ cc_shared_library(
     visibility = ["//visibility:public"],
     win_def_file = "synnax.def",
     deps = [":clib"],
+)
+
+cc_test(
+    name = "synnax_test",
+    srcs = ["synnax_test.cpp"],
+    deps = [
+        ":clib",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "framer_test",
+    srcs = ["framer/framer_test.cpp"],
+    deps = [
+        ":clib",
+        "//client/cpp/testutil",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "channel_test",
+    srcs = ["channel/channel_test.cpp"],
+    deps = [
+        ":clib",
+        "//client/cpp/testutil",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
 )
