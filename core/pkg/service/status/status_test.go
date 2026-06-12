@@ -584,7 +584,7 @@ var _ = Describe("Status", Ordered, func() {
 			})).To(Succeed())
 			var retrieved status.Status[DetailsA]
 			retrieveA := status.NewRetrieve[DetailsA](svc)
-			Expect(retrieveA.Entry(&retrieved).Exec(ctx, tx)).To(Not(Succeed()))
+			Expect(retrieveA.Entry(&retrieved).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 

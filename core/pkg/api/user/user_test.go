@@ -130,7 +130,7 @@ var _ = Describe("Service", func() {
 				Key:       u.Key,
 				FirstName: "Renamed",
 				LastName:  "User",
-			})).Error().To(Not(HaveOccurred()))
+			})).Error().ToNot(HaveOccurred())
 			var updated user.User
 			Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
 				Entry(&updated).Exec(ctx, nil)).To(Succeed())
@@ -164,7 +164,7 @@ var _ = Describe("Service", func() {
 			Expect(apiSvc.ChangeUsername(rootCtx(ctx), db, apiuser.ChangeUsernameRequest{
 				Key:      u.Key,
 				Username: newName,
-			})).Error().To(Not(HaveOccurred()))
+			})).Error().ToNot(HaveOccurred())
 
 			var updated user.User
 			Expect(userSvc.NewRetrieve().Where(user.MatchKeys(u.Key)).
@@ -185,7 +185,7 @@ var _ = Describe("Service", func() {
 			Expect(apiSvc.ChangeUsername(rootCtx(ctx), db, apiuser.ChangeUsernameRequest{
 				Key:      u.Key,
 				Username: username,
-			})).Error().To(Not(HaveOccurred()))
+			})).Error().ToNot(HaveOccurred())
 		})
 		It("Should reject a self-rename through the user service", func(ctx SpecContext) {
 			fctx, subject := nonRootCtx(ctx)
@@ -228,7 +228,7 @@ var _ = Describe("Service", func() {
 	Describe("Delete", func() {
 		It("Should be a no-op when none of the supplied keys exist", func(ctx SpecContext) {
 			Expect(apiSvc.Delete(rootCtx(ctx), db, apiuser.DeleteRequest{Keys: []user.Key{uuid.New()}})).
-				Error().To(Not(HaveOccurred()))
+				Error().ToNot(HaveOccurred())
 		})
 		It("Should delete existing users and ignore unknown keys in the same call", func(ctx SpecContext) {
 			username := uuid.NewString()
@@ -241,7 +241,7 @@ var _ = Describe("Service", func() {
 				rootCtx(ctx),
 				db,
 				apiuser.DeleteRequest{Keys: []user.Key{created.Key, uuid.New()}},
-			)).Error().To(Not(HaveOccurred()))
+			)).Error().ToNot(HaveOccurred())
 			Expect(userSvc.NewRetrieve().Where(user.MatchKeys(created.Key)).Exists(ctx, nil)).
 				To(BeFalse())
 			Expect(authSvc.Authenticate(ctx, nil, auth.Credentials{

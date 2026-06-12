@@ -67,7 +67,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Entries(&resChannelsTwo).
 					Exec(ctx, nil)).To(Succeed())
 				g.Expect(resChannelsTwo).To(HaveLen(len(created) + internalChannelCount))
-			})
+			}).Should(Succeed())
 
 		})
 		It("Should correctly retrieve a channel by its key", func(ctx SpecContext) {

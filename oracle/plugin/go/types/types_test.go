@@ -104,8 +104,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("Labels []uuid.UUID `json:\"labels\" msgpack:\"labels\"`"))
@@ -132,8 +131,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`CreatedAt int64`))
@@ -158,8 +156,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Screaming case fields should preserve their Go names
@@ -236,8 +233,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(BeEmpty())
 			})
 
@@ -264,8 +260,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Status should be skipped
@@ -291,8 +286,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(1))
 				Expect(resp.Files[0].Path).To(Equal("core/pkg/service/user/types.gen.go"))
 
@@ -321,8 +315,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := string(resp.Files[0].Content)
@@ -344,8 +337,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := string(resp.Files[0].Content)
@@ -369,8 +361,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).NotTo(ContainSubstring(`import (`))
@@ -404,8 +395,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := string(resp.Files[0].Content)
@@ -441,8 +431,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Variant string`))
@@ -474,8 +463,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Priority uint8`))
@@ -503,8 +491,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`// Direction indicates a compass direction.`))
@@ -605,8 +592,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`Settings map[string]string`))
@@ -632,8 +618,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Box[T any] struct {`))
@@ -656,8 +641,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Container[D any] struct {`))
@@ -680,8 +664,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Container[K comparable] struct {`))
@@ -709,8 +692,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Original struct {`))
@@ -730,8 +712,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Stratum should be an alias to []string, not just string
@@ -754,8 +735,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`// Authority is a numeric value representing control authority.`))
@@ -777,8 +757,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`// Key is the unique identifier for the label.`))
@@ -810,8 +789,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Address struct {`))
@@ -847,8 +825,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(2))
 
 				// Find the task file
@@ -895,8 +872,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				// Find the task file
 				var taskContent string
@@ -934,8 +910,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Parent struct should be normal
@@ -971,8 +946,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Child should have flattened fields (no embedding due to omission)
@@ -1056,8 +1030,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				// Find the child file
 				var childContent string
@@ -1098,8 +1071,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// RackStatus should embed Status with type argument
@@ -1128,8 +1100,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// RackStatus should be generic and embed Status with passed type param
@@ -1161,8 +1132,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// C should embed both A and B
@@ -1197,8 +1167,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// C should have flattened fields (no embedding due to conflict)
@@ -1236,8 +1205,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// C should have flattened fields (no embedding due to omission)
@@ -1277,8 +1245,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				zebraIdx := strings.Index(content, "type Zebra struct")
@@ -1305,8 +1272,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				zebraIdx := strings.Index(content, "Zebra string")
@@ -1336,8 +1302,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Required fields should not have omitempty
@@ -1364,8 +1329,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Arrays should not be pointers but should still have omitempty
@@ -1388,8 +1352,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Maps should not be pointers but should still have omitempty
@@ -1426,8 +1389,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`json:"wasm"`))
@@ -1462,8 +1424,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{Resolutions: table}
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`json:"x1"`))
@@ -1501,8 +1462,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Should use the alias name "Details", not expanded "StatusDetails"
@@ -1530,8 +1490,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Should use the distinct type name "Key", not expanded "int"
@@ -1569,8 +1528,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				// Find the module file
 				var moduleContent string
@@ -1609,8 +1567,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// The parent type should be named "IR" (from @go name), not "InternalIR"
@@ -1704,8 +1661,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				// Find the ir file
 				var irContent string

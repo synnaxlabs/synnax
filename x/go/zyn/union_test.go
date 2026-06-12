@@ -31,7 +31,7 @@ var _ = Describe("Union", func() {
 		Specify("matches bool variant", func() {
 			var dest any
 			Expect(zyn.Union(zyn.String(), zyn.Bool()).Parse(true, &dest)).To(Succeed())
-			Expect(dest).To(Equal(true))
+			Expect(dest).To(BeTrue())
 		})
 		Specify("first match wins", func() {
 			var dest any
