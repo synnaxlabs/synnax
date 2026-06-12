@@ -365,6 +365,8 @@ var _ = Describe("SeriesFactory", func() {
 			// timestamp
 			Entry("TimeStamp → TimeStampT", telem.TimeStamp(1000), telem.TimeStampT, telem.NewSeriesV(telem.TimeStamp(1000))),
 			Entry("int64 → TimeStampT", int64(5000), telem.TimeStampT, telem.NewSeriesV(telem.TimeStamp(5000))),
+			Entry("TimeSpan → TimeStampT", telem.TimeSpan(1000), telem.TimeStampT, telem.NewSeriesV(telem.TimeStamp(1000))),
+			Entry("TimeSpan → Int64T", telem.TimeSpan(2000), telem.Int64T, telem.NewSeriesV(int64(2000))),
 
 			// string
 			Entry("string → StringT", "hello", telem.StringT, telem.NewSeriesV("hello")),

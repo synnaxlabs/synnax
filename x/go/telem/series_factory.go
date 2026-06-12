@@ -308,6 +308,8 @@ func castNumeric[T NumericSample](value any) T {
 		return T(v)
 	case TimeStamp:
 		return T(v)
+	case TimeSpan:
+		return T(v)
 	default:
 		var t T
 		panic(fmt.Sprintf("cannot cast %T to %T", value, t))
@@ -316,7 +318,7 @@ func castNumeric[T NumericSample](value any) T {
 
 func castToString(value any) string {
 	switch v := value.(type) {
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp:
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp, TimeSpan:
 		return fmt.Sprintf("%d", v)
 	case float32, float64:
 		return fmt.Sprintf("%g", v)
@@ -350,6 +352,8 @@ func castToBytes(value any) []byte {
 	case float64:
 		return ByteOrder.AppendUint64(nil, math.Float64bits(v))
 	case TimeStamp:
+		return ByteOrder.AppendUint64(nil, uint64(v))
+	case TimeSpan:
 		return ByteOrder.AppendUint64(nil, uint64(v))
 	case uuid.UUID:
 		return v[:]
