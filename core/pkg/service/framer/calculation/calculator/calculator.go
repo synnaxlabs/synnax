@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -52,7 +53,7 @@ type Calculator struct {
 	state     calcState
 	scheduler *scheduler.Scheduler
 	cfg       Config
-	stateCfg  compiler.ExtendedStateConfig
+	stateCfg  calculation.ExtendedStateConfig
 	start     telem.TimeStamp
 	closer    io.MultiCloser
 }
