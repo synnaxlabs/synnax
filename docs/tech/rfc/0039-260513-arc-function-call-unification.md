@@ -1065,3 +1065,27 @@ Do it after the tree is green (post-Part 9), same reasoning as the grammar renam
 mechanical `Kind` collapse on a compiling tree lets the compiler and tests catch every
 missed reader, whereas mid-stack on the broken-by-design tree there is no safety net.
 Independent of the grammar rename; neither blocks the other.
+
+### Part 5 - Runtime inputs are addressed by name, retiring the config/input split
+
+The plan scoped the runtime touch as a one-liner (`len(Config)` to `len(Inputs)`), but
+the merge broke more than that: the runtime read inputs by position and split params via
+a `configCount` prefix (`params[configCount+j]`). With the lists unified there is no
+contiguous boundary to recover (`math.avg`'s wire-fed `reset` carries a default value
+while its wire-fed `input` does not), and a host node reading `Input(0)` for its data
+now hits a former config param.
+
+So the split is retired from the runtime, not patched. `node.State` already materializes
+literal-fed inputs as constant series, so the model was half-realized; three changes
+finish it: host nodes read inputs by name (`State.InputNamed`, etc.) so declaration
+order stops mattering to them; `wasm.go`/`node.go` drop `configCount` and fill each
+param slot from its source (wire-fed streams per sample, literal-fed set once, strings
+the only real edge-vs-literal branch); and `Context.Diags()` lets the `AnalyzeArguments`
+hook reach diagnostics from `ctx any` without a type switch.
+
+Order is now cosmetic for the runtime, surviving only for positional argument binding
+and the self-consistent WASM param sequence. This is the first change to the runtime
+input files (`runtime/node/state.go`, `stl/wasm/node.go`), which Part 4's
+node-construction change left reading positionally, and is the largest non-mechanical
+change in the stack; it is code-complete but unverifiable until the tree is green, and
+warrants focused review plus the Phase 7 fixture sweep.
