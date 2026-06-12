@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type dimensions } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type Config } from "@/schematic/node/general/box/config";
@@ -15,7 +14,6 @@ import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
-  onResize?: (d: dimensions.Dimensions) => void;
 }
 
 export const Box = (props: RenderProps): ReactElement => (
