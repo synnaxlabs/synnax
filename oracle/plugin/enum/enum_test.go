@@ -125,7 +125,7 @@ var _ = Describe("CollectReferenced", func() {
 				},
 			},
 		}}
-		Expect(enum.CollectReferenced(structs, table)).To(HaveLen(0))
+		Expect(enum.CollectReferenced(structs, table)).To(BeEmpty())
 	})
 
 	It("should collect same-namespace enums and exclude cross-namespace enums", func() {

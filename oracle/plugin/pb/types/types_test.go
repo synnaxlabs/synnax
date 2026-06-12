@@ -115,7 +115,7 @@ var _ = Describe("Plugin", func() {
 
 	Describe("Check", func() {
 		It("Should return nil (no validation required)", func() {
-			Expect(p.Check(&plugin.Request{})).To(BeNil())
+			Expect(p.Check(&plugin.Request{})).To(Succeed())
 		})
 	})
 
@@ -542,6 +542,26 @@ var _ = Describe("Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
+			})
+
+			It("Should not emit a proto file for an output path whose types are all omitted", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/task"
+					@pb
+
+					Command struct {
+						key string
+					}
+
+					BaseConfig struct {
+						auto_start bool
+						@go output "core/pkg/service/task/common"
+						@pb omit
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, p)
+				Expect(resp.Files).To(HaveLen(1))
+				Expect(resp.Files[0].Path).To(ContainSubstring("core/pkg/service/task/pb"))
 			})
 		})
 
@@ -977,7 +997,7 @@ var _ = Describe("Protobuf Union Generation", func() {
 			)
 	})
 
-	It("Should place shared base fields outside the oneof", func(ctx SpecContext) {
+	It("Should nest shared bases as message fields outside the oneof", func(ctx SpecContext) {
 		source := `
 			@go output "core/pkg/hw/ni"
 			@pb
@@ -993,9 +1013,36 @@ var _ = Describe("Protobuf Union Generation", func() {
 		ExpectContent(resp, "ni.proto").
 			ToContain(
 				"message AIChannel {",
-				"int32 port = 1;",
+				"BaseAIChan base_ai_chan = 1;",
 				"oneof variant {",
 				"VoltageFields ai_voltage = 2;",
+			)
+	})
+
+	It("Should generate messages for inline variant payloads", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/panel"
+			@pb
+
+			TabBase struct { key string }
+
+			Tab union on variant extends TabBase {
+				view {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, p)
+		ExpectContent(resp, "panel.proto").
+			ToContain(
+				"message TabViewPayload {",
+				"message TabEmptyPayload {",
+				"message Tab {",
+				"TabBase tab_base = 1;",
+				"oneof variant {",
+				"TabViewPayload view = 2;",
+				"TabEmptyPayload empty = 3;",
 			)
 	})
 

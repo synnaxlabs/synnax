@@ -42,7 +42,7 @@ struct Status {
     /// provided.
     std::string key;
     /// @brief name is an optional human-readable name for the status.
-    std::string name;
+    std::string name = "";
     /// @brief variant indicates the severity of the status. One of success, info,
     /// warning,
     /// error, loading, or disabled.
@@ -53,7 +53,7 @@ struct Status {
     /// context.
     std::string description;
     /// @brief time is the timestamp when the status was created.
-    ::x::telem::TimeStamp time = x::telem::TimeStamp(0);
+    ::x::telem::TimeStamp time = x::telem::TimeStamp::now();
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;

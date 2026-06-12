@@ -1072,7 +1072,7 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 
 	if body := def.UnionBody(); body != nil {
 		for _, v := range body.AllUnionVariant() {
-			form.Variants = append(form.Variants, collectUnionVariant(v))
+			form.Variants = append(form.Variants, collectUnionVariant(c, name, v))
 		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
@@ -1095,20 +1095,116 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	}))
 }
 
-func collectUnionVariant(def parser.IUnionVariantContext) resolution.UnionVariant {
+func collectUnionVariant(
+	c *analysisCtx, unionName string, def parser.IUnionVariantContext,
+) resolution.UnionVariant {
+	switch v := def.(type) {
+	case *parser.NamedVariantContext:
+		variant := resolution.UnionVariant{
+			Name:    v.VariantName().GetText(),
+			Type:    collectTypeRef(v.TypeRef(), nil),
+			Domains: make(map[string]resolution.Domain),
+			AST:     def,
+		}
+		if body := v.UnionVariantBody(); body != nil {
+			for _, d := range body.AllDomain() {
+				de := collectDomain(d)
+				variant.Domains[de.Name] = de
+			}
+		}
+		return variant
+	case *parser.InlineVariantContext:
+		return collectInlineVariant(c, unionName, v)
+	default:
+		return resolution.UnionVariant{}
+	}
+}
+
+// collectInlineVariant desugars an inline variant body into a Synthetic
+// struct type registered in the table, so the variant resolves and validates
+// like a named payload while generators flatten its fields into the variant
+// member instead of emitting a standalone type.
+func collectInlineVariant(
+	c *analysisCtx, unionName string, def *parser.InlineVariantContext,
+) resolution.UnionVariant {
+	variantName := def.VariantName().GetText()
 	variant := resolution.UnionVariant{
-		Name:    def.VariantName().GetText(),
-		Type:    collectTypeRef(def.TypeRef(), nil),
+		Name:    variantName,
 		Domains: make(map[string]resolution.Domain),
 		AST:     def,
+		Inline:  true,
 	}
-	if body := def.UnionVariantBody(); body != nil {
+
+	form := resolution.StructForm{}
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				form.Extends = append(form.Extends, collectTypeRef(tr, nil))
+			}
+		}
+	}
+	if body := def.StructBody(); body != nil {
+		for _, f := range body.AllFieldDef() {
+			form.Fields = append(form.Fields, collectField(c, f, nil, &form.HasKeyDomain))
+		}
+		for _, fo := range body.AllFieldOmit() {
+			d := diagnostics.Errorf(fo,
+				"union %s variant %q: field omissions are not supported in inline variant bodies",
+				unionName, variantName)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
+		for _, a := range body.AllActionDef() {
+			d := diagnostics.Errorf(a,
+				"union %s variant %q: actions are not supported in inline variant bodies",
+				unionName, variantName)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
 			variant.Domains[de.Name] = de
 		}
 	}
+
+	name := unionName + pascalIdent(variantName) + "Payload"
+	qname := c.namespace + "." + name
+	if _, exists := c.table.Get(qname); exists {
+		d := diagnostics.Errorf(def,
+			"union %s variant %q: inline payload name %s collides with an existing type",
+			unionName, variantName, qname)
+		d.File = c.filePath
+		c.diag.Add(d)
+		return variant
+	}
+	domains := make(map[string]resolution.Domain)
+	maps.Copy(domains, c.fileDomains)
+	lo.Must0(c.table.Add(resolution.Type{
+		Name:          name,
+		Namespace:     c.namespace,
+		QualifiedName: qname,
+		FilePath:      c.filePath,
+		Form:          form,
+		Domains:       domains,
+		AST:           def,
+		Synthetic:     true,
+	}))
+	variant.Type = resolution.TypeRef{Name: name}
 	return variant
+}
+
+// pascalIdent converts a snake_case variant name to PascalCase for the
+// synthesized payload type name.
+func pascalIdent(s string) string {
+	parts := strings.Split(s, "_")
+	var b strings.Builder
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		b.WriteString(strings.ToUpper(p[:1]) + p[1:])
+	}
+	return b.String()
 }
 
 func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {

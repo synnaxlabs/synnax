@@ -43,6 +43,10 @@ type unionVariantData struct {
 	// their own declarations and docs on those classes, so the variant declares
 	// only the discriminator.
 	Parents []string
+	// Fields are the variant's own fields, declared directly on the variant
+	// model. Populated only for inline variants, whose Synthetic payload has
+	// no standalone model to inherit.
+	Fields []fieldData
 }
 
 // processUnion builds the template view for a discriminated union. Each variant
@@ -77,7 +81,25 @@ func processUnion(
 			}
 		}
 		if payload, ok := v.Type.Resolve(table); ok {
-			vd.Parents = append(vd.Parents, buildExtendsExpr(v.Type, payload, table, data))
+			if v.Inline {
+				pform := payload.Form.(resolution.StructForm)
+				for _, ext := range pform.Extends {
+					if parent, ok := ext.Resolve(table); ok {
+						vd.Parents = append(vd.Parents,
+							buildExtendsExpr(ext, parent, table, data))
+					}
+				}
+				for _, f := range pform.Fields {
+					vd.Fields = append(vd.Fields,
+						processField(f, table, data, keyFields, nil))
+				}
+			} else {
+				vd.Parents = append(vd.Parents, buildExtendsExpr(v.Type, payload, table, data))
+			}
+		}
+		if len(vd.Parents) == 0 {
+			data.imports.addPydantic("BaseModel")
+			vd.Parents = append(vd.Parents, "BaseModel")
 		}
 		ud.Variants = append(ud.Variants, vd)
 	}

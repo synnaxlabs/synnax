@@ -26,14 +26,18 @@ var Analyzer = &analysis.Analyzer{
 	Name: "mustsucceedlint",
 	Doc: `detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with MustSucceed.
 
-This analyzer finds consecutive statements where an error is assigned from a function
-call and then checked with Expect(err).ToNot(HaveOccurred()). These can be simplified:
+This analyzer finds statements where an error is assigned from a function call and then
+checked with Expect(err).ToNot(HaveOccurred()). These can be simplified:
 
   result, err := f()                    →  result := MustSucceed(f())
   Expect(err).ToNot(HaveOccurred())
 
   err := f()                            →  Expect(f()).To(Succeed())
-  Expect(err).ToNot(HaveOccurred())`,
+  Expect(err).ToNot(HaveOccurred())
+
+The Expect(err) check does not need to be immediately adjacent to the assignment;
+the analyzer walks backwards to find the binding assignment as long as no intervening
+statement references err.`,
 	Run: run,
 }
 
@@ -174,11 +178,24 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 		if !isExpectErr {
 			continue
 		}
-		assignStmt, ok := stmts[i-1].(*ast.AssignStmt)
-		if !ok {
-			continue
+		// Walk backwards through preceding statements looking for the assignment that
+		// binds errName. Bail out as soon as any intervening statement references
+		// errName, since the err identifier must remain bound for those statements.
+		var (
+			assignStmt *ast.AssignStmt
+			assignIdx  = -1
+		)
+		for j := i - 1; j >= 0; j-- {
+			if a, ok := stmts[j].(*ast.AssignStmt); ok && assignsToName(a, errName) {
+				assignStmt = a
+				assignIdx = j
+				break
+			}
+			if usesIdent(stmts[j], errName) {
+				break
+			}
 		}
-		if !assignsToName(assignStmt, errName) {
+		if assignStmt == nil {
 			continue
 		}
 		if len(assignStmt.Rhs) != 1 {
@@ -188,10 +205,36 @@ func analyzeBlock(pass *analysis.Pass, stmts []ast.Stmt) bool {
 		if !ok {
 			continue
 		}
-		if reportDiagnostic(pass, assignStmt, expectStmt, rhsCall, errName) {
+		if reportDiagnostic(pass, assignStmt, expectStmt, rhsCall, errName, assignIdx == i-1) {
 			found = true
 		}
 	}
+	return found
+}
+
+// usesIdent reports whether any identifier with the given name appears anywhere inside
+// the given AST node. Used to check whether intervening statements between an
+// assignment and an Expect(err) call still reference err.
+//
+// The match is purely by identifier name, not by lexical scope or types.Object — an
+// unrelated identifier that happens to share name (a struct field accessed as obj.err,
+// a label, a parameter in a nested function literal) will also stop the backward walk.
+// This is a deliberate, conservative trade-off: a stricter scope-aware check would
+// require running the analyzer with type information, and the cost of a false-negative
+// here is only that a valid MustSucceed rewrite is skipped — never that an incorrect
+// rewrite is emitted.
+func usesIdent(node ast.Node, name string) bool {
+	var found bool
+	ast.Inspect(node, func(n ast.Node) bool {
+		if found {
+			return false
+		}
+		if ident, ok := n.(*ast.Ident); ok && ident.Name == name {
+			found = true
+			return false
+		}
+		return true
+	})
 	return found
 }
 
@@ -293,14 +336,19 @@ func assignsToName(assign *ast.AssignStmt, name string) bool {
 	return false
 }
 
-// reportDiagnostic reports a single code replacement diagnostic. Returns true if the
-// replacement uses MustSucceed/MustSucceed2 (meaning testutil import is needed).
+// reportDiagnostic reports a single code replacement diagnostic. The adjacent flag
+// indicates whether the assignment and Expect statements are directly adjacent in the
+// source — when they are, a single text edit can rewrite both at once; otherwise the
+// fix needs two edits (rewrite the assignment, delete the Expect line). Returns true if
+// the replacement uses MustSucceed/MustSucceed2 (meaning the testutil import is
+// needed).
 func reportDiagnostic(
 	pass *analysis.Pass,
 	assign *ast.AssignStmt,
 	expectStmt *ast.ExprStmt,
 	rhsCall *ast.CallExpr,
 	errName string,
+	adjacent bool,
 ) bool {
 	callStr := nodeString(pass.Fset, rhsCall)
 	numLHS := len(assign.Lhs)
@@ -367,24 +415,60 @@ func reportDiagnostic(
 		return false
 	}
 
+	var edits []analysis.TextEdit
+	if adjacent {
+		edits = []analysis.TextEdit{{
+			Pos:     assign.Pos(),
+			End:     expectStmt.End(),
+			NewText: []byte(fixText),
+		}}
+	} else {
+		deleteStart, deleteEnd := lineRange(pass.Fset, expectStmt)
+		edits = []analysis.TextEdit{
+			{
+				Pos:     assign.Pos(),
+				End:     assign.End(),
+				NewText: []byte(fixText),
+			},
+			{
+				Pos:     deleteStart,
+				End:     deleteEnd,
+				NewText: nil,
+			},
+		}
+	}
+
 	pass.Report(analysis.Diagnostic{
 		Pos:     assign.Pos(),
 		End:     expectStmt.End(),
 		Message: msg,
 		SuggestedFixes: []analysis.SuggestedFix{
 			{
-				Message: "Replace with MustSucceed",
-				TextEdits: []analysis.TextEdit{
-					{
-						Pos:     assign.Pos(),
-						End:     expectStmt.End(),
-						NewText: []byte(fixText),
-					},
-				},
+				Message:   "Replace with MustSucceed",
+				TextEdits: edits,
 			},
 		},
 	})
 	return needsImport
+}
+
+// lineRange returns the start of the first line that stmt occupies and the start of the
+// line after the last line stmt occupies — i.e. the half-open range that covers every
+// physical line of the statement, including leading whitespace and the trailing
+// newline. Multi-line statements (e.g. an Expect chain split across lines) are covered
+// in full so that deleting the range does not leave dangling tokens behind.
+func lineRange(fset *token.FileSet, stmt ast.Stmt) (token.Pos, token.Pos) {
+	f := fset.File(stmt.Pos())
+	startLine := fset.Position(stmt.Pos()).Line
+	endLine := fset.Position(stmt.End()).Line
+	start := f.LineStart(startLine)
+	var end token.Pos
+	if endLine < f.LineCount() {
+		end = f.LineStart(endLine + 1)
+	} else {
+		end = token.Pos(f.Base() + f.Size())
+	}
+	return start, end
 }
 
 func nodeString(fset *token.FileSet, node ast.Node) string {

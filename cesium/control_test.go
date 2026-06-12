@@ -419,7 +419,7 @@ var _ = Describe("Control", func() {
 						Expect(MustSucceed(w1.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{virtualChKey},
 							[]telem.Series{telem.NewSeriesV[uint8](1)},
-						))))
+						)))).To(BeTrue())
 
 						var r cesium.StreamerResponse
 						Eventually(dataStreamerOut.Outlet()).Should(Receive(&r))

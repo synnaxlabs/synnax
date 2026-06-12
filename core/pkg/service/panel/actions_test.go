@@ -22,18 +22,18 @@ import (
 // tab constructs a resource Tab with a fixed UUID and a placeholder resource. Tests
 // use the UUID directly to assert on tab identity.
 func tab(key uuid.UUID) panel.Tab {
-	return panel.Tab{Variant: panel.TabResource{ResourceTab: panel.ResourceTab{
-		Key:      key,
+	return panel.Tab{Variant: panel.TabResource{
+		TabBase:  panel.TabBase{Key: key},
 		Resource: ontology.ID{Type: ontology.ResourceTypeLineplot, Key: key.String()},
-	}}}
+	}}
 }
 
 // viewTab constructs a view Tab with a fixed UUID and an inline view of the given type.
 func viewTab(key uuid.UUID, viewType string) panel.Tab {
-	return panel.Tab{Variant: panel.TabView{ViewTab: panel.ViewTab{
-		Key:  key,
-		View: panel.View{Type: viewType},
-	}}}
+	return panel.Tab{Variant: panel.TabView{
+		TabBase: panel.TabBase{Key: key},
+		Type:    viewType,
+	}}
 }
 
 // leafNode wraps a tab list as a leaf node.
@@ -466,7 +466,8 @@ var _ = Describe("Actions", func() {
 			next := MustSucceed(panel.SetTabResourcePayload{Key: tab1, Resource: res}.Handle(p))
 			leaf := MustBeOk(asLeaf(next.Root))
 			Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabResource{
-				ResourceTab: panel.ResourceTab{Key: tab1, Resource: res},
+				TabBase:  panel.TabBase{Key: tab1},
+				Resource: res,
 			}))
 		})
 
@@ -476,7 +477,8 @@ var _ = Describe("Actions", func() {
 			next := MustSucceed(panel.SetTabResourcePayload{Key: tab1, Resource: res}.Handle(p))
 			leaf := MustBeOk(asLeaf(next.Root))
 			Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabResource{
-				ResourceTab: panel.ResourceTab{Key: tab1, Resource: res},
+				TabBase:  panel.TabBase{Key: tab1},
+				Resource: res,
 			}))
 		})
 
@@ -490,21 +492,21 @@ var _ = Describe("Actions", func() {
 	Describe("SetTabView", func() {
 		It("Should set the view in place without changing identity", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
-			view := panel.View{Type: "docs"}
-			next := MustSucceed(panel.SetTabViewPayload{Key: tab1, View: view}.Handle(p))
+			next := MustSucceed(panel.SetTabViewPayload{Key: tab1, Type: "docs"}.Handle(p))
 			leaf := MustBeOk(asLeaf(next.Root))
 			Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
-				ViewTab: panel.ViewTab{Key: tab1, View: view},
+				TabBase: panel.TabBase{Key: tab1},
+				Type:    "docs",
 			}))
 		})
 
 		It("Should replace a resource set on the tab", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
-			view := panel.View{Type: "docs"}
-			next := MustSucceed(panel.SetTabViewPayload{Key: tab1, View: view}.Handle(p))
+			next := MustSucceed(panel.SetTabViewPayload{Key: tab1, Type: "docs"}.Handle(p))
 			leaf := MustBeOk(asLeaf(next.Root))
 			Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
-				ViewTab: panel.ViewTab{Key: tab1, View: view},
+				TabBase: panel.TabBase{Key: tab1},
+				Type:    "docs",
 			}))
 		})
 

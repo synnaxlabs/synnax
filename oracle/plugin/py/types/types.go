@@ -1713,6 +1713,9 @@ class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p
 {{ formatVariantDocstring . }}
 {{- end }}
     {{ $disc }}: Literal["{{ .Value }}"]
+{{- range .Fields }}
+    {{ .Name }}: {{ .PyType }}{{ .Default }}
+{{- end }}
 {{- end }}
 
 
