@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -102,8 +102,8 @@ type Service struct {
 
 // NewChannelResolver returns the dynamic resolver that the analyzer consults for
 // cluster channels not statically known to the program.
-func (s *Service) NewChannelResolver(tx gorp.Tx) *symbol.ChannelResolver {
-	return symbol.NewChannelResolver(s.cfg.Channel, tx)
+func (s *Service) NewChannelResolver(tx gorp.Tx) arc.SymbolResolver {
+	return svcchannel.Wrap(s.cfg.Channel).NewArcSymbolResolver(tx)
 }
 
 // NewSymbolResolver is the dynamic resolver attached to a program root's
@@ -123,7 +123,7 @@ func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
 	syms := make([]*arcsymbol.Symbol, 0, len(stlSyms)+len(statusSyms))
 	syms = append(syms, stlSyms...)
 	syms = append(syms, statusSyms...)
-	return arcsymbol.NewRoot(s.NewChannelResolver(tx), syms)
+	return arcsymbol.NewRoot(s.NewSymbolResolver(tx), syms)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {

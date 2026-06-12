@@ -18,7 +18,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
@@ -55,13 +54,11 @@ type ServiceConfig struct {
 	// calculated samples.
 	// [REQUIRED]
 	Framer *framer.Service
-	// Channel is used to retrieve information about the channels being calculated.
+	// Channel is used to retrieve information about the channels being calculated
+	// and to resolve channel symbols for Arc expression compilation.
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Arc is used for compiling arc programs used for executing calculations.
-	// [REQUIRED]
-	Arc *arc.Service
 	// Status is used for persisting calculation status updates.
 	// [REQUIRED]
 	Status *status.Service
@@ -81,7 +78,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "channel_observable", c.ChannelObservable)
-	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
@@ -93,7 +89,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelObservable = override.Nil(c.ChannelObservable, other.ChannelObservable)
-	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
@@ -121,7 +116,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
-		SymbolResolver:  cfg.Arc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		return nil, err

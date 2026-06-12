@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -73,21 +72,9 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
-	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Search:   searchIdx,
-	})
-	if err != nil {
-		b.Fatalf("failed to open arc service: %v", err)
-	}
-
 	channelSvc := svcchannel.Wrap(dist.Channel)
 	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:                dist.DB,
-		Arc:               arcSvc,
 		Framer:            dist.Framer,
 		Channel:           channelSvc,
 		ChannelObservable: dist.Channel.Observe(),

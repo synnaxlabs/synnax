@@ -16,63 +16,16 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	arcSvc *arc.Service
-	dist   mock.Node
-)
+var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	distB := DeferClose(mock.NewCluster())
-	dist = DeferClose(distB.Provision(ctx))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-		Search:   dist.Search,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-		Ontology: dist.Ontology,
-		Label:    labelSvc,
-		Search:   dist.Search,
-	}))
-	rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		HostProvider: mock.StaticHostKeyProvider(1),
-		Status:       statusSvc,
-		Search:       dist.Search,
-	}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Rack:     rackService,
-		Status:   statusSvc,
-		Search:   dist.Search,
-	}))
-	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Task:     taskSvc,
-		Search:   dist.Search,
-	}))
+	dist = DeferClose(mock.NewCluster().Provision(ctx))
 })
 
 var _ = Describe("Compile", func() {
@@ -87,9 +40,8 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
+			ChannelService: svcchannel.Wrap(dist.Channel),
 			Channel:        calc,
-			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
@@ -108,9 +60,8 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
+			ChannelService: svcchannel.Wrap(dist.Channel),
 			Channel:        calc,
-			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
@@ -130,9 +81,8 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
+			ChannelService: svcchannel.Wrap(dist.Channel),
 			Channel:        calc,
-			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.StateConfig.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
 		Expect(mod.StateConfig.Writes.Slice()).To(ContainElement(calc.Key()))
@@ -150,9 +100,8 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
+			ChannelService: svcchannel.Wrap(dist.Channel),
 			Channel:        calc,
-			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
 		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
@@ -167,9 +116,8 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
+			ChannelService: svcchannel.Wrap(dist.Channel),
 			Channel:        calc,
-			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})
 })

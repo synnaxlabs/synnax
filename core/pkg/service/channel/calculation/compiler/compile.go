@@ -19,8 +19,9 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/calcstate"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -28,10 +29,9 @@ import (
 
 // Config configures a calculation compilation.
 type Config struct {
-	// SymbolResolver resolves channel names and STL symbols during compilation.
-	SymbolResolver arc.SymbolResolver
-	// ChannelService is used to look up channel metadata for the state config.
-	ChannelService *channel.Service
+	// ChannelService builds the symbol resolver used to analyze the expression and
+	// looks up channel metadata for the compiled state config.
+	ChannelService *servicechannel.Service
 	// Channel is the calculated channel whose expression will be compiled.
 	Channel channel.Channel
 }
@@ -43,14 +43,12 @@ var (
 
 func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
-	c.SymbolResolver = override.Nil(c.SymbolResolver, other.SymbolResolver)
 	c.ChannelService = override.Nil(c.ChannelService, other.ChannelService)
 	return c
 }
 
 func (c Config) Validate() error {
 	v := validate.New("arc.runtime")
-	validate.NotNil(v, "resolver", c.SymbolResolver)
 	validate.NonZero(v, "channel.key", c.Channel.Key())
 	validate.NotNil(v, "channel_service", c.ChannelService)
 	return v.Error()
@@ -64,7 +62,8 @@ const (
 // PreProcess compiles the channel's expression to discover channel references
 // and infer output types without building the full execution graph.
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
-	ana := analyzer.New(cfg.SymbolResolver)
+	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
+	ana := analyzer.New(resolver)
 	result, err := ana.Analyze(ctx, cfg.Channel)
 	if err != nil {
 		return arc.Program{}, err
@@ -79,14 +78,14 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
-	return arc.CompileGraph(ctx, g, arc.NewRoot(cfg.SymbolResolver))
+	return arc.CompileGraph(ctx, g, arc.NewRoot(resolver))
 }
 
 // Module is the compiled output for a single calculated channel, ready for
 // execution by the framer's calculator runtime.
 type Module struct {
 	// StateConfig describes the channels read and written by this calculation.
-	StateConfig runtime.ExtendedStateConfig
+	StateConfig calcstate.ExtendedStateConfig
 	// Program is the compiled Arc program containing WASM bytecode.
 	arc.Program
 	// Channel is the calculated channel this module was compiled for.
@@ -176,8 +175,9 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		}
 	}
 
+	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
 	for k, v := range calcFn.Channels.Read {
-		sym, err := cfg.SymbolResolver.Resolve(ctx, v)
+		sym, err := resolver.Resolve(ctx, v)
 		if err != nil {
 			return Module{}, err
 		}
@@ -196,11 +196,11 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		})
 	}
 
-	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(cfg.SymbolResolver))
+	program, err := arc.CompileGraph(ctx, g, arc.NewRoot(resolver))
 	if err != nil {
 		return Module{}, err
 	}
-	stateCfg, err := runtime.NewStateConfig(ctx, cfg.ChannelService, program)
+	stateCfg, err := calcstate.NewStateConfig(ctx, cfg.ChannelService.Service, program)
 	if err != nil {
 		return Module{}, err
 	}

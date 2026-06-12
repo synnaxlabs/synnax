@@ -16,8 +16,9 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc"
 	channel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -44,10 +45,11 @@ type node struct {
 // re-inspects affected nodes when channels are created, updated, or deleted.
 type Graph struct {
 	alamos.Instrumentation
-	distribution *channel.Service
-	status       status.Writer[types.Nil]
-	disconnect   observe.Disconnect
-	mu           struct {
+	distribution      *channel.Service
+	newSymbolResolver func(tx gorp.Tx) arc.SymbolResolver
+	status            status.Writer[types.Nil]
+	disconnect        observe.Disconnect
+	mu                struct {
 		nodes            map[channel.Key]node
 		dependents       map[channel.Key]set.Set[channel.Key]
 		unresolvedByName map[string]set.Set[channel.Key]
@@ -57,9 +59,11 @@ type Graph struct {
 
 // Config configures a Graph.
 type Config struct {
-	// Channel is the distribution-layer channel service used for retrieval and
-	// observable subscription.
-	Channel *channel.Service
+	// Channel is the service-layer channel service. The graph retrieves and writes
+	// channels through its embedded distribution service and builds the Arc symbol
+	// resolver (via NewArcSymbolResolver) used to analyze calculated channel
+	// expressions.
+	Channel *servicechannel.Service
 	// Status is used to publish error/clear statuses for calculated channels.
 	Status *status.Service
 	alamos.Instrumentation
@@ -95,9 +99,10 @@ func Open(
 		return nil, err
 	}
 	s := &Graph{
-		Instrumentation: cfg.Instrumentation,
-		distribution:    cfg.Channel,
-		status:          status.NewWriter[types.Nil](cfg.Status, nil),
+		Instrumentation:   cfg.Instrumentation,
+		distribution:      cfg.Channel.Service,
+		newSymbolResolver: cfg.Channel.NewArcSymbolResolver,
+		status:            status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
 	s.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
@@ -288,7 +293,7 @@ func (s *Graph) clearNodeStatus(ctx context.Context, key channel.Key) {
 }
 
 func (s *Graph) newAnalyzer(tx gorp.Tx) *channelanalyzer.Analyzer {
-	return channelanalyzer.New(symbol.NewChannelResolver(s.distribution, tx))
+	return channelanalyzer.New(s.newSymbolResolver(tx))
 }
 
 func (s *Graph) inspectNode(

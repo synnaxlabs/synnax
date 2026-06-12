@@ -16,7 +16,6 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
@@ -30,8 +29,9 @@ import (
 )
 
 type Config struct {
-	SymbolResolver arc.SymbolResolver
-	Channel        *channel.Service
+	// Channel resolves and retrieves calculated channels and builds the Arc symbol
+	// resolver used to compile their expressions.
+	Channel *channel.Service
 	alamos.Instrumentation
 }
 
@@ -43,14 +43,12 @@ var (
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.SymbolResolver = override.Nil(c.SymbolResolver, other.SymbolResolver)
 	return c
 }
 
 func (c Config) Validate() error {
 	v := validate.New("calculation.graph")
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "symbol_resolver", c.SymbolResolver)
 	return v.Error()
 }
 
@@ -171,9 +169,8 @@ func (g *Graph) recompileDependents(ctx context.Context, changedKey channel.Key)
 			continue
 		}
 		mod, cErr := compiler.Compile(ctx, compiler.Config{
-			ChannelService: g.cfg.Channel.Service,
+			ChannelService: g.cfg.Channel,
 			Channel:        ch,
-			SymbolResolver: g.cfg.SymbolResolver,
 		})
 		if cErr != nil {
 			for _, s := range snapshots {
@@ -255,9 +252,8 @@ func (g *Graph) updateSingle(ctx context.Context, ch channel.Channel, info *chan
 
 	// Recompile with new expression
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel.Service,
+		ChannelService: g.cfg.Channel,
 		Channel:        ch,
-		SymbolResolver: g.cfg.SymbolResolver,
 	})
 	if err != nil {
 		g.logCompileError(ctx, err, ch)
@@ -502,9 +498,8 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 	defer func() { info.processing = false }()
 
 	mod, err := compiler.Compile(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel.Service,
+		ChannelService: g.cfg.Channel,
 		Channel:        ch,
-		SymbolResolver: g.cfg.SymbolResolver,
 	})
 	if err != nil {
 		delete(g.channels, ch.Key())
@@ -915,9 +910,8 @@ func (g *Graph) fetchDependencyDiagnostics(
 ) []channel.Channel {
 	// Try preProcess to discover channel references from the expression
 	prog, preErr := compiler.PreProcess(ctx, compiler.Config{
-		ChannelService: g.cfg.Channel.Service,
+		ChannelService: g.cfg.Channel,
 		Channel:        ch,
-		SymbolResolver: g.cfg.SymbolResolver,
 	})
 	if preErr != nil || len(prog.Functions) == 0 {
 		return nil

@@ -29,7 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/calcstate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -53,7 +53,7 @@ type Calculator struct {
 	state     calcState
 	scheduler *scheduler.Scheduler
 	cfg       Config
-	stateCfg  arcruntime.ExtendedStateConfig
+	stateCfg  calcstate.ExtendedStateConfig
 	start     telem.TimeStamp
 	closer    io.MultiCloser
 }

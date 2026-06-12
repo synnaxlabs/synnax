@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime_test
+package calcstate_test
 
 import (
 	"fmt"
@@ -19,8 +19,9 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/calcstate"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -55,7 +56,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeFalse())
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
@@ -85,7 +86,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -112,7 +113,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -148,7 +149,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(dataCh.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(indexCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(2))
@@ -185,7 +186,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Writes.Contains(dataCh.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
@@ -220,7 +221,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(readCh.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(writeCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(2))
@@ -255,7 +256,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(sharedCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
 		})
@@ -266,7 +267,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 					Nodes: []ir.Node{},
 				},
 			}
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads).To(HaveLen(0))
 			Expect(cfg.Writes).To(HaveLen(0))
 			Expect(cfg.ChannelDigests).To(HaveLen(0))
@@ -285,7 +286,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads).To(HaveLen(0))
 			Expect(cfg.Writes).To(HaveLen(0))
 			Expect(cfg.ChannelDigests).To(HaveLen(0))
@@ -306,8 +307,8 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			_, err := runtime.NewStateConfig(ctx, dist.Channel, prog)
-			Expect(err).To(HaveOccurred())
+			Expect(calcstate.NewStateConfig(ctx, dist.Channel, prog)).
+				Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should not add index channel to sets when channel is virtual", func(ctx SpecContext) {
@@ -333,7 +334,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(virtualCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
 		})
@@ -357,10 +358,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, virtCh.Name),
 			}
 
-			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			resolver := svcchannel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, compiled))
 			Expect(cfg.Reads).To(HaveLen(0))
 			Expect(cfg.Writes.Contains(virtCh.Key())).To(BeTrue())
 			Expect(cfg.Writes).To(HaveLen(1))
@@ -395,10 +396,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 			}
 
-			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			resolver := svcchannel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, compiled))
 			Expect(cfg.Writes.Contains(valveCh.Key())).To(BeTrue(),
 				"channel referenced only in set_authority config should be in writes")
 		})
@@ -422,7 +423,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
 			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
@@ -487,7 +488,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
+			cfg := MustSucceed(calcstate.NewStateConfig(ctx, dist.Channel, prog))
 			Expect(cfg.Reads.Contains(readCh1.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(readCh2.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(indexCh.Key())).To(BeTrue())

@@ -7,26 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package symbol_test
+package calcstate_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestSymbol(t *testing.T) {
+func TestState(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Arc Symbol Suite")
+	RunSpecs(t, "Channel Calculation Calcstate Suite")
 }
 
-var _ = ShouldNotLeakGoroutinesPerSpec()
-
-var dist mock.Node
-
-var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

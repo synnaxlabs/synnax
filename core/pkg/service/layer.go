@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -371,11 +372,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
-		Arc:             l.Arc,
 		DB:              cfg.Distribution.DB,
 		Distribution:    cfg.Distribution.Channel,
 		Status:          l.Status,
 	}); !ok(err, l.Channel) {
+		return nil, err
+	}
+	var calcGraph *calcgraph.Graph
+	if calcGraph, err = calcgraph.Open(ctx, calcgraph.Config{
+		Instrumentation: cfg.Child("channel.calculation.graph"),
+		Channel:         l.Channel,
+		Status:          l.Status,
+	}); !ok(err, calcGraph) {
 		return nil, err
 	}
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{
@@ -409,7 +417,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
-			Arc:             l.Arc,
 			Status:          l.Status,
 		},
 	); !ok(err, l.Framer) {

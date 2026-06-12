@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
@@ -55,7 +54,6 @@ type ServiceConfig struct {
 	//  Distribution layer framer service.
 	Framer  *framer.Service
 	Channel *channel.Service
-	Arc     *arc.Service
 	// Status is used for persisting calculation status updates.
 	Status *status.Service
 	alamos.Instrumentation
@@ -68,7 +66,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("framer")
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "channel", c.Channel)
-	validate.NotNil(v, "arc", c.Arc)
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
@@ -79,7 +76,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Arc = override.Nil(c.Arc, other.Arc)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
@@ -145,7 +141,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB:                cfg.DB,
 		Channel:           cfg.Channel,
 		Framer:            cfg.Framer,
-		Arc:               cfg.Arc,
 		ChannelObservable: cfg.Channel.Observe(),
 		Status:            cfg.Status,
 	}); !ok(err, calcSvc) {
@@ -163,7 +158,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Instrumentation: cfg.Child("iterator"),
 		DistFramer:      cfg.Framer,
 		Channel:         cfg.Channel,
-		Arc:             cfg.Arc,
 	}); !ok(err, nil) {
 		return nil, err
 	}
