@@ -697,21 +697,6 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 // the C++ type string and the underlying primitive type (if any).
 // Returns empty string if no explicit default is needed (e.g., for types with
 // proper default constructors like std::string, std::vector, std::optional).
-// wrapTelemDefault wraps numeric schema defaults on telem-typed fields in the
-// telem type's constructor (x::telem::TimeSpan(5)); other defaults pass through.
-func wrapTelemDefault(cppType, underlyingPrimitive string, kind resolution.ValueKind, lit string) string {
-	if kind != resolution.ValueKindInt && kind != resolution.ValueKindFloat {
-		return lit
-	}
-	if strings.Contains(cppType, "::telem::TimeStamp") || underlyingPrimitive == "timestamp" {
-		return fmt.Sprintf("x::telem::TimeStamp(%s)", lit)
-	}
-	if strings.Contains(cppType, "::telem::TimeSpan") || underlyingPrimitive == "timespan" {
-		return fmt.Sprintf("x::telem::TimeSpan(%s)", lit)
-	}
-	return lit
-}
-
 func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 	if strings.Contains(cppType, "::telem::TimeStamp") {
 		return "x::telem::TimeStamp(0)"
@@ -811,11 +796,7 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
 	if field.Default != nil {
 		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
-			defaultValue = wrapTelemDefault(cppType, underlyingPrimitive, field.Default.Kind, lit)
-		} else if field.Default.Kind == resolution.ValueKindIdent &&
-			field.Default.IdentValue == "now" &&
-			(strings.Contains(cppType, "::telem::TimeStamp") || underlyingPrimitive == "timestamp") {
-			defaultValue = "x::telem::TimeStamp::now()"
+			defaultValue = lit
 		}
 	}
 
