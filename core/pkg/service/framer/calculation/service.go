@@ -47,11 +47,16 @@ type Status = calculation.Status
 type ServiceConfig struct {
 	// ChannelObservable is used to listen to real-time changes in calculated channels
 	// so the calculation routines can be updated accordingly.
+	//
 	// [REQUIRED]
 	ChannelObservable observe.Observable[gorp.TxReader[channel.Key, channel.Channel]]
-	DB                *gorp.DB
+	// DB is the underlying database for transactional operations.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 	// Framer is the underlying frame service to stream cache channel values and write
 	// calculated samples.
+	//
 	// [REQUIRED]
 	Framer *framer.Service
 	// Channel is used to retrieve information about the channels being calculated
@@ -60,17 +65,13 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	Channel *channel.Service
 	// Status is used for persisting calculation status updates.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening the calculation
-	// service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
@@ -109,7 +110,7 @@ type Service struct {
 // OpenService opens the service with the provided configuration. The service must be closed
 // when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

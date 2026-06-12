@@ -31,14 +31,16 @@ import (
 type Config struct {
 	// Channel resolves and retrieves calculated channels and builds the Arc symbol
 	// resolver used to compile their expressions.
+	//
+	// [REQUIRED]
 	Channel *channel.Service
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -81,7 +83,7 @@ type Graph struct {
 
 // New creates a new Graph with the provided configuration.
 func New(cfgs ...Config) (*Graph, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}

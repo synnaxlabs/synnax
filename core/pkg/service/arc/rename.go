@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 )
 
 // channelRename returns an lsp.OnRename callback that propagates a rename

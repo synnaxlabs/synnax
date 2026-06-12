@@ -339,6 +339,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Device) {
 		return nil, err
 	}
+	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
+		Instrumentation: cfg.Child("channel"),
+		DB:              cfg.Distribution.DB,
+		Distribution:    cfg.Distribution.Channel,
+		Status:          l.Status,
+	}); !ok(err, l.Channel) {
+		return nil, err
+	}
 	if l.Task, err = task.OpenService(ctx, task.ServiceConfig{
 		Instrumentation: cfg.Child("task"),
 		DB:              cfg.Distribution.DB,
@@ -346,7 +354,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
 		Signals:         cfg.Distribution.Signals,
-		Channel:         cfg.Distribution.Channel,
+		Channel:         l.Channel,
 		Rack:            l.Rack,
 		Status:          l.Status,
 	}); !ok(err, l.Task) {
@@ -359,19 +367,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			DB:              cfg.Distribution.DB,
 			Ontology:        cfg.Distribution.Ontology,
 			Search:          cfg.Distribution.Search,
-			Channel:         cfg.Distribution.Channel,
+			Channel:         l.Channel,
 			Signals:         cfg.Distribution.Signals,
 			Task:            l.Task,
 		},
 	); !ok(err, l.Arc) {
-		return nil, err
-	}
-	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
-		Instrumentation: cfg.Child("channel"),
-		DB:              cfg.Distribution.DB,
-		Distribution:    cfg.Distribution.Channel,
-		Status:          l.Status,
-	}); !ok(err, l.Channel) {
 		return nil, err
 	}
 	var calcGraph *calcgraph.Graph
