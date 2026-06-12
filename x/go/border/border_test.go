@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Radius", func() {
@@ -59,8 +60,7 @@ var _ = Describe("Radius", func() {
 			BottomLeft:  spatial.XY{X: 3, Y: 7},
 			BottomRight: spatial.XY{X: 4, Y: 6},
 		}
-		data, err := json.Marshal(in)
-		Expect(err).To(BeNil())
+		data := MustSucceed(json.Marshal(in))
 		var out border.Radius
 		Expect(json.Unmarshal(data, &out)).To(Succeed())
 		Expect(out).To(Equal(in))
