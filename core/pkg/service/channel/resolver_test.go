@@ -14,9 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	arcsymbol "github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,7 +33,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 
 		sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, "resolver_test_ch"))
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
-		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
+		Expect(sym.Kind).To(Equal(symbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.F32())))
 		Expect(sym.ID).To(Equal(int(ch.Key())))
 		Expect(sym.Renameable).To(BeTrue())
@@ -62,7 +62,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 
 		sym := MustSucceed(svc.NewArcSymbolResolver(nil).Resolve(ctx, strconv.Itoa(int(ch.Key()))))
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
-		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
+		Expect(sym.Kind).To(Equal(symbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.I64())))
 	})
 

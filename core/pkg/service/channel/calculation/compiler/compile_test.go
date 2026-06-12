@@ -14,9 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -40,7 +39,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: svcchannel.Wrap(dist.Channel),
+			ChannelService: channel.Wrap(dist.Channel),
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -60,7 +59,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: svcchannel.Wrap(dist.Channel),
+			ChannelService: channel.Wrap(dist.Channel),
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -81,7 +80,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: svcchannel.Wrap(dist.Channel),
+			ChannelService: channel.Wrap(dist.Channel),
 			Channel:        calc,
 		}))
 		Expect(mod.StateConfig.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
@@ -100,7 +99,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: svcchannel.Wrap(dist.Channel),
+			ChannelService: channel.Wrap(dist.Channel),
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -116,7 +115,7 @@ var _ = Describe("Compile", func() {
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
-			ChannelService: svcchannel.Wrap(dist.Channel),
+			ChannelService: channel.Wrap(dist.Channel),
 			Channel:        calc,
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})

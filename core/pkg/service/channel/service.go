@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -24,31 +24,32 @@ import (
 )
 
 type (
-	Key          = distchannel.Key
-	Keys         = distchannel.Keys
-	LocalKey     = distchannel.LocalKey
-	Channel      = distchannel.Channel
-	Operation    = distchannel.Operation
-	CreateOption = distchannel.CreateOption
+	Key          = channel.Key
+	Keys         = channel.Keys
+	LocalKey     = channel.LocalKey
+	Channel      = channel.Channel
+	Operation    = channel.Operation
+	CreateOption = channel.CreateOption
 )
 
 var (
-	RetrieveIfNameExists                        = distchannel.RetrieveIfNameExists
-	OverwriteIfNameExistsAndDifferentProperties = distchannel.OverwriteIfNameExistsAndDifferentProperties
-	CreateWithoutGroupRelationship              = distchannel.CreateWithoutGroupRelationship
-	ParseKey                                    = distchannel.ParseKey
-	OntologyID                                  = distchannel.OntologyID
-	MatchKeys                                   = distchannel.MatchKeys
-	MatchNames                                  = distchannel.MatchNames
-	OntologyIDsFromChannels                     = distchannel.OntologyIDsFromChannels
-	KeysFromChannels                            = distchannel.KeysFromChannels
-	MatchLeaseholders                           = distchannel.MatchLeaseholders
-	MatchDataTypes                              = distchannel.MatchDataTypes
-	MatchVirtual                                = distchannel.MatchVirtual
-	MatchIsIndex                                = distchannel.MatchIsIndex
-	MatchInternal                               = distchannel.MatchInternal
-	Not                                         = distchannel.Not
-	NewRandomName                               = distchannel.NewRandomName
+	RetrieveIfNameExists                        = channel.RetrieveIfNameExists
+	OverwriteIfNameExistsAndDifferentProperties = channel.OverwriteIfNameExistsAndDifferentProperties
+	CreateWithoutGroupRelationship              = channel.CreateWithoutGroupRelationship
+	ParseKey                                    = channel.ParseKey
+	OntologyID                                  = channel.OntologyID
+	MatchKeys                                   = channel.MatchKeys
+	MatchNames                                  = channel.MatchNames
+	OntologyIDsFromChannels                     = channel.OntologyIDsFromChannels
+	KeysFromChannels                            = channel.KeysFromChannels
+	MatchLeaseholders                           = channel.MatchLeaseholders
+	MatchDataTypes                              = channel.MatchDataTypes
+	MatchVirtual                                = channel.MatchVirtual
+	MatchIsIndex                                = channel.MatchIsIndex
+	MatchInternal                               = channel.MatchInternal
+	MatchCalculated                             = channel.MatchCalculated
+	Not                                         = channel.Not
+	NewRandomName                               = channel.NewRandomName
 )
 
 // ServiceConfig configures a channel Service.
@@ -56,16 +57,13 @@ type ServiceConfig struct {
 	// DB is the underlying database for transactional operations.
 	DB *gorp.DB
 	// Distribution is the distribution-layer channel service.
-	Distribution *distchannel.Service
+	Distribution *channel.Service
 	// Status is used to publish error/clear statuses for calculated channels.
 	Status *status.Service
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
@@ -88,14 +86,14 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // The calculated channel dependency graph (type repair, status reporting) is a
 // separate reactive component opened independently of this Service.
 type Service struct {
-	*distchannel.Service
+	*channel.Service
 	cfg ServiceConfig
 }
 
 // OpenService opens a channel Service. The ctx is accepted for consistency with
 // other service constructors and may be used by future initialization work.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +103,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Wrap creates a Service that delegates directly to the distribution-layer channel
 // service without calculated channel features (type inference, dependency tracking).
 // Use OpenService for full functionality.
-func Wrap(dist *distchannel.Service) *Service {
+func Wrap(dist *channel.Service) *Service {
 	return &Service{Service: dist, cfg: ServiceConfig{Distribution: dist}}
 }
 

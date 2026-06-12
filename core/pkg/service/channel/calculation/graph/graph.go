@@ -17,8 +17,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
-	channel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -63,16 +62,13 @@ type Config struct {
 	// channels through its embedded distribution service and builds the Arc symbol
 	// resolver (via NewArcSymbolResolver) used to analyze calculated channel
 	// expressions.
-	Channel *servicechannel.Service
+	Channel *channel.Service
 	// Status is used to publish error/clear statuses for calculated channels.
 	Status *status.Service
 	alamos.Instrumentation
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 func (c Config) Validate() error {
 	v := validate.New("service.channel.calculation.graph")
@@ -94,13 +90,13 @@ func Open(
 	ctx context.Context,
 	cfgs ...Config,
 ) (*Graph, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	s := &Graph{
 		Instrumentation:   cfg.Instrumentation,
-		distribution:      cfg.Channel.Service,
+		distribution:      cfg.Channel,
 		newSymbolResolver: cfg.Channel.NewArcSymbolResolver,
 		status:            status.NewWriter[types.Nil](cfg.Status, nil),
 	}

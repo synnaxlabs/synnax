@@ -18,9 +18,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -56,7 +55,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func openGraph(ctx context.Context) *graph.Graph {
 	return MustOpen(graph.Open(ctx, graph.Config{
-		Channel: svcchannel.Wrap(dist.Channel),
+		Channel: channel.Wrap(dist.Channel),
 		Status:  statusSvc,
 	}))
 }
@@ -863,7 +862,7 @@ var _ = Describe("Graph", func() {
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: svcchannel.Wrap(dist.Channel),
+				Channel: channel.Wrap(dist.Channel),
 				Status:  statusSvc,
 			}))
 			Expect(g.Close()).To(Succeed())
@@ -871,7 +870,7 @@ var _ = Describe("Graph", func() {
 
 		It("Should disconnect observer on Close", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: svcchannel.Wrap(dist.Channel),
+				Channel: channel.Wrap(dist.Channel),
 				Status:  statusSvc,
 			}))
 			base := channel.Channel{Name: "lc_disc_base", DataType: telem.Int64T, Virtual: true}
@@ -902,13 +901,13 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should fail to open with nil Status", func(ctx SpecContext) {
-			_, err := graph.Open(ctx, graph.Config{Channel: svcchannel.Wrap(dist.Channel)})
+			_, err := graph.Open(ctx, graph.Config{Channel: channel.Wrap(dist.Channel)})
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("Should handle Close being called twice", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: svcchannel.Wrap(dist.Channel),
+				Channel: channel.Wrap(dist.Channel),
 				Status:  statusSvc,
 			}))
 			Expect(g.Close()).To(Succeed())
