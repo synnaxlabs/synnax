@@ -10,19 +10,15 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type ontology } from "@/ontology";
 import { nameZ } from "@/ranger/payload";
-import { keyZ, type New, newZ, type Payload, payloadZ } from "@/ranger/types.gen";
-
-const createResZ = z.object({ ranges: payloadZ.array() });
+import { keyZ, newZ, type Payload, payloadZ } from "@/ranger/types.gen";
 
 const parentRefZ = z.object({ key: keyZ });
-const createNewZ = newZ.extend({ parent: parentRefZ.optional() });
-const createReqZ = z.object({ ranges: createNewZ.array() });
+const createPayloadZ = newZ.extend({ parent: parentRefZ.optional() });
+export type CreatePayload = z.input<typeof createPayloadZ>;
 
-export interface CreateOptions {
-  parent?: ontology.ID;
-}
+const createReqZ = z.object({ ranges: createPayloadZ.array() });
+const createResZ = z.object({ ranges: payloadZ.array() });
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -41,16 +37,10 @@ export class Writer {
     await this.client.send("/range/rename", { key, name }, renameReqZ, renameResZ);
   }
 
-  async create(ranges: New[], options?: CreateOptions): Promise<Payload[]> {
-    const parent = options?.parent != null ? { key: options.parent.key } : undefined;
-    const stripped = ranges.map(
-      ({ parent: _ignored, ...r }: New & { parent?: unknown }) => r,
-    );
-    const withParent =
-      parent == null ? stripped : stripped.map((r) => ({ ...r, parent }));
+  async create(ranges: CreatePayload[]): Promise<Payload[]> {
     const res = await this.client.send(
       "/range/create",
-      { ranges: withParent },
+      { ranges },
       createReqZ,
       createResZ,
     );
