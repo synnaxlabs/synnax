@@ -35,10 +35,6 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const { form, save, variant } = Project.useForm({
     query: {},
-    initialValues: {
-      name: "",
-      layout: Layout.ZERO_SLICE_STATE,
-    },
     afterSave: ({ value }) => {
       const { key, name } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
