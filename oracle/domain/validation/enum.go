@@ -48,11 +48,22 @@ func ResolveEnumVariant(
 		memberName = identValue[idx+1:]
 	}
 
+	// Direct match against the bare variant name, e.g. `= cfg_default`. This is the
+	// natural way to default an enum field and is the only form that works for
+	// multi-word snake_case variants (the EnumName-prefixed fallback below collapses
+	// underscores when PascalCasing and so cannot match them).
+	for _, v := range enumForm.Values {
+		if v.Name == memberName {
+			return EnumVariant{Type: resolved, Variant: v}, true
+		}
+	}
+
+	// Fallback: the generated EnumName-prefixed form, e.g. `= ConcurrencyExclusive`
+	// for enum Concurrency variant `exclusive`.
 	variantPascal := strings.TrimPrefix(memberName, resolved.Name)
 	if variantPascal == memberName {
 		return EnumVariant{}, false
 	}
-
 	variantLower := strings.ToLower(variantPascal)
 	for _, v := range enumForm.Values {
 		if strings.ToLower(v.Name) == variantLower {

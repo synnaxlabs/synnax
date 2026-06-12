@@ -219,6 +219,17 @@ ClientXY struct {
     """
 }
 
+Decimal = float64 {
+    @doc value """
+        is a normalized value in [0, 1] expressed as a decimal fraction of a
+        whole, such as a container's extent.
+    """
+    @validate {
+        min 0
+        max 1
+    }
+}
+
 Bounds struct<T extends numeric = float64> {
     lower T {
         @doc value "is the inclusive lower bound."

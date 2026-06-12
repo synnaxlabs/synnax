@@ -291,6 +291,22 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export const dataTypeZ = z.enum(DATA_TYPES)`))
 		})
 
+		It("Should not double the trailing S on the values const for an enum ending in S", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Units enum {
+					volts = "Volts"
+					amps  = "Amps"
+				}
+			`
+			resp := MustGenerate(ctx, source, "telem", loader, typesPlugin)
+			content := MustContentOf(resp, "types.gen.ts")
+			Expect(content).To(ContainSubstring(`export const UNITS = ["Volts", "Amps"] as const`))
+			Expect(content).To(ContainSubstring(`export const unitsZ = z.enum(UNITS)`))
+			Expect(content).ToNot(ContainSubstring(`UNITSS`))
+		})
+
 		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
@@ -949,6 +965,66 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`get first(): z.ZodOptional<typeof mosaicNodeZ> {`))
 			Expect(content).To(ContainSubstring(`return mosaicNodeZ.optional()`))
 			Expect(content).To(ContainSubstring(`get last(): z.ZodOptional<typeof mosaicNodeZ> {`))
+		})
+
+		It("Should keep recursive struct-extends bases extendable", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				FunctionProperties struct {
+					inputs Param[]?
+				}
+
+				Type struct extends FunctionProperties {
+					name string
+					elem Type?
+				}
+
+				Param struct {
+					name string
+					type Type
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "arc", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp := MustSucceed(typesPlugin.Generate(req))
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const typeZ = functionPropertiesZ`))
+			Expect(content).To(ContainSubstring(`.extend({`))
+			Expect(content).ToNot(ContainSubstring(`functionPropertiesZ: z.ZodType`))
+			Expect(content).To(ContainSubstring(`export const paramZ: z.ZodType<Param> = z.object({`))
+		})
+
+		It("Should keep recursive union variant payloads extendable", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Group struct {
+					name string
+					children Node[]
+				}
+
+				Node union on type {
+					group Group
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "mosaic", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp := MustSucceed(typesPlugin.Generate(req))
+
+			content := string(resp.Files[0].Content)
+			Expect(content).ToNot(ContainSubstring(`groupZ: z.ZodType`))
 		})
 
 		It("Should generate getter for generic recursive struct with single param", func(ctx SpecContext) {
@@ -2330,6 +2406,24 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`mode: modeZ.default(Mode.automatic)`)
 			})
 
+			It("Should resolve a bare multi-word snake_case variant name as a default", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					TerminalConfig enum {
+						cfg_default = "Cfg_Default"
+						rse         = "RSE"
+					}
+
+					Config struct {
+						terminal TerminalConfig = cfg_default
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`terminal: terminalConfigZ.default("Cfg_Default")`)
+			})
+
 			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
 				loader.Add("schemas/control", `
 					@ts output "x/ts/src/control"
@@ -2394,5 +2488,433 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`level: text.levelZ.default("p")`)
 			})
 		})
+	})
+})
+
+var _ = Describe("TS Union Generation", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a discriminated union with per-variant schemas", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct {
+				slope float64
+				yIntercept float64
+			}
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const scaleLinearZ = linearScaleZ.extend({`,
+				`type: z.literal("linear"),`,
+				`export const scaleNoneZ = noneScaleZ.extend({`,
+				`type: z.literal("none"),`,
+				`export const scaleZ = z.discriminatedUnion("type", [`,
+				`scaleLinearZ,`,
+				`scaleNoneZ,`,
+				`export type Scale = ScaleLinear | ScaleNone;`,
+			)
+	})
+
+	It("Should declare inline variant fields directly on the member schema", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			TabBase struct { key string }
+			Labeled struct { label string }
+
+			Tab union on variant extends TabBase {
+				resource {
+					resource string
+				}
+				view extends Labeled {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		content := ExpectContent(resp, "types.gen.ts")
+		content.ToContain(
+			`export const tabResourceZ = tabBaseZ.extend({`,
+			`variant: z.literal("resource"),`,
+			`resource: z.string(),`,
+			`export const tabViewZ = tabBaseZ.extend(labeledZ.shape).extend({`,
+			`variant: z.literal("view"),`,
+			`type: z.string(),`,
+			`export const tabEmptyZ = tabBaseZ.extend({`,
+			`variant: z.literal("empty"),`,
+		)
+		content.ToNotContain("TabViewPayload", "tabViewPayloadZ")
+	})
+
+	It("Should carry inline variants through union composition", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			NodeConfig union on variant {
+				box {
+					width float64
+				}
+			}
+
+			EdgeConfig union on variant {
+				pipe {
+					length float64
+				}
+			}
+
+			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+		`
+		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`export const elementConfigBoxZ = z.object({`,
+			`width: z.number(),`,
+			`export const elementConfigPipeZ = z.object({`,
+			`length: z.number(),`,
+			`export type ElementConfig = ElementConfigBox | ElementConfigPipe;`,
+		)
+	})
+
+	It("Should generate a bare object schema for an inline variant with no bases", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Tab union on variant {
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`export const tabEmptyZ = z.object({`,
+			`variant: z.literal("empty"),`,
+		)
+	})
+
+	It("Should break the inference cycle when a variant struct references the union recursively", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Leaf struct { name string }
+
+			Split struct {
+				size float64
+				first Node
+				last Node
+			}
+
+			Node union on variant {
+				leaf Leaf
+				split Split
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`get first(): z.ZodType<Node> {`,
+				`return nodeZ;`,
+				`export type Node = NodeLeaf | NodeSplit;`,
+			).
+			ToNotContain(`get first(): typeof nodeZ {`)
+	})
+
+	It("Should camelize multi-word discriminators in the generated schemas", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Spec struct { type string }
+
+			Source union on value_type {
+				boolean Spec
+				number Spec
+			}
+		`
+		resp := MustGenerate(ctx, source, "telem", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`valueType: z.literal("boolean"),`,
+				`export const sourceZ = z.discriminatedUnion("valueType", [`,
+			).
+			ToNotContain(`value_type`)
+	})
+
+	It("Should generate a flat union for a union extending other unions", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			TankConfig struct { width float64 }
+			PipeConfig struct { length float64 }
+
+			NodeConfig union on variant {
+				tank TankConfig
+			}
+
+			EdgeConfig union on variant {
+				pipe PipeConfig
+			}
+
+			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+		`
+		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const elementConfigZ = z.discriminatedUnion("variant", [`,
+				`elementConfigTankZ,`,
+				`elementConfigPipeZ,`,
+				`export const ELEMENT_CONFIG_TYPES = ["tank", "pipe"] as const;`,
+			)
+	})
+
+	It("Should wrap preserve_keys map fields with caseconv.preserveKeys", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Config struct { variant string }
+
+			Schematic struct {
+				configs map<string, Config> {
+					@ts preserve_keys
+				}
+			}
+		`
+		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`configs: caseconv.preserveKeys(record.nullishToEmpty(z.string(), configZ)),`,
+			)
+	})
+
+	It("Should generate a discriminator enum and per-variant interfaces", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const SCALE_TYPES = ["linear", "none"] as const;`,
+				`export const scaleTypeZ = z.enum(SCALE_TYPES);`,
+				`export type ScaleType = z.infer<typeof scaleTypeZ>;`,
+				`export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}`,
+			)
+	})
+
+	It("Should generate a schema map keyed by discriminator value", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const SCALE_SCHEMAS: {`,
+				`  [K in ScaleType]: z.ZodType<Extract<Scale, { type: K }>>;`,
+				`} = {`,
+				`linear: scaleLinearZ,`,
+				`none: scaleNoneZ,`,
+			)
+	})
+
+	It("Should compose the union base and payload via extend, not flatten", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		content := MustContentOf(resp, "types.gen.ts")
+		// The variant composes the base and payload schemas and adds only the
+		// discriminator; the shared fields live on baseAiChanZ / voltageFieldsZ.
+		Expect(content).To(ContainSubstring("export const aiVoltageChannelZ = baseAiChanZ.extend(voltageFieldsZ.shape).extend({\n  type: z.literal(\"ai_voltage\"),\n});"))
+		Expect(content).To(ContainSubstring(`port: z.int32(),`))
+		Expect(content).To(ContainSubstring(`minVal: z.number(),`))
+	})
+
+	It("Should resolve a union-typed struct field to the union schema", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`customScale: scaleZ,`)
+	})
+
+	It("Should support a variant field that is itself a union", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			VoltageFields struct { customScale Scale }
+
+			AIChannel union on type {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				`export const aiVoltageChannelZ = voltageFieldsZ.extend({`,
+				`customScale: scaleZ,`,
+			)
+	})
+
+	It("Should render the union doc comment", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+
+			Scale union on type {
+				linear LinearScale
+
+				@doc value "determines how raw values are transformed."
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`Scale determines how raw values are transformed.`)
+	})
+})
+
+var _ = Describe("TS Union Field & Variant Coverage", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	scaleSource := func(channelFields string) string {
+		return `
+			@ts output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale {
+					@doc value "a linear scale."
+				}
+				none NoneScale
+
+				@doc value "determines how raw values are transformed."
+			}
+
+			Channel struct {
+` + channelFields + `
+			}
+		`
+	}
+
+	It("Should render the union doc directly above the discriminatedUnion, not the first variant", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale"), "ni", loader, typesPlugin)
+		content := MustContentOf(resp, "types.gen.ts")
+		Expect(content).To(ContainSubstring("/** Scale determines how raw values are transformed. */\nexport const scaleZ = z.discriminatedUnion("))
+		Expect(content).ToNot(ContainSubstring("/** Scale determines how raw values are transformed. */\nexport const scaleLinearZ"))
+	})
+
+	It("Should render a per-variant doc comment directly above the variant schema", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale"), "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(
+				"/** ScaleLinear a linear scale. */\nexport const scaleLinearZ = linearScaleZ.extend({",
+				`export interface ScaleLinear extends z.infer<typeof scaleLinearZ> {}`,
+			)
+	})
+
+	It("Should resolve an optional union-typed field as null-tolerant", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, scaleSource("\t\t\t\tcustomScale Scale?"), "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`customScale: zod.nullToUndefined(scaleZ),`,
+		)
+	})
+
+	It("Should resolve an array-of-union field", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, scaleSource("\t\t\t\tscales Scale[]"), "ni", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(`scales: array.nullishToEmpty(scaleZ),`)
+	})
+
+	It("Should import and qualify a cross-namespace union reference", func(ctx SpecContext) {
+		loader.Add("schemas/scales", `
+			@ts output "client/ts/src/scales"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`)
+		source := `
+			import "schemas/scales"
+
+			@ts output "client/ts/src/task"
+
+			Channel struct {
+				customScale scales.Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(`scales.scaleZ`)
 	})
 })

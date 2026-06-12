@@ -41,7 +41,7 @@ export interface MosaicProps
       | "onRename"
       | "onClose"
       | "addTooltip"
-      | "Name"
+      | "tabName"
     >,
     Omit<
       Flex.BoxProps,
@@ -56,12 +56,6 @@ export interface MosaicProps
   ) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
-  onReorder?: (
-    key: number,
-    droppedTabKey: string,
-    targetTabKey: string,
-    location: location.X,
-  ) => void;
   onFileDrop?: (key: number, loc: location.Location, event: DragEvent) => void;
   children: Tabs.RenderProp;
   activeTab?: string;
@@ -95,11 +89,10 @@ export const Mosaic = memo(
     onSelect,
     onClose,
     onRename,
-    onReorder,
     contextMenu,
     addTooltip,
     className,
-    Name,
+    tabName,
     ...rest
   }: MosaicProps): ReactElement | null => {
     const { tabs, direction, first, last, key, size } = root;
@@ -113,15 +106,15 @@ export const Mosaic = memo(
       contextMenu,
       onSelect,
       onRename,
-      onReorder,
       activeTab,
       addTooltip,
-      Name,
+      tabName,
     };
 
+    const isSplit = first != null && last != null;
     const handleResize = useCallback(
-      ([size]: number[]) => onResize(key, size),
-      [onResize],
+      ([size]: number[]) => isSplit && onResize(key, size),
+      [onResize, key, isSplit],
     );
 
     const { props: resizeProps } = Resize.useMultiple({
@@ -241,7 +234,6 @@ const TabLeaf = memo(
     activeTab,
     children,
     className,
-    onReorder,
     onFileDrop,
     addTooltip,
     ...rest

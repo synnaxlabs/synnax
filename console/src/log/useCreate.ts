@@ -10,14 +10,14 @@
 import { Log } from "@synnaxlabs/pluto";
 
 import { create } from "@/log/layout";
-import { Workspace } from "@/workspace";
+import { Project } from "@/project";
 
-export const useCreate = Workspace.createUseCreate({
+export const useCreate = Project.createUseCreate({
   useCreate: Log.useCreate,
-  toCreateParams: ({ overrides, workspace }) => ({
+  toCreateParams: ({ overrides, project }) => ({
     name: "Log",
     ...overrides,
-    workspace,
+    project,
   }),
   createSessionState: create,
 });

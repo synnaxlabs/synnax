@@ -105,10 +105,24 @@ func (t *Table) TypesWithDomain(domain string) []Type {
 	})
 }
 
+// StructTypes returns every generatable struct type. Synthetic structs
+// (inline union variant payloads) are excluded; resolve them via Get or
+// enumerate them with SyntheticStructTypes.
 func (t *Table) StructTypes() []Type {
 	return lo.Filter(t.Types, func(typ Type, _ int) bool {
 		_, ok := typ.Form.(StructForm)
-		return ok
+		return ok && !typ.Synthetic
+	})
+}
+
+// SyntheticStructTypes returns analyzer-fabricated struct types (inline union
+// variant payloads). Most generators flatten these into the variant member;
+// the pb plugin generates standalone messages for them because protobuf's
+// oneof members must reference a named message.
+func (t *Table) SyntheticStructTypes() []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		_, ok := typ.Form.(StructForm)
+		return ok && typ.Synthetic
 	})
 }
 
@@ -129,6 +143,13 @@ func (t *Table) AliasTypes() []Type {
 func (t *Table) DistinctTypes() []Type {
 	return lo.Filter(t.Types, func(typ Type, _ int) bool {
 		_, ok := typ.Form.(DistinctForm)
+		return ok
+	})
+}
+
+func (t *Table) UnionTypes() []Type {
+	return lo.Filter(t.Types, func(typ Type, _ int) bool {
+		_, ok := typ.Form.(UnionForm)
 		return ok
 	})
 }
@@ -271,6 +292,13 @@ func (t *Table) collectDependencies(typ Type) []string {
 		addDep(form.Target)
 	case DistinctForm:
 		addDep(form.Base)
+	case UnionForm:
+		for _, extendsRef := range form.Extends {
+			addDep(extendsRef)
+		}
+		for _, variant := range form.Variants {
+			addDep(variant.Type)
+		}
 	case EnumForm:
 		for _, extendsRef := range form.Extends {
 			addDep(extendsRef)

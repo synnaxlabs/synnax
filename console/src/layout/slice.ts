@@ -122,7 +122,7 @@ export interface SetNavDrawerPayload extends NavDrawerEntryState {
   windowKey: string;
 }
 
-export interface SetWorkspacePayload {
+export interface SetProjectPayload {
   keepNav?: boolean;
   slice: SliceState;
 }
@@ -497,9 +497,9 @@ export const { actions, reducer } = createSlice({
       drawerState.hover = false;
       drawerState.activeItem = null;
     },
-    setWorkspace: (
+    setProject: (
       state,
-      { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
+      { payload: { slice, keepNav = true } }: PayloadAction<SetProjectPayload>,
     ) => {
       // Mosaic.insertTab mutates tabs arrays in place; clone before
       // reconciling so the helper does not fight frozen nested objects
@@ -524,7 +524,7 @@ export const { actions, reducer } = createSlice({
       reconcileMosaicLayouts(next);
       return next;
     },
-    clearWorkspace: (state) => ({
+    clearProject: (state) => ({
       ...ZERO_SLICE_STATE,
       layouts: {
         ...layoutsToPreserve(state.layouts),
@@ -600,9 +600,9 @@ export const {
   resizeNavDrawer,
   setNavDrawerVisible,
   setHauled,
-  setWorkspace,
+  setProject,
   setColorContext,
-  clearWorkspace,
+  clearProject,
   startNavHover,
   toggleNavHover,
   stopNavHover,
