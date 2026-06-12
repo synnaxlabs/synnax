@@ -285,7 +285,7 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(fn).To(HaveLen(1))
 			Expect(fn[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 1, TokenType: tokenTypeFunction}))
 			for _, op := range filterByType(all, tokenTypeOperator) {
-				Expect(op.StartChar < 5).To(BeTrue())
+				Expect(op.StartChar).To(BeNumerically("<", 5))
 			}
 		})
 

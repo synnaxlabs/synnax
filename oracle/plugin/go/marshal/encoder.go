@@ -35,6 +35,9 @@ type concreteCodec struct {
 	EncodeBody string
 	DecodeBody string
 	UsesErr    bool
+	// Recursive marks types whose DecodeOrc can re-enter itself; their decode
+	// bodies are guarded with PushDepth/PopDepth against malicious nesting.
+	Recursive bool
 }
 
 type typeParamData struct {
@@ -49,6 +52,9 @@ type genericCodec struct {
 	EncodeBody string
 	DecodeBody string
 	UsesErr    bool
+	// Recursive marks types whose DecodeOrc can re-enter itself; their decode
+	// bodies are guarded with PushDepth/PopDepth against malicious nesting.
+	Recursive bool
 }
 
 type encoderFileOutput struct {
@@ -107,6 +113,7 @@ func generateEncoderCodecFile(
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to generate union codec for %s", e.GoName)
 			}
+			uc.Recursive = typeIsRecursive(e.Type, table)
 			fo.ConcreteCodecs = append(fo.ConcreteCodecs, uc)
 			continue
 		}
@@ -151,6 +158,7 @@ func generateEncoderCodecFile(
 				EncodeBody: strings.Join(b.encodeLines, "\n"),
 				DecodeBody: strings.Join(b.decodeLines, "\n"),
 				UsesErr:    b.usesErr,
+				Recursive:  typeIsRecursive(e.Type, table),
 			})
 		} else {
 			fields := resolution.UnifiedFields(e.Type, b.table)
@@ -169,6 +177,7 @@ func generateEncoderCodecFile(
 				EncodeBody: strings.Join(b.encodeLines, "\n"),
 				DecodeBody: strings.Join(b.decodeLines, "\n"),
 				UsesErr:    b.usesErr,
+				Recursive:  typeIsRecursive(e.Type, table),
 			})
 		}
 	}
@@ -453,15 +462,30 @@ func (b *encoderBuilder) processStruct(
 	return nil
 }
 
-// declaredGoName mirrors how go/types declares type names: the raw schema name
-// plus any @go name override. Routing through naming.GetGoName would
-// ToPascalCase the name and mangle acronym types (BaseAIChan -> BaseAiChan),
-// referencing identifiers the package never declares.
-func declaredGoName(t resolution.Type) string {
-	if override := domain.GetStringFromType(t, "go", "name"); override != "" {
-		return override
+// typeIsRecursive reports whether decoding typ can re-enter its own codec,
+// through struct fields (including inherited ones) or through a union's bases
+// and variant payloads. Recursive codecs guard DecodeOrc with a depth limit.
+func typeIsRecursive(typ resolution.Type, table *resolution.Table) bool {
+	switch form := typ.Form.(type) {
+	case resolution.UnionForm:
+		for _, ext := range form.Extends {
+			if resolution.RefersTo(ext, typ.QualifiedName, table) {
+				return true
+			}
+		}
+		for _, v := range form.Variants {
+			if resolution.RefersTo(v.Type, typ.QualifiedName, table) {
+				return true
+			}
+		}
+	case resolution.StructForm:
+		for _, f := range resolution.UnifiedFields(typ, table) {
+			if resolution.RefersTo(f.Type, typ.QualifiedName, table) {
+				return true
+			}
+		}
 	}
-	return t.Name
+	return false
 }
 
 // buildUnionCodec generates the EncodeOrc/DecodeOrc bodies for a discriminated
@@ -476,7 +500,7 @@ func buildUnionCodec(
 	table *resolution.Table,
 	imports map[string]string,
 ) (concreteCodec, error) {
-	goName := declaredGoName(entry)
+	goName := naming.GetGoName(entry)
 	recv := ReceiverName(goName)
 	if recv == "tag" {
 		recv += "v"
@@ -490,7 +514,7 @@ func buildUnionCodec(
 			return concreteCodec{}, errors.Newf(
 				"union %s: unresolved base %s", entry.Name, ext.Name)
 		}
-		baseEmbeds = append(baseEmbeds, declaredGoName(parent))
+		baseEmbeds = append(baseEmbeds, naming.GetGoName(parent))
 	}
 
 	enc := []string{fmt.Sprintf("\tswitch v := %s.Variant.(type) {", recv)}
@@ -507,7 +531,7 @@ func buildUnionCodec(
 				entry.Name, v.Name, v.Type.Name)
 		}
 		variantType := casing.VariantTypeName(goName, v.Name)
-		embeds := append(append([]string{}, baseEmbeds...), declaredGoName(payload))
+		embeds := append(append([]string{}, baseEmbeds...), naming.GetGoName(payload))
 		enc = append(enc,
 			fmt.Sprintf("\tcase %s:", variantType),
 			fmt.Sprintf("\t\tw.String(%q)", v.Name),
@@ -1125,6 +1149,12 @@ func ({{.Receiver}} {{.GoName}}) EncodeOrc(w *orc.Writer) error {
 }
 
 func ({{.Receiver}} *{{.GoName}}) DecodeOrc(r *orc.Reader) error {
+{{- if .Recursive}}
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
+{{- end}}
 {{- if .UsesErr}}
 	var err error
 {{- end}}
@@ -1138,6 +1168,12 @@ func ({{.Receiver}} {{.GoName}}[{{tpNames .TypeParams}}]) EncodeOrc(w *orc.Write
 }
 
 func ({{.Receiver}} *{{.GoName}}[{{tpNames .TypeParams}}]) DecodeOrc(r *orc.Reader) error {
+{{- if .Recursive}}
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
+{{- end}}
 {{- if .UsesErr}}
 	var err error
 {{- end}}

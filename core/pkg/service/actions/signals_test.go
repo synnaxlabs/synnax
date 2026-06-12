@@ -88,7 +88,7 @@ var _ = Describe("PublishSignals", func() {
 		actionSeq := []testAction{{Type: "rename", Payload: "next-name"}}
 		state.Dispatcher().Notify(ctx, key, "dk-1", actionSeq)
 		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), "5s").Should(Receive(&res))
+		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(ConsistOf(setChannel.Key()))
 		samples := res.Frame.SeriesAt(0).Samples()
 		var decoded []actions.Scoped[uuid.UUID, testAction]
@@ -122,7 +122,7 @@ var _ = Describe("PublishSignals", func() {
 			default:
 			}
 			return seqs
-		}, "5s").Should(Equal([]uint64{1, 2, 3}))
+		}, time.Second*5).Should(Equal([]uint64{1, 2, 3}))
 	})
 })
 
