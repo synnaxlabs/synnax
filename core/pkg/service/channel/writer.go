@@ -14,7 +14,6 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Writer wraps the distribution-layer channel writer, adding DataType inference
@@ -22,7 +21,6 @@ import (
 type Writer struct {
 	channel.Writer
 	analyzer *analyzer.Analyzer
-	tx       gorp.Tx
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.

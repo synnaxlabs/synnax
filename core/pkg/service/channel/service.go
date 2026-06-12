@@ -123,7 +123,6 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
-	w.tx = gorp.OverrideTx(s.cfg.DB, tx)
 	w.analyzer = analyzer.New(s.NewArcSymbolResolver(tx))
 	return w
 }
