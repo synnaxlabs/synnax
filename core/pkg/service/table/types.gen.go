@@ -12,37 +12,74 @@
 package table
 
 import (
+	"encoding/json"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = uuid.UUID
 
-// Cell is a single cell in a table, identified by key and variant.
+// TextCellConfig is the configuration for static text cells.
+type TextCellConfig struct {
+	// Value is the text content of the cell.
+	Value string `json:"value" msgpack:"value"`
+	// Level is the typography level of the cell text.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// Weight is the font weight of the cell text.
+	Weight *float64 `json:"weight,omitempty" msgpack:"weight,omitempty"`
+	// Align is the alignment of the cell text along the row axis.
+	Align *spatial.Alignment `json:"align,omitempty" msgpack:"align,omitempty"`
+	// BackgroundColor is the background color of the cell.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+}
+
+// Redline maps a numeric range to a color gradient for limit visualization.
+type Redline struct {
+	// Bounds is the numeric range mapped onto the gradient.
+	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	// Gradient is the color gradient applied across the bounds.
+	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
+}
+
+// ValueCellConfig is the configuration for live telemetry value cells.
+type ValueCellConfig struct {
+	// Channel is the channel whose value the cell displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
+	// Redline is the bounds-to-gradient mapping applied to the background.
+	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
+	// Level is the typography level of the displayed value.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// Color is the color of the displayed text.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units string `json:"units" msgpack:"units"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
+}
+
+// Cell is a keyed cell configuration used by actions that address cells explicitly.
+// Inside the table state itself, cell configurations are stored in the cells map keyed
+// by cell key.
 type Cell struct {
 	// Key is the unique identifier for this cell within the table.
 	Key string `json:"key" msgpack:"key"`
-	// Variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-	// the shape of props and which Pluto cell component renders the cell.
-	Variant string `json:"variant" msgpack:"variant"`
-	// Props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new variants
-	// can be added without a schema migration.
-	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
-}
-
-// CellTemplate is a variant + props pair describing what a cell should look like,
-// without identifying which cell. Used by actions that overwrite existing cells in
-// place (EraseCells), where the target cell's key is provided separately.
-type CellTemplate struct {
-	// Variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-	// the shape of props and which Pluto cell component renders the cell.
-	Variant string `json:"variant" msgpack:"variant"`
-	// Props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new variants
-	// can be added without a schema migration.
-	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
+	// Config is the cell's variant-discriminated configuration.
+	Config CellConfig `json:"config" msgpack:"config"`
 }
 
 // Row is a single row in a table, with height and ordered cell keys.
@@ -75,5 +112,93 @@ type Table struct {
 	// Cells contains all cells in the table, keyed by cell key. Cell positions are derived
 	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
 	// will be pruned on the next structural edit.
-	Cells map[string]Cell `json:"cells" msgpack:"cells"`
+	Cells map[string]CellConfig `json:"cells" msgpack:"cells"`
+}
+
+type CellConfigType string
+
+const (
+	CellConfigTypeText  CellConfigType = "text"
+	CellConfigTypeValue CellConfigType = "value"
+)
+
+type CellConfigVariant interface {
+	isCellConfigVariant()
+}
+
+type CellConfigText struct {
+	TextCellConfig
+}
+
+func (CellConfigText) isCellConfigVariant() {}
+
+type CellConfigValue struct {
+	ValueCellConfig
+}
+
+func (CellConfigValue) isCellConfigVariant() {}
+
+// CellConfig is the per-cell configuration stored in the table cells map. The variant
+// selects which Pluto cell component renders the cell.
+type CellConfig struct {
+	Variant CellConfigVariant
+}
+
+func (u CellConfig) MarshalJSON() ([]byte, error) {
+	if u.Variant == nil {
+		return []byte("null"), nil
+	}
+	var t CellConfigType
+	switch u.Variant.(type) {
+	case CellConfigText:
+		t = CellConfigTypeText
+	case CellConfigValue:
+		t = CellConfigTypeValue
+	default:
+		return nil, errors.Newf("CellConfig: nil or unknown variant %T", u.Variant)
+	}
+	raw, err := json.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["variant"] = tag
+	return json.Marshal(fields)
+}
+
+func (u *CellConfig) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type CellConfigType `json:"variant"`
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CellConfigTypeText:
+		var v CellConfigText
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CellConfigTypeValue:
+		var v CellConfigValue
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("CellConfig: unknown variant %q", disc.Type)
+	}
+	return nil
 }

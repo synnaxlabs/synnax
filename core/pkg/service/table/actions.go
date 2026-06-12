@@ -42,9 +42,8 @@ func expandTemplate(template Cell, count int) []Cell {
 	cells := make([]Cell, count)
 	for i := range cells {
 		cells[i] = Cell{
-			Key:     deriveCellKey(template.Key, i),
-			Variant: template.Variant,
-			Props:   template.Props,
+			Key:    deriveCellKey(template.Key, i),
+			Config: template.Config,
 		}
 	}
 	return cells
@@ -81,10 +80,10 @@ func (p AddRowPayload) Handle(state Table) (Table, error) {
 	idx := min(int(p.Index), len(state.Rows))
 	state.Rows = slices.Insert(state.Rows, idx, row)
 	if state.Cells == nil {
-		state.Cells = make(map[string]Cell, len(cells))
+		state.Cells = make(map[string]CellConfig, len(cells))
 	}
 	for _, c := range cells {
-		state.Cells[c.Key] = c
+		state.Cells[c.Key] = c.Config
 	}
 	return state, nil
 }
@@ -121,7 +120,7 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 	idx := min(int(p.Index), len(state.Columns))
 	state.Columns = slices.Insert(state.Columns, idx, Column{Size: max(p.Size, minCellDim)})
 	if state.Cells == nil {
-		state.Cells = make(map[string]Cell, len(cells))
+		state.Cells = make(map[string]CellConfig, len(cells))
 	}
 	for i := range state.Rows {
 		if i >= len(cells) {
@@ -131,7 +130,7 @@ func (p AddColPayload) Handle(state Table) (Table, error) {
 		state.Rows[i].Cells = slices.Insert(state.Rows[i].Cells, rowIdx, cells[i].Key)
 	}
 	for _, c := range cells {
-		state.Cells[c.Key] = c
+		state.Cells[c.Key] = c.Config
 	}
 	return state, nil
 }
@@ -177,13 +176,13 @@ func (p ResizeColPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle replaces the cell stored under p.Cell.Key. No-op if no entry with
-// that key exists.
+// Handle replaces the cell config stored under p.Cell.Key. No-op if no entry
+// with that key exists.
 func (p SetCellPayload) Handle(state Table) (Table, error) {
 	if _, ok := state.Cells[p.Cell.Key]; !ok {
 		return state, nil
 	}
-	state.Cells[p.Cell.Key] = p.Cell
+	state.Cells[p.Cell.Key] = p.Cell.Config
 	return state, nil
 }
 
@@ -247,7 +246,7 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 		if _, ok := state.Cells[k]; !ok {
 			continue
 		}
-		state.Cells[k] = Cell{Key: k, Variant: p.Template.Variant, Props: p.Template.Props}
+		state.Cells[k] = p.Template
 	}
 	return state, nil
 }

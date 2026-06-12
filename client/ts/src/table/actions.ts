@@ -44,8 +44,7 @@ const deriveCellKey = (templateKey: string, index: number): string => {
 const expandTemplate = (template: Cell, count: number): Cell[] =>
   Array.from({ length: count }, (_, i) => ({
     key: deriveCellKey(template.key, i),
-    variant: template.variant,
-    props: template.props,
+    config: template.config,
   }));
 
 const handlers: Handlers = {
@@ -75,7 +74,7 @@ const handlers: Handlers = {
       size: Math.max(payload.size, MIN_CELL_DIM),
       cells: keys,
     });
-    for (const c of cells) state.cells[c.key] = c;
+    for (const c of cells) state.cells[c.key] = c.config;
     return {
       inverse: [removeRow({ index: idx })],
       targets: keys,
@@ -88,7 +87,7 @@ const handlers: Handlers = {
     const cells: Cell[] = [];
     for (const k of removed.cells) {
       const c = state.cells[k];
-      if (c != null) cells.push(actions.snapshotDraft(c));
+      if (c != null) cells.push({ key: k, config: actions.snapshotDraft(c) });
     }
     state.rows.splice(payload.index, 1);
     for (const k of removed.cells) delete state.cells[k];
@@ -115,7 +114,7 @@ const handlers: Handlers = {
       const rowIdx = Math.min(idx, state.rows[i].cells.length);
       state.rows[i].cells.splice(rowIdx, 0, cells[i].key);
     }
-    for (const c of cells) state.cells[c.key] = c;
+    for (const c of cells) state.cells[c.key] = c.config;
     return {
       inverse: [removeCol({ index: idx })],
       targets: cells.map((c) => c.key),
@@ -134,7 +133,7 @@ const handlers: Handlers = {
       if (payload.index >= state.rows[i].cells.length) continue;
       const k = state.rows[i].cells[payload.index];
       const c = state.cells[k];
-      if (c != null) removedCells.push(actions.snapshotDraft(c));
+      if (c != null) removedCells.push({ key: k, config: actions.snapshotDraft(c) });
       delete state.cells[k];
       state.rows[i].cells.splice(payload.index, 1);
     }
@@ -170,10 +169,10 @@ const handlers: Handlers = {
   setCell: (state, payload) => {
     const existing = state.cells[payload.cell.key];
     if (existing == null) return actions.NO_OP_RESULT;
-    const oldCell = actions.snapshotDraft(existing);
-    state.cells[payload.cell.key] = payload.cell;
+    const oldConfig = actions.snapshotDraft(existing);
+    state.cells[payload.cell.key] = payload.cell.config;
     return {
-      inverse: [setCell({ cell: oldCell })],
+      inverse: [setCell({ cell: { key: payload.cell.key, config: oldConfig } })],
       targets: [payload.cell.key],
     };
   },
@@ -213,7 +212,7 @@ const handlers: Handlers = {
       const cells: Cell[] = [];
       for (const k of removed.cells) {
         const c = state.cells[k];
-        if (c != null) cells.push(actions.snapshotDraft(c));
+        if (c != null) cells.push({ key: k, config: actions.snapshotDraft(c) });
       }
       state.rows.splice(idx, 1);
       for (const k of removed.cells) delete state.cells[k];
@@ -229,7 +228,7 @@ const handlers: Handlers = {
         if (idx >= state.rows[r].cells.length) continue;
         const k = state.rows[r].cells[idx];
         const c = state.cells[k];
-        if (c != null) removedCells.push(actions.snapshotDraft(c));
+        if (c != null) removedCells.push({ key: k, config: actions.snapshotDraft(c) });
         delete state.cells[k];
         state.rows[r].cells.splice(idx, 1);
       }
@@ -239,13 +238,9 @@ const handlers: Handlers = {
     for (const k of selected) {
       const existing = state.cells[k];
       if (existing == null) continue;
-      const oldCell = actions.snapshotDraft(existing);
-      state.cells[k] = {
-        key: k,
-        variant: payload.template.variant,
-        props: payload.template.props,
-      };
-      inverse.push(setCell({ cell: oldCell }));
+      const oldConfig = actions.snapshotDraft(existing);
+      state.cells[k] = payload.template;
+      inverse.push(setCell({ cell: { key: k, config: oldConfig } }));
       targets.push(k);
     }
     return { inverse, targets };

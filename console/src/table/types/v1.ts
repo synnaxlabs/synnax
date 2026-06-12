@@ -66,6 +66,80 @@ export const ZERO_SLICE_STATE: SliceState = {
 export const STATE_MIGRATION_NAME = "table.state";
 export const SLICE_MIGRATION_NAME = "table.slice";
 
+// segProp reads a property from a named segment of a legacy pipeline spec;
+// single-segment pipelines store the spec at the top level. Mirrors
+// convert.go on the server side.
+const segProp = (spec: unknown, segment: string, prop: string): unknown => {
+  if (typeof spec !== "object" || spec == null) return undefined;
+  const props = (spec as record.Unknown).props;
+  if (typeof props !== "object" || props == null) return undefined;
+  let segments = (props as record.Unknown).segments;
+  if (typeof segments !== "object" || segments == null) segments = { [segment]: spec };
+  const seg = (segments as record.Unknown)[segment];
+  if (typeof seg !== "object" || seg == null) return undefined;
+  const segProps = (seg as record.Unknown).props;
+  if (typeof segProps !== "object" || segProps == null) return undefined;
+  const v = (segProps as record.Unknown)[prop];
+  if (prop === "channel" && v === 0) return undefined;
+  return v;
+};
+
+// LEGACY_ALIGNS maps the x-location alignments the pre-typed text cell schema
+// declared onto the flex alignments the alignment form control has always
+// written.
+const LEGACY_ALIGNS: Record<string, string> = { left: "start", right: "end" };
+
+// LEGACY_WEIGHTS maps named CSS font weights onto the numeric weights the
+// weight form control writes.
+const LEGACY_WEIGHTS: Record<string, number> = {
+  lighter: 300,
+  normal: 400,
+  bold: 700,
+  bolder: 700,
+};
+
+// extractLegacyArgs rewrites a legacy cell's stored fields into the semantic
+// arguments the typed schema declares, in place. Mirrors convert.go.
+const extractLegacyArgs = (cfg: record.Unknown): void => {
+  const setIfPresent = (key: string, v: unknown): void => {
+    if (v !== undefined) cfg[key] = v;
+  };
+  switch (cfg.variant) {
+    case "value":
+      setIfPresent("channel", segProp(cfg.telem, "valueStream", "channel"));
+      setIfPresent(
+        "rollingAverage",
+        segProp(cfg.telem, "rollingAverage", "windowSize"),
+      );
+      setIfPresent("precision", segProp(cfg.telem, "stringifier", "precision"));
+      setIfPresent("notation", segProp(cfg.telem, "stringifier", "notation"));
+      delete cfg.telem;
+      break;
+    case "text":
+      if (typeof cfg.align === "string" && cfg.align in LEGACY_ALIGNS)
+        cfg.align = LEGACY_ALIGNS[cfg.align];
+      if (typeof cfg.weight === "string" && cfg.weight in LEGACY_WEIGHTS)
+        cfg.weight = LEGACY_WEIGHTS[cfg.weight];
+      break;
+  }
+};
+
+const EMPTY_TEXT_CONFIG: table.CellConfig = { variant: "text" };
+
+// migrateCell converts a legacy cell (variant string plus camelCase props
+// written verbatim) into the typed cell config. Cells that conform to no
+// known variant degrade to an empty text cell so rows never reference missing
+// entries.
+const migrateCell = (c: { variant: string; props?: unknown }): table.CellConfig => {
+  const cfg: record.Unknown = {
+    ...((c.props as record.Unknown) ?? {}),
+    variant: c.variant,
+  };
+  extractLegacyArgs(cfg);
+  const parsed = table.cellConfigZ.safeParse(cfg);
+  return parsed.success ? parsed.data : EMPTY_TEXT_CONFIG;
+};
+
 const buildPendingUpload = (state: v0.State): PendingUpload => ({
   key: state.key,
   rows: state.layout.rows.map((r) => ({
@@ -74,14 +148,7 @@ const buildPendingUpload = (state: v0.State): PendingUpload => ({
   })),
   columns: state.layout.columns,
   cells: Object.fromEntries(
-    Object.entries(state.cells).map(([k, c]) => [
-      k,
-      {
-        key: c.key,
-        variant: c.variant,
-        props: (c.props as record.Unknown) ?? {},
-      },
-    ]),
+    Object.entries(state.cells).map(([k, c]) => [k, migrateCell(c)]),
   ),
 });
 

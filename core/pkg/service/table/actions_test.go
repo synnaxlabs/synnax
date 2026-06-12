@@ -13,22 +13,30 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// cell constructs a Cell with the given key and variant, defaulting props to nil.
-func cell(key, variant string) table.Cell {
-	return table.Cell{Key: key, Variant: variant}
+// textCfg constructs a typed text cell config with the given content.
+func textCfg(value string) table.CellConfig {
+	return table.CellConfig{Variant: table.CellConfigText{
+		TextCellConfig: table.TextCellConfig{Value: value},
+	}}
 }
 
-// cellWithProps constructs a Cell with the given key, variant, and props.
-func cellWithProps(key, variant string, props msgpack.EncodedJSON) table.Cell {
-	return table.Cell{Key: key, Variant: variant, Props: props}
+// valueCfg constructs a typed value cell config with the given unit suffix.
+func valueCfg(units string) table.CellConfig {
+	return table.CellConfig{Variant: table.CellConfigValue{
+		ValueCellConfig: table.ValueCellConfig{Units: units},
+	}}
+}
+
+// cell constructs a Cell with the given key and config.
+func cell(key string, cfg table.CellConfig) table.Cell {
+	return table.Cell{Key: key, Config: cfg}
 }
 
 // seed2x2 returns a 2x2 table with cells a,b across row 0 and c,d across row 1.
-// Variant is "text" with no props on every cell.
+// Every cell is an empty text cell.
 func seed2x2() table.Table {
 	return table.Table{
 		Name: "t",
@@ -37,22 +45,22 @@ func seed2x2() table.Table {
 			{Size: 30, Cells: []string{"c", "d"}},
 		},
 		Columns: []table.Column{{Size: 80}, {Size: 80}},
-		Cells: map[string]table.Cell{
-			"a": cell("a", "text"),
-			"b": cell("b", "text"),
-			"c": cell("c", "text"),
-			"d": cell("d", "text"),
+		Cells: map[string]table.CellConfig{
+			"a": textCfg(""),
+			"b": textCfg(""),
+			"c": textCfg(""),
+			"d": textCfg(""),
 		},
 	}
 }
 
-// seed3x3 returns a 3x3 table with cells a..i in row-major order. Variant is
-// "value" on every cell; props are nil.
+// seed3x3 returns a 3x3 table with cells a..i in row-major order. Every cell
+// is an empty value cell.
 func seed3x3() table.Table {
 	keys := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}
-	cells := make(map[string]table.Cell, len(keys))
+	cells := make(map[string]table.CellConfig, len(keys))
 	for _, k := range keys {
-		cells[k] = cell(k, "value")
+		cells[k] = valueCfg("")
 	}
 	return table.Table{
 		Name: "t",
@@ -82,20 +90,20 @@ var _ = Describe("Reducer", func() {
 				Index: 2,
 				Size:  40,
 				Cells: []table.Cell{
-					cellWithProps("e", "text", msgpack.EncodedJSON{"value": "E"}),
-					cellWithProps("f", "text", msgpack.EncodedJSON{"value": "F"}),
+					cell("e", textCfg("E")),
+					cell("f", textCfg("F")),
 				},
 			})))
 			Expect(out.Rows).To(HaveLen(3))
 			Expect(out.Rows[2].Cells).To(Equal([]string{"e", "f"}))
-			Expect(out.Cells["e"].Props["value"]).To(Equal("E"))
+			Expect(out.Cells["e"]).To(Equal(textCfg("E")))
 		})
 
 		It("Should clamp out-of-range indices to the end of the rows slice", func() {
 			out := MustSucceed(table.Reduce(seed2x2(), table.NewAddRowAction(table.AddRowPayload{
 				Index: 999,
 				Size:  50,
-				Cells: []table.Cell{cell("z", "text")},
+				Cells: []table.Cell{cell("z", textCfg(""))},
 			})))
 			Expect(out.Rows).To(HaveLen(3))
 			Expect(out.Rows[2].Cells).To(Equal([]string{"z"}))
@@ -105,7 +113,7 @@ var _ = Describe("Reducer", func() {
 			out := MustSucceed(table.Reduce(table.Table{}, table.NewAddRowAction(table.AddRowPayload{
 				Index: 0,
 				Size:  36,
-				Cells: []table.Cell{cell("a", "text"), cell("b", "text")},
+				Cells: []table.Cell{cell("a", textCfg("")), cell("b", textCfg(""))},
 			})))
 			Expect(out.Rows).To(HaveLen(1))
 			Expect(out.Columns).To(HaveLen(2))
@@ -140,8 +148,8 @@ var _ = Describe("Reducer", func() {
 				Index: 1,
 				Size:  90,
 				Cells: []table.Cell{
-					cellWithProps("m1", "text", msgpack.EncodedJSON{"value": "M1"}),
-					cellWithProps("m2", "text", msgpack.EncodedJSON{"value": "M2"}),
+					cell("m1", textCfg("M1")),
+					cell("m2", textCfg("M2")),
 				},
 			})))
 			Expect(out.Columns).To(HaveLen(3))
@@ -153,7 +161,7 @@ var _ = Describe("Reducer", func() {
 			out := MustSucceed(table.Reduce(table.Table{}, table.NewAddColAction(table.AddColPayload{
 				Index: 0,
 				Size:  72,
-				Cells: []table.Cell{cell("a", "text"), cell("b", "text")},
+				Cells: []table.Cell{cell("a", textCfg("")), cell("b", textCfg(""))},
 			})))
 			Expect(out.Columns).To(HaveLen(1))
 			Expect(out.Rows).To(HaveLen(2))
@@ -180,14 +188,14 @@ var _ = Describe("Reducer", func() {
 		// templateKey is a 36-character UUID v4 whose last four hex digits will
 		// be replaced with the per-replica index when the reducer expands it.
 		const templateKey = "11111111-2222-4333-8444-555555555555"
-		template := &table.Cell{Key: templateKey, Variant: "text"}
+		template := &table.Cell{Key: templateKey, Config: textCfg("")}
 
 		DescribeTable("replicates the template across the opposing axis",
 			func(state table.Table, action table.Action, wantRow0 []string) {
 				out := MustSucceed(table.Reduce(state, action))
 				Expect(out.Rows[0].Cells).To(Equal(wantRow0))
-				Expect(out.Cells["11111111-2222-4333-8444-555555550000"].Variant).
-					To(Equal("text"))
+				Expect(out.Cells["11111111-2222-4333-8444-555555550000"]).
+					To(Equal(textCfg("")))
 			},
 			Entry("AddRow against two existing columns",
 				seed2x2(),
@@ -248,13 +256,13 @@ var _ = Describe("Reducer", func() {
 			},
 			Entry("AddRow",
 				table.NewAddRowAction(table.AddRowPayload{
-					Index: 2, Size: 5, Cells: []table.Cell{cell("z", "text"), cell("y", "text")},
+					Index: 2, Size: 5, Cells: []table.Cell{cell("z", textCfg("")), cell("y", textCfg(""))},
 				}),
 				func(t table.Table) float64 { return t.Rows[2].Size },
 			),
 			Entry("AddCol",
 				table.NewAddColAction(table.AddColPayload{
-					Index: 2, Size: 0, Cells: []table.Cell{cell("z", "text"), cell("y", "text")},
+					Index: 2, Size: 0, Cells: []table.Cell{cell("z", textCfg("")), cell("y", textCfg(""))},
 				}),
 				func(t table.Table) float64 { return t.Columns[2].Size },
 			),
@@ -281,16 +289,15 @@ var _ = Describe("Reducer", func() {
 	Describe("SetCell", func() {
 		It("Should replace the cell stored under the given key", func() {
 			out := MustSucceed(table.Reduce(seed2x2(), table.NewSetCellAction(table.SetCellPayload{
-				Cell: cellWithProps("a", "value", msgpack.EncodedJSON{"units": "psi"}),
+				Cell: cell("a", valueCfg("psi")),
 			})))
-			Expect(out.Cells["a"].Variant).To(Equal("value"))
-			Expect(out.Cells["a"].Props["units"]).To(Equal("psi"))
+			Expect(out.Cells["a"]).To(Equal(valueCfg("psi")))
 			Expect(out.Cells).To(HaveLen(4))
 		})
 
 		It("Should be a no-op when no cell with the given key exists", func() {
 			out := MustSucceed(table.Reduce(seed2x2(), table.NewSetCellAction(table.SetCellPayload{
-				Cell: cell("ghost", "text"),
+				Cell: cell("ghost", textCfg("")),
 			})))
 			Expect(out.Cells).NotTo(HaveKey("ghost"))
 			Expect(out.Cells).To(HaveLen(4))
@@ -298,7 +305,7 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("EraseCells", func() {
-		template := table.CellTemplate{Variant: "text"}
+		template := textCfg("")
 
 		DescribeTable("removes fully-selected axes and resets surviving cells",
 			func(selection []string, wantRows int, wantCols int, wantRow0 []string) {
@@ -329,9 +336,9 @@ var _ = Describe("Reducer", func() {
 			out := MustSucceed(table.Reduce(seed3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
 				Cells: []string{"b", "e"}, Template: template,
 			})))
-			Expect(out.Cells["b"].Variant).To(Equal("text"))
-			Expect(out.Cells["e"].Variant).To(Equal("text"))
-			Expect(out.Cells["a"].Variant).To(Equal("value"))
+			Expect(out.Cells["b"]).To(Equal(textCfg("")))
+			Expect(out.Cells["e"]).To(Equal(textCfg("")))
+			Expect(out.Cells["a"]).To(Equal(valueCfg("")))
 		})
 
 		It("Should drop cells from the cells map when their row is fully removed", func() {

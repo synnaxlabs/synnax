@@ -18,9 +18,12 @@
 package pb
 
 import (
+	pb2 "github.com/synnaxlabs/x/color/pb"
+	pb3 "github.com/synnaxlabs/x/notation/pb"
+	pb1 "github.com/synnaxlabs/x/spatial/pb"
+	pb "github.com/synnaxlabs/x/text/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -33,25 +36,287 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Cell is a single cell in a table, identified by key and variant.
+// TextCellConfig is the configuration for static text cells.
+type TextCellConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// value is the text content of the cell.
+	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	// level is the typography level of the cell text.
+	Level *pb.Level `protobuf:"varint,2,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
+	// weight is the font weight of the cell text.
+	Weight *float64 `protobuf:"fixed64,3,opt,name=weight,proto3,oneof" json:"weight,omitempty"`
+	// align is the alignment of the cell text along the row axis.
+	Align *pb1.Alignment `protobuf:"varint,4,opt,name=align,proto3,enum=x.spatial.pb.Alignment,oneof" json:"align,omitempty"`
+	// background_color is the background color of the cell.
+	BackgroundColor *pb2.Color `protobuf:"bytes,5,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *TextCellConfig) Reset() {
+	*x = TextCellConfig{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TextCellConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TextCellConfig) ProtoMessage() {}
+
+func (x *TextCellConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TextCellConfig.ProtoReflect.Descriptor instead.
+func (*TextCellConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *TextCellConfig) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *TextCellConfig) GetLevel() pb.Level {
+	if x != nil && x.Level != nil {
+		return *x.Level
+	}
+	return pb.Level(0)
+}
+
+func (x *TextCellConfig) GetWeight() float64 {
+	if x != nil && x.Weight != nil {
+		return *x.Weight
+	}
+	return 0
+}
+
+func (x *TextCellConfig) GetAlign() pb1.Alignment {
+	if x != nil && x.Align != nil {
+		return *x.Align
+	}
+	return pb1.Alignment(0)
+}
+
+func (x *TextCellConfig) GetBackgroundColor() *pb2.Color {
+	if x != nil {
+		return x.BackgroundColor
+	}
+	return nil
+}
+
+// Redline maps a numeric range to a color gradient for limit visualization.
+type Redline struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// bounds is the numeric range mapped onto the gradient.
+	Bounds *pb1.Bounds `protobuf:"bytes,1,opt,name=bounds,proto3" json:"bounds,omitempty"`
+	// gradient is the color gradient applied across the bounds.
+	Gradient      []*pb2.Stop `protobuf:"bytes,2,rep,name=gradient,proto3" json:"gradient,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Redline) Reset() {
+	*x = Redline{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Redline) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Redline) ProtoMessage() {}
+
+func (x *Redline) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Redline.ProtoReflect.Descriptor instead.
+func (*Redline) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Redline) GetBounds() *pb1.Bounds {
+	if x != nil {
+		return x.Bounds
+	}
+	return nil
+}
+
+func (x *Redline) GetGradient() []*pb2.Stop {
+	if x != nil {
+		return x.Gradient
+	}
+	return nil
+}
+
+// ValueCellConfig is the configuration for live telemetry value cells.
+type ValueCellConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// channel is the channel whose value the cell displays.
+	Channel *uint32 `protobuf:"varint,1,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
+	// rolling_average is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `protobuf:"varint,2,opt,name=rolling_average,json=rollingAverage,proto3,oneof" json:"rolling_average,omitempty"`
+	// precision is the number of decimal places shown.
+	Precision *float64 `protobuf:"fixed64,3,opt,name=precision,proto3,oneof" json:"precision,omitempty"`
+	// notation is the numeric notation used to format the value.
+	Notation *pb3.Notation `protobuf:"varint,4,opt,name=notation,proto3,enum=x.notation.pb.Notation,oneof" json:"notation,omitempty"`
+	// redline is the bounds-to-gradient mapping applied to the background.
+	Redline *Redline `protobuf:"bytes,5,opt,name=redline,proto3,oneof" json:"redline,omitempty"`
+	// level is the typography level of the displayed value.
+	Level *pb.Level `protobuf:"varint,6,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
+	// color is the color of the displayed text.
+	Color *pb2.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
+	// units is the unit suffix displayed after the value.
+	Units string `protobuf:"bytes,8,opt,name=units,proto3" json:"units,omitempty"`
+	// staleness_timeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `protobuf:"fixed64,9,opt,name=staleness_timeout,json=stalenessTimeout,proto3,oneof" json:"staleness_timeout,omitempty"`
+	// staleness_color is the color applied when the value is stale.
+	StalenessColor *pb2.Color `protobuf:"bytes,10,opt,name=staleness_color,json=stalenessColor,proto3,oneof" json:"staleness_color,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ValueCellConfig) Reset() {
+	*x = ValueCellConfig{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ValueCellConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ValueCellConfig) ProtoMessage() {}
+
+func (x *ValueCellConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ValueCellConfig.ProtoReflect.Descriptor instead.
+func (*ValueCellConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ValueCellConfig) GetChannel() uint32 {
+	if x != nil && x.Channel != nil {
+		return *x.Channel
+	}
+	return 0
+}
+
+func (x *ValueCellConfig) GetRollingAverage() int32 {
+	if x != nil && x.RollingAverage != nil {
+		return *x.RollingAverage
+	}
+	return 0
+}
+
+func (x *ValueCellConfig) GetPrecision() float64 {
+	if x != nil && x.Precision != nil {
+		return *x.Precision
+	}
+	return 0
+}
+
+func (x *ValueCellConfig) GetNotation() pb3.Notation {
+	if x != nil && x.Notation != nil {
+		return *x.Notation
+	}
+	return pb3.Notation(0)
+}
+
+func (x *ValueCellConfig) GetRedline() *Redline {
+	if x != nil {
+		return x.Redline
+	}
+	return nil
+}
+
+func (x *ValueCellConfig) GetLevel() pb.Level {
+	if x != nil && x.Level != nil {
+		return *x.Level
+	}
+	return pb.Level(0)
+}
+
+func (x *ValueCellConfig) GetColor() *pb2.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+func (x *ValueCellConfig) GetUnits() string {
+	if x != nil {
+		return x.Units
+	}
+	return ""
+}
+
+func (x *ValueCellConfig) GetStalenessTimeout() float64 {
+	if x != nil && x.StalenessTimeout != nil {
+		return *x.StalenessTimeout
+	}
+	return 0
+}
+
+func (x *ValueCellConfig) GetStalenessColor() *pb2.Color {
+	if x != nil {
+		return x.StalenessColor
+	}
+	return nil
+}
+
+// Cell is a keyed cell configuration used by actions that address cells explicitly.
+// Inside the table state itself, cell configurations are stored in the cells map keyed
+// by cell key.
 type Cell struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this cell within the table.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-	// the shape of props and which Pluto cell component renders the cell.
-	Variant string `protobuf:"bytes,2,opt,name=variant,proto3" json:"variant,omitempty"`
-	// props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new variants
-	// can be added without a schema migration.
-	Props         *structpb.Struct `protobuf:"bytes,3,opt,name=props,proto3" json:"props,omitempty"`
+	// config is the cell's variant-discriminated configuration.
+	Config        *CellConfig `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Cell) Reset() {
 	*x = Cell{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -63,7 +328,7 @@ func (x *Cell) String() string {
 func (*Cell) ProtoMessage() {}
 
 func (x *Cell) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[0]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -76,7 +341,7 @@ func (x *Cell) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Cell.ProtoReflect.Descriptor instead.
 func (*Cell) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Cell) GetKey() string {
@@ -86,76 +351,9 @@ func (x *Cell) GetKey() string {
 	return ""
 }
 
-func (x *Cell) GetVariant() string {
+func (x *Cell) GetConfig() *CellConfig {
 	if x != nil {
-		return x.Variant
-	}
-	return ""
-}
-
-func (x *Cell) GetProps() *structpb.Struct {
-	if x != nil {
-		return x.Props
-	}
-	return nil
-}
-
-// CellTemplate is a variant + props pair describing what a cell should look like,
-// without identifying which cell. Used by actions that overwrite existing cells in
-// place (EraseCells), where the target cell's key is provided separately.
-type CellTemplate struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-	// the shape of props and which Pluto cell component renders the cell.
-	Variant string `protobuf:"bytes,1,opt,name=variant,proto3" json:"variant,omitempty"`
-	// props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new variants
-	// can be added without a schema migration.
-	Props         *structpb.Struct `protobuf:"bytes,2,opt,name=props,proto3" json:"props,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *CellTemplate) Reset() {
-	*x = CellTemplate{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CellTemplate) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CellTemplate) ProtoMessage() {}
-
-func (x *CellTemplate) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use CellTemplate.ProtoReflect.Descriptor instead.
-func (*CellTemplate) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *CellTemplate) GetVariant() string {
-	if x != nil {
-		return x.Variant
-	}
-	return ""
-}
-
-func (x *CellTemplate) GetProps() *structpb.Struct {
-	if x != nil {
-		return x.Props
+		return x.Config
 	}
 	return nil
 }
@@ -174,7 +372,7 @@ type Row struct {
 
 func (x *Row) Reset() {
 	*x = Row{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -186,7 +384,7 @@ func (x *Row) String() string {
 func (*Row) ProtoMessage() {}
 
 func (x *Row) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[2]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -199,7 +397,7 @@ func (x *Row) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Row.ProtoReflect.Descriptor instead.
 func (*Row) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Row) GetSize() float64 {
@@ -227,7 +425,7 @@ type Column struct {
 
 func (x *Column) Reset() {
 	*x = Column{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -239,7 +437,7 @@ func (x *Column) String() string {
 func (*Column) ProtoMessage() {}
 
 func (x *Column) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[3]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -252,7 +450,7 @@ func (x *Column) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Column.ProtoReflect.Descriptor instead.
 func (*Column) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Column) GetSize() float64 {
@@ -278,14 +476,14 @@ type Table struct {
 	// cells contains all cells in the table, keyed by cell key. Cell positions are derived
 	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
 	// will be pruned on the next structural edit.
-	Cells         map[string]*Cell `protobuf:"bytes,5,rep,name=cells,proto3" json:"cells,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Cells         map[string]*CellConfig `protobuf:"bytes,5,rep,name=cells,proto3" json:"cells,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Table) Reset() {
 	*x = Table{}
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[4]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -297,7 +495,7 @@ func (x *Table) String() string {
 func (*Table) ProtoMessage() {}
 
 func (x *Table) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[4]
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -310,7 +508,7 @@ func (x *Table) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Table.ProtoReflect.Descriptor instead.
 func (*Table) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Table) GetKey() string {
@@ -341,40 +539,162 @@ func (x *Table) GetColumns() []*Column {
 	return nil
 }
 
-func (x *Table) GetCells() map[string]*Cell {
+func (x *Table) GetCells() map[string]*CellConfig {
 	if x != nil {
 		return x.Cells
 	}
 	return nil
 }
 
+// CellConfig is the per-cell configuration stored in the table cells map. The variant
+// selects which Pluto cell component renders the cell.
+type CellConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Variant:
+	//
+	//	*CellConfig_Text
+	//	*CellConfig_Value
+	Variant       isCellConfig_Variant `protobuf_oneof:"variant"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CellConfig) Reset() {
+	*x = CellConfig{}
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CellConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CellConfig) ProtoMessage() {}
+
+func (x *CellConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_table_pb_table_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CellConfig.ProtoReflect.Descriptor instead.
+func (*CellConfig) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_table_pb_table_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *CellConfig) GetVariant() isCellConfig_Variant {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *CellConfig) GetText() *TextCellConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*CellConfig_Text); ok {
+			return x.Text
+		}
+	}
+	return nil
+}
+
+func (x *CellConfig) GetValue() *ValueCellConfig {
+	if x != nil {
+		if x, ok := x.Variant.(*CellConfig_Value); ok {
+			return x.Value
+		}
+	}
+	return nil
+}
+
+type isCellConfig_Variant interface {
+	isCellConfig_Variant()
+}
+
+type CellConfig_Text struct {
+	Text *TextCellConfig `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+}
+
+type CellConfig_Value struct {
+	Value *ValueCellConfig `protobuf:"bytes,2,opt,name=value,proto3,oneof"`
+}
+
+func (*CellConfig_Text) isCellConfig_Variant() {}
+
+func (*CellConfig_Value) isCellConfig_Variant() {}
+
 var File_core_pkg_service_table_pb_table_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_table_pb_table_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/table/pb/table.proto\x12\x10service.table.pb\x1a\x1cgoogle/protobuf/struct.proto\"a\n" +
+	"%core/pkg/service/table/pb/table.proto\x12\x10service.table.pb\x1a\x19x/go/color/pb/color.proto\x1a\x1fx/go/notation/pb/notation.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"\x9b\x02\n" +
+	"\x0eTextCellConfig\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\x12+\n" +
+	"\x05level\x18\x02 \x01(\x0e2\x10.x.text.pb.LevelH\x00R\x05level\x88\x01\x01\x12\x1b\n" +
+	"\x06weight\x18\x03 \x01(\x01H\x01R\x06weight\x88\x01\x01\x122\n" +
+	"\x05align\x18\x04 \x01(\x0e2\x17.x.spatial.pb.AlignmentH\x02R\x05align\x88\x01\x01\x12A\n" +
+	"\x10background_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x03R\x0fbackgroundColor\x88\x01\x01B\b\n" +
+	"\x06_levelB\t\n" +
+	"\a_weightB\b\n" +
+	"\x06_alignB\x13\n" +
+	"\x11_background_color\"e\n" +
+	"\aRedline\x12,\n" +
+	"\x06bounds\x18\x01 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12,\n" +
+	"\bgradient\x18\x02 \x03(\v2\x10.x.color.pb.StopR\bgradient\"\xde\x04\n" +
+	"\x0fValueCellConfig\x12\x1d\n" +
+	"\achannel\x18\x01 \x01(\rH\x00R\achannel\x88\x01\x01\x12,\n" +
+	"\x0frolling_average\x18\x02 \x01(\x05H\x01R\x0erollingAverage\x88\x01\x01\x12!\n" +
+	"\tprecision\x18\x03 \x01(\x01H\x02R\tprecision\x88\x01\x01\x128\n" +
+	"\bnotation\x18\x04 \x01(\x0e2\x17.x.notation.pb.NotationH\x03R\bnotation\x88\x01\x01\x128\n" +
+	"\aredline\x18\x05 \x01(\v2\x19.service.table.pb.RedlineH\x04R\aredline\x88\x01\x01\x12+\n" +
+	"\x05level\x18\x06 \x01(\x0e2\x10.x.text.pb.LevelH\x05R\x05level\x88\x01\x01\x12,\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12\x14\n" +
+	"\x05units\x18\b \x01(\tR\x05units\x120\n" +
+	"\x11staleness_timeout\x18\t \x01(\x01H\aR\x10stalenessTimeout\x88\x01\x01\x12?\n" +
+	"\x0fstaleness_color\x18\n" +
+	" \x01(\v2\x11.x.color.pb.ColorH\bR\x0estalenessColor\x88\x01\x01B\n" +
+	"\n" +
+	"\b_channelB\x12\n" +
+	"\x10_rolling_averageB\f\n" +
+	"\n" +
+	"_precisionB\v\n" +
+	"\t_notationB\n" +
+	"\n" +
+	"\b_redlineB\b\n" +
+	"\x06_levelB\b\n" +
+	"\x06_colorB\x14\n" +
+	"\x12_staleness_timeoutB\x12\n" +
+	"\x10_staleness_color\"N\n" +
 	"\x04Cell\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x18\n" +
-	"\avariant\x18\x02 \x01(\tR\avariant\x12-\n" +
-	"\x05props\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x05props\"W\n" +
-	"\fCellTemplate\x12\x18\n" +
-	"\avariant\x18\x01 \x01(\tR\avariant\x12-\n" +
-	"\x05props\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05props\"/\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
+	"\x06config\x18\x02 \x01(\v2\x1c.service.table.pb.CellConfigR\x06config\"/\n" +
 	"\x03Row\x12\x12\n" +
 	"\x04size\x18\x01 \x01(\x01R\x04size\x12\x14\n" +
 	"\x05cells\x18\x02 \x03(\tR\x05cells\"\x1c\n" +
 	"\x06Column\x12\x12\n" +
-	"\x04size\x18\x01 \x01(\x01R\x04size\"\x98\x02\n" +
+	"\x04size\x18\x01 \x01(\x01R\x04size\"\x9e\x02\n" +
 	"\x05Table\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12)\n" +
 	"\x04rows\x18\x03 \x03(\v2\x15.service.table.pb.RowR\x04rows\x122\n" +
 	"\acolumns\x18\x04 \x03(\v2\x18.service.table.pb.ColumnR\acolumns\x128\n" +
-	"\x05cells\x18\x05 \x03(\v2\".service.table.pb.Table.CellsEntryR\x05cells\x1aP\n" +
+	"\x05cells\x18\x05 \x03(\v2\".service.table.pb.Table.CellsEntryR\x05cells\x1aV\n" +
 	"\n" +
 	"CellsEntry\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
-	"\x05value\x18\x02 \x01(\v2\x16.service.table.pb.CellR\x05value:\x028\x01B\xb7\x01\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x122\n" +
+	"\x05value\x18\x02 \x01(\v2\x1c.service.table.pb.CellConfigR\x05value:\x028\x01\"\x8a\x01\n" +
+	"\n" +
+	"CellConfig\x126\n" +
+	"\x04text\x18\x01 \x01(\v2 .service.table.pb.TextCellConfigH\x00R\x04text\x129\n" +
+	"\x05value\x18\x02 \x01(\v2!.service.table.pb.ValueCellConfigH\x00R\x05valueB\t\n" +
+	"\avariantB\xb7\x01\n" +
 	"\x14com.service.table.pbB\n" +
 	"TableProtoP\x01Z1github.com/synnaxlabs/synnax/pkg/service/table/pb\xa2\x02\x03STP\xaa\x02\x10Service.Table.Pb\xca\x02\x10Service\\Table\\Pb\xe2\x02\x1cService\\Table\\Pb\\GPBMetadata\xea\x02\x12Service::Table::Pbb\x06proto3"
 
@@ -390,28 +710,47 @@ func file_core_pkg_service_table_pb_table_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_table_pb_table_proto_rawDescData
 }
 
-var file_core_pkg_service_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_core_pkg_service_table_pb_table_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_table_pb_table_proto_goTypes = []any{
-	(*Cell)(nil),            // 0: service.table.pb.Cell
-	(*CellTemplate)(nil),    // 1: service.table.pb.CellTemplate
-	(*Row)(nil),             // 2: service.table.pb.Row
-	(*Column)(nil),          // 3: service.table.pb.Column
-	(*Table)(nil),           // 4: service.table.pb.Table
-	nil,                     // 5: service.table.pb.Table.CellsEntry
-	(*structpb.Struct)(nil), // 6: google.protobuf.Struct
+	(*TextCellConfig)(nil),  // 0: service.table.pb.TextCellConfig
+	(*Redline)(nil),         // 1: service.table.pb.Redline
+	(*ValueCellConfig)(nil), // 2: service.table.pb.ValueCellConfig
+	(*Cell)(nil),            // 3: service.table.pb.Cell
+	(*Row)(nil),             // 4: service.table.pb.Row
+	(*Column)(nil),          // 5: service.table.pb.Column
+	(*Table)(nil),           // 6: service.table.pb.Table
+	(*CellConfig)(nil),      // 7: service.table.pb.CellConfig
+	nil,                     // 8: service.table.pb.Table.CellsEntry
+	(pb.Level)(0),           // 9: x.text.pb.Level
+	(pb1.Alignment)(0),      // 10: x.spatial.pb.Alignment
+	(*pb2.Color)(nil),       // 11: x.color.pb.Color
+	(*pb1.Bounds)(nil),      // 12: x.spatial.pb.Bounds
+	(*pb2.Stop)(nil),        // 13: x.color.pb.Stop
+	(pb3.Notation)(0),       // 14: x.notation.pb.Notation
 }
 var file_core_pkg_service_table_pb_table_proto_depIdxs = []int32{
-	6, // 0: service.table.pb.Cell.props:type_name -> google.protobuf.Struct
-	6, // 1: service.table.pb.CellTemplate.props:type_name -> google.protobuf.Struct
-	2, // 2: service.table.pb.Table.rows:type_name -> service.table.pb.Row
-	3, // 3: service.table.pb.Table.columns:type_name -> service.table.pb.Column
-	5, // 4: service.table.pb.Table.cells:type_name -> service.table.pb.Table.CellsEntry
-	0, // 5: service.table.pb.Table.CellsEntry.value:type_name -> service.table.pb.Cell
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	9,  // 0: service.table.pb.TextCellConfig.level:type_name -> x.text.pb.Level
+	10, // 1: service.table.pb.TextCellConfig.align:type_name -> x.spatial.pb.Alignment
+	11, // 2: service.table.pb.TextCellConfig.background_color:type_name -> x.color.pb.Color
+	12, // 3: service.table.pb.Redline.bounds:type_name -> x.spatial.pb.Bounds
+	13, // 4: service.table.pb.Redline.gradient:type_name -> x.color.pb.Stop
+	14, // 5: service.table.pb.ValueCellConfig.notation:type_name -> x.notation.pb.Notation
+	1,  // 6: service.table.pb.ValueCellConfig.redline:type_name -> service.table.pb.Redline
+	9,  // 7: service.table.pb.ValueCellConfig.level:type_name -> x.text.pb.Level
+	11, // 8: service.table.pb.ValueCellConfig.color:type_name -> x.color.pb.Color
+	11, // 9: service.table.pb.ValueCellConfig.staleness_color:type_name -> x.color.pb.Color
+	7,  // 10: service.table.pb.Cell.config:type_name -> service.table.pb.CellConfig
+	4,  // 11: service.table.pb.Table.rows:type_name -> service.table.pb.Row
+	5,  // 12: service.table.pb.Table.columns:type_name -> service.table.pb.Column
+	8,  // 13: service.table.pb.Table.cells:type_name -> service.table.pb.Table.CellsEntry
+	0,  // 14: service.table.pb.CellConfig.text:type_name -> service.table.pb.TextCellConfig
+	2,  // 15: service.table.pb.CellConfig.value:type_name -> service.table.pb.ValueCellConfig
+	7,  // 16: service.table.pb.Table.CellsEntry.value:type_name -> service.table.pb.CellConfig
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_table_pb_table_proto_init() }
@@ -419,13 +758,19 @@ func file_core_pkg_service_table_pb_table_proto_init() {
 	if File_core_pkg_service_table_pb_table_proto != nil {
 		return
 	}
+	file_core_pkg_service_table_pb_table_proto_msgTypes[0].OneofWrappers = []any{}
+	file_core_pkg_service_table_pb_table_proto_msgTypes[2].OneofWrappers = []any{}
+	file_core_pkg_service_table_pb_table_proto_msgTypes[7].OneofWrappers = []any{
+		(*CellConfig_Text)(nil),
+		(*CellConfig_Value)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_table_pb_table_proto_rawDesc), len(file_core_pkg_service_table_pb_table_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v56"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
@@ -97,11 +98,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, v55.Table]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v55.Table, Table](
+				gorp.NewEntryMigration[Key, Key, v55.Table, v56.Table](
 					"v55_lift_typed_table",
-					MigrateTable,
+					v56.MigrateTable,
 				),
 				"msgpack_to_orc",
+			),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[Key, Key, v56.Table, Table](
+					"v56_typed_cell_configs",
+					MigrateTable,
+				),
+				"v55_lift_typed_table",
 			),
 		},
 		Instrumentation: cfg.Instrumentation,

@@ -13,7 +13,7 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { cellTemplateZ, cellZ, keyZ, type Table } from "@/table/types.gen";
+import { cellConfigZ, cellZ, keyZ, type Table } from "@/table/types.gen";
 
 /** Rename renames the table. */
 export const renamePayloadZ = z.object({
@@ -127,14 +127,14 @@ export type SetCellPayload = z.infer<typeof setCellPayloadZ>;
 /**
  * EraseCells erases the cells whose keys are in cells. Any row whose every
  * cell is in the selection is removed entirely; same for columns.
- * Cells that survive that row/column removal have their variant
- * and props replaced with the template's, keeping their original
- * keys. Cells in the selection whose keys are not in the table's
- * cells map are silently skipped.
+ * Cells that survive that row/column removal have their config
+ * replaced with the template, keeping their original keys. Cells
+ * in the selection whose keys are not in the table's cells map are
+ * silently skipped.
  */
 export const eraseCellsPayloadZ = z.object({
   cells: array.nullishToEmpty(z.string()),
-  template: cellTemplateZ,
+  template: cellConfigZ,
 });
 
 export type EraseCellsPayload = z.infer<typeof eraseCellsPayloadZ>;

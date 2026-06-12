@@ -13,12 +13,28 @@ package table
 
 import (
 	"context"
-	tablev55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
+	tablev56 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v56"
 )
 
-func AutoMigrateTable(_ context.Context, old tablev55.Table) (Table, error) {
+func AutoMigrateTable(_ context.Context, old tablev56.Table) (Table, error) {
+	rows := make([]Row, len(old.Rows))
+	for i, v := range old.Rows {
+		rows[i] = Row(v)
+	}
+	columns := make([]Column, len(old.Columns))
+	for i, v := range old.Columns {
+		columns[i] = Column(v)
+	}
 	return Table{
-		Key:  Key(old.Key),
-		Name: old.Name,
+		Key:     Key(old.Key),
+		Name:    old.Name,
+		Rows:    rows,
+		Columns: columns,
+	}, nil
+}
+
+func AutoMigrateCell(_ context.Context, old tablev56.Cell) (Cell, error) {
+	return Cell{
+		Key: old.Key,
 	}, nil
 }

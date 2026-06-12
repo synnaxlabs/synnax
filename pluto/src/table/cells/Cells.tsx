@@ -9,9 +9,9 @@
 
 import "@/table/cells/Cells.css";
 
-import { box, color, location, type record, scale, text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { z } from "zod";
+import { table } from "@synnaxlabs/client";
+import { box, color, scale } from "@synnaxlabs/x";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Menu } from "@/menu";
@@ -20,42 +20,34 @@ import { telem } from "@/telem/aether";
 import { Text as BaseText } from "@/text";
 import { Value as BaseValue } from "@/vis/value";
 
-export const TEXT_TYPE = "text";
-export type TextType = typeof TEXT_TYPE;
-export const textPropsZ = z.object({
-  value: z.string(),
-  level: text.levelZ,
-  weight: text.weightZ,
-  align: location.xZ.or(location.centerZ),
-  backgroundColor: color.crudeZ,
-});
-export type TextProps = z.infer<typeof textPropsZ>;
+export const textConfigZ = table.cellConfigTextZ;
+export type TextConfig = table.CellConfigText;
 
-export type CellProps<P extends object = record.Unknown> = P & {
+export type CellProps<C extends table.CellConfig = table.CellConfig> = C & {
   cellKey: string;
   box: box.Box;
   selected: boolean;
   editable: boolean;
   onSelect: (key: string, ev: React.MouseEvent) => void;
-  onChange: (props: P) => void;
+  onChange: (config: C) => void;
 };
 
 export const Text = ({
   cellKey,
   onChange,
-  value,
+  value = "",
   selected,
   editable,
   onSelect,
   box: b,
-  align,
-  level,
-  weight,
+  align = "center",
+  level = "h5",
+  weight = 400,
   backgroundColor,
-}: CellProps<TextProps>): ReactElement => {
+}: CellProps<TextConfig>): ReactElement => {
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   const handleValueChange = (value: string) =>
-    onChange({ level, value, weight, align, backgroundColor });
+    onChange({ variant: "text", value, level, weight, align, backgroundColor });
   return (
     <Base
       id={cellKey}
@@ -69,7 +61,8 @@ export const Text = ({
       onClick={handleSelect}
       onContextMenu={handleSelect}
       style={{
-        backgroundColor: color.cssString(backgroundColor),
+        backgroundColor:
+          backgroundColor == null ? undefined : color.cssString(backgroundColor),
         width: box.width(b),
       }}
     >
@@ -87,40 +80,32 @@ export const Text = ({
   );
 };
 
-export const VALUE_TYPE = "value";
-export type ValueType = typeof VALUE_TYPE;
-export const valuePropsZ = z.object({
-  telem: telem.stringSourceSpecZ,
-  redline: BaseValue.redlineZ,
-  level: text.levelZ,
-  color: z.string(),
-  units: z.string(),
-  stalenessTimeout: z.number().default(5),
-  stalenessColor: color.colorZ.default(color.ZERO),
-});
-export type ValueProps = z.infer<typeof valuePropsZ>;
+export const valueConfigZ = table.cellConfigValueZ;
+export type ValueConfig = table.CellConfigValue;
 
 export const Value = ({
   cellKey,
-  telem: t,
-  level,
-  color,
-  redline: { gradient, bounds },
+  channel,
+  rollingAverage,
+  precision,
+  notation,
+  level = "h5",
+  color: textColor,
+  redline,
   selected,
   box: b,
   onSelect,
-  stalenessTimeout,
+  stalenessTimeout = 5,
   stalenessColor,
-}: CellProps<ValueProps>) => {
-  BaseValue.use({
-    aetherKey: cellKey,
-    box: b,
-    telem: t,
-    level,
-    color,
-    stalenessTimeout,
-    stalenessColor,
-    backgroundTelem: telem.sourcePipeline("color", {
+}: CellProps<ValueConfig>) => {
+  const t = useMemo(
+    () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
+    [channel, rollingAverage, precision, notation],
+  );
+  const backgroundTelem = useMemo(() => {
+    if (redline == null) return undefined;
+    const { bounds, gradient } = redline;
+    return telem.sourcePipeline("color", {
       connections: [
         { from: "source", to: "scale" },
         { from: "scale", to: "gradient" },
@@ -133,7 +118,17 @@ export const Value = ({
         gradient: telem.colorGradient({ gradient }),
       },
       outlet: "gradient",
-    }),
+    });
+  }, [t, redline]);
+  BaseValue.use({
+    aetherKey: cellKey,
+    box: b,
+    telem: t,
+    level,
+    color: textColor,
+    stalenessTimeout,
+    stalenessColor,
+    backgroundTelem,
     location: { x: "center", y: "center" },
     clip: true,
   });
