@@ -19,8 +19,6 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/any.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/json.gen.h"
-#include "x/cpp/label/proto.gen.h"
 #include "x/cpp/pb/pb.h"
 #include "x/cpp/status/json.gen.h"
 #include "x/cpp/status/types.gen.h"
@@ -69,8 +67,6 @@ template<typename Details>
 inline std::pair<::x::status::pb::Status, x::errors::Error>
 Status<Details>::to_proto() const {
     ::x::status::pb::Status pb;
-    pb.set_key(this->key);
-    pb.set_name(this->name);
     {
         auto [v, err] = variant_to_pb(this->variant);
         if (err) return {{}, err};
@@ -89,11 +85,6 @@ Status<Details>::to_proto() const {
         else
             *pb.mutable_details() = x::json::to_any(this->details.to_json());
     }
-    for (const auto &item: this->labels) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_labels() = v;
-    }
     return {pb, x::errors::NIL};
 }
 
@@ -101,8 +92,6 @@ template<typename Details>
 inline std::pair<Status<Details>, x::errors::Error>
 Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
     Status<Details> cpp;
-    cpp.key = pb.key();
-    cpp.name = pb.name();
     {
         auto [v, err] = variant_from_pb(pb.variant());
         if (err) return {{}, err};
@@ -129,11 +118,6 @@ Status<Details>::from_proto(const ::x::status::pb::Status &pb) {
                 cpp.details = Details::parse(x::json::Parser(val));
         }
     }
-    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(
-            cpp.labels,
-            pb.labels()
-        ))
-        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

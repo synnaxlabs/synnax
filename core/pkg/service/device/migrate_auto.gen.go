@@ -67,16 +67,16 @@ func AutoMigrateStatus(ctx context.Context, old devicev54.Status) (Status, error
 			return Status{}, err
 		}
 	}
-	return Status{
-		Key:         old.Key,
-		Name:        old.Name,
-		Variant:     status.Variant(old.Variant),
-		Message:     old.Message,
-		Description: old.Description,
-		Time:        telem.TimeStamp(old.Time),
-		Details:     details,
-		Labels:      labels,
-	}, nil
+	var s Status
+	s.Key = old.Key
+	s.Name = old.Name
+	s.Variant = status.Variant(old.Variant)
+	s.Message = old.Message
+	s.Description = old.Description
+	s.Time = telem.TimeStamp(old.Time)
+	s.Details = details
+	s.Labels = labels
+	return s, nil
 }
 
 func AutoMigrateID(_ context.Context, old ontologyv54.ID) (ontology.ID, error) {

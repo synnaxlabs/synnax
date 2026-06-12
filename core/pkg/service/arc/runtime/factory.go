@@ -140,17 +140,11 @@ func (f *factory) setConfigStatus(
 	variant xstatus.Variant,
 	message string,
 ) {
-	stat := task.Status{
-		Key:     task.OntologyID(t.Key).String(),
-		Name:    t.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: task.StatusDetails{
-			Task:    t.Key,
-			Running: false,
-		},
-	}
+	stat := task.Status{Key: task.OntologyID(t.Key).String(), Name: t.Name}
+	stat.Variant = variant
+	stat.Message = message
+	stat.Time = telem.Now()
+	stat.Details = task.StatusDetails{Task: t.Key, Running: false}
 	if err := status.
 		NewWriter[task.StatusDetails](f.cfg.Status, nil).
 		Set(ctx, &stat); err != nil {

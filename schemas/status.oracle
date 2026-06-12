@@ -28,14 +28,7 @@ Variant enum {
     @ts literals
 }
 
-Status struct<Details?, V extends Variant = Variant> {
-    key         string = create {
-        @key
-        @doc value "is a unique identifier for this status, auto-generated if not provided."
-    }
-    name        string = "" {
-        @doc value "is an optional human-readable name for the status."
-    }
+Payload struct<Details?, V extends Variant = Variant> {
     variant     V               {
         @doc value """
             indicates the severity of the status. One of success, info,
@@ -55,27 +48,43 @@ Status struct<Details?, V extends Variant = Variant> {
         @doc value  "contains optional component-specific custom details for the status."
         @go marshal json_only
     }
-    labels      label.Label[]?  {
-        @doc value  "contains optional labels for categorization and filtering."
-        @go marshal omit
-    }
 
     @doc value         """
         is a standardized message used to communicate state across the
         Synnax platform. Statuses support different severity variants
         and can carry component-specific details.
     """
+    @go name           "Status"
+    @ts name           "Status"
+    @cpp name          "Status"
+    @py name           "Status"
+    @pb name           "Status"
+    @py output         "x/py/x/status"
     @ts concrete_types
-    @go migrate
 }
 
-GoSVCStatus<Details?> = Status<Details?> {
-    @doc value "is a server-side status type alias for Go services."
-    @go output "core/pkg/service/status"
-    @go name   "Status"
-    @ts omit
-    @py omit
-    @cpp omit
+Status struct<Details?, V extends Variant = Variant> extends Payload<Details, V> {
+    key    string = create {
+        @key
+        @doc value "is a unique identifier for this status, auto-generated if not provided."
+    }
+    name   string = "" {
+        @doc value "is an optional human-readable name for the status."
+    }
+    labels label.Label[]? {
+        @doc value  "contains optional labels for categorization and filtering."
+        @go marshal omit
+    }
+
+    @doc value         """
+        is the server-side, persisted representation of a status. It extends the
+        base status payload with a unique key, a human-readable name, and labels
+        for categorization and filtering.
+    """
+    @go output         "core/pkg/service/status"
+    @ts output         "client/ts/src/status"
+    @cpp output        "client/cpp/status"
+    @ts concrete_types
 }
 
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
@@ -96,6 +105,7 @@ New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
         contains parameters for creating a new status. Most fields have
         sensible defaults.
     """
+    @ts output         "client/ts/src/status"
     @ts concrete_types
     @pb omit
     @cpp omit

@@ -20,10 +20,10 @@
 
 #include "client/cpp/cluster/types.gen.h"
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
@@ -44,7 +44,7 @@ using Key = std::uint32_t;
 
 using Name = std::string;
 
-using Status = ::x::status::Status<std::monostate>;
+using Status = ::synnax::status::Status<std::monostate>;
 
 /// @brief Operation defines an aggregation operation applied to channel data.
 /// Operations calculate min, max, or average values over a time duration or triggered

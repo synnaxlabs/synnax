@@ -12,8 +12,19 @@
 package status
 
 import (
+	"github.com/synnaxlabs/x/label"
 	gostatus "github.com/synnaxlabs/x/status"
 )
 
-// Status is a server-side status type alias for Go services.
-type Status[Details any] = gostatus.Status[Details]
+// Status is the server-side, persisted representation of a status. It extends the base
+// status payload with a unique key, a human-readable name, and labels for
+// categorization and filtering.
+type Status[Details any] struct {
+	gostatus.Status[Details]
+	// Key is a unique identifier for this status, auto-generated if not provided.
+	Key string `json:"key" msgpack:"key"`
+	// Name is an optional human-readable name for the status.
+	Name string `json:"name" msgpack:"name"`
+	// Labels contains optional labels for categorization and filtering.
+	Labels []label.Label `json:"labels" msgpack:"labels"`
+}

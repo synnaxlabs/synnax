@@ -157,14 +157,12 @@ func (s *Service) setStatus(
 		}
 		s.cfg.L.Warn(st.String())
 		statusKey := calculation.StatusKey(chKey)
-		if err = s.statusWriter.Set(ctx, &Status{
-			Key:         statusKey,
-			Name:        st.Name,
-			Variant:     st.Variant,
-			Message:     st.Message,
-			Description: st.Description,
-			Time:        telem.Now(),
-		}); err != nil {
+		cs := &Status{Key: statusKey, Name: st.Name}
+		cs.Variant = st.Variant
+		cs.Message = st.Message
+		cs.Description = st.Description
+		cs.Time = telem.Now()
+		if err = s.statusWriter.Set(ctx, cs); err != nil {
 			s.cfg.L.Error("failed to set status", zap.Error(err), zap.String("key", statusKey))
 		}
 	}
@@ -187,13 +185,11 @@ func (s *Service) handleChange(
 			continue
 		}
 		if err := s.updateCalculation(ctx, ch); err != nil {
-			s.setStatus(ctx, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     xstatus.VariantError,
-				Message:     fmt.Sprintf("failed to compile calculation for %s", ch.Name),
-				Description: err.Error(),
-			})
+			cs := calculator.Status{Key: ch.Key().String(), Name: ch.Name}
+			cs.Variant = xstatus.VariantError
+			cs.Message = fmt.Sprintf("failed to compile calculation for %s", ch.Name)
+			cs.Description = err.Error()
+			s.setStatus(ctx, cs)
 		}
 		s.mu.Unlock()
 	}
@@ -359,13 +355,11 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 			continue
 		}
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
-			statuses = append(statuses, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     xstatus.VariantError,
-				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
-				Description: err.Error(),
-			})
+			cs := calculator.Status{Key: ch.Key().String(), Name: ch.Name}
+			cs.Variant = xstatus.VariantError
+			cs.Message = fmt.Sprintf("Failed to request calculation for %s", ch)
+			cs.Description = err.Error()
+			statuses = append(statuses, cs)
 		}
 		graphChanged = true
 	}

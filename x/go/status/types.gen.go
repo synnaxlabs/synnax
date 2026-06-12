@@ -12,7 +12,6 @@
 package status
 
 import (
-	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -42,10 +41,6 @@ func (v Variant) IsValid() bool {
 // platform. Statuses support different severity variants and can carry
 // component-specific details.
 type Status[Details any] struct {
-	// Key is a unique identifier for this status, auto-generated if not provided.
-	Key string `json:"key" msgpack:"key"`
-	// Name is an optional human-readable name for the status.
-	Name string `json:"name" msgpack:"name"`
 	// Variant indicates the severity of the status. One of success, info, warning, error,
 	// loading, or disabled.
 	Variant Variant `json:"variant" msgpack:"variant"`
@@ -57,6 +52,4 @@ type Status[Details any] struct {
 	Time telem.TimeStamp `json:"time" msgpack:"time"`
 	// Details contains optional component-specific custom details for the status.
 	Details Details `json:"details" msgpack:"details"`
-	// Labels contains optional labels for categorization and filtering.
-	Labels []label.Label `json:"labels" msgpack:"labels"`
 }

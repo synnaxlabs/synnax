@@ -13,10 +13,8 @@
 
 #include <string>
 #include <type_traits>
-#include <vector>
 
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/json.gen.h"
 #include "x/cpp/status/types.gen.h"
 #include "x/cpp/telem/json.gen.h"
 
@@ -25,22 +23,17 @@ namespace x::status {
 template<typename Details>
 Status<Details> Status<Details>::parse(x::json::Parser parser) {
     return Status<Details>{
-        .key = parser.field<std::string>("key"),
-        .name = parser.field<std::string>("name"),
         .variant = parser.field<std::string>("variant"),
         .message = parser.field<std::string>("message"),
         .description = parser.field<std::string>("description", ""),
         .time = parser.field<::x::telem::TimeStamp>("time"),
         .details = parser.field<Details>("details"),
-        .labels = parser.field<std::vector<::x::label::Label>>("labels"),
     };
 }
 
 template<typename Details>
 x::json::json Status<Details>::to_json() const {
     x::json::json j;
-    j["key"] = this->key;
-    j["name"] = this->name;
     j["variant"] = this->variant;
     j["message"] = this->message;
     j["description"] = this->description;
@@ -51,7 +44,6 @@ x::json::json Status<Details>::to_json() const {
         j["details"] = nullptr;
     else
         j["details"] = this->details.to_json();
-    j["labels"] = x::json::to_array(this->labels);
     return j;
 }
 

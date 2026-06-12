@@ -192,15 +192,13 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	}
 	statuses := make([]status.Status[StatusDetails], len(devices))
 	for i, device := range devices {
-		statuses[i] = status.Status[StatusDetails]{
-			Key:         OntologyID(device.Key).String(),
-			Name:        device.Name,
-			Time:        telem.Now(),
-			Variant:     rackStat.Variant,
-			Message:     rackStat.Message,
-			Description: rackStat.Description,
-			Details:     StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key},
-		}
+		s := status.Status[StatusDetails]{Key: OntologyID(device.Key).String(), Name: device.Name}
+		s.Time = telem.Now()
+		s.Variant = rackStat.Variant
+		s.Message = rackStat.Message
+		s.Description = rackStat.Description
+		s.Details = StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key}
+		statuses[i] = s
 	}
 	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).
 		SetMany(ctx, &statuses); err != nil {

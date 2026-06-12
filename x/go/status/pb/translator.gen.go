@@ -13,7 +13,6 @@ package pb
 
 import (
 	"github.com/synnaxlabs/x/errors"
-	labelpb "github.com/synnaxlabs/x/label/pb"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -72,19 +71,12 @@ func StatusToPB[Details any](
 	if err != nil {
 		return nil, err
 	}
-	labelsVal, err := labelpb.LabelsToPB(r.Labels)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Status{
-		Key:         r.Key,
-		Name:        r.Name,
 		Message:     r.Message,
 		Description: r.Description,
 		Time:        int64(r.Time),
 		Details:     detailsAny,
 		Variant:     variantVal,
-		Labels:      labelsVal,
 	}
 	return pb, nil
 }
@@ -107,12 +99,6 @@ func StatusFromPB[Details any](
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
-	r.Labels, err = labelpb.LabelsFromPB(pb.Labels)
-	if err != nil {
-		return status.Status[Details]{}, err
-	}
-	r.Key = pb.Key
-	r.Name = pb.Name
 	r.Message = pb.Message
 	r.Description = pb.Description
 	r.Time = telem.TimeStamp(pb.Time)

@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	xpb "github.com/synnaxlabs/x/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	xstatus "github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

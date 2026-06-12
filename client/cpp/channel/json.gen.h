@@ -16,8 +16,8 @@
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/cluster/json.gen.h"
+#include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/json.gen.h"
 #include "x/cpp/telem/json.gen.h"
 
 namespace synnax::channel {

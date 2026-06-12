@@ -110,7 +110,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations: []migrate.Migration{
 				gorp.NewEntryMigration[string, string, statusv54.Status[any], Status[any]](
 					"v54_drop_labels",
-					xstatus.MigrateStatus[any],
+					MigrateStatus[any],
 				),
 			},
 		},

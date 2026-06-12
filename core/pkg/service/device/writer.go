@@ -37,14 +37,12 @@ type Writer struct {
 
 func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 	if provided == nil {
-		return &status.Status[StatusDetails]{
-			Key:     OntologyID(d.Key).String(),
-			Name:    d.Name,
-			Time:    telem.Now(),
-			Variant: xstatus.VariantWarning,
-			Message: fmt.Sprintf("%s state unknown", d.Name),
-			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
-		}
+		s := &status.Status[StatusDetails]{Key: OntologyID(d.Key).String(), Name: d.Name}
+		s.Time = telem.Now()
+		s.Variant = xstatus.VariantWarning
+		s.Message = fmt.Sprintf("%s state unknown", d.Name)
+		s.Details = StatusDetails{Rack: d.Rack, Device: d.Key}
+		return s
 	}
 	stat := status.Status[StatusDetails](*provided)
 	stat.Key = OntologyID(d.Key).String()

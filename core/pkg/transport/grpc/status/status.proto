@@ -12,7 +12,7 @@ syntax = "proto3";
 package grpc.status;
 
 import "google/protobuf/empty.proto";
-import "x/go/status/pb/status.proto";
+import "core/pkg/service/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/status";
 
@@ -34,11 +34,11 @@ service StatusSetByKeyOrNameService {
 
 message SetRequest {
   string parent = 1;
-  repeated x.status.pb.Status statuses = 2;
+  repeated service.status.pb.Status statuses = 2;
 }
 
 message SetResponse {
-  repeated x.status.pb.Status statuses = 1;
+  repeated service.status.pb.Status statuses = 1;
 }
 
 message RetrieveRequest {
@@ -52,7 +52,7 @@ message RetrieveRequest {
 }
 
 message RetrieveResponse {
-  repeated x.status.pb.Status statuses = 1;
+  repeated service.status.pb.Status statuses = 1;
 }
 
 message DeleteRequest {

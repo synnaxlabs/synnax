@@ -131,14 +131,12 @@ func backfillStatuses(
 	for _, r := range racks {
 		key := OntologyID(r.Key).String()
 		if !existingKeys.Contains(key) {
-			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
-				Key:     key,
-				Name:    r.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
-				Message: "Status unknown",
-				Details: StatusDetails{Rack: r.Key},
-			})
+			s := status.Status[StatusDetails]{Key: key, Name: r.Name}
+			s.Time = telem.Now()
+			s.Variant = xstatus.VariantWarning
+			s.Message = "Status unknown"
+			s.Details = StatusDetails{Rack: r.Key}
+			missingStatuses = append(missingStatuses, s)
 		}
 	}
 	if len(missingStatuses) == 0 {

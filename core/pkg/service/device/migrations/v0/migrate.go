@@ -73,14 +73,12 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			for _, d := range devices {
 				key := OntologyID(d.Key).String()
 				if !existingKeys.Contains(key) {
-					missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
-						Key:     key,
-						Name:    d.Name,
-						Time:    telem.Now(),
-						Variant: xstatus.VariantWarning,
-						Message: fmt.Sprintf("%s state unknown", d.Name),
-						Details: StatusDetails{Rack: d.Rack, Device: d.Key},
-					})
+					s := status.Status[StatusDetails]{Key: key, Name: d.Name}
+					s.Time = telem.Now()
+					s.Variant = xstatus.VariantWarning
+					s.Message = fmt.Sprintf("%s state unknown", d.Name)
+					s.Details = StatusDetails{Rack: d.Rack, Device: d.Key}
+					missingStatuses = append(missingStatuses, s)
 				}
 			}
 			if len(missingStatuses) == 0 {

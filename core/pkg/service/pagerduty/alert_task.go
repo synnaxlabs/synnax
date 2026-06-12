@@ -242,14 +242,11 @@ func (t *alertTask) updateStatus(
 	running bool,
 	message string,
 ) {
-	stat := task.Status{
-		Key:     task.OntologyID(t.task.Key).String(),
-		Name:    t.task.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.task.Key, Running: running},
-	}
+	stat := task.Status{Key: task.OntologyID(t.task.Key).String(), Name: t.task.Name}
+	stat.Variant = variant
+	stat.Message = message
+	stat.Time = telem.Now()
+	stat.Details = task.StatusDetails{Task: t.task.Key, Running: running}
 	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).
 		Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error("failed to set task status", zap.Error(err))

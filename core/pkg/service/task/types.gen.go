@@ -12,8 +12,8 @@
 package task
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/status"
 )
 
 // Key is a composite identifier for a task. The high 32 bits contain the rack key, and

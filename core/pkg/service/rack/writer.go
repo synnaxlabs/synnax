@@ -42,14 +42,12 @@ type Writer struct {
 
 func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 	if r.Status == nil {
-		return &status.Status[StatusDetails]{
-			Key:     OntologyID(r.Key).String(),
-			Name:    r.Name,
-			Time:    telem.Now(),
-			Variant: xstatus.VariantWarning,
-			Message: "Status unknown",
-			Details: StatusDetails{Rack: r.Key},
-		}
+		s := &status.Status[StatusDetails]{Key: OntologyID(r.Key).String(), Name: r.Name}
+		s.Time = telem.Now()
+		s.Variant = xstatus.VariantWarning
+		s.Message = "Status unknown"
+		s.Details = StatusDetails{Rack: r.Key}
+		return s
 	}
 	stat := status.Status[StatusDetails](*r.Status)
 	stat.Key = OntologyID(r.Key).String()

@@ -36,31 +36,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", status.Status[string]{
-				Key:         "test_1",
-				Name:        "test_2",
 				Variant:     status.Variant("success"),
-				Message:     "test_4",
-				Description: "test_5",
-				Time:        telem.TimeStamp(7),
-				Details:     "test_7",
+				Message:     "test_2",
+				Description: "test_3",
+				Time:        telem.TimeStamp(5),
+				Details:     "test_5",
 			}),
 			Entry("zero values", status.Status[string]{
-				Key:         "",
-				Name:        "",
 				Variant:     status.Variant(""),
 				Message:     "",
 				Description: "",
 				Time:        telem.TimeStamp(0),
 				Details:     "",
-			}),
-			Entry("empty collections", status.Status[string]{
-				Key:         "test_1",
-				Name:        "test_2",
-				Variant:     status.Variant("success"),
-				Message:     "test_4",
-				Description: "test_5",
-				Time:        telem.TimeStamp(7),
-				Details:     "test_7",
 			}),
 		)
 	})
@@ -68,13 +55,11 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeStatus(b *testing.B) {
 	s := status.Status[string]{
-		Key:         "test_1",
-		Name:        "test_2",
 		Variant:     status.Variant("success"),
-		Message:     "test_4",
-		Description: "test_5",
-		Time:        telem.TimeStamp(7),
-		Details:     "test_7",
+		Message:     "test_2",
+		Description: "test_3",
+		Time:        telem.TimeStamp(5),
+		Details:     "test_5",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -94,13 +79,11 @@ func BenchmarkEncodeDecodeStatus(b *testing.B) {
 func FuzzDecodeStatus(f *testing.F) {
 	{
 		seed := status.Status[string]{
-			Key:         "test_1",
-			Name:        "test_2",
 			Variant:     status.Variant("success"),
-			Message:     "test_4",
-			Description: "test_5",
-			Time:        telem.TimeStamp(7),
-			Details:     "test_7",
+			Message:     "test_2",
+			Description: "test_3",
+			Time:        telem.TimeStamp(5),
+			Details:     "test_5",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -110,29 +93,11 @@ func FuzzDecodeStatus(f *testing.F) {
 	}
 	{
 		seed := status.Status[string]{
-			Key:         "",
-			Name:        "",
 			Variant:     status.Variant(""),
 			Message:     "",
 			Description: "",
 			Time:        telem.TimeStamp(0),
 			Details:     "",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := status.Status[string]{
-			Key:         "test_1",
-			Name:        "test_2",
-			Variant:     status.Variant("success"),
-			Message:     "test_4",
-			Description: "test_5",
-			Time:        telem.TimeStamp(7),
-			Details:     "test_7",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

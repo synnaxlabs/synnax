@@ -18,7 +18,6 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/x/label/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -98,23 +97,17 @@ func (Variant) EnumDescriptor() ([]byte, []int) {
 // component-specific details.
 type Status struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is a unique identifier for this status, auto-generated if not provided.
-	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// name is an optional human-readable name for the status.
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// variant indicates the severity of the status. One of success, info, warning, error,
 	// loading, or disabled.
-	Variant Variant `protobuf:"varint,3,opt,name=variant,proto3,enum=x.status.pb.Variant" json:"variant,omitempty"`
+	Variant Variant `protobuf:"varint,1,opt,name=variant,proto3,enum=x.status.pb.Variant" json:"variant,omitempty"`
 	// message is the main message text describing the status.
-	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	// description is an optional detailed description providing additional context.
-	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
+	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
 	// time is the timestamp when the status was created.
-	Time int64 `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`
+	Time int64 `protobuf:"varint,4,opt,name=time,proto3" json:"time,omitempty"`
 	// details contains optional component-specific custom details for the status.
-	Details *anypb.Any `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
-	// labels contains optional labels for categorization and filtering.
-	Labels        []*pb.Label `protobuf:"bytes,8,rep,name=labels,proto3" json:"labels,omitempty"`
+	Details       *anypb.Any `protobuf:"bytes,5,opt,name=details,proto3" json:"details,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -147,20 +140,6 @@ func (x *Status) ProtoReflect() protoreflect.Message {
 // Deprecated: Use Status.ProtoReflect.Descriptor instead.
 func (*Status) Descriptor() ([]byte, []int) {
 	return file_x_go_status_pb_status_proto_rawDescGZIP(), []int{0}
-}
-
-func (x *Status) GetKey() string {
-	if x != nil {
-		return x.Key
-	}
-	return ""
-}
-
-func (x *Status) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
 }
 
 func (x *Status) GetVariant() Variant {
@@ -198,27 +177,17 @@ func (x *Status) GetDetails() *anypb.Any {
 	return nil
 }
 
-func (x *Status) GetLabels() []*pb.Label {
-	if x != nil {
-		return x.Labels
-	}
-	return nil
-}
-
 var File_x_go_status_pb_status_proto protoreflect.FileDescriptor
 
 const file_x_go_status_pb_status_proto_rawDesc = "" +
 	"\n" +
-	"\x1bx/go/status/pb/status.proto\x12\vx.status.pb\x1a\x19google/protobuf/any.proto\x1a\x19x/go/label/pb/label.proto\"\x89\x02\n" +
-	"\x06Status\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12.\n" +
-	"\avariant\x18\x03 \x01(\x0e2\x14.x.status.pb.VariantR\avariant\x12\x18\n" +
-	"\amessage\x18\x04 \x01(\tR\amessage\x12 \n" +
-	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
-	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
-	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x12)\n" +
-	"\x06labels\x18\b \x03(\v2\x11.x.label.pb.LabelR\x06labels*\x83\x01\n" +
+	"\x1bx/go/status/pb/status.proto\x12\vx.status.pb\x1a\x19google/protobuf/any.proto\"\xb8\x01\n" +
+	"\x06Status\x12.\n" +
+	"\avariant\x18\x01 \x01(\x0e2\x14.x.status.pb.VariantR\avariant\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12 \n" +
+	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04time\x18\x04 \x01(\x03R\x04time\x12.\n" +
+	"\adetails\x18\x05 \x01(\v2\x14.google.protobuf.AnyR\adetails*\x83\x01\n" +
 	"\aVariant\x12\x13\n" +
 	"\x0fVARIANT_SUCCESS\x10\x00\x12\x10\n" +
 	"\fVARIANT_INFO\x10\x01\x12\x13\n" +
@@ -246,17 +215,15 @@ var file_x_go_status_pb_status_proto_goTypes = []any{
 	(Variant)(0),      // 0: x.status.pb.Variant
 	(*Status)(nil),    // 1: x.status.pb.Status
 	(*anypb.Any)(nil), // 2: google.protobuf.Any
-	(*pb.Label)(nil),  // 3: x.label.pb.Label
 }
 var file_x_go_status_pb_status_proto_depIdxs = []int32{
 	0, // 0: x.status.pb.Status.variant:type_name -> x.status.pb.Variant
 	2, // 1: x.status.pb.Status.details:type_name -> google.protobuf.Any
-	3, // 2: x.status.pb.Status.labels:type_name -> x.label.pb.Label
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_x_go_status_pb_status_proto_init() }

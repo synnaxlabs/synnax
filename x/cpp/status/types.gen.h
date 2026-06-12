@@ -22,6 +22,7 @@
 #include "x/cpp/label/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
+#include "core/pkg/service/status/pb/status.pb.h"
 #include "x/go/status/pb/status.pb.h"
 
 namespace x::status {
@@ -38,11 +39,6 @@ constexpr const char *VARIANT_DISABLED = "disabled";
 /// component-specific details.
 template<typename Details = std::monostate>
 struct Status {
-    /// @brief key is a unique identifier for this status, auto-generated if not
-    /// provided.
-    std::string key;
-    /// @brief name is an optional human-readable name for the status.
-    std::string name;
     /// @brief variant indicates the severity of the status. One of success, info,
     /// warning,
     /// error, loading, or disabled.
@@ -57,8 +53,6 @@ struct Status {
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;
-    /// @brief labels contains optional labels for categorization and filtering.
-    std::vector<::x::label::Label> labels;
 
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -67,5 +61,28 @@ struct Status {
     [[nodiscard]] std::pair<::x::status::pb::Status, x::errors::Error> to_proto() const;
     static std::pair<Status, x::errors::Error>
     from_proto(const ::x::status::pb::Status &pb);
+};
+
+/// @brief Status is the server-side, persisted representation of a status. It extends
+/// the base status payload with a unique key, a human-readable name, and labels for
+/// categorization and filtering.
+template<typename Details = std::monostate>
+struct Status : public Status<Details> {
+    /// @brief key is a unique identifier for this status, auto-generated if not
+    /// provided.
+    std::string key;
+    /// @brief name is an optional human-readable name for the status.
+    std::string name;
+    /// @brief labels contains optional labels for categorization and filtering.
+    std::vector<::x::label::Label> labels;
+
+    static Status parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::status::pb::Status;
+    [[nodiscard]] std::pair<::service::status::pb::Status, x::errors::Error>
+    to_proto() const;
+    static std::pair<Status, x::errors::Error>
+    from_proto(const ::service::status::pb::Status &pb);
 };
 }

@@ -112,14 +112,12 @@ func (d *Driver) startHeartbeat() {
 		sCtx,
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
-			if err := statusWriter.Set(ctx, &rack.Status{
-				Key:     rack.StatusKey(d.rack.Key),
-				Name:    d.rack.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantSuccess,
-				Message: "Driver is running",
-				Details: rack.StatusDetails{Rack: d.rack.Key},
-			}); err != nil {
+			st := &rack.Status{Key: rack.StatusKey(d.rack.Key), Name: d.rack.Name}
+			st.Time = telem.Now()
+			st.Variant = xstatus.VariantSuccess
+			st.Message = "Driver is running"
+			st.Details = rack.StatusDetails{Rack: d.rack.Key}
+			if err := statusWriter.Set(ctx, st); err != nil {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))
 			}
 			return nil

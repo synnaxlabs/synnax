@@ -16,12 +16,13 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/status"
 )
 
-type Status = status.Status[types.Nil]
+type Status = svcstatus.Status[types.Nil]
 
 type Group []*Calculator
 
@@ -55,12 +56,11 @@ func (g Group) Next(
 	for _, c := range g {
 		output, changedLocal, err = c.Next(ctx, output, output)
 		if err != nil {
-			statuses = append(statuses, Status{
-				Key:         c.Channel().Key().String(),
-				Variant:     status.VariantError,
-				Message:     fmt.Sprintf("calculation for %s failed", c.Channel()),
-				Description: err.Error(),
-			})
+			cs := Status{Key: c.Channel().Key().String()}
+			cs.Variant = status.VariantError
+			cs.Message = fmt.Sprintf("calculation for %s failed", c.Channel())
+			cs.Description = err.Error()
+			statuses = append(statuses, cs)
 			continue
 		}
 		if changedLocal {

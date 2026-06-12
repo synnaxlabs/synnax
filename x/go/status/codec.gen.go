@@ -19,8 +19,6 @@ import (
 )
 
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
-	w.String(s.Key)
-	w.String(s.Name)
 	w.String(string(s.Variant))
 	w.String(s.Message)
 	w.String(s.Description)
@@ -37,12 +35,6 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 
 func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if s.Name, err = r.String(); err != nil {
-		return err
-	}
 	{
 		v, err := r.String()
 		if err != nil {

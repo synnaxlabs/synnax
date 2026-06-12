@@ -18,7 +18,7 @@
 package pb
 
 import (
-	pb "github.com/synnaxlabs/x/status/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -177,15 +177,15 @@ var File_core_pkg_service_rack_pb_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a\x1bx/go/status/pb/status.proto\"#\n" +
+	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\"#\n" +
 	"\rStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xcc\x01\n" +
+	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xd2\x01\n" +
 	"\x04Rack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
 	"\ftask_counter\x18\x03 \x01(\rR\vtaskCounter\x12\x1a\n" +
-	"\bembedded\x18\x04 \x01(\bR\bembedded\x120\n" +
-	"\x06status\x18\x05 \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
+	"\bembedded\x18\x04 \x01(\bR\bembedded\x126\n" +
+	"\x06status\x18\x05 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
 	"\fintegrations\x18\x06 \x03(\tR\fintegrationsB\t\n" +
 	"\a_statusB\xb0\x01\n" +
 	"\x13com.service.rack.pbB\tRackProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/rack/pb\xa2\x02\x03SRP\xaa\x02\x0fService.Rack.Pb\xca\x02\x0fService\\Rack\\Pb\xe2\x02\x1bService\\Rack\\Pb\\GPBMetadata\xea\x02\x11Service::Rack::Pbb\x06proto3"
@@ -206,10 +206,10 @@ var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.Message
 var file_core_pkg_service_rack_pb_rack_proto_goTypes = []any{
 	(*StatusDetails)(nil), // 0: service.rack.pb.StatusDetails
 	(*Rack)(nil),          // 1: service.rack.pb.Rack
-	(*pb.Status)(nil),     // 2: x.status.pb.Status
+	(*pb.Status)(nil),     // 2: service.status.pb.Status
 }
 var file_core_pkg_service_rack_pb_rack_proto_depIdxs = []int32{
-	2, // 0: service.rack.pb.Rack.status:type_name -> x.status.pb.Status
+	2, // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
