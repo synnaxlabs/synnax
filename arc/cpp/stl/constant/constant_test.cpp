@@ -55,7 +55,7 @@ private:
         ir_node.key = "const";
         ir_node.type = "constant";
         ir_node.outputs.push_back(output_param);
-        ir_node.config.push_back(value_param);
+        ir_node.inputs.push_back(value_param);
 
         ir::Function fn;
         fn.key = "test";

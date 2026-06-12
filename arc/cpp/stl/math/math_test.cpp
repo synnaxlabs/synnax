@@ -97,7 +97,7 @@ private:
         target_node.inputs.push_back(target_input);
         target_node.outputs.push_back(target_output);
         for (const auto &p: config_params)
-            target_node.config.push_back(p);
+            target_node.inputs.push_back(p);
 
         ir::Edge edge;
         edge.source = ir::Handle("source", ir::default_output_param);
