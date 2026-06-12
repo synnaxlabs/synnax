@@ -39,3 +39,30 @@ func (c *Color) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
+
+func (s Stop) EncodeOrc(w *orc.Writer) error {
+	w.String(s.Key)
+	if err := s.Color.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.Float64(float64(s.Position))
+	w.Bool(s.Switched)
+	return nil
+}
+
+func (s *Stop) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if err = s.Color.DecodeOrc(r); err != nil {
+		return err
+	}
+	if s.Position, err = r.Float64(); err != nil {
+		return err
+	}
+	if s.Switched, err = r.Bool(); err != nil {
+		return err
+	}
+	return nil
+}

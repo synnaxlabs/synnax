@@ -71,6 +71,27 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", spatial.Dimensions{Width: 0, Height: 0}),
 		)
 	})
+	Describe("LocationXY", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original spatial.LocationXY) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded spatial.LocationXY
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", spatial.LocationXY{
+				X: spatial.XCenterLocation("left"),
+				Y: spatial.YCenterLocation("top"),
+			}),
+			Entry("zero values", spatial.LocationXY{
+				X: spatial.XCenterLocation(""),
+				Y: spatial.YCenterLocation(""),
+			}),
+		)
+	})
 	Describe("StickyUnits", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original spatial.StickyUnits) {
@@ -184,6 +205,26 @@ func BenchmarkEncodeDecodeDimensions(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded spatial.Dimensions
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLocationXY(b *testing.B) {
+	lxy := spatial.LocationXY{
+		X: spatial.XCenterLocation("left"),
+		Y: spatial.YCenterLocation("top"),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := lxy.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded spatial.LocationXY
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -380,6 +421,58 @@ func FuzzDecodeDimensions(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded spatial.Dimensions
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLocationXY(f *testing.F) {
+	{
+		seed := spatial.LocationXY{
+			X: spatial.XCenterLocation("left"),
+			Y: spatial.YCenterLocation("top"),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := spatial.LocationXY{
+			X: spatial.XCenterLocation(""),
+			Y: spatial.YCenterLocation(""),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded spatial.LocationXY
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded spatial.LocationXY
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

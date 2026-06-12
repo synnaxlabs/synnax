@@ -13,8 +13,8 @@ import { Tank } from "@/schematic/node/vessels/tank";
 import { TJunction } from "@/schematic/node/vessels/tJunction";
 
 export const REGISTRY = {
-  crossJunction: CrossJunction.spec,
+  cross_junction: CrossJunction.spec,
   cylinder: Cylinder.spec,
   tank: Tank.spec,
-  tJunction: TJunction.spec,
+  t_junction: TJunction.spec,
 } as const;

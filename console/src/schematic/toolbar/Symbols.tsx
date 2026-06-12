@@ -129,7 +129,9 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
   const isStatic =
     symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
-  const variant: Schematic.Node.Variant = isStatic ? "customStatic" : "customActuator";
+  const variant: Schematic.Node.Variant = isStatic
+    ? "custom_static"
+    : "custom_actuator";
   const Preview = Schematic.Node.REGISTRY[variant].Preview as React.FC<{
     specKey: string;
     scale?: number;

@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 
-export const VARIANT = "textBox" as const;
+export const VARIANT = "text_box" as const;
 
 export const configZ = schematic.nodeConfigTextBoxZ;
 export type Config = schematic.NodeConfigTextBox;

@@ -1065,7 +1065,7 @@
       "normally_open": false,
       "on_click_delay": 0,
       "orientation": "left",
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "0KwRzIrJ4ii": {
       "channel": 1048616,
@@ -1105,7 +1105,7 @@
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "tJunction"
+      "variant": "t_junction"
     },
     "1Ajh5kZyqzw": {
       "color": {
@@ -1181,7 +1181,7 @@
       "normally_open": false,
       "on_click_delay": 0,
       "orientation": "left",
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "3BOalGA2TlR": {
       "channel": 1048609,
@@ -1279,7 +1279,7 @@
       "orientation": "top",
       "scale": 1,
       "state_channel": 1048584,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "6N2uycrsxNb": {
       "color": {
@@ -1323,7 +1323,7 @@
       },
       "orientation": "right",
       "scale": 1,
-      "variant": "tJunction"
+      "variant": "t_junction"
     },
     "80031njI5Uo": {
       "color": {
@@ -1368,7 +1368,7 @@
       "on_click_delay": 0,
       "orientation": "bottom",
       "state_channel": 1048667,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "AEjPdKnWFcT": {
       "color": {
@@ -1391,7 +1391,7 @@
       },
       "on_click_delay": 0,
       "orientation": "top",
-      "variant": "pistonPump"
+      "variant": "piston_pump"
     },
     "BLMwEwSkGNS": {
       "clickable": false,
@@ -1408,7 +1408,7 @@
         "orientation": "top"
       },
       "orientation": "left",
-      "variant": "reliefValve"
+      "variant": "relief_valve"
     },
     "CST75HX7oD1": {
       "color": {
@@ -1453,7 +1453,7 @@
       "on_click_delay": 0,
       "orientation": "bottom",
       "state_channel": 1048598,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "DeJ4iOHodtz": {
       "channel": 1048607,
@@ -1496,7 +1496,7 @@
       },
       "on_click_delay": 0,
       "orientation": "bottom",
-      "variant": "threeWayValve"
+      "variant": "three_way_valve"
     },
     "FV9nUNS95MO": {
       "color": {
@@ -1522,7 +1522,7 @@
       "on_click_delay": 0,
       "orientation": "top",
       "state_channel": 1048651,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "FblmMlBenHA": {
       "channel": 1048605,
@@ -1572,7 +1572,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "state_channel": 1048649,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "GJ2YKKP0Z6y": {
       "color": {
@@ -1598,7 +1598,7 @@
       "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "GXakOVjitf5": {
       "channel": 1048605,
@@ -1659,7 +1659,7 @@
       },
       "orientation": "right",
       "scale": 1,
-      "variant": "tJunction"
+      "variant": "t_junction"
     },
     "HNeMkVQJMZZ": {
       "channel": 1048680,
@@ -1754,7 +1754,7 @@
       "orientation": "top",
       "scale": 1,
       "state_channel": 1048586,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "K9nj3YBK0KG": {
       "channel": 1048614,
@@ -1805,7 +1805,7 @@
       "orientation": "top",
       "scale": 1,
       "state_channel": 1048586,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "KnJjTf7CJv9": {
       "channel": 1048603,
@@ -1855,7 +1855,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "state_channel": 1048594,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "M4YDBbNwtI5": {
       "clickable": false,
@@ -1872,7 +1872,7 @@
         "orientation": "top"
       },
       "orientation": "left",
-      "variant": "angledReliefValve"
+      "variant": "angled_relief_valve"
     },
     "MEfIDo71Css": {
       "channel": 1048604,
@@ -1923,7 +1923,7 @@
       "on_click_delay": 0,
       "orientation": "bottom",
       "state_channel": 1048659,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "NGZToy6pCHe": {
       "channel": 1048669,
@@ -2042,7 +2042,7 @@
       "orientation": "top",
       "scale": 1,
       "state_channel": 1048602,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "QPKzX2O2699": {
       "color": {
@@ -2068,7 +2068,7 @@
       "on_click_delay": 0,
       "orientation": "bottom",
       "state_channel": 1048657,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "Qt13TVgVdZD": {
       "channel": 1048681,
@@ -2276,7 +2276,7 @@
       "orientation": "bottom",
       "scale": 1,
       "state_channel": 1048594,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "VmLXT8TtVfn": {
       "channel": 1048611,
@@ -2316,7 +2316,7 @@
       },
       "orientation": "top",
       "scale": 1,
-      "variant": "tJunction"
+      "variant": "t_junction"
     },
     "WjNhadY8bYt": {
       "channel": 1048610,
@@ -2374,7 +2374,7 @@
       },
       "orientation": "right",
       "scale": 1,
-      "variant": "tJunction"
+      "variant": "t_junction"
     },
     "XHvgACsGqDW": {
       "channel": 1048674,
@@ -2424,7 +2424,7 @@
       "orientation": "left",
       "scale": 1,
       "state_channel": 1048588,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "YwDKMURj1vp": {
       "color": {
@@ -2449,7 +2449,7 @@
       "on_click_delay": 0,
       "orientation": "right",
       "scale": 1,
-      "variant": "angledValve"
+      "variant": "angled_valve"
     },
     "ZXOfFkiBk9R": {
       "color": {
@@ -2466,7 +2466,7 @@
       "normally_open": false,
       "on_click_delay": 0,
       "orientation": "left",
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "a8tAqnEJba0": {
       "channel": 1048613,
@@ -2517,7 +2517,7 @@
       "on_click_delay": 0,
       "orientation": "bottom",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "dkPgXB2tjWf": {
       "color": {
@@ -2630,7 +2630,7 @@
       "normally_open": false,
       "on_click_delay": 0,
       "orientation": "left",
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "ed2fKMvty6b": {
       "color": {
@@ -2655,7 +2655,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "state_channel": 1048596,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "f1ENRWs0FIf": {
       "color": {
@@ -2680,7 +2680,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "threeWayValve"
+      "variant": "three_way_valve"
     },
     "gskjCS25iAe": {
       "channel": 1048603,
@@ -2844,7 +2844,7 @@
       "on_click_delay": 0,
       "orientation": "bottom",
       "state_channel": 1048667,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "n4pmPCUcMaw": {
       "color": {
@@ -2869,7 +2869,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "state_channel": 1048586,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "nDyx6eSCxsX": {
       "color": {
@@ -2894,7 +2894,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "state_channel": 1048649,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "nikWEdQSwLr": {
       "color": {
@@ -2924,7 +2924,7 @@
       "orientation": "bottom",
       "scale": 1,
       "state_channel": 1048592,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "oB0skpbvoqc": {
       "color": {
@@ -2950,7 +2950,7 @@
       "on_click_delay": 0,
       "orientation": "top",
       "state_channel": 1048665,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "ojXq08A1bLP": {
       "clickable": false,
@@ -2967,7 +2967,7 @@
         "orientation": "top"
       },
       "orientation": "bottom",
-      "variant": "angledReliefValve"
+      "variant": "angled_relief_valve"
     },
     "p2dLrZf6mMv": {
       "color": {
@@ -2997,7 +2997,7 @@
       "orientation": "top",
       "scale": 1,
       "state_channel": 1048592,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "ptsh5LVBq2y": {
       "color": {
@@ -3097,7 +3097,7 @@
       "orientation": "bottom",
       "scale": 1,
       "state_channel": 1048584,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "qo0xVKkc4oR": {
       "color": {
@@ -3123,7 +3123,7 @@
       "on_click_delay": 0,
       "orientation": "bottom",
       "state_channel": 1048590,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "rCUKZktR3sZ": {
       "channel": 1048613,
@@ -3209,7 +3209,7 @@
       },
       "orientation": "right",
       "scale": 1,
-      "variant": "tJunction"
+      "variant": "t_junction"
     },
     "reactflow__edge-SKO1UjHj1o32-0KwRzIrJ4ii1": {
       "color": {
@@ -3245,7 +3245,7 @@
       "normally_open": false,
       "on_click_delay": 0,
       "orientation": "left",
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "solQ4AaAaWx": {
       "color": {
@@ -3296,7 +3296,7 @@
       "on_click_delay": 0,
       "orientation": "top",
       "scale": 1,
-      "variant": "pistonPump"
+      "variant": "piston_pump"
     },
     "tcY77CQT5aV": {
       "channel": 1048677,
@@ -3334,7 +3334,7 @@
       "normally_open": false,
       "on_click_delay": 0,
       "orientation": "left",
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "vITJzpd1U32": {
       "color": {
@@ -3360,7 +3360,7 @@
       "on_click_delay": 0,
       "orientation": "bottom",
       "state_channel": 1048657,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "vKY6rgCFLAP": {
       "channel": 1048604,
@@ -3425,7 +3425,7 @@
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "tJunction"
+      "variant": "t_junction"
     },
     "xy-edge__0jdKiNGUXdE1-5lnJLvZggVN1": {
       "color": {

@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 
-export const VARIANT = "offPageReference" as const;
+export const VARIANT = "off_page_reference" as const;
 
 export const configZ = schematic.nodeConfigOffPageReferenceZ;
 export type Config = schematic.NodeConfigOffPageReference;

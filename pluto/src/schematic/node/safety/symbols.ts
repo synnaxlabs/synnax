@@ -17,54 +17,54 @@ import { FlameArrestorFireResDetonation } from "@/schematic/node/safety/FlameArr
 import { IsoBurstDisc } from "@/schematic/node/safety/IsoBurstDisc";
 
 const burstDisc = createStatic({
-  variant: "burstDisc",
+  variant: "burst_disc",
   name: "Standard",
   label: "Burst Disc",
   Primitive: BurstDisc,
 });
 const flameArrestor = createStatic({
-  variant: "flameArrestor",
+  variant: "flame_arrestor",
   name: "Standard",
   label: "Flame Arrestor",
   Primitive: FlameArrestor,
 });
 const flameArrestorDetonation = createStatic({
-  variant: "flameArrestorDetonation",
+  variant: "flame_arrestor_detonation",
   name: "Detonation-Proof",
   label: "Flame Arrestor (Detonation-Proof)",
   Primitive: FlameArrestorDetonation,
 });
 const flameArrestorExplosion = createStatic({
-  variant: "flameArrestorExplosion",
+  variant: "flame_arrestor_explosion",
   name: "Explosion-Proof",
   label: "Flame Arrestor (Explosion-Proof)",
   Primitive: FlameArrestorExplosion,
 });
 const flameArrestorFireRes = createStatic({
-  variant: "flameArrestorFireRes",
+  variant: "flame_arrestor_fire_res",
   name: "Fire Resistant",
   label: "Flame Arrestor (Fire Resistant)",
   Primitive: FlameArrestorFireRes,
 });
 const flameArrestorFireResDetonation = createStatic({
-  variant: "flameArrestorFireResDetonation",
+  variant: "flame_arrestor_fire_res_detonation",
   name: "Fire Resistant & Detonation-Proof",
   label: "Flame Arrestor (Fire Resistant and Detonation-Proof)",
   Primitive: FlameArrestorFireResDetonation,
 });
 const isoBurstDisc = createStatic({
-  variant: "isoBurstDisc",
+  variant: "iso_burst_disc",
   name: "ISO",
   label: "ISO Burst Disc",
   Primitive: IsoBurstDisc,
 });
 
 export const REGISTRY = {
-  burstDisc: burstDisc.spec,
-  flameArrestor: flameArrestor.spec,
-  flameArrestorDetonation: flameArrestorDetonation.spec,
-  flameArrestorExplosion: flameArrestorExplosion.spec,
-  flameArrestorFireRes: flameArrestorFireRes.spec,
-  flameArrestorFireResDetonation: flameArrestorFireResDetonation.spec,
-  isoBurstDisc: isoBurstDisc.spec,
+  burst_disc: burstDisc.spec,
+  flame_arrestor: flameArrestor.spec,
+  flame_arrestor_detonation: flameArrestorDetonation.spec,
+  flame_arrestor_explosion: flameArrestorExplosion.spec,
+  flame_arrestor_fire_res: flameArrestorFireRes.spec,
+  flame_arrestor_fire_res_detonation: flameArrestorFireResDetonation.spec,
+  iso_burst_disc: isoBurstDisc.spec,
 } as const;

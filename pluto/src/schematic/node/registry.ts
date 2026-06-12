@@ -34,8 +34,8 @@ export const REGISTRY = {
   ...Safety.REGISTRY,
   ...Valves.REGISTRY,
   ...Vessels.REGISTRY,
-  customActuator: customActuatorSpec,
-  customStatic: customStaticSpec,
+  custom_actuator: customActuatorSpec,
+  custom_static: customStaticSpec,
 } as const satisfies Record<schematic.NodeConfigType, unknown>;
 
 export const variantZ = schematic.nodeConfigTypeZ;

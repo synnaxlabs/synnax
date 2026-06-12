@@ -26,68 +26,68 @@ const agitator = createToggle({
   Primitive: Agitator,
 });
 const crossBeamAgitator = createToggle({
-  variant: "crossBeamAgitator",
+  variant: "cross_beam_agitator",
   name: "Cross Beam Agitator",
   Primitive: CrossBeamAgitator,
 });
 const flatBladeAgitator = createToggle({
-  variant: "flatBladeAgitator",
+  variant: "flat_blade_agitator",
   name: "Flat Blade Agitator",
   Primitive: FlatBladeAgitator,
 });
 const heatExchangerGeneral = createStatic({
-  variant: "heatExchangerGeneral",
+  variant: "heat_exchanger_general",
   name: "Heat Exchanger",
   label: "General Heat Exchanger",
   Primitive: HeatExchangerGeneral,
 });
 const heatExchangerM = createStatic({
-  variant: "heatExchangerM",
+  variant: "heat_exchanger_m",
   name: "M-Type Heat Exchanger",
   label: "M Heat Exchanger",
   Primitive: HeatExchangerM,
 });
 const heatExchangerStraightTube = createStatic({
-  variant: "heatExchangerStraightTube",
+  variant: "heat_exchanger_straight_tube",
   name: "Straight Tube Heat Exchanger",
   Primitive: HeatExchangerStraightTube,
 });
 const helicalAgitator = createToggle({
-  variant: "helicalAgitator",
+  variant: "helical_agitator",
   name: "Helical Agitator",
   Primitive: HelicalAgitator,
 });
 const paddleAgitator = createToggle({
-  variant: "paddleAgitator",
+  variant: "paddle_agitator",
   name: "Paddle Agitator",
   Primitive: PaddleAgitator,
 });
 const propellerAgitator = createToggle({
-  variant: "propellerAgitator",
+  variant: "propeller_agitator",
   name: "Propeller Agitator",
   Primitive: PropellerAgitator,
 });
 const rotaryMixer = createToggle({
-  variant: "rotaryMixer",
+  variant: "rotary_mixer",
   name: "Rotary Mixer",
   Primitive: RotaryMixer,
 });
 const staticMixer = createStatic({
-  variant: "staticMixer",
+  variant: "static_mixer",
   name: "Static Mixer",
   Primitive: StaticMixer,
 });
 
 export const REGISTRY = {
   agitator: agitator.spec,
-  crossBeamAgitator: crossBeamAgitator.spec,
-  flatBladeAgitator: flatBladeAgitator.spec,
-  heatExchangerGeneral: heatExchangerGeneral.spec,
-  heatExchangerM: heatExchangerM.spec,
-  heatExchangerStraightTube: heatExchangerStraightTube.spec,
-  helicalAgitator: helicalAgitator.spec,
-  paddleAgitator: paddleAgitator.spec,
-  propellerAgitator: propellerAgitator.spec,
-  rotaryMixer: rotaryMixer.spec,
-  staticMixer: staticMixer.spec,
+  cross_beam_agitator: crossBeamAgitator.spec,
+  flat_blade_agitator: flatBladeAgitator.spec,
+  heat_exchanger_general: heatExchangerGeneral.spec,
+  heat_exchanger_m: heatExchangerM.spec,
+  heat_exchanger_straight_tube: heatExchangerStraightTube.spec,
+  helical_agitator: helicalAgitator.spec,
+  paddle_agitator: paddleAgitator.spec,
+  propeller_agitator: propellerAgitator.spec,
+  rotary_mixer: rotaryMixer.spec,
+  static_mixer: staticMixer.spec,
 } as const;

@@ -88,7 +88,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "68amMvlz9ZC": {
       "color": {
@@ -186,7 +186,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "threeWayValve"
+      "variant": "three_way_valve"
     },
     "peHDkIvvdus": {
       "color": {

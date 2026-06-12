@@ -73,6 +73,30 @@ func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+func (lxy LocationXY) EncodeOrc(w *orc.Writer) error {
+	w.String(string(lxy.X))
+	w.String(string(lxy.Y))
+	return nil
+}
+
+func (lxy *LocationXY) DecodeOrc(r *orc.Reader) error {
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		lxy.X = XCenterLocation(v)
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		lxy.Y = YCenterLocation(v)
+	}
+	return nil
+}
+
 func (su StickyUnits) EncodeOrc(w *orc.Writer) error {
 	w.String(string(su.X))
 	w.String(string(su.Y))

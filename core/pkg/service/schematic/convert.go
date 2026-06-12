@@ -24,13 +24,18 @@ var opaqueConfigFields = set.New("props", "state_overrides")
 
 // normalizeConfigKeys converts a config payload's field keys from the
 // camelCase the Console writes verbatim to the snake_case wire form of the
-// element config union. Already snake_case keys pass through unchanged, so the
-// conversion is idempotent. Values under opaque fields are left untouched.
+// element config union, along with the variant discriminator value, whose
+// legacy form matched the camelCase symbol registry keys. Already snake_case
+// input passes through unchanged, so the conversion is idempotent. Values
+// under opaque fields are left untouched.
 func normalizeConfigKeys(raw msgpack.EncodedJSON) msgpack.EncodedJSON {
 	if raw == nil {
 		return nil
 	}
 	out, _ := normalizeConfigValue(map[string]any(raw)).(map[string]any)
+	if variant, ok := out["variant"].(string); ok {
+		out["variant"] = camelToSnakeKey(variant)
+	}
 	return out
 }
 
@@ -100,7 +105,7 @@ func extractTelemArgs(cfg map[string]any) {
 			cfg["threshold"] = b
 		}
 		delete(cfg, "source")
-	case "stateIndicator":
+	case "state_indicator":
 		if ch, ok := segProp(cfg["source"], "valueStream", "channel"); ok {
 			cfg["channel"] = ch
 		}

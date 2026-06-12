@@ -20,13 +20,550 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
 
 var _ = Describe("Codec", func() {
+	Describe("BoxConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.BoxConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.BoxConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.BoxConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 11,
+						G: 12,
+						B: 13,
+						A: 13.5,
+					}
+					return &v
+				}(),
+				BackgroundColor: func() *color.Color {
+					v := color.Color{
+						R: 16,
+						G: 17,
+						B: 18,
+						A: 18.5,
+					}
+					return &v
+				}(),
+				Dimensions:   func() *spatial.Dimensions { v := spatial.Dimensions{Width: 20.5, Height: 21.5}; return &v }(),
+				BorderRadius: func() *float64 { v := float64(22.5); return &v }(),
+				StrokeWidth:  func() *float64 { v := float64(23.5); return &v }(),
+			}),
+			Entry("zero values", schematic.BoxConfig{
+				Label:           nil,
+				Orientation:     nil,
+				Color:           nil,
+				BackgroundColor: nil,
+				Dimensions:      nil,
+				BorderRadius:    nil,
+				StrokeWidth:     nil,
+			}),
+		)
+	})
+	Describe("ButtonConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ButtonConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ButtonConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.ButtonConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Size: func() *schematic.ComponentSize {
+					v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+					return &v
+				}(),
+				Level:          func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				OnClickDelay:   11.5,
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(13)); return &v }(),
+				Mode:           func() *schematic.ButtonMode { v := schematic.ButtonMode(schematic.ButtonMode("fire")); return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 16,
+						G: 17,
+						B: 18,
+						A: 18.5,
+					}
+					return &v
+				}(),
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(21); return &v }(),
+						Show:          true,
+						ShowChip:      false,
+						ShowIndicator: true,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", schematic.ButtonConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Size:           nil,
+				Level:          nil,
+				OnClickDelay:   0,
+				CommandChannel: nil,
+				Mode:           nil,
+				Color:          nil,
+				Control:        nil,
+			}),
+		)
+	})
+	Describe("CircleConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.CircleConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.CircleConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.CircleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Radius: 9.5,
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 12,
+						G: 13,
+						B: 14,
+						A: 14.5,
+					}
+					return &v
+				}(),
+				BackgroundColor: func() *color.Color {
+					v := color.Color{
+						R: 17,
+						G: 18,
+						B: 19,
+						A: 19.5,
+					}
+					return &v
+				}(),
+				StrokeWidth: func() *float64 { v := float64(20.5); return &v }(),
+			}),
+			Entry("zero values", schematic.CircleConfig{
+				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Radius:          0,
+				Color:           nil,
+				BackgroundColor: nil,
+				StrokeWidth:     nil,
+			}),
+		)
+	})
+	Describe("ControlStateConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ControlStateConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ControlStateConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.ControlStateConfig{
+				Authority:     func() *uint8 { v := uint8(2); return &v }(),
+				Show:          false,
+				ShowChip:      true,
+				ShowIndicator: false,
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+			}),
+			Entry("zero values", schematic.ControlStateConfig{
+				Authority:     nil,
+				Show:          false,
+				ShowChip:      false,
+				ShowIndicator: false,
+				Orientation:   nil,
+			}),
+		)
+	})
+	Describe("CustomActuatorConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.CustomActuatorConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.CustomActuatorConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.CustomActuatorConfig{
+				ToggleConfig: schematic.ToggleConfig{
+					LabeledConfig: schematic.LabeledConfig{
+						Label: func() *schematic.LabelConfig {
+							v := schematic.LabelConfig{
+								Label:         "test_2",
+								Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+								Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+								Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+								MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+								Align: func() *schematic.FlexAlignment {
+									v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+									return &v
+								}(),
+							}
+							return &v
+						}(),
+						Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+					},
+					StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+					CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+					Control: func() *schematic.ControlStateConfig {
+						v := schematic.ControlStateConfig{
+							Authority:     func() *uint8 { v := uint8(13); return &v }(),
+							Show:          true,
+							ShowChip:      false,
+							ShowIndicator: true,
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						}
+						return &v
+					}(),
+					OnClickDelay: 17.5,
+				},
+				SpecKey: "test_18",
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 21,
+						G: 22,
+						B: 23,
+						A: 23.5,
+					}
+					return &v
+				}(),
+				Scale:          func() *float64 { v := float64(24.5); return &v }(),
+				StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
+			}),
+			Entry("zero values", schematic.CustomActuatorConfig{
+				ToggleConfig: schematic.ToggleConfig{
+					LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+					StateChannel:   nil,
+					CommandChannel: nil,
+					Control:        nil,
+					OnClickDelay:   0,
+				},
+				SpecKey:        "",
+				Color:          nil,
+				Scale:          nil,
+				StateOverrides: nil,
+			}),
+			Entry("empty collections", schematic.CustomActuatorConfig{
+				ToggleConfig: schematic.ToggleConfig{
+					LabeledConfig: schematic.LabeledConfig{
+						Label: func() *schematic.LabelConfig {
+							v := schematic.LabelConfig{
+								Label:         "test_2",
+								Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+								Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+								Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+								MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+								Align: func() *schematic.FlexAlignment {
+									v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+									return &v
+								}(),
+							}
+							return &v
+						}(),
+						Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+					},
+					StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+					CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+					Control: func() *schematic.ControlStateConfig {
+						v := schematic.ControlStateConfig{
+							Authority:     func() *uint8 { v := uint8(13); return &v }(),
+							Show:          true,
+							ShowChip:      false,
+							ShowIndicator: true,
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						}
+						return &v
+					}(),
+					OnClickDelay: 17.5,
+				},
+				SpecKey: "test_18",
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 21,
+						G: 22,
+						B: 23,
+						A: 23.5,
+					}
+					return &v
+				}(),
+				Scale:          func() *float64 { v := float64(24.5); return &v }(),
+				StateOverrides: []msgpack.EncodedJSON{},
+			}),
+		)
+	})
+	Describe("CustomStaticConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.CustomStaticConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.CustomStaticConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.CustomStaticConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				SpecKey: "test_9",
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 12,
+						G: 13,
+						B: 14,
+						A: 14.5,
+					}
+					return &v
+				}(),
+				Scale:          func() *float64 { v := float64(15.5); return &v }(),
+				StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
+			}),
+			Entry("zero values", schematic.CustomStaticConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				SpecKey:        "",
+				Color:          nil,
+				Scale:          nil,
+				StateOverrides: nil,
+			}),
+			Entry("empty collections", schematic.CustomStaticConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				SpecKey: "test_9",
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 12,
+						G: 13,
+						B: 14,
+						A: 14.5,
+					}
+					return &v
+				}(),
+				Scale:          func() *float64 { v := float64(15.5); return &v }(),
+				StateOverrides: []msgpack.EncodedJSON{},
+			}),
+		)
+	})
+	Describe("CylinderConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.CylinderConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.CylinderConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.CylinderConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Dimensions: func() *spatial.Dimensions { v := spatial.Dimensions{Width: 10.5, Height: 11.5}; return &v }(),
+				BorderRadius: func() *border.Radius {
+					v := border.Radius{
+						TopLeft:     spatial.XY{X: 14.5, Y: 15.5},
+						TopRight:    spatial.XY{X: 17.5, Y: 18.5},
+						BottomLeft:  spatial.XY{X: 20.5, Y: 21.5},
+						BottomRight: spatial.XY{X: 23.5, Y: 24.5},
+					}
+					return &v
+				}(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 27,
+						G: 28,
+						B: 29,
+						A: 29.5,
+					}
+					return &v
+				}(),
+				BackgroundColor: func() *color.Color {
+					v := color.Color{
+						R: 32,
+						G: 33,
+						B: 34,
+						A: 34.5,
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", schematic.CylinderConfig{
+				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Dimensions:      nil,
+				BorderRadius:    nil,
+				Color:           nil,
+				BackgroundColor: nil,
+			}),
+		)
+	})
+	Describe("DummyToggleSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.DummyToggleSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.DummyToggleSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.DummyToggleSymbolConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Enabled:   true,
+				Clickable: false,
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 13,
+						G: 14,
+						B: 15,
+						A: 15.5,
+					}
+					return &v
+				}(),
+				Scale: func() *float64 { v := float64(16.5); return &v }(),
+			}),
+			Entry("zero values", schematic.DummyToggleSymbolConfig{
+				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Enabled:       false,
+				Clickable:     false,
+				Color:         nil,
+				Scale:         nil,
+			}),
+		)
+	})
 	Describe("Edge", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.Edge) {
@@ -50,6 +587,81 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("GaugeConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.GaugeConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.GaugeConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.GaugeConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Position: func() *spatial.XY { v := spatial.XY{X: 10.5, Y: 11.5}; return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 14,
+						G: 15,
+						B: 16,
+						A: 16.5,
+					}
+					return &v
+				}(),
+				Bounds:         func() *spatial.Bounds { v := spatial.Bounds{}; return &v }(),
+				BarWidth:       func() *float64 { v := float64(18.5); return &v }(),
+				Channel:        func() *channel.Key { v := channel.Key(channel.Key(20)); return &v }(),
+				RollingAverage: func() *int32 { v := int32(21); return &v }(),
+				Precision:      func() *float64 { v := float64(21.5); return &v }(),
+				MinWidth:       func() *float64 { v := float64(22.5); return &v }(),
+				Width:          func() *float64 { v := float64(23.5); return &v }(),
+				Notation:       func() *notation.Notation { v := notation.Notation(notation.Notation("standard")); return &v }(),
+				Location: func() *spatial.LocationXY {
+					v := spatial.LocationXY{
+						X: spatial.XCenterLocation("left"),
+						Y: spatial.YCenterLocation("top"),
+					}
+					return &v
+				}(),
+				Units: "test_28",
+				Level: func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+			}),
+			Entry("zero values", schematic.GaugeConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Position:       nil,
+				Color:          nil,
+				Bounds:         nil,
+				BarWidth:       nil,
+				Channel:        nil,
+				RollingAverage: nil,
+				Precision:      nil,
+				MinWidth:       nil,
+				Width:          nil,
+				Notation:       nil,
+				Location:       nil,
+				Units:          "",
+				Level:          nil,
+			}),
+		)
+	})
 	Describe("Handle", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.Handle) {
@@ -63,6 +675,187 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", schematic.Handle{Node: "test_1", Param: "test_2"}),
 			Entry("zero values", schematic.Handle{Node: "", Param: ""}),
+		)
+	})
+	Describe("InputConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.InputConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.InputConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.InputConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Size: func() *schematic.ComponentSize {
+					v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+					return &v
+				}(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				Dimensions:     func() *spatial.Dimensions { v := spatial.Dimensions{Width: 12.5, Height: 13.5}; return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 16,
+						G: 17,
+						B: 18,
+						A: 18.5,
+					}
+					return &v
+				}(),
+				Disabled: true,
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(22); return &v }(),
+						Show:          false,
+						ShowChip:      true,
+						ShowIndicator: false,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", schematic.InputConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Size:           nil,
+				CommandChannel: nil,
+				Dimensions:     nil,
+				Color:          nil,
+				Disabled:       false,
+				Control:        nil,
+			}),
+		)
+	})
+	Describe("LabelConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.LabelConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.LabelConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.LabelConfig{
+				Label:         "test_1",
+				Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+				MaxInlineSize: func() *float64 { v := float64(5.5); return &v }(),
+				Align: func() *schematic.FlexAlignment {
+					v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+					return &v
+				}(),
+			}),
+			Entry("zero values", schematic.LabelConfig{
+				Label:         "",
+				Level:         nil,
+				Orientation:   nil,
+				Direction:     nil,
+				MaxInlineSize: nil,
+				Align:         nil,
+			}),
+		)
+	})
+	Describe("LabeledConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.LabeledConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.LabeledConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			}),
+			Entry("zero values", schematic.LabeledConfig{Label: nil, Orientation: nil}),
+		)
+	})
+	Describe("LightConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.LightConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.LightConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.LightConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Channel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+				Threshold: func() *spatial.Bounds { v := spatial.Bounds{}; return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 13,
+						G: 14,
+						B: 15,
+						A: 15.5,
+					}
+					return &v
+				}(),
+				Scale: func() *float64 { v := float64(16.5); return &v }(),
+			}),
+			Entry("zero values", schematic.LightConfig{
+				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Channel:       nil,
+				Threshold:     nil,
+				Color:         nil,
+				Scale:         nil,
+			}),
 		)
 	})
 	Describe("Node", func() {
@@ -88,6 +881,156 @@ var _ = Describe("Codec", func() {
 				ZIndex:   0,
 				Measured: spatial.Dimensions{Width: 0, Height: 0},
 			}),
+		)
+	})
+	Describe("OffPageReferenceConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.OffPageReferenceConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.OffPageReferenceConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.OffPageReferenceConfig{
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				Label: schematic.LabelConfig{
+					Label:         "test_3",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(7.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				},
+				Level: func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 12,
+						G: 13,
+						B: 14,
+						A: 14.5,
+					}
+					return &v
+				}(),
+				Page:        "test_15",
+				DblClickNav: false,
+			}),
+			Entry("zero values", schematic.OffPageReferenceConfig{
+				Orientation: nil,
+				Label: schematic.LabelConfig{
+					Label:         "",
+					Level:         nil,
+					Orientation:   nil,
+					Direction:     nil,
+					MaxInlineSize: nil,
+					Align:         nil,
+				},
+				Level:       nil,
+				Color:       nil,
+				Page:        "",
+				DblClickNav: false,
+			}),
+		)
+	})
+	Describe("PolygonConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.PolygonConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.PolygonConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.PolygonConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				NumSides:       9.5,
+				SideLength:     10.5,
+				Rotation:       func() *float64 { v := float64(11.5); return &v }(),
+				CornerRounding: func() *float64 { v := float64(12.5); return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 15,
+						G: 16,
+						B: 17,
+						A: 17.5,
+					}
+					return &v
+				}(),
+				BackgroundColor: func() *color.Color {
+					v := color.Color{
+						R: 20,
+						G: 21,
+						B: 22,
+						A: 22.5,
+					}
+					return &v
+				}(),
+				StrokeWidth: func() *float64 { v := float64(23.5); return &v }(),
+			}),
+			Entry("zero values", schematic.PolygonConfig{
+				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
+				NumSides:        0,
+				SideLength:      0,
+				Rotation:        nil,
+				CornerRounding:  nil,
+				Color:           nil,
+				BackgroundColor: nil,
+				StrokeWidth:     nil,
+			}),
+		)
+	})
+	Describe("Redline", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.Redline) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.Redline
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.Redline{
+				Bounds: spatial.Bounds{},
+				Gradient: []color.Stop{
+					{
+						Key: "test_3",
+						Color: color.Color{
+							R: 6,
+							G: 7,
+							B: 8,
+							A: 8.5,
+						},
+						Position: 9.5,
+						Switched: false,
+					},
+				},
+			}),
+			Entry("zero values", schematic.Redline{Bounds: spatial.Bounds{}, Gradient: nil}),
+			Entry("empty collections", schematic.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}),
 		)
 	})
 	Describe("Schematic", func() {
@@ -170,7 +1113,1362 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("Segment", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.Segment) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.Segment
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}),
+			Entry("zero values", schematic.Segment{Direction: spatial.Direction(""), Length: 0}),
+		)
+	})
+	Describe("SegmentedEdgeConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.SegmentedEdgeConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.SegmentedEdgeConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.SegmentedEdgeConfig{
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 3,
+						G: 4,
+						B: 5,
+						A: 5.5,
+					}
+					return &v
+				}(),
+				Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+			}),
+			Entry("zero values", schematic.SegmentedEdgeConfig{Color: nil, Segments: nil}),
+			Entry("empty collections", schematic.SegmentedEdgeConfig{
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 3,
+						G: 4,
+						B: 5,
+						A: 5.5,
+					}
+					return &v
+				}(),
+				Segments: []schematic.Segment{},
+			}),
+		)
+	})
+	Describe("SelectConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.SelectConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.SelectConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.SelectConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Size: func() *schematic.ComponentSize {
+					v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+					return &v
+				}(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 13,
+						G: 14,
+						B: 15,
+						A: 15.5,
+					}
+					return &v
+				}(),
+				InlineSize: func() *float64 { v := float64(16.5); return &v }(),
+				Options: []schematic.StateMapping{
+					{
+						Key:   "test_18",
+						Name:  "test_19",
+						Value: 20.5,
+						Color: func() *color.Color {
+							v := color.Color{
+								R: 23,
+								G: 24,
+								B: 25,
+								A: 25.5,
+							}
+							return &v
+						}(),
+					},
+				},
+				Disabled: false,
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(29); return &v }(),
+						Show:          true,
+						ShowChip:      false,
+						ShowIndicator: true,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", schematic.SelectConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Size:           nil,
+				CommandChannel: nil,
+				Color:          nil,
+				InlineSize:     nil,
+				Options:        nil,
+				Disabled:       false,
+				Control:        nil,
+			}),
+			Entry("empty collections", schematic.SelectConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Size: func() *schematic.ComponentSize {
+					v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+					return &v
+				}(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 13,
+						G: 14,
+						B: 15,
+						A: 15.5,
+					}
+					return &v
+				}(),
+				InlineSize: func() *float64 { v := float64(16.5); return &v }(),
+				Options:    []schematic.StateMapping{},
+				Disabled:   false,
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(21); return &v }(),
+						Show:          true,
+						ShowChip:      false,
+						ShowIndicator: true,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+			}),
+		)
+	})
+	Describe("SetpointConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.SetpointConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.SetpointConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.SetpointConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Size: func() *schematic.ComponentSize {
+					v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+					return &v
+				}(),
+				StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(12)); return &v }(),
+				Dimensions:     func() *spatial.Dimensions { v := spatial.Dimensions{Width: 13.5, Height: 14.5}; return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 17,
+						G: 18,
+						B: 19,
+						A: 19.5,
+					}
+					return &v
+				}(),
+				Units:    "test_20",
+				Disabled: true,
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(24); return &v }(),
+						Show:          false,
+						ShowChip:      true,
+						ShowIndicator: false,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", schematic.SetpointConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Size:           nil,
+				StateChannel:   nil,
+				CommandChannel: nil,
+				Dimensions:     nil,
+				Color:          nil,
+				Units:          "",
+				Disabled:       false,
+				Control:        nil,
+			}),
+		)
+	})
+	Describe("SolenoidValveConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.SolenoidValveConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.SolenoidValveConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.SolenoidValveConfig{
+				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
+					ToggleConfig: schematic.ToggleConfig{
+						LabeledConfig: schematic.LabeledConfig{
+							Label: func() *schematic.LabelConfig {
+								v := schematic.LabelConfig{
+									Label:         "test_2",
+									Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+									Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+									Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+									MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+									Align: func() *schematic.FlexAlignment {
+										v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+										return &v
+									}(),
+								}
+								return &v
+							}(),
+							Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+						},
+						StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+						CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+						Control: func() *schematic.ControlStateConfig {
+							v := schematic.ControlStateConfig{
+								Authority:     func() *uint8 { v := uint8(13); return &v }(),
+								Show:          true,
+								ShowChip:      false,
+								ShowIndicator: true,
+								Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							}
+							return &v
+						}(),
+						OnClickDelay: 17.5,
+					},
+					Color: func() *color.Color {
+						v := color.Color{
+							R: 20,
+							G: 21,
+							B: 22,
+							A: 22.5,
+						}
+						return &v
+					}(),
+					Scale: func() *float64 { v := float64(23.5); return &v }(),
+				},
+				NormallyOpen: false,
+			}),
+			Entry("zero values", schematic.SolenoidValveConfig{
+				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
+					ToggleConfig: schematic.ToggleConfig{
+						LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+						StateChannel:   nil,
+						CommandChannel: nil,
+						Control:        nil,
+						OnClickDelay:   0,
+					},
+					Color: nil,
+					Scale: nil,
+				},
+				NormallyOpen: false,
+			}),
+		)
+	})
+	Describe("StateIndicatorConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.StateIndicatorConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.StateIndicatorConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.StateIndicatorConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Channel: func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 12,
+						G: 13,
+						B: 14,
+						A: 14.5,
+					}
+					return &v
+				}(),
+				InlineSize: func() *float64 { v := float64(15.5); return &v }(),
+				Options: []schematic.StateMapping{
+					{
+						Key:   "test_17",
+						Name:  "test_18",
+						Value: 19.5,
+						Color: func() *color.Color {
+							v := color.Color{
+								R: 22,
+								G: 23,
+								B: 24,
+								A: 24.5,
+							}
+							return &v
+						}(),
+					},
+				},
+			}),
+			Entry("zero values", schematic.StateIndicatorConfig{
+				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Channel:       nil,
+				Color:         nil,
+				InlineSize:    nil,
+				Options:       nil,
+			}),
+			Entry("empty collections", schematic.StateIndicatorConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Channel: func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 12,
+						G: 13,
+						B: 14,
+						A: 14.5,
+					}
+					return &v
+				}(),
+				InlineSize: func() *float64 { v := float64(15.5); return &v }(),
+				Options:    []schematic.StateMapping{},
+			}),
+		)
+	})
+	Describe("StateMapping", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.StateMapping) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.StateMapping
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.StateMapping{
+				Key:   "test_1",
+				Name:  "test_2",
+				Value: 3.5,
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 6,
+						G: 7,
+						B: 8,
+						A: 8.5,
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", schematic.StateMapping{
+				Key:   "",
+				Name:  "",
+				Value: 0,
+				Color: nil,
+			}),
+		)
+	})
+	Describe("StaticSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.StaticSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.StaticSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.StaticSymbolConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 11,
+						G: 12,
+						B: 13,
+						A: 13.5,
+					}
+					return &v
+				}(),
+				Scale: func() *float64 { v := float64(14.5); return &v }(),
+			}),
+			Entry("zero values", schematic.StaticSymbolConfig{
+				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Color:         nil,
+				Scale:         nil,
+			}),
+		)
+	})
+	Describe("TankConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.TankConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.TankConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.TankConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 11,
+						G: 12,
+						B: 13,
+						A: 13.5,
+					}
+					return &v
+				}(),
+				BackgroundColor: func() *color.Color {
+					v := color.Color{
+						R: 16,
+						G: 17,
+						B: 18,
+						A: 18.5,
+					}
+					return &v
+				}(),
+				Dimensions: func() *spatial.Dimensions { v := spatial.Dimensions{Width: 20.5, Height: 21.5}; return &v }(),
+				BorderRadius: func() *border.Radius {
+					v := border.Radius{
+						TopLeft:     spatial.XY{X: 24.5, Y: 25.5},
+						TopRight:    spatial.XY{X: 27.5, Y: 28.5},
+						BottomLeft:  spatial.XY{X: 30.5, Y: 31.5},
+						BottomRight: spatial.XY{X: 33.5, Y: 34.5},
+					}
+					return &v
+				}(),
+			}),
+			Entry("zero values", schematic.TankConfig{
+				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Color:           nil,
+				BackgroundColor: nil,
+				Dimensions:      nil,
+				BorderRadius:    nil,
+			}),
+		)
+	})
+	Describe("TextBoxConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.TextBoxConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.TextBoxConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.TextBoxConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 11,
+						G: 12,
+						B: 13,
+						A: 13.5,
+					}
+					return &v
+				}(),
+				Width: func() *float64 { v := float64(14.5); return &v }(),
+				Align: func() *schematic.FlexAlignment {
+					v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+					return &v
+				}(),
+				AutoFit: false,
+				Level:   func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				Value:   "test_18",
+			}),
+			Entry("zero values", schematic.TextBoxConfig{
+				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Color:         nil,
+				Width:         nil,
+				Align:         nil,
+				AutoFit:       false,
+				Level:         nil,
+				Value:         "",
+			}),
+		)
+	})
+	Describe("ToggleConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ToggleConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ToggleConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.ToggleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(13); return &v }(),
+						Show:          true,
+						ShowChip:      false,
+						ShowIndicator: true,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+				OnClickDelay: 17.5,
+			}),
+			Entry("zero values", schematic.ToggleConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				StateChannel:   nil,
+				CommandChannel: nil,
+				Control:        nil,
+				OnClickDelay:   0,
+			}),
+		)
+	})
+	Describe("ToggleSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ToggleSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ToggleSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.ToggleSymbolConfig{
+				ToggleConfig: schematic.ToggleConfig{
+					LabeledConfig: schematic.LabeledConfig{
+						Label: func() *schematic.LabelConfig {
+							v := schematic.LabelConfig{
+								Label:         "test_2",
+								Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+								Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+								Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+								MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+								Align: func() *schematic.FlexAlignment {
+									v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+									return &v
+								}(),
+							}
+							return &v
+						}(),
+						Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+					},
+					StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+					CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+					Control: func() *schematic.ControlStateConfig {
+						v := schematic.ControlStateConfig{
+							Authority:     func() *uint8 { v := uint8(13); return &v }(),
+							Show:          true,
+							ShowChip:      false,
+							ShowIndicator: true,
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						}
+						return &v
+					}(),
+					OnClickDelay: 17.5,
+				},
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 20,
+						G: 21,
+						B: 22,
+						A: 22.5,
+					}
+					return &v
+				}(),
+				Scale: func() *float64 { v := float64(23.5); return &v }(),
+			}),
+			Entry("zero values", schematic.ToggleSymbolConfig{
+				ToggleConfig: schematic.ToggleConfig{
+					LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+					StateChannel:   nil,
+					CommandChannel: nil,
+					Control:        nil,
+					OnClickDelay:   0,
+				},
+				Color: nil,
+				Scale: nil,
+			}),
+		)
+	})
+	Describe("ValueConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ValueConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ValueConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.ValueConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Position: func() *spatial.XY { v := spatial.XY{X: 10.5, Y: 11.5}; return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 14,
+						G: 15,
+						B: 16,
+						A: 16.5,
+					}
+					return &v
+				}(),
+				TextColor: func() *color.Color {
+					v := color.Color{
+						R: 19,
+						G: 20,
+						B: 21,
+						A: 21.5,
+					}
+					return &v
+				}(),
+				Tooltip: []string{"test_22"},
+				Redline: func() *schematic.Redline {
+					v := schematic.Redline{
+						Bounds: spatial.Bounds{},
+						Gradient: []color.Stop{
+							{
+								Key: "test_26",
+								Color: color.Color{
+									R: 29,
+									G: 30,
+									B: 31,
+									A: 31.5,
+								},
+								Position: 32.5,
+								Switched: true,
+							},
+						},
+					}
+					return &v
+				}(),
+				Units:            "test_34",
+				InlineSize:       func() *float64 { v := float64(35.5); return &v }(),
+				Channel:          func() *channel.Key { v := channel.Key(channel.Key(37)); return &v }(),
+				RollingAverage:   func() *int32 { v := int32(38); return &v }(),
+				Level:            func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				Precision:        func() *float64 { v := float64(39.5); return &v }(),
+				StalenessTimeout: func() *float64 { v := float64(40.5); return &v }(),
+				StalenessColor: func() *color.Color {
+					v := color.Color{
+						R: 43,
+						G: 44,
+						B: 45,
+						A: 45.5,
+					}
+					return &v
+				}(),
+				MinWidth: func() *float64 { v := float64(46.5); return &v }(),
+				Notation: func() *notation.Notation { v := notation.Notation(notation.Notation("standard")); return &v }(),
+				Location: func() *spatial.LocationXY {
+					v := spatial.LocationXY{
+						X: spatial.XCenterLocation("left"),
+						Y: spatial.YCenterLocation("top"),
+					}
+					return &v
+				}(),
+				UseWidthForBackground:   true,
+				ValueBackgroundShift:    func() *spatial.XY { v := spatial.XY{X: 53.5, Y: 54.5}; return &v }(),
+				ValueBackgroundOverScan: func() *spatial.XY { v := spatial.XY{X: 56.5, Y: 57.5}; return &v }(),
+			}),
+			Entry("zero values", schematic.ValueConfig{
+				LabeledConfig:           schematic.LabeledConfig{Label: nil, Orientation: nil},
+				Position:                nil,
+				Color:                   nil,
+				TextColor:               nil,
+				Tooltip:                 nil,
+				Redline:                 nil,
+				Units:                   "",
+				InlineSize:              nil,
+				Channel:                 nil,
+				RollingAverage:          nil,
+				Level:                   nil,
+				Precision:               nil,
+				StalenessTimeout:        nil,
+				StalenessColor:          nil,
+				MinWidth:                nil,
+				Notation:                nil,
+				Location:                nil,
+				UseWidthForBackground:   false,
+				ValueBackgroundShift:    nil,
+				ValueBackgroundOverScan: nil,
+			}),
+			Entry("empty collections", schematic.ValueConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				Position: func() *spatial.XY { v := spatial.XY{X: 10.5, Y: 11.5}; return &v }(),
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 14,
+						G: 15,
+						B: 16,
+						A: 16.5,
+					}
+					return &v
+				}(),
+				TextColor: func() *color.Color {
+					v := color.Color{
+						R: 19,
+						G: 20,
+						B: 21,
+						A: 21.5,
+					}
+					return &v
+				}(),
+				Tooltip: []string{},
+				Redline: func() *schematic.Redline {
+					v := schematic.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}
+					return &v
+				}(),
+				Units:            "test_26",
+				InlineSize:       func() *float64 { v := float64(27.5); return &v }(),
+				Channel:          func() *channel.Key { v := channel.Key(channel.Key(29)); return &v }(),
+				RollingAverage:   func() *int32 { v := int32(30); return &v }(),
+				Level:            func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				Precision:        func() *float64 { v := float64(31.5); return &v }(),
+				StalenessTimeout: func() *float64 { v := float64(32.5); return &v }(),
+				StalenessColor: func() *color.Color {
+					v := color.Color{
+						R: 35,
+						G: 36,
+						B: 37,
+						A: 37.5,
+					}
+					return &v
+				}(),
+				MinWidth: func() *float64 { v := float64(38.5); return &v }(),
+				Notation: func() *notation.Notation { v := notation.Notation(notation.Notation("standard")); return &v }(),
+				Location: func() *spatial.LocationXY {
+					v := spatial.LocationXY{
+						X: spatial.XCenterLocation("left"),
+						Y: spatial.YCenterLocation("top"),
+					}
+					return &v
+				}(),
+				UseWidthForBackground:   true,
+				ValueBackgroundShift:    func() *spatial.XY { v := spatial.XY{X: 45.5, Y: 46.5}; return &v }(),
+				ValueBackgroundOverScan: func() *spatial.XY { v := spatial.XY{X: 48.5, Y: 49.5}; return &v }(),
+			}),
+		)
+	})
 })
+
+func BenchmarkEncodeDecodeBoxConfig(b *testing.B) {
+	bc := schematic.BoxConfig{
+		Label: func() *schematic.LabelConfig {
+			v := schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+				MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+				Align: func() *schematic.FlexAlignment {
+					v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+					return &v
+				}(),
+			}
+			return &v
+		}(),
+		Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}
+			return &v
+		}(),
+		BackgroundColor: func() *color.Color {
+			v := color.Color{
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
+			}
+			return &v
+		}(),
+		Dimensions:   func() *spatial.Dimensions { v := spatial.Dimensions{Width: 20.5, Height: 21.5}; return &v }(),
+		BorderRadius: func() *float64 { v := float64(22.5); return &v }(),
+		StrokeWidth:  func() *float64 { v := float64(23.5); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := bc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.BoxConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeButtonConfig(b *testing.B) {
+	bc := schematic.ButtonConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Size: func() *schematic.ComponentSize {
+			v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+			return &v
+		}(),
+		Level:          func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+		OnClickDelay:   11.5,
+		CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(13)); return &v }(),
+		Mode:           func() *schematic.ButtonMode { v := schematic.ButtonMode(schematic.ButtonMode("fire")); return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
+			}
+			return &v
+		}(),
+		Control: func() *schematic.ControlStateConfig {
+			v := schematic.ControlStateConfig{
+				Authority:     func() *uint8 { v := uint8(21); return &v }(),
+				Show:          true,
+				ShowChip:      false,
+				ShowIndicator: true,
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := bc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ButtonConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCircleConfig(b *testing.B) {
+	cc := schematic.CircleConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Radius: 9.5,
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}
+			return &v
+		}(),
+		BackgroundColor: func() *color.Color {
+			v := color.Color{
+				R: 17,
+				G: 18,
+				B: 19,
+				A: 19.5,
+			}
+			return &v
+		}(),
+		StrokeWidth: func() *float64 { v := float64(20.5); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := cc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.CircleConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeControlStateConfig(b *testing.B) {
+	csc := schematic.ControlStateConfig{
+		Authority:     func() *uint8 { v := uint8(2); return &v }(),
+		Show:          false,
+		ShowChip:      true,
+		ShowIndicator: false,
+		Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := csc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ControlStateConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCustomActuatorConfig(b *testing.B) {
+	cac := schematic.CustomActuatorConfig{
+		ToggleConfig: schematic.ToggleConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+			CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+			Control: func() *schematic.ControlStateConfig {
+				v := schematic.ControlStateConfig{
+					Authority:     func() *uint8 { v := uint8(13); return &v }(),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				}
+				return &v
+			}(),
+			OnClickDelay: 17.5,
+		},
+		SpecKey: "test_18",
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 21,
+				G: 22,
+				B: 23,
+				A: 23.5,
+			}
+			return &v
+		}(),
+		Scale:          func() *float64 { v := float64(24.5); return &v }(),
+		StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := cac.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.CustomActuatorConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCustomStaticConfig(b *testing.B) {
+	csc := schematic.CustomStaticConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		SpecKey: "test_9",
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}
+			return &v
+		}(),
+		Scale:          func() *float64 { v := float64(15.5); return &v }(),
+		StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := csc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.CustomStaticConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCylinderConfig(b *testing.B) {
+	cc := schematic.CylinderConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Dimensions: func() *spatial.Dimensions { v := spatial.Dimensions{Width: 10.5, Height: 11.5}; return &v }(),
+		BorderRadius: func() *border.Radius {
+			v := border.Radius{
+				TopLeft:     spatial.XY{X: 14.5, Y: 15.5},
+				TopRight:    spatial.XY{X: 17.5, Y: 18.5},
+				BottomLeft:  spatial.XY{X: 20.5, Y: 21.5},
+				BottomRight: spatial.XY{X: 23.5, Y: 24.5},
+			}
+			return &v
+		}(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 27,
+				G: 28,
+				B: 29,
+				A: 29.5,
+			}
+			return &v
+		}(),
+		BackgroundColor: func() *color.Color {
+			v := color.Color{
+				R: 32,
+				G: 33,
+				B: 34,
+				A: 34.5,
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := cc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.CylinderConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeDummyToggleSymbolConfig(b *testing.B) {
+	dtsc := schematic.DummyToggleSymbolConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Enabled:   true,
+		Clickable: false,
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 13,
+				G: 14,
+				B: 15,
+				A: 15.5,
+			}
+			return &v
+		}(),
+		Scale: func() *float64 { v := float64(16.5); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := dtsc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.DummyToggleSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	e := schematic.Edge{
@@ -186,6 +2484,68 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded schematic.Edge
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeGaugeConfig(b *testing.B) {
+	gc := schematic.GaugeConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Position: func() *spatial.XY { v := spatial.XY{X: 10.5, Y: 11.5}; return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 14,
+				G: 15,
+				B: 16,
+				A: 16.5,
+			}
+			return &v
+		}(),
+		Bounds:         func() *spatial.Bounds { v := spatial.Bounds{}; return &v }(),
+		BarWidth:       func() *float64 { v := float64(18.5); return &v }(),
+		Channel:        func() *channel.Key { v := channel.Key(channel.Key(20)); return &v }(),
+		RollingAverage: func() *int32 { v := int32(21); return &v }(),
+		Precision:      func() *float64 { v := float64(21.5); return &v }(),
+		MinWidth:       func() *float64 { v := float64(22.5); return &v }(),
+		Width:          func() *float64 { v := float64(23.5); return &v }(),
+		Notation:       func() *notation.Notation { v := notation.Notation(notation.Notation("standard")); return &v }(),
+		Location: func() *spatial.LocationXY {
+			v := spatial.LocationXY{
+				X: spatial.XCenterLocation("left"),
+				Y: spatial.YCenterLocation("top"),
+			}
+			return &v
+		}(),
+		Units: "test_28",
+		Level: func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := gc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.GaugeConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -210,6 +2570,174 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeInputConfig(b *testing.B) {
+	ic := schematic.InputConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Size: func() *schematic.ComponentSize {
+			v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+			return &v
+		}(),
+		CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+		Dimensions:     func() *spatial.Dimensions { v := spatial.Dimensions{Width: 12.5, Height: 13.5}; return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
+			}
+			return &v
+		}(),
+		Disabled: true,
+		Control: func() *schematic.ControlStateConfig {
+			v := schematic.ControlStateConfig{
+				Authority:     func() *uint8 { v := uint8(22); return &v }(),
+				Show:          false,
+				ShowChip:      true,
+				ShowIndicator: false,
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ic.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.InputConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLabelConfig(b *testing.B) {
+	lc := schematic.LabelConfig{
+		Label:         "test_1",
+		Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+		Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+		Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+		MaxInlineSize: func() *float64 { v := float64(5.5); return &v }(),
+		Align: func() *schematic.FlexAlignment {
+			v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := lc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.LabelConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLabeledConfig(b *testing.B) {
+	lc := schematic.LabeledConfig{
+		Label: func() *schematic.LabelConfig {
+			v := schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+				MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+				Align: func() *schematic.FlexAlignment {
+					v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+					return &v
+				}(),
+			}
+			return &v
+		}(),
+		Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := lc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.LabeledConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLightConfig(b *testing.B) {
+	lc := schematic.LightConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Channel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+		Threshold: func() *spatial.Bounds { v := spatial.Bounds{}; return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 13,
+				G: 14,
+				B: 15,
+				A: 15.5,
+			}
+			return &v
+		}(),
+		Scale: func() *float64 { v := float64(16.5); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := lc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.LightConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeNode(b *testing.B) {
 	nv := schematic.Node{
 		Key:      "test_1",
@@ -225,6 +2753,138 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded schematic.Node
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeOffPageReferenceConfig(b *testing.B) {
+	oprc := schematic.OffPageReferenceConfig{
+		Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		Label: schematic.LabelConfig{
+			Label:         "test_3",
+			Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+			Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+			Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+			MaxInlineSize: func() *float64 { v := float64(7.5); return &v }(),
+			Align: func() *schematic.FlexAlignment {
+				v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+				return &v
+			}(),
+		},
+		Level: func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}
+			return &v
+		}(),
+		Page:        "test_15",
+		DblClickNav: false,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := oprc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.OffPageReferenceConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodePolygonConfig(b *testing.B) {
+	pc := schematic.PolygonConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		NumSides:       9.5,
+		SideLength:     10.5,
+		Rotation:       func() *float64 { v := float64(11.5); return &v }(),
+		CornerRounding: func() *float64 { v := float64(12.5); return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 15,
+				G: 16,
+				B: 17,
+				A: 17.5,
+			}
+			return &v
+		}(),
+		BackgroundColor: func() *color.Color {
+			v := color.Color{
+				R: 20,
+				G: 21,
+				B: 22,
+				A: 22.5,
+			}
+			return &v
+		}(),
+		StrokeWidth: func() *float64 { v := float64(23.5); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := pc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.PolygonConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRedline(b *testing.B) {
+	rv := schematic.Redline{
+		Bounds: spatial.Bounds{},
+		Gradient: []color.Stop{
+			{
+				Key: "test_3",
+				Color: color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				},
+				Position: 9.5,
+				Switched: false,
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := rv.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.Redline
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -299,6 +2959,1511 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeSegment(b *testing.B) {
+	s := schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := s.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.Segment
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
+	sec := schematic.SegmentedEdgeConfig{
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}
+			return &v
+		}(),
+		Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sec.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.SegmentedEdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSelectConfig(b *testing.B) {
+	sc := schematic.SelectConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Size: func() *schematic.ComponentSize {
+			v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+			return &v
+		}(),
+		CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 13,
+				G: 14,
+				B: 15,
+				A: 15.5,
+			}
+			return &v
+		}(),
+		InlineSize: func() *float64 { v := float64(16.5); return &v }(),
+		Options: []schematic.StateMapping{
+			{
+				Key:   "test_18",
+				Name:  "test_19",
+				Value: 20.5,
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 23,
+						G: 24,
+						B: 25,
+						A: 25.5,
+					}
+					return &v
+				}(),
+			},
+		},
+		Disabled: false,
+		Control: func() *schematic.ControlStateConfig {
+			v := schematic.ControlStateConfig{
+				Authority:     func() *uint8 { v := uint8(29); return &v }(),
+				Show:          true,
+				ShowChip:      false,
+				ShowIndicator: true,
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.SelectConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSetpointConfig(b *testing.B) {
+	sc := schematic.SetpointConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Size: func() *schematic.ComponentSize {
+			v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+			return &v
+		}(),
+		StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+		CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(12)); return &v }(),
+		Dimensions:     func() *spatial.Dimensions { v := spatial.Dimensions{Width: 13.5, Height: 14.5}; return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 17,
+				G: 18,
+				B: 19,
+				A: 19.5,
+			}
+			return &v
+		}(),
+		Units:    "test_20",
+		Disabled: true,
+		Control: func() *schematic.ControlStateConfig {
+			v := schematic.ControlStateConfig{
+				Authority:     func() *uint8 { v := uint8(24); return &v }(),
+				Show:          false,
+				ShowChip:      true,
+				ShowIndicator: false,
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.SetpointConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSolenoidValveConfig(b *testing.B) {
+	svc := schematic.SolenoidValveConfig{
+		ToggleSymbolConfig: schematic.ToggleSymbolConfig{
+			ToggleConfig: schematic.ToggleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(13); return &v }(),
+						Show:          true,
+						ShowChip:      false,
+						ShowIndicator: true,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+				OnClickDelay: 17.5,
+			},
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 20,
+					G: 21,
+					B: 22,
+					A: 22.5,
+				}
+				return &v
+			}(),
+			Scale: func() *float64 { v := float64(23.5); return &v }(),
+		},
+		NormallyOpen: false,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := svc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.SolenoidValveConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStateIndicatorConfig(b *testing.B) {
+	sic := schematic.StateIndicatorConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Channel: func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}
+			return &v
+		}(),
+		InlineSize: func() *float64 { v := float64(15.5); return &v }(),
+		Options: []schematic.StateMapping{
+			{
+				Key:   "test_17",
+				Name:  "test_18",
+				Value: 19.5,
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 22,
+						G: 23,
+						B: 24,
+						A: 24.5,
+					}
+					return &v
+				}(),
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sic.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.StateIndicatorConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStateMapping(b *testing.B) {
+	sm := schematic.StateMapping{
+		Key:   "test_1",
+		Name:  "test_2",
+		Value: 3.5,
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 6,
+				G: 7,
+				B: 8,
+				A: 8.5,
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sm.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.StateMapping
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStaticSymbolConfig(b *testing.B) {
+	ssc := schematic.StaticSymbolConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}
+			return &v
+		}(),
+		Scale: func() *float64 { v := float64(14.5); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ssc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.StaticSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeTankConfig(b *testing.B) {
+	tc := schematic.TankConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}
+			return &v
+		}(),
+		BackgroundColor: func() *color.Color {
+			v := color.Color{
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
+			}
+			return &v
+		}(),
+		Dimensions: func() *spatial.Dimensions { v := spatial.Dimensions{Width: 20.5, Height: 21.5}; return &v }(),
+		BorderRadius: func() *border.Radius {
+			v := border.Radius{
+				TopLeft:     spatial.XY{X: 24.5, Y: 25.5},
+				TopRight:    spatial.XY{X: 27.5, Y: 28.5},
+				BottomLeft:  spatial.XY{X: 30.5, Y: 31.5},
+				BottomRight: spatial.XY{X: 33.5, Y: 34.5},
+			}
+			return &v
+		}(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := tc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.TankConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeTextBoxConfig(b *testing.B) {
+	tbc := schematic.TextBoxConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}
+			return &v
+		}(),
+		Width: func() *float64 { v := float64(14.5); return &v }(),
+		Align: func() *schematic.FlexAlignment {
+			v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+			return &v
+		}(),
+		AutoFit: false,
+		Level:   func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+		Value:   "test_18",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := tbc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.TextBoxConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeToggleConfig(b *testing.B) {
+	tc := schematic.ToggleConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+		CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+		Control: func() *schematic.ControlStateConfig {
+			v := schematic.ControlStateConfig{
+				Authority:     func() *uint8 { v := uint8(13); return &v }(),
+				Show:          true,
+				ShowChip:      false,
+				ShowIndicator: true,
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+			}
+			return &v
+		}(),
+		OnClickDelay: 17.5,
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := tc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ToggleConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
+	tsc := schematic.ToggleSymbolConfig{
+		ToggleConfig: schematic.ToggleConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+			CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+			Control: func() *schematic.ControlStateConfig {
+				v := schematic.ControlStateConfig{
+					Authority:     func() *uint8 { v := uint8(13); return &v }(),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				}
+				return &v
+			}(),
+			OnClickDelay: 17.5,
+		},
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 20,
+				G: 21,
+				B: 22,
+				A: 22.5,
+			}
+			return &v
+		}(),
+		Scale: func() *float64 { v := float64(23.5); return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := tsc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ToggleSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeValueConfig(b *testing.B) {
+	vc := schematic.ValueConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		},
+		Position: func() *spatial.XY { v := spatial.XY{X: 10.5, Y: 11.5}; return &v }(),
+		Color: func() *color.Color {
+			v := color.Color{
+				R: 14,
+				G: 15,
+				B: 16,
+				A: 16.5,
+			}
+			return &v
+		}(),
+		TextColor: func() *color.Color {
+			v := color.Color{
+				R: 19,
+				G: 20,
+				B: 21,
+				A: 21.5,
+			}
+			return &v
+		}(),
+		Tooltip: []string{"test_22"},
+		Redline: func() *schematic.Redline {
+			v := schematic.Redline{
+				Bounds: spatial.Bounds{},
+				Gradient: []color.Stop{
+					{
+						Key: "test_26",
+						Color: color.Color{
+							R: 29,
+							G: 30,
+							B: 31,
+							A: 31.5,
+						},
+						Position: 32.5,
+						Switched: true,
+					},
+				},
+			}
+			return &v
+		}(),
+		Units:            "test_34",
+		InlineSize:       func() *float64 { v := float64(35.5); return &v }(),
+		Channel:          func() *channel.Key { v := channel.Key(channel.Key(37)); return &v }(),
+		RollingAverage:   func() *int32 { v := int32(38); return &v }(),
+		Level:            func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+		Precision:        func() *float64 { v := float64(39.5); return &v }(),
+		StalenessTimeout: func() *float64 { v := float64(40.5); return &v }(),
+		StalenessColor: func() *color.Color {
+			v := color.Color{
+				R: 43,
+				G: 44,
+				B: 45,
+				A: 45.5,
+			}
+			return &v
+		}(),
+		MinWidth: func() *float64 { v := float64(46.5); return &v }(),
+		Notation: func() *notation.Notation { v := notation.Notation(notation.Notation("standard")); return &v }(),
+		Location: func() *spatial.LocationXY {
+			v := spatial.LocationXY{
+				X: spatial.XCenterLocation("left"),
+				Y: spatial.YCenterLocation("top"),
+			}
+			return &v
+		}(),
+		UseWidthForBackground:   true,
+		ValueBackgroundShift:    func() *spatial.XY { v := spatial.XY{X: 53.5, Y: 54.5}; return &v }(),
+		ValueBackgroundOverScan: func() *spatial.XY { v := spatial.XY{X: 56.5, Y: 57.5}; return &v }(),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := vc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ValueConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeBoxConfig(f *testing.F) {
+	{
+		seed := schematic.BoxConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}
+				return &v
+			}(),
+			BackgroundColor: func() *color.Color {
+				v := color.Color{
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
+				}
+				return &v
+			}(),
+			Dimensions:   func() *spatial.Dimensions { v := spatial.Dimensions{Width: 20.5, Height: 21.5}; return &v }(),
+			BorderRadius: func() *float64 { v := float64(22.5); return &v }(),
+			StrokeWidth:  func() *float64 { v := float64(23.5); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.BoxConfig{
+			Label:           nil,
+			Orientation:     nil,
+			Color:           nil,
+			BackgroundColor: nil,
+			Dimensions:      nil,
+			BorderRadius:    nil,
+			StrokeWidth:     nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.BoxConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.BoxConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeButtonConfig(f *testing.F) {
+	{
+		seed := schematic.ButtonConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Size: func() *schematic.ComponentSize {
+				v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+				return &v
+			}(),
+			Level:          func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+			OnClickDelay:   11.5,
+			CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(13)); return &v }(),
+			Mode:           func() *schematic.ButtonMode { v := schematic.ButtonMode(schematic.ButtonMode("fire")); return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
+				}
+				return &v
+			}(),
+			Control: func() *schematic.ControlStateConfig {
+				v := schematic.ControlStateConfig{
+					Authority:     func() *uint8 { v := uint8(21); return &v }(),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ButtonConfig{
+			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Size:           nil,
+			Level:          nil,
+			OnClickDelay:   0,
+			CommandChannel: nil,
+			Mode:           nil,
+			Color:          nil,
+			Control:        nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ButtonConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ButtonConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCircleConfig(f *testing.F) {
+	{
+		seed := schematic.CircleConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Radius: 9.5,
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}
+				return &v
+			}(),
+			BackgroundColor: func() *color.Color {
+				v := color.Color{
+					R: 17,
+					G: 18,
+					B: 19,
+					A: 19.5,
+				}
+				return &v
+			}(),
+			StrokeWidth: func() *float64 { v := float64(20.5); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.CircleConfig{
+			LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Radius:          0,
+			Color:           nil,
+			BackgroundColor: nil,
+			StrokeWidth:     nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.CircleConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.CircleConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeControlStateConfig(f *testing.F) {
+	{
+		seed := schematic.ControlStateConfig{
+			Authority:     func() *uint8 { v := uint8(2); return &v }(),
+			Show:          false,
+			ShowChip:      true,
+			ShowIndicator: false,
+			Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ControlStateConfig{
+			Authority:     nil,
+			Show:          false,
+			ShowChip:      false,
+			ShowIndicator: false,
+			Orientation:   nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ControlStateConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ControlStateConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCustomActuatorConfig(f *testing.F) {
+	{
+		seed := schematic.CustomActuatorConfig{
+			ToggleConfig: schematic.ToggleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(13); return &v }(),
+						Show:          true,
+						ShowChip:      false,
+						ShowIndicator: true,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+				OnClickDelay: 17.5,
+			},
+			SpecKey: "test_18",
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 21,
+					G: 22,
+					B: 23,
+					A: 23.5,
+				}
+				return &v
+			}(),
+			Scale:          func() *float64 { v := float64(24.5); return &v }(),
+			StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.CustomActuatorConfig{
+			ToggleConfig: schematic.ToggleConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				StateChannel:   nil,
+				CommandChannel: nil,
+				Control:        nil,
+				OnClickDelay:   0,
+			},
+			SpecKey:        "",
+			Color:          nil,
+			Scale:          nil,
+			StateOverrides: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.CustomActuatorConfig{
+			ToggleConfig: schematic.ToggleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(13); return &v }(),
+						Show:          true,
+						ShowChip:      false,
+						ShowIndicator: true,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+				OnClickDelay: 17.5,
+			},
+			SpecKey: "test_18",
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 21,
+					G: 22,
+					B: 23,
+					A: 23.5,
+				}
+				return &v
+			}(),
+			Scale:          func() *float64 { v := float64(24.5); return &v }(),
+			StateOverrides: []msgpack.EncodedJSON{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.CustomActuatorConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.CustomActuatorConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCustomStaticConfig(f *testing.F) {
+	{
+		seed := schematic.CustomStaticConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			SpecKey: "test_9",
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}
+				return &v
+			}(),
+			Scale:          func() *float64 { v := float64(15.5); return &v }(),
+			StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.CustomStaticConfig{
+			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+			SpecKey:        "",
+			Color:          nil,
+			Scale:          nil,
+			StateOverrides: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.CustomStaticConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			SpecKey: "test_9",
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}
+				return &v
+			}(),
+			Scale:          func() *float64 { v := float64(15.5); return &v }(),
+			StateOverrides: []msgpack.EncodedJSON{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.CustomStaticConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.CustomStaticConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCylinderConfig(f *testing.F) {
+	{
+		seed := schematic.CylinderConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Dimensions: func() *spatial.Dimensions { v := spatial.Dimensions{Width: 10.5, Height: 11.5}; return &v }(),
+			BorderRadius: func() *border.Radius {
+				v := border.Radius{
+					TopLeft:     spatial.XY{X: 14.5, Y: 15.5},
+					TopRight:    spatial.XY{X: 17.5, Y: 18.5},
+					BottomLeft:  spatial.XY{X: 20.5, Y: 21.5},
+					BottomRight: spatial.XY{X: 23.5, Y: 24.5},
+				}
+				return &v
+			}(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 27,
+					G: 28,
+					B: 29,
+					A: 29.5,
+				}
+				return &v
+			}(),
+			BackgroundColor: func() *color.Color {
+				v := color.Color{
+					R: 32,
+					G: 33,
+					B: 34,
+					A: 34.5,
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.CylinderConfig{
+			LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Dimensions:      nil,
+			BorderRadius:    nil,
+			Color:           nil,
+			BackgroundColor: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.CylinderConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.CylinderConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
+	{
+		seed := schematic.DummyToggleSymbolConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Enabled:   true,
+			Clickable: false,
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 13,
+					G: 14,
+					B: 15,
+					A: 15.5,
+				}
+				return &v
+			}(),
+			Scale: func() *float64 { v := float64(16.5); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.DummyToggleSymbolConfig{
+			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Enabled:       false,
+			Clickable:     false,
+			Color:         nil,
+			Scale:         nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.DummyToggleSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.DummyToggleSymbolConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeEdge(f *testing.F) {
 	{
 		seed := schematic.Edge{
@@ -336,6 +4501,112 @@ func FuzzDecodeEdge(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.Edge
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeGaugeConfig(f *testing.F) {
+	{
+		seed := schematic.GaugeConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Position: func() *spatial.XY { v := spatial.XY{X: 10.5, Y: 11.5}; return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 14,
+					G: 15,
+					B: 16,
+					A: 16.5,
+				}
+				return &v
+			}(),
+			Bounds:         func() *spatial.Bounds { v := spatial.Bounds{}; return &v }(),
+			BarWidth:       func() *float64 { v := float64(18.5); return &v }(),
+			Channel:        func() *channel.Key { v := channel.Key(channel.Key(20)); return &v }(),
+			RollingAverage: func() *int32 { v := int32(21); return &v }(),
+			Precision:      func() *float64 { v := float64(21.5); return &v }(),
+			MinWidth:       func() *float64 { v := float64(22.5); return &v }(),
+			Width:          func() *float64 { v := float64(23.5); return &v }(),
+			Notation:       func() *notation.Notation { v := notation.Notation(notation.Notation("standard")); return &v }(),
+			Location: func() *spatial.LocationXY {
+				v := spatial.LocationXY{
+					X: spatial.XCenterLocation("left"),
+					Y: spatial.YCenterLocation("top"),
+				}
+				return &v
+			}(),
+			Units: "test_28",
+			Level: func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.GaugeConfig{
+			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Position:       nil,
+			Color:          nil,
+			Bounds:         nil,
+			BarWidth:       nil,
+			Channel:        nil,
+			RollingAverage: nil,
+			Precision:      nil,
+			MinWidth:       nil,
+			Width:          nil,
+			Notation:       nil,
+			Location:       nil,
+			Units:          "",
+			Level:          nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.GaugeConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.GaugeConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -399,6 +4670,311 @@ func FuzzDecodeHandle(f *testing.F) {
 	})
 }
 
+func FuzzDecodeInputConfig(f *testing.F) {
+	{
+		seed := schematic.InputConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Size: func() *schematic.ComponentSize {
+				v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+				return &v
+			}(),
+			CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+			Dimensions:     func() *spatial.Dimensions { v := spatial.Dimensions{Width: 12.5, Height: 13.5}; return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
+				}
+				return &v
+			}(),
+			Disabled: true,
+			Control: func() *schematic.ControlStateConfig {
+				v := schematic.ControlStateConfig{
+					Authority:     func() *uint8 { v := uint8(22); return &v }(),
+					Show:          false,
+					ShowChip:      true,
+					ShowIndicator: false,
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.InputConfig{
+			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Size:           nil,
+			CommandChannel: nil,
+			Dimensions:     nil,
+			Color:          nil,
+			Disabled:       false,
+			Control:        nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.InputConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.InputConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLabelConfig(f *testing.F) {
+	{
+		seed := schematic.LabelConfig{
+			Label:         "test_1",
+			Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+			Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+			Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+			MaxInlineSize: func() *float64 { v := float64(5.5); return &v }(),
+			Align: func() *schematic.FlexAlignment {
+				v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.LabelConfig{
+			Label:         "",
+			Level:         nil,
+			Orientation:   nil,
+			Direction:     nil,
+			MaxInlineSize: nil,
+			Align:         nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.LabelConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.LabelConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLabeledConfig(f *testing.F) {
+	{
+		seed := schematic.LabeledConfig{
+			Label: func() *schematic.LabelConfig {
+				v := schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+					MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+					Align: func() *schematic.FlexAlignment {
+						v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+						return &v
+					}(),
+				}
+				return &v
+			}(),
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.LabeledConfig{Label: nil, Orientation: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.LabeledConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.LabeledConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLightConfig(f *testing.F) {
+	{
+		seed := schematic.LightConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Channel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+			Threshold: func() *spatial.Bounds { v := spatial.Bounds{}; return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 13,
+					G: 14,
+					B: 15,
+					A: 15.5,
+				}
+				return &v
+			}(),
+			Scale: func() *float64 { v := float64(16.5); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.LightConfig{
+			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Channel:       nil,
+			Threshold:     nil,
+			Color:         nil,
+			Scale:         nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.LightConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.LightConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeNode(f *testing.F) {
 	{
 		seed := schematic.Node{
@@ -438,6 +5014,256 @@ func FuzzDecodeNode(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.Node
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeOffPageReferenceConfig(f *testing.F) {
+	{
+		seed := schematic.OffPageReferenceConfig{
+			Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			Label: schematic.LabelConfig{
+				Label:         "test_3",
+				Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+				Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+				MaxInlineSize: func() *float64 { v := float64(7.5); return &v }(),
+				Align: func() *schematic.FlexAlignment {
+					v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+					return &v
+				}(),
+			},
+			Level: func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}
+				return &v
+			}(),
+			Page:        "test_15",
+			DblClickNav: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.OffPageReferenceConfig{
+			Orientation: nil,
+			Label: schematic.LabelConfig{
+				Label:         "",
+				Level:         nil,
+				Orientation:   nil,
+				Direction:     nil,
+				MaxInlineSize: nil,
+				Align:         nil,
+			},
+			Level:       nil,
+			Color:       nil,
+			Page:        "",
+			DblClickNav: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.OffPageReferenceConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.OffPageReferenceConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodePolygonConfig(f *testing.F) {
+	{
+		seed := schematic.PolygonConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			NumSides:       9.5,
+			SideLength:     10.5,
+			Rotation:       func() *float64 { v := float64(11.5); return &v }(),
+			CornerRounding: func() *float64 { v := float64(12.5); return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 15,
+					G: 16,
+					B: 17,
+					A: 17.5,
+				}
+				return &v
+			}(),
+			BackgroundColor: func() *color.Color {
+				v := color.Color{
+					R: 20,
+					G: 21,
+					B: 22,
+					A: 22.5,
+				}
+				return &v
+			}(),
+			StrokeWidth: func() *float64 { v := float64(23.5); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.PolygonConfig{
+			LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
+			NumSides:        0,
+			SideLength:      0,
+			Rotation:        nil,
+			CornerRounding:  nil,
+			Color:           nil,
+			BackgroundColor: nil,
+			StrokeWidth:     nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.PolygonConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.PolygonConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRedline(f *testing.F) {
+	{
+		seed := schematic.Redline{
+			Bounds: spatial.Bounds{},
+			Gradient: []color.Stop{
+				{
+					Key: "test_3",
+					Color: color.Color{
+						R: 6,
+						G: 7,
+						B: 8,
+						A: 8.5,
+					},
+					Position: 9.5,
+					Switched: false,
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.Redline{Bounds: spatial.Bounds{}, Gradient: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.Redline
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.Redline
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -556,6 +5382,1379 @@ func FuzzDecodeSchematic(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.Schematic
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSegment(f *testing.F) {
+	{
+		seed := schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.Segment{Direction: spatial.Direction(""), Length: 0}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.Segment
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.Segment
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
+	{
+		seed := schematic.SegmentedEdgeConfig{
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}
+				return &v
+			}(),
+			Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.SegmentedEdgeConfig{Color: nil, Segments: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.SegmentedEdgeConfig{
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}
+				return &v
+			}(),
+			Segments: []schematic.Segment{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.SegmentedEdgeConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.SegmentedEdgeConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSelectConfig(f *testing.F) {
+	{
+		seed := schematic.SelectConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Size: func() *schematic.ComponentSize {
+				v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+				return &v
+			}(),
+			CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 13,
+					G: 14,
+					B: 15,
+					A: 15.5,
+				}
+				return &v
+			}(),
+			InlineSize: func() *float64 { v := float64(16.5); return &v }(),
+			Options: []schematic.StateMapping{
+				{
+					Key:   "test_18",
+					Name:  "test_19",
+					Value: 20.5,
+					Color: func() *color.Color {
+						v := color.Color{
+							R: 23,
+							G: 24,
+							B: 25,
+							A: 25.5,
+						}
+						return &v
+					}(),
+				},
+			},
+			Disabled: false,
+			Control: func() *schematic.ControlStateConfig {
+				v := schematic.ControlStateConfig{
+					Authority:     func() *uint8 { v := uint8(29); return &v }(),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.SelectConfig{
+			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Size:           nil,
+			CommandChannel: nil,
+			Color:          nil,
+			InlineSize:     nil,
+			Options:        nil,
+			Disabled:       false,
+			Control:        nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.SelectConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Size: func() *schematic.ComponentSize {
+				v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+				return &v
+			}(),
+			CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 13,
+					G: 14,
+					B: 15,
+					A: 15.5,
+				}
+				return &v
+			}(),
+			InlineSize: func() *float64 { v := float64(16.5); return &v }(),
+			Options:    []schematic.StateMapping{},
+			Disabled:   false,
+			Control: func() *schematic.ControlStateConfig {
+				v := schematic.ControlStateConfig{
+					Authority:     func() *uint8 { v := uint8(21); return &v }(),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.SelectConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.SelectConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSetpointConfig(f *testing.F) {
+	{
+		seed := schematic.SetpointConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Size: func() *schematic.ComponentSize {
+				v := schematic.ComponentSize(schematic.ComponentSize("tiny"))
+				return &v
+			}(),
+			StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+			CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(12)); return &v }(),
+			Dimensions:     func() *spatial.Dimensions { v := spatial.Dimensions{Width: 13.5, Height: 14.5}; return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 17,
+					G: 18,
+					B: 19,
+					A: 19.5,
+				}
+				return &v
+			}(),
+			Units:    "test_20",
+			Disabled: true,
+			Control: func() *schematic.ControlStateConfig {
+				v := schematic.ControlStateConfig{
+					Authority:     func() *uint8 { v := uint8(24); return &v }(),
+					Show:          false,
+					ShowChip:      true,
+					ShowIndicator: false,
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.SetpointConfig{
+			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Size:           nil,
+			StateChannel:   nil,
+			CommandChannel: nil,
+			Dimensions:     nil,
+			Color:          nil,
+			Units:          "",
+			Disabled:       false,
+			Control:        nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.SetpointConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.SetpointConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSolenoidValveConfig(f *testing.F) {
+	{
+		seed := schematic.SolenoidValveConfig{
+			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
+				ToggleConfig: schematic.ToggleConfig{
+					LabeledConfig: schematic.LabeledConfig{
+						Label: func() *schematic.LabelConfig {
+							v := schematic.LabelConfig{
+								Label:         "test_2",
+								Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+								Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+								Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+								MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+								Align: func() *schematic.FlexAlignment {
+									v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+									return &v
+								}(),
+							}
+							return &v
+						}(),
+						Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+					},
+					StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+					CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+					Control: func() *schematic.ControlStateConfig {
+						v := schematic.ControlStateConfig{
+							Authority:     func() *uint8 { v := uint8(13); return &v }(),
+							Show:          true,
+							ShowChip:      false,
+							ShowIndicator: true,
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						}
+						return &v
+					}(),
+					OnClickDelay: 17.5,
+				},
+				Color: func() *color.Color {
+					v := color.Color{
+						R: 20,
+						G: 21,
+						B: 22,
+						A: 22.5,
+					}
+					return &v
+				}(),
+				Scale: func() *float64 { v := float64(23.5); return &v }(),
+			},
+			NormallyOpen: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.SolenoidValveConfig{
+			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
+				ToggleConfig: schematic.ToggleConfig{
+					LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+					StateChannel:   nil,
+					CommandChannel: nil,
+					Control:        nil,
+					OnClickDelay:   0,
+				},
+				Color: nil,
+				Scale: nil,
+			},
+			NormallyOpen: false,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.SolenoidValveConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.SolenoidValveConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStateIndicatorConfig(f *testing.F) {
+	{
+		seed := schematic.StateIndicatorConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Channel: func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}
+				return &v
+			}(),
+			InlineSize: func() *float64 { v := float64(15.5); return &v }(),
+			Options: []schematic.StateMapping{
+				{
+					Key:   "test_17",
+					Name:  "test_18",
+					Value: 19.5,
+					Color: func() *color.Color {
+						v := color.Color{
+							R: 22,
+							G: 23,
+							B: 24,
+							A: 24.5,
+						}
+						return &v
+					}(),
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.StateIndicatorConfig{
+			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Channel:       nil,
+			Color:         nil,
+			InlineSize:    nil,
+			Options:       nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.StateIndicatorConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Channel: func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}
+				return &v
+			}(),
+			InlineSize: func() *float64 { v := float64(15.5); return &v }(),
+			Options:    []schematic.StateMapping{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.StateIndicatorConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.StateIndicatorConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStateMapping(f *testing.F) {
+	{
+		seed := schematic.StateMapping{
+			Key:   "test_1",
+			Name:  "test_2",
+			Value: 3.5,
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.StateMapping{
+			Key:   "",
+			Name:  "",
+			Value: 0,
+			Color: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.StateMapping
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.StateMapping
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStaticSymbolConfig(f *testing.F) {
+	{
+		seed := schematic.StaticSymbolConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}
+				return &v
+			}(),
+			Scale: func() *float64 { v := float64(14.5); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.StaticSymbolConfig{
+			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Color:         nil,
+			Scale:         nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.StaticSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.StaticSymbolConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeTankConfig(f *testing.F) {
+	{
+		seed := schematic.TankConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}
+				return &v
+			}(),
+			BackgroundColor: func() *color.Color {
+				v := color.Color{
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
+				}
+				return &v
+			}(),
+			Dimensions: func() *spatial.Dimensions { v := spatial.Dimensions{Width: 20.5, Height: 21.5}; return &v }(),
+			BorderRadius: func() *border.Radius {
+				v := border.Radius{
+					TopLeft:     spatial.XY{X: 24.5, Y: 25.5},
+					TopRight:    spatial.XY{X: 27.5, Y: 28.5},
+					BottomLeft:  spatial.XY{X: 30.5, Y: 31.5},
+					BottomRight: spatial.XY{X: 33.5, Y: 34.5},
+				}
+				return &v
+			}(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.TankConfig{
+			LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Color:           nil,
+			BackgroundColor: nil,
+			Dimensions:      nil,
+			BorderRadius:    nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.TankConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.TankConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeTextBoxConfig(f *testing.F) {
+	{
+		seed := schematic.TextBoxConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}
+				return &v
+			}(),
+			Width: func() *float64 { v := float64(14.5); return &v }(),
+			Align: func() *schematic.FlexAlignment {
+				v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+				return &v
+			}(),
+			AutoFit: false,
+			Level:   func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+			Value:   "test_18",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.TextBoxConfig{
+			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Color:         nil,
+			Width:         nil,
+			Align:         nil,
+			AutoFit:       false,
+			Level:         nil,
+			Value:         "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.TextBoxConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.TextBoxConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeToggleConfig(f *testing.F) {
+	{
+		seed := schematic.ToggleConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+			CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+			Control: func() *schematic.ControlStateConfig {
+				v := schematic.ControlStateConfig{
+					Authority:     func() *uint8 { v := uint8(13); return &v }(),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+				}
+				return &v
+			}(),
+			OnClickDelay: 17.5,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ToggleConfig{
+			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+			StateChannel:   nil,
+			CommandChannel: nil,
+			Control:        nil,
+			OnClickDelay:   0,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ToggleConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ToggleConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeToggleSymbolConfig(f *testing.F) {
+	{
+		seed := schematic.ToggleSymbolConfig{
+			ToggleConfig: schematic.ToggleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label: func() *schematic.LabelConfig {
+						v := schematic.LabelConfig{
+							Label:         "test_2",
+							Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+							Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+							Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+							MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+							Align: func() *schematic.FlexAlignment {
+								v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+								return &v
+							}(),
+						}
+						return &v
+					}(),
+					Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+				},
+				StateChannel:   func() *channel.Key { v := channel.Key(channel.Key(10)); return &v }(),
+				CommandChannel: func() *channel.Key { v := channel.Key(channel.Key(11)); return &v }(),
+				Control: func() *schematic.ControlStateConfig {
+					v := schematic.ControlStateConfig{
+						Authority:     func() *uint8 { v := uint8(13); return &v }(),
+						Show:          true,
+						ShowChip:      false,
+						ShowIndicator: true,
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+					}
+					return &v
+				}(),
+				OnClickDelay: 17.5,
+			},
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 20,
+					G: 21,
+					B: 22,
+					A: 22.5,
+				}
+				return &v
+			}(),
+			Scale: func() *float64 { v := float64(23.5); return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ToggleSymbolConfig{
+			ToggleConfig: schematic.ToggleConfig{
+				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
+				StateChannel:   nil,
+				CommandChannel: nil,
+				Control:        nil,
+				OnClickDelay:   0,
+			},
+			Color: nil,
+			Scale: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ToggleSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ToggleSymbolConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeValueConfig(f *testing.F) {
+	{
+		seed := schematic.ValueConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Position: func() *spatial.XY { v := spatial.XY{X: 10.5, Y: 11.5}; return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 14,
+					G: 15,
+					B: 16,
+					A: 16.5,
+				}
+				return &v
+			}(),
+			TextColor: func() *color.Color {
+				v := color.Color{
+					R: 19,
+					G: 20,
+					B: 21,
+					A: 21.5,
+				}
+				return &v
+			}(),
+			Tooltip: []string{"test_22"},
+			Redline: func() *schematic.Redline {
+				v := schematic.Redline{
+					Bounds: spatial.Bounds{},
+					Gradient: []color.Stop{
+						{
+							Key: "test_26",
+							Color: color.Color{
+								R: 29,
+								G: 30,
+								B: 31,
+								A: 31.5,
+							},
+							Position: 32.5,
+							Switched: true,
+						},
+					},
+				}
+				return &v
+			}(),
+			Units:            "test_34",
+			InlineSize:       func() *float64 { v := float64(35.5); return &v }(),
+			Channel:          func() *channel.Key { v := channel.Key(channel.Key(37)); return &v }(),
+			RollingAverage:   func() *int32 { v := int32(38); return &v }(),
+			Level:            func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+			Precision:        func() *float64 { v := float64(39.5); return &v }(),
+			StalenessTimeout: func() *float64 { v := float64(40.5); return &v }(),
+			StalenessColor: func() *color.Color {
+				v := color.Color{
+					R: 43,
+					G: 44,
+					B: 45,
+					A: 45.5,
+				}
+				return &v
+			}(),
+			MinWidth: func() *float64 { v := float64(46.5); return &v }(),
+			Notation: func() *notation.Notation { v := notation.Notation(notation.Notation("standard")); return &v }(),
+			Location: func() *spatial.LocationXY {
+				v := spatial.LocationXY{
+					X: spatial.XCenterLocation("left"),
+					Y: spatial.YCenterLocation("top"),
+				}
+				return &v
+			}(),
+			UseWidthForBackground:   true,
+			ValueBackgroundShift:    func() *spatial.XY { v := spatial.XY{X: 53.5, Y: 54.5}; return &v }(),
+			ValueBackgroundOverScan: func() *spatial.XY { v := spatial.XY{X: 56.5, Y: 57.5}; return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ValueConfig{
+			LabeledConfig:           schematic.LabeledConfig{Label: nil, Orientation: nil},
+			Position:                nil,
+			Color:                   nil,
+			TextColor:               nil,
+			Tooltip:                 nil,
+			Redline:                 nil,
+			Units:                   "",
+			InlineSize:              nil,
+			Channel:                 nil,
+			RollingAverage:          nil,
+			Level:                   nil,
+			Precision:               nil,
+			StalenessTimeout:        nil,
+			StalenessColor:          nil,
+			MinWidth:                nil,
+			Notation:                nil,
+			Location:                nil,
+			UseWidthForBackground:   false,
+			ValueBackgroundShift:    nil,
+			ValueBackgroundOverScan: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ValueConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: func() *schematic.LabelConfig {
+					v := schematic.LabelConfig{
+						Label:         "test_2",
+						Level:         func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+						Orientation:   func() *spatial.Location { v := spatial.Location(spatial.Location("top")); return &v }(),
+						Direction:     func() *spatial.Direction { v := spatial.Direction(spatial.Direction("x")); return &v }(),
+						MaxInlineSize: func() *float64 { v := float64(6.5); return &v }(),
+						Align: func() *schematic.FlexAlignment {
+							v := schematic.FlexAlignment(schematic.FlexAlignment("start"))
+							return &v
+						}(),
+					}
+					return &v
+				}(),
+				Orientation: func() *spatial.OuterLocation { v := spatial.OuterLocation(spatial.OuterLocation("top")); return &v }(),
+			},
+			Position: func() *spatial.XY { v := spatial.XY{X: 10.5, Y: 11.5}; return &v }(),
+			Color: func() *color.Color {
+				v := color.Color{
+					R: 14,
+					G: 15,
+					B: 16,
+					A: 16.5,
+				}
+				return &v
+			}(),
+			TextColor: func() *color.Color {
+				v := color.Color{
+					R: 19,
+					G: 20,
+					B: 21,
+					A: 21.5,
+				}
+				return &v
+			}(),
+			Tooltip: []string{},
+			Redline: func() *schematic.Redline {
+				v := schematic.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}
+				return &v
+			}(),
+			Units:            "test_26",
+			InlineSize:       func() *float64 { v := float64(27.5); return &v }(),
+			Channel:          func() *channel.Key { v := channel.Key(channel.Key(29)); return &v }(),
+			RollingAverage:   func() *int32 { v := int32(30); return &v }(),
+			Level:            func() *text.Level { v := text.Level(text.Level("h1")); return &v }(),
+			Precision:        func() *float64 { v := float64(31.5); return &v }(),
+			StalenessTimeout: func() *float64 { v := float64(32.5); return &v }(),
+			StalenessColor: func() *color.Color {
+				v := color.Color{
+					R: 35,
+					G: 36,
+					B: 37,
+					A: 37.5,
+				}
+				return &v
+			}(),
+			MinWidth: func() *float64 { v := float64(38.5); return &v }(),
+			Notation: func() *notation.Notation { v := notation.Notation(notation.Notation("standard")); return &v }(),
+			Location: func() *spatial.LocationXY {
+				v := spatial.LocationXY{
+					X: spatial.XCenterLocation("left"),
+					Y: spatial.YCenterLocation("top"),
+				}
+				return &v
+			}(),
+			UseWidthForBackground:   true,
+			ValueBackgroundShift:    func() *spatial.XY { v := spatial.XY{X: 45.5, Y: 46.5}; return &v }(),
+			ValueBackgroundOverScan: func() *spatial.XY { v := spatial.XY{X: 48.5, Y: 49.5}; return &v }(),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ValueConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ValueConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

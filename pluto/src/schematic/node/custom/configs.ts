@@ -18,7 +18,7 @@ import { Actuator } from "@/schematic/node/custom/Actuator";
 import { Static } from "@/schematic/node/custom/Static";
 import { type Spec } from "@/schematic/node/spec";
 
-export const CUSTOM_ACTUATOR_VARIANT = "customActuator";
+export const CUSTOM_ACTUATOR_VARIANT = "custom_actuator";
 
 export const customActuatorConfigZ = schematic.nodeConfigCustomActuatorZ.extend({
   stateOverrides: z.array(schematic.symbol.stateZ).optional(),
@@ -45,7 +45,7 @@ export const customActuatorSpec: Spec<
   zIndex: 4,
 };
 
-export const CUSTOM_STATIC_VARIANT = "customStatic";
+export const CUSTOM_STATIC_VARIANT = "custom_static";
 
 export const customStaticConfigZ = schematic.nodeConfigCustomStaticZ.extend({
   stateOverrides: z.array(schematic.symbol.stateZ).optional(),

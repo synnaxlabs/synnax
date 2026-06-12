@@ -1076,7 +1076,7 @@
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "checkValve"
+      "variant": "check_valve"
     },
     "0I4eu8Xu1eC": {
       "color": {
@@ -1162,7 +1162,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "2OHxFMlBGgA": {
       "color": {
@@ -1187,7 +1187,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "2jD9GoGb6XA": {
       "color": {
@@ -1285,7 +1285,7 @@
       },
       "orientation": "right",
       "page": "",
-      "variant": "offPageReference"
+      "variant": "off_page_reference"
     },
     "70V2y1eaoCv": {
       "color": {
@@ -1373,7 +1373,7 @@
       },
       "orientation": "right",
       "page": "",
-      "variant": "offPageReference"
+      "variant": "off_page_reference"
     },
     "8pqASgu2f8J": {
       "color": {
@@ -1479,7 +1479,7 @@
       },
       "orientation": "right",
       "page": "",
-      "variant": "offPageReference"
+      "variant": "off_page_reference"
     },
     "D6Kl9VjDwwW": {
       "color": {
@@ -1547,7 +1547,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "F3ptPgDEX5c": {
       "color": {
@@ -1590,7 +1590,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "FPv3YsSVs8o": {
       "color": {
@@ -1638,7 +1638,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "GQb0xWTOn7H": {
       "color": {
@@ -1691,7 +1691,7 @@
       },
       "orientation": "right",
       "scale": 1,
-      "variant": "angledReliefValve"
+      "variant": "angled_relief_valve"
     },
     "I3KjSt1tSRG": {
       "color": {
@@ -1716,7 +1716,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "JjPiK1XPeF6": {
       "background_color": {
@@ -1909,7 +1909,7 @@
       },
       "orientation": "right",
       "page": "",
-      "variant": "offPageReference"
+      "variant": "off_page_reference"
     },
     "OfZeCzCTkUk": {
       "color": {
@@ -1934,7 +1934,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "P49uwwU4CA9": {
       "color": {
@@ -2017,7 +2017,7 @@
       },
       "orientation": "right",
       "page": "",
-      "variant": "offPageReference"
+      "variant": "off_page_reference"
     },
     "Qj9S0cHkaiq": {
       "color": {
@@ -2065,7 +2065,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "SKDLhJpoYDF": {
       "color": {
@@ -2083,7 +2083,7 @@
       },
       "orientation": "left",
       "scale": 1.5,
-      "variant": "staticMixer"
+      "variant": "static_mixer"
     },
     "SqBeH0GCMh2": {
       "clickable": false,
@@ -2103,7 +2103,7 @@
       },
       "orientation": "bottom",
       "scale": 1,
-      "variant": "needleValve"
+      "variant": "needle_valve"
     },
     "Th2IzrFPm38": {
       "color": {
@@ -2128,7 +2128,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "Tmtl8zfcuP1": {
       "color": {
@@ -2176,7 +2176,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "U7Ij3kxDFQo": {
       "color": {
@@ -2194,7 +2194,7 @@
       },
       "orientation": "left",
       "scale": 1.5,
-      "variant": "staticMixer"
+      "variant": "static_mixer"
     },
     "UOdnd6Aha36": {
       "color": {
@@ -2213,7 +2213,7 @@
       },
       "orientation": "left",
       "page": "",
-      "variant": "offPageReference"
+      "variant": "off_page_reference"
     },
     "VIlsVklUWZx": {
       "color": {
@@ -2231,7 +2231,7 @@
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "checkValve"
+      "variant": "check_valve"
     },
     "VZzYr3ZwCJD": {
       "color": {
@@ -2340,7 +2340,7 @@
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "checkValve"
+      "variant": "check_valve"
     },
     "ayxZ1Ks2nMr": {
       "color": {
@@ -2454,7 +2454,7 @@
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "checkValve"
+      "variant": "check_valve"
     },
     "f6jyfaj727c": {
       "color": {
@@ -2537,7 +2537,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "i3O5NYaw7U8": {
       "color": {
@@ -2556,7 +2556,7 @@
       },
       "orientation": "left",
       "page": "",
-      "variant": "offPageReference"
+      "variant": "off_page_reference"
     },
     "ir70ZMsvcRF": {
       "color": {
@@ -2642,7 +2642,7 @@
       },
       "orientation": "right",
       "scale": 1,
-      "variant": "angledReliefValve"
+      "variant": "angled_relief_valve"
     },
     "mijOsc1nobC": {
       "color": {
@@ -2722,7 +2722,7 @@
       },
       "orientation": "right",
       "page": "",
-      "variant": "offPageReference"
+      "variant": "off_page_reference"
     },
     "reactflow__edge-2OHxFMlBGgA2-rPpCZ6MD5As2": {
       "color": {
@@ -3146,7 +3146,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "tGM2NvgzLkE": {
       "color": {
@@ -3281,7 +3281,7 @@
       "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "uTfrxrrlGWI": {
       "color": {
@@ -3324,7 +3324,7 @@
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "manualValve"
+      "variant": "manual_valve"
     },
     "uyjE2Q6RFBv": {
       "color": {

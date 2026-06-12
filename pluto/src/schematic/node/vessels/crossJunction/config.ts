@@ -9,7 +9,7 @@
 
 import { schematic } from "@synnaxlabs/client";
 
-export const VARIANT = "crossJunction" as const;
+export const VARIANT = "cross_junction" as const;
 
 export const configZ = schematic.nodeConfigCrossJunctionZ;
 export type Config = schematic.NodeConfigCrossJunction;

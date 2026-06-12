@@ -12,7 +12,7 @@ import { schematic } from "@synnaxlabs/client";
 export const stateMappingZ = schematic.stateMappingZ;
 export type StateMapping = schematic.StateMapping;
 
-export const VARIANT = "stateIndicator" as const;
+export const VARIANT = "state_indicator" as const;
 
 export const configZ = schematic.nodeConfigStateIndicatorZ;
 export type Config = schematic.NodeConfigStateIndicator;
