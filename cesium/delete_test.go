@@ -303,9 +303,9 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 
 						By("Eventually, the deletion should be completed")
-						Eventually(MustSucceed(fs.Exists(channelKeyToPath(key)))).Should(BeFalse())
+						Eventually(fs.Exists).WithArguments(channelKeyToPath(key)).Should(BeFalse())
 						for _, f := range MustSucceed(fs.List("")) {
-							Eventually(f.Name()).ShouldNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
+							Expect(f.Name()).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
@@ -325,9 +325,9 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 						Expect(db.DeleteChannel(key)).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
-						Eventually(MustSucceed(fs.Exists(channelKeyToPath(key)))).Should(BeFalse())
+						Eventually(fs.Exists).WithArguments(channelKeyToPath(key)).Should(BeFalse())
 						for _, f := range MustSucceed(fs.List("")) {
-							Eventually(f.Name()).ShouldNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
+							Expect(f.Name()).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
@@ -342,9 +342,9 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 						Expect(db.DeleteChannel(key)).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
-						Eventually(MustSucceed(fs.Exists(channelKeyToPath(key)))).Should(BeFalse())
+						Eventually(fs.Exists).WithArguments(channelKeyToPath(key)).Should(BeFalse())
 						for _, f := range MustSucceed(fs.List("")) {
-							Eventually(f.Name()).ShouldNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
+							Expect(f.Name()).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
@@ -382,7 +382,7 @@ var _ = Describe("Delete", func() {
 					for _, c := range channels {
 						Expect(fs.Exists(channelKeyToPath(c.Key))).To(BeFalse())
 						for _, f := range MustSucceed(fs.List("")) {
-							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c.Key)) + "-DELETE-"))
+							Expect(f.Name()).ToNot(HavePrefix(strconv.Itoa(int(c.Key)) + "-DELETE-"))
 						}
 					}
 				})
@@ -397,9 +397,9 @@ var _ = Describe("Delete", func() {
 						for _, c := range chs {
 							_, err := db.RetrieveChannel(ctx, c)
 							Expect(err).To(MatchError(cesium.ErrChannelNotFound))
-							Eventually(MustSucceed(fs.Exists(channelKeyToPath(c)))).Should(BeFalse())
+							Eventually(fs.Exists).WithArguments(channelKeyToPath(c)).Should(BeFalse())
 							for _, f := range MustSucceed(fs.List("")) {
-								Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c)) + "-DELETE-"))
+								Expect(f.Name()).ToNot(HavePrefix(strconv.Itoa(int(c)) + "-DELETE-"))
 							}
 						}
 					},
@@ -435,8 +435,7 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(channelKeyToPath(data2))).To(BeTrue())
 						_, err := db.RetrieveChannel(ctx, data1)
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
-						_, err = db.RetrieveChannel(ctx, data2)
-						Expect(err).To(BeNil())
+						MustSucceed(db.RetrieveChannel(ctx, data2))
 						Expect(db.DeleteChannels([]cesium.ChannelKey{data1, data3})).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 
@@ -456,10 +455,8 @@ var _ = Describe("Delete", func() {
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 						Expect(fs.Exists(channelKeyToPath(index1))).To(BeTrue())
 						Expect(fs.Exists(channelKeyToPath(index2))).To(BeTrue())
-						_, err = db.RetrieveChannel(ctx, index1)
-						Expect(err).To(BeNil())
-						_, err = db.RetrieveChannel(ctx, index2)
-						Expect(err).To(BeNil())
+						MustSucceed(db.RetrieveChannel(ctx, index1))
+						MustSucceed(db.RetrieveChannel(ctx, index2))
 					})
 					It("Should be interrupted when there is an error in deleting index channels", func(ctx SpecContext) {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []channel.Key{index1}}))
@@ -524,8 +521,7 @@ var _ = Describe("Delete", func() {
 						// 10 11 12 13 14 15 16 17 18 19
 						//  0  1                 7  8  9
 
-						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic1)
-						Expect(err).To(BeNil())
+						frame := MustSucceed(db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic1))
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
 
@@ -579,8 +575,7 @@ var _ = Describe("Delete", func() {
 						// After deletion:
 						// 10 11                17 18 19
 
-						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic2Index)
-						Expect(err).To(BeNil())
+						frame := MustSucceed(db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic2Index))
 						Expect(frame.Count()).To(Equal(2))
 
 						series0Data := telem.UnmarshalSeries[telem.TimeStamp](frame.SeriesAt(0))

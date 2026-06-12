@@ -337,6 +337,17 @@ def discover_setup_scripts(
     return sorted(by_version.items(), key=lambda x: _parse_version(x[0]))
 
 
+# First-party packages the client pulls in transitively. They share a minor
+# version line but float independently on patch, and the published clients
+# declare them without an upper bound. Without a constraint, pip resolves the
+# newest published patch — potentially a later minor with breaking API changes
+# (e.g. freighter 0.56 dropped send_required, which the 0.52 client imports).
+# These are applied as a constraints file, which only bounds a package if it is
+# actually pulled in, so packages that did not exist at an older minor (synnax-x
+# first shipped at 0.54) are ignored rather than forced to install.
+FIRST_PARTY_DEPS = ("synnax-freighter", "synnax-x", "alamos")
+
+
 def _version_to_pip_spec(version: str) -> str:
     """Convert a version string to a pip version specifier.
 
@@ -344,6 +355,16 @@ def _version_to_pip_spec(version: str) -> str:
     """
     major, minor = _parse_version(version)
     return f"synnax>={major}.{minor},<{major}.{minor + 1}"
+
+
+def _first_party_constraints(version: str) -> str:
+    """Build a constraints-file body pinning first-party deps to version's minor.
+
+    E.g., '0.54' -> 'synnax-freighter>=0.54,<0.55\\nsynnax-x>=0.54,<0.55\\n...'
+    """
+    major, minor = _parse_version(version)
+    bound = f">={major}.{minor},<{major}.{minor + 1}"
+    return "".join(f"{pkg}{bound}\n" for pkg in FIRST_PARTY_DEPS)
 
 
 def _resolve_release_version(version: str) -> str:
@@ -401,6 +422,8 @@ def create_setup_venv(version: str) -> Path:
     )
 
     python = _venv_python(CLIENT_VENV_DIR)
+    constraints = CLIENT_VENV_DIR / "first-party-constraints.txt"
+    constraints.write_text(_first_party_constraints(version))
     subprocess.run(
         [
             "uv",
@@ -409,6 +432,8 @@ def create_setup_venv(version: str) -> Path:
             "--quiet",
             "--python",
             str(python),
+            "--constraints",
+            str(constraints),
             pip_spec,
             "pymodbus",
             "asyncua",

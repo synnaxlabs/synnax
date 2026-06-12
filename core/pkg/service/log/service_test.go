@@ -12,11 +12,8 @@ package log_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ServiceConfig", func() {
@@ -26,7 +23,6 @@ var _ = Describe("ServiceConfig", func() {
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
-				ImEx:     imexSvc,
 			}
 			Expect(cfg.Validate()).To(Succeed())
 		})
@@ -35,7 +31,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				Ontology: otg,
 				Search:   &search.Index{},
-				ImEx:     imexSvc,
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("db")))
 		})
@@ -44,7 +39,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				DB:     db,
 				Search: &search.Index{},
-				ImEx:   imexSvc,
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("ontology")))
 		})
@@ -53,49 +47,23 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				ImEx:     imexSvc,
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("search")))
-		})
-
-		It("Should fail when ImEx is nil", func() {
-			cfg := log.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Search:   &search.Index{},
-			}
-			Expect(cfg.Validate()).To(MatchError(ContainSubstring("imex")))
 		})
 	})
 
 	Describe("Override", func() {
-		It("Should prefer the other config's ImEx when set", func() {
-			initial := log.ServiceConfig{}
-			other := log.ServiceConfig{ImEx: imexSvc}
-			merged := initial.Override(other)
-			Expect(merged.ImEx).To(BeIdenticalTo(other.ImEx))
-		})
-
-		It("Should keep the receiver's ImEx when other's is nil", func() {
-			initial := log.ServiceConfig{ImEx: imexSvc}
-			merged := initial.Override(log.ServiceConfig{})
-			Expect(merged.ImEx).To(BeIdenticalTo(imexSvc))
-		})
-
 		It("Should prefer the other config's DB, Ontology, and Search when set", func() {
-			otherImex := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
 			initial := log.ServiceConfig{}
 			other := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
-				ImEx:     otherImex,
 			}
 			merged := initial.Override(other)
 			Expect(merged.DB).To(BeIdenticalTo(other.DB))
 			Expect(merged.Ontology).To(BeIdenticalTo(other.Ontology))
 			Expect(merged.Search).To(BeIdenticalTo(other.Search))
-			Expect(merged.ImEx).To(BeIdenticalTo(otherImex))
 		})
 
 		It("Should preserve the receiver's fields when other's are nil", func() {
@@ -103,13 +71,11 @@ var _ = Describe("ServiceConfig", func() {
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
-				ImEx:     imexSvc,
 			}
 			merged := initial.Override(log.ServiceConfig{})
 			Expect(merged.DB).To(BeIdenticalTo(initial.DB))
 			Expect(merged.Ontology).To(BeIdenticalTo(initial.Ontology))
 			Expect(merged.Search).To(BeIdenticalTo(initial.Search))
-			Expect(merged.ImEx).To(BeIdenticalTo(initial.ImEx))
 		})
 	})
 })
@@ -119,12 +85,5 @@ var _ = Describe("OpenService", func() {
 		Expect(log.OpenService(ctx, log.ServiceConfig{DB: db})).Error().To(
 			MatchError(ContainSubstring("ontology")),
 		)
-	})
-
-	It("Should register itself as an importer/exporter on the ImEx service", func(ctx SpecContext) {
-		// The suite-wide svc is already registered against imexSvc; verify that
-		// ImporterType resolves to the log resource type.
-		Expect(imexSvc.ImporterType(string(ontology.ResourceTypeLog))).
-			To(Equal(ontology.ResourceTypeLog))
 	})
 })

@@ -33,8 +33,7 @@ var _ = Describe("Errors", func() {
 		})
 		It("Should return nil if the error is nil", func() {
 			ch := channel.Channel{Key: 1, Name: "foo"}
-			err := channel.NewErrorWrapper(ch)(nil)
-			Expect(err).To(BeNil())
+			Expect(channel.NewErrorWrapper(ch)(nil)).To(Succeed())
 		})
 	})
 })

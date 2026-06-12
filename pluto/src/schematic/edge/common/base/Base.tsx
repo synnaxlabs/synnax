@@ -9,7 +9,10 @@
 
 import { color } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
-import { type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
+
+import { CSS } from "@/css";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
   color: color.Crude;
@@ -20,11 +23,26 @@ const INTERACTION_WIDTH = 30;
 export const Base = ({
   style: baseStyle,
   color: stroke,
+  className,
   ...props
 }: BaseProps): ReactElement => {
-  const style = useMemo(
-    () => ({ ...baseStyle, stroke: color.cssString(stroke) }),
-    [stroke, baseStyle],
+  const style = useMemo<CSSProperties>(() => {
+    // A non-color string (e.g. the connection-line preview's CSS variable) is stroked
+    // directly and skips the theme transform.
+    if (typeof stroke === "string" && !color.colorZ.safeParse(stroke).success)
+      return { ...baseStyle, stroke };
+    return {
+      ...baseStyle,
+      [CSS.var("symbol-color")]: symbolColorVar(stroke),
+      stroke: "var(--pluto-symbol-display)",
+    };
+  }, [stroke, baseStyle]);
+  return (
+    <BaseEdge
+      {...props}
+      className={CSS(CSS.B("symbol-colored"), className)}
+      interactionWidth={INTERACTION_WIDTH}
+      style={style}
+    />
   );
-  return <BaseEdge {...props} interactionWidth={INTERACTION_WIDTH} style={style} />;
 };

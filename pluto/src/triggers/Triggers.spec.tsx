@@ -572,12 +572,12 @@ describe("Triggers", () => {
       expect(callback).not.toHaveBeenCalled();
     });
 
-    it("should handle ctrl+key combinations in input elements", async () => {
+    it("should handle non-text-editing ctrl+key combinations in input elements", async () => {
       const callback = vi.fn();
       const C = () => {
         Triggers.use({
           callback,
-          triggers: [["Control", "A"]],
+          triggers: [["Control", "B"]],
         });
         return <input type="text" data-testid="input" />;
       };
@@ -594,13 +594,13 @@ describe("Triggers", () => {
       fireEvent.keyDown(input, { code: "ControlLeft" });
       expect(callback).not.toHaveBeenCalled();
 
-      // Then press A with Control held
-      fireEvent.keyDown(input, { code: "KeyA", ctrlKey: true });
+      // Then press B with Control held
+      fireEvent.keyDown(input, { code: "KeyB", ctrlKey: true });
       vi.advanceTimersByTime(500);
 
       expect(callback).toHaveBeenCalledWith({
         target: input,
-        triggers: [["Control", "A"]],
+        triggers: [["Control", "B"]],
         prevTriggers: [["Control"]],
         cursor: { x: 10, y: 10 },
         stage: "start",
@@ -608,7 +608,75 @@ describe("Triggers", () => {
       });
 
       // Release in correct order
-      fireEvent.keyUp(input, { code: "KeyA", ctrlKey: true });
+      fireEvent.keyUp(input, { code: "KeyB", ctrlKey: true });
+      fireEvent.keyUp(input, { code: "ControlLeft" });
+    });
+
+    it("should suppress native text-editing shortcuts in input elements", async () => {
+      const C = ({ callback }: { callback: () => void }) => {
+        Triggers.use({
+          callback,
+          triggers: [
+            ["Control", "A"],
+            ["Control", "C"],
+            ["Control", "V"],
+            ["Control", "X"],
+          ],
+        });
+        return <input type="text" data-testid="input" />;
+      };
+      const press = (code: string) => {
+        const callback = vi.fn();
+        const { getByTestId, unmount } = render(
+          <Triggers.Provider>
+            <C callback={callback} />
+          </Triggers.Provider>,
+        );
+        const input = getByTestId("input");
+        fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
+        fireEvent.keyDown(input, { code: "ControlLeft" });
+        fireEvent.keyDown(input, { code, ctrlKey: true });
+        vi.advanceTimersByTime(500);
+        fireEvent.keyUp(input, { code, ctrlKey: true });
+        fireEvent.keyUp(input, { code: "ControlLeft" });
+        unmount();
+        return callback;
+      };
+
+      expect(press("KeyA")).not.toHaveBeenCalled();
+      expect(press("KeyC")).not.toHaveBeenCalled();
+      expect(press("KeyV")).not.toHaveBeenCalled();
+      expect(press("KeyX")).not.toHaveBeenCalled();
+    });
+
+    it("should still trigger undo/redo in input elements", async () => {
+      const callback = vi.fn();
+      const C = () => {
+        Triggers.use({ callback, triggers: [["Control", "Z"]] });
+        return <input type="text" data-testid="input" />;
+      };
+      const { getByTestId } = render(
+        <Triggers.Provider>
+          <C />
+        </Triggers.Provider>,
+      );
+
+      const input = getByTestId("input");
+      fireEvent.mouseMove(input, { clientX: 10, clientY: 10 });
+      fireEvent.keyDown(input, { code: "ControlLeft" });
+      fireEvent.keyDown(input, { code: "KeyZ", ctrlKey: true });
+      vi.advanceTimersByTime(500);
+
+      expect(callback).toHaveBeenCalledWith({
+        target: input,
+        triggers: [["Control", "Z"]],
+        prevTriggers: [["Control"]],
+        cursor: { x: 10, y: 10 },
+        stage: "start",
+        stopPropagation: expect.any(Function),
+      });
+
+      fireEvent.keyUp(input, { code: "KeyZ", ctrlKey: true });
       fireEvent.keyUp(input, { code: "ControlLeft" });
     });
 

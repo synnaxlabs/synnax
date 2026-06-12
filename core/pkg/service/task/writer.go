@@ -95,6 +95,17 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	)
 }
 
+// CreateMany creates the given tasks. If tasks with the same key already exist, they
+// will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
+	for i := range *tasks {
+		if err := w.Create(ctx, &(*tasks)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Delete deletes the task with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 	if err := w.table.NewDelete().

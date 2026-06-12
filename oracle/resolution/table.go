@@ -10,6 +10,8 @@
 package resolution
 
 import (
+	"slices"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -189,13 +191,10 @@ func (t *Table) TopologicalSort(types []Type) []Type {
 
 		for _, typ := range types {
 			deps := dependencies[typ.QualifiedName]
-			for _, dep := range deps {
-				if dep == qname {
-					inDegree[typ.QualifiedName]--
-					if inDegree[typ.QualifiedName] == 0 {
-						queue = append(queue, typ.QualifiedName)
-					}
-					break
+			if slices.Contains(deps, qname) {
+				inDegree[typ.QualifiedName]--
+				if inDegree[typ.QualifiedName] == 0 {
+					queue = append(queue, typ.QualifiedName)
 				}
 			}
 		}

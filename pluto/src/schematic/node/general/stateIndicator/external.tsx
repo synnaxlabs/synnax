@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
@@ -16,14 +17,13 @@ import { StateIndicator } from "@/schematic/node/general/stateIndicator/Primitiv
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/stateIndicator/config";
 
-export const defaultConfig = (t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   orientation: "left",
-  color: t.colors.gray.l11,
+  color: color.ZERO,
   inlineSize: 100,
   options: [],
   label: Label.defaultConfig("State Indicator"),

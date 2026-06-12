@@ -109,7 +109,7 @@ describe("edgeChangesToActions", () => {
     expect(out[1].type === "set_config" && out[1].setConfig.key).toBe("e1");
   });
 
-  it("seeds the new edge's config with the pipe variant's default", () => {
+  it("initializes the new edge's config with the pipe variant's default", () => {
     const edge = newEdge("e1");
     const [, setCfg] = edgeChangesToActions([{ type: "add", edge }]);
     const expected = Edge.REGISTRY.pipe.defaultConfig() as unknown as record.Unknown;

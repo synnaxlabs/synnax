@@ -67,7 +67,7 @@ var _ = Describe("Ontology", Ordered, func() {
 				})
 				defer dc()
 				ch := &channel.Channel{Name: channel.NewRandomName(), DataType: telem.Int64T, Virtual: true}
-				Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch))
+				Expect(mockCluster.Nodes[1].Channel.Create(ctx, ch)).To(Succeed())
 				Eventually(func(g Gomega) {
 					c := <-changes
 					g.Expect(c).To(HaveLen(1))

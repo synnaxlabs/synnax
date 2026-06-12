@@ -22,10 +22,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -178,6 +178,22 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should return an error if the rack has no name", func(ctx SpecContext) {
 			r := &rack.Rack{}
 			Expect(writer.Create(ctx, r)).Error().To(MatchError(ContainSubstring("name")))
+		})
+	})
+	Describe("CreateMany", func() {
+		It("Should create multiple racks", func(ctx SpecContext) {
+			racks := []rack.Rack{
+				{Name: "rack-many-1"},
+				{Name: "rack-many-2"},
+			}
+			Expect(writer.CreateMany(ctx, &racks)).To(Succeed())
+
+			var retrieved []rack.Rack
+			Expect(svc.NewRetrieve().Where(rack.MatchKeys(
+				racks[0].Key,
+				racks[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
 		})
 	})
 	Describe("Retrieve", func() {
@@ -770,7 +786,7 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 
 		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).ToNot(Equal(mismatchedRack.Key))
+		Expect(svc.EmbeddedKey).ToNot(BeEquivalentTo(mismatchedRack.Key))
 
 		var embeddedRack rack.Rack
 		Expect(svc.NewRetrieve().

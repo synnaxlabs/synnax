@@ -22,12 +22,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -604,7 +604,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
-			})
+			}).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})
@@ -640,12 +640,12 @@ var _ = Describe("Calculation", Ordered, func() {
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
 			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
 
-			Expect(func(g Gomega) {
+			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))
-				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
-			})
+			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})

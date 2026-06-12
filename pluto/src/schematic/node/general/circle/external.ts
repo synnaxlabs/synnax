@@ -25,7 +25,7 @@ const NAME = "Circle";
 export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   radius: 20,
-  color: t.colors.gray.l11,
+  color: color.ZERO,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
   label: Label.defaultConfig(NAME),
   strokeWidth: 2,

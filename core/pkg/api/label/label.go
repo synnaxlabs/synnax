@@ -24,7 +24,6 @@ import (
 )
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *label.Service
 }
@@ -36,7 +35,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		internal: cfg.Service.Label,
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 	}, nil
 }
@@ -58,23 +56,20 @@ type CreateResponse struct {
 // Create creates the labels in the cluster.
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
-) (res CreateResponse, err error) {
-	if err := s.access.Enforce(ctx, access.Request{
+) (CreateResponse, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: label.OntologyIDsFromLabels(req.Labels),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeLabel}},
 	}); err != nil {
-		return res, err
+		return CreateResponse{}, err
 	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels)
-		if err != nil {
-			return err
-		}
-		res.Labels = req.Labels
-		return nil
-	})
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels); err != nil {
+		return CreateResponse{}, err
+	}
+	return CreateResponse(req), nil
 }
 
 type RetrieveRequest struct {
@@ -94,37 +89,43 @@ type RetrieveResponse struct {
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (res RetrieveResponse, err error) {
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
 	if !req.For.IsZero() {
-		res.Labels, err = s.internal.RetrieveFor(ctx, req.For, nil)
-		return
+		labels, err := s.internal.RetrieveFor(ctx, req.For, nil)
+		if err != nil {
+			return RetrieveResponse{}, err
+		}
+		res.Labels = labels
+	} else {
+		q := s.internal.NewRetrieve()
+		if req.SearchTerm != "" {
+			q = q.Search(req.SearchTerm)
+		}
+		if req.Limit > 0 {
+			q = q.Limit(req.Limit)
+		}
+		if req.Offset > 0 {
+			q = q.Offset(req.Offset)
+		}
+		if len(req.Keys) != 0 {
+			q = q.Where(label.MatchKeys(req.Keys...))
+		}
+		if len(req.Names) != 0 {
+			q = q.Where(label.MatchNames(req.Names...))
+		}
+		if err := q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
+			return RetrieveResponse{}, err
+		}
 	}
-
-	q := s.internal.NewRetrieve()
-
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
+	objects := label.OntologyIDsFromLabels(res.Labels)
+	if !req.For.IsZero() {
+		objects = append(objects, req.For)
 	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(label.MatchKeys(req.Keys...))
-	}
-	if len(req.Names) != 0 {
-		q = q.Where(label.MatchNames(req.Names...))
-	}
-
-	if err = q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: label.OntologyIDsFromLabels(res.Labels),
+		Objects: objects,
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -137,18 +138,17 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: label.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).DeleteMany(ctx, req.Keys)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 type AddRequest struct {
@@ -159,24 +159,23 @@ type AddRequest struct {
 
 func (s *Service) Add(
 	ctx context.Context,
+	tx gorp.Tx,
 	req AddRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
-		if req.Replace {
-			if err := w.Clear(ctx, req.ID); err != nil {
-				return err
-			}
+	w := s.internal.NewWriter(tx)
+	if req.Replace {
+		if err := w.Clear(ctx, req.ID); err != nil {
+			return types.Nil{}, err
 		}
-		return w.Label(ctx, req.ID, req.Labels)
-	})
+	}
+	return types.Nil{}, w.Label(ctx, req.ID, req.Labels)
 }
 
 type RemoveRequest struct {
@@ -186,16 +185,15 @@ type RemoveRequest struct {
 
 func (s *Service) Remove(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RemoveRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: append(label.OntologyIDs(req.Labels), req.ID),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).RemoveLabel(ctx, req.ID, req.Labels)
 }

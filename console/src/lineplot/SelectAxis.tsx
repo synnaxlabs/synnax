@@ -7,21 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type lineplot } from "@synnaxlabs/client";
-import { Channel, Input } from "@synnaxlabs/pluto";
+import { type channel, lineplot } from "@synnaxlabs/client";
+import { Channel, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { Range } from "@/range";
-
-export interface SelectMultipleAxesInputItemProps extends Omit<
-  Input.ItemProps,
-  "onChange" | "children"
-> {
-  axis: lineplot.AxisKey;
-  onChange: (key: lineplot.AxisKey, v: channel.Key[]) => void;
-  value: channel.Key[];
-  selectProps?: Partial<Channel.SelectMultipleProps>;
-}
 
 const SEARCH_OPTIONS: channel.RetrieveOptions = {
   notDataTypes: ["string", "json", "uuid"],
@@ -29,55 +19,104 @@ const SEARCH_OPTIONS: channel.RetrieveOptions = {
   virtual: false,
 };
 
-export const SelectMultipleAxesInputItem = ({
-  axis,
-  onChange,
-  value,
-  selectProps,
+export interface YAxisChannelSelectProps extends Omit<
+  Input.ItemProps,
+  "onChange" | "children" | "label"
+> {
+  layoutKey: lineplot.Key;
+  axisKey: lineplot.YAxisKey;
+}
+
+export const YAxisChannelSelect = ({
+  layoutKey,
+  axisKey,
   ...rest
-}: SelectMultipleAxesInputItemProps): ReactElement => {
+}: YAxisChannelSelectProps): ReactElement => {
+  const value = LinePlot.useSelectYAxisChannels({ key: layoutKey, axisKey });
+  const { dispatch } = LinePlot.useDispatch();
   const rangeKey = Range.useSelectActiveKey() ?? undefined;
+  const handleChange = useCallback(
+    (channels: channel.Key[]) =>
+      dispatch({
+        key: layoutKey,
+        actions: [lineplot.setChannels({ axisKey, channels })],
+      }),
+    [dispatch, layoutKey, axisKey],
+  );
   return (
-    <Input.Item x label={axis.toUpperCase()} {...rest}>
+    <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest}>
       <Channel.SelectMultiple
         value={value}
         initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
-        onChange={useCallback(
-          (v: channel.Key[]) => onChange(axis, v),
-          [onChange, axis],
-        )}
+        onChange={handleChange}
         full="x"
         location="top"
-        {...selectProps}
       />
     </Input.Item>
   );
 };
 
-export interface SelectAxisInputItemProps extends Omit<Input.ItemProps, "onChange"> {
-  axis: lineplot.AxisKey;
-  onChange: (key: lineplot.AxisKey, v: channel.Key) => void;
-  value: channel.Key;
-  selectProps?: Partial<Channel.SelectSingleProps>;
+export interface XAxisChannelSelectProps extends Omit<
+  Input.ItemProps,
+  "onChange" | "children" | "label"
+> {
+  layoutKey: lineplot.Key;
+  axisKey: lineplot.XAxisKey;
 }
 
-export const SelectAxisInputItem = ({
-  axis,
-  onChange,
-  value,
-  selectProps,
+export const XAxisChannelSelect = ({
+  layoutKey,
+  axisKey,
   ...rest
-}: SelectAxisInputItemProps): ReactElement => {
+}: XAxisChannelSelectProps): ReactElement => {
+  const value = LinePlot.useSelectXAxisChannel({ key: layoutKey, axisKey });
+  const { dispatch } = LinePlot.useDispatch();
   const rangeKey = Range.useSelectActiveKey() ?? undefined;
+  const handleChange = useCallback(
+    (channel: channel.Key) =>
+      dispatch({
+        key: layoutKey,
+        actions: [lineplot.setXChannel({ axisKey, channel })],
+      }),
+    [dispatch, layoutKey, axisKey],
+  );
   return (
-    <Input.Item x label={axis.toUpperCase()} {...rest} grow>
+    <Input.Item x label={LinePlot.axisLabel(axisKey)} {...rest} grow>
       <Channel.SelectSingle
-        onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
         value={value}
+        onChange={handleChange}
         allowNone
         initialQuery={{ ...SEARCH_OPTIONS, rangeKey }}
-        {...selectProps}
+        location="top"
       />
     </Input.Item>
+  );
+};
+
+export interface XAxisRangeSelectProps extends Omit<
+  Range.SelectMultipleInputItemProps,
+  "value" | "onChange"
+> {
+  layoutKey: lineplot.Key;
+  axisKey: lineplot.XAxisKey;
+}
+
+export const XAxisRangeSelect = ({
+  layoutKey,
+  axisKey,
+  ...rest
+}: XAxisRangeSelectProps): ReactElement => {
+  const value = LinePlot.useSelectXAxisRanges({ key: layoutKey, axisKey });
+  const { dispatch } = LinePlot.useDispatch();
+  const handleChange = useCallback(
+    (ranges: string[]) =>
+      dispatch({
+        key: layoutKey,
+        actions: [lineplot.setRanges({ axisKey, ranges })],
+      }),
+    [dispatch, layoutKey, axisKey],
+  );
+  return (
+    <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />
   );
 };

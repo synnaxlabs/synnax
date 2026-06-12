@@ -73,7 +73,7 @@ type InitializeParams struct {
 	RootURI DocumentURI `json:"rootUri,omitempty"`
 
 	// InitializationOptions user provided initialization options.
-	InitializationOptions interface{} `json:"initializationOptions,omitempty"`
+	InitializationOptions any `json:"initializationOptions,omitempty"`
 
 	// Capabilities is the capabilities provided by the client (editor or tool)
 	Capabilities ClientCapabilities `json:"capabilities"`
@@ -168,7 +168,7 @@ type FileOperationPattern struct {
 	Matches FileOperationPatternKind `json:"matches,omitempty"`
 
 	// Options additional options used during matching.
-	Options FileOperationPatternOptions `json:"options,omitempty"`
+	Options FileOperationPatternOptions `json:"options,omitzero"`
 }
 
 // FileOperationFilter is a filter to describe in which file operation requests or notifications

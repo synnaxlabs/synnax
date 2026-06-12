@@ -29,6 +29,11 @@
         border-color: transparent !important;
         pointer-events: none !important;
         border-radius: 50%;
+        /* React Flow pins the opposite edge (bottom/right) for handles facing those
+           directions. Pluto positions every handle via top/left, so the extra pin
+           stretches the element across the node and throws off the edge anchor. */
+        right: auto !important;
+        bottom: auto !important;
     }
 
     .react-flow__background circle {

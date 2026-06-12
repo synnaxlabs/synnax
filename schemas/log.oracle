@@ -7,28 +7,156 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/channel"
+import "schemas/color"
+import "schemas/notation"
+import "schemas/telem"
+
 @ts output "client/ts/src/log"
 @go output "core/pkg/service/log"
-@pb
 
 Key = uuid {
     @doc value "is a unique identifier for a log, represented as a UUID."
 }
 
+TimestampConfig struct {
+    format telem.TimestampFormat {
+        @doc value "controls how channel timestamps are rendered."
+    }
+    tz     telem.TimeZone        {
+        @doc value "is the time zone used when rendering timestamps."
+    }
+
+    @doc value "is per-channel timestamp display configuration."
+}
+
+ChannelEntry struct {
+    channel   channel.Key       {
+        @doc value "is the channel this entry references."
+    }
+    color     color.Color       {
+        @doc value "is the display color for the channel."
+    }
+    notation  notation.Notation = "standard" {
+        @doc value "is the numeric notation used to render samples."
+    }
+    precision int32 = -1 {
+        @doc value """
+            is the number of decimal digits to display. -1 means "use the
+            log-level precision"; 17 is the maximum significant digits for a
+            float64.
+        """
+        @validate {
+            min -1
+            max 17
+        }
+    }
+    alias     string = "" {
+        @doc value "is a human-readable alias displayed in place of the channel name."
+    }
+    timestamp TimestampConfig = { format = "preciseDate", tz = "local" } {
+        @doc value "is the per-channel timestamp display configuration."
+    }
+
+    @doc value "is a per-channel display configuration entry within a log."
+}
+
 Log struct {
-    key  Key    {
+    key                    Key            {
         @doc value "is the unique identifier for this log."
         @key
     }
-    name string {
+    name                   string         {
         @doc value "is a human-readable name for the log."
     }
-    data record {
-        @doc value        """
-            is the log configuration including message formatting, filtering
-            rules, and display options.
+    channels               ChannelEntry[] {
+        @doc value "are the channels displayed in this log, in order."
+    }
+    timestamp_precision    int32          {
+        @doc value "is the precision of displayed timestamps (0-3)."
+        @validate {
+            min 0
+            max 3
+        }
+    }
+    show_channel_names     bool           {
+        @doc value "controls whether channel names are displayed."
+    }
+    show_receipt_timestamp bool           {
+        @doc value "controls whether the receipt timestamp column is displayed."
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the log."
+    }
+
+    action AddChannel {
+        channel channel.Key
+
+        @doc value """
+            appends a default channel entry for the given channel. No-op when
+            the channel is already present.
         """
-        @ts preserve_case
+    }
+
+    action RemoveChannel {
+        channel channel.Key
+
+        @doc value """
+            removes the channel entry for the given channel. No-op when the
+            channel is not present.
+        """
+    }
+
+    action SetChannelEntry {
+        entry ChannelEntry
+
+        @doc value """
+            inserts the channel entry if no entry with the same channel exists,
+            otherwise replaces the existing entry in place. Used both when a
+            channel is added and when the user edits an existing channel's
+            display configuration.
+        """
+    }
+
+    action SetChannels {
+        channels ChannelEntry[]
+
+        @doc value """
+            replaces the entire ordered list of channel entries. Used for bulk
+            channel selection and reordering.
+        """
+    }
+
+    action SwapChannel {
+        from channel.Key
+        to   channel.Key
+
+        @doc value """
+            repoints the entry referencing the "from" channel at the "to"
+            channel in place, preserving the entry's position and display
+            configuration. No-op when no entry references "from".
+        """
+    }
+
+    action SetTimestampPrecision {
+        timestamp_precision int32
+
+        @doc value "sets the precision of displayed timestamps (0-3)."
+    }
+
+    action SetShowChannelNames {
+        show_channel_names bool
+
+        @doc value "controls whether channel names are displayed."
+    }
+
+    action SetShowReceiptTimestamp {
+        show_receipt_timestamp bool
+
+        @doc value "controls whether the receipt timestamp column is displayed."
     }
 
     @doc value     """
@@ -43,15 +171,13 @@ Log struct {
 }
 
 New struct extends Log {
-    key Key? {
-        @doc value """
-            is an optional key for the log. If not provided, one will be
-            automatically assigned.
-        """
-    }
+    key                    = create
+    channels               = []
+    timestamp_precision    = 0
+    show_channel_names     = true
+    show_receipt_timestamp = true
 
     @doc value    "contains parameters for creating a new log."
     @ts use_input
     @go omit
-    @pb omit
 }

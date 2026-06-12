@@ -57,7 +57,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual.Approximation).To(Equal(expected))
 						},
@@ -359,7 +359,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -454,7 +454,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -595,13 +595,13 @@ var _ = Describe("Domain", func() {
 								db,
 								(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
-							))
+							)).To(Succeed())
 							Expect(domain.Write(
 								ctx,
 								db,
 								(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
-							))
+							)).To(Succeed())
 						})
 						DescribeTable("Discontinuous", func(ctx SpecContext,
 							start telem.TimeStamp,
@@ -613,7 +613,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -671,7 +671,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -748,7 +748,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -858,13 +858,13 @@ var _ = Describe("Domain", func() {
 								db,
 								(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40).Data,
-							))
+							)).To(Succeed())
 							Expect(domain.Write(
 								ctx,
 								db,
 								(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65).Data,
-							))
+							)).To(Succeed())
 						})
 						DescribeTable("Discontinuous", func(ctx SpecContext,
 							start telem.TimeStamp,
@@ -876,7 +876,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
