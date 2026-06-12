@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -92,6 +93,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if unionCollector.Has(outputPath) {
 			unions = unionCollector.Remove(outputPath)
 		}
+		if !hasEmittableType(structs, enums, unions) {
+			return nil
+		}
 		content, err := p.generateFile(outputPath, structs, enums, unions, req.Resolutions, req.RepoRoot)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
@@ -168,6 +172,19 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	return resp, nil
+}
+
+// hasEmittableType reports whether at least one type survives @pb omit
+// filtering, so an output path whose types are all omitted produces no file.
+func hasEmittableType(structs, enums, unions []resolution.Type) bool {
+	for _, group := range [][]resolution.Type{structs, enums, unions} {
+		if slices.ContainsFunc(group, func(t resolution.Type) bool {
+			return !omit.IsType(t, "pb")
+		}) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *Plugin) generateFile(

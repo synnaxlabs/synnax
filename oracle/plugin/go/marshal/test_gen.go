@@ -27,12 +27,20 @@ import (
 )
 
 type testFileOutput struct {
-	Package      string
-	PkgImport    string
-	ExtraImports map[string]string
-	NeedsUUID    bool
-	Tests        []testEntry
-	GenericTests []genericTestEntry
+	Package        string
+	PkgImport      string
+	ExtraImports   map[string]string
+	NeedsUUID      bool
+	SharedFixtures []sharedFixture
+	Tests          []testEntry
+	GenericTests   []genericTestEntry
+}
+
+// sharedFixture is a package-level fixture var shared by every test case that
+// embeds the same struct, replacing per-entry copies of identical literals.
+type sharedFixture struct {
+	VarName   string
+	ValueExpr string
 }
 
 type genericTestEntry struct {
@@ -78,6 +86,68 @@ func generateTestCodecFile(
 		ExtraImports: make(map[string]string),
 	}
 
+	sharedVars := make(map[string]string)
+	varNameOwner := make(map[string]string)
+	ensureShared := func(typ resolution.Type, ref resolution.TypeRef) error {
+		form, ok := typ.Form.(resolution.StructForm)
+		if !ok || form.IsGeneric() {
+			return nil
+		}
+		if _, ok := sharedVars[typ.QualifiedName]; ok {
+			return nil
+		}
+		varName := "fullyPopulated" + naming.GetGoName(typ)
+		if owner, taken := varNameOwner[varName]; taken && owner != typ.QualifiedName {
+			return nil
+		}
+		b := &testValueBuilder{
+			table:       table,
+			repoRoot:    repoRoot,
+			packageName: packageName,
+			parentPath:  parentPath,
+			imports:     fo.ExtraImports,
+			pkgPrefix:   packageName + ".",
+			mode:        modeFullyPopulated,
+		}
+		expr, err := b.valueExpr(typ, ref)
+		if err != nil {
+			return errors.Wrapf(err, "failed to generate shared fixture for %s", typ.Name)
+		}
+		if expr == "" {
+			return nil
+		}
+		if b.needsUUID {
+			fo.NeedsUUID = true
+		}
+		varNameOwner[varName] = typ.QualifiedName
+		sharedVars[typ.QualifiedName] = varName
+		fo.SharedFixtures = append(fo.SharedFixtures, sharedFixture{
+			VarName:   varName,
+			ValueExpr: expr,
+		})
+		return nil
+	}
+	for _, e := range entries {
+		uform, isUnion := e.Type.Form.(resolution.UnionForm)
+		if !isUnion {
+			continue
+		}
+		for _, ext := range uform.Extends {
+			if parent, ok := ext.Resolve(table); ok {
+				if err := ensureShared(parent, ext); err != nil {
+					return nil, err
+				}
+			}
+		}
+		for _, v := range uform.Variants {
+			if payload, ok := v.Type.Resolve(table); ok {
+				if err := ensureShared(payload, v.Type); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
 	for _, e := range entries {
 		recv := ReceiverName(e.GoName)
 		// In test files the receiver is used as a local variable, so it must
@@ -97,6 +167,7 @@ func generateTestCodecFile(
 					imports:     fo.ExtraImports,
 					pkgPrefix:   packageName + ".",
 					mode:        modeFullyPopulated,
+					sharedVars:  sharedVars,
 				}
 				valueExpr, err := b.unionExpr(e.Type, uform, v)
 				if err != nil {
@@ -166,6 +237,7 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
+					sharedVars:  sharedVars,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,
 				}
@@ -221,6 +293,12 @@ func generateTestCodecFile(
 		} else {
 			te := testEntry{GoName: e.GoName, Receiver: recv}
 			for _, m := range modes {
+				if m.mode == modeFullyPopulated {
+					if varName, ok := sharedVars[e.Type.QualifiedName]; ok {
+						te.Cases = append(te.Cases, testCase{Name: m.name, ValueExpr: varName})
+						continue
+					}
+				}
 				b := &testValueBuilder{
 					table:       table,
 					repoRoot:    repoRoot,
@@ -229,6 +307,7 @@ func generateTestCodecFile(
 					imports:     fo.ExtraImports,
 					pkgPrefix:   packageName + ".",
 					mode:        m.mode,
+					sharedVars:  sharedVars,
 				}
 				valueExpr, err := b.buildStructLiteral(e.Type, e.GoName)
 				if err != nil {
@@ -328,6 +407,11 @@ type testValueBuilder struct {
 	depth       int
 	fieldIndex  int
 	mode        valueMode
+	// sharedVars maps a struct's qualified name to a package-level fixture
+	// var that union embeds reference instead of inlining the literal. Nil
+	// while building the fixtures themselves, so they never reference each
+	// other (package-level init cycles).
+	sharedVars map[string]string
 }
 
 func (b *testValueBuilder) buildStructLiteral(
@@ -603,6 +687,11 @@ func (b *testValueBuilder) unionExpr(
 		if !ok {
 			continue
 		}
+		if varName, ok := b.sharedVars[parent.QualifiedName]; ok &&
+			b.mode == modeFullyPopulated {
+			embeds = append(embeds, naming.GetGoName(parent)+": "+varName)
+			continue
+		}
 		parentGoType, err := b.goTypeName(parent)
 		if err != nil {
 			return "", err
@@ -614,11 +703,16 @@ func (b *testValueBuilder) unionExpr(
 		embeds = append(embeds,
 			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
 	}
-	payloadExpr, err := b.valueExpr(payload, v.Type)
-	if err != nil {
-		return "", err
+	if varName, ok := b.sharedVars[payload.QualifiedName]; ok &&
+		b.mode == modeFullyPopulated {
+		embeds = append(embeds, naming.GetGoName(payload)+": "+varName)
+	} else {
+		payloadExpr, err := b.valueExpr(payload, v.Type)
+		if err != nil {
+			return "", err
+		}
+		embeds = append(embeds, naming.GetGoName(payload)+": "+payloadExpr)
 	}
-	embeds = append(embeds, naming.GetGoName(payload)+": "+payloadExpr)
 	return fmt.Sprintf(
 		"%s{Variant: %s}", goType, b.formatComposite(variantType, embeds),
 	), nil
@@ -893,6 +987,14 @@ import (
 	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
+{{- if .SharedFixtures}}
+
+var (
+{{- range .SharedFixtures}}
+	{{.VarName}} = {{.ValueExpr}}
+{{- end}}
+)
+{{- end}}
 
 var _ = Describe("Codec", func() {
 {{- range .Tests}}

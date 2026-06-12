@@ -543,6 +543,26 @@ var _ = Describe("Plugin", func() {
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
 			})
+
+			It("Should not emit a proto file for an output path whose types are all omitted", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/task"
+					@pb
+
+					Command struct {
+						key string
+					}
+
+					BaseConfig struct {
+						auto_start bool
+						@go output "core/pkg/service/task/common"
+						@pb omit
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, p)
+				Expect(resp.Files).To(HaveLen(1))
+				Expect(resp.Files[0].Path).To(ContainSubstring("core/pkg/service/task/pb"))
+			})
 		})
 
 		Context("type parameters", func() {

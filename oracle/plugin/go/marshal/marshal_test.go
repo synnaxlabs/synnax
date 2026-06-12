@@ -906,10 +906,38 @@ var _ = Describe("Union Codecs", func() {
 				`Entry("valve variant"`,
 				"test.ElementConfigTank{",
 				"test.ElementConfigValve{",
-				"BaseElement: test.BaseElement{",
+				"BaseElement: fullyPopulatedBaseElement",
 				"func BenchmarkEncodeDecodeElementConfig(b *testing.B) {",
 				"func FuzzDecodeElementConfig(f *testing.F) {",
 			)
+	})
+
+	It("Should share fully populated fixtures between union entries and type tables", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			TankConfig struct { width float64 }
+
+			ElementConfig union on variant {
+				tank       TankConfig
+				other_tank TankConfig
+			}
+
+			Test struct {
+				config ElementConfig
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "codec_gen_test.go").
+			ToBeValidGoSource().
+			ToContain(
+				"fullyPopulatedTankConfig = test.TankConfig{",
+				"TankConfig: fullyPopulatedTankConfig",
+				`Entry("fully populated", fullyPopulatedTankConfig)`,
+			).
+			ToNotContain("TankConfig: test.TankConfig{Width: 1.5}")
 	})
 })
 
