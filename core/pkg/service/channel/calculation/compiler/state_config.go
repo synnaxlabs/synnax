@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package calcstate
+package compiler
 
 import (
 	"context"
@@ -17,15 +17,24 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/set"
 )
 
+// ExtendedStateConfig describes the channels a compiled calculation reads from and
+// writes to, along with the channel digests and IR needed to execute it.
 type ExtendedStateConfig struct {
-	Reads          set.Set[channel.Key]
-	Writes         set.Set[channel.Key]
+	// Reads is the set of channel keys the calculation reads from, including the
+	// index channels of any non-virtual channels it reads.
+	Reads set.Set[channel.Key]
+	// Writes is the set of channel keys the calculation writes to, including the
+	// index channels of any non-virtual channels it writes.
+	Writes set.Set[channel.Key]
+	// ChannelDigests holds the key, data type, and index for every channel the
+	// calculation touches.
 	ChannelDigests []stlchannels.Digest
-	IR             ir.IR
+	// IR is the intermediate representation of the compiled program.
+	IR ir.IR
 }
 
 func retrieveChannels(
@@ -52,6 +61,9 @@ func retrieveChannels(
 	return slices.Concat(channels, indexChannels), nil
 }
 
+// NewStateConfig derives the read/write channel sets and digests for a compiled
+// program. Non-virtual channels pull in their index channels so the executor can
+// align samples. It returns an error if any referenced channel cannot be retrieved.
 func NewStateConfig(
 	ctx context.Context,
 	channelSvc *channel.Service,

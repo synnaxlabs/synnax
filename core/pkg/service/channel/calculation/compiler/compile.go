@@ -18,10 +18,8 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/calcstate"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -31,7 +29,7 @@ import (
 type Config struct {
 	// ChannelService builds the symbol resolver used to analyze the expression and
 	// looks up channel metadata for the compiled state config.
-	ChannelService *servicechannel.Service
+	ChannelService *channel.Service
 	// Channel is the calculated channel whose expression will be compiled.
 	Channel channel.Channel
 }
@@ -85,7 +83,7 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 // execution by the framer's calculator runtime.
 type Module struct {
 	// StateConfig describes the channels read and written by this calculation.
-	StateConfig calcstate.ExtendedStateConfig
+	StateConfig ExtendedStateConfig
 	// Program is the compiled Arc program containing WASM bytecode.
 	arc.Program
 	// Channel is the calculated channel this module was compiled for.
@@ -200,7 +198,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	if err != nil {
 		return Module{}, err
 	}
-	stateCfg, err := calcstate.NewStateConfig(ctx, cfg.ChannelService.Service, program)
+	stateCfg, err := NewStateConfig(ctx, cfg.ChannelService, program)
 	if err != nil {
 		return Module{}, err
 	}
