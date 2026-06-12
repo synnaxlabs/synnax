@@ -75,7 +75,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	apiSvc = &Service{access: rbacSvc, internal: panelSvc}

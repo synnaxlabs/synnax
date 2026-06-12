@@ -299,7 +299,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
-		Group:           cfg.Distribution.Group,
 		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Panel) {
 		return nil, err

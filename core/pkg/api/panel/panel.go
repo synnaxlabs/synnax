@@ -47,8 +47,7 @@ type (
 	CreateRequest struct {
 		// Panels are the panels to create. Each panel carries its own optional
 		// Parent; when absent the panel is parented to the creating user instead
-		// — a draft, visible only to its creator. Either way the panel is also
-		// parented to the root Panels group.
+		// — a draft, visible only to its creator.
 		Panels []panel.Panel `json:"panels" msgpack:"panels"`
 	}
 	CreateResponse = CreateRequest
