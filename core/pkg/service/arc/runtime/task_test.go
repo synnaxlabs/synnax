@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -75,7 +74,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-			Channel:    svcchannel.Wrap(dist.Channel),
+			Channel:    channel.Wrap(dist.Channel),
 			Framer:     dist.Framer,
 			Status:     statusSvc,
 			GetProgram: getModule,
@@ -84,7 +83,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := svcchannel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
+			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
@@ -96,7 +95,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := svcchannel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
+			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
@@ -210,7 +209,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return ErrTaskNotHandled for non-arc task types", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel: svcchannel.Wrap(dist.Channel),
+				Channel: channel.Wrap(dist.Channel),
 				Framer:  dist.Framer,
 				Status:  statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
@@ -235,7 +234,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    svcchannel.Wrap(dist.Channel),
+				Channel:    channel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -251,7 +250,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    svcchannel.Wrap(dist.Channel),
+				Channel:    channel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -267,7 +266,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    svcchannel.Wrap(dist.Channel),
+				Channel:    channel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -291,7 +290,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    svcchannel.Wrap(dist.Channel),
+				Channel:    channel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,

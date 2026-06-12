@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -39,7 +38,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: dist.Framer,
-		Channel:    svcchannel.Wrap(dist.Channel),
+		Channel:    channel.Wrap(dist.Channel),
 	})
 	if err != nil {
 		b.Fatalf("failed to open iterator service: %v", err)

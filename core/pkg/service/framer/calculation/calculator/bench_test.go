@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/telem"
@@ -73,7 +72,7 @@ func (e *benchEnv) openCalculator(
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		ChannelService: svcchannel.Wrap(e.dist.Channel),
+		ChannelService: channel.Wrap(e.dist.Channel),
 		Channel:        *calc,
 	})
 	if err != nil {

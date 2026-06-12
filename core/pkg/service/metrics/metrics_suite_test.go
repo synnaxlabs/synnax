@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -27,7 +27,7 @@ var (
 	builder    *mock.Cluster
 	dist       mock.Node
 	framerSvc  *framer.Service
-	channelSvc *servicechannel.Service
+	channelSvc *channel.Service
 )
 
 func TestMetrics(t *testing.T) {
@@ -56,7 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  dist.Signals,
 		Search:   searchIdx,
 	}))
-	channelSvc = MustOpen(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,

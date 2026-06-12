@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,7 +34,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		dist = DeferClose(builder.Provision(ctx))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
-			Channel:    svcchannel.Wrap(dist.Channel),
+			Channel:    channel.Wrap(dist.Channel),
 		}))
 	})
 	Describe("Basic Iteration", func() {

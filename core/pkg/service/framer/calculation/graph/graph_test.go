@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,7 +30,7 @@ var _ = Describe("Graph", func() {
 	var g *graph.Graph
 	BeforeEach(func() {
 		g = MustSucceed(graph.New(graph.Config{
-			Channel: svcchannel.Wrap(dist.Channel),
+			Channel: channel.Wrap(dist.Channel),
 		}))
 	})
 	Describe("Add", func() {

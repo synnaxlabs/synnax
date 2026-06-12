@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcChannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,7 +23,7 @@ import (
 
 var (
 	dist mock.Node
-	svc  *svcChannel.Service
+	svc  *channel.Service
 )
 
 func TestChannel(t *testing.T) {
@@ -50,7 +50,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   dist.Search,
 	}))
-	svc = MustOpen(svcChannel.OpenService(ctx, svcChannel.ServiceConfig{
+	svc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
