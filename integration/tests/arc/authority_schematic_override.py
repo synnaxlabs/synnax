@@ -50,7 +50,7 @@ class AuthoritySchematicOverride(ArcCase, ConsoleCase):
         self.wait_for_eq("press_vlv_state", 1)
 
         self.log("Creating schematic with valve")
-        schematic = self.console.workspace.create_schematic("authority_test_schematic")
+        schematic = self.console.project.create_schematic("authority_test_schematic")
         self._schematic = schematic
         schematic.move("left")
 

@@ -25,6 +25,7 @@ import { lineplot } from "@/lineplot";
 import { log } from "@/log";
 import { ontology } from "@/ontology";
 import { panel } from "@/panel";
+import { project } from "@/project";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { alias } from "@/ranger/alias";
@@ -36,7 +37,6 @@ import { task } from "@/task";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 import { view } from "@/view";
-import { workspace } from "@/workspace";
 
 export const synnaxParamsZ = z.object({
   host: z.string({ error: "Host is required" }).min(1, "Host is required"),
@@ -73,7 +73,7 @@ export default class Synnax extends framer.Client {
   readonly access: access.Client;
   readonly connectivity: connection.Checker;
   readonly ontology: ontology.Client;
-  readonly workspaces: workspace.Client;
+  readonly projects: project.Client;
   readonly labels: label.Client;
   readonly statuses: status.Client;
   readonly tasks: task.Client;
@@ -164,7 +164,7 @@ export default class Synnax extends framer.Client {
     );
     this.access = new access.Client(this.transport.unary);
     this.users = new user.Client(this.transport.unary);
-    this.workspaces = new workspace.Client(this.transport.unary);
+    this.projects = new project.Client(this.transport.unary);
     this.tasks = new task.Client(
       this.transport.unary,
       this,

@@ -19,9 +19,9 @@ import { useFileIngesters } from "@/import/FileIngestersProvider";
 import { type FileIngesterContext, type FileIngesters } from "@/import/ingester";
 import { trimFileName } from "@/import/trimFileName";
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { Runtime } from "@/runtime";
 import { type RootState } from "@/store";
-import { Workspace } from "@/workspace";
 
 export const ingestComponent = async (
   data: unknown,
@@ -60,7 +60,7 @@ interface ImportComponentArgs {
   client: Client | null;
   placeLayout: Layout.Placer;
   store: Store;
-  workspaceKey?: string;
+  projectKey?: string;
   fluxStore: Pluto.FluxStore;
   fileIngesters: FileIngesters;
 }
@@ -70,7 +70,7 @@ const importComponent = ({
   client,
   placeLayout,
   handleError,
-  workspaceKey,
+  projectKey,
   fluxStore,
   fileIngesters,
 }: ImportComponentArgs): void => {
@@ -82,19 +82,19 @@ const importComponent = ({
     });
     if (files == null) return;
     const storeState = store.getState();
-    const activeWorkspaceKey = Workspace.selectActiveKey(storeState);
-    if (workspaceKey != null && activeWorkspaceKey !== workspaceKey) {
+    const activeProjectKey = Project.selectActiveKey(storeState);
+    if (projectKey != null && activeProjectKey !== projectKey) {
       if (client == null) throw new DisconnectedError();
-      const ws = await client.workspaces.retrieve(workspaceKey);
-      store.dispatch(Workspace.setActive(ws));
+      const proj = await client.projects.retrieve(projectKey);
+      store.dispatch(Project.setActive(proj));
       store.dispatch(
-        Layout.setWorkspace({
-          slice: ws.layout as Layout.SliceState,
+        Layout.setProject({
+          slice: proj.layout as Layout.SliceState,
           keepNav: false,
         }),
       );
     }
-    const activeWorkspaceKeyAfter = Workspace.selectActiveKey(store.getState());
+    const activeProjectKeyAfter = Project.selectActiveKey(store.getState());
     files.forEach((file) =>
       handleError(async () => {
         const data = await file.read();
@@ -104,14 +104,14 @@ const importComponent = ({
           placeLayout,
           store: fluxStore,
           client,
-          workspaceKey: activeWorkspaceKeyAfter ?? uuid.ZERO,
+          projectKey: activeProjectKeyAfter ?? uuid.ZERO,
         });
       }, `Failed to import ${file.name}`),
     );
   });
 };
 
-export const useImport = (): ((workspaceKey?: string) => void) => {
+export const useImport = (): ((projectKey?: string) => void) => {
   const placeLayout = Layout.usePlacer();
   const store = useStore<RootState>();
   const client = Synnax.use();
@@ -119,13 +119,13 @@ export const useImport = (): ((workspaceKey?: string) => void) => {
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const fileIngesters = useFileIngesters();
   return useCallback(
-    (workspaceKey?: string) =>
+    (projectKey?: string) =>
       importComponent({
         store,
         placeLayout,
         client,
         handleError,
-        workspaceKey,
+        projectKey,
         fluxStore,
         fileIngesters,
       }),

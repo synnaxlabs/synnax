@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -26,7 +26,7 @@ type Writer struct {
 	dispatcher actions.Dispatcher[Key, Action]
 }
 
-func (w Writer) Create(ctx context.Context, ws workspace.Key, lp *LinePlot) error {
+func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot) error {
 	var (
 		exists bool
 		err    error
@@ -52,26 +52,26 @@ func (w Writer) Create(ctx context.Context, ws workspace.Key, lp *LinePlot) erro
 	if err := w.otg.DefineResource(ctx, otgID); err != nil {
 		return err
 	}
-	if ws == uuid.Nil {
+	if projectKey == uuid.Nil {
 		return nil
 	}
 	return w.otg.DefineRelationship(
 		ctx,
-		workspace.OntologyID(ws),
+		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
 }
 
-// CreateMany creates the given line plots within the workspace provided. If line plots
+// CreateMany creates the given line plots within the project provided. If line plots
 // with the same key already exist, they will be overwritten.
 func (w Writer) CreateMany(
 	ctx context.Context,
-	ws workspace.Key,
+	projectKey project.Key,
 	plots *[]LinePlot,
 ) error {
 	for i := range *plots {
-		if err := w.Create(ctx, ws, &(*plots)[i]); err != nil {
+		if err := w.Create(ctx, projectKey, &(*plots)[i]); err != nil {
 			return err
 		}
 	}

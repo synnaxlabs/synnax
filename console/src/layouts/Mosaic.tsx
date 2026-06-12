@@ -53,10 +53,10 @@ import { Nav } from "@/layouts/nav";
 import { createSelectorLayout, useSelectorVisible } from "@/layouts/Selector";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
+import { Project } from "@/project";
+import { ProjectServices } from "@/project/services";
 import { Runtime } from "@/runtime";
 import { type RootState, type RootStore } from "@/store";
-import { Workspace } from "@/workspace";
-import { WorkspaceServices } from "@/workspace/services";
 
 const EmptyContent = (): ReactElement => {
   const createComponentEnabled = useSelectorVisible();
@@ -317,7 +317,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
             await Import.dataTransferItem(item, {
               client,
               fileIngesters,
-              ingestDirectory: WorkspaceServices.ingest,
+              ingestDirectory: ProjectServices.ingest,
               layout: { tab: { mosaicKey: nodeKey, location: loc } },
               placeLayout,
               store,
@@ -400,7 +400,7 @@ const NavTop = (): ReactElement | null => {
   const isWindowsOS = os === "Windows";
   const { onSelect } = Layout.useNavDrawer("bottom", Nav.DRAWER_ITEMS);
   const activeName = Layout.useSelectActiveMosaicTabName();
-  const activeWorkspaceName = Workspace.useSelectActiveName();
+  const activeProjectName = Project.useSelectActiveName();
   const button = (
     <Button.Button
       variant="outlined"
@@ -438,7 +438,7 @@ const NavTop = (): ReactElement | null => {
           data-tauri-drag-region
           style={{ cursor: "default" }}
         >
-          {activeName} {activeWorkspaceName && `- ${activeWorkspaceName}`}
+          {activeName} {activeProjectName && `- ${activeProjectName}`}
         </Text.Text>
       </PNav.Bar.AbsoluteCenter>
       <PNav.Bar.End data-tauri-drag-region align="center" justify="end">

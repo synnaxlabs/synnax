@@ -74,7 +74,7 @@ export const stateZ = z.object({
   windowProps: windowPropsZ.optional(),
   tab: layoutTabPropsZ.partial().optional(),
   args: z.unknown().optional(),
-  excludeFromWorkspace: z.boolean().optional(),
+  excludeFromProject: z.boolean().optional(),
   unsavedChanges: z.boolean().default(false).optional(),
 });
 
@@ -124,10 +124,10 @@ export interface State<A = unknown> {
    */
   args?: A;
   /**
-   * excludeFromWorkspace is a flag that indicates whether the layout should be excluded
-   * from the workspace. This is typically used for modal layouts.
+   * excludeFromProject is a flag that indicates whether the layout should be excluded
+   * from the project. This is typically used for modal layouts.
    */
-  excludeFromWorkspace?: boolean;
+  excludeFromProject?: boolean;
   /**
    * unsavedChanges is a flag that indicates whether the layout has unsaved changes.
    */

@@ -97,6 +97,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_PANEL, nil
 	case ontology.ResourceTypePolicy:
 		return ResourceType_RESOURCE_TYPE_POLICY, nil
+	case ontology.ResourceTypeProject:
+		return ResourceType_RESOURCE_TYPE_PROJECT, nil
 	case ontology.ResourceTypeRack:
 		return ResourceType_RESOURCE_TYPE_RACK, nil
 	case ontology.ResourceTypeRange:
@@ -119,8 +121,6 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_USER, nil
 	case ontology.ResourceTypeView:
 		return ResourceType_RESOURCE_TYPE_VIEW, nil
-	case ontology.ResourceTypeWorkspace:
-		return ResourceType_RESOURCE_TYPE_WORKSPACE, nil
 	default:
 		return 0, errors.Newf("unrecognized ontology.ResourceType value: %v", v)
 	}
@@ -153,6 +153,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypePanel, nil
 	case ResourceType_RESOURCE_TYPE_POLICY:
 		return ontology.ResourceTypePolicy, nil
+	case ResourceType_RESOURCE_TYPE_PROJECT:
+		return ontology.ResourceTypeProject, nil
 	case ResourceType_RESOURCE_TYPE_RACK:
 		return ontology.ResourceTypeRack, nil
 	case ResourceType_RESOURCE_TYPE_RANGE:
@@ -175,8 +177,6 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeUser, nil
 	case ResourceType_RESOURCE_TYPE_VIEW:
 		return ontology.ResourceTypeView, nil
-	case ResourceType_RESOURCE_TYPE_WORKSPACE:
-		return ontology.ResourceTypeWorkspace, nil
 	default:
 		return ontology.ResourceType(""), errors.Newf("unrecognized ResourceType value: %v", v)
 	}

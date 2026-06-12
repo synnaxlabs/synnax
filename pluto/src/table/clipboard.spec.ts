@@ -57,11 +57,11 @@ describe("table clipboard", () => {
   });
 
   const createTable = async () => {
-    const ws = await client.workspaces.create({
+    const proj = await client.projects.create({
       name: `clipboard_ws_${uuid.create()}`,
       layout: {},
     });
-    return await client.tables.create(ws.key, {
+    return await client.tables.create(proj.key, {
       name: "clipboard_test",
       rows: [
         { size: 30, cells: ["a", "b", "c"] },

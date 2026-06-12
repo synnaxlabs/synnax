@@ -34,7 +34,7 @@ class NoDevice(ConsoleCase):
 
         self.log("Creating NI Analog Read Task Page")
         rand_int = random.randint(100, 999)
-        ni_ai = self.console.workspace.create_task(
+        ni_ai = self.console.project.create_task(
             "NI Analog Read Task",
             f"USB-6000_{rand_int}",
         )

@@ -20,13 +20,13 @@ import { Provider, useSelector } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { createUseAutoUpload } from "@/vis/useAutoUpload";
-import { Workspace } from "@/workspace";
 
 type FakeInput = {
   key?: string;
   name?: string;
-  workspace?: string;
+  project?: string;
   payload?: number;
 };
 type FakeOutput = { key: string };
@@ -53,7 +53,7 @@ const fakeSlice = createSlice({
 
 interface TestState {
   [Layout.SLICE_NAME]: Layout.SliceState;
-  [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Project.SLICE_NAME]: Project.SliceState;
   [FAKE_SLICE]: FakeSliceState;
 }
 
@@ -90,7 +90,7 @@ const buildHook = (ctrl: CreateController): ((key: string) => boolean) =>
 interface HarnessArgs {
   key: string;
   name: string;
-  workspaceKey?: string;
+  projectKey?: string;
   pendingUpload?: FakePending;
 }
 
@@ -102,12 +102,12 @@ interface Harness {
 const buildHarness = ({
   key,
   name,
-  workspaceKey,
+  projectKey,
   pendingUpload,
 }: HarnessArgs): Harness => {
   const reducer = combineReducers({
     [Layout.SLICE_NAME]: Layout.reducer,
-    [Workspace.SLICE_NAME]: Workspace.reducer,
+    [Project.SLICE_NAME]: Project.reducer,
     [FAKE_SLICE]: fakeSlice.reducer,
   });
   const preloadedState: TestState = {
@@ -118,9 +118,9 @@ const buildHarness = ({
         [key]: { windowKey: "main", key, type: FAKE_SLICE, name, location: "mosaic" },
       },
     },
-    [Workspace.SLICE_NAME]: {
-      ...Workspace.ZERO_SLICE_STATE,
-      active: workspaceKey != null ? { key: workspaceKey, name: "ws" } : null,
+    [Project.SLICE_NAME]: {
+      ...Project.ZERO_SLICE_STATE,
+      active: projectKey != null ? { key: projectKey, name: "proj" } : null,
     },
     [FAKE_SLICE]: {
       entries: pendingUpload != null ? { [key]: { pendingUpload } } : {},
@@ -140,19 +140,19 @@ describe("createUseAutoUpload", () => {
   it("returns true and never calls create when there is no pending upload", () => {
     const ctrl: CreateController = { succeed: true, calls: [] };
     const useAutoUpload = buildHook(ctrl);
-    const { wrapper } = buildHarness({ key: "k", name: "Settled", workspaceKey: "ws" });
+    const { wrapper } = buildHarness({ key: "k", name: "Settled", projectKey: "proj" });
     const { result } = renderHook(() => useAutoUpload("k"), { wrapper });
     expect(result.current).toBe(true);
     expect(ctrl.calls).toHaveLength(0);
   });
 
-  it("uploads the pending body with the layout name and active workspace, then clears it", async () => {
+  it("uploads the pending body with the layout name and active project, then clears it", async () => {
     const ctrl: CreateController = { succeed: true, calls: [] };
     const useAutoUpload = buildHook(ctrl);
     const { wrapper, store } = buildHarness({
       key: "k",
       name: "Live Layout Name",
-      workspaceKey: "ws",
+      projectKey: "proj",
       pendingUpload: { key: "k", payload: 7 },
     });
     const { result } = renderHook(() => useAutoUpload("k"), { wrapper });
@@ -161,24 +161,24 @@ describe("createUseAutoUpload", () => {
     expect(ctrl.calls[0]).toMatchObject({
       key: "k",
       name: "Live Layout Name",
-      workspace: "ws",
+      project: "proj",
       payload: 7,
     });
     expect(selectPending(store, "k")).toBeUndefined();
   });
 
-  it("uploads without a workspace when none is active", async () => {
+  it("uploads without a project when none is active", async () => {
     const ctrl: CreateController = { succeed: true, calls: [] };
     const useAutoUpload = buildHook(ctrl);
     const { wrapper, store } = buildHarness({
       key: "k",
-      name: "Workspaceless",
+      name: "Projectless",
       pendingUpload: { key: "k" },
     });
     const { result } = renderHook(() => useAutoUpload("k"), { wrapper });
     await waitFor(() => expect(result.current).toBe(true));
-    expect(ctrl.calls[0].workspace).toBeUndefined();
-    expect(ctrl.calls[0].name).toEqual("Workspaceless");
+    expect(ctrl.calls[0].project).toBeUndefined();
+    expect(ctrl.calls[0].name).toEqual("Projectless");
     expect(selectPending(store, "k")).toBeUndefined();
   });
 
@@ -188,7 +188,7 @@ describe("createUseAutoUpload", () => {
     const { wrapper } = buildHarness({
       key: "k",
       name: "Single Upload",
-      workspaceKey: "ws",
+      projectKey: "proj",
       pendingUpload: { key: "k" },
     });
     const { result, rerender } = renderHook(() => useAutoUpload("k"), { wrapper });
@@ -204,7 +204,7 @@ describe("createUseAutoUpload", () => {
     const { wrapper, store } = buildHarness({
       key: "k",
       name: "Retry",
-      workspaceKey: "ws",
+      projectKey: "proj",
       pendingUpload: { key: "k" },
     });
     const first = renderHook(() => useAutoUpload("k"), { wrapper });

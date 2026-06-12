@@ -23,6 +23,7 @@ import { useDispatch, useStore } from "react-redux";
 import { ContextMenu } from "@/components/context-menu";
 import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
+import { Project } from "@/project";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { useHandleNodeClickAction } from "@/schematic/navigate";
@@ -44,7 +45,6 @@ import {
 } from "@/schematic/slice";
 import { type RootState } from "@/store";
 import { createUseAutoUpload } from "@/vis/useAutoUpload";
-import { Workspace } from "@/workspace";
 
 const useAutoUpload = createUseAutoUpload({
   useSelectPendingUpload,
@@ -57,7 +57,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
   const dispatch = useDispatch();
-  Workspace.useAdoptIntoActiveWorkspace(schematic.ontologyID(key));
+  Project.useAdoptIntoActiveProject(schematic.ontologyID(key));
   const {
     editable,
     viewport,

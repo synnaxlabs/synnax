@@ -21,11 +21,11 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 
 const createSchem = async () => {
-  const ws = await client.workspaces.create({
-    name: `ws_${uuid.create()}`,
+  const proj = await client.projects.create({
+    name: `project_${uuid.create()}`,
     layout: {},
   });
-  return await client.schematics.create(ws.key, {
+  return await client.schematics.create(proj.key, {
     name: `dispatch_test_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
