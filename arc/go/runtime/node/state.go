@@ -59,11 +59,18 @@ func (s *ProgramState) Node(key string) *State {
 		alignedTime  = make([]telem.Series, len(alignedData))
 		accumulated  = make([]inputEntry, len(n.Inputs))
 		inputSources = make([]*value, len(n.Inputs))
+		isReference  = make([]bool, len(n.Inputs))
 	)
 	for i := range alignedData {
 		alignedTime[i] = telem.Series{DataType: telem.TimeStampT}
 	}
 	for i, p := range n.Inputs {
+		// A channel input is a reference resolved by key in the host functions, not
+		// a value stream. It carries no data series and never gates execution.
+		if p.Type.Kind == types.KindChan {
+			isReference[i] = true
+			continue
+		}
 		edge, found := s.ir.Edges.FindByTarget(
 			ir.Handle{Node: key, Param: p.Name},
 		)
@@ -122,6 +129,7 @@ func (s *ProgramState) Node(key string) *State {
 	nd.accumulated = accumulated
 	nd.inputSources = inputSources
 	nd.outputCache = outputCache
+	nd.isReference = isReference
 	return nd
 }
 
@@ -140,7 +148,10 @@ type State struct {
 		outputs []ir.Handle
 	}
 	// inputIndex maps an input's parameter name to its position.
-	inputIndex  map[string]int
+	inputIndex map[string]int
+	// isReference marks inputs that are channel references rather than value
+	// streams. Reference inputs carry no data series and never gate execution.
+	isReference []bool
 	accumulated []inputEntry
 	aligned     struct {
 		data []telem.Series
@@ -158,11 +169,12 @@ func (n *State) Reset() {}
 // RefreshInputs performs temporal alignment of node inputs and returns whether
 // the node should execute.
 func (n *State) RefreshInputs() (recalculate bool) {
-	if len(n.ir.inputs) == 0 {
-		return true
-	}
-	hasUnconsumed := false
+	hasDataInput, hasUnconsumed := false, false
 	for i := range n.ir.inputs {
+		if n.isReference[i] {
+			continue
+		}
+		hasDataInput = true
 		src := n.inputSources[i]
 		if src != nil && src.time.Len() > 0 {
 			ts := telem.ValueAt[telem.TimeStamp](src.time, -1)
@@ -182,10 +194,16 @@ func (n *State) RefreshInputs() (recalculate bool) {
 			hasUnconsumed = true
 		}
 	}
+	if !hasDataInput {
+		return true
+	}
 	if !hasUnconsumed {
 		return false
 	}
 	for i := range n.ir.inputs {
+		if n.isReference[i] {
+			continue
+		}
 		n.aligned.data[i] = n.accumulated[i].data
 		n.aligned.time[i] = n.accumulated[i].time
 		n.accumulated[i].consumed = true

@@ -1340,7 +1340,7 @@ var _ = Describe("ProgramState", func() {
 				Functions: []graph.Function{{
 					Key: "n",
 					Inputs: types.Params{
-						{Name: ir.DefaultInputParam, Type: types.F32()},
+						{Name: ir.DefaultInputParam, Type: types.F32(), Value: float32(0)},
 						{Name: "reset", Type: types.U8(), Value: uint8(0)},
 					},
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
