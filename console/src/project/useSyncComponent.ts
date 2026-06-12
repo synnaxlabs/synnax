@@ -15,7 +15,7 @@ import { useCallback, useEffect } from "react";
 import { useStore } from "react-redux";
 
 import { useDispatchEffect } from "@/hooks/useDispatchEffect";
-import { selectActiveKey, useSelectActiveKey } from "@/project/selectors";
+import { selectOptionalActiveKey, useSelectActiveKey } from "@/project/selectors";
 import { type RootState } from "@/store";
 
 interface UpdateParams {
@@ -41,7 +41,8 @@ export const createSyncComponent = (
     update: async ({ client, data, store: fluxStore }) => {
       const { store, layoutKey } = data;
       if (layoutKey == null || client == null) return false;
-      const proj = selectActiveKey(store.getState());
+      const proj = selectOptionalActiveKey(store.getState());
+      if (proj == null) return false;
       await save({ key: layoutKey, project: proj, store, fluxStore, client });
       return data;
     },
