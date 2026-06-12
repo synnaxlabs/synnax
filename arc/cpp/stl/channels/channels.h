@@ -116,7 +116,7 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &data = this->state.input(0);
+        const auto &data = this->state.input_named(ir::default_input_param);
         if (data->empty()) return x::errors::NIL;
         const auto start = this->clock.now();
         const auto time = x::mem::local_shared(
@@ -162,7 +162,7 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto &ch_param = cfg.node.config["channel"];
+        const auto &ch_param = cfg.node.inputs["channel"];
         auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
         if (!ch_sv.has_value())
             return {

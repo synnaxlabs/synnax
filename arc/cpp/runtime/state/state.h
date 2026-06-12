@@ -59,6 +59,8 @@ class Node {
     std::vector<ir::Handle> outputs;
     std::vector<size_t> input_source_idx;
     std::vector<size_t> output_idx;
+    /// @brief maps an input's parameter name to its position in the input list.
+    std::unordered_map<std::string, size_t> input_index;
 
     struct InputEntry {
         size_t source;
@@ -80,13 +82,15 @@ class Node {
         std::vector<size_t> output_idx,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
-        std::vector<Series> aligned_time
+        std::vector<Series> aligned_time,
+        std::unordered_map<std::string, size_t> input_index
     ):
         state(state),
         inputs(std::move(inputs)),
         outputs(std::move(outputs)),
         input_source_idx(std::move(input_source_idx)),
         output_idx(std::move(output_idx)),
+        input_index(std::move(input_index)),
         accumulated(std::move(accumulated)),
         aligned_data(std::move(aligned_data)),
         aligned_time(std::move(aligned_time)) {}
@@ -104,6 +108,13 @@ public:
     }
 
     [[nodiscard]] const Series &input_time(size_t param_index) const;
+
+    /// @brief returns the data series for the named input: a constant series if
+    /// literal-fed, the upstream series if wire-fed.
+    [[nodiscard]] const Series &input_named(const std::string &name) const;
+
+    /// @brief returns the timestamp series for the named input.
+    [[nodiscard]] const Series &input_time_named(const std::string &name) const;
 
     [[nodiscard]] Series &output(size_t param_index) const;
     [[nodiscard]] Series &output_time(size_t param_index) const;
@@ -142,6 +153,11 @@ public:
     /// Used to seed optional inputs (e.g., reset signals) so that
     /// refresh_inputs does not block on them before they receive real data.
     void init_input(size_t param_index, const Series &data, const Series &time);
+
+    /// @brief initializes the source series for the named input. A no-op when
+    /// the name does not match any of this node's inputs.
+    void
+    init_input_named(const std::string &name, const Series &data, const Series &time);
 
     /// @brief Resets accumulated input state for runtime restart.
     void reset() {

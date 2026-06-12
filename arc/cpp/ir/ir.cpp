@@ -185,24 +185,10 @@ std::string Node::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
     ss << this->key << " (type: " << this->type << ")";
     bool has_channels = !this->channels.read.empty() || !this->channels.write.empty();
-    bool has_config = !this->config.empty();
     bool has_inputs = !this->inputs.empty();
     bool has_outputs = !this->outputs.empty();
     if (has_channels)
-        write_channels_section(
-            ss,
-            prefix,
-            this->channels,
-            !has_config && !has_inputs && !has_outputs
-        );
-    if (has_config)
-        write_params_section(
-            ss,
-            prefix,
-            "config",
-            this->config,
-            !has_inputs && !has_outputs
-        );
+        write_channels_section(ss, prefix, this->channels, !has_inputs && !has_outputs);
     if (has_inputs)
         write_params_section(ss, prefix, "inputs", this->inputs, !has_outputs);
     if (has_outputs) write_params_section(ss, prefix, "outputs", this->outputs, true);
@@ -221,24 +207,10 @@ std::string Function::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
     ss << this->key;
     bool has_channels = !this->channels.read.empty() || !this->channels.write.empty();
-    bool has_config = !this->config.empty();
     bool has_inputs = !this->inputs.empty();
     bool has_outputs = !this->outputs.empty();
     if (has_channels)
-        write_channels_section(
-            ss,
-            prefix,
-            this->channels,
-            !has_config && !has_inputs && !has_outputs
-        );
-    if (has_config)
-        write_params_section(
-            ss,
-            prefix,
-            "config",
-            this->config,
-            !has_inputs && !has_outputs
-        );
+        write_channels_section(ss, prefix, this->channels, !has_inputs && !has_outputs);
     if (has_inputs)
         write_params_section(ss, prefix, "inputs", this->inputs, !has_outputs);
     if (has_outputs) write_params_section(ss, prefix, "outputs", this->outputs, true);

@@ -297,7 +297,8 @@ public:
         Module &module;
         wasmtime::Func fn;
         types::Params outputs;
-        size_t config_count;
+        /// @brief one flag per input, true when wire-fed (streamed per sample).
+        std::vector<bool> edge_fed;
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
@@ -307,33 +308,31 @@ public:
             Module &module,
             wasmtime::Func fn,
             const types::Params &outputs,
-            const types::Params &config,
             const types::Params &inputs,
+            std::vector<bool> edge_fed,
             const uint32_t base
         ):
             module(module),
             fn(std::move(fn)),
             outputs(outputs),
-            config_count(config.size()),
+            edge_fed(std::move(edge_fed)),
             base(base) {
-            this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
-            for (size_t i = 0; i < config.size(); i++) {
-                if (config[i].value.is_null()) continue;
-                if (config[i].value.is_string()) {
-                    // String config params get a stable handle created once at
-                    // configure time — not cleared by flush(), no per-call refresh.
-                    // bindings is always non-null in production; the null branch is
-                    // only reachable in tests that construct a Module without WASM
-                    // host bindings, where args[i] stays 0 (unused).
-                    const auto &s = config[i].value.get<std::string>();
+            this->args.resize(inputs.size(), wasmtime::Val(0));
+            // Literal-fed inputs are set once here; wire-fed inputs stream in call().
+            for (size_t i = 0; i < inputs.size(); i++) {
+                if (this->edge_fed[i] || inputs[i].value.is_null()) continue;
+                if (inputs[i].value.is_string()) {
+                    // A literal string gets a stable handle, not cleared by flush().
+                    // strings is null only in tests without host bindings.
+                    const auto &s = inputs[i].value.get<std::string>();
                     if (module.cfg.strings != nullptr)
                         this->args[i] = wasmtime::Val(
                             static_cast<int32_t>(module.cfg.strings->create_config(s))
                         );
                     continue;
                 }
-                auto sv = types::to_sample_value(config[i].value, config[i].type);
-                if (sv.has_value()) this->args[i] = sample_to_wasm(*sv, config[i].type);
+                auto sv = types::to_sample_value(inputs[i].value, inputs[i].type);
+                if (sv.has_value()) this->args[i] = sample_to_wasm(*sv, inputs[i].type);
             }
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
@@ -352,7 +351,7 @@ public:
             output_vals.assign(this->outputs.size(), Result{});
 
             for (size_t i = 0; i < input_vals.size(); i++)
-                this->args[this->config_count + i] = sample_to_wasm(input_vals[i]);
+                if (this->edge_fed[i]) this->args[i] = sample_to_wasm(input_vals[i]);
 
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
@@ -399,6 +398,11 @@ public:
 
             return x::errors::NIL;
         }
+
+        /// @brief one flag per input, true when wire-fed (streamed per sample).
+        [[nodiscard]] const std::vector<bool> &input_edge_fed() const {
+            return this->edge_fed;
+        }
     };
 
     [[nodiscard]] std::shared_ptr<stl::strings::State> strings() const {
@@ -412,11 +416,15 @@ public:
     }
 
     /// @brief Returns a WASM function wrapper for the given function name.
-    /// @param name The function name.
-    /// @param node_config The node's config params with values. If empty, uses the
-    /// function's config.
-    std::pair<Function, x::errors::Error>
-    func(const std::string &name, const types::Params &node_config = {}) {
+    /// @param node_inputs Per-node input params with values; falls back to the
+    /// function's declared inputs when empty.
+    /// @param edge_fed Per-input wire-fed flags; all inputs are treated as
+    /// wire-fed when its length does not match.
+    std::pair<Function, x::errors::Error> func(
+        const std::string &name,
+        const types::Params &node_inputs = {},
+        const std::vector<bool> &edge_fed = {}
+    ) {
         const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
         if (!export_opt) return {zero_func, x::errors::NOT_FOUND};
@@ -448,9 +456,18 @@ public:
                 };
         }
 
-        const auto &config_to_use = node_config.empty() ? func.config : node_config;
+        const auto &inputs_to_use = node_inputs.empty() ? func.inputs : node_inputs;
+        std::vector<bool> ef = edge_fed;
+        if (ef.size() != inputs_to_use.size()) ef.assign(inputs_to_use.size(), true);
         return {
-            Function(*this, *func_ptr, func.outputs, config_to_use, func.inputs, base),
+            Function(
+                *this,
+                *func_ptr,
+                func.outputs,
+                inputs_to_use,
+                std::move(ef),
+                base
+            ),
             x::errors::NIL
         };
     }

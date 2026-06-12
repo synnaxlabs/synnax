@@ -32,6 +32,9 @@ class Node : public node::Node {
     std::vector<int> offsets;
     std::vector<bool> string_inputs;
     std::vector<bool> string_outputs;
+    /// @brief one flag per input, true when wire-fed (streamed per sample).
+    /// Literal-fed inputs are set once in the WASM Function and skipped here.
+    std::vector<bool> edge_fed;
     std::shared_ptr<stl::strings::State> str_state;
     bool initialized = false;
     bool is_entry_node = false;
@@ -62,6 +65,7 @@ public:
         this->string_outputs.resize(node.outputs.size());
         for (size_t i = 0; i < node.outputs.size(); i++)
             this->string_outputs[i] = node.outputs[i].type.kind == types::Kind::String;
+        this->edge_fed = func.input_edge_fed();
     }
 
     x::errors::Error next(node::Context &ctx) override {
@@ -73,8 +77,9 @@ public:
         if (!state.refresh_inputs()) return x::errors::NIL;
 
         int64_t max_length = 0;
-        int64_t longest_input_idx = 0;
+        int64_t longest_input_idx = -1;
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
+            if (!this->edge_fed[i]) continue;
             const auto inp = this->state.input(i);
             const auto data_len = static_cast<int64_t>(inp->size());
             if (data_len > max_length) {
@@ -83,7 +88,8 @@ public:
             }
         }
 
-        if (this->ir.inputs.empty()) max_length = 1;
+        // With no wire-fed inputs, the node executes once over its literal inputs.
+        if (longest_input_idx < 0) max_length = 1;
         if (max_length <= 0) return x::errors::NIL;
         for (auto &offset: this->offsets)
             offset = 0;
@@ -105,13 +111,14 @@ public:
         }
 
         state::Series longest_input_time;
-        if (!this->ir.inputs.empty())
+        if (longest_input_idx >= 0)
             longest_input_time = this->state.input_time(longest_input_idx);
 
         this->state.set_current_node_key(this->ir.key);
 
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
+                if (!this->edge_fed[j]) continue;
                 const auto input_series = this->state.input(j);
                 const auto input_len = static_cast<int>(input_series->size());
                 const auto idx = i % input_len;
@@ -138,7 +145,7 @@ public:
             }
 
             x::telem::TimeStamp ts;
-            if (!this->ir.inputs.empty() && longest_input_time)
+            if (longest_input_idx >= 0 && longest_input_time)
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
             else
                 ts = this->clock.now();

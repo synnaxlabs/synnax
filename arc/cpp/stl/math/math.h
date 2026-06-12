@@ -29,6 +29,7 @@
 namespace arc::stl::math {
 
 inline constexpr const char *MODULE_NAME = "math";
+inline constexpr const char *RESET_INPUT_PARAM = "reset";
 
 template<typename T>
 T int_pow(T base, T exp) {
@@ -75,7 +76,7 @@ private:
     int64_t sample_count = 0;
     x::telem::TimeStamp start_time{0};
     x::telem::TimeStamp last_reset_time{0};
-    int reset_idx;
+    bool reset_connected;
 
 public:
     Aggregator(
@@ -83,25 +84,25 @@ public:
         types::Kind kind,
         Op op,
         WindowConfig cfg,
-        int reset_idx
+        bool reset_connected
     ):
         state(std::move(state)),
         kind(kind),
         op(op),
         cfg(std::move(cfg)),
-        reset_idx(reset_idx) {}
+        reset_connected(reset_connected) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &input_time = this->state.input_time(0);
+        const auto &input_time = this->state.input_time_named(ir::default_input_param);
         if (this->start_time == x::telem::TimeStamp(0) && input_time->size() > 0)
             this->start_time = x::telem::TimeStamp(input_time->at<int64_t>(0));
 
         bool should_reset = false;
 
-        if (this->reset_idx >= 0) {
-            const auto &reset_data = this->state.input(this->reset_idx);
-            const auto &reset_time = this->state.input_time(this->reset_idx);
+        if (this->reset_connected) {
+            const auto &reset_data = this->state.input_named(RESET_INPUT_PARAM);
+            const auto &reset_time = this->state.input_time_named(RESET_INPUT_PARAM);
             for (size_t i = 0; i < reset_data->size(); i++) {
                 auto ts = x::telem::TimeStamp(reset_time->at<int64_t>(i));
                 if (ts > this->last_reset_time && reset_data->at<uint8_t>(i) == 1)
@@ -130,7 +131,7 @@ public:
             this->state.output(0)->resize(0);
         }
 
-        const auto &input_data = this->state.input(0);
+        const auto &input_data = this->state.input_named(ir::default_input_param);
         if (input_data->size() == 0) return x::errors::NIL;
 
         switch (this->kind) {
@@ -168,8 +169,11 @@ public:
                 break;
         }
 
-        if (this->state.input_time(0)->size() > 0) {
-            auto last_ts = this->state.input_time(0)->at<int64_t>(-1);
+        const auto &primary_time = this->state.input_time_named(
+            ir::default_input_param
+        );
+        if (primary_time->size() > 0) {
+            auto last_ts = primary_time->at<int64_t>(-1);
             *this->state.output_time(0) = x::telem::Series(
                 std::vector<int64_t>{last_ts}
             );
@@ -179,8 +183,8 @@ public:
         auto &output_time = this->state.output_time(0);
         auto alignment = input_data->alignment;
         auto time_range = input_data->time_range;
-        if (this->reset_idx >= 0) {
-            const auto &reset_data = this->state.input(this->reset_idx);
+        if (this->reset_connected) {
+            const auto &reset_data = this->state.input_named(RESET_INPUT_PARAM);
             alignment += reset_data->alignment;
             if (reset_data->time_range.start != x::telem::TimeStamp(0) &&
                 (time_range.start == x::telem::TimeStamp(0) ||
@@ -285,8 +289,8 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &input_data = this->state.input(0);
-        const auto &input_time = this->state.input_time(0);
+        const auto &input_data = this->state.input_named(ir::default_input_param);
+        const auto &input_time = this->state.input_time_named(ir::default_input_param);
         if (input_data->size() == 0) return x::errors::NIL;
         switch (this->kind) {
             case types::Kind::F64:
@@ -395,8 +399,8 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &lhs = this->state.input(0);
-        const auto &rhs = this->state.input(1);
+        const auto &lhs = this->state.input_named(ir::lhs_input_param);
+        const auto &rhs = this->state.input_named(ir::rhs_input_param);
         switch (this->kind) {
             case types::Kind::F64:
                 this->compute<double>(lhs, rhs);
@@ -433,7 +437,7 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(0);
+        output_time = this->state.input_time_named(ir::lhs_input_param);
         auto alignment = lhs->alignment + rhs->alignment;
         auto time_range = lhs->time_range;
         if (rhs->time_range.start != 0 &&
@@ -506,7 +510,7 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &input = this->state.input(0);
+        const auto &input = this->state.input_named(ir::default_input_param);
         switch (this->kind) {
             case types::Kind::F64:
                 this->compute<double>(input);
@@ -531,7 +535,7 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(0);
+        output_time = this->state.input_time_named(ir::default_input_param);
         output->alignment = input->alignment;
         output->time_range = input->time_range;
         output_time->alignment = input->alignment;
@@ -621,7 +625,7 @@ public:
                 x::errors::NIL
             };
 
-        auto [window_cfg, err] = WindowConfig::create(cfg.node.config);
+        auto [window_cfg, err] = WindowConfig::create(cfg.node.inputs);
         if (err) return {nullptr, err};
 
         Aggregator::Op op;
@@ -632,20 +636,26 @@ public:
         else
             op = Aggregator::Op::Max;
 
-        int reset_idx = -1;
-        auto edge = cfg.prog.edge_to(ir::Handle(cfg.node.key, "reset"));
-        if (edge.has_value()) {
-            reset_idx = 1;
-            cfg.state.init_input(
-                reset_idx,
+        const bool reset_connected = cfg.prog
+                                         .edge_to(
+                                             ir::Handle(cfg.node.key, RESET_INPUT_PARAM)
+                                         )
+                                         .has_value();
+        if (reset_connected)
+            cfg.state.init_input_named(
+                RESET_INPUT_PARAM,
                 x::mem::make_local_shared<x::telem::Series>(static_cast<uint8_t>(0)),
                 x::mem::make_local_shared<x::telem::Series>(x::telem::TimeStamp(1))
             );
-        }
 
         return {
-            std::make_unique<
-                Aggregator>(std::move(cfg.state), kind, op, window_cfg, reset_idx),
+            std::make_unique<Aggregator>(
+                std::move(cfg.state),
+                kind,
+                op,
+                window_cfg,
+                reset_connected
+            ),
             x::errors::NIL
         };
     }

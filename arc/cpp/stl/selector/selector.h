@@ -46,8 +46,8 @@ public:
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &data = this->state.input(0);
-        const auto &time = this->state.input_time(0);
+        const auto &data = this->state.input_named(ir::default_output_param);
+        const auto &time = this->state.input_time_named(ir::default_output_param);
         const auto n = data->size();
         if (n == 0) return x::errors::NIL;
 

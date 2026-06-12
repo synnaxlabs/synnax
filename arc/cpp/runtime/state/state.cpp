@@ -172,6 +172,11 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
         output_idx.push_back(this->value_index[handle]);
     }
 
+    std::unordered_map<std::string, size_t> input_index;
+    input_index.reserve(num_inputs);
+    for (size_t i = 0; i < num_inputs; i++)
+        input_index[ir_node.inputs[i].name] = i;
+
     return {
         Node(
             *this,
@@ -181,7 +186,8 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             std::move(output_idx),
             std::move(accumulated),
             std::move(aligned_data),
-            std::move(aligned_time)
+            std::move(aligned_time),
+            std::move(input_index)
         ),
         x::errors::NIL
     };
@@ -273,6 +279,23 @@ void Node::write_series(
 
 const Series &Node::input_time(const size_t param_index) const {
     return this->aligned_time[param_index];
+}
+
+const Series &Node::input_named(const std::string &name) const {
+    return this->aligned_data[this->input_index.at(name)];
+}
+
+const Series &Node::input_time_named(const std::string &name) const {
+    return this->aligned_time[this->input_index.at(name)];
+}
+
+void Node::init_input_named(
+    const std::string &name,
+    const Series &data,
+    const Series &time
+) {
+    if (const auto it = this->input_index.find(name); it != this->input_index.end())
+        this->init_input(it->second, data, time);
 }
 Series &Node::output(const size_t param_index) const {
     return this->state.values[this->output_idx[param_index]].data;
