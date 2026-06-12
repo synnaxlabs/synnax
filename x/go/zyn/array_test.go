@@ -52,7 +52,7 @@ var _ = Describe("Array", func() {
 			data := []any{}
 			var dest []string
 			Expect(schema.Parse(data, &dest)).To(Succeed())
-			Expect(dest).To(HaveLen(0))
+			Expect(dest).To(BeEmpty())
 		})
 		Specify("typed non-[]any slice input", func() {
 			schema := zyn.Array(zyn.String())

@@ -54,6 +54,6 @@ var _ = Describe("Migrate", func() {
 	It("Should handle empty channels", func() {
 		old := v0.Data{Channels: []channel.Key{}, RemoteCreated: false}
 		result := v1.Migrate(old)
-		Expect(result.Channels).To(HaveLen(0))
+		Expect(result.Channels).To(BeEmpty())
 	})
 })

@@ -25,7 +25,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -67,6 +67,12 @@ export const Splash = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const { data, retrieve, getItem, subscribe } = PProject.useList();
+
+  // The list pane only mounts once data is non-empty, so the initial fetch cannot
+  // rely on the pane's own onFetchMore.
+  useEffect(() => {
+    retrieve({});
+  }, [retrieve]);
 
   const handleSelect = useCallback(
     (key: project.Key | null) => {
@@ -114,7 +120,7 @@ export const Splash = (): ReactElement => {
           rounded={1.5}
           background={0}
         >
-          {hasRetrievePermission && (
+          {hasRetrievePermission && data.length > 0 && (
             <Flex.Box y className={CSS.BE("project-splash", "list")} bordered empty>
               <Flex.Box align="center" justify="center" style={{ height: "6rem" }}>
                 <Text.Text level="h4" color={11} weight={450}>

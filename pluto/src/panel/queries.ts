@@ -93,7 +93,7 @@ export const { useRetrieve, useEnsureRetrieved } = Flux.createRetrieve<
 
 export interface TabContent {
   resource?: ontology.ID;
-  view?: panel.View;
+  view?: panel.TabView;
 }
 
 // tabContent flattens a tab's variant into the optional content pair consumed by
@@ -103,7 +103,7 @@ export const tabContent = (tab: panel.Tab): TabContent => {
     case "resource":
       return { resource: tab.resource };
     case "view":
-      return { view: tab.view };
+      return { view: tab };
     case "empty":
       return {};
   }

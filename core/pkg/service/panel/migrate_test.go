@@ -122,9 +122,9 @@ var _ = Describe("Project layout to panel migration", func() {
 			Exists(ctx, db))
 	}
 	resourceTab := func(t ontology.ResourceType, key string) panel.Tab {
-		return panel.Tab{Variant: panel.TabResource{ResourceTab: panel.ResourceTab{
+		return panel.Tab{Variant: panel.TabResource{
 			Resource: ontology.ID{Type: t, Key: key},
-		}}}
+		}}
 	}
 	leaf := func(tabs ...panel.Tab) *panel.Node {
 		return &panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: tabs}}}

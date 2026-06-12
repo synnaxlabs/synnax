@@ -14,91 +14,65 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-/**
- * View is a self-describing, inline view displayed by a tab. Unlike a
- * resource, a view has no backing core document: it carries its own
- * type and opaque args. Used for app-views and tools (docs, explorers,
- * about, the visualization picker).
- */
-export const viewZ = z.object({
-  /**
-   * type is the Console-owned view type identifier (e.g., 'docs', 'about')
-   * used to select a renderer.
-   */
-  type: z.string(),
-  /**
-   * name is the human-readable tab name for the view. A view has no backing
-   * resource to derive a name from, so it carries its own. May be
-   * renamed via SetTabView; when empty the Console falls back to a
-   * type-derived default.
-   */
-  name: z.string().optional(),
-  /**
-   * args is an opaque, Console-owned configuration payload for the view.
-   * Core never interprets it; it round-trips as-is.
-   */
-  args: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
-});
-export interface View extends z.infer<typeof viewZ> {}
-
-/** ResourceTab is a tab displaying a backing core document. */
-export const resourceTabZ = z.object({
+/** TabBase carries the identity shared by every tab variant. */
+export const tabBaseZ = z.object({
   /**
    * key is the stable unique identifier of this tab within the panel. It is
    * independent of the tab's content, so a tab's content may be swapped
    * without changing the tab's identity or position.
    */
   key: z.uuid(),
+});
+export interface TabBase extends z.infer<typeof tabBaseZ> {}
+
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
+/** TabResource is a tab displaying a backing core document. */
+export const tabResourceZ = tabBaseZ.extend({
+  variant: z.literal("resource"),
   /**
    * resource is the visualization resource displayed by this tab, set via
    * SetTabResource.
    */
   resource: ontology.idZ,
 });
-export interface ResourceTab extends z.infer<typeof resourceTabZ> {}
-
-/**
- * EmptyTab is a tab with no content yet. An empty tab renders the
- * visualization selector at render time; SetTabResource or
- * SetTabView fills it in place.
- */
-export const emptyTabZ = z.object({
-  /**
-   * key is the stable unique identifier of this tab within the panel. It is
-   * independent of the tab's content, so a tab's content may be swapped
-   * without changing the tab's identity or position.
-   */
-  key: z.uuid(),
-});
-export interface EmptyTab extends z.infer<typeof emptyTabZ> {}
-
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
-
-/** ViewTab is a tab displaying an inline, self-describing view. */
-export const viewTabZ = z.object({
-  /**
-   * key is the stable unique identifier of this tab within the panel. It is
-   * independent of the tab's content, so a tab's content may be swapped
-   * without changing the tab's identity or position.
-   */
-  key: z.uuid(),
-  /** view is the inline view displayed by this tab, set via SetTabView. */
-  view: viewZ,
-});
-export interface ViewTab extends z.infer<typeof viewTabZ> {}
-
-export const tabResourceZ = resourceTabZ.extend({
-  variant: z.literal("resource"),
-});
 export interface TabResource extends z.infer<typeof tabResourceZ> {}
 
-export const tabViewZ = viewTabZ.extend({
+/**
+ * TabView is a tab displaying an inline, self-describing view. Unlike a
+ * resource, a view has no backing core document: it carries its own
+ * type and opaque args. Used for app-views and tools (docs,
+ * explorers, about, the visualization picker).
+ */
+export const tabViewZ = tabBaseZ.extend({
   variant: z.literal("view"),
+  /**
+   * type is the Console-owned view type identifier (e.g., 'docs',
+   * 'about') used to select a renderer.
+   */
+  type: z.string(),
+  /**
+   * name is the human-readable tab name for the view. A view has no
+   * backing resource to derive a name from, so it carries its own.
+   * May be renamed via SetTabView; when empty the Console falls
+   * back to a type-derived default.
+   */
+  name: z.string().optional(),
+  /**
+   * args is an opaque, Console-owned configuration payload for the
+   * view. Core never interprets it; it round-trips as-is.
+   */
+  args: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
 });
 export interface TabView extends z.infer<typeof tabViewZ> {}
 
-export const tabEmptyZ = emptyTabZ.extend({
+/**
+ * TabEmpty is a tab with no content yet. An empty tab renders the
+ * visualization selector at render time; SetTabResource or
+ * SetTabView fills it in place.
+ */
+export const tabEmptyZ = tabBaseZ.extend({
   variant: z.literal("empty"),
 });
 export interface TabEmpty extends z.infer<typeof tabEmptyZ> {}
@@ -146,7 +120,7 @@ export const splitZ = z.object({
    * size is the fraction in [0, 1] of the parent area allocated to first.
    * The remainder is allocated to last.
    */
-  size: z.number().min(0).max(1),
+  size: spatial.decimalZ,
   /** first is the first child (left for x, top for y). */
   get first(): z.ZodType<Node> {
     return nodeZ;

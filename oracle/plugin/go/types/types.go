@@ -418,15 +418,7 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType
 func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	targetOutputPath := output.GetPath(parent, "go")
 
-	// Use the parent's declared name (raw schema name plus any @go name
-	// override), matching how processStruct declares the type. Routing through
-	// GetGoName here would ToPascalCase the name and mangle acronym bases
-	// (BaseAIChan -> BaseAiChan), emitting an embed field that names a type the
-	// package never declares.
-	name := parent.Name
-	if override := domain.GetStringFromType(parent, "go", "name"); override != "" {
-		name = override
-	}
+	name := naming.GetGoName(parent)
 
 	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return buildGenericType(name, extendsRef.TypeArgs, &parent, data)
@@ -662,6 +654,12 @@ type {{.InterfaceName}} interface {
 type {{.TypeName}} struct {
 {{- range .Embeds}}
 	{{.}}
+{{- end}}
+{{- range .Fields}}
+{{- if .Doc}}
+	{{formatDoc .GoName .Doc | printf "%s"}}
+{{- end}}
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
 {{- end}}
 }
 
