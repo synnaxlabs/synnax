@@ -46,7 +46,7 @@ var _ = Describe("Integer", func() {
 		It("Should handle empty input", func() {
 			s := set.NewInteger([]int{})
 			Expect(s.Size()).To(Equal(0))
-			Expect(*s).To(HaveLen(0))
+			Expect(*s).To(BeEmpty())
 		})
 
 		It("Should handle a single element", func() {
@@ -287,7 +287,7 @@ var _ = Describe("Integer", func() {
 
 		It("Should be a no-op on an empty set", func() {
 			s.Remove(1, 2, 3)
-			Expect(s).To(HaveLen(0))
+			Expect(s).To(BeEmpty())
 		})
 
 		It("Should be a no-op with no arguments", func() {
@@ -299,7 +299,7 @@ var _ = Describe("Integer", func() {
 		It("Should remove all elements", func() {
 			s.Insert(0, 1, 2, 3, 4)
 			s.Remove(0, 1, 2, 3, 4)
-			Expect(s).To(HaveLen(0))
+			Expect(s).To(BeEmpty())
 			Expect(s.Size()).To(Equal(0))
 		})
 

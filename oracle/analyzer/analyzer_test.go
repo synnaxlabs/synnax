@@ -505,7 +505,7 @@ var _ = Describe("Analyzer", func() {
 				Range struct {}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -643,7 +643,7 @@ var _ = Describe("Analyzer", func() {
 				Range struct {}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -658,7 +658,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -2061,6 +2061,55 @@ var _ = Describe("Analyzer", func() {
 			form := table.MustGet("schematic.ElementConfig").Form.(resolution.UnionForm)
 			Expect(form.Variants).To(HaveLen(2))
 			Expect(form.Variants[1].Name).To(Equal("group"))
+		})
+
+		It("Should synthesize suppressed payload types for inline variants", func(ctx SpecContext) {
+			source := `
+				TabBase struct { key string }
+				Labeled struct { label string }
+
+				Tab union on variant extends TabBase {
+					resource {
+						resource string
+					}
+					view extends Labeled {
+						type string
+						args string?
+
+						@doc value "is an inline view tab."
+					}
+					empty {}
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "panel", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			form := table.MustGet("panel.Tab").Form.(resolution.UnionForm)
+			Expect(form.Variants).To(HaveLen(3))
+			Expect(form.Variants[0].Inline).To(BeTrue())
+			Expect(form.Variants[1].Inline).To(BeTrue())
+			Expect(form.Variants[1].Domains).To(HaveKey("doc"))
+
+			view := table.MustGet("panel.TabViewPayload")
+			Expect(view.Synthetic).To(BeTrue())
+			viewForm := view.Form.(resolution.StructForm)
+			Expect(viewForm.Extends).To(HaveLen(1))
+			Expect(viewForm.Fields).To(HaveLen(2))
+			Expect(viewForm.Fields[0].Name).To(Equal("type"))
+
+			fields := resolution.UnifiedVariantFields(
+				table.MustGet("panel.Tab"), form.Variants[1], table)
+			names := make([]string, len(fields))
+			for i, f := range fields {
+				names[i] = f.Name
+			}
+			Expect(names).To(Equal([]string{"key", "label", "type", "args"}))
+
+			empty := table.MustGet("panel.TabEmptyPayload")
+			Expect(empty.Synthetic).To(BeTrue())
+			Expect(empty.Form.(resolution.StructForm).Fields).To(BeEmpty())
+			Expect(table.StructTypes()).NotTo(ContainElement(
+				HaveField("QualifiedName", "panel.TabViewPayload")))
 		})
 
 		It("Should reject extended unions with conflicting variant payloads", func(ctx SpecContext) {

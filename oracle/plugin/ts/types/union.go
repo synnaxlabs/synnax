@@ -60,6 +60,10 @@ type unionVariantData struct {
 	// The variant adds only the discriminator, so shared fields are not
 	// duplicated.
 	ParentSchemas []string
+	// Fields are the variant's own fields, rendered directly into the member
+	// schema. Populated only for inline variants, whose Synthetic payload has
+	// no standalone schema const to extend.
+	Fields []fieldData
 }
 
 // processUnion builds the template view for a discriminated union. Each variant
@@ -96,7 +100,21 @@ func (p *Plugin) processUnion(entry resolution.Type, table *resolution.Table, da
 				vd.ParentSchemas = append(vd.ParentSchemas, pn)
 			}
 		}
-		if pn, ok := parentSchemaName(v.Type, table, data); ok {
+		if v.Inline {
+			if payload, ok := v.Type.Resolve(table); ok {
+				if pform, ok := payload.Form.(resolution.StructForm); ok {
+					for _, ext := range pform.Extends {
+						if pn, ok := parentSchemaName(ext, table, data); ok {
+							vd.ParentSchemas = append(vd.ParentSchemas, pn)
+						}
+					}
+					for _, f := range pform.Fields {
+						vd.Fields = append(vd.Fields,
+							p.processField(f, payload, table, data, false, false))
+					}
+				}
+			}
+		} else if pn, ok := parentSchemaName(v.Type, table, data); ok {
 			vd.ParentSchemas = append(vd.ParentSchemas, pn)
 		}
 		ud.Variants = append(ud.Variants, vd)

@@ -14,71 +14,7 @@ import "schemas/ontology"
 @go output "core/pkg/service/panel"
 @pb
 
-View struct {
-    type string  {
-        @doc value """
-            is the Console-owned view type identifier (e.g., 'docs', 'about')
-            used to select a renderer.
-        """
-    }
-    name string? {
-        @doc value """
-            is the human-readable tab name for the view. A view has no backing
-            resource to derive a name from, so it carries its own. May be
-            renamed via SetTabView; when empty the Console falls back to a
-            type-derived default.
-        """
-    }
-    args record? {
-        @doc value        """
-            is an opaque, Console-owned configuration payload for the view.
-            Core never interprets it; it round-trips as-is.
-        """
-        @ts preserve_case
-    }
-
-    @doc value """
-        is a self-describing, inline view displayed by a tab. Unlike a
-        resource, a view has no backing core document: it carries its own
-        type and opaque args. Used for app-views and tools (docs, explorers,
-        about, the visualization picker).
-    """
-}
-
-ResourceTab struct {
-    key      uuid        {
-        @doc value """
-            is the stable unique identifier of this tab within the panel. It is
-            independent of the tab's content, so a tab's content may be swapped
-            without changing the tab's identity or position.
-        """
-    }
-    resource ontology.ID {
-        @doc value """
-            is the visualization resource displayed by this tab, set via
-            SetTabResource.
-        """
-    }
-
-    @doc value "is a tab displaying a backing core document."
-}
-
-ViewTab struct {
-    key  uuid {
-        @doc value """
-            is the stable unique identifier of this tab within the panel. It is
-            independent of the tab's content, so a tab's content may be swapped
-            without changing the tab's identity or position.
-        """
-    }
-    view View {
-        @doc value "is the inline view displayed by this tab, set via SetTabView."
-    }
-
-    @doc value "is a tab displaying an inline, self-describing view."
-}
-
-EmptyTab struct {
+TabBase struct {
     key uuid {
         @doc value """
             is the stable unique identifier of this tab within the panel. It is
@@ -87,17 +23,57 @@ EmptyTab struct {
         """
     }
 
-    @doc value """
-        is a tab with no content yet. An empty tab renders the
-        visualization selector at render time; SetTabResource or
-        SetTabView fills it in place.
-    """
+    @doc value "carries the identity shared by every tab variant."
 }
 
-Tab union on variant {
-    resource ResourceTab
-    view     ViewTab
-    empty    EmptyTab
+Tab union on variant extends TabBase {
+    resource {
+        resource ontology.ID {
+            @doc value """
+                is the visualization resource displayed by this tab, set via
+                SetTabResource.
+            """
+        }
+
+        @doc value "is a tab displaying a backing core document."
+    }
+    view {
+        type string  {
+            @doc value """
+                is the Console-owned view type identifier (e.g., 'docs',
+                'about') used to select a renderer.
+            """
+        }
+        name string? {
+            @doc value """
+                is the human-readable tab name for the view. A view has no
+                backing resource to derive a name from, so it carries its own.
+                May be renamed via SetTabView; when empty the Console falls
+                back to a type-derived default.
+            """
+        }
+        args record? {
+            @doc value        """
+                is an opaque, Console-owned configuration payload for the
+                view. Core never interprets it; it round-trips as-is.
+            """
+            @ts preserve_case
+        }
+
+        @doc value """
+            is a tab displaying an inline, self-describing view. Unlike a
+            resource, a view has no backing core document: it carries its own
+            type and opaque args. Used for app-views and tools (docs,
+            explorers, about, the visualization picker).
+        """
+    }
+    empty {
+        @doc value """
+            is a tab with no content yet. An empty tab renders the
+            visualization selector at render time; SetTabResource or
+            SetTabView fills it in place.
+        """
+    }
 
     @doc value """
         is a single tab in a leaf. Tab content is a discriminated union:
@@ -122,15 +98,11 @@ Split struct {
     direction spatial.Direction {
         @doc value "is the axis along which this node is split."
     }
-    size      float64           {
+    size      spatial.Decimal   {
         @doc value """
             is the fraction in [0, 1] of the parent area allocated to first.
             The remainder is allocated to last.
         """
-        @validate {
-            min 0
-            max 1
-        }
     }
     first     Node              {
         @doc value "is the first child (left for x, top for y)."
@@ -235,12 +207,7 @@ Panel struct {
     action SplitLeaf {
         leaf     int32
         location spatial.Location
-        size     float64??        {
-            @validate {
-                min 0
-                max 1
-            }
-        }
+        size     spatial.Decimal??
 
         @doc value """
             splits the given leaf into a parent split with two children:
@@ -253,12 +220,7 @@ Panel struct {
 
     action ResizeSplit {
         split int32
-        size  float64 {
-            @validate {
-                min 0
-                max 1
-            }
-        }
+        size  spatial.Decimal
 
         @doc value "adjusts the size ratio of a split node. size in [0, 1]."
     }
@@ -278,7 +240,9 @@ Panel struct {
 
     action SetTabView {
         key  uuid
-        view View
+        type string
+        name string?
+        args record?
 
         @doc value """
             sets the inline view displayed by the tab with the given key,

@@ -18,14 +18,14 @@ import (
 var _ = Describe("Retrieve", func() {
 	Describe("By Author", func() {
 		It("Should retrieve projects by author", func(ctx SpecContext) {
-			ws1 := project.Project{Name: "test", Author: author.Key}
-			ws2 := project.Project{Name: "test2", Author: author.Key}
-			Expect(svc.NewWriter(tx).Create(ctx, &ws1)).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &ws2)).To(Succeed())
+			p1 := project.Project{Name: "test", Author: author.Key}
+			p2 := project.Project{Name: "test2", Author: author.Key}
+			Expect(svc.NewWriter(tx).Create(ctx, &p1)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &p2)).To(Succeed())
 			var res []project.Project
 			Expect(svc.NewRetrieve().Where(project.MatchAuthor(author.Key)).
 				Entries(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res).To(ConsistOf(ws1, ws2))
+			Expect(res).To(ConsistOf(p1, p2))
 		})
 	})
 

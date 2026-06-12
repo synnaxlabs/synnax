@@ -14,6 +14,7 @@ package panel
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
@@ -72,13 +73,13 @@ type MoveTabPayload struct {
 type SplitLeafPayload struct {
 	Leaf     int32            `json:"leaf" msgpack:"leaf"`
 	Location spatial.Location `json:"location" msgpack:"location"`
-	Size     *float64         `json:"size,omitempty" msgpack:"size,omitempty"`
+	Size     *spatial.Decimal `json:"size,omitempty" msgpack:"size,omitempty"`
 }
 
 // ResizeSplitPayload adjusts the size ratio of a split node. size in [0, 1].
 type ResizeSplitPayload struct {
-	Split int32   `json:"split" msgpack:"split"`
-	Size  float64 `json:"size" msgpack:"size"`
+	Split int32           `json:"split" msgpack:"split"`
+	Size  spatial.Decimal `json:"size" msgpack:"size"`
 }
 
 // SetTabResourcePayload sets the visualization resource displayed by the tab with the
@@ -94,8 +95,10 @@ type SetTabResourcePayload struct {
 // swapping it in place without changing the tab's identity or position. Clears any
 // resource set on the tab.
 type SetTabViewPayload struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	View View      `json:"view" msgpack:"view"`
+	Key  uuid.UUID           `json:"key" msgpack:"key"`
+	Type string              `json:"type" msgpack:"type"`
+	Name string              `json:"name" msgpack:"name"`
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
 // Action is a discriminated union for all Panel mutations. Type names

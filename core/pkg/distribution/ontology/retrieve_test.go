@@ -241,7 +241,7 @@ var _ = Describe("Retrieve", func() {
 					Entries(&r).
 					Exec(ctx, tx),
 				).To(Succeed())
-				Expect(len(r)).To(Equal(2))
+				Expect(r).To(HaveLen(2))
 			})
 		})
 	})
@@ -328,14 +328,14 @@ var _ = Describe("Retrieve", func() {
 				Limit(5).
 				Entries(&r).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(len(r)).To(Equal(5))
+			Expect(r).To(HaveLen(5))
 			var r2 []ontology.Resource
 			Expect(w.NewRetrieve().
 				Offset(5).
 				Limit(5).
 				Entries(&r2).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(len(r2)).To(Equal(5))
+			Expect(r2).To(HaveLen(5))
 			mapKeys := func(o ontology.Resource, _ int) string {
 				return o.ID.String()
 			}
@@ -419,7 +419,7 @@ var _ = Describe("Retrieve", func() {
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
-			Expect(len(r)).To(Equal(2))
+			Expect(r).To(HaveLen(2))
 			ids := lo.Map(r, func(res ontology.Resource, _ int) ontology.ID {
 				return res.ID
 			})
@@ -451,7 +451,7 @@ var _ = Describe("Retrieve", func() {
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
-			Expect(len(r)).To(Equal(3))
+			Expect(r).To(HaveLen(3))
 		})
 
 		It("Should work with Limit when using multiple types filter", func(ctx SpecContext) {
@@ -465,7 +465,7 @@ var _ = Describe("Retrieve", func() {
 				Entries(&r).
 				Exec(ctx, tx),
 			).To(Succeed())
-			Expect(len(r)).To(Equal(3))
+			Expect(r).To(HaveLen(3))
 		})
 	})
 

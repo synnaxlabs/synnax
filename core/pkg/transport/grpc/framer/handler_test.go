@@ -315,7 +315,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 				Ack:     true,
 			}
 			out := MustSucceed(t.Backward(ctx, pb))
-			Expect(out.Error).To(BeNil())
+			Expect(out.Error).ToNot(HaveOccurred())
 			Expect(out.Ack).To(BeTrue())
 		})
 	})

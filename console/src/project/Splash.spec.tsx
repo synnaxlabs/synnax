@@ -10,7 +10,7 @@
 import { createTestClient, type Synnax } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Layout } from "@/layout";
 import { Project } from "@/project";
@@ -44,6 +44,21 @@ describe("project/Splash", () => {
       expect(
         screen.getByText("You do not have permission to create a project."),
       ).toBeDefined();
+      expect(screen.queryByText("Open a Project")).toBeNull();
+    });
+  });
+
+  describe("without any projects", () => {
+    it("should hide the project list when no projects exist", async () => {
+      const emptyClient = createTestClient();
+      const retrieveSpy = vi
+        .spyOn(emptyClient.projects, "retrieve")
+        .mockResolvedValue([]);
+      const { wrapper } = await createConsoleWrapper({ client: emptyClient });
+      render(<Splash />, { wrapper });
+
+      await screen.findByText("Create Project");
+      await waitFor(() => expect(retrieveSpy).toHaveBeenCalled());
       expect(screen.queryByText("Open a Project")).toBeNull();
     });
   });

@@ -125,7 +125,7 @@ var _ = Describe("Search", func() {
 					Type: "test",
 					Term: term,
 				}))
-				Expect(res).To(Not(BeEmpty()))
+				Expect(res).ToNot(BeEmpty())
 				Expect(res[0].Key).To(Equal(first.Key))
 			},
 			Entry("Exact Match First", []ontology.Resource{
@@ -177,7 +177,7 @@ var _ = Describe("Search", func() {
 				Expect(idx.Search(ctx, search.Request{
 					Type: "test",
 					Term: term,
-				})).To(HaveLen(0))
+				})).To(BeEmpty())
 			},
 			Entry("No Match", ontology.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},
@@ -282,7 +282,7 @@ var _ = Describe("Search", func() {
 				Expect(idx.Search(ctx, search.Request{
 					Type: "test",
 					Term: "My Blog",
-				})).To(Not(BeEmpty()))
+				})).ToNot(BeEmpty())
 			})
 			It("Should not fall back to disjunction if conjunction finds results", func(ctx SpecContext) {
 				Expect(idx.IndexResources([]ontology.Resource{

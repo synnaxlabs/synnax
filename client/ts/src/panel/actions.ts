@@ -225,7 +225,13 @@ const handlers: Handlers = {
   },
 
   setTabView: (state, payload) => {
-    const next: Tab = { variant: "view", key: payload.key, view: payload.view };
+    const next: Tab = {
+      variant: "view",
+      key: payload.key,
+      type: payload.type,
+      name: payload.name,
+      args: payload.args,
+    };
     if (!replaceTab(state.root, payload.key, next)) return NO_OP;
     return { inverse: [], targets: [payload.key] };
   },

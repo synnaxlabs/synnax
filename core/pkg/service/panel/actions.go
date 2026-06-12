@@ -172,7 +172,8 @@ func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
 // when no tab matches the key.
 func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
 	if err := setTabContent(&state.Root, p.Key, TabResource{
-		ResourceTab: ResourceTab(p),
+		TabBase:  TabBase{Key: p.Key},
+		Resource: p.Resource,
 	}); err != nil {
 		return Panel{}, err
 	}
@@ -185,7 +186,10 @@ func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
 // matches the key.
 func (p SetTabViewPayload) Handle(state Panel) (Panel, error) {
 	if err := setTabContent(&state.Root, p.Key, TabView{
-		ViewTab: ViewTab(p),
+		TabBase: TabBase{Key: p.Key},
+		Type:    p.Type,
+		Name:    p.Name,
+		Args:    p.Args,
 	}); err != nil {
 		return Panel{}, err
 	}

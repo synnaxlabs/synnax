@@ -287,7 +287,7 @@ var _ = Describe("PledgeServer", func() {
 					}(i)
 				}
 				wg.Wait()
-				Expect(len(lo.Uniq(ids))).To(Equal(numPledges))
+				Expect(lo.Uniq(ids)).To(HaveLen(numPledges))
 			})
 
 		})

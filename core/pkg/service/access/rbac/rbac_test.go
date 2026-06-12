@@ -363,7 +363,7 @@ var _ = Describe("Service", func() {
 			}
 			p2 := &policy.Policy{
 				Name:    "policy-2",
-				Objects: []ontology.ID{{Type: "project", Key: "ws1"}},
+				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 				Actions: []access.Action{access.ActionRetrieve},
 			}
 			Expect(policyWriter.Create(ctx, p1)).To(Succeed())

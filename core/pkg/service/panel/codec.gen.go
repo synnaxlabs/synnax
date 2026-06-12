@@ -19,18 +19,6 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-func (et EmptyTab) EncodeOrc(w *orc.Writer) error {
-	w.Write(et.Key[:])
-	return nil
-}
-
-func (et *EmptyTab) DecodeOrc(r *orc.Reader) error {
-	if _, err := r.Read(et.Key[:]); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (lv Leaf) EncodeOrc(w *orc.Writer) error {
 	w.Bool(lv.Tabs != nil)
 	if lv.Tabs != nil {
@@ -85,6 +73,10 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 }
 
 func (nv *Node) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	tag, err := r.String()
 	if err != nil {
 		return err
@@ -131,25 +123,6 @@ func (p *Panel) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (rt ResourceTab) EncodeOrc(w *orc.Writer) error {
-	w.Write(rt.Key[:])
-	if err := rt.Resource.EncodeOrc(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (rt *ResourceTab) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if _, err := r.Read(rt.Key[:]); err != nil {
-		return err
-	}
-	if err = rt.Resource.DecodeOrc(r); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (s Split) EncodeOrc(w *orc.Writer) error {
 	w.String(string(s.Direction))
 	w.Float64(float64(s.Size))
@@ -163,6 +136,10 @@ func (s Split) EncodeOrc(w *orc.Writer) error {
 }
 
 func (s *Split) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	var err error
 	{
 		v, err := r.String()
@@ -187,17 +164,29 @@ func (t Tab) EncodeOrc(w *orc.Writer) error {
 	switch v := t.Variant.(type) {
 	case TabResource:
 		w.String("resource")
-		if err := v.ResourceTab.EncodeOrc(w); err != nil {
+		if err := v.TabBase.EncodeOrc(w); err != nil {
+			return err
+		}
+		if err := v.Resource.EncodeOrc(w); err != nil {
 			return err
 		}
 	case TabView:
 		w.String("view")
-		if err := v.ViewTab.EncodeOrc(w); err != nil {
+		if err := v.TabBase.EncodeOrc(w); err != nil {
 			return err
+		}
+		w.String(v.Type)
+		w.String(v.Name)
+		{
+			b, err := json.Marshal(v.Args)
+			if err != nil {
+				return err
+			}
+			w.WriteWithLen(b)
 		}
 	case TabEmpty:
 		w.String("empty")
-		if err := v.EmptyTab.EncodeOrc(w); err != nil {
+		if err := v.TabBase.EncodeOrc(w); err != nil {
 			return err
 		}
 	default:
@@ -214,19 +203,37 @@ func (t *Tab) DecodeOrc(r *orc.Reader) error {
 	switch tag {
 	case "resource":
 		var v TabResource
-		if err := v.ResourceTab.DecodeOrc(r); err != nil {
+		if err := v.TabBase.DecodeOrc(r); err != nil {
+			return err
+		}
+		if err = v.Resource.DecodeOrc(r); err != nil {
 			return err
 		}
 		t.Variant = v
 	case "view":
 		var v TabView
-		if err := v.ViewTab.DecodeOrc(r); err != nil {
+		if err := v.TabBase.DecodeOrc(r); err != nil {
 			return err
+		}
+		if v.Type, err = r.String(); err != nil {
+			return err
+		}
+		if v.Name, err = r.String(); err != nil {
+			return err
+		}
+		{
+			b, err := r.ReadWithLen()
+			if err != nil {
+				return err
+			}
+			if err = json.Unmarshal(b, &v.Args); err != nil {
+				return err
+			}
 		}
 		t.Variant = v
 	case "empty":
 		var v TabEmpty
-		if err := v.EmptyTab.DecodeOrc(r); err != nil {
+		if err := v.TabBase.DecodeOrc(r); err != nil {
 			return err
 		}
 		t.Variant = v
@@ -236,53 +243,13 @@ func (t *Tab) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (vv View) EncodeOrc(w *orc.Writer) error {
-	w.String(vv.Type)
-	w.String(vv.Name)
-	{
-		b, err := json.Marshal(vv.Args)
-		if err != nil {
-			return err
-		}
-		w.WriteWithLen(b)
-	}
+func (tb TabBase) EncodeOrc(w *orc.Writer) error {
+	w.Write(tb.Key[:])
 	return nil
 }
 
-func (vv *View) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if vv.Type, err = r.String(); err != nil {
-		return err
-	}
-	if vv.Name, err = r.String(); err != nil {
-		return err
-	}
-	{
-		b, err := r.ReadWithLen()
-		if err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &vv.Args); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (vt ViewTab) EncodeOrc(w *orc.Writer) error {
-	w.Write(vt.Key[:])
-	if err := vt.View.EncodeOrc(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (vt *ViewTab) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if _, err := r.Read(vt.Key[:]); err != nil {
-		return err
-	}
-	if err = vt.View.DecodeOrc(r); err != nil {
+func (tb *TabBase) DecodeOrc(r *orc.Reader) error {
+	if _, err := r.Read(tb.Key[:]); err != nil {
 		return err
 	}
 	return nil

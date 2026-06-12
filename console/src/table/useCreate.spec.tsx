@@ -125,11 +125,11 @@ describe("useCreate", () => {
         wrapper,
       });
       await act(async () => {
-        result.current({ name: "ProvidedWS" });
+        result.current({ name: "ProvidedProject" });
       });
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
-      expect(retrieved.name).toEqual("ProvidedWS");
+      expect(retrieved.name).toEqual("ProvidedProject");
       expect(Project.selectActiveKey(store.getState())).toEqual(projectB.key);
     });
 
@@ -137,11 +137,11 @@ describe("useCreate", () => {
       const { wrapper, store } = await buildHarness({ activeProject: projectA });
       const { result } = renderHook(() => useCreate({}), { wrapper });
       await act(async () => {
-        result.current({ name: "ActiveWS" });
+        result.current({ name: "ActiveProject" });
       });
       const placedKey = await waitForPlacedLayout(store);
       const retrieved = await client.tables.retrieve({ key: placedKey });
-      expect(retrieved.name).toEqual("ActiveWS");
+      expect(retrieved.name).toEqual("ActiveProject");
       expect(Project.selectActiveKey(store.getState())).toEqual(projectA.key);
     });
   });
@@ -194,7 +194,7 @@ describe("useCreate", () => {
         wrapper,
       });
       await act(async () => {
-        result.current({ name: "SameWS" });
+        result.current({ name: "SameProject" });
       });
       await waitForPlacedLayout(store);
       expect(Project.selectActive(store.getState())).toBe(beforeActive);

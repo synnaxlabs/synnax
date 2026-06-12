@@ -180,7 +180,7 @@ var _ = Describe("Text", func() {
 
 			n1 := findNodeByKey(inter.Nodes, "adder_0")
 			Expect(n1.Type).To(Equal("adder"))
-			Expect(n1.Config).To(HaveLen(0))
+			Expect(n1.Config).To(BeEmpty())
 			Expect(n1.Channels.Read).ToNot(BeNil())
 			Expect(n1.Channels.Read).To(BeEmpty())
 			Expect(n1.Channels.Write).ToNot(BeNil())
@@ -1594,7 +1594,7 @@ time.wait{duration=500ms} -> output`
 			DescribeTable("Should reject single-node flows at parse time",
 				func(source string) {
 					_, diagnostics := text.Parse(text.Text{Raw: source})
-					Expect(diagnostics).ToNot(BeNil())
+					Expect(diagnostics).To(HaveOccurred())
 					Expect(diagnostics.Ok()).To(BeFalse())
 				},
 				Entry("single function node", `
@@ -2841,7 +2841,7 @@ time.wait{duration=500ms} -> output`
 						root.Parent.AddChild(&s)
 					}
 					_, diag := text.Analyze(ctx, parsedText, root)
-					Expect(diag).ToNot(BeNil())
+					Expect(diag).To(HaveOccurred())
 					Expect(diag.Ok()).To(BeFalse())
 					Expect(diag.String()).To(ContainSubstring(expectedError))
 				},
@@ -3182,8 +3182,8 @@ time.wait{duration=500ms} -> output`
 			Expect(synth).To(HaveLen(1))
 			f := synth[0]
 			Expect(f.Body.Raw).To(Equal("v={sensor}"))
-			Expect(f.Inputs).To(HaveLen(0))
-			Expect(f.Config).To(HaveLen(0))
+			Expect(f.Inputs).To(BeEmpty())
+			Expect(f.Config).To(BeEmpty())
 			Expect(f.Outputs).To(HaveLen(1))
 			Expect(f.Outputs[0].Type).To(Equal(types.String()))
 			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
@@ -3586,7 +3586,6 @@ time.wait{duration=500ms} -> output`
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
-			Expect(module.Output)
 		})
 
 		It("Should compile function with channel config param assigned to intermediate variable and written to", func(ctx SpecContext) {

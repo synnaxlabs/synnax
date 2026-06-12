@@ -32,11 +32,11 @@ describe("queries", () => {
 
   describe("useList", () => {
     it("should return a list of project keys", async () => {
-      const ws1 = await client.projects.create({
+      const p1 = await client.projects.create({
         name: "project1",
         layout: { type: "dashboard", panels: [] },
       });
-      const ws2 = await client.projects.create({
+      const p2 = await client.projects.create({
         name: "project2",
         layout: { type: "schematic", nodes: [] },
       });
@@ -49,8 +49,8 @@ describe("queries", () => {
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(ws1.key);
-      expect(result.current.data).toContain(ws2.key);
+      expect(result.current.data).toContain(p1.key);
+      expect(result.current.data).toContain(p2.key);
     });
 
     it("should get individual projects using getItem", async () => {
@@ -96,11 +96,11 @@ describe("queries", () => {
     });
 
     it("should return all projects when no pagination params provided", async () => {
-      const ws1 = await client.projects.create({
+      const p1 = await client.projects.create({
         name: "allProjects1",
         layout: { type: "dashboard" },
       });
-      const ws2 = await client.projects.create({
+      const p2 = await client.projects.create({
         name: "allProjects2",
         layout: { type: "schematic" },
       });
@@ -110,8 +110,8 @@ describe("queries", () => {
         result.current.retrieve({});
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(ws1.key);
-      expect(result.current.data).toContain(ws2.key);
+      expect(result.current.data).toContain(p1.key);
+      expect(result.current.data).toContain(p2.key);
     });
 
     it("should update the list when a project is created", async () => {
@@ -199,11 +199,11 @@ describe("queries", () => {
     });
 
     it("should handle multiple project updates simultaneously", async () => {
-      const ws1 = await client.projects.create({
+      const p1 = await client.projects.create({
         name: "multiUpdate1",
         layout: { type: "dashboard" },
       });
-      const ws2 = await client.projects.create({
+      const p2 = await client.projects.create({
         name: "multiUpdate2",
         layout: { type: "dashboard" },
       });
@@ -216,13 +216,13 @@ describe("queries", () => {
 
       // Update both projects simultaneously
       await Promise.all([
-        client.projects.rename(ws1.key, "updated1"),
-        client.projects.rename(ws2.key, "updated2"),
+        client.projects.rename(p1.key, "updated1"),
+        client.projects.rename(p2.key, "updated2"),
       ]);
 
       await waitFor(() => {
-        expect(result.current.getItem(ws1.key)?.name).toEqual("updated1");
-        expect(result.current.getItem(ws2.key)?.name).toEqual("updated2");
+        expect(result.current.getItem(p1.key)?.name).toEqual("updated1");
+        expect(result.current.getItem(p2.key)?.name).toEqual("updated2");
       });
     });
 
@@ -591,16 +591,16 @@ describe("queries", () => {
     });
 
     it("should scope results to the source resource's project", async () => {
-      const ws1 = await client.projects.create({ name: "scope_ws_1", layout: {} });
-      const ws2 = await client.projects.create({ name: "scope_ws_2", layout: {} });
-      const s1 = await client.schematics.create(ws1.key, {
-        name: "WS1 Schematic",
+      const p1 = await client.projects.create({ name: "scope_p_1", layout: {} });
+      const p2 = await client.projects.create({ name: "scope_p_2", layout: {} });
+      const s1 = await client.schematics.create(p1.key, {
+        name: "P1 Schematic",
       });
-      await client.schematics.create(ws2.key, {
-        name: "WS2 Schematic",
+      await client.schematics.create(p2.key, {
+        name: "P2 Schematic",
       });
-      const lp1 = await client.lineplots.create(ws1.key, { name: "WS1 Plot" });
-      await client.lineplots.create(ws2.key, { name: "WS2 Plot" });
+      const lp1 = await client.lineplots.create(p1.key, { name: "P1 Plot" });
+      await client.lineplots.create(p2.key, { name: "P2 Plot" });
 
       const { result } = renderHook(
         () =>
@@ -705,32 +705,32 @@ describe("queries", () => {
         );
 
         // --- Mirrored TestSpace ---
-        const mws = await client.projects.create({
+        const mproj = await client.projects.create({
           name: "Mirrored TestSpace",
           layout: {},
         });
-        sAm = await client.schematics.create(mws.key, {
+        sAm = await client.schematics.create(mproj.key, {
           name: "Schematic A Mirrored",
         });
-        sBm = await client.schematics.create(mws.key, {
+        sBm = await client.schematics.create(mproj.key, {
           name: "Schematic B Mirrored",
         });
-        sCm = await client.schematics.create(mws.key, {
+        sCm = await client.schematics.create(mproj.key, {
           name: "Schematic C Mirrored",
         });
-        sDm = await client.schematics.create(mws.key, {
+        sDm = await client.schematics.create(mproj.key, {
           name: "Schematic D Mirrored",
         });
-        sEm = await client.schematics.create(mws.key, {
+        sEm = await client.schematics.create(mproj.key, {
           name: "Schematic E Mirrored",
         });
 
         const mg1 = await client.groups.create({
-          parent: project.ontologyID(mws.key),
+          parent: project.ontologyID(mproj.key),
           name: "Group 1 Mirrored",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(mws.key),
+          project.ontologyID(mproj.key),
           group.ontologyID(mg1.key),
           schematic.ontologyID(sBm.key),
         );
@@ -740,12 +740,12 @@ describe("queries", () => {
           name: "Group 2 Mirrored",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(mws.key),
+          project.ontologyID(mproj.key),
           group.ontologyID(mg2.key),
           schematic.ontologyID(sCm.key),
         );
         await client.ontology.moveChildren(
-          project.ontologyID(mws.key),
+          project.ontologyID(mproj.key),
           group.ontologyID(mg2.key),
           schematic.ontologyID(sDm.key),
         );
@@ -755,7 +755,7 @@ describe("queries", () => {
           name: "Group E Mirrored",
         });
         await client.ontology.moveChildren(
-          project.ontologyID(mws.key),
+          project.ontologyID(mproj.key),
           group.ontologyID(mgE.key),
           schematic.ontologyID(sEm.key),
         );

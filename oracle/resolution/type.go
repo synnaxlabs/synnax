@@ -24,6 +24,10 @@ type Type struct {
 	Namespace     string
 	QualifiedName string
 	FilePath      string
+	// Synthetic marks analyzer-fabricated types (inline union variant
+	// payloads) that resolve like any other type but are excluded from
+	// standalone code generation.
+	Synthetic bool
 }
 
 type TypeForm interface {
@@ -106,6 +110,10 @@ type UnionVariant struct {
 	Domains map[string]Domain
 	Name    string
 	Type    TypeRef
+	// Inline reports that the payload was declared inline in the union body.
+	// Type then references a Synthetic struct whose fields generators flatten
+	// into the variant member instead of embedding a named payload type.
+	Inline bool
 }
 
 type DistinctForm struct {
@@ -216,9 +224,10 @@ func (r TypeRef) MustResolve(table *Table) Type {
 
 // RefersTo reports whether ref directly or transitively references a type
 // identified by targetQualifiedName. The search follows type arguments, struct
-// field types, alias targets, and distinct bases, so mutual-recursion cycles
-// (A → B → A) are detected, not just direct self-reference (A → A). A visited
-// set prevents infinite loops on non-target cycles.
+// field types and extends bases, union bases and variant payloads, alias
+// targets, and distinct bases, so mutual-recursion cycles (A → B → A) are
+// detected, not just direct self-reference (A → A). A visited set prevents
+// infinite loops on non-target cycles.
 //
 // This is the shared primitive behind the analyzer's IsRecursive detection
 // and the C++ plugin's decision between std::optional<T> and
@@ -246,8 +255,24 @@ func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string
 	}
 	switch form := resolved.Form.(type) {
 	case StructForm:
+		for _, ext := range form.Extends {
+			if refersTo(ext, targetQN, table, visited) {
+				return true
+			}
+		}
 		for _, f := range form.Fields {
 			if refersTo(f.Type, targetQN, table, visited) {
+				return true
+			}
+		}
+	case UnionForm:
+		for _, ext := range form.Extends {
+			if refersTo(ext, targetQN, table, visited) {
+				return true
+			}
+		}
+		for _, v := range form.Variants {
+			if refersTo(v.Type, targetQN, table, visited) {
 				return true
 			}
 		}
