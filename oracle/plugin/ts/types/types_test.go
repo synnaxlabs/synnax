@@ -2406,6 +2406,24 @@ var _ = Describe("TS Types Plugin", func() {
 					ToContain(`mode: modeZ.default(Mode.automatic)`)
 			})
 
+			It("Should resolve a bare multi-word snake_case variant name as a default", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					TerminalConfig enum {
+						cfg_default = "Cfg_Default"
+						rse         = "RSE"
+					}
+
+					Config struct {
+						terminal TerminalConfig = cfg_default
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`terminal: terminalConfigZ.default("Cfg_Default")`)
+			})
+
 			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
 				loader.Add("schemas/control", `
 					@ts output "x/ts/src/control"
