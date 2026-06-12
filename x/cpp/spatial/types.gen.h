@@ -73,6 +73,8 @@ constexpr const char *DIMENSION_HEIGHT = "height";
 constexpr const char *SIGNED_DIMENSION_SIGNED_WIDTH = "signedWidth";
 constexpr const char *SIGNED_DIMENSION_SIGNED_HEIGHT = "signedHeight";
 
+using Decimal = double;
+
 /// @brief XY is a 2D coordinate point with x and y values. Used for positioning
 /// elements in two-dimensional space.
 struct XY {

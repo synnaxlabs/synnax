@@ -41,6 +41,7 @@ export { label } from "@/label";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
 export { ontology } from "@/ontology";
+export { panel } from "@/panel";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";

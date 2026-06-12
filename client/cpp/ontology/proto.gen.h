@@ -41,6 +41,7 @@ resource_type_to_pb(const std::string &cpp) {
              ::distribution::ontology::pb::RESOURCE_TYPE_LINEPLOT},
             {RESOURCE_TYPE_LOG, ::distribution::ontology::pb::RESOURCE_TYPE_LOG},
             {RESOURCE_TYPE_NODE, ::distribution::ontology::pb::RESOURCE_TYPE_NODE},
+            {RESOURCE_TYPE_PANEL, ::distribution::ontology::pb::RESOURCE_TYPE_PANEL},
             {RESOURCE_TYPE_POLICY, ::distribution::ontology::pb::RESOURCE_TYPE_POLICY},
             {RESOURCE_TYPE_RACK, ::distribution::ontology::pb::RESOURCE_TYPE_RACK},
             {RESOURCE_TYPE_RANGE, ::distribution::ontology::pb::RESOURCE_TYPE_RANGE},
@@ -88,6 +89,8 @@ resource_type_from_pb(::distribution::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_LOG, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_NODE:
             return {RESOURCE_TYPE_NODE, x::errors::NIL};
+        case ::distribution::ontology::pb::RESOURCE_TYPE_PANEL:
+            return {RESOURCE_TYPE_PANEL, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_POLICY:
             return {RESOURCE_TYPE_POLICY, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_RACK:

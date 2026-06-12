@@ -33,6 +33,8 @@ RESOURCE_TYPE_LOG: Literal["log"] = "log"
 
 RESOURCE_TYPE_NODE: Literal["node"] = "node"
 
+RESOURCE_TYPE_PANEL: Literal["panel"] = "panel"
+
 RESOURCE_TYPE_POLICY: Literal["policy"] = "policy"
 
 RESOURCE_TYPE_RACK: Literal["rack"] = "rack"
@@ -71,6 +73,7 @@ ResourceType = Literal[
     "lineplot",
     "log",
     "node",
+    "panel",
     "policy",
     "rack",
     "range",

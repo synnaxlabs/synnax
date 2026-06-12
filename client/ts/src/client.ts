@@ -24,6 +24,7 @@ import { label } from "@/label";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
 import { ontology } from "@/ontology";
+import { panel } from "@/panel";
 import { rack } from "@/rack";
 import { ranger } from "@/ranger";
 import { alias } from "@/ranger/alias";
@@ -83,6 +84,7 @@ export default class Synnax extends framer.Client {
   readonly views: view.Client;
   readonly schematics: schematic.Client;
   readonly lineplots: lineplot.Client;
+  readonly panels: panel.Client;
   readonly logs: log.Client;
   readonly tables: table.Client;
   readonly groups: group.Client;
@@ -175,6 +177,7 @@ export default class Synnax extends framer.Client {
     this.views = new view.Client(this.transport.unary);
     this.schematics = new schematic.Client(this.transport.unary);
     this.lineplots = new lineplot.Client(this.transport.unary);
+    this.panels = new panel.Client(this.transport.unary);
     this.logs = new log.Client(this.transport.unary);
     this.tables = new table.Client(this.transport.unary);
     this.groups = new group.Client(this.transport.unary);

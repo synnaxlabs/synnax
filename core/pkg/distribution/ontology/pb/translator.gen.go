@@ -93,6 +93,8 @@ func ResourceTypeToPB(v ontology.ResourceType) (ResourceType, error) {
 		return ResourceType_RESOURCE_TYPE_LOG, nil
 	case ontology.ResourceTypeNode:
 		return ResourceType_RESOURCE_TYPE_NODE, nil
+	case ontology.ResourceTypePanel:
+		return ResourceType_RESOURCE_TYPE_PANEL, nil
 	case ontology.ResourceTypePolicy:
 		return ResourceType_RESOURCE_TYPE_POLICY, nil
 	case ontology.ResourceTypeRack:
@@ -147,6 +149,8 @@ func ResourceTypeFromPB(v ResourceType) (ontology.ResourceType, error) {
 		return ontology.ResourceTypeLog, nil
 	case ResourceType_RESOURCE_TYPE_NODE:
 		return ontology.ResourceTypeNode, nil
+	case ResourceType_RESOURCE_TYPE_PANEL:
+		return ontology.ResourceTypePanel, nil
 	case ResourceType_RESOURCE_TYPE_POLICY:
 		return ontology.ResourceTypePolicy, nil
 	case ResourceType_RESOURCE_TYPE_RACK:

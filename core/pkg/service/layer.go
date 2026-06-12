@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	pdruntime "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
+	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
@@ -132,6 +133,8 @@ type Layer struct {
 	Log *log.Service
 	// Table is for working with table visualizations.
 	Table *table.Service
+	// Panel is for working with Panels.
+	Panel *panel.Service
 	// Label is for working with user-defined labels that can be attached to various
 	// data structures within Synnax.
 	Label  *label.Service
@@ -289,6 +292,16 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Search:          cfg.Distribution.Search,
 		Signals:         cfg.Distribution.Signals,
 	}); !ok(err, l.Log) {
+		return nil, err
+	}
+	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
+		Instrumentation: cfg.Child("panel"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Group:           cfg.Distribution.Group,
+		Signals:         cfg.Distribution.Signals,
+	}); !ok(err, l.Panel) {
 		return nil, err
 	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{

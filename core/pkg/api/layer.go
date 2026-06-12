@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
@@ -134,6 +135,11 @@ type Transport struct {
 	LinePlotRetrieve freighter.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]
 	LinePlotDelete   freighter.UnaryServer[lineplot.DeleteRequest, types.Nil]
 	LinePlotDispatch freighter.UnaryServer[lineplot.DispatchRequest, types.Nil]
+	// PANEL
+	PanelCreate   freighter.UnaryServer[panel.CreateRequest, panel.CreateResponse]
+	PanelRetrieve freighter.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]
+	PanelDelete   freighter.UnaryServer[panel.DeleteRequest, types.Nil]
+	PanelDispatch freighter.UnaryServer[panel.DispatchRequest, types.Nil]
 	// LABEL
 	LabelCreate   freighter.UnaryServer[label.CreateRequest, label.CreateResponse]
 	LabelRetrieve freighter.UnaryServer[label.RetrieveRequest, label.RetrieveResponse]
@@ -200,6 +206,7 @@ type Layer struct {
 	Schematic    *schematic.Service
 	View         *view.Service
 	Table        *table.Service
+	Panel        *panel.Service
 	Label        *label.Service
 	Rack         *rack.Service
 	Task         *task.Service
@@ -312,6 +319,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.LinePlotDispatch,
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
+
+		// PANEL
+		t.PanelCreate,
+		t.PanelRetrieve,
+		t.PanelDelete,
+		t.PanelDispatch,
 
 		// LOG
 		t.LogCreate,
@@ -477,6 +490,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.LinePlotRetrieve.BindHandler(l.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.LinePlot.Delete))
 
+	// PANEL
+	t.PanelCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Create))
+	t.PanelRetrieve.BindHandler(l.Panel.Retrieve)
+	t.PanelDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Delete))
+	t.PanelDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Panel.Dispatch))
+
 	// LOG
 	t.LogCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Log.Create))
 	t.LogRetrieve.BindHandler(l.Log.Retrieve)
@@ -600,6 +619,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.LinePlot, err = lineplot.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.Panel, err = panel.NewService(cfg); err != nil {
 		return nil, err
 	}
 	if l.Label, err = label.NewService(cfg); err != nil {

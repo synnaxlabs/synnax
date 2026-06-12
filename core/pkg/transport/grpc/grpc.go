@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/panel"
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
@@ -118,6 +119,12 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, types.Nil]{}
 	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, types.Nil]{}
+
+	// PANEL
+	t.PanelCreate = noop.UnaryServer[panel.CreateRequest, panel.CreateResponse]{}
+	t.PanelRetrieve = noop.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]{}
+	t.PanelDelete = noop.UnaryServer[panel.DeleteRequest, types.Nil]{}
+	t.PanelDispatch = noop.UnaryServer[panel.DispatchRequest, types.Nil]{}
 
 	// LOG
 	t.LogCreate = noop.UnaryServer[log.CreateRequest, log.CreateResponse]{}
