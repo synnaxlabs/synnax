@@ -83,8 +83,10 @@ var _ = Describe("Dispatch", Ordered, func() {
 			It("Should update an existing row whose Key matches the input", func(ctx SpecContext) {
 				key := uuid.NewString()
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: key, Name: "by_key_orig", Variant: xstatus.VariantInfo,
-					Message: "old", Time: telem.Now(),
+					Key: key, Name: "by_key_orig",
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantInfo, Message: "old", Time: telem.Now(),
+					},
 				})).To(Succeed())
 
 				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, key, "new", string(xstatus.VariantWarning)))
@@ -101,8 +103,10 @@ var _ = Describe("Dispatch", Ordered, func() {
 			It("Should match arbitrary (non-UUID) string keys", func(ctx SpecContext) {
 				key := "by_key_plain_string"
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: key, Name: "by_key_plain_orig", Variant: xstatus.VariantInfo,
-					Message: "old", Time: telem.Now(),
+					Key: key, Name: "by_key_plain_orig",
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantInfo, Message: "old", Time: telem.Now(),
+					},
 				})).To(Succeed())
 
 				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, key, "new", string(xstatus.VariantSuccess)))
@@ -113,12 +117,16 @@ var _ = Describe("Dispatch", Ordered, func() {
 			It("Should prefer the by-key match over a by-name match for the same input", func(ctx SpecContext) {
 				shared := "shared_token"
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: shared, Name: "by_key_winner", Variant: xstatus.VariantInfo,
-					Message: "key", Time: telem.Now(),
+					Key: shared, Name: "by_key_winner",
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantInfo, Message: "key", Time: telem.Now(),
+					},
 				})).To(Succeed())
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: uuid.NewString(), Name: shared, Variant: xstatus.VariantInfo,
-					Message: "name", Time: telem.Now(),
+					Key: uuid.NewString(), Name: shared,
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantInfo, Message: "name", Time: telem.Now(),
+					},
 				})).To(Succeed())
 
 				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, shared, "updated", string(xstatus.VariantWarning)))
@@ -132,8 +140,10 @@ var _ = Describe("Dispatch", Ordered, func() {
 				name := "by_name_single"
 				existingKey := uuid.NewString()
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: existingKey, Name: name, Variant: xstatus.VariantSuccess,
-					Message: "ok", Time: telem.Now(),
+					Key: existingKey, Name: name,
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantSuccess, Message: "ok", Time: telem.Now(),
+					},
 				})).To(Succeed())
 
 				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, name, "now bad", string(xstatus.VariantError)))
@@ -151,12 +161,16 @@ var _ = Describe("Dispatch", Ordered, func() {
 				firstKey := uuid.NewString()
 				secondKey := uuid.NewString()
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: firstKey, Name: name, Variant: xstatus.VariantInfo,
-					Message: "first", Time: telem.Now(),
+					Key: firstKey, Name: name,
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantInfo, Message: "first", Time: telem.Now(),
+					},
 				})).To(Succeed())
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: secondKey, Name: name, Variant: xstatus.VariantInfo,
-					Message: "second", Time: telem.Now(),
+					Key: secondKey, Name: name,
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantInfo, Message: "second", Time: telem.Now(),
+					},
 				})).To(Succeed())
 
 				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, name, "updated", string(xstatus.VariantWarning)))
@@ -183,8 +197,10 @@ var _ = Describe("Dispatch", Ordered, func() {
 				name := "by_name_empty_msg"
 				existingKey := uuid.NewString()
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: existingKey, Name: name, Variant: xstatus.VariantInfo,
-					Message: "old", Time: telem.Now(),
+					Key: existingKey, Name: name,
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantInfo, Message: "old", Time: telem.Now(),
+					},
 				})).To(Succeed())
 				gotKey, _ := MustSucceed2(svc.SetByKeyOrName(ctx, name, "", string(xstatus.VariantInfo)))
 				Expect(gotKey).To(Equal(existingKey))

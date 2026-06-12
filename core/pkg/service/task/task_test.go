@@ -380,12 +380,14 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should use the provided status when creating a task", func(ctx SpecContext) {
 			providedStatus := &task.Status{
-				Variant:     xstatus.VariantSuccess,
-				Message:     "Custom task status",
-				Description: "Task is running",
-				Time:        telem.Now(),
-				Details: task.StatusDetails{
-					Running: true,
+				Status: xstatus.Status[task.StatusDetails]{
+					Variant:     xstatus.VariantSuccess,
+					Message:     "Custom task status",
+					Description: "Task is running",
+					Time:        telem.Now(),
+					Details: task.StatusDetails{
+						Running: true,
+					},
 				},
 			}
 			m := &task.Task{
@@ -415,8 +417,10 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
 			providedStatus := &task.Status{
-				Time:    telem.Now(),
-				Message: "Status with no variant",
+				Status: xstatus.Status[task.StatusDetails]{
+					Time:    telem.Now(),
+					Message: "Status with no variant",
+				},
 			}
 			m := &task.Task{
 				Key:    task.NewKey(testRack.Key, 0),

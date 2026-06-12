@@ -262,10 +262,12 @@ var _ = Describe("Device", func() {
 
 		It("Should use the provided status when creating a device", func(ctx SpecContext) {
 			providedStatus := &device.Status{
-				Variant:     xstatus.VariantSuccess,
-				Time:        telem.Now(),
-				Message:     "Device is connected",
-				Description: "Custom device description",
+				Status: xstatus.Status[device.StatusDetails]{
+					Variant:     xstatus.VariantSuccess,
+					Time:        telem.Now(),
+					Message:     "Device is connected",
+					Description: "Custom device description",
+				},
 			}
 			d := device.Device{
 				Key:      "device-with-status",
@@ -295,8 +297,10 @@ var _ = Describe("Device", func() {
 
 		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
 			providedStatus := &device.Status{
-				Message: "Status with no variant",
-				Time:    telem.Now(),
+				Status: xstatus.Status[device.StatusDetails]{
+					Message: "Status with no variant",
+					Time:    telem.Now(),
+				},
 			}
 			d := device.Device{
 				Key:      "device-invalid-status",

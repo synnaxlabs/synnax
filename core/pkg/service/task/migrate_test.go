@@ -76,16 +76,16 @@ var _ = Describe("Migration v0", func() {
 		// simulating legacy data where the key was encoded as a msgpack
 		// float64 instead of uint64.
 		legacyStatus := status.Status[any]{
-			Key:     task.OntologyID(taskKey).String(),
-			Name:    "Legacy Task",
-			Variant: xstatus.VariantSuccess,
-			Message: "Started",
-			Time:    telem.Now(),
-			Details: map[string]any{
-				"task":    float64(taskKey),
-				"running": true,
-				"cmd":     "start",
-			},
+			Key:  task.OntologyID(taskKey).String(),
+			Name: "Legacy Task",
+		}
+		legacyStatus.Variant = xstatus.VariantSuccess
+		legacyStatus.Message = "Started"
+		legacyStatus.Time = telem.Now()
+		legacyStatus.Details = map[string]any{
+			"task":    float64(taskKey),
+			"running": true,
+			"cmd":     "start",
 		}
 		Expect(status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus)).To(Succeed())
 

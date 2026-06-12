@@ -71,22 +71,26 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("Set", func() {
 			It("Should create a new status", func(ctx SpecContext) {
 				s := &status.Status[any]{
-					Name:    "Test Status",
-					Key:     "test-key",
-					Variant: "success",
-					Message: "Test message",
-					Time:    telem.Now(),
+					Name: "Test Status",
+					Key:  "test-key",
+					Status: xstatus.Status[any]{
+						Variant: "success",
+						Message: "Test message",
+						Time:    telem.Now(),
+					},
 				}
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(s.Key).To(Equal("test-key"))
 			})
 			It("Should update an existing status", func(ctx SpecContext) {
 				s := &status.Status[any]{
-					Name:    "Test Status",
-					Key:     "update-key",
-					Variant: "info",
-					Message: "Initial message",
-					Time:    telem.Now(),
+					Name: "Test Status",
+					Key:  "update-key",
+					Status: xstatus.Status[any]{
+						Variant: "info",
+						Message: "Initial message",
+						Time:    telem.Now(),
+					},
 				}
 				Expect(w.Set(ctx, s)).To(Succeed())
 				s.Message = "Updated message"
@@ -101,20 +105,24 @@ var _ = Describe("Status", Ordered, func() {
 			Context("Parent Management", func() {
 				It("Should set a custom parent for the status", func(ctx SpecContext) {
 					parent := status.Status[any]{
-						Name:    "Parent Status",
-						Key:     "parent-key",
-						Variant: "info",
-						Message: "Parent status",
-						Time:    telem.Now(),
+						Name: "Parent Status",
+						Key:  "parent-key",
+						Status: xstatus.Status[any]{
+							Variant: "info",
+							Message: "Parent status",
+							Time:    telem.Now(),
+						},
 					}
 					Expect(w.Set(ctx, &parent)).To(Succeed())
 
 					child := status.Status[any]{
-						Name:    "Child Status",
-						Key:     "child-key",
-						Variant: "info",
-						Message: "Child status",
-						Time:    telem.Now(),
+						Name: "Child Status",
+						Key:  "child-key",
+						Status: xstatus.Status[any]{
+							Variant: "info",
+							Message: "Child status",
+							Time:    telem.Now(),
+						},
 					}
 					Expect(w.SetWithParent(ctx, &child, status.OntologyID(parent.Key))).To(Succeed())
 
@@ -133,18 +141,22 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should create multiple statuses", func(ctx SpecContext) {
 				statuses := []status.Status[any]{
 					{
-						Name:    "Status 1",
-						Key:     "key1",
-						Variant: "info",
-						Message: "Message 1",
-						Time:    telem.Now(),
+						Name: "Status 1",
+						Key:  "key1",
+						Status: xstatus.Status[any]{
+							Variant: "info",
+							Message: "Message 1",
+							Time:    telem.Now(),
+						},
 					},
 					{
-						Name:    "Status 2",
-						Key:     "key2",
-						Variant: "warning",
-						Message: "Message 2",
-						Time:    telem.Now(),
+						Name: "Status 2",
+						Key:  "key2",
+						Status: xstatus.Status[any]{
+							Variant: "warning",
+							Message: "Message 2",
+							Time:    telem.Now(),
+						},
 					},
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
@@ -158,11 +170,13 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("Delete", func() {
 			It("Should delete a status", func(ctx SpecContext) {
 				s := &status.Status[any]{
-					Name:    "To Delete",
-					Key:     "delete-key",
-					Variant: "info",
-					Message: "Will be deleted",
-					Time:    telem.Now(),
+					Name: "To Delete",
+					Key:  "delete-key",
+					Status: xstatus.Status[any]{
+						Variant: "info",
+						Message: "Will be deleted",
+						Time:    telem.Now(),
+					},
 				}
 				Expect(w.Set(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, "delete-key")).To(Succeed())
@@ -178,16 +192,20 @@ var _ = Describe("Status", Ordered, func() {
 			It("Should delete multiple statuses", func(ctx SpecContext) {
 				statuses := []status.Status[any]{
 					{
-						Name:    "Del 1",
-						Key:     "del1",
-						Variant: "info",
-						Time:    telem.Now(),
+						Name: "Del 1",
+						Key:  "del1",
+						Status: xstatus.Status[any]{
+							Variant: "info",
+							Time:    telem.Now(),
+						},
 					},
 					{
-						Name:    "Del 2",
-						Key:     "del2",
-						Variant: "info",
-						Time:    telem.Now(),
+						Name: "Del 2",
+						Key:  "del2",
+						Status: xstatus.Status[any]{
+							Variant: "info",
+							Time:    telem.Now(),
+						},
 					},
 				}
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
@@ -202,46 +220,58 @@ var _ = Describe("Status", Ordered, func() {
 		BeforeEach(func(ctx SpecContext) {
 			statuses := []status.Status[any]{
 				{
-					Name:    "Status A",
-					Key:     "retrieve-a",
-					Variant: "info",
-					Message: "Status A message",
-					Time:    telem.Now(),
+					Name: "Status A",
+					Key:  "retrieve-a",
+					Status: xstatus.Status[any]{
+						Variant: "info",
+						Message: "Status A message",
+						Time:    telem.Now(),
+					},
 				},
 				{
-					Name:    "Status B",
-					Key:     "retrieve-b",
-					Variant: "warning",
-					Message: "Status B message",
-					Time:    telem.Now(),
+					Name: "Status B",
+					Key:  "retrieve-b",
+					Status: xstatus.Status[any]{
+						Variant: "warning",
+						Message: "Status B message",
+						Time:    telem.Now(),
+					},
 				},
 				{
-					Name:    "Status C",
-					Key:     "retrieve-c",
-					Variant: "error",
-					Message: "Status C message",
-					Time:    telem.Now(),
+					Name: "Status C",
+					Key:  "retrieve-c",
+					Status: xstatus.Status[any]{
+						Variant: "error",
+						Message: "Status C message",
+						Time:    telem.Now(),
+					},
 				},
 				{
-					Name:    "Device 1 Status",
-					Key:     "device-001-status",
-					Variant: "info",
-					Message: "Device 1 OK",
-					Time:    telem.Now(),
+					Name: "Device 1 Status",
+					Key:  "device-001-status",
+					Status: xstatus.Status[any]{
+						Variant: "info",
+						Message: "Device 1 OK",
+						Time:    telem.Now(),
+					},
 				},
 				{
-					Name:    "Device 2 Status",
-					Key:     "device-002-status",
-					Variant: "warning",
-					Message: "Device 2 Warning",
-					Time:    telem.Now(),
+					Name: "Device 2 Status",
+					Key:  "device-002-status",
+					Status: xstatus.Status[any]{
+						Variant: "warning",
+						Message: "Device 2 Warning",
+						Time:    telem.Now(),
+					},
 				},
 				{
-					Name:    "Sensor Status",
-					Key:     "sensor-001-status",
-					Variant: "info",
-					Message: "Sensor OK",
-					Time:    telem.Now(),
+					Name: "Sensor Status",
+					Key:  "sensor-001-status",
+					Status: xstatus.Status[any]{
+						Variant: "info",
+						Message: "Sensor OK",
+						Time:    telem.Now(),
+					},
 				},
 			}
 			Expect(w.SetMany(ctx, &statuses)).To(Succeed())
@@ -380,10 +410,12 @@ var _ = Describe("Status", Ordered, func() {
 				l := &label.Label{Name: "status-label-a"}
 				Expect(labelSvc.NewWriter(tx).Create(ctx, l)).To(Succeed())
 				s := &status.Status[any]{
-					Key:     "labeled-status",
-					Name:    "Labeled",
-					Variant: xstatus.VariantInfo,
-					Time:    telem.Now(),
+					Key:  "labeled-status",
+					Name: "Labeled",
+					Status: xstatus.Status[any]{
+						Variant: xstatus.VariantInfo,
+						Time:    telem.Now(),
+					},
 				}
 				Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
 				Expect(labelSvc.NewWriter(tx).Label(ctx, status.OntologyID(s.Key), []xlabel.Key{l.Key})).To(Succeed())
@@ -476,11 +508,13 @@ var _ = Describe("Status", Ordered, func() {
 			}
 			intWriter := status.NewWriter[IntDetails](svc, tx)
 			s := &status.Status[IntDetails]{
-				Key:     "typed-int-status",
-				Name:    "Typed Int Status",
-				Variant: "info",
-				Details: IntDetails{Count: 42},
-				Time:    telem.Now(),
+				Key:  "typed-int-status",
+				Name: "Typed Int Status",
+				Status: xstatus.Status[IntDetails]{
+					Variant: "info",
+					Details: IntDetails{Count: 42},
+					Time:    telem.Now(),
+				},
 			}
 			Expect(intWriter.Set(ctx, s)).To(Succeed())
 
@@ -499,11 +533,13 @@ var _ = Describe("Status", Ordered, func() {
 			}
 			typedWriter := status.NewWriter[StringDetails](svc, tx)
 			s := &status.Status[StringDetails]{
-				Key:     "typed-string-status",
-				Name:    "Typed String Status",
-				Variant: "info",
-				Details: StringDetails{Message: "hello"},
-				Time:    telem.Now(),
+				Key:  "typed-string-status",
+				Name: "Typed String Status",
+				Status: xstatus.Status[StringDetails]{
+					Variant: "info",
+					Details: StringDetails{Message: "hello"},
+					Time:    telem.Now(),
+				},
 			}
 			Expect(typedWriter.Set(ctx, s)).To(Succeed())
 
@@ -528,13 +564,17 @@ var _ = Describe("Status", Ordered, func() {
 			writerB := status.NewWriter[TypeB](svc, tx)
 
 			Expect(writerA.Set(ctx, &status.Status[TypeA]{
-				Key: "generic-type-a", Name: "Type A", Variant: "info",
-				Details: TypeA{ValueA: 100}, Time: telem.Now(),
+				Key: "generic-type-a", Name: "Type A",
+				Status: xstatus.Status[TypeA]{
+					Variant: "info", Details: TypeA{ValueA: 100}, Time: telem.Now(),
+				},
 			})).To(Succeed())
 
 			Expect(writerB.Set(ctx, &status.Status[TypeB]{
-				Key: "generic-type-b", Name: "Type B", Variant: "info",
-				Details: TypeB{ValueB: "test"}, Time: telem.Now(),
+				Key: "generic-type-b", Name: "Type B",
+				Status: xstatus.Status[TypeB]{
+					Variant: "info", Details: TypeB{ValueB: "test"}, Time: telem.Now(),
+				},
 			})).To(Succeed())
 
 			// Retrieve both using any - demonstrates that gorp doesn't filter by
@@ -553,8 +593,10 @@ var _ = Describe("Status", Ordered, func() {
 			}
 			writerA := status.NewWriter[TypeA](svc, tx)
 			Expect(writerA.Set(ctx, &status.Status[TypeA]{
-				Key: "mismatch-test", Name: "Mismatch Test", Variant: "info",
-				Details: TypeA{FieldA: 42, FieldB: "hello"}, Time: telem.Now(),
+				Key: "mismatch-test", Name: "Mismatch Test",
+				Status: xstatus.Status[TypeA]{
+					Variant: "info", Details: TypeA{FieldA: 42, FieldB: "hello"}, Time: telem.Now(),
+				},
 			})).To(Succeed())
 
 			// Retrieve with a different type - MsgPack will decode what it can
@@ -579,8 +621,10 @@ var _ = Describe("Status", Ordered, func() {
 			type DetailsB string
 			writerB := status.NewWriter[DetailsB](svc, tx)
 			Expect(writerB.Set(ctx, &status.Status[DetailsB]{
-				Key: "details-b", Name: "Details B", Variant: "info",
-				Details: DetailsB("hello"), Time: telem.Now(),
+				Key: "details-b", Name: "Details B",
+				Status: xstatus.Status[DetailsB]{
+					Variant: "info", Details: DetailsB("hello"), Time: telem.Now(),
+				},
 			})).To(Succeed())
 			var retrieved status.Status[DetailsA]
 			retrieveA := status.NewRetrieve[DetailsA](svc)
@@ -595,7 +639,9 @@ var _ = Describe("Status", Ordered, func() {
 			w := status.NewWriter[any](svc, tx)
 			s := &status.Status[any]{
 				Key: "observe-test", Name: "Observe Test",
-				Variant: xstatus.VariantSuccess, Time: telem.Now(),
+				Status: xstatus.Status[any]{
+					Variant: xstatus.VariantSuccess, Time: telem.Now(),
+				},
 			}
 			Expect(w.Set(ctx, s)).To(Succeed())
 			called := false

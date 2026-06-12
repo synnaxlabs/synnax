@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v54_test
+package status_test
 
 import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	colorv54 "github.com/synnaxlabs/x/color/migrations/v54"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -53,16 +54,16 @@ var _ = Describe("v54 -> current Status migration", func() {
 			DB:        db,
 			Namespace: "Status",
 			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[string, string, v54.Status[any], xstatus.Status[any]](
+				gorp.NewEntryMigration[string, string, v54.Status[any], status.Status[any]](
 					"v54_drop_labels",
-					xstatus.MigrateStatus[any],
+					status.MigrateStatus[any],
 				),
 			},
 		})).To(Succeed())
 
-		var got xstatus.Status[any]
-		Expect(gorp.NewRetrieve[string, xstatus.Status[any]]().
-			Where(gorp.MatchKeys[string, xstatus.Status[any]](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
+		var got status.Status[any]
+		Expect(gorp.NewRetrieve[string, status.Status[any]]().
+			Where(gorp.MatchKeys[string, status.Status[any]](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Variant).To(Equal(xstatus.Variant(seed.Variant)))
