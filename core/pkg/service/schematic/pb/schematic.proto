@@ -203,28 +203,6 @@ message DummyToggleSymbolConfig {
   optional double scale = 6;
 }
 
-// SolenoidValveConfig is the configuration for solenoid valve symbols.
-message SolenoidValveConfig {
-  // label is the symbol's label configuration.
-  optional LabelConfig label = 1;
-  // orientation is the orientation of the symbol's primitive within the diagram.
-  optional .x.spatial.pb.OuterLocation orientation = 2;
-  // state_channel is the channel whose value drives the symbol's active state.
-  optional uint32 state_channel = 3;
-  // command_channel is the channel actuation commands are written to.
-  optional uint32 command_channel = 4;
-  // control is the control state display configuration.
-  optional ControlStateConfig control = 5;
-  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 6;
-  // color is the stroke color of the symbol.
-  optional .x.color.pb.Color color = 7;
-  // scale is the rendered scale multiplier of the symbol.
-  optional double scale = 8;
-  // normally_open indicates whether the valve is open when unpowered.
-  bool normally_open = 9;
-}
-
 // StateMapping maps a numeric channel value to a named, colored state.
 message StateMapping {
   // key is the unique identifier for the mapping entry.
@@ -245,8 +223,25 @@ message Redline {
   repeated .x.color.pb.Stop gradient = 2;
 }
 
-// BoxConfig is the configuration for box annotation symbols.
-message BoxConfig {
+// Schematic is a visual diagram editor component for drawing system schematics, control
+// flows, and process diagrams. Schematics support interactive symbols, connection
+// handles, and dynamic state visualization.
+message Schematic {
+  // key is the unique identifier for this schematic.
+  string key = 1;
+  // name is a human-readable name for the schematic.
+  string name = 2;
+  // snapshot indicates whether this schematic represents a saved snapshot state.
+  bool snapshot = 3;
+  // nodes contains all diagram nodes in the schematic.
+  repeated Node nodes = 4;
+  // edges contains all connections between nodes.
+  repeated Edge edges = 5;
+  // configs contains per-element configuration keyed by node or edge key. The variant of
+  // each value selects the symbol or edge style it configures.
+  map<string, ElementConfig> configs = 6;
+}
+message NodeConfigBoxPayload {
   // label is the box's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the box within the diagram.
@@ -262,9 +257,7 @@ message BoxConfig {
   // stroke_width is the border stroke width in pixels.
   optional double stroke_width = 7;
 }
-
-// ButtonConfig is the configuration for button symbols.
-message ButtonConfig {
+message NodeConfigButtonPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -284,9 +277,7 @@ message ButtonConfig {
   // control is the control state display configuration.
   optional ControlStateConfig control = 9;
 }
-
-// CircleConfig is the configuration for circle annotation symbols.
-message CircleConfig {
+message NodeConfigCirclePayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -300,9 +291,7 @@ message CircleConfig {
   // stroke_width is the border stroke width in pixels.
   optional double stroke_width = 6;
 }
-
-// GaugeConfig is the configuration for gauge symbols.
-message GaugeConfig {
+message NodeConfigGaugePayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -334,9 +323,7 @@ message GaugeConfig {
   // level is the typography level of the displayed value.
   optional .x.text.pb.Level level = 15;
 }
-
-// InputConfig is the configuration for free-form input symbols.
-message InputConfig {
+message NodeConfigInputPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -354,9 +341,7 @@ message InputConfig {
   // control is the control state display configuration.
   optional ControlStateConfig control = 8;
 }
-
-// LightConfig is the configuration for indicator light symbols.
-message LightConfig {
+message NodeConfigLightPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -370,9 +355,7 @@ message LightConfig {
   // scale is the rendered scale multiplier of the symbol.
   optional double scale = 6;
 }
-
-// OffPageReferenceConfig is the configuration for off-page reference symbols.
-message OffPageReferenceConfig {
+message NodeConfigOffPageReferencePayload {
   // orientation is the direction the reference arrow points.
   optional .x.spatial.pb.OuterLocation orientation = 1;
   // label is the label displayed inside the reference.
@@ -386,9 +369,7 @@ message OffPageReferenceConfig {
   // dbl_click_nav indicates whether double-clicking navigates to the linked schematic.
   bool dbl_click_nav = 6;
 }
-
-// PolygonConfig is the configuration for polygon annotation symbols.
-message PolygonConfig {
+message NodeConfigPolygonPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -408,9 +389,7 @@ message PolygonConfig {
   // stroke_width is the border stroke width in pixels.
   optional double stroke_width = 9;
 }
-
-// SelectConfig is the configuration for select symbols.
-message SelectConfig {
+message NodeConfigSelectPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -430,9 +409,7 @@ message SelectConfig {
   // control is the control state display configuration.
   optional ControlStateConfig control = 9;
 }
-
-// SetpointConfig is the configuration for numeric setpoint symbols.
-message SetpointConfig {
+message NodeConfigSetpointPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -454,9 +431,7 @@ message SetpointConfig {
   // control is the control state display configuration.
   optional ControlStateConfig control = 10;
 }
-
-// StateIndicatorConfig is the configuration for multi-state indicator symbols.
-message StateIndicatorConfig {
+message NodeConfigStateIndicatorPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -470,9 +445,7 @@ message StateIndicatorConfig {
   // options is the set of displayable states.
   repeated StateMapping options = 6;
 }
-
-// TextBoxConfig is the configuration for text box annotation symbols.
-message TextBoxConfig {
+message NodeConfigTextBoxPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -490,9 +463,7 @@ message TextBoxConfig {
   // value is the text content of the box.
   string value = 8;
 }
-
-// ValueConfig is the configuration for live telemetry value symbols.
-message ValueConfig {
+message NodeConfigValuePayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -538,25 +509,27 @@ message ValueConfig {
   // value_background_over_scan is the extra padding applied around the value background.
   optional .x.spatial.pb.XY value_background_over_scan = 21;
 }
-
-// TankConfig is the configuration for tank vessel symbols.
-message TankConfig {
+message NodeConfigSolenoidValvePayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
   optional .x.spatial.pb.OuterLocation orientation = 2;
-  // color is the border color of the tank.
-  optional .x.color.pb.Color color = 3;
-  // background_color is the fill color of the tank.
-  optional .x.color.pb.Color background_color = 4;
-  // dimensions is the rendered size of the tank in pixels.
-  optional .x.spatial.pb.Dimensions dimensions = 5;
-  // border_radius is the corner radius of the tank.
-  optional .x.border.pb.Radius border_radius = 6;
+  // state_channel is the channel whose value drives the symbol's active state.
+  optional uint32 state_channel = 3;
+  // command_channel is the channel actuation commands are written to.
+  optional uint32 command_channel = 4;
+  // control is the control state display configuration.
+  optional ControlStateConfig control = 5;
+  // on_click_delay is the debounce delay applied to clicks, in milliseconds.
+  double on_click_delay = 6;
+  // color is the stroke color of the symbol.
+  optional .x.color.pb.Color color = 7;
+  // scale is the rendered scale multiplier of the symbol.
+  optional double scale = 8;
+  // normally_open indicates whether the valve is open when unpowered.
+  bool normally_open = 9;
 }
-
-// CylinderConfig is the configuration for cylinder vessel symbols.
-message CylinderConfig {
+message NodeConfigCylinderPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -570,9 +543,21 @@ message CylinderConfig {
   // background_color is the fill color of the cylinder.
   optional .x.color.pb.Color background_color = 6;
 }
-
-// CustomActuatorConfig is the configuration for user-defined actuator symbols.
-message CustomActuatorConfig {
+message NodeConfigTankPayload {
+  // label is the symbol's label configuration.
+  optional LabelConfig label = 1;
+  // orientation is the orientation of the symbol's primitive within the diagram.
+  optional .x.spatial.pb.OuterLocation orientation = 2;
+  // color is the border color of the tank.
+  optional .x.color.pb.Color color = 3;
+  // background_color is the fill color of the tank.
+  optional .x.color.pb.Color background_color = 4;
+  // dimensions is the rendered size of the tank in pixels.
+  optional .x.spatial.pb.Dimensions dimensions = 5;
+  // border_radius is the corner radius of the tank.
+  optional .x.border.pb.Radius border_radius = 6;
+}
+message NodeConfigCustomActuatorPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -596,9 +581,7 @@ message CustomActuatorConfig {
   // consistent with how the symbol service stores specs.
   repeated google.protobuf.Struct state_overrides = 10;
 }
-
-// CustomStaticConfig is the configuration for user-defined static symbols.
-message CustomStaticConfig {
+message NodeConfigCustomStaticPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
   // orientation is the orientation of the symbol's primitive within the diagram.
@@ -613,25 +596,6 @@ message CustomStaticConfig {
   // entry mirrors the symbol service's State shape; the wire format stores it opaquely,
   // consistent with how the symbol service stores specs.
   repeated google.protobuf.Struct state_overrides = 6;
-}
-
-// Schematic is a visual diagram editor component for drawing system schematics, control
-// flows, and process diagrams. Schematics support interactive symbols, connection
-// handles, and dynamic state visualization.
-message Schematic {
-  // key is the unique identifier for this schematic.
-  string key = 1;
-  // name is a human-readable name for the schematic.
-  string name = 2;
-  // snapshot indicates whether this schematic represents a saved snapshot state.
-  bool snapshot = 3;
-  // nodes contains all diagram nodes in the schematic.
-  repeated Node nodes = 4;
-  // edges contains all connections between nodes.
-  repeated Edge edges = 5;
-  // configs contains per-element configuration keyed by node or edge key. The variant of
-  // each value selects the symbol or edge style it configures.
-  map<string, ElementConfig> configs = 6;
 }
 
 // EdgeConfig is the per-edge configuration stored in the schematic configs map. The
@@ -677,20 +641,20 @@ message NodeConfig {
     StaticSymbolConfig flowmeter_pulse = 23;
     StaticSymbolConfig flowmeter_float_sensor = 24;
     StaticSymbolConfig flowmeter_orifice = 25;
-    BoxConfig box = 26;
-    ButtonConfig button = 27;
-    CircleConfig circle = 28;
-    GaugeConfig gauge = 29;
-    InputConfig input = 30;
-    LightConfig light = 31;
-    OffPageReferenceConfig off_page_reference = 32;
-    PolygonConfig polygon = 33;
-    SelectConfig select = 34;
-    SetpointConfig setpoint = 35;
-    StateIndicatorConfig state_indicator = 36;
+    NodeConfigBoxPayload box = 26;
+    NodeConfigButtonPayload button = 27;
+    NodeConfigCirclePayload circle = 28;
+    NodeConfigGaugePayload gauge = 29;
+    NodeConfigInputPayload input = 30;
+    NodeConfigLightPayload light = 31;
+    NodeConfigOffPageReferencePayload off_page_reference = 32;
+    NodeConfigPolygonPayload polygon = 33;
+    NodeConfigSelectPayload select = 34;
+    NodeConfigSetpointPayload setpoint = 35;
+    NodeConfigStateIndicatorPayload state_indicator = 36;
     ToggleSymbolConfig switch = 37;
-    TextBoxConfig text_box = 38;
-    ValueConfig value = 39;
+    NodeConfigTextBoxPayload text_box = 38;
+    NodeConfigValuePayload value = 39;
     ToggleSymbolConfig agitator = 40;
     ToggleSymbolConfig cross_beam_agitator = 41;
     ToggleSymbolConfig flat_blade_agitator = 42;
@@ -741,17 +705,17 @@ message NodeConfig {
     StaticSymbolConfig regulator = 87;
     StaticSymbolConfig regulator_manual = 88;
     DummyToggleSymbolConfig relief_valve = 89;
-    SolenoidValveConfig solenoid_valve = 90;
+    NodeConfigSolenoidValvePayload solenoid_valve = 90;
     DummyToggleSymbolConfig spring_loaded_relief_valve = 91;
     ToggleSymbolConfig three_way_valve = 92;
     ToggleSymbolConfig three_way_ball_valve = 93;
     ToggleSymbolConfig valve = 94;
     StaticSymbolConfig cross_junction = 95;
-    CylinderConfig cylinder = 96;
-    TankConfig tank = 97;
+    NodeConfigCylinderPayload cylinder = 96;
+    NodeConfigTankPayload tank = 97;
     StaticSymbolConfig t_junction = 98;
-    CustomActuatorConfig custom_actuator = 99;
-    CustomStaticConfig custom_static = 100;
+    NodeConfigCustomActuatorPayload custom_actuator = 99;
+    NodeConfigCustomStaticPayload custom_static = 100;
   }
 }
 
@@ -784,20 +748,20 @@ message ElementConfig {
     StaticSymbolConfig flowmeter_pulse = 23;
     StaticSymbolConfig flowmeter_float_sensor = 24;
     StaticSymbolConfig flowmeter_orifice = 25;
-    BoxConfig box = 26;
-    ButtonConfig button = 27;
-    CircleConfig circle = 28;
-    GaugeConfig gauge = 29;
-    InputConfig input = 30;
-    LightConfig light = 31;
-    OffPageReferenceConfig off_page_reference = 32;
-    PolygonConfig polygon = 33;
-    SelectConfig select = 34;
-    SetpointConfig setpoint = 35;
-    StateIndicatorConfig state_indicator = 36;
+    NodeConfigBoxPayload box = 26;
+    NodeConfigButtonPayload button = 27;
+    NodeConfigCirclePayload circle = 28;
+    NodeConfigGaugePayload gauge = 29;
+    NodeConfigInputPayload input = 30;
+    NodeConfigLightPayload light = 31;
+    NodeConfigOffPageReferencePayload off_page_reference = 32;
+    NodeConfigPolygonPayload polygon = 33;
+    NodeConfigSelectPayload select = 34;
+    NodeConfigSetpointPayload setpoint = 35;
+    NodeConfigStateIndicatorPayload state_indicator = 36;
     ToggleSymbolConfig switch = 37;
-    TextBoxConfig text_box = 38;
-    ValueConfig value = 39;
+    NodeConfigTextBoxPayload text_box = 38;
+    NodeConfigValuePayload value = 39;
     ToggleSymbolConfig agitator = 40;
     ToggleSymbolConfig cross_beam_agitator = 41;
     ToggleSymbolConfig flat_blade_agitator = 42;
@@ -848,17 +812,17 @@ message ElementConfig {
     StaticSymbolConfig regulator = 87;
     StaticSymbolConfig regulator_manual = 88;
     DummyToggleSymbolConfig relief_valve = 89;
-    SolenoidValveConfig solenoid_valve = 90;
+    NodeConfigSolenoidValvePayload solenoid_valve = 90;
     DummyToggleSymbolConfig spring_loaded_relief_valve = 91;
     ToggleSymbolConfig three_way_valve = 92;
     ToggleSymbolConfig three_way_ball_valve = 93;
     ToggleSymbolConfig valve = 94;
     StaticSymbolConfig cross_junction = 95;
-    CylinderConfig cylinder = 96;
-    TankConfig tank = 97;
+    NodeConfigCylinderPayload cylinder = 96;
+    NodeConfigTankPayload tank = 97;
     StaticSymbolConfig t_junction = 98;
-    CustomActuatorConfig custom_actuator = 99;
-    CustomStaticConfig custom_static = 100;
+    NodeConfigCustomActuatorPayload custom_actuator = 99;
+    NodeConfigCustomStaticPayload custom_static = 100;
     SegmentedEdgeConfig pipe = 101;
     SegmentedEdgeConfig electric = 102;
     SegmentedEdgeConfig secondary = 103;

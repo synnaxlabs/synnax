@@ -83,7 +83,7 @@ var (
 		}),
 		Scale: new(float64(23.5)),
 	}
-	fullyPopulatedBoxConfig = schematic.BoxConfig{
+	fullyPopulatedLabeledConfig = schematic.LabeledConfig{
 		Label: new(schematic.LabelConfig{
 			Label:         "test_2",
 			Level:         new(text.Level("h1")),
@@ -93,408 +93,6 @@ var (
 			Align:         new(schematic.FlexAlignment("start")),
 		}),
 		Orientation: new(spatial.OuterLocation("top")),
-		Color: new(color.Color{
-			R: 11,
-			G: 12,
-			B: 13,
-			A: 13.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 18.5,
-		}),
-		Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-		BorderRadius: new(float64(22.5)),
-		StrokeWidth:  new(float64(23.5)),
-	}
-	fullyPopulatedButtonConfig = schematic.ButtonConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Size:           new(schematic.ComponentSize("tiny")),
-		Level:          new(text.Level("h1")),
-		OnClickDelay:   11.5,
-		CommandChannel: new(channel.Key(13)),
-		Mode:           new(schematic.ButtonMode("fire")),
-		Color: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 18.5,
-		}),
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(21)),
-			Show:          true,
-			ShowChip:      false,
-			ShowIndicator: true,
-			Orientation:   new(spatial.Location("top")),
-		}),
-	}
-	fullyPopulatedCircleConfig = schematic.CircleConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Radius: 9.5,
-		Color: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 17,
-			G: 18,
-			B: 19,
-			A: 19.5,
-		}),
-		StrokeWidth: new(float64(20.5)),
-	}
-	fullyPopulatedGaugeConfig = schematic.GaugeConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-		Color: new(color.Color{
-			R: 14,
-			G: 15,
-			B: 16,
-			A: 16.5,
-		}),
-		Bounds:         new(spatial.Bounds{}),
-		BarWidth:       new(float64(18.5)),
-		Channel:        new(channel.Key(20)),
-		RollingAverage: new(int32(21)),
-		Precision:      new(float64(21.5)),
-		MinWidth:       new(float64(22.5)),
-		Width:          new(float64(23.5)),
-		Notation:       new(notation.Notation("standard")),
-		Location: new(spatial.LocationXY{
-			X: spatial.XCenterLocation("left"),
-			Y: spatial.YCenterLocation("top"),
-		}),
-		Units: "test_28",
-		Level: new(text.Level("h1")),
-	}
-	fullyPopulatedInputConfig = schematic.InputConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Size:           new(schematic.ComponentSize("tiny")),
-		CommandChannel: new(channel.Key(11)),
-		Dimensions:     new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
-		Color: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 18.5,
-		}),
-		Disabled: true,
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(22)),
-			Show:          false,
-			ShowChip:      true,
-			ShowIndicator: false,
-			Orientation:   new(spatial.Location("top")),
-		}),
-	}
-	fullyPopulatedLightConfig = schematic.LightConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Channel:   new(channel.Key(10)),
-		Threshold: new(spatial.Bounds{}),
-		Color: new(color.Color{
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 15.5,
-		}),
-		Scale: new(float64(16.5)),
-	}
-	fullyPopulatedOffPageReferenceConfig = schematic.OffPageReferenceConfig{
-		Orientation: new(spatial.OuterLocation("top")),
-		Label: schematic.LabelConfig{
-			Label:         "test_3",
-			Level:         new(text.Level("h1")),
-			Orientation:   new(spatial.Location("top")),
-			Direction:     new(spatial.Direction("x")),
-			MaxInlineSize: new(float64(7.5)),
-			Align:         new(schematic.FlexAlignment("start")),
-		},
-		Level: new(text.Level("h1")),
-		Color: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		Page:        "test_15",
-		DblClickNav: false,
-	}
-	fullyPopulatedPolygonConfig = schematic.PolygonConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		NumSides:       9.5,
-		SideLength:     10.5,
-		Rotation:       new(float64(11.5)),
-		CornerRounding: new(float64(12.5)),
-		Color: new(color.Color{
-			R: 15,
-			G: 16,
-			B: 17,
-			A: 17.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 20,
-			G: 21,
-			B: 22,
-			A: 22.5,
-		}),
-		StrokeWidth: new(float64(23.5)),
-	}
-	fullyPopulatedSelectConfig = schematic.SelectConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Size:           new(schematic.ComponentSize("tiny")),
-		CommandChannel: new(channel.Key(11)),
-		Color: new(color.Color{
-			R: 13,
-			G: 14,
-			B: 15,
-			A: 15.5,
-		}),
-		InlineSize: new(float64(16.5)),
-		Options: []schematic.StateMapping{
-			{
-				Key:   "test_18",
-				Name:  "test_19",
-				Value: 20.5,
-				Color: new(color.Color{
-					R: 23,
-					G: 24,
-					B: 25,
-					A: 25.5,
-				}),
-			},
-		},
-		Disabled: false,
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(29)),
-			Show:          true,
-			ShowChip:      false,
-			ShowIndicator: true,
-			Orientation:   new(spatial.Location("top")),
-		}),
-	}
-	fullyPopulatedSetpointConfig = schematic.SetpointConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Size:           new(schematic.ComponentSize("tiny")),
-		StateChannel:   new(channel.Key(11)),
-		CommandChannel: new(channel.Key(12)),
-		Dimensions:     new(spatial.Dimensions{Width: 13.5, Height: 14.5}),
-		Color: new(color.Color{
-			R: 17,
-			G: 18,
-			B: 19,
-			A: 19.5,
-		}),
-		Units:    "test_20",
-		Disabled: true,
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(24)),
-			Show:          false,
-			ShowChip:      true,
-			ShowIndicator: false,
-			Orientation:   new(spatial.Location("top")),
-		}),
-	}
-	fullyPopulatedStateIndicatorConfig = schematic.StateIndicatorConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Channel: new(channel.Key(10)),
-		Color: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		InlineSize: new(float64(15.5)),
-		Options: []schematic.StateMapping{
-			{
-				Key:   "test_17",
-				Name:  "test_18",
-				Value: 19.5,
-				Color: new(color.Color{
-					R: 22,
-					G: 23,
-					B: 24,
-					A: 24.5,
-				}),
-			},
-		},
-	}
-	fullyPopulatedTextBoxConfig = schematic.TextBoxConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Color: new(color.Color{
-			R: 11,
-			G: 12,
-			B: 13,
-			A: 13.5,
-		}),
-		Width:   new(float64(14.5)),
-		Align:   new(schematic.FlexAlignment("start")),
-		AutoFit: false,
-		Level:   new(text.Level("h1")),
-		Value:   "test_18",
-	}
-	fullyPopulatedValueConfig = schematic.ValueConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-		Color: new(color.Color{
-			R: 14,
-			G: 15,
-			B: 16,
-			A: 16.5,
-		}),
-		TextColor: new(color.Color{
-			R: 19,
-			G: 20,
-			B: 21,
-			A: 21.5,
-		}),
-		Tooltip: []string{"test_22"},
-		Redline: new(schematic.Redline{
-			Bounds: spatial.Bounds{},
-			Gradient: []color.Stop{
-				{
-					Key:      "test_26",
-					Color:    color.Color{},
-					Position: 28.5,
-					Switched: true,
-				},
-			},
-		}),
-		Units:            "test_30",
-		InlineSize:       new(float64(31.5)),
-		Channel:          new(channel.Key(33)),
-		RollingAverage:   new(int32(34)),
-		Level:            new(text.Level("h1")),
-		Precision:        new(float64(35.5)),
-		StalenessTimeout: new(float64(36.5)),
-		StalenessColor: new(color.Color{
-			R: 39,
-			G: 40,
-			B: 41,
-			A: 41.5,
-		}),
-		MinWidth: new(float64(42.5)),
-		Notation: new(notation.Notation("standard")),
-		Location: new(spatial.LocationXY{
-			X: spatial.XCenterLocation("left"),
-			Y: spatial.YCenterLocation("top"),
-		}),
-		UseWidthForBackground:   true,
-		ValueBackgroundShift:    new(spatial.XY{X: 49.5, Y: 50.5}),
-		ValueBackgroundOverScan: new(spatial.XY{X: 52.5, Y: 53.5}),
 	}
 	fullyPopulatedDummyToggleSymbolConfig = schematic.DummyToggleSymbolConfig{
 		LabeledConfig: schematic.LabeledConfig{
@@ -518,42 +116,7 @@ var (
 		}),
 		Scale: new(float64(16.5)),
 	}
-	fullyPopulatedSolenoidValveConfig = schematic.SolenoidValveConfig{
-		ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-			ToggleConfig: schematic.ToggleConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				StateChannel:   new(channel.Key(10)),
-				CommandChannel: new(channel.Key(11)),
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(13)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-				OnClickDelay: 17.5,
-			},
-			Color: new(color.Color{
-				R: 20,
-				G: 21,
-				B: 22,
-				A: 22.5,
-			}),
-			Scale: new(float64(23.5)),
-		},
-		NormallyOpen: false,
-	}
-	fullyPopulatedCylinderConfig = schematic.CylinderConfig{
+	fullyPopulatedToggleConfig = schematic.ToggleConfig{
 		LabeledConfig: schematic.LabeledConfig{
 			Label: new(schematic.LabelConfig{
 				Label:         "test_2",
@@ -565,113 +128,16 @@ var (
 			}),
 			Orientation: new(spatial.OuterLocation("top")),
 		},
-		Dimensions: new(spatial.Dimensions{Width: 10.5, Height: 11.5}),
-		BorderRadius: new(border.Radius{
-			TopLeft:     spatial.XY{X: 14.5, Y: 15.5},
-			TopRight:    spatial.XY{X: 17.5, Y: 18.5},
-			BottomLeft:  spatial.XY{X: 20.5, Y: 21.5},
-			BottomRight: spatial.XY{X: 23.5, Y: 24.5},
+		StateChannel:   new(channel.Key(10)),
+		CommandChannel: new(channel.Key(11)),
+		Control: new(schematic.ControlStateConfig{
+			Authority:     new(uint8(13)),
+			Show:          true,
+			ShowChip:      false,
+			ShowIndicator: true,
+			Orientation:   new(spatial.Location("top")),
 		}),
-		Color: new(color.Color{
-			R: 27,
-			G: 28,
-			B: 29,
-			A: 29.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 32,
-			G: 33,
-			B: 34,
-			A: 34.5,
-		}),
-	}
-	fullyPopulatedTankConfig = schematic.TankConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		Color: new(color.Color{
-			R: 11,
-			G: 12,
-			B: 13,
-			A: 13.5,
-		}),
-		BackgroundColor: new(color.Color{
-			R: 16,
-			G: 17,
-			B: 18,
-			A: 18.5,
-		}),
-		Dimensions: new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
-		BorderRadius: new(border.Radius{
-			TopLeft:     spatial.XY{X: 24.5, Y: 25.5},
-			TopRight:    spatial.XY{X: 27.5, Y: 28.5},
-			BottomLeft:  spatial.XY{X: 30.5, Y: 31.5},
-			BottomRight: spatial.XY{X: 33.5, Y: 34.5},
-		}),
-	}
-	fullyPopulatedCustomActuatorConfig = schematic.CustomActuatorConfig{
-		ToggleConfig: schematic.ToggleConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			StateChannel:   new(channel.Key(10)),
-			CommandChannel: new(channel.Key(11)),
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(13)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
-				Orientation:   new(spatial.Location("top")),
-			}),
-			OnClickDelay: 17.5,
-		},
-		SpecKey: "test_18",
-		Color: new(color.Color{
-			R: 21,
-			G: 22,
-			B: 23,
-			A: 23.5,
-		}),
-		Scale:          new(float64(24.5)),
-		StateOverrides: []msgpack.EncodedJSON{{"key_25": "value_25"}},
-	}
-	fullyPopulatedCustomStaticConfig = schematic.CustomStaticConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		SpecKey: "test_9",
-		Color: new(color.Color{
-			R: 12,
-			G: 13,
-			B: 14,
-			A: 14.5,
-		}),
-		Scale:          new(float64(15.5)),
-		StateOverrides: []msgpack.EncodedJSON{{"key_16": "value_16"}},
+		OnClickDelay: 17.5,
 	}
 	fullyPopulatedSegmentedEdgeConfig = schematic.SegmentedEdgeConfig{
 		Color: new(color.Color{
@@ -685,74 +151,6 @@ var (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("BoxConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.BoxConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.BoxConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedBoxConfig),
-			Entry("zero values", schematic.BoxConfig{
-				Label:           nil,
-				Orientation:     nil,
-				Color:           nil,
-				BackgroundColor: nil,
-				Dimensions:      nil,
-				BorderRadius:    nil,
-				StrokeWidth:     nil,
-			}),
-		)
-	})
-	Describe("ButtonConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.ButtonConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.ButtonConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedButtonConfig),
-			Entry("zero values", schematic.ButtonConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Size:           nil,
-				Level:          nil,
-				OnClickDelay:   0,
-				CommandChannel: nil,
-				Mode:           nil,
-				Color:          nil,
-				Control:        nil,
-			}),
-		)
-	})
-	Describe("CircleConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.CircleConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.CircleConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedCircleConfig),
-			Entry("zero values", schematic.CircleConfig{
-				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Radius:          0,
-				Color:           nil,
-				BackgroundColor: nil,
-				StrokeWidth:     nil,
-			}),
-		)
-	})
 	Describe("ControlStateConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.ControlStateConfig) {
@@ -777,131 +175,6 @@ var _ = Describe("Codec", func() {
 				ShowChip:      false,
 				ShowIndicator: false,
 				Orientation:   nil,
-			}),
-		)
-	})
-	Describe("CustomActuatorConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.CustomActuatorConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.CustomActuatorConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedCustomActuatorConfig),
-			Entry("zero values", schematic.CustomActuatorConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-					StateChannel:   nil,
-					CommandChannel: nil,
-					Control:        nil,
-					OnClickDelay:   0,
-				},
-				SpecKey:        "",
-				Color:          nil,
-				Scale:          nil,
-				StateOverrides: nil,
-			}),
-			Entry("empty collections", schematic.CustomActuatorConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig: schematic.LabeledConfig{
-						Label: new(schematic.LabelConfig{
-							Label:         "test_2",
-							Level:         new(text.Level("h1")),
-							Orientation:   new(spatial.Location("top")),
-							Direction:     new(spatial.Direction("x")),
-							MaxInlineSize: new(float64(6.5)),
-							Align:         new(schematic.FlexAlignment("start")),
-						}),
-						Orientation: new(spatial.OuterLocation("top")),
-					},
-					StateChannel:   new(channel.Key(10)),
-					CommandChannel: new(channel.Key(11)),
-					Control: new(schematic.ControlStateConfig{
-						Authority:     new(uint8(13)),
-						Show:          true,
-						ShowChip:      false,
-						ShowIndicator: true,
-						Orientation:   new(spatial.Location("top")),
-					}),
-					OnClickDelay: 17.5,
-				},
-				SpecKey: "test_18",
-				Color: new(color.Color{
-					R: 21,
-					G: 22,
-					B: 23,
-					A: 23.5,
-				}),
-				Scale:          new(float64(24.5)),
-				StateOverrides: []msgpack.EncodedJSON{},
-			}),
-		)
-	})
-	Describe("CustomStaticConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.CustomStaticConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.CustomStaticConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedCustomStaticConfig),
-			Entry("zero values", schematic.CustomStaticConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-				SpecKey:        "",
-				Color:          nil,
-				Scale:          nil,
-				StateOverrides: nil,
-			}),
-			Entry("empty collections", schematic.CustomStaticConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				SpecKey: "test_9",
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				Scale:          new(float64(15.5)),
-				StateOverrides: []msgpack.EncodedJSON{},
-			}),
-		)
-	})
-	Describe("CylinderConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.CylinderConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.CylinderConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedCylinderConfig),
-			Entry("zero values", schematic.CylinderConfig{
-				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Dimensions:      nil,
-				BorderRadius:    nil,
-				Color:           nil,
-				BackgroundColor: nil,
 			}),
 		)
 	})
@@ -1033,26 +306,312 @@ var _ = Describe("Codec", func() {
 			Entry("flowmeter_orifice variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterOrifice{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("box variant", schematic.ElementConfig{Variant: schematic.ElementConfigBox{BoxConfig: fullyPopulatedBoxConfig}}),
-			Entry("button variant", schematic.ElementConfig{Variant: schematic.ElementConfigButton{ButtonConfig: fullyPopulatedButtonConfig}}),
-			Entry("circle variant", schematic.ElementConfig{Variant: schematic.ElementConfigCircle{CircleConfig: fullyPopulatedCircleConfig}}),
-			Entry("gauge variant", schematic.ElementConfig{Variant: schematic.ElementConfigGauge{GaugeConfig: fullyPopulatedGaugeConfig}}),
-			Entry("input variant", schematic.ElementConfig{Variant: schematic.ElementConfigInput{InputConfig: fullyPopulatedInputConfig}}),
-			Entry("light variant", schematic.ElementConfig{Variant: schematic.ElementConfigLight{LightConfig: fullyPopulatedLightConfig}}),
-			Entry("off_page_reference variant", schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
-				OffPageReferenceConfig: fullyPopulatedOffPageReferenceConfig,
+			Entry("box variant", schematic.ElementConfig{Variant: schematic.ElementConfigBox{
+				Label: new(schematic.LabelConfig{
+					Label:         "test_2",
+					Level:         new(text.Level("h1")),
+					Orientation:   new(spatial.Location("top")),
+					Direction:     new(spatial.Direction("x")),
+					MaxInlineSize: new(float64(6.5)),
+					Align:         new(schematic.FlexAlignment("start")),
+				}),
+				Orientation: new(spatial.OuterLocation("top")),
+				Color: new(color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
+				}),
+				Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
+				BorderRadius: new(float64(22.5)),
+				StrokeWidth:  new(float64(23.5)),
 			}}),
-			Entry("polygon variant", schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{PolygonConfig: fullyPopulatedPolygonConfig}}),
-			Entry("select variant", schematic.ElementConfig{Variant: schematic.ElementConfigSelect{SelectConfig: fullyPopulatedSelectConfig}}),
-			Entry("setpoint variant", schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{SetpointConfig: fullyPopulatedSetpointConfig}}),
+			Entry("button variant", schematic.ElementConfig{Variant: schematic.ElementConfigButton{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				Size:           new(schematic.ComponentSize("tiny")),
+				Level:          new(text.Level("h1")),
+				OnClickDelay:   3.5,
+				CommandChannel: new(channel.Key(5)),
+				Mode:           new(schematic.ButtonMode("fire")),
+				Color: new(color.Color{
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
+				}),
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(13)),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   new(spatial.Location("top")),
+				}),
+			}}),
+			Entry("circle variant", schematic.ElementConfig{Variant: schematic.ElementConfigCircle{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Radius:        1.5,
+				Color: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 9,
+					G: 10,
+					B: 11,
+					A: 11.5,
+				}),
+				StrokeWidth: new(float64(12.5)),
+			}}),
+			Entry("gauge variant", schematic.ElementConfig{Variant: schematic.ElementConfigGauge{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
+				Color: new(color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				}),
+				Bounds:         new(spatial.Bounds{}),
+				BarWidth:       new(float64(10.5)),
+				Channel:        new(channel.Key(12)),
+				RollingAverage: new(int32(13)),
+				Precision:      new(float64(13.5)),
+				MinWidth:       new(float64(14.5)),
+				Width:          new(float64(15.5)),
+				Notation:       new(notation.Notation("standard")),
+				Location: new(spatial.LocationXY{
+					X: spatial.XCenterLocation("left"),
+					Y: spatial.YCenterLocation("top"),
+				}),
+				Units: "test_20",
+				Level: new(text.Level("h1")),
+			}}),
+			Entry("input variant", schematic.ElementConfig{Variant: schematic.ElementConfigInput{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				Size:           new(schematic.ComponentSize("tiny")),
+				CommandChannel: new(channel.Key(3)),
+				Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
+				Color: new(color.Color{
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
+				}),
+				Disabled: true,
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(14)),
+					Show:          false,
+					ShowChip:      true,
+					ShowIndicator: false,
+					Orientation:   new(spatial.Location("top")),
+				}),
+			}}),
+			Entry("light variant", schematic.ElementConfig{Variant: schematic.ElementConfigLight{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Channel:       new(channel.Key(2)),
+				Threshold:     new(spatial.Bounds{}),
+				Color: new(color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				}),
+				Scale: new(float64(8.5)),
+			}}),
+			Entry("off_page_reference variant", schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
+				Orientation: new(spatial.OuterLocation("top")),
+				Label: schematic.LabelConfig{
+					Label:         "test_3",
+					Level:         new(text.Level("h1")),
+					Orientation:   new(spatial.Location("top")),
+					Direction:     new(spatial.Direction("x")),
+					MaxInlineSize: new(float64(7.5)),
+					Align:         new(schematic.FlexAlignment("start")),
+				},
+				Level: new(text.Level("h1")),
+				Color: new(color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}),
+				Page:        "test_15",
+				DblClickNav: false,
+			}}),
+			Entry("polygon variant", schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				NumSides:       1.5,
+				SideLength:     2.5,
+				Rotation:       new(float64(3.5)),
+				CornerRounding: new(float64(4.5)),
+				Color: new(color.Color{
+					R: 7,
+					G: 8,
+					B: 9,
+					A: 9.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}),
+				StrokeWidth: new(float64(15.5)),
+			}}),
+			Entry("select variant", schematic.ElementConfig{Variant: schematic.ElementConfigSelect{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				Size:           new(schematic.ComponentSize("tiny")),
+				CommandChannel: new(channel.Key(3)),
+				Color: new(color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				}),
+				InlineSize: new(float64(8.5)),
+				Options: []schematic.StateMapping{
+					{
+						Key:   "test_10",
+						Name:  "test_11",
+						Value: 12.5,
+						Color: new(color.Color{
+							R: 15,
+							G: 16,
+							B: 17,
+							A: 17.5,
+						}),
+					},
+				},
+				Disabled: false,
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(21)),
+					Show:          true,
+					ShowChip:      false,
+					ShowIndicator: true,
+					Orientation:   new(spatial.Location("top")),
+				}),
+			}}),
+			Entry("setpoint variant", schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				Size:           new(schematic.ComponentSize("tiny")),
+				StateChannel:   new(channel.Key(3)),
+				CommandChannel: new(channel.Key(4)),
+				Dimensions:     new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+				Color: new(color.Color{
+					R: 9,
+					G: 10,
+					B: 11,
+					A: 11.5,
+				}),
+				Units:    "test_12",
+				Disabled: true,
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(16)),
+					Show:          false,
+					ShowChip:      true,
+					ShowIndicator: false,
+					Orientation:   new(spatial.Location("top")),
+				}),
+			}}),
 			Entry("state_indicator variant", schematic.ElementConfig{Variant: schematic.ElementConfigStateIndicator{
-				StateIndicatorConfig: fullyPopulatedStateIndicatorConfig,
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Channel:       new(channel.Key(2)),
+				Color: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				InlineSize: new(float64(7.5)),
+				Options: []schematic.StateMapping{
+					{
+						Key:   "test_9",
+						Name:  "test_10",
+						Value: 11.5,
+						Color: new(color.Color{
+							R: 14,
+							G: 15,
+							B: 16,
+							A: 16.5,
+						}),
+					},
+				},
 			}}),
 			Entry("switch variant", schematic.ElementConfig{Variant: schematic.ElementConfigSwitch{
 				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
-			Entry("text_box variant", schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{TextBoxConfig: fullyPopulatedTextBoxConfig}}),
-			Entry("value variant", schematic.ElementConfig{Variant: schematic.ElementConfigValue{ValueConfig: fullyPopulatedValueConfig}}),
+			Entry("text_box variant", schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Color: new(color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}),
+				Width:   new(float64(6.5)),
+				Align:   new(schematic.FlexAlignment("start")),
+				AutoFit: false,
+				Level:   new(text.Level("h1")),
+				Value:   "test_10",
+			}}),
+			Entry("value variant", schematic.ElementConfig{Variant: schematic.ElementConfigValue{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
+				Color: new(color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				}),
+				TextColor: new(color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}),
+				Tooltip: []string{"test_14"},
+				Redline: new(schematic.Redline{
+					Bounds: spatial.Bounds{},
+					Gradient: []color.Stop{
+						{
+							Key:      "test_18",
+							Color:    color.Color{},
+							Position: 20.5,
+							Switched: true,
+						},
+					},
+				}),
+				Units:            "test_22",
+				InlineSize:       new(float64(23.5)),
+				Channel:          new(channel.Key(25)),
+				RollingAverage:   new(int32(26)),
+				Level:            new(text.Level("h1")),
+				Precision:        new(float64(27.5)),
+				StalenessTimeout: new(float64(28.5)),
+				StalenessColor: new(color.Color{
+					R: 31,
+					G: 32,
+					B: 33,
+					A: 33.5,
+				}),
+				MinWidth: new(float64(34.5)),
+				Notation: new(notation.Notation("standard")),
+				Location: new(spatial.LocationXY{
+					X: spatial.XCenterLocation("left"),
+					Y: spatial.YCenterLocation("top"),
+				}),
+				UseWidthForBackground:   true,
+				ValueBackgroundShift:    new(spatial.XY{X: 41.5, Y: 42.5}),
+				ValueBackgroundOverScan: new(spatial.XY{X: 44.5, Y: 45.5}),
+			}}),
 			Entry("agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigAgitator{
 				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
 			}}),
@@ -1204,7 +763,8 @@ var _ = Describe("Codec", func() {
 				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
 			}}),
 			Entry("solenoid_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigSolenoidValve{
-				SolenoidValveConfig: fullyPopulatedSolenoidValveConfig,
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+				NormallyOpen:       true,
 			}}),
 			Entry("spring_loaded_relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigSpringLoadedReliefValve{
 				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
@@ -1221,16 +781,76 @@ var _ = Describe("Codec", func() {
 			Entry("cross_junction variant", schematic.ElementConfig{Variant: schematic.ElementConfigCrossJunction{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
-			Entry("cylinder variant", schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{CylinderConfig: fullyPopulatedCylinderConfig}}),
-			Entry("tank variant", schematic.ElementConfig{Variant: schematic.ElementConfigTank{TankConfig: fullyPopulatedTankConfig}}),
+			Entry("cylinder variant", schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Dimensions:    new(spatial.Dimensions{Width: 2.5, Height: 3.5}),
+				BorderRadius: new(border.Radius{
+					TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
+					TopRight:    spatial.XY{X: 9.5, Y: 10.5},
+					BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
+					BottomRight: spatial.XY{X: 15.5, Y: 16.5},
+				}),
+				Color: new(color.Color{
+					R: 19,
+					G: 20,
+					B: 21,
+					A: 21.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 24,
+					G: 25,
+					B: 26,
+					A: 26.5,
+				}),
+			}}),
+			Entry("tank variant", schematic.ElementConfig{Variant: schematic.ElementConfigTank{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Color: new(color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
+				}),
+				Dimensions: new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
+				BorderRadius: new(border.Radius{
+					TopLeft:     spatial.XY{X: 16.5, Y: 17.5},
+					TopRight:    spatial.XY{X: 19.5, Y: 20.5},
+					BottomLeft:  spatial.XY{X: 22.5, Y: 23.5},
+					BottomRight: spatial.XY{X: 25.5, Y: 26.5},
+				}),
+			}}),
 			Entry("t_junction variant", schematic.ElementConfig{Variant: schematic.ElementConfigTJunction{
 				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
 			}}),
 			Entry("custom_actuator variant", schematic.ElementConfig{Variant: schematic.ElementConfigCustomActuator{
-				CustomActuatorConfig: fullyPopulatedCustomActuatorConfig,
+				ToggleConfig: fullyPopulatedToggleConfig,
+				SpecKey:      "test_1",
+				Color: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				Scale:          new(float64(7.5)),
+				StateOverrides: []msgpack.EncodedJSON{{"key_8": "value_8"}},
 			}}),
 			Entry("custom_static variant", schematic.ElementConfig{Variant: schematic.ElementConfigCustomStatic{
-				CustomStaticConfig: fullyPopulatedCustomStaticConfig,
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				SpecKey:       "test_1",
+				Color: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				Scale:          new(float64(7.5)),
+				StateOverrides: []msgpack.EncodedJSON{{"key_8": "value_8"}},
 			}}),
 			Entry("pipe variant", schematic.ElementConfig{Variant: schematic.ElementConfigPipe{
 				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
@@ -1255,36 +875,6 @@ var _ = Describe("Codec", func() {
 			}}),
 		)
 	})
-	Describe("GaugeConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.GaugeConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.GaugeConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedGaugeConfig),
-			Entry("zero values", schematic.GaugeConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Position:       nil,
-				Color:          nil,
-				Bounds:         nil,
-				BarWidth:       nil,
-				Channel:        nil,
-				RollingAverage: nil,
-				Precision:      nil,
-				MinWidth:       nil,
-				Width:          nil,
-				Notation:       nil,
-				Location:       nil,
-				Units:          "",
-				Level:          nil,
-			}),
-		)
-	})
 	Describe("Handle", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.Handle) {
@@ -1298,29 +888,6 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", schematic.Handle{Node: "test_1", Param: "test_2"}),
 			Entry("zero values", schematic.Handle{Node: "", Param: ""}),
-		)
-	})
-	Describe("InputConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.InputConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.InputConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedInputConfig),
-			Entry("zero values", schematic.InputConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Size:           nil,
-				CommandChannel: nil,
-				Dimensions:     nil,
-				Color:          nil,
-				Disabled:       false,
-				Control:        nil,
-			}),
 		)
 	})
 	Describe("LabelConfig", func() {
@@ -1363,39 +930,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			}),
+			Entry("fully populated", fullyPopulatedLabeledConfig),
 			Entry("zero values", schematic.LabeledConfig{Label: nil, Orientation: nil}),
-		)
-	})
-	Describe("LightConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.LightConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.LightConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedLightConfig),
-			Entry("zero values", schematic.LightConfig{
-				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Channel:       nil,
-				Threshold:     nil,
-				Color:         nil,
-				Scale:         nil,
-			}),
 		)
 	})
 	Describe("Node", func() {
@@ -1420,59 +956,6 @@ var _ = Describe("Codec", func() {
 				Position: spatial.XY{X: 0, Y: 0},
 				ZIndex:   0,
 				Measured: spatial.Dimensions{Width: 0, Height: 0},
-			}),
-		)
-	})
-	Describe("OffPageReferenceConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.OffPageReferenceConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.OffPageReferenceConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedOffPageReferenceConfig),
-			Entry("zero values", schematic.OffPageReferenceConfig{
-				Orientation: nil,
-				Label: schematic.LabelConfig{
-					Label:         "",
-					Level:         nil,
-					Orientation:   nil,
-					Direction:     nil,
-					MaxInlineSize: nil,
-					Align:         nil,
-				},
-				Level:       nil,
-				Color:       nil,
-				Page:        "",
-				DblClickNav: false,
-			}),
-		)
-	})
-	Describe("PolygonConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.PolygonConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.PolygonConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedPolygonConfig),
-			Entry("zero values", schematic.PolygonConfig{
-				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
-				NumSides:        0,
-				SideLength:      0,
-				Rotation:        nil,
-				CornerRounding:  nil,
-				Color:           nil,
-				BackgroundColor: nil,
-				StrokeWidth:     nil,
 			}),
 		)
 	})
@@ -1596,157 +1079,6 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("SelectConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.SelectConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.SelectConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedSelectConfig),
-			Entry("zero values", schematic.SelectConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Size:           nil,
-				CommandChannel: nil,
-				Color:          nil,
-				InlineSize:     nil,
-				Options:        nil,
-				Disabled:       false,
-				Control:        nil,
-			}),
-			Entry("empty collections", schematic.SelectConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Size:           new(schematic.ComponentSize("tiny")),
-				CommandChannel: new(channel.Key(11)),
-				Color: new(color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				}),
-				InlineSize: new(float64(16.5)),
-				Options:    []schematic.StateMapping{},
-				Disabled:   false,
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(21)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-			}),
-		)
-	})
-	Describe("SetpointConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.SetpointConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.SetpointConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedSetpointConfig),
-			Entry("zero values", schematic.SetpointConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Size:           nil,
-				StateChannel:   nil,
-				CommandChannel: nil,
-				Dimensions:     nil,
-				Color:          nil,
-				Units:          "",
-				Disabled:       false,
-				Control:        nil,
-			}),
-		)
-	})
-	Describe("SolenoidValveConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.SolenoidValveConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.SolenoidValveConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedSolenoidValveConfig),
-			Entry("zero values", schematic.SolenoidValveConfig{
-				ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-					ToggleConfig: schematic.ToggleConfig{
-						LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-						StateChannel:   nil,
-						CommandChannel: nil,
-						Control:        nil,
-						OnClickDelay:   0,
-					},
-					Color: nil,
-					Scale: nil,
-				},
-				NormallyOpen: false,
-			}),
-		)
-	})
-	Describe("StateIndicatorConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.StateIndicatorConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.StateIndicatorConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedStateIndicatorConfig),
-			Entry("zero values", schematic.StateIndicatorConfig{
-				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Channel:       nil,
-				Color:         nil,
-				InlineSize:    nil,
-				Options:       nil,
-			}),
-			Entry("empty collections", schematic.StateIndicatorConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Channel: new(channel.Key(10)),
-				Color: new(color.Color{
-					R: 12,
-					G: 13,
-					B: 14,
-					A: 14.5,
-				}),
-				InlineSize: new(float64(15.5)),
-				Options:    []schematic.StateMapping{},
-			}),
-		)
-	})
 	Describe("StateMapping", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.StateMapping) {
@@ -1796,50 +1128,6 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("TankConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.TankConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.TankConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedTankConfig),
-			Entry("zero values", schematic.TankConfig{
-				LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Color:           nil,
-				BackgroundColor: nil,
-				Dimensions:      nil,
-				BorderRadius:    nil,
-			}),
-		)
-	})
-	Describe("TextBoxConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.TextBoxConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.TextBoxConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedTextBoxConfig),
-			Entry("zero values", schematic.TextBoxConfig{
-				LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Color:         nil,
-				Width:         nil,
-				Align:         nil,
-				AutoFit:       false,
-				Level:         nil,
-				Value:         "",
-			}),
-		)
-	})
 	Describe("ToggleConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.ToggleConfig) {
@@ -1851,29 +1139,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", schematic.ToggleConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				StateChannel:   new(channel.Key(10)),
-				CommandChannel: new(channel.Key(11)),
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(13)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-				OnClickDelay: 17.5,
-			}),
+			Entry("fully populated", fullyPopulatedToggleConfig),
 			Entry("zero values", schematic.ToggleConfig{
 				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
 				StateChannel:   nil,
@@ -1908,144 +1174,7 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("ValueConfig", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original schematic.ValueConfig) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded schematic.ValueConfig
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedValueConfig),
-			Entry("zero values", schematic.ValueConfig{
-				LabeledConfig:           schematic.LabeledConfig{Label: nil, Orientation: nil},
-				Position:                nil,
-				Color:                   nil,
-				TextColor:               nil,
-				Tooltip:                 nil,
-				Redline:                 nil,
-				Units:                   "",
-				InlineSize:              nil,
-				Channel:                 nil,
-				RollingAverage:          nil,
-				Level:                   nil,
-				Precision:               nil,
-				StalenessTimeout:        nil,
-				StalenessColor:          nil,
-				MinWidth:                nil,
-				Notation:                nil,
-				Location:                nil,
-				UseWidthForBackground:   false,
-				ValueBackgroundShift:    nil,
-				ValueBackgroundOverScan: nil,
-			}),
-			Entry("empty collections", schematic.ValueConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-				Color: new(color.Color{
-					R: 14,
-					G: 15,
-					B: 16,
-					A: 16.5,
-				}),
-				TextColor: new(color.Color{
-					R: 19,
-					G: 20,
-					B: 21,
-					A: 21.5,
-				}),
-				Tooltip:          []string{},
-				Redline:          new(schematic.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}),
-				Units:            "test_26",
-				InlineSize:       new(float64(27.5)),
-				Channel:          new(channel.Key(29)),
-				RollingAverage:   new(int32(30)),
-				Level:            new(text.Level("h1")),
-				Precision:        new(float64(31.5)),
-				StalenessTimeout: new(float64(32.5)),
-				StalenessColor: new(color.Color{
-					R: 35,
-					G: 36,
-					B: 37,
-					A: 37.5,
-				}),
-				MinWidth: new(float64(38.5)),
-				Notation: new(notation.Notation("standard")),
-				Location: new(spatial.LocationXY{
-					X: spatial.XCenterLocation("left"),
-					Y: spatial.YCenterLocation("top"),
-				}),
-				UseWidthForBackground:   true,
-				ValueBackgroundShift:    new(spatial.XY{X: 45.5, Y: 46.5}),
-				ValueBackgroundOverScan: new(spatial.XY{X: 48.5, Y: 49.5}),
-			}),
-		)
-	})
 })
-
-func BenchmarkEncodeDecodeBoxConfig(b *testing.B) {
-	bc := fullyPopulatedBoxConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := bc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.BoxConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeButtonConfig(b *testing.B) {
-	bc := fullyPopulatedButtonConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := bc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.ButtonConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeCircleConfig(b *testing.B) {
-	cc := fullyPopulatedCircleConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := cc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.CircleConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
 
 func BenchmarkEncodeDecodeControlStateConfig(b *testing.B) {
 	csc := schematic.ControlStateConfig{
@@ -2063,57 +1192,6 @@ func BenchmarkEncodeDecodeControlStateConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded schematic.ControlStateConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeCustomActuatorConfig(b *testing.B) {
-	cac := fullyPopulatedCustomActuatorConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := cac.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.CustomActuatorConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeCustomStaticConfig(b *testing.B) {
-	csc := fullyPopulatedCustomStaticConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := csc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.CustomStaticConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeCylinderConfig(b *testing.B) {
-	cc := fullyPopulatedCylinderConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := cc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.CylinderConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2176,23 +1254,6 @@ func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeGaugeConfig(b *testing.B) {
-	gc := fullyPopulatedGaugeConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := gc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.GaugeConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeHandle(b *testing.B) {
 	h := schematic.Handle{Node: "test_1", Param: "test_2"}
 	w := orc.NewWriter(0)
@@ -2203,23 +1264,6 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded schematic.Handle
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeInputConfig(b *testing.B) {
-	ic := fullyPopulatedInputConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := ic.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.InputConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2252,17 +1296,7 @@ func BenchmarkEncodeDecodeLabelConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeLabeledConfig(b *testing.B) {
-	lc := schematic.LabeledConfig{
-		Label: new(schematic.LabelConfig{
-			Label:         "test_2",
-			Level:         new(text.Level("h1")),
-			Orientation:   new(spatial.Location("top")),
-			Direction:     new(spatial.Direction("x")),
-			MaxInlineSize: new(float64(6.5)),
-			Align:         new(schematic.FlexAlignment("start")),
-		}),
-		Orientation: new(spatial.OuterLocation("top")),
-	}
+	lc := fullyPopulatedLabeledConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -2271,23 +1305,6 @@ func BenchmarkEncodeDecodeLabeledConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded schematic.LabeledConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeLightConfig(b *testing.B) {
-	lc := fullyPopulatedLightConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := lc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.LightConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2310,40 +1327,6 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded schematic.Node
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeOffPageReferenceConfig(b *testing.B) {
-	oprc := fullyPopulatedOffPageReferenceConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := oprc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.OffPageReferenceConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodePolygonConfig(b *testing.B) {
-	pc := fullyPopulatedPolygonConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := pc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.PolygonConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2454,74 +1437,6 @@ func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeSelectConfig(b *testing.B) {
-	sc := fullyPopulatedSelectConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := sc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.SelectConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeSetpointConfig(b *testing.B) {
-	sc := fullyPopulatedSetpointConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := sc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.SetpointConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeSolenoidValveConfig(b *testing.B) {
-	svc := fullyPopulatedSolenoidValveConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := svc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.SolenoidValveConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeStateIndicatorConfig(b *testing.B) {
-	sic := fullyPopulatedStateIndicatorConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := sic.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.StateIndicatorConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeStateMapping(b *testing.B) {
 	sm := schematic.StateMapping{
 		Key:   "test_1",
@@ -2566,64 +1481,8 @@ func BenchmarkEncodeDecodeStaticSymbolConfig(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeTankConfig(b *testing.B) {
-	tc := fullyPopulatedTankConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := tc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.TankConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeTextBoxConfig(b *testing.B) {
-	tbc := fullyPopulatedTextBoxConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := tbc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.TextBoxConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeToggleConfig(b *testing.B) {
-	tc := schematic.ToggleConfig{
-		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		},
-		StateChannel:   new(channel.Key(10)),
-		CommandChannel: new(channel.Key(11)),
-		Control: new(schematic.ControlStateConfig{
-			Authority:     new(uint8(13)),
-			Show:          true,
-			ShowChip:      false,
-			ShowIndicator: true,
-			Orientation:   new(spatial.Location("top")),
-		}),
-		OnClickDelay: 17.5,
-	}
+	tc := fullyPopulatedToggleConfig
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -2654,184 +1513,6 @@ func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-}
-
-func BenchmarkEncodeDecodeValueConfig(b *testing.B) {
-	vc := fullyPopulatedValueConfig
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := vc.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded schematic.ValueConfig
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func FuzzDecodeBoxConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedBoxConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.BoxConfig{
-			Label:           nil,
-			Orientation:     nil,
-			Color:           nil,
-			BackgroundColor: nil,
-			Dimensions:      nil,
-			BorderRadius:    nil,
-			StrokeWidth:     nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.BoxConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.BoxConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeButtonConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedButtonConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ButtonConfig{
-			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Size:           nil,
-			Level:          nil,
-			OnClickDelay:   0,
-			CommandChannel: nil,
-			Mode:           nil,
-			Color:          nil,
-			Control:        nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.ButtonConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.ButtonConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeCircleConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedCircleConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.CircleConfig{
-			LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Radius:          0,
-			Color:           nil,
-			BackgroundColor: nil,
-			StrokeWidth:     nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.CircleConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.CircleConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
 }
 
 func FuzzDecodeControlStateConfig(f *testing.F) {
@@ -2875,238 +1556,6 @@ func FuzzDecodeControlStateConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.ControlStateConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeCustomActuatorConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedCustomActuatorConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.CustomActuatorConfig{
-			ToggleConfig: schematic.ToggleConfig{
-				LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-				StateChannel:   nil,
-				CommandChannel: nil,
-				Control:        nil,
-				OnClickDelay:   0,
-			},
-			SpecKey:        "",
-			Color:          nil,
-			Scale:          nil,
-			StateOverrides: nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.CustomActuatorConfig{
-			ToggleConfig: schematic.ToggleConfig{
-				LabeledConfig: schematic.LabeledConfig{
-					Label: new(schematic.LabelConfig{
-						Label:         "test_2",
-						Level:         new(text.Level("h1")),
-						Orientation:   new(spatial.Location("top")),
-						Direction:     new(spatial.Direction("x")),
-						MaxInlineSize: new(float64(6.5)),
-						Align:         new(schematic.FlexAlignment("start")),
-					}),
-					Orientation: new(spatial.OuterLocation("top")),
-				},
-				StateChannel:   new(channel.Key(10)),
-				CommandChannel: new(channel.Key(11)),
-				Control: new(schematic.ControlStateConfig{
-					Authority:     new(uint8(13)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
-					Orientation:   new(spatial.Location("top")),
-				}),
-				OnClickDelay: 17.5,
-			},
-			SpecKey: "test_18",
-			Color: new(color.Color{
-				R: 21,
-				G: 22,
-				B: 23,
-				A: 23.5,
-			}),
-			Scale:          new(float64(24.5)),
-			StateOverrides: []msgpack.EncodedJSON{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.CustomActuatorConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.CustomActuatorConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeCustomStaticConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedCustomStaticConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.CustomStaticConfig{
-			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-			SpecKey:        "",
-			Color:          nil,
-			Scale:          nil,
-			StateOverrides: nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.CustomStaticConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			SpecKey: "test_9",
-			Color: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 14.5,
-			}),
-			Scale:          new(float64(15.5)),
-			StateOverrides: []msgpack.EncodedJSON{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.CustomStaticConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.CustomStaticConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeCylinderConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedCylinderConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.CylinderConfig{
-			LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Dimensions:      nil,
-			BorderRadius:    nil,
-			Color:           nil,
-			BackgroundColor: nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.CylinderConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.CylinderConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -3480,56 +1929,31 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBox{BoxConfig: fullyPopulatedBoxConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButton{ButtonConfig: fullyPopulatedButtonConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCircle{CircleConfig: fullyPopulatedCircleConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigGauge{GaugeConfig: fullyPopulatedGaugeConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigInput{InputConfig: fullyPopulatedInputConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigLight{LightConfig: fullyPopulatedLightConfig}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
-			OffPageReferenceConfig: fullyPopulatedOffPageReferenceConfig,
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBox{
+			Label: new(schematic.LabelConfig{
+				Label:         "test_2",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+			Color: new(color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
+			}),
+			Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
+			BorderRadius: new(float64(22.5)),
+			StrokeWidth:  new(float64(23.5)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3538,7 +1962,27 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{PolygonConfig: fullyPopulatedPolygonConfig}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButton{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			Size:           new(schematic.ComponentSize("tiny")),
+			Level:          new(text.Level("h1")),
+			OnClickDelay:   3.5,
+			CommandChannel: new(channel.Key(5)),
+			Mode:           new(schematic.ButtonMode("fire")),
+			Color: new(color.Color{
+				R: 8,
+				G: 9,
+				B: 10,
+				A: 10.5,
+			}),
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(13)),
+				Show:          true,
+				ShowChip:      false,
+				ShowIndicator: true,
+				Orientation:   new(spatial.Location("top")),
+			}),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3546,7 +1990,23 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSelect{SelectConfig: fullyPopulatedSelectConfig}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCircle{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Radius:        1.5,
+			Color: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 9,
+				G: 10,
+				B: 11,
+				A: 11.5,
+			}),
+			StrokeWidth: new(float64(12.5)),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3554,7 +2014,199 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{SetpointConfig: fullyPopulatedSetpointConfig}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigGauge{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
+			Color: new(color.Color{
+				R: 6,
+				G: 7,
+				B: 8,
+				A: 8.5,
+			}),
+			Bounds:         new(spatial.Bounds{}),
+			BarWidth:       new(float64(10.5)),
+			Channel:        new(channel.Key(12)),
+			RollingAverage: new(int32(13)),
+			Precision:      new(float64(13.5)),
+			MinWidth:       new(float64(14.5)),
+			Width:          new(float64(15.5)),
+			Notation:       new(notation.Notation("standard")),
+			Location: new(spatial.LocationXY{
+				X: spatial.XCenterLocation("left"),
+				Y: spatial.YCenterLocation("top"),
+			}),
+			Units: "test_20",
+			Level: new(text.Level("h1")),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigInput{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			Size:           new(schematic.ComponentSize("tiny")),
+			CommandChannel: new(channel.Key(3)),
+			Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
+			Color: new(color.Color{
+				R: 8,
+				G: 9,
+				B: 10,
+				A: 10.5,
+			}),
+			Disabled: true,
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(14)),
+				Show:          false,
+				ShowChip:      true,
+				ShowIndicator: false,
+				Orientation:   new(spatial.Location("top")),
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigLight{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Channel:       new(channel.Key(2)),
+			Threshold:     new(spatial.Bounds{}),
+			Color: new(color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			}),
+			Scale: new(float64(8.5)),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
+			Orientation: new(spatial.OuterLocation("top")),
+			Label: schematic.LabelConfig{
+				Label:         "test_3",
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(7.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			},
+			Level: new(text.Level("h1")),
+			Color: new(color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}),
+			Page:        "test_15",
+			DblClickNav: false,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			NumSides:       1.5,
+			SideLength:     2.5,
+			Rotation:       new(float64(3.5)),
+			CornerRounding: new(float64(4.5)),
+			Color: new(color.Color{
+				R: 7,
+				G: 8,
+				B: 9,
+				A: 9.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}),
+			StrokeWidth: new(float64(15.5)),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSelect{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			Size:           new(schematic.ComponentSize("tiny")),
+			CommandChannel: new(channel.Key(3)),
+			Color: new(color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			}),
+			InlineSize: new(float64(8.5)),
+			Options: []schematic.StateMapping{
+				{
+					Key:   "test_10",
+					Name:  "test_11",
+					Value: 12.5,
+					Color: new(color.Color{
+						R: 15,
+						G: 16,
+						B: 17,
+						A: 17.5,
+					}),
+				},
+			},
+			Disabled: false,
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(21)),
+				Show:          true,
+				ShowChip:      false,
+				ShowIndicator: true,
+				Orientation:   new(spatial.Location("top")),
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			Size:           new(schematic.ComponentSize("tiny")),
+			StateChannel:   new(channel.Key(3)),
+			CommandChannel: new(channel.Key(4)),
+			Dimensions:     new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+			Color: new(color.Color{
+				R: 9,
+				G: 10,
+				B: 11,
+				A: 11.5,
+			}),
+			Units:    "test_12",
+			Disabled: true,
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(16)),
+				Show:          false,
+				ShowChip:      true,
+				ShowIndicator: false,
+				Orientation:   new(spatial.Location("top")),
+			}),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3563,7 +2215,28 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStateIndicator{
-			StateIndicatorConfig: fullyPopulatedStateIndicatorConfig,
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Channel:       new(channel.Key(2)),
+			Color: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			InlineSize: new(float64(7.5)),
+			Options: []schematic.StateMapping{
+				{
+					Key:   "test_9",
+					Name:  "test_10",
+					Value: 11.5,
+					Color: new(color.Color{
+						R: 14,
+						G: 15,
+						B: 16,
+						A: 16.5,
+					}),
+				},
+			},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3582,7 +2255,20 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{TextBoxConfig: fullyPopulatedTextBoxConfig}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Color: new(color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}),
+			Width:   new(float64(6.5)),
+			Align:   new(schematic.FlexAlignment("start")),
+			AutoFit: false,
+			Level:   new(text.Level("h1")),
+			Value:   "test_10",
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3590,7 +2276,56 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigValue{ValueConfig: fullyPopulatedValueConfig}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigValue{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
+			Color: new(color.Color{
+				R: 6,
+				G: 7,
+				B: 8,
+				A: 8.5,
+			}),
+			TextColor: new(color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}),
+			Tooltip: []string{"test_14"},
+			Redline: new(schematic.Redline{
+				Bounds: spatial.Bounds{},
+				Gradient: []color.Stop{
+					{
+						Key:      "test_18",
+						Color:    color.Color{},
+						Position: 20.5,
+						Switched: true,
+					},
+				},
+			}),
+			Units:            "test_22",
+			InlineSize:       new(float64(23.5)),
+			Channel:          new(channel.Key(25)),
+			RollingAverage:   new(int32(26)),
+			Level:            new(text.Level("h1")),
+			Precision:        new(float64(27.5)),
+			StalenessTimeout: new(float64(28.5)),
+			StalenessColor: new(color.Color{
+				R: 31,
+				G: 32,
+				B: 33,
+				A: 33.5,
+			}),
+			MinWidth: new(float64(34.5)),
+			Notation: new(notation.Notation("standard")),
+			Location: new(spatial.LocationXY{
+				X: spatial.XCenterLocation("left"),
+				Y: spatial.YCenterLocation("top"),
+			}),
+			UseWidthForBackground:   true,
+			ValueBackgroundShift:    new(spatial.XY{X: 41.5, Y: 42.5}),
+			ValueBackgroundOverScan: new(spatial.XY{X: 44.5, Y: 45.5}),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4099,7 +2834,8 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSolenoidValve{
-			SolenoidValveConfig: fullyPopulatedSolenoidValveConfig,
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			NormallyOpen:       true,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4158,7 +2894,28 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{CylinderConfig: fullyPopulatedCylinderConfig}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Dimensions:    new(spatial.Dimensions{Width: 2.5, Height: 3.5}),
+			BorderRadius: new(border.Radius{
+				TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
+				TopRight:    spatial.XY{X: 9.5, Y: 10.5},
+				BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
+				BottomRight: spatial.XY{X: 15.5, Y: 16.5},
+			}),
+			Color: new(color.Color{
+				R: 19,
+				G: 20,
+				B: 21,
+				A: 21.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 24,
+				G: 25,
+				B: 26,
+				A: 26.5,
+			}),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4166,7 +2923,28 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTank{TankConfig: fullyPopulatedTankConfig}}
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTank{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Color: new(color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 8,
+				G: 9,
+				B: 10,
+				A: 10.5,
+			}),
+			Dimensions: new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
+			BorderRadius: new(border.Radius{
+				TopLeft:     spatial.XY{X: 16.5, Y: 17.5},
+				TopRight:    spatial.XY{X: 19.5, Y: 20.5},
+				BottomLeft:  spatial.XY{X: 22.5, Y: 23.5},
+				BottomRight: spatial.XY{X: 25.5, Y: 26.5},
+			}),
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4185,7 +2963,16 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCustomActuator{
-			CustomActuatorConfig: fullyPopulatedCustomActuatorConfig,
+			ToggleConfig: fullyPopulatedToggleConfig,
+			SpecKey:      "test_1",
+			Color: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			Scale:          new(float64(7.5)),
+			StateOverrides: []msgpack.EncodedJSON{{"key_8": "value_8"}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4195,7 +2982,16 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCustomStatic{
-			CustomStaticConfig: fullyPopulatedCustomStaticConfig,
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			SpecKey:       "test_1",
+			Color: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			Scale:          new(float64(7.5)),
+			StateOverrides: []msgpack.EncodedJSON{{"key_8": "value_8"}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4302,67 +3098,6 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	})
 }
 
-func FuzzDecodeGaugeConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedGaugeConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.GaugeConfig{
-			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Position:       nil,
-			Color:          nil,
-			Bounds:         nil,
-			BarWidth:       nil,
-			Channel:        nil,
-			RollingAverage: nil,
-			Precision:      nil,
-			MinWidth:       nil,
-			Width:          nil,
-			Notation:       nil,
-			Location:       nil,
-			Units:          "",
-			Level:          nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.GaugeConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.GaugeConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeHandle(f *testing.F) {
 	{
 		seed := schematic.Handle{Node: "test_1", Param: "test_2"}
@@ -4392,60 +3127,6 @@ func FuzzDecodeHandle(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.Handle
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeInputConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedInputConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.InputConfig{
-			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Size:           nil,
-			CommandChannel: nil,
-			Dimensions:     nil,
-			Color:          nil,
-			Disabled:       false,
-			Control:        nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.InputConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.InputConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -4525,17 +3206,7 @@ func FuzzDecodeLabelConfig(f *testing.F) {
 
 func FuzzDecodeLabeledConfig(f *testing.F) {
 	{
-		seed := schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
-				Level:         new(text.Level("h1")),
-				Orientation:   new(spatial.Location("top")),
-				Direction:     new(spatial.Direction("x")),
-				MaxInlineSize: new(float64(6.5)),
-				Align:         new(schematic.FlexAlignment("start")),
-			}),
-			Orientation: new(spatial.OuterLocation("top")),
-		}
+		seed := fullyPopulatedLabeledConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -4562,58 +3233,6 @@ func FuzzDecodeLabeledConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.LabeledConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeLightConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedLightConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.LightConfig{
-			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Channel:       nil,
-			Threshold:     nil,
-			Color:         nil,
-			Scale:         nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.LightConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.LightConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -4670,121 +3289,6 @@ func FuzzDecodeNode(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.Node
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeOffPageReferenceConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedOffPageReferenceConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.OffPageReferenceConfig{
-			Orientation: nil,
-			Label: schematic.LabelConfig{
-				Label:         "",
-				Level:         nil,
-				Orientation:   nil,
-				Direction:     nil,
-				MaxInlineSize: nil,
-				Align:         nil,
-			},
-			Level:       nil,
-			Color:       nil,
-			Page:        "",
-			DblClickNav: false,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.OffPageReferenceConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.OffPageReferenceConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodePolygonConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedPolygonConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.PolygonConfig{
-			LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
-			NumSides:        0,
-			SideLength:      0,
-			Rotation:        nil,
-			CornerRounding:  nil,
-			Color:           nil,
-			BackgroundColor: nil,
-			StrokeWidth:     nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.PolygonConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.PolygonConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -5067,295 +3571,6 @@ func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
 	})
 }
 
-func FuzzDecodeSelectConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedSelectConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.SelectConfig{
-			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Size:           nil,
-			CommandChannel: nil,
-			Color:          nil,
-			InlineSize:     nil,
-			Options:        nil,
-			Disabled:       false,
-			Control:        nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.SelectConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Size:           new(schematic.ComponentSize("tiny")),
-			CommandChannel: new(channel.Key(11)),
-			Color: new(color.Color{
-				R: 13,
-				G: 14,
-				B: 15,
-				A: 15.5,
-			}),
-			InlineSize: new(float64(16.5)),
-			Options:    []schematic.StateMapping{},
-			Disabled:   false,
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(21)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
-				Orientation:   new(spatial.Location("top")),
-			}),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.SelectConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.SelectConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeSetpointConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedSetpointConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.SetpointConfig{
-			LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Size:           nil,
-			StateChannel:   nil,
-			CommandChannel: nil,
-			Dimensions:     nil,
-			Color:          nil,
-			Units:          "",
-			Disabled:       false,
-			Control:        nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.SetpointConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.SetpointConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeSolenoidValveConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedSolenoidValveConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.SolenoidValveConfig{
-			ToggleSymbolConfig: schematic.ToggleSymbolConfig{
-				ToggleConfig: schematic.ToggleConfig{
-					LabeledConfig:  schematic.LabeledConfig{Label: nil, Orientation: nil},
-					StateChannel:   nil,
-					CommandChannel: nil,
-					Control:        nil,
-					OnClickDelay:   0,
-				},
-				Color: nil,
-				Scale: nil,
-			},
-			NormallyOpen: false,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.SolenoidValveConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.SolenoidValveConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeStateIndicatorConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedStateIndicatorConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.StateIndicatorConfig{
-			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Channel:       nil,
-			Color:         nil,
-			InlineSize:    nil,
-			Options:       nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.StateIndicatorConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Channel: new(channel.Key(10)),
-			Color: new(color.Color{
-				R: 12,
-				G: 13,
-				B: 14,
-				A: 14.5,
-			}),
-			InlineSize: new(float64(15.5)),
-			Options:    []schematic.StateMapping{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.StateIndicatorConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.StateIndicatorConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeStateMapping(f *testing.F) {
 	{
 		seed := schematic.StateMapping{
@@ -5467,137 +3682,9 @@ func FuzzDecodeStaticSymbolConfig(f *testing.F) {
 	})
 }
 
-func FuzzDecodeTankConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedTankConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.TankConfig{
-			LabeledConfig:   schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Color:           nil,
-			BackgroundColor: nil,
-			Dimensions:      nil,
-			BorderRadius:    nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.TankConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.TankConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeTextBoxConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedTextBoxConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.TextBoxConfig{
-			LabeledConfig: schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Color:         nil,
-			Width:         nil,
-			Align:         nil,
-			AutoFit:       false,
-			Level:         nil,
-			Value:         "",
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.TextBoxConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.TextBoxConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeToggleConfig(f *testing.F) {
 	{
-		seed := schematic.ToggleConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			StateChannel:   new(channel.Key(10)),
-			CommandChannel: new(channel.Key(11)),
-			Control: new(schematic.ControlStateConfig{
-				Authority:     new(uint8(13)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
-				Orientation:   new(spatial.Location("top")),
-			}),
-			OnClickDelay: 17.5,
-		}
+		seed := fullyPopulatedToggleConfig
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -5686,130 +3773,6 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.ToggleSymbolConfig
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeValueConfig(f *testing.F) {
-	{
-		seed := fullyPopulatedValueConfig
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ValueConfig{
-			LabeledConfig:           schematic.LabeledConfig{Label: nil, Orientation: nil},
-			Position:                nil,
-			Color:                   nil,
-			TextColor:               nil,
-			Tooltip:                 nil,
-			Redline:                 nil,
-			Units:                   "",
-			InlineSize:              nil,
-			Channel:                 nil,
-			RollingAverage:          nil,
-			Level:                   nil,
-			Precision:               nil,
-			StalenessTimeout:        nil,
-			StalenessColor:          nil,
-			MinWidth:                nil,
-			Notation:                nil,
-			Location:                nil,
-			UseWidthForBackground:   false,
-			ValueBackgroundShift:    nil,
-			ValueBackgroundOverScan: nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := schematic.ValueConfig{
-			LabeledConfig: schematic.LabeledConfig{
-				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
-					Level:         new(text.Level("h1")),
-					Orientation:   new(spatial.Location("top")),
-					Direction:     new(spatial.Direction("x")),
-					MaxInlineSize: new(float64(6.5)),
-					Align:         new(schematic.FlexAlignment("start")),
-				}),
-				Orientation: new(spatial.OuterLocation("top")),
-			},
-			Position: new(spatial.XY{X: 10.5, Y: 11.5}),
-			Color: new(color.Color{
-				R: 14,
-				G: 15,
-				B: 16,
-				A: 16.5,
-			}),
-			TextColor: new(color.Color{
-				R: 19,
-				G: 20,
-				B: 21,
-				A: 21.5,
-			}),
-			Tooltip:          []string{},
-			Redline:          new(schematic.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}),
-			Units:            "test_26",
-			InlineSize:       new(float64(27.5)),
-			Channel:          new(channel.Key(29)),
-			RollingAverage:   new(int32(30)),
-			Level:            new(text.Level("h1")),
-			Precision:        new(float64(31.5)),
-			StalenessTimeout: new(float64(32.5)),
-			StalenessColor: new(color.Color{
-				R: 35,
-				G: 36,
-				B: 37,
-				A: 37.5,
-			}),
-			MinWidth: new(float64(38.5)),
-			Notation: new(notation.Notation("standard")),
-			Location: new(spatial.LocationXY{
-				X: spatial.XCenterLocation("left"),
-				Y: spatial.YCenterLocation("top"),
-			}),
-			UseWidthForBackground:   true,
-			ValueBackgroundShift:    new(spatial.XY{X: 45.5, Y: 46.5}),
-			ValueBackgroundOverScan: new(spatial.XY{X: 48.5, Y: 49.5}),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded schematic.ValueConfig
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded schematic.ValueConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

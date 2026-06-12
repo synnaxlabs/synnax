@@ -971,130 +971,6 @@ func DummyToggleSymbolConfigsFromPB(pbs []*DummyToggleSymbolConfig) ([]schematic
 	return result, nil
 }
 
-// SolenoidValveConfigToPB converts SolenoidValveConfig to SolenoidValveConfig.
-func SolenoidValveConfigToPB(r schematic.SolenoidValveConfig) (*SolenoidValveConfig, error) {
-	pb := &SolenoidValveConfig{
-		OnClickDelay: r.OnClickDelay,
-		NormallyOpen: r.NormallyOpen,
-	}
-	if r.Label != nil {
-		var err error
-		pb.Label, err = LabelConfigToPB(*r.Label)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Orientation != nil {
-		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
-		if err != nil {
-			return nil, err
-		}
-		pb.Orientation = &val
-	}
-	if r.StateChannel != nil {
-		v := uint32(*r.StateChannel)
-		pb.StateChannel = &v
-	}
-	if r.CommandChannel != nil {
-		v := uint32(*r.CommandChannel)
-		pb.CommandChannel = &v
-	}
-	if r.Control != nil {
-		var err error
-		pb.Control, err = ControlStateConfigToPB(*r.Control)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Color != nil {
-		var err error
-		pb.Color, err = colorpb.ColorToPB(*r.Color)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Scale != nil {
-		pb.Scale = r.Scale
-	}
-	return pb, nil
-}
-
-// SolenoidValveConfigFromPB converts SolenoidValveConfig to SolenoidValveConfig.
-func SolenoidValveConfigFromPB(pb *SolenoidValveConfig) (schematic.SolenoidValveConfig, error) {
-	var r schematic.SolenoidValveConfig
-	if pb == nil {
-		return r, nil
-	}
-	r.OnClickDelay = pb.OnClickDelay
-	r.NormallyOpen = pb.NormallyOpen
-	if pb.Label != nil {
-		val, err := LabelConfigFromPB(pb.Label)
-		if err != nil {
-			return schematic.SolenoidValveConfig{}, err
-		}
-		r.Label = &val
-	}
-	if pb.Orientation != nil {
-		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
-		if err != nil {
-			return schematic.SolenoidValveConfig{}, err
-		}
-		r.Orientation = &val
-	}
-	if pb.StateChannel != nil {
-		v := channel.Key(*pb.StateChannel)
-		r.StateChannel = &v
-	}
-	if pb.CommandChannel != nil {
-		v := channel.Key(*pb.CommandChannel)
-		r.CommandChannel = &v
-	}
-	if pb.Control != nil {
-		val, err := ControlStateConfigFromPB(pb.Control)
-		if err != nil {
-			return schematic.SolenoidValveConfig{}, err
-		}
-		r.Control = &val
-	}
-	if pb.Color != nil {
-		val, err := colorpb.ColorFromPB(pb.Color)
-		if err != nil {
-			return schematic.SolenoidValveConfig{}, err
-		}
-		r.Color = &val
-	}
-	if pb.Scale != nil {
-		r.Scale = pb.Scale
-	}
-	return r, nil
-}
-
-// SolenoidValveConfigsToPB converts a slice of SolenoidValveConfig to SolenoidValveConfig.
-func SolenoidValveConfigsToPB(rs []schematic.SolenoidValveConfig) ([]*SolenoidValveConfig, error) {
-	result := make([]*SolenoidValveConfig, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = SolenoidValveConfigToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// SolenoidValveConfigsFromPB converts a slice of SolenoidValveConfig to SolenoidValveConfig.
-func SolenoidValveConfigsFromPB(pbs []*SolenoidValveConfig) ([]schematic.SolenoidValveConfig, error) {
-	result := make([]schematic.SolenoidValveConfig, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = SolenoidValveConfigFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // StateMappingToPB converts StateMapping to StateMapping.
 func StateMappingToPB(r schematic.StateMapping) (*StateMapping, error) {
 	pb := &StateMapping{
@@ -1218,9 +1094,100 @@ func RedlinesFromPB(pbs []*Redline) ([]schematic.Redline, error) {
 	return result, nil
 }
 
-// BoxConfigToPB converts BoxConfig to BoxConfig.
-func BoxConfigToPB(r schematic.BoxConfig) (*BoxConfig, error) {
-	pb := &BoxConfig{}
+// SchematicToPB converts Schematic to Schematic.
+func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
+	nodesVal, err := NodesToPB(r.Nodes)
+	if err != nil {
+		return nil, err
+	}
+	edgesVal, err := EdgesToPB(r.Edges)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Schematic{
+		Name:     r.Name,
+		Snapshot: r.Snapshot,
+		Key:      r.Key.String(),
+		Nodes:    nodesVal,
+		Edges:    edgesVal,
+	}
+	if r.Configs != nil {
+		pb.Configs = make(map[string]*ElementConfig, len(r.Configs))
+		for k, v := range r.Configs {
+			converted, err := ElementConfigToPB(v)
+			if err != nil {
+				return nil, err
+			}
+			pb.Configs[k] = converted
+		}
+	}
+	return pb, nil
+}
+
+// SchematicFromPB converts Schematic to Schematic.
+func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
+	var r schematic.Schematic
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	parsedKey, err := uuid.Parse(pb.Key)
+	if err != nil {
+		return schematic.Schematic{}, err
+	}
+	r.Key = schematic.Key(parsedKey)
+	r.Nodes, err = NodesFromPB(pb.Nodes)
+	if err != nil {
+		return schematic.Schematic{}, err
+	}
+	r.Edges, err = EdgesFromPB(pb.Edges)
+	if err != nil {
+		return schematic.Schematic{}, err
+	}
+	r.Name = pb.Name
+	r.Snapshot = pb.Snapshot
+	if pb.Configs != nil {
+		r.Configs = make(map[string]schematic.ElementConfig, len(pb.Configs))
+		for k, v := range pb.Configs {
+			converted, err := ElementConfigFromPB(v)
+			if err != nil {
+				return schematic.Schematic{}, err
+			}
+			r.Configs[k] = converted
+		}
+	}
+	return r, nil
+}
+
+// SchematicsToPB converts a slice of Schematic to Schematic.
+func SchematicsToPB(rs []schematic.Schematic) ([]*Schematic, error) {
+	result := make([]*Schematic, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SchematicToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SchematicsFromPB converts a slice of Schematic to Schematic.
+func SchematicsFromPB(pbs []*Schematic) ([]schematic.Schematic, error) {
+	result := make([]schematic.Schematic, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SchematicFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeConfigBoxToPB converts NodeConfigBox to NodeConfigBoxPayload.
+func NodeConfigBoxToPB(r schematic.NodeConfigBox) (*NodeConfigBoxPayload, error) {
+	pb := &NodeConfigBoxPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -1265,44 +1232,44 @@ func BoxConfigToPB(r schematic.BoxConfig) (*BoxConfig, error) {
 	return pb, nil
 }
 
-// BoxConfigFromPB converts BoxConfig to BoxConfig.
-func BoxConfigFromPB(pb *BoxConfig) (schematic.BoxConfig, error) {
-	var r schematic.BoxConfig
+// NodeConfigBoxFromPB converts NodeConfigBoxPayload to NodeConfigBox.
+func NodeConfigBoxFromPB(pb *NodeConfigBoxPayload) (schematic.NodeConfigBox, error) {
+	var r schematic.NodeConfigBox
 	if pb == nil {
 		return r, nil
 	}
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.BoxConfig{}, err
+			return schematic.NodeConfigBox{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.BoxConfig{}, err
+			return schematic.NodeConfigBox{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.BoxConfig{}, err
+			return schematic.NodeConfigBox{}, err
 		}
 		r.Color = &val
 	}
 	if pb.BackgroundColor != nil {
 		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
 		if err != nil {
-			return schematic.BoxConfig{}, err
+			return schematic.NodeConfigBox{}, err
 		}
 		r.BackgroundColor = &val
 	}
 	if pb.Dimensions != nil {
 		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
 		if err != nil {
-			return schematic.BoxConfig{}, err
+			return schematic.NodeConfigBox{}, err
 		}
 		r.Dimensions = &val
 	}
@@ -1315,12 +1282,12 @@ func BoxConfigFromPB(pb *BoxConfig) (schematic.BoxConfig, error) {
 	return r, nil
 }
 
-// BoxConfigsToPB converts a slice of BoxConfig to BoxConfig.
-func BoxConfigsToPB(rs []schematic.BoxConfig) ([]*BoxConfig, error) {
-	result := make([]*BoxConfig, len(rs))
+// NodeConfigBoxesToPB converts a slice of NodeConfigBox to NodeConfigBoxPayload.
+func NodeConfigBoxesToPB(rs []schematic.NodeConfigBox) ([]*NodeConfigBoxPayload, error) {
+	result := make([]*NodeConfigBoxPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = BoxConfigToPB(rs[i])
+		result[i], err = NodeConfigBoxToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1328,12 +1295,12 @@ func BoxConfigsToPB(rs []schematic.BoxConfig) ([]*BoxConfig, error) {
 	return result, nil
 }
 
-// BoxConfigsFromPB converts a slice of BoxConfig to BoxConfig.
-func BoxConfigsFromPB(pbs []*BoxConfig) ([]schematic.BoxConfig, error) {
-	result := make([]schematic.BoxConfig, len(pbs))
+// NodeConfigBoxesFromPB converts a slice of NodeConfigBoxPayload to NodeConfigBox.
+func NodeConfigBoxesFromPB(pbs []*NodeConfigBoxPayload) ([]schematic.NodeConfigBox, error) {
+	result := make([]schematic.NodeConfigBox, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = BoxConfigFromPB(pb)
+		result[i], err = NodeConfigBoxFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1341,9 +1308,9 @@ func BoxConfigsFromPB(pbs []*BoxConfig) ([]schematic.BoxConfig, error) {
 	return result, nil
 }
 
-// ButtonConfigToPB converts ButtonConfig to ButtonConfig.
-func ButtonConfigToPB(r schematic.ButtonConfig) (*ButtonConfig, error) {
-	pb := &ButtonConfig{
+// NodeConfigButtonToPB converts NodeConfigButton to NodeConfigButtonPayload.
+func NodeConfigButtonToPB(r schematic.NodeConfigButton) (*NodeConfigButtonPayload, error) {
+	pb := &NodeConfigButtonPayload{
 		OnClickDelay: r.OnClickDelay,
 	}
 	if r.Label != nil {
@@ -1402,9 +1369,9 @@ func ButtonConfigToPB(r schematic.ButtonConfig) (*ButtonConfig, error) {
 	return pb, nil
 }
 
-// ButtonConfigFromPB converts ButtonConfig to ButtonConfig.
-func ButtonConfigFromPB(pb *ButtonConfig) (schematic.ButtonConfig, error) {
-	var r schematic.ButtonConfig
+// NodeConfigButtonFromPB converts NodeConfigButtonPayload to NodeConfigButton.
+func NodeConfigButtonFromPB(pb *NodeConfigButtonPayload) (schematic.NodeConfigButton, error) {
+	var r schematic.NodeConfigButton
 	if pb == nil {
 		return r, nil
 	}
@@ -1412,28 +1379,28 @@ func ButtonConfigFromPB(pb *ButtonConfig) (schematic.ButtonConfig, error) {
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.ButtonConfig{}, err
+			return schematic.NodeConfigButton{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.ButtonConfig{}, err
+			return schematic.NodeConfigButton{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
 		if err != nil {
-			return schematic.ButtonConfig{}, err
+			return schematic.NodeConfigButton{}, err
 		}
 		r.Size = &val
 	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
-			return schematic.ButtonConfig{}, err
+			return schematic.NodeConfigButton{}, err
 		}
 		r.Level = &val
 	}
@@ -1444,33 +1411,33 @@ func ButtonConfigFromPB(pb *ButtonConfig) (schematic.ButtonConfig, error) {
 	if pb.Mode != nil {
 		val, err := ButtonModeFromPB(*pb.Mode)
 		if err != nil {
-			return schematic.ButtonConfig{}, err
+			return schematic.NodeConfigButton{}, err
 		}
 		r.Mode = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.ButtonConfig{}, err
+			return schematic.NodeConfigButton{}, err
 		}
 		r.Color = &val
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
 		if err != nil {
-			return schematic.ButtonConfig{}, err
+			return schematic.NodeConfigButton{}, err
 		}
 		r.Control = &val
 	}
 	return r, nil
 }
 
-// ButtonConfigsToPB converts a slice of ButtonConfig to ButtonConfig.
-func ButtonConfigsToPB(rs []schematic.ButtonConfig) ([]*ButtonConfig, error) {
-	result := make([]*ButtonConfig, len(rs))
+// NodeConfigButtonsToPB converts a slice of NodeConfigButton to NodeConfigButtonPayload.
+func NodeConfigButtonsToPB(rs []schematic.NodeConfigButton) ([]*NodeConfigButtonPayload, error) {
+	result := make([]*NodeConfigButtonPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ButtonConfigToPB(rs[i])
+		result[i], err = NodeConfigButtonToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1478,12 +1445,12 @@ func ButtonConfigsToPB(rs []schematic.ButtonConfig) ([]*ButtonConfig, error) {
 	return result, nil
 }
 
-// ButtonConfigsFromPB converts a slice of ButtonConfig to ButtonConfig.
-func ButtonConfigsFromPB(pbs []*ButtonConfig) ([]schematic.ButtonConfig, error) {
-	result := make([]schematic.ButtonConfig, len(pbs))
+// NodeConfigButtonsFromPB converts a slice of NodeConfigButtonPayload to NodeConfigButton.
+func NodeConfigButtonsFromPB(pbs []*NodeConfigButtonPayload) ([]schematic.NodeConfigButton, error) {
+	result := make([]schematic.NodeConfigButton, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ButtonConfigFromPB(pb)
+		result[i], err = NodeConfigButtonFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1491,9 +1458,9 @@ func ButtonConfigsFromPB(pbs []*ButtonConfig) ([]schematic.ButtonConfig, error) 
 	return result, nil
 }
 
-// CircleConfigToPB converts CircleConfig to CircleConfig.
-func CircleConfigToPB(r schematic.CircleConfig) (*CircleConfig, error) {
-	pb := &CircleConfig{
+// NodeConfigCircleToPB converts NodeConfigCircle to NodeConfigCirclePayload.
+func NodeConfigCircleToPB(r schematic.NodeConfigCircle) (*NodeConfigCirclePayload, error) {
+	pb := &NodeConfigCirclePayload{
 		Radius: r.Radius,
 	}
 	if r.Label != nil {
@@ -1530,9 +1497,9 @@ func CircleConfigToPB(r schematic.CircleConfig) (*CircleConfig, error) {
 	return pb, nil
 }
 
-// CircleConfigFromPB converts CircleConfig to CircleConfig.
-func CircleConfigFromPB(pb *CircleConfig) (schematic.CircleConfig, error) {
-	var r schematic.CircleConfig
+// NodeConfigCircleFromPB converts NodeConfigCirclePayload to NodeConfigCircle.
+func NodeConfigCircleFromPB(pb *NodeConfigCirclePayload) (schematic.NodeConfigCircle, error) {
+	var r schematic.NodeConfigCircle
 	if pb == nil {
 		return r, nil
 	}
@@ -1540,28 +1507,28 @@ func CircleConfigFromPB(pb *CircleConfig) (schematic.CircleConfig, error) {
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.CircleConfig{}, err
+			return schematic.NodeConfigCircle{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.CircleConfig{}, err
+			return schematic.NodeConfigCircle{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.CircleConfig{}, err
+			return schematic.NodeConfigCircle{}, err
 		}
 		r.Color = &val
 	}
 	if pb.BackgroundColor != nil {
 		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
 		if err != nil {
-			return schematic.CircleConfig{}, err
+			return schematic.NodeConfigCircle{}, err
 		}
 		r.BackgroundColor = &val
 	}
@@ -1571,12 +1538,12 @@ func CircleConfigFromPB(pb *CircleConfig) (schematic.CircleConfig, error) {
 	return r, nil
 }
 
-// CircleConfigsToPB converts a slice of CircleConfig to CircleConfig.
-func CircleConfigsToPB(rs []schematic.CircleConfig) ([]*CircleConfig, error) {
-	result := make([]*CircleConfig, len(rs))
+// NodeConfigCirclesToPB converts a slice of NodeConfigCircle to NodeConfigCirclePayload.
+func NodeConfigCirclesToPB(rs []schematic.NodeConfigCircle) ([]*NodeConfigCirclePayload, error) {
+	result := make([]*NodeConfigCirclePayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = CircleConfigToPB(rs[i])
+		result[i], err = NodeConfigCircleToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1584,12 +1551,12 @@ func CircleConfigsToPB(rs []schematic.CircleConfig) ([]*CircleConfig, error) {
 	return result, nil
 }
 
-// CircleConfigsFromPB converts a slice of CircleConfig to CircleConfig.
-func CircleConfigsFromPB(pbs []*CircleConfig) ([]schematic.CircleConfig, error) {
-	result := make([]schematic.CircleConfig, len(pbs))
+// NodeConfigCirclesFromPB converts a slice of NodeConfigCirclePayload to NodeConfigCircle.
+func NodeConfigCirclesFromPB(pbs []*NodeConfigCirclePayload) ([]schematic.NodeConfigCircle, error) {
+	result := make([]schematic.NodeConfigCircle, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = CircleConfigFromPB(pb)
+		result[i], err = NodeConfigCircleFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1597,9 +1564,9 @@ func CircleConfigsFromPB(pbs []*CircleConfig) ([]schematic.CircleConfig, error) 
 	return result, nil
 }
 
-// GaugeConfigToPB converts GaugeConfig to GaugeConfig.
-func GaugeConfigToPB(r schematic.GaugeConfig) (*GaugeConfig, error) {
-	pb := &GaugeConfig{
+// NodeConfigGaugeToPB converts NodeConfigGauge to NodeConfigGaugePayload.
+func NodeConfigGaugeToPB(r schematic.NodeConfigGauge) (*NodeConfigGaugePayload, error) {
+	pb := &NodeConfigGaugePayload{
 		Units: r.Units,
 	}
 	if r.Label != nil {
@@ -1680,9 +1647,9 @@ func GaugeConfigToPB(r schematic.GaugeConfig) (*GaugeConfig, error) {
 	return pb, nil
 }
 
-// GaugeConfigFromPB converts GaugeConfig to GaugeConfig.
-func GaugeConfigFromPB(pb *GaugeConfig) (schematic.GaugeConfig, error) {
-	var r schematic.GaugeConfig
+// NodeConfigGaugeFromPB converts NodeConfigGaugePayload to NodeConfigGauge.
+func NodeConfigGaugeFromPB(pb *NodeConfigGaugePayload) (schematic.NodeConfigGauge, error) {
+	var r schematic.NodeConfigGauge
 	if pb == nil {
 		return r, nil
 	}
@@ -1690,35 +1657,35 @@ func GaugeConfigFromPB(pb *GaugeConfig) (schematic.GaugeConfig, error) {
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.GaugeConfig{}, err
+			return schematic.NodeConfigGauge{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.GaugeConfig{}, err
+			return schematic.NodeConfigGauge{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Position != nil {
 		val, err := spatialpb.XYFromPB(pb.Position)
 		if err != nil {
-			return schematic.GaugeConfig{}, err
+			return schematic.NodeConfigGauge{}, err
 		}
 		r.Position = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.GaugeConfig{}, err
+			return schematic.NodeConfigGauge{}, err
 		}
 		r.Color = &val
 	}
 	if pb.Bounds != nil {
 		val, err := spatialpb.BoundsFromPB(pb.Bounds)
 		if err != nil {
-			return schematic.GaugeConfig{}, err
+			return schematic.NodeConfigGauge{}, err
 		}
 		r.Bounds = &val
 	}
@@ -1744,33 +1711,33 @@ func GaugeConfigFromPB(pb *GaugeConfig) (schematic.GaugeConfig, error) {
 	if pb.Notation != nil {
 		val, err := notationpb.NotationFromPB(*pb.Notation)
 		if err != nil {
-			return schematic.GaugeConfig{}, err
+			return schematic.NodeConfigGauge{}, err
 		}
 		r.Notation = &val
 	}
 	if pb.Location != nil {
 		val, err := spatialpb.LocationXYFromPB(pb.Location)
 		if err != nil {
-			return schematic.GaugeConfig{}, err
+			return schematic.NodeConfigGauge{}, err
 		}
 		r.Location = &val
 	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
-			return schematic.GaugeConfig{}, err
+			return schematic.NodeConfigGauge{}, err
 		}
 		r.Level = &val
 	}
 	return r, nil
 }
 
-// GaugeConfigsToPB converts a slice of GaugeConfig to GaugeConfig.
-func GaugeConfigsToPB(rs []schematic.GaugeConfig) ([]*GaugeConfig, error) {
-	result := make([]*GaugeConfig, len(rs))
+// NodeConfigGaugesToPB converts a slice of NodeConfigGauge to NodeConfigGaugePayload.
+func NodeConfigGaugesToPB(rs []schematic.NodeConfigGauge) ([]*NodeConfigGaugePayload, error) {
+	result := make([]*NodeConfigGaugePayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = GaugeConfigToPB(rs[i])
+		result[i], err = NodeConfigGaugeToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1778,12 +1745,12 @@ func GaugeConfigsToPB(rs []schematic.GaugeConfig) ([]*GaugeConfig, error) {
 	return result, nil
 }
 
-// GaugeConfigsFromPB converts a slice of GaugeConfig to GaugeConfig.
-func GaugeConfigsFromPB(pbs []*GaugeConfig) ([]schematic.GaugeConfig, error) {
-	result := make([]schematic.GaugeConfig, len(pbs))
+// NodeConfigGaugesFromPB converts a slice of NodeConfigGaugePayload to NodeConfigGauge.
+func NodeConfigGaugesFromPB(pbs []*NodeConfigGaugePayload) ([]schematic.NodeConfigGauge, error) {
+	result := make([]schematic.NodeConfigGauge, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = GaugeConfigFromPB(pb)
+		result[i], err = NodeConfigGaugeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1791,9 +1758,9 @@ func GaugeConfigsFromPB(pbs []*GaugeConfig) ([]schematic.GaugeConfig, error) {
 	return result, nil
 }
 
-// InputConfigToPB converts InputConfig to InputConfig.
-func InputConfigToPB(r schematic.InputConfig) (*InputConfig, error) {
-	pb := &InputConfig{
+// NodeConfigInputToPB converts NodeConfigInput to NodeConfigInputPayload.
+func NodeConfigInputToPB(r schematic.NodeConfigInput) (*NodeConfigInputPayload, error) {
+	pb := &NodeConfigInputPayload{
 		Disabled: r.Disabled,
 	}
 	if r.Label != nil {
@@ -1845,9 +1812,9 @@ func InputConfigToPB(r schematic.InputConfig) (*InputConfig, error) {
 	return pb, nil
 }
 
-// InputConfigFromPB converts InputConfig to InputConfig.
-func InputConfigFromPB(pb *InputConfig) (schematic.InputConfig, error) {
-	var r schematic.InputConfig
+// NodeConfigInputFromPB converts NodeConfigInputPayload to NodeConfigInput.
+func NodeConfigInputFromPB(pb *NodeConfigInputPayload) (schematic.NodeConfigInput, error) {
+	var r schematic.NodeConfigInput
 	if pb == nil {
 		return r, nil
 	}
@@ -1855,21 +1822,21 @@ func InputConfigFromPB(pb *InputConfig) (schematic.InputConfig, error) {
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.InputConfig{}, err
+			return schematic.NodeConfigInput{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.InputConfig{}, err
+			return schematic.NodeConfigInput{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
 		if err != nil {
-			return schematic.InputConfig{}, err
+			return schematic.NodeConfigInput{}, err
 		}
 		r.Size = &val
 	}
@@ -1880,33 +1847,33 @@ func InputConfigFromPB(pb *InputConfig) (schematic.InputConfig, error) {
 	if pb.Dimensions != nil {
 		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
 		if err != nil {
-			return schematic.InputConfig{}, err
+			return schematic.NodeConfigInput{}, err
 		}
 		r.Dimensions = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.InputConfig{}, err
+			return schematic.NodeConfigInput{}, err
 		}
 		r.Color = &val
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
 		if err != nil {
-			return schematic.InputConfig{}, err
+			return schematic.NodeConfigInput{}, err
 		}
 		r.Control = &val
 	}
 	return r, nil
 }
 
-// InputConfigsToPB converts a slice of InputConfig to InputConfig.
-func InputConfigsToPB(rs []schematic.InputConfig) ([]*InputConfig, error) {
-	result := make([]*InputConfig, len(rs))
+// NodeConfigInputsToPB converts a slice of NodeConfigInput to NodeConfigInputPayload.
+func NodeConfigInputsToPB(rs []schematic.NodeConfigInput) ([]*NodeConfigInputPayload, error) {
+	result := make([]*NodeConfigInputPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = InputConfigToPB(rs[i])
+		result[i], err = NodeConfigInputToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -1914,12 +1881,12 @@ func InputConfigsToPB(rs []schematic.InputConfig) ([]*InputConfig, error) {
 	return result, nil
 }
 
-// InputConfigsFromPB converts a slice of InputConfig to InputConfig.
-func InputConfigsFromPB(pbs []*InputConfig) ([]schematic.InputConfig, error) {
-	result := make([]schematic.InputConfig, len(pbs))
+// NodeConfigInputsFromPB converts a slice of NodeConfigInputPayload to NodeConfigInput.
+func NodeConfigInputsFromPB(pbs []*NodeConfigInputPayload) ([]schematic.NodeConfigInput, error) {
+	result := make([]schematic.NodeConfigInput, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = InputConfigFromPB(pb)
+		result[i], err = NodeConfigInputFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -1927,9 +1894,9 @@ func InputConfigsFromPB(pbs []*InputConfig) ([]schematic.InputConfig, error) {
 	return result, nil
 }
 
-// LightConfigToPB converts LightConfig to LightConfig.
-func LightConfigToPB(r schematic.LightConfig) (*LightConfig, error) {
-	pb := &LightConfig{}
+// NodeConfigLightToPB converts NodeConfigLight to NodeConfigLightPayload.
+func NodeConfigLightToPB(r schematic.NodeConfigLight) (*NodeConfigLightPayload, error) {
+	pb := &NodeConfigLightPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -1968,23 +1935,23 @@ func LightConfigToPB(r schematic.LightConfig) (*LightConfig, error) {
 	return pb, nil
 }
 
-// LightConfigFromPB converts LightConfig to LightConfig.
-func LightConfigFromPB(pb *LightConfig) (schematic.LightConfig, error) {
-	var r schematic.LightConfig
+// NodeConfigLightFromPB converts NodeConfigLightPayload to NodeConfigLight.
+func NodeConfigLightFromPB(pb *NodeConfigLightPayload) (schematic.NodeConfigLight, error) {
+	var r schematic.NodeConfigLight
 	if pb == nil {
 		return r, nil
 	}
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.LightConfig{}, err
+			return schematic.NodeConfigLight{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.LightConfig{}, err
+			return schematic.NodeConfigLight{}, err
 		}
 		r.Orientation = &val
 	}
@@ -1995,14 +1962,14 @@ func LightConfigFromPB(pb *LightConfig) (schematic.LightConfig, error) {
 	if pb.Threshold != nil {
 		val, err := spatialpb.BoundsFromPB(pb.Threshold)
 		if err != nil {
-			return schematic.LightConfig{}, err
+			return schematic.NodeConfigLight{}, err
 		}
 		r.Threshold = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.LightConfig{}, err
+			return schematic.NodeConfigLight{}, err
 		}
 		r.Color = &val
 	}
@@ -2012,12 +1979,12 @@ func LightConfigFromPB(pb *LightConfig) (schematic.LightConfig, error) {
 	return r, nil
 }
 
-// LightConfigsToPB converts a slice of LightConfig to LightConfig.
-func LightConfigsToPB(rs []schematic.LightConfig) ([]*LightConfig, error) {
-	result := make([]*LightConfig, len(rs))
+// NodeConfigLightsToPB converts a slice of NodeConfigLight to NodeConfigLightPayload.
+func NodeConfigLightsToPB(rs []schematic.NodeConfigLight) ([]*NodeConfigLightPayload, error) {
+	result := make([]*NodeConfigLightPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = LightConfigToPB(rs[i])
+		result[i], err = NodeConfigLightToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2025,12 +1992,12 @@ func LightConfigsToPB(rs []schematic.LightConfig) ([]*LightConfig, error) {
 	return result, nil
 }
 
-// LightConfigsFromPB converts a slice of LightConfig to LightConfig.
-func LightConfigsFromPB(pbs []*LightConfig) ([]schematic.LightConfig, error) {
-	result := make([]schematic.LightConfig, len(pbs))
+// NodeConfigLightsFromPB converts a slice of NodeConfigLightPayload to NodeConfigLight.
+func NodeConfigLightsFromPB(pbs []*NodeConfigLightPayload) ([]schematic.NodeConfigLight, error) {
+	result := make([]schematic.NodeConfigLight, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = LightConfigFromPB(pb)
+		result[i], err = NodeConfigLightFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2038,13 +2005,13 @@ func LightConfigsFromPB(pbs []*LightConfig) ([]schematic.LightConfig, error) {
 	return result, nil
 }
 
-// OffPageReferenceConfigToPB converts OffPageReferenceConfig to OffPageReferenceConfig.
-func OffPageReferenceConfigToPB(r schematic.OffPageReferenceConfig) (*OffPageReferenceConfig, error) {
+// NodeConfigOffPageReferenceToPB converts NodeConfigOffPageReference to NodeConfigOffPageReferencePayload.
+func NodeConfigOffPageReferenceToPB(r schematic.NodeConfigOffPageReference) (*NodeConfigOffPageReferencePayload, error) {
 	labelVal, err := LabelConfigToPB(r.Label)
 	if err != nil {
 		return nil, err
 	}
-	pb := &OffPageReferenceConfig{
+	pb := &NodeConfigOffPageReferencePayload{
 		Page:        r.Page,
 		DblClickNav: r.DblClickNav,
 		Label:       labelVal,
@@ -2073,49 +2040,49 @@ func OffPageReferenceConfigToPB(r schematic.OffPageReferenceConfig) (*OffPageRef
 	return pb, nil
 }
 
-// OffPageReferenceConfigFromPB converts OffPageReferenceConfig to OffPageReferenceConfig.
-func OffPageReferenceConfigFromPB(pb *OffPageReferenceConfig) (schematic.OffPageReferenceConfig, error) {
-	var r schematic.OffPageReferenceConfig
+// NodeConfigOffPageReferenceFromPB converts NodeConfigOffPageReferencePayload to NodeConfigOffPageReference.
+func NodeConfigOffPageReferenceFromPB(pb *NodeConfigOffPageReferencePayload) (schematic.NodeConfigOffPageReference, error) {
+	var r schematic.NodeConfigOffPageReference
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Label, err = LabelConfigFromPB(pb.Label)
 	if err != nil {
-		return schematic.OffPageReferenceConfig{}, err
+		return schematic.NodeConfigOffPageReference{}, err
 	}
 	r.Page = pb.Page
 	r.DblClickNav = pb.DblClickNav
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.OffPageReferenceConfig{}, err
+			return schematic.NodeConfigOffPageReference{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
-			return schematic.OffPageReferenceConfig{}, err
+			return schematic.NodeConfigOffPageReference{}, err
 		}
 		r.Level = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.OffPageReferenceConfig{}, err
+			return schematic.NodeConfigOffPageReference{}, err
 		}
 		r.Color = &val
 	}
 	return r, nil
 }
 
-// OffPageReferenceConfigsToPB converts a slice of OffPageReferenceConfig to OffPageReferenceConfig.
-func OffPageReferenceConfigsToPB(rs []schematic.OffPageReferenceConfig) ([]*OffPageReferenceConfig, error) {
-	result := make([]*OffPageReferenceConfig, len(rs))
+// NodeConfigOffPageReferencesToPB converts a slice of NodeConfigOffPageReference to NodeConfigOffPageReferencePayload.
+func NodeConfigOffPageReferencesToPB(rs []schematic.NodeConfigOffPageReference) ([]*NodeConfigOffPageReferencePayload, error) {
+	result := make([]*NodeConfigOffPageReferencePayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = OffPageReferenceConfigToPB(rs[i])
+		result[i], err = NodeConfigOffPageReferenceToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2123,12 +2090,12 @@ func OffPageReferenceConfigsToPB(rs []schematic.OffPageReferenceConfig) ([]*OffP
 	return result, nil
 }
 
-// OffPageReferenceConfigsFromPB converts a slice of OffPageReferenceConfig to OffPageReferenceConfig.
-func OffPageReferenceConfigsFromPB(pbs []*OffPageReferenceConfig) ([]schematic.OffPageReferenceConfig, error) {
-	result := make([]schematic.OffPageReferenceConfig, len(pbs))
+// NodeConfigOffPageReferencesFromPB converts a slice of NodeConfigOffPageReferencePayload to NodeConfigOffPageReference.
+func NodeConfigOffPageReferencesFromPB(pbs []*NodeConfigOffPageReferencePayload) ([]schematic.NodeConfigOffPageReference, error) {
+	result := make([]schematic.NodeConfigOffPageReference, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = OffPageReferenceConfigFromPB(pb)
+		result[i], err = NodeConfigOffPageReferenceFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2136,9 +2103,9 @@ func OffPageReferenceConfigsFromPB(pbs []*OffPageReferenceConfig) ([]schematic.O
 	return result, nil
 }
 
-// PolygonConfigToPB converts PolygonConfig to PolygonConfig.
-func PolygonConfigToPB(r schematic.PolygonConfig) (*PolygonConfig, error) {
-	pb := &PolygonConfig{
+// NodeConfigPolygonToPB converts NodeConfigPolygon to NodeConfigPolygonPayload.
+func NodeConfigPolygonToPB(r schematic.NodeConfigPolygon) (*NodeConfigPolygonPayload, error) {
+	pb := &NodeConfigPolygonPayload{
 		NumSides:   r.NumSides,
 		SideLength: r.SideLength,
 	}
@@ -2182,9 +2149,9 @@ func PolygonConfigToPB(r schematic.PolygonConfig) (*PolygonConfig, error) {
 	return pb, nil
 }
 
-// PolygonConfigFromPB converts PolygonConfig to PolygonConfig.
-func PolygonConfigFromPB(pb *PolygonConfig) (schematic.PolygonConfig, error) {
-	var r schematic.PolygonConfig
+// NodeConfigPolygonFromPB converts NodeConfigPolygonPayload to NodeConfigPolygon.
+func NodeConfigPolygonFromPB(pb *NodeConfigPolygonPayload) (schematic.NodeConfigPolygon, error) {
+	var r schematic.NodeConfigPolygon
 	if pb == nil {
 		return r, nil
 	}
@@ -2193,14 +2160,14 @@ func PolygonConfigFromPB(pb *PolygonConfig) (schematic.PolygonConfig, error) {
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.PolygonConfig{}, err
+			return schematic.NodeConfigPolygon{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.PolygonConfig{}, err
+			return schematic.NodeConfigPolygon{}, err
 		}
 		r.Orientation = &val
 	}
@@ -2213,14 +2180,14 @@ func PolygonConfigFromPB(pb *PolygonConfig) (schematic.PolygonConfig, error) {
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.PolygonConfig{}, err
+			return schematic.NodeConfigPolygon{}, err
 		}
 		r.Color = &val
 	}
 	if pb.BackgroundColor != nil {
 		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
 		if err != nil {
-			return schematic.PolygonConfig{}, err
+			return schematic.NodeConfigPolygon{}, err
 		}
 		r.BackgroundColor = &val
 	}
@@ -2230,12 +2197,12 @@ func PolygonConfigFromPB(pb *PolygonConfig) (schematic.PolygonConfig, error) {
 	return r, nil
 }
 
-// PolygonConfigsToPB converts a slice of PolygonConfig to PolygonConfig.
-func PolygonConfigsToPB(rs []schematic.PolygonConfig) ([]*PolygonConfig, error) {
-	result := make([]*PolygonConfig, len(rs))
+// NodeConfigPolygonsToPB converts a slice of NodeConfigPolygon to NodeConfigPolygonPayload.
+func NodeConfigPolygonsToPB(rs []schematic.NodeConfigPolygon) ([]*NodeConfigPolygonPayload, error) {
+	result := make([]*NodeConfigPolygonPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = PolygonConfigToPB(rs[i])
+		result[i], err = NodeConfigPolygonToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2243,12 +2210,12 @@ func PolygonConfigsToPB(rs []schematic.PolygonConfig) ([]*PolygonConfig, error) 
 	return result, nil
 }
 
-// PolygonConfigsFromPB converts a slice of PolygonConfig to PolygonConfig.
-func PolygonConfigsFromPB(pbs []*PolygonConfig) ([]schematic.PolygonConfig, error) {
-	result := make([]schematic.PolygonConfig, len(pbs))
+// NodeConfigPolygonsFromPB converts a slice of NodeConfigPolygonPayload to NodeConfigPolygon.
+func NodeConfigPolygonsFromPB(pbs []*NodeConfigPolygonPayload) ([]schematic.NodeConfigPolygon, error) {
+	result := make([]schematic.NodeConfigPolygon, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = PolygonConfigFromPB(pb)
+		result[i], err = NodeConfigPolygonFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2256,13 +2223,13 @@ func PolygonConfigsFromPB(pbs []*PolygonConfig) ([]schematic.PolygonConfig, erro
 	return result, nil
 }
 
-// SelectConfigToPB converts SelectConfig to SelectConfig.
-func SelectConfigToPB(r schematic.SelectConfig) (*SelectConfig, error) {
+// NodeConfigSelectToPB converts NodeConfigSelect to NodeConfigSelectPayload.
+func NodeConfigSelectToPB(r schematic.NodeConfigSelect) (*NodeConfigSelectPayload, error) {
 	optionsVal, err := StateMappingsToPB(r.Options)
 	if err != nil {
 		return nil, err
 	}
-	pb := &SelectConfig{
+	pb := &NodeConfigSelectPayload{
 		Disabled: r.Disabled,
 		Options:  optionsVal,
 	}
@@ -2311,36 +2278,36 @@ func SelectConfigToPB(r schematic.SelectConfig) (*SelectConfig, error) {
 	return pb, nil
 }
 
-// SelectConfigFromPB converts SelectConfig to SelectConfig.
-func SelectConfigFromPB(pb *SelectConfig) (schematic.SelectConfig, error) {
-	var r schematic.SelectConfig
+// NodeConfigSelectFromPB converts NodeConfigSelectPayload to NodeConfigSelect.
+func NodeConfigSelectFromPB(pb *NodeConfigSelectPayload) (schematic.NodeConfigSelect, error) {
+	var r schematic.NodeConfigSelect
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Options, err = StateMappingsFromPB(pb.Options)
 	if err != nil {
-		return schematic.SelectConfig{}, err
+		return schematic.NodeConfigSelect{}, err
 	}
 	r.Disabled = pb.Disabled
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.SelectConfig{}, err
+			return schematic.NodeConfigSelect{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.SelectConfig{}, err
+			return schematic.NodeConfigSelect{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
 		if err != nil {
-			return schematic.SelectConfig{}, err
+			return schematic.NodeConfigSelect{}, err
 		}
 		r.Size = &val
 	}
@@ -2351,7 +2318,7 @@ func SelectConfigFromPB(pb *SelectConfig) (schematic.SelectConfig, error) {
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.SelectConfig{}, err
+			return schematic.NodeConfigSelect{}, err
 		}
 		r.Color = &val
 	}
@@ -2361,19 +2328,19 @@ func SelectConfigFromPB(pb *SelectConfig) (schematic.SelectConfig, error) {
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
 		if err != nil {
-			return schematic.SelectConfig{}, err
+			return schematic.NodeConfigSelect{}, err
 		}
 		r.Control = &val
 	}
 	return r, nil
 }
 
-// SelectConfigsToPB converts a slice of SelectConfig to SelectConfig.
-func SelectConfigsToPB(rs []schematic.SelectConfig) ([]*SelectConfig, error) {
-	result := make([]*SelectConfig, len(rs))
+// NodeConfigSelectsToPB converts a slice of NodeConfigSelect to NodeConfigSelectPayload.
+func NodeConfigSelectsToPB(rs []schematic.NodeConfigSelect) ([]*NodeConfigSelectPayload, error) {
+	result := make([]*NodeConfigSelectPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SelectConfigToPB(rs[i])
+		result[i], err = NodeConfigSelectToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2381,12 +2348,12 @@ func SelectConfigsToPB(rs []schematic.SelectConfig) ([]*SelectConfig, error) {
 	return result, nil
 }
 
-// SelectConfigsFromPB converts a slice of SelectConfig to SelectConfig.
-func SelectConfigsFromPB(pbs []*SelectConfig) ([]schematic.SelectConfig, error) {
-	result := make([]schematic.SelectConfig, len(pbs))
+// NodeConfigSelectsFromPB converts a slice of NodeConfigSelectPayload to NodeConfigSelect.
+func NodeConfigSelectsFromPB(pbs []*NodeConfigSelectPayload) ([]schematic.NodeConfigSelect, error) {
+	result := make([]schematic.NodeConfigSelect, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SelectConfigFromPB(pb)
+		result[i], err = NodeConfigSelectFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2394,9 +2361,9 @@ func SelectConfigsFromPB(pbs []*SelectConfig) ([]schematic.SelectConfig, error) 
 	return result, nil
 }
 
-// SetpointConfigToPB converts SetpointConfig to SetpointConfig.
-func SetpointConfigToPB(r schematic.SetpointConfig) (*SetpointConfig, error) {
-	pb := &SetpointConfig{
+// NodeConfigSetpointToPB converts NodeConfigSetpoint to NodeConfigSetpointPayload.
+func NodeConfigSetpointToPB(r schematic.NodeConfigSetpoint) (*NodeConfigSetpointPayload, error) {
+	pb := &NodeConfigSetpointPayload{
 		Units:    r.Units,
 		Disabled: r.Disabled,
 	}
@@ -2453,9 +2420,9 @@ func SetpointConfigToPB(r schematic.SetpointConfig) (*SetpointConfig, error) {
 	return pb, nil
 }
 
-// SetpointConfigFromPB converts SetpointConfig to SetpointConfig.
-func SetpointConfigFromPB(pb *SetpointConfig) (schematic.SetpointConfig, error) {
-	var r schematic.SetpointConfig
+// NodeConfigSetpointFromPB converts NodeConfigSetpointPayload to NodeConfigSetpoint.
+func NodeConfigSetpointFromPB(pb *NodeConfigSetpointPayload) (schematic.NodeConfigSetpoint, error) {
+	var r schematic.NodeConfigSetpoint
 	if pb == nil {
 		return r, nil
 	}
@@ -2464,21 +2431,21 @@ func SetpointConfigFromPB(pb *SetpointConfig) (schematic.SetpointConfig, error) 
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.SetpointConfig{}, err
+			return schematic.NodeConfigSetpoint{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.SetpointConfig{}, err
+			return schematic.NodeConfigSetpoint{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Size != nil {
 		val, err := ComponentSizeFromPB(*pb.Size)
 		if err != nil {
-			return schematic.SetpointConfig{}, err
+			return schematic.NodeConfigSetpoint{}, err
 		}
 		r.Size = &val
 	}
@@ -2493,33 +2460,33 @@ func SetpointConfigFromPB(pb *SetpointConfig) (schematic.SetpointConfig, error) 
 	if pb.Dimensions != nil {
 		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
 		if err != nil {
-			return schematic.SetpointConfig{}, err
+			return schematic.NodeConfigSetpoint{}, err
 		}
 		r.Dimensions = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.SetpointConfig{}, err
+			return schematic.NodeConfigSetpoint{}, err
 		}
 		r.Color = &val
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
 		if err != nil {
-			return schematic.SetpointConfig{}, err
+			return schematic.NodeConfigSetpoint{}, err
 		}
 		r.Control = &val
 	}
 	return r, nil
 }
 
-// SetpointConfigsToPB converts a slice of SetpointConfig to SetpointConfig.
-func SetpointConfigsToPB(rs []schematic.SetpointConfig) ([]*SetpointConfig, error) {
-	result := make([]*SetpointConfig, len(rs))
+// NodeConfigSetpointsToPB converts a slice of NodeConfigSetpoint to NodeConfigSetpointPayload.
+func NodeConfigSetpointsToPB(rs []schematic.NodeConfigSetpoint) ([]*NodeConfigSetpointPayload, error) {
+	result := make([]*NodeConfigSetpointPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SetpointConfigToPB(rs[i])
+		result[i], err = NodeConfigSetpointToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2527,12 +2494,12 @@ func SetpointConfigsToPB(rs []schematic.SetpointConfig) ([]*SetpointConfig, erro
 	return result, nil
 }
 
-// SetpointConfigsFromPB converts a slice of SetpointConfig to SetpointConfig.
-func SetpointConfigsFromPB(pbs []*SetpointConfig) ([]schematic.SetpointConfig, error) {
-	result := make([]schematic.SetpointConfig, len(pbs))
+// NodeConfigSetpointsFromPB converts a slice of NodeConfigSetpointPayload to NodeConfigSetpoint.
+func NodeConfigSetpointsFromPB(pbs []*NodeConfigSetpointPayload) ([]schematic.NodeConfigSetpoint, error) {
+	result := make([]schematic.NodeConfigSetpoint, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SetpointConfigFromPB(pb)
+		result[i], err = NodeConfigSetpointFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2540,13 +2507,13 @@ func SetpointConfigsFromPB(pbs []*SetpointConfig) ([]schematic.SetpointConfig, e
 	return result, nil
 }
 
-// StateIndicatorConfigToPB converts StateIndicatorConfig to StateIndicatorConfig.
-func StateIndicatorConfigToPB(r schematic.StateIndicatorConfig) (*StateIndicatorConfig, error) {
+// NodeConfigStateIndicatorToPB converts NodeConfigStateIndicator to NodeConfigStateIndicatorPayload.
+func NodeConfigStateIndicatorToPB(r schematic.NodeConfigStateIndicator) (*NodeConfigStateIndicatorPayload, error) {
 	optionsVal, err := StateMappingsToPB(r.Options)
 	if err != nil {
 		return nil, err
 	}
-	pb := &StateIndicatorConfig{
+	pb := &NodeConfigStateIndicatorPayload{
 		Options: optionsVal,
 	}
 	if r.Label != nil {
@@ -2580,28 +2547,28 @@ func StateIndicatorConfigToPB(r schematic.StateIndicatorConfig) (*StateIndicator
 	return pb, nil
 }
 
-// StateIndicatorConfigFromPB converts StateIndicatorConfig to StateIndicatorConfig.
-func StateIndicatorConfigFromPB(pb *StateIndicatorConfig) (schematic.StateIndicatorConfig, error) {
-	var r schematic.StateIndicatorConfig
+// NodeConfigStateIndicatorFromPB converts NodeConfigStateIndicatorPayload to NodeConfigStateIndicator.
+func NodeConfigStateIndicatorFromPB(pb *NodeConfigStateIndicatorPayload) (schematic.NodeConfigStateIndicator, error) {
+	var r schematic.NodeConfigStateIndicator
 	if pb == nil {
 		return r, nil
 	}
 	var err error
 	r.Options, err = StateMappingsFromPB(pb.Options)
 	if err != nil {
-		return schematic.StateIndicatorConfig{}, err
+		return schematic.NodeConfigStateIndicator{}, err
 	}
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.StateIndicatorConfig{}, err
+			return schematic.NodeConfigStateIndicator{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.StateIndicatorConfig{}, err
+			return schematic.NodeConfigStateIndicator{}, err
 		}
 		r.Orientation = &val
 	}
@@ -2612,7 +2579,7 @@ func StateIndicatorConfigFromPB(pb *StateIndicatorConfig) (schematic.StateIndica
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.StateIndicatorConfig{}, err
+			return schematic.NodeConfigStateIndicator{}, err
 		}
 		r.Color = &val
 	}
@@ -2622,12 +2589,12 @@ func StateIndicatorConfigFromPB(pb *StateIndicatorConfig) (schematic.StateIndica
 	return r, nil
 }
 
-// StateIndicatorConfigsToPB converts a slice of StateIndicatorConfig to StateIndicatorConfig.
-func StateIndicatorConfigsToPB(rs []schematic.StateIndicatorConfig) ([]*StateIndicatorConfig, error) {
-	result := make([]*StateIndicatorConfig, len(rs))
+// NodeConfigStateIndicatorsToPB converts a slice of NodeConfigStateIndicator to NodeConfigStateIndicatorPayload.
+func NodeConfigStateIndicatorsToPB(rs []schematic.NodeConfigStateIndicator) ([]*NodeConfigStateIndicatorPayload, error) {
+	result := make([]*NodeConfigStateIndicatorPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StateIndicatorConfigToPB(rs[i])
+		result[i], err = NodeConfigStateIndicatorToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2635,12 +2602,12 @@ func StateIndicatorConfigsToPB(rs []schematic.StateIndicatorConfig) ([]*StateInd
 	return result, nil
 }
 
-// StateIndicatorConfigsFromPB converts a slice of StateIndicatorConfig to StateIndicatorConfig.
-func StateIndicatorConfigsFromPB(pbs []*StateIndicatorConfig) ([]schematic.StateIndicatorConfig, error) {
-	result := make([]schematic.StateIndicatorConfig, len(pbs))
+// NodeConfigStateIndicatorsFromPB converts a slice of NodeConfigStateIndicatorPayload to NodeConfigStateIndicator.
+func NodeConfigStateIndicatorsFromPB(pbs []*NodeConfigStateIndicatorPayload) ([]schematic.NodeConfigStateIndicator, error) {
+	result := make([]schematic.NodeConfigStateIndicator, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StateIndicatorConfigFromPB(pb)
+		result[i], err = NodeConfigStateIndicatorFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2648,9 +2615,9 @@ func StateIndicatorConfigsFromPB(pbs []*StateIndicatorConfig) ([]schematic.State
 	return result, nil
 }
 
-// TextBoxConfigToPB converts TextBoxConfig to TextBoxConfig.
-func TextBoxConfigToPB(r schematic.TextBoxConfig) (*TextBoxConfig, error) {
-	pb := &TextBoxConfig{
+// NodeConfigTextBoxToPB converts NodeConfigTextBox to NodeConfigTextBoxPayload.
+func NodeConfigTextBoxToPB(r schematic.NodeConfigTextBox) (*NodeConfigTextBoxPayload, error) {
+	pb := &NodeConfigTextBoxPayload{
 		AutoFit: r.AutoFit,
 		Value:   r.Value,
 	}
@@ -2695,9 +2662,9 @@ func TextBoxConfigToPB(r schematic.TextBoxConfig) (*TextBoxConfig, error) {
 	return pb, nil
 }
 
-// TextBoxConfigFromPB converts TextBoxConfig to TextBoxConfig.
-func TextBoxConfigFromPB(pb *TextBoxConfig) (schematic.TextBoxConfig, error) {
-	var r schematic.TextBoxConfig
+// NodeConfigTextBoxFromPB converts NodeConfigTextBoxPayload to NodeConfigTextBox.
+func NodeConfigTextBoxFromPB(pb *NodeConfigTextBoxPayload) (schematic.NodeConfigTextBox, error) {
+	var r schematic.NodeConfigTextBox
 	if pb == nil {
 		return r, nil
 	}
@@ -2706,21 +2673,21 @@ func TextBoxConfigFromPB(pb *TextBoxConfig) (schematic.TextBoxConfig, error) {
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.TextBoxConfig{}, err
+			return schematic.NodeConfigTextBox{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.TextBoxConfig{}, err
+			return schematic.NodeConfigTextBox{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.TextBoxConfig{}, err
+			return schematic.NodeConfigTextBox{}, err
 		}
 		r.Color = &val
 	}
@@ -2730,26 +2697,26 @@ func TextBoxConfigFromPB(pb *TextBoxConfig) (schematic.TextBoxConfig, error) {
 	if pb.Align != nil {
 		val, err := FlexAlignmentFromPB(*pb.Align)
 		if err != nil {
-			return schematic.TextBoxConfig{}, err
+			return schematic.NodeConfigTextBox{}, err
 		}
 		r.Align = &val
 	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
-			return schematic.TextBoxConfig{}, err
+			return schematic.NodeConfigTextBox{}, err
 		}
 		r.Level = &val
 	}
 	return r, nil
 }
 
-// TextBoxConfigsToPB converts a slice of TextBoxConfig to TextBoxConfig.
-func TextBoxConfigsToPB(rs []schematic.TextBoxConfig) ([]*TextBoxConfig, error) {
-	result := make([]*TextBoxConfig, len(rs))
+// NodeConfigTextBoxesToPB converts a slice of NodeConfigTextBox to NodeConfigTextBoxPayload.
+func NodeConfigTextBoxesToPB(rs []schematic.NodeConfigTextBox) ([]*NodeConfigTextBoxPayload, error) {
+	result := make([]*NodeConfigTextBoxPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TextBoxConfigToPB(rs[i])
+		result[i], err = NodeConfigTextBoxToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2757,12 +2724,12 @@ func TextBoxConfigsToPB(rs []schematic.TextBoxConfig) ([]*TextBoxConfig, error) 
 	return result, nil
 }
 
-// TextBoxConfigsFromPB converts a slice of TextBoxConfig to TextBoxConfig.
-func TextBoxConfigsFromPB(pbs []*TextBoxConfig) ([]schematic.TextBoxConfig, error) {
-	result := make([]schematic.TextBoxConfig, len(pbs))
+// NodeConfigTextBoxesFromPB converts a slice of NodeConfigTextBoxPayload to NodeConfigTextBox.
+func NodeConfigTextBoxesFromPB(pbs []*NodeConfigTextBoxPayload) ([]schematic.NodeConfigTextBox, error) {
+	result := make([]schematic.NodeConfigTextBox, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TextBoxConfigFromPB(pb)
+		result[i], err = NodeConfigTextBoxFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -2770,9 +2737,9 @@ func TextBoxConfigsFromPB(pbs []*TextBoxConfig) ([]schematic.TextBoxConfig, erro
 	return result, nil
 }
 
-// ValueConfigToPB converts ValueConfig to ValueConfig.
-func ValueConfigToPB(r schematic.ValueConfig) (*ValueConfig, error) {
-	pb := &ValueConfig{
+// NodeConfigValueToPB converts NodeConfigValue to NodeConfigValuePayload.
+func NodeConfigValueToPB(r schematic.NodeConfigValue) (*NodeConfigValuePayload, error) {
+	pb := &NodeConfigValuePayload{
 		Tooltip:               r.Tooltip,
 		Units:                 r.Units,
 		UseWidthForBackground: r.UseWidthForBackground,
@@ -2883,9 +2850,9 @@ func ValueConfigToPB(r schematic.ValueConfig) (*ValueConfig, error) {
 	return pb, nil
 }
 
-// ValueConfigFromPB converts ValueConfig to ValueConfig.
-func ValueConfigFromPB(pb *ValueConfig) (schematic.ValueConfig, error) {
-	var r schematic.ValueConfig
+// NodeConfigValueFromPB converts NodeConfigValuePayload to NodeConfigValue.
+func NodeConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.NodeConfigValue, error) {
+	var r schematic.NodeConfigValue
 	if pb == nil {
 		return r, nil
 	}
@@ -2895,42 +2862,42 @@ func ValueConfigFromPB(pb *ValueConfig) (schematic.ValueConfig, error) {
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Position != nil {
 		val, err := spatialpb.XYFromPB(pb.Position)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.Position = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.Color = &val
 	}
 	if pb.TextColor != nil {
 		val, err := colorpb.ColorFromPB(pb.TextColor)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.TextColor = &val
 	}
 	if pb.Redline != nil {
 		val, err := RedlineFromPB(pb.Redline)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.Redline = &val
 	}
@@ -2947,7 +2914,7 @@ func ValueConfigFromPB(pb *ValueConfig) (schematic.ValueConfig, error) {
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.Level = &val
 	}
@@ -2960,7 +2927,7 @@ func ValueConfigFromPB(pb *ValueConfig) (schematic.ValueConfig, error) {
 	if pb.StalenessColor != nil {
 		val, err := colorpb.ColorFromPB(pb.StalenessColor)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.StalenessColor = &val
 	}
@@ -2970,40 +2937,40 @@ func ValueConfigFromPB(pb *ValueConfig) (schematic.ValueConfig, error) {
 	if pb.Notation != nil {
 		val, err := notationpb.NotationFromPB(*pb.Notation)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.Notation = &val
 	}
 	if pb.Location != nil {
 		val, err := spatialpb.LocationXYFromPB(pb.Location)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.Location = &val
 	}
 	if pb.ValueBackgroundShift != nil {
 		val, err := spatialpb.XYFromPB(pb.ValueBackgroundShift)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.ValueBackgroundShift = &val
 	}
 	if pb.ValueBackgroundOverScan != nil {
 		val, err := spatialpb.XYFromPB(pb.ValueBackgroundOverScan)
 		if err != nil {
-			return schematic.ValueConfig{}, err
+			return schematic.NodeConfigValue{}, err
 		}
 		r.ValueBackgroundOverScan = &val
 	}
 	return r, nil
 }
 
-// ValueConfigsToPB converts a slice of ValueConfig to ValueConfig.
-func ValueConfigsToPB(rs []schematic.ValueConfig) ([]*ValueConfig, error) {
-	result := make([]*ValueConfig, len(rs))
+// NodeConfigValuesToPB converts a slice of NodeConfigValue to NodeConfigValuePayload.
+func NodeConfigValuesToPB(rs []schematic.NodeConfigValue) ([]*NodeConfigValuePayload, error) {
+	result := make([]*NodeConfigValuePayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = ValueConfigToPB(rs[i])
+		result[i], err = NodeConfigValueToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -3011,12 +2978,12 @@ func ValueConfigsToPB(rs []schematic.ValueConfig) ([]*ValueConfig, error) {
 	return result, nil
 }
 
-// ValueConfigsFromPB converts a slice of ValueConfig to ValueConfig.
-func ValueConfigsFromPB(pbs []*ValueConfig) ([]schematic.ValueConfig, error) {
-	result := make([]schematic.ValueConfig, len(pbs))
+// NodeConfigValuesFromPB converts a slice of NodeConfigValuePayload to NodeConfigValue.
+func NodeConfigValuesFromPB(pbs []*NodeConfigValuePayload) ([]schematic.NodeConfigValue, error) {
+	result := make([]schematic.NodeConfigValue, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = ValueConfigFromPB(pb)
+		result[i], err = NodeConfigValueFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -3024,9 +2991,258 @@ func ValueConfigsFromPB(pbs []*ValueConfig) ([]schematic.ValueConfig, error) {
 	return result, nil
 }
 
-// TankConfigToPB converts TankConfig to TankConfig.
-func TankConfigToPB(r schematic.TankConfig) (*TankConfig, error) {
-	pb := &TankConfig{}
+// NodeConfigSolenoidValveToPB converts NodeConfigSolenoidValve to NodeConfigSolenoidValvePayload.
+func NodeConfigSolenoidValveToPB(r schematic.NodeConfigSolenoidValve) (*NodeConfigSolenoidValvePayload, error) {
+	pb := &NodeConfigSolenoidValvePayload{
+		OnClickDelay: r.OnClickDelay,
+		NormallyOpen: r.NormallyOpen,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
+	}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
+	}
+	if r.Control != nil {
+		var err error
+		pb.Control, err = ControlStateConfigToPB(*r.Control)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
+	return pb, nil
+}
+
+// NodeConfigSolenoidValveFromPB converts NodeConfigSolenoidValvePayload to NodeConfigSolenoidValve.
+func NodeConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schematic.NodeConfigSolenoidValve, error) {
+	var r schematic.NodeConfigSolenoidValve
+	if pb == nil {
+		return r, nil
+	}
+	r.OnClickDelay = pb.OnClickDelay
+	r.NormallyOpen = pb.NormallyOpen
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.NodeConfigSolenoidValve{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.NodeConfigSolenoidValve{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
+	}
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
+	}
+	if pb.Control != nil {
+		val, err := ControlStateConfigFromPB(pb.Control)
+		if err != nil {
+			return schematic.NodeConfigSolenoidValve{}, err
+		}
+		r.Control = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.NodeConfigSolenoidValve{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
+	return r, nil
+}
+
+// NodeConfigSolenoidValvesToPB converts a slice of NodeConfigSolenoidValve to NodeConfigSolenoidValvePayload.
+func NodeConfigSolenoidValvesToPB(rs []schematic.NodeConfigSolenoidValve) ([]*NodeConfigSolenoidValvePayload, error) {
+	result := make([]*NodeConfigSolenoidValvePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = NodeConfigSolenoidValveToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeConfigSolenoidValvesFromPB converts a slice of NodeConfigSolenoidValvePayload to NodeConfigSolenoidValve.
+func NodeConfigSolenoidValvesFromPB(pbs []*NodeConfigSolenoidValvePayload) ([]schematic.NodeConfigSolenoidValve, error) {
+	result := make([]schematic.NodeConfigSolenoidValve, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = NodeConfigSolenoidValveFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeConfigCylinderToPB converts NodeConfigCylinder to NodeConfigCylinderPayload.
+func NodeConfigCylinderToPB(r schematic.NodeConfigCylinder) (*NodeConfigCylinderPayload, error) {
+	pb := &NodeConfigCylinderPayload{}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Dimensions != nil {
+		var err error
+		pb.Dimensions, err = spatialpb.DimensionsToPB(*r.Dimensions)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BorderRadius != nil {
+		var err error
+		pb.BorderRadius, err = borderpb.RadiusToPB(*r.BorderRadius)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BackgroundColor != nil {
+		var err error
+		pb.BackgroundColor, err = colorpb.ColorToPB(*r.BackgroundColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// NodeConfigCylinderFromPB converts NodeConfigCylinderPayload to NodeConfigCylinder.
+func NodeConfigCylinderFromPB(pb *NodeConfigCylinderPayload) (schematic.NodeConfigCylinder, error) {
+	var r schematic.NodeConfigCylinder
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.NodeConfigCylinder{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.NodeConfigCylinder{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Dimensions != nil {
+		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
+		if err != nil {
+			return schematic.NodeConfigCylinder{}, err
+		}
+		r.Dimensions = &val
+	}
+	if pb.BorderRadius != nil {
+		val, err := borderpb.RadiusFromPB(pb.BorderRadius)
+		if err != nil {
+			return schematic.NodeConfigCylinder{}, err
+		}
+		r.BorderRadius = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.NodeConfigCylinder{}, err
+		}
+		r.Color = &val
+	}
+	if pb.BackgroundColor != nil {
+		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
+		if err != nil {
+			return schematic.NodeConfigCylinder{}, err
+		}
+		r.BackgroundColor = &val
+	}
+	return r, nil
+}
+
+// NodeConfigCylindersToPB converts a slice of NodeConfigCylinder to NodeConfigCylinderPayload.
+func NodeConfigCylindersToPB(rs []schematic.NodeConfigCylinder) ([]*NodeConfigCylinderPayload, error) {
+	result := make([]*NodeConfigCylinderPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = NodeConfigCylinderToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeConfigCylindersFromPB converts a slice of NodeConfigCylinderPayload to NodeConfigCylinder.
+func NodeConfigCylindersFromPB(pbs []*NodeConfigCylinderPayload) ([]schematic.NodeConfigCylinder, error) {
+	result := make([]schematic.NodeConfigCylinder, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = NodeConfigCylinderFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeConfigTankToPB converts NodeConfigTank to NodeConfigTankPayload.
+func NodeConfigTankToPB(r schematic.NodeConfigTank) (*NodeConfigTankPayload, error) {
+	pb := &NodeConfigTankPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -3072,63 +3288,63 @@ func TankConfigToPB(r schematic.TankConfig) (*TankConfig, error) {
 	return pb, nil
 }
 
-// TankConfigFromPB converts TankConfig to TankConfig.
-func TankConfigFromPB(pb *TankConfig) (schematic.TankConfig, error) {
-	var r schematic.TankConfig
+// NodeConfigTankFromPB converts NodeConfigTankPayload to NodeConfigTank.
+func NodeConfigTankFromPB(pb *NodeConfigTankPayload) (schematic.NodeConfigTank, error) {
+	var r schematic.NodeConfigTank
 	if pb == nil {
 		return r, nil
 	}
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.TankConfig{}, err
+			return schematic.NodeConfigTank{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.TankConfig{}, err
+			return schematic.NodeConfigTank{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.TankConfig{}, err
+			return schematic.NodeConfigTank{}, err
 		}
 		r.Color = &val
 	}
 	if pb.BackgroundColor != nil {
 		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
 		if err != nil {
-			return schematic.TankConfig{}, err
+			return schematic.NodeConfigTank{}, err
 		}
 		r.BackgroundColor = &val
 	}
 	if pb.Dimensions != nil {
 		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
 		if err != nil {
-			return schematic.TankConfig{}, err
+			return schematic.NodeConfigTank{}, err
 		}
 		r.Dimensions = &val
 	}
 	if pb.BorderRadius != nil {
 		val, err := borderpb.RadiusFromPB(pb.BorderRadius)
 		if err != nil {
-			return schematic.TankConfig{}, err
+			return schematic.NodeConfigTank{}, err
 		}
 		r.BorderRadius = &val
 	}
 	return r, nil
 }
 
-// TankConfigsToPB converts a slice of TankConfig to TankConfig.
-func TankConfigsToPB(rs []schematic.TankConfig) ([]*TankConfig, error) {
-	result := make([]*TankConfig, len(rs))
+// NodeConfigTanksToPB converts a slice of NodeConfigTank to NodeConfigTankPayload.
+func NodeConfigTanksToPB(rs []schematic.NodeConfigTank) ([]*NodeConfigTankPayload, error) {
+	result := make([]*NodeConfigTankPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = TankConfigToPB(rs[i])
+		result[i], err = NodeConfigTankToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -3136,12 +3352,12 @@ func TankConfigsToPB(rs []schematic.TankConfig) ([]*TankConfig, error) {
 	return result, nil
 }
 
-// TankConfigsFromPB converts a slice of TankConfig to TankConfig.
-func TankConfigsFromPB(pbs []*TankConfig) ([]schematic.TankConfig, error) {
-	result := make([]schematic.TankConfig, len(pbs))
+// NodeConfigTanksFromPB converts a slice of NodeConfigTankPayload to NodeConfigTank.
+func NodeConfigTanksFromPB(pbs []*NodeConfigTankPayload) ([]schematic.NodeConfigTank, error) {
+	result := make([]schematic.NodeConfigTank, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = TankConfigFromPB(pb)
+		result[i], err = NodeConfigTankFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -3149,138 +3365,13 @@ func TankConfigsFromPB(pbs []*TankConfig) ([]schematic.TankConfig, error) {
 	return result, nil
 }
 
-// CylinderConfigToPB converts CylinderConfig to CylinderConfig.
-func CylinderConfigToPB(r schematic.CylinderConfig) (*CylinderConfig, error) {
-	pb := &CylinderConfig{}
-	if r.Label != nil {
-		var err error
-		pb.Label, err = LabelConfigToPB(*r.Label)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Orientation != nil {
-		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
-		if err != nil {
-			return nil, err
-		}
-		pb.Orientation = &val
-	}
-	if r.Dimensions != nil {
-		var err error
-		pb.Dimensions, err = spatialpb.DimensionsToPB(*r.Dimensions)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.BorderRadius != nil {
-		var err error
-		pb.BorderRadius, err = borderpb.RadiusToPB(*r.BorderRadius)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Color != nil {
-		var err error
-		pb.Color, err = colorpb.ColorToPB(*r.Color)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.BackgroundColor != nil {
-		var err error
-		pb.BackgroundColor, err = colorpb.ColorToPB(*r.BackgroundColor)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return pb, nil
-}
-
-// CylinderConfigFromPB converts CylinderConfig to CylinderConfig.
-func CylinderConfigFromPB(pb *CylinderConfig) (schematic.CylinderConfig, error) {
-	var r schematic.CylinderConfig
-	if pb == nil {
-		return r, nil
-	}
-	if pb.Label != nil {
-		val, err := LabelConfigFromPB(pb.Label)
-		if err != nil {
-			return schematic.CylinderConfig{}, err
-		}
-		r.Label = &val
-	}
-	if pb.Orientation != nil {
-		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
-		if err != nil {
-			return schematic.CylinderConfig{}, err
-		}
-		r.Orientation = &val
-	}
-	if pb.Dimensions != nil {
-		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
-		if err != nil {
-			return schematic.CylinderConfig{}, err
-		}
-		r.Dimensions = &val
-	}
-	if pb.BorderRadius != nil {
-		val, err := borderpb.RadiusFromPB(pb.BorderRadius)
-		if err != nil {
-			return schematic.CylinderConfig{}, err
-		}
-		r.BorderRadius = &val
-	}
-	if pb.Color != nil {
-		val, err := colorpb.ColorFromPB(pb.Color)
-		if err != nil {
-			return schematic.CylinderConfig{}, err
-		}
-		r.Color = &val
-	}
-	if pb.BackgroundColor != nil {
-		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
-		if err != nil {
-			return schematic.CylinderConfig{}, err
-		}
-		r.BackgroundColor = &val
-	}
-	return r, nil
-}
-
-// CylinderConfigsToPB converts a slice of CylinderConfig to CylinderConfig.
-func CylinderConfigsToPB(rs []schematic.CylinderConfig) ([]*CylinderConfig, error) {
-	result := make([]*CylinderConfig, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = CylinderConfigToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// CylinderConfigsFromPB converts a slice of CylinderConfig to CylinderConfig.
-func CylinderConfigsFromPB(pbs []*CylinderConfig) ([]schematic.CylinderConfig, error) {
-	result := make([]schematic.CylinderConfig, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = CylinderConfigFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// CustomActuatorConfigToPB converts CustomActuatorConfig to CustomActuatorConfig.
-func CustomActuatorConfigToPB(r schematic.CustomActuatorConfig) (*CustomActuatorConfig, error) {
+// NodeConfigCustomActuatorToPB converts NodeConfigCustomActuator to NodeConfigCustomActuatorPayload.
+func NodeConfigCustomActuatorToPB(r schematic.NodeConfigCustomActuator) (*NodeConfigCustomActuatorPayload, error) {
 	stateOverridesVal, err := recordsToPB(r.StateOverrides)
 	if err != nil {
 		return nil, err
 	}
-	pb := &CustomActuatorConfig{
+	pb := &NodeConfigCustomActuatorPayload{
 		OnClickDelay:   r.OnClickDelay,
 		SpecKey:        r.SpecKey,
 		StateOverrides: stateOverridesVal,
@@ -3327,9 +3418,9 @@ func CustomActuatorConfigToPB(r schematic.CustomActuatorConfig) (*CustomActuator
 	return pb, nil
 }
 
-// CustomActuatorConfigFromPB converts CustomActuatorConfig to CustomActuatorConfig.
-func CustomActuatorConfigFromPB(pb *CustomActuatorConfig) (schematic.CustomActuatorConfig, error) {
-	var r schematic.CustomActuatorConfig
+// NodeConfigCustomActuatorFromPB converts NodeConfigCustomActuatorPayload to NodeConfigCustomActuator.
+func NodeConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (schematic.NodeConfigCustomActuator, error) {
+	var r schematic.NodeConfigCustomActuator
 	if pb == nil {
 		return r, nil
 	}
@@ -3339,14 +3430,14 @@ func CustomActuatorConfigFromPB(pb *CustomActuatorConfig) (schematic.CustomActua
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.CustomActuatorConfig{}, err
+			return schematic.NodeConfigCustomActuator{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.CustomActuatorConfig{}, err
+			return schematic.NodeConfigCustomActuator{}, err
 		}
 		r.Orientation = &val
 	}
@@ -3361,14 +3452,14 @@ func CustomActuatorConfigFromPB(pb *CustomActuatorConfig) (schematic.CustomActua
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
 		if err != nil {
-			return schematic.CustomActuatorConfig{}, err
+			return schematic.NodeConfigCustomActuator{}, err
 		}
 		r.Control = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.CustomActuatorConfig{}, err
+			return schematic.NodeConfigCustomActuator{}, err
 		}
 		r.Color = &val
 	}
@@ -3378,12 +3469,12 @@ func CustomActuatorConfigFromPB(pb *CustomActuatorConfig) (schematic.CustomActua
 	return r, nil
 }
 
-// CustomActuatorConfigsToPB converts a slice of CustomActuatorConfig to CustomActuatorConfig.
-func CustomActuatorConfigsToPB(rs []schematic.CustomActuatorConfig) ([]*CustomActuatorConfig, error) {
-	result := make([]*CustomActuatorConfig, len(rs))
+// NodeConfigCustomActuatorsToPB converts a slice of NodeConfigCustomActuator to NodeConfigCustomActuatorPayload.
+func NodeConfigCustomActuatorsToPB(rs []schematic.NodeConfigCustomActuator) ([]*NodeConfigCustomActuatorPayload, error) {
+	result := make([]*NodeConfigCustomActuatorPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = CustomActuatorConfigToPB(rs[i])
+		result[i], err = NodeConfigCustomActuatorToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -3391,12 +3482,12 @@ func CustomActuatorConfigsToPB(rs []schematic.CustomActuatorConfig) ([]*CustomAc
 	return result, nil
 }
 
-// CustomActuatorConfigsFromPB converts a slice of CustomActuatorConfig to CustomActuatorConfig.
-func CustomActuatorConfigsFromPB(pbs []*CustomActuatorConfig) ([]schematic.CustomActuatorConfig, error) {
-	result := make([]schematic.CustomActuatorConfig, len(pbs))
+// NodeConfigCustomActuatorsFromPB converts a slice of NodeConfigCustomActuatorPayload to NodeConfigCustomActuator.
+func NodeConfigCustomActuatorsFromPB(pbs []*NodeConfigCustomActuatorPayload) ([]schematic.NodeConfigCustomActuator, error) {
+	result := make([]schematic.NodeConfigCustomActuator, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = CustomActuatorConfigFromPB(pb)
+		result[i], err = NodeConfigCustomActuatorFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -3404,13 +3495,13 @@ func CustomActuatorConfigsFromPB(pbs []*CustomActuatorConfig) ([]schematic.Custo
 	return result, nil
 }
 
-// CustomStaticConfigToPB converts CustomStaticConfig to CustomStaticConfig.
-func CustomStaticConfigToPB(r schematic.CustomStaticConfig) (*CustomStaticConfig, error) {
+// NodeConfigCustomStaticToPB converts NodeConfigCustomStatic to NodeConfigCustomStaticPayload.
+func NodeConfigCustomStaticToPB(r schematic.NodeConfigCustomStatic) (*NodeConfigCustomStaticPayload, error) {
 	stateOverridesVal, err := recordsToPB(r.StateOverrides)
 	if err != nil {
 		return nil, err
 	}
-	pb := &CustomStaticConfig{
+	pb := &NodeConfigCustomStaticPayload{
 		SpecKey:        r.SpecKey,
 		StateOverrides: stateOverridesVal,
 	}
@@ -3441,9 +3532,9 @@ func CustomStaticConfigToPB(r schematic.CustomStaticConfig) (*CustomStaticConfig
 	return pb, nil
 }
 
-// CustomStaticConfigFromPB converts CustomStaticConfig to CustomStaticConfig.
-func CustomStaticConfigFromPB(pb *CustomStaticConfig) (schematic.CustomStaticConfig, error) {
-	var r schematic.CustomStaticConfig
+// NodeConfigCustomStaticFromPB converts NodeConfigCustomStaticPayload to NodeConfigCustomStatic.
+func NodeConfigCustomStaticFromPB(pb *NodeConfigCustomStaticPayload) (schematic.NodeConfigCustomStatic, error) {
+	var r schematic.NodeConfigCustomStatic
 	if pb == nil {
 		return r, nil
 	}
@@ -3452,21 +3543,21 @@ func CustomStaticConfigFromPB(pb *CustomStaticConfig) (schematic.CustomStaticCon
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
-			return schematic.CustomStaticConfig{}, err
+			return schematic.NodeConfigCustomStatic{}, err
 		}
 		r.Label = &val
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
-			return schematic.CustomStaticConfig{}, err
+			return schematic.NodeConfigCustomStatic{}, err
 		}
 		r.Orientation = &val
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
-			return schematic.CustomStaticConfig{}, err
+			return schematic.NodeConfigCustomStatic{}, err
 		}
 		r.Color = &val
 	}
@@ -3476,12 +3567,12 @@ func CustomStaticConfigFromPB(pb *CustomStaticConfig) (schematic.CustomStaticCon
 	return r, nil
 }
 
-// CustomStaticConfigsToPB converts a slice of CustomStaticConfig to CustomStaticConfig.
-func CustomStaticConfigsToPB(rs []schematic.CustomStaticConfig) ([]*CustomStaticConfig, error) {
-	result := make([]*CustomStaticConfig, len(rs))
+// NodeConfigCustomStaticsToPB converts a slice of NodeConfigCustomStatic to NodeConfigCustomStaticPayload.
+func NodeConfigCustomStaticsToPB(rs []schematic.NodeConfigCustomStatic) ([]*NodeConfigCustomStaticPayload, error) {
+	result := make([]*NodeConfigCustomStaticPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = CustomStaticConfigToPB(rs[i])
+		result[i], err = NodeConfigCustomStaticToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -3489,12 +3580,12 @@ func CustomStaticConfigsToPB(rs []schematic.CustomStaticConfig) ([]*CustomStatic
 	return result, nil
 }
 
-// CustomStaticConfigsFromPB converts a slice of CustomStaticConfig to CustomStaticConfig.
-func CustomStaticConfigsFromPB(pbs []*CustomStaticConfig) ([]schematic.CustomStaticConfig, error) {
-	result := make([]schematic.CustomStaticConfig, len(pbs))
+// NodeConfigCustomStaticsFromPB converts a slice of NodeConfigCustomStaticPayload to NodeConfigCustomStatic.
+func NodeConfigCustomStaticsFromPB(pbs []*NodeConfigCustomStaticPayload) ([]schematic.NodeConfigCustomStatic, error) {
+	result := make([]schematic.NodeConfigCustomStatic, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = CustomStaticConfigFromPB(pb)
+		result[i], err = NodeConfigCustomStaticFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -3502,77 +3593,259 @@ func CustomStaticConfigsFromPB(pbs []*CustomStaticConfig) ([]schematic.CustomSta
 	return result, nil
 }
 
-// SchematicToPB converts Schematic to Schematic.
-func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
-	nodesVal, err := NodesToPB(r.Nodes)
-	if err != nil {
-		return nil, err
+// ElementConfigBoxToPB converts ElementConfigBox to NodeConfigBoxPayload.
+func ElementConfigBoxToPB(r schematic.ElementConfigBox) (*NodeConfigBoxPayload, error) {
+	pb := &NodeConfigBoxPayload{}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
 	}
-	edgesVal, err := EdgesToPB(r.Edges)
-	if err != nil {
-		return nil, err
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
 	}
-	pb := &Schematic{
-		Name:     r.Name,
-		Snapshot: r.Snapshot,
-		Key:      r.Key.String(),
-		Nodes:    nodesVal,
-		Edges:    edgesVal,
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
 	}
-	if r.Configs != nil {
-		pb.Configs = make(map[string]*ElementConfig, len(r.Configs))
-		for k, v := range r.Configs {
-			converted, err := ElementConfigToPB(v)
-			if err != nil {
-				return nil, err
-			}
-			pb.Configs[k] = converted
+	if r.BackgroundColor != nil {
+		var err error
+		pb.BackgroundColor, err = colorpb.ColorToPB(*r.BackgroundColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Dimensions != nil {
+		var err error
+		pb.Dimensions, err = spatialpb.DimensionsToPB(*r.Dimensions)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BorderRadius != nil {
+		pb.BorderRadius = r.BorderRadius
+	}
+	if r.StrokeWidth != nil {
+		pb.StrokeWidth = r.StrokeWidth
+	}
+	return pb, nil
+}
+
+// ElementConfigBoxFromPB converts NodeConfigBoxPayload to ElementConfigBox.
+func ElementConfigBoxFromPB(pb *NodeConfigBoxPayload) (schematic.ElementConfigBox, error) {
+	var r schematic.ElementConfigBox
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigBox{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigBox{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigBox{}, err
+		}
+		r.Color = &val
+	}
+	if pb.BackgroundColor != nil {
+		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
+		if err != nil {
+			return schematic.ElementConfigBox{}, err
+		}
+		r.BackgroundColor = &val
+	}
+	if pb.Dimensions != nil {
+		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
+		if err != nil {
+			return schematic.ElementConfigBox{}, err
+		}
+		r.Dimensions = &val
+	}
+	if pb.BorderRadius != nil {
+		r.BorderRadius = pb.BorderRadius
+	}
+	if pb.StrokeWidth != nil {
+		r.StrokeWidth = pb.StrokeWidth
+	}
+	return r, nil
+}
+
+// ElementConfigBoxesToPB converts a slice of ElementConfigBox to NodeConfigBoxPayload.
+func ElementConfigBoxesToPB(rs []schematic.ElementConfigBox) ([]*NodeConfigBoxPayload, error) {
+	result := make([]*NodeConfigBoxPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigBoxToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigBoxesFromPB converts a slice of NodeConfigBoxPayload to ElementConfigBox.
+func ElementConfigBoxesFromPB(pbs []*NodeConfigBoxPayload) ([]schematic.ElementConfigBox, error) {
+	result := make([]schematic.ElementConfigBox, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigBoxFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigButtonToPB converts ElementConfigButton to NodeConfigButtonPayload.
+func ElementConfigButtonToPB(r schematic.ElementConfigButton) (*NodeConfigButtonPayload, error) {
+	pb := &NodeConfigButtonPayload{
+		OnClickDelay: r.OnClickDelay,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Size != nil {
+		val, err := ComponentSizeToPB(*r.Size)
+		if err != nil {
+			return nil, err
+		}
+		pb.Size = &val
+	}
+	if r.Level != nil {
+		val, err := textpb.LevelToPB(*r.Level)
+		if err != nil {
+			return nil, err
+		}
+		pb.Level = &val
+	}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
+	}
+	if r.Mode != nil {
+		val, err := ButtonModeToPB(*r.Mode)
+		if err != nil {
+			return nil, err
+		}
+		pb.Mode = &val
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Control != nil {
+		var err error
+		pb.Control, err = ControlStateConfigToPB(*r.Control)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return pb, nil
 }
 
-// SchematicFromPB converts Schematic to Schematic.
-func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
-	var r schematic.Schematic
+// ElementConfigButtonFromPB converts NodeConfigButtonPayload to ElementConfigButton.
+func ElementConfigButtonFromPB(pb *NodeConfigButtonPayload) (schematic.ElementConfigButton, error) {
+	var r schematic.ElementConfigButton
 	if pb == nil {
 		return r, nil
 	}
-	var err error
-	parsedKey, err := uuid.Parse(pb.Key)
-	if err != nil {
-		return schematic.Schematic{}, err
-	}
-	r.Key = schematic.Key(parsedKey)
-	r.Nodes, err = NodesFromPB(pb.Nodes)
-	if err != nil {
-		return schematic.Schematic{}, err
-	}
-	r.Edges, err = EdgesFromPB(pb.Edges)
-	if err != nil {
-		return schematic.Schematic{}, err
-	}
-	r.Name = pb.Name
-	r.Snapshot = pb.Snapshot
-	if pb.Configs != nil {
-		r.Configs = make(map[string]schematic.ElementConfig, len(pb.Configs))
-		for k, v := range pb.Configs {
-			converted, err := ElementConfigFromPB(v)
-			if err != nil {
-				return schematic.Schematic{}, err
-			}
-			r.Configs[k] = converted
+	r.OnClickDelay = pb.OnClickDelay
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigButton{}, err
 		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigButton{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Size != nil {
+		val, err := ComponentSizeFromPB(*pb.Size)
+		if err != nil {
+			return schematic.ElementConfigButton{}, err
+		}
+		r.Size = &val
+	}
+	if pb.Level != nil {
+		val, err := textpb.LevelFromPB(*pb.Level)
+		if err != nil {
+			return schematic.ElementConfigButton{}, err
+		}
+		r.Level = &val
+	}
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
+	}
+	if pb.Mode != nil {
+		val, err := ButtonModeFromPB(*pb.Mode)
+		if err != nil {
+			return schematic.ElementConfigButton{}, err
+		}
+		r.Mode = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigButton{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Control != nil {
+		val, err := ControlStateConfigFromPB(pb.Control)
+		if err != nil {
+			return schematic.ElementConfigButton{}, err
+		}
+		r.Control = &val
 	}
 	return r, nil
 }
 
-// SchematicsToPB converts a slice of Schematic to Schematic.
-func SchematicsToPB(rs []schematic.Schematic) ([]*Schematic, error) {
-	result := make([]*Schematic, len(rs))
+// ElementConfigButtonsToPB converts a slice of ElementConfigButton to NodeConfigButtonPayload.
+func ElementConfigButtonsToPB(rs []schematic.ElementConfigButton) ([]*NodeConfigButtonPayload, error) {
+	result := make([]*NodeConfigButtonPayload, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SchematicToPB(rs[i])
+		result[i], err = ElementConfigButtonToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -3580,12 +3853,2147 @@ func SchematicsToPB(rs []schematic.Schematic) ([]*Schematic, error) {
 	return result, nil
 }
 
-// SchematicsFromPB converts a slice of Schematic to Schematic.
-func SchematicsFromPB(pbs []*Schematic) ([]schematic.Schematic, error) {
-	result := make([]schematic.Schematic, len(pbs))
+// ElementConfigButtonsFromPB converts a slice of NodeConfigButtonPayload to ElementConfigButton.
+func ElementConfigButtonsFromPB(pbs []*NodeConfigButtonPayload) ([]schematic.ElementConfigButton, error) {
+	result := make([]schematic.ElementConfigButton, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SchematicFromPB(pb)
+		result[i], err = ElementConfigButtonFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigCircleToPB converts ElementConfigCircle to NodeConfigCirclePayload.
+func ElementConfigCircleToPB(r schematic.ElementConfigCircle) (*NodeConfigCirclePayload, error) {
+	pb := &NodeConfigCirclePayload{
+		Radius: r.Radius,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BackgroundColor != nil {
+		var err error
+		pb.BackgroundColor, err = colorpb.ColorToPB(*r.BackgroundColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.StrokeWidth != nil {
+		pb.StrokeWidth = r.StrokeWidth
+	}
+	return pb, nil
+}
+
+// ElementConfigCircleFromPB converts NodeConfigCirclePayload to ElementConfigCircle.
+func ElementConfigCircleFromPB(pb *NodeConfigCirclePayload) (schematic.ElementConfigCircle, error) {
+	var r schematic.ElementConfigCircle
+	if pb == nil {
+		return r, nil
+	}
+	r.Radius = pb.Radius
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigCircle{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigCircle{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigCircle{}, err
+		}
+		r.Color = &val
+	}
+	if pb.BackgroundColor != nil {
+		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
+		if err != nil {
+			return schematic.ElementConfigCircle{}, err
+		}
+		r.BackgroundColor = &val
+	}
+	if pb.StrokeWidth != nil {
+		r.StrokeWidth = pb.StrokeWidth
+	}
+	return r, nil
+}
+
+// ElementConfigCirclesToPB converts a slice of ElementConfigCircle to NodeConfigCirclePayload.
+func ElementConfigCirclesToPB(rs []schematic.ElementConfigCircle) ([]*NodeConfigCirclePayload, error) {
+	result := make([]*NodeConfigCirclePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigCircleToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigCirclesFromPB converts a slice of NodeConfigCirclePayload to ElementConfigCircle.
+func ElementConfigCirclesFromPB(pbs []*NodeConfigCirclePayload) ([]schematic.ElementConfigCircle, error) {
+	result := make([]schematic.ElementConfigCircle, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigCircleFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigGaugeToPB converts ElementConfigGauge to NodeConfigGaugePayload.
+func ElementConfigGaugeToPB(r schematic.ElementConfigGauge) (*NodeConfigGaugePayload, error) {
+	pb := &NodeConfigGaugePayload{
+		Units: r.Units,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Position != nil {
+		var err error
+		pb.Position, err = spatialpb.XYToPB(*r.Position)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Bounds != nil {
+		var err error
+		pb.Bounds, err = spatialpb.BoundsToPB(*r.Bounds)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BarWidth != nil {
+		pb.BarWidth = r.BarWidth
+	}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
+	}
+	if r.RollingAverage != nil {
+		pb.RollingAverage = r.RollingAverage
+	}
+	if r.Precision != nil {
+		pb.Precision = r.Precision
+	}
+	if r.MinWidth != nil {
+		pb.MinWidth = r.MinWidth
+	}
+	if r.Width != nil {
+		pb.Width = r.Width
+	}
+	if r.Notation != nil {
+		val, err := notationpb.NotationToPB(*r.Notation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Notation = &val
+	}
+	if r.Location != nil {
+		var err error
+		pb.Location, err = spatialpb.LocationXYToPB(*r.Location)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Level != nil {
+		val, err := textpb.LevelToPB(*r.Level)
+		if err != nil {
+			return nil, err
+		}
+		pb.Level = &val
+	}
+	return pb, nil
+}
+
+// ElementConfigGaugeFromPB converts NodeConfigGaugePayload to ElementConfigGauge.
+func ElementConfigGaugeFromPB(pb *NodeConfigGaugePayload) (schematic.ElementConfigGauge, error) {
+	var r schematic.ElementConfigGauge
+	if pb == nil {
+		return r, nil
+	}
+	r.Units = pb.Units
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigGauge{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigGauge{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Position != nil {
+		val, err := spatialpb.XYFromPB(pb.Position)
+		if err != nil {
+			return schematic.ElementConfigGauge{}, err
+		}
+		r.Position = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigGauge{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Bounds != nil {
+		val, err := spatialpb.BoundsFromPB(pb.Bounds)
+		if err != nil {
+			return schematic.ElementConfigGauge{}, err
+		}
+		r.Bounds = &val
+	}
+	if pb.BarWidth != nil {
+		r.BarWidth = pb.BarWidth
+	}
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
+	}
+	if pb.RollingAverage != nil {
+		r.RollingAverage = pb.RollingAverage
+	}
+	if pb.Precision != nil {
+		r.Precision = pb.Precision
+	}
+	if pb.MinWidth != nil {
+		r.MinWidth = pb.MinWidth
+	}
+	if pb.Width != nil {
+		r.Width = pb.Width
+	}
+	if pb.Notation != nil {
+		val, err := notationpb.NotationFromPB(*pb.Notation)
+		if err != nil {
+			return schematic.ElementConfigGauge{}, err
+		}
+		r.Notation = &val
+	}
+	if pb.Location != nil {
+		val, err := spatialpb.LocationXYFromPB(pb.Location)
+		if err != nil {
+			return schematic.ElementConfigGauge{}, err
+		}
+		r.Location = &val
+	}
+	if pb.Level != nil {
+		val, err := textpb.LevelFromPB(*pb.Level)
+		if err != nil {
+			return schematic.ElementConfigGauge{}, err
+		}
+		r.Level = &val
+	}
+	return r, nil
+}
+
+// ElementConfigGaugesToPB converts a slice of ElementConfigGauge to NodeConfigGaugePayload.
+func ElementConfigGaugesToPB(rs []schematic.ElementConfigGauge) ([]*NodeConfigGaugePayload, error) {
+	result := make([]*NodeConfigGaugePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigGaugeToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigGaugesFromPB converts a slice of NodeConfigGaugePayload to ElementConfigGauge.
+func ElementConfigGaugesFromPB(pbs []*NodeConfigGaugePayload) ([]schematic.ElementConfigGauge, error) {
+	result := make([]schematic.ElementConfigGauge, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigGaugeFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigInputToPB converts ElementConfigInput to NodeConfigInputPayload.
+func ElementConfigInputToPB(r schematic.ElementConfigInput) (*NodeConfigInputPayload, error) {
+	pb := &NodeConfigInputPayload{
+		Disabled: r.Disabled,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Size != nil {
+		val, err := ComponentSizeToPB(*r.Size)
+		if err != nil {
+			return nil, err
+		}
+		pb.Size = &val
+	}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
+	}
+	if r.Dimensions != nil {
+		var err error
+		pb.Dimensions, err = spatialpb.DimensionsToPB(*r.Dimensions)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Control != nil {
+		var err error
+		pb.Control, err = ControlStateConfigToPB(*r.Control)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ElementConfigInputFromPB converts NodeConfigInputPayload to ElementConfigInput.
+func ElementConfigInputFromPB(pb *NodeConfigInputPayload) (schematic.ElementConfigInput, error) {
+	var r schematic.ElementConfigInput
+	if pb == nil {
+		return r, nil
+	}
+	r.Disabled = pb.Disabled
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigInput{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigInput{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Size != nil {
+		val, err := ComponentSizeFromPB(*pb.Size)
+		if err != nil {
+			return schematic.ElementConfigInput{}, err
+		}
+		r.Size = &val
+	}
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
+	}
+	if pb.Dimensions != nil {
+		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
+		if err != nil {
+			return schematic.ElementConfigInput{}, err
+		}
+		r.Dimensions = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigInput{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Control != nil {
+		val, err := ControlStateConfigFromPB(pb.Control)
+		if err != nil {
+			return schematic.ElementConfigInput{}, err
+		}
+		r.Control = &val
+	}
+	return r, nil
+}
+
+// ElementConfigInputsToPB converts a slice of ElementConfigInput to NodeConfigInputPayload.
+func ElementConfigInputsToPB(rs []schematic.ElementConfigInput) ([]*NodeConfigInputPayload, error) {
+	result := make([]*NodeConfigInputPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigInputToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigInputsFromPB converts a slice of NodeConfigInputPayload to ElementConfigInput.
+func ElementConfigInputsFromPB(pbs []*NodeConfigInputPayload) ([]schematic.ElementConfigInput, error) {
+	result := make([]schematic.ElementConfigInput, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigInputFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigLightToPB converts ElementConfigLight to NodeConfigLightPayload.
+func ElementConfigLightToPB(r schematic.ElementConfigLight) (*NodeConfigLightPayload, error) {
+	pb := &NodeConfigLightPayload{}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
+	}
+	if r.Threshold != nil {
+		var err error
+		pb.Threshold, err = spatialpb.BoundsToPB(*r.Threshold)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
+	return pb, nil
+}
+
+// ElementConfigLightFromPB converts NodeConfigLightPayload to ElementConfigLight.
+func ElementConfigLightFromPB(pb *NodeConfigLightPayload) (schematic.ElementConfigLight, error) {
+	var r schematic.ElementConfigLight
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigLight{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigLight{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
+	}
+	if pb.Threshold != nil {
+		val, err := spatialpb.BoundsFromPB(pb.Threshold)
+		if err != nil {
+			return schematic.ElementConfigLight{}, err
+		}
+		r.Threshold = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigLight{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
+	return r, nil
+}
+
+// ElementConfigLightsToPB converts a slice of ElementConfigLight to NodeConfigLightPayload.
+func ElementConfigLightsToPB(rs []schematic.ElementConfigLight) ([]*NodeConfigLightPayload, error) {
+	result := make([]*NodeConfigLightPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigLightToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigLightsFromPB converts a slice of NodeConfigLightPayload to ElementConfigLight.
+func ElementConfigLightsFromPB(pbs []*NodeConfigLightPayload) ([]schematic.ElementConfigLight, error) {
+	result := make([]schematic.ElementConfigLight, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigLightFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigOffPageReferenceToPB converts ElementConfigOffPageReference to NodeConfigOffPageReferencePayload.
+func ElementConfigOffPageReferenceToPB(r schematic.ElementConfigOffPageReference) (*NodeConfigOffPageReferencePayload, error) {
+	labelVal, err := LabelConfigToPB(r.Label)
+	if err != nil {
+		return nil, err
+	}
+	pb := &NodeConfigOffPageReferencePayload{
+		Page:        r.Page,
+		DblClickNav: r.DblClickNav,
+		Label:       labelVal,
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Level != nil {
+		val, err := textpb.LevelToPB(*r.Level)
+		if err != nil {
+			return nil, err
+		}
+		pb.Level = &val
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ElementConfigOffPageReferenceFromPB converts NodeConfigOffPageReferencePayload to ElementConfigOffPageReference.
+func ElementConfigOffPageReferenceFromPB(pb *NodeConfigOffPageReferencePayload) (schematic.ElementConfigOffPageReference, error) {
+	var r schematic.ElementConfigOffPageReference
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Label, err = LabelConfigFromPB(pb.Label)
+	if err != nil {
+		return schematic.ElementConfigOffPageReference{}, err
+	}
+	r.Page = pb.Page
+	r.DblClickNav = pb.DblClickNav
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigOffPageReference{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Level != nil {
+		val, err := textpb.LevelFromPB(*pb.Level)
+		if err != nil {
+			return schematic.ElementConfigOffPageReference{}, err
+		}
+		r.Level = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigOffPageReference{}, err
+		}
+		r.Color = &val
+	}
+	return r, nil
+}
+
+// ElementConfigOffPageReferencesToPB converts a slice of ElementConfigOffPageReference to NodeConfigOffPageReferencePayload.
+func ElementConfigOffPageReferencesToPB(rs []schematic.ElementConfigOffPageReference) ([]*NodeConfigOffPageReferencePayload, error) {
+	result := make([]*NodeConfigOffPageReferencePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigOffPageReferenceToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigOffPageReferencesFromPB converts a slice of NodeConfigOffPageReferencePayload to ElementConfigOffPageReference.
+func ElementConfigOffPageReferencesFromPB(pbs []*NodeConfigOffPageReferencePayload) ([]schematic.ElementConfigOffPageReference, error) {
+	result := make([]schematic.ElementConfigOffPageReference, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigOffPageReferenceFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigPolygonToPB converts ElementConfigPolygon to NodeConfigPolygonPayload.
+func ElementConfigPolygonToPB(r schematic.ElementConfigPolygon) (*NodeConfigPolygonPayload, error) {
+	pb := &NodeConfigPolygonPayload{
+		NumSides:   r.NumSides,
+		SideLength: r.SideLength,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Rotation != nil {
+		pb.Rotation = r.Rotation
+	}
+	if r.CornerRounding != nil {
+		pb.CornerRounding = r.CornerRounding
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BackgroundColor != nil {
+		var err error
+		pb.BackgroundColor, err = colorpb.ColorToPB(*r.BackgroundColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.StrokeWidth != nil {
+		pb.StrokeWidth = r.StrokeWidth
+	}
+	return pb, nil
+}
+
+// ElementConfigPolygonFromPB converts NodeConfigPolygonPayload to ElementConfigPolygon.
+func ElementConfigPolygonFromPB(pb *NodeConfigPolygonPayload) (schematic.ElementConfigPolygon, error) {
+	var r schematic.ElementConfigPolygon
+	if pb == nil {
+		return r, nil
+	}
+	r.NumSides = pb.NumSides
+	r.SideLength = pb.SideLength
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigPolygon{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigPolygon{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Rotation != nil {
+		r.Rotation = pb.Rotation
+	}
+	if pb.CornerRounding != nil {
+		r.CornerRounding = pb.CornerRounding
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigPolygon{}, err
+		}
+		r.Color = &val
+	}
+	if pb.BackgroundColor != nil {
+		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
+		if err != nil {
+			return schematic.ElementConfigPolygon{}, err
+		}
+		r.BackgroundColor = &val
+	}
+	if pb.StrokeWidth != nil {
+		r.StrokeWidth = pb.StrokeWidth
+	}
+	return r, nil
+}
+
+// ElementConfigPolygonsToPB converts a slice of ElementConfigPolygon to NodeConfigPolygonPayload.
+func ElementConfigPolygonsToPB(rs []schematic.ElementConfigPolygon) ([]*NodeConfigPolygonPayload, error) {
+	result := make([]*NodeConfigPolygonPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigPolygonToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigPolygonsFromPB converts a slice of NodeConfigPolygonPayload to ElementConfigPolygon.
+func ElementConfigPolygonsFromPB(pbs []*NodeConfigPolygonPayload) ([]schematic.ElementConfigPolygon, error) {
+	result := make([]schematic.ElementConfigPolygon, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigPolygonFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigSelectToPB converts ElementConfigSelect to NodeConfigSelectPayload.
+func ElementConfigSelectToPB(r schematic.ElementConfigSelect) (*NodeConfigSelectPayload, error) {
+	optionsVal, err := StateMappingsToPB(r.Options)
+	if err != nil {
+		return nil, err
+	}
+	pb := &NodeConfigSelectPayload{
+		Disabled: r.Disabled,
+		Options:  optionsVal,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Size != nil {
+		val, err := ComponentSizeToPB(*r.Size)
+		if err != nil {
+			return nil, err
+		}
+		pb.Size = &val
+	}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.InlineSize != nil {
+		pb.InlineSize = r.InlineSize
+	}
+	if r.Control != nil {
+		var err error
+		pb.Control, err = ControlStateConfigToPB(*r.Control)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ElementConfigSelectFromPB converts NodeConfigSelectPayload to ElementConfigSelect.
+func ElementConfigSelectFromPB(pb *NodeConfigSelectPayload) (schematic.ElementConfigSelect, error) {
+	var r schematic.ElementConfigSelect
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Options, err = StateMappingsFromPB(pb.Options)
+	if err != nil {
+		return schematic.ElementConfigSelect{}, err
+	}
+	r.Disabled = pb.Disabled
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigSelect{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigSelect{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Size != nil {
+		val, err := ComponentSizeFromPB(*pb.Size)
+		if err != nil {
+			return schematic.ElementConfigSelect{}, err
+		}
+		r.Size = &val
+	}
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigSelect{}, err
+		}
+		r.Color = &val
+	}
+	if pb.InlineSize != nil {
+		r.InlineSize = pb.InlineSize
+	}
+	if pb.Control != nil {
+		val, err := ControlStateConfigFromPB(pb.Control)
+		if err != nil {
+			return schematic.ElementConfigSelect{}, err
+		}
+		r.Control = &val
+	}
+	return r, nil
+}
+
+// ElementConfigSelectsToPB converts a slice of ElementConfigSelect to NodeConfigSelectPayload.
+func ElementConfigSelectsToPB(rs []schematic.ElementConfigSelect) ([]*NodeConfigSelectPayload, error) {
+	result := make([]*NodeConfigSelectPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigSelectToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigSelectsFromPB converts a slice of NodeConfigSelectPayload to ElementConfigSelect.
+func ElementConfigSelectsFromPB(pbs []*NodeConfigSelectPayload) ([]schematic.ElementConfigSelect, error) {
+	result := make([]schematic.ElementConfigSelect, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigSelectFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigSetpointToPB converts ElementConfigSetpoint to NodeConfigSetpointPayload.
+func ElementConfigSetpointToPB(r schematic.ElementConfigSetpoint) (*NodeConfigSetpointPayload, error) {
+	pb := &NodeConfigSetpointPayload{
+		Units:    r.Units,
+		Disabled: r.Disabled,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Size != nil {
+		val, err := ComponentSizeToPB(*r.Size)
+		if err != nil {
+			return nil, err
+		}
+		pb.Size = &val
+	}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
+	}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
+	}
+	if r.Dimensions != nil {
+		var err error
+		pb.Dimensions, err = spatialpb.DimensionsToPB(*r.Dimensions)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Control != nil {
+		var err error
+		pb.Control, err = ControlStateConfigToPB(*r.Control)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ElementConfigSetpointFromPB converts NodeConfigSetpointPayload to ElementConfigSetpoint.
+func ElementConfigSetpointFromPB(pb *NodeConfigSetpointPayload) (schematic.ElementConfigSetpoint, error) {
+	var r schematic.ElementConfigSetpoint
+	if pb == nil {
+		return r, nil
+	}
+	r.Units = pb.Units
+	r.Disabled = pb.Disabled
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigSetpoint{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigSetpoint{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Size != nil {
+		val, err := ComponentSizeFromPB(*pb.Size)
+		if err != nil {
+			return schematic.ElementConfigSetpoint{}, err
+		}
+		r.Size = &val
+	}
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
+	}
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
+	}
+	if pb.Dimensions != nil {
+		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
+		if err != nil {
+			return schematic.ElementConfigSetpoint{}, err
+		}
+		r.Dimensions = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigSetpoint{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Control != nil {
+		val, err := ControlStateConfigFromPB(pb.Control)
+		if err != nil {
+			return schematic.ElementConfigSetpoint{}, err
+		}
+		r.Control = &val
+	}
+	return r, nil
+}
+
+// ElementConfigSetpointsToPB converts a slice of ElementConfigSetpoint to NodeConfigSetpointPayload.
+func ElementConfigSetpointsToPB(rs []schematic.ElementConfigSetpoint) ([]*NodeConfigSetpointPayload, error) {
+	result := make([]*NodeConfigSetpointPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigSetpointToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigSetpointsFromPB converts a slice of NodeConfigSetpointPayload to ElementConfigSetpoint.
+func ElementConfigSetpointsFromPB(pbs []*NodeConfigSetpointPayload) ([]schematic.ElementConfigSetpoint, error) {
+	result := make([]schematic.ElementConfigSetpoint, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigSetpointFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigStateIndicatorToPB converts ElementConfigStateIndicator to NodeConfigStateIndicatorPayload.
+func ElementConfigStateIndicatorToPB(r schematic.ElementConfigStateIndicator) (*NodeConfigStateIndicatorPayload, error) {
+	optionsVal, err := StateMappingsToPB(r.Options)
+	if err != nil {
+		return nil, err
+	}
+	pb := &NodeConfigStateIndicatorPayload{
+		Options: optionsVal,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.InlineSize != nil {
+		pb.InlineSize = r.InlineSize
+	}
+	return pb, nil
+}
+
+// ElementConfigStateIndicatorFromPB converts NodeConfigStateIndicatorPayload to ElementConfigStateIndicator.
+func ElementConfigStateIndicatorFromPB(pb *NodeConfigStateIndicatorPayload) (schematic.ElementConfigStateIndicator, error) {
+	var r schematic.ElementConfigStateIndicator
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Options, err = StateMappingsFromPB(pb.Options)
+	if err != nil {
+		return schematic.ElementConfigStateIndicator{}, err
+	}
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigStateIndicator{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigStateIndicator{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigStateIndicator{}, err
+		}
+		r.Color = &val
+	}
+	if pb.InlineSize != nil {
+		r.InlineSize = pb.InlineSize
+	}
+	return r, nil
+}
+
+// ElementConfigStateIndicatorsToPB converts a slice of ElementConfigStateIndicator to NodeConfigStateIndicatorPayload.
+func ElementConfigStateIndicatorsToPB(rs []schematic.ElementConfigStateIndicator) ([]*NodeConfigStateIndicatorPayload, error) {
+	result := make([]*NodeConfigStateIndicatorPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigStateIndicatorToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigStateIndicatorsFromPB converts a slice of NodeConfigStateIndicatorPayload to ElementConfigStateIndicator.
+func ElementConfigStateIndicatorsFromPB(pbs []*NodeConfigStateIndicatorPayload) ([]schematic.ElementConfigStateIndicator, error) {
+	result := make([]schematic.ElementConfigStateIndicator, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigStateIndicatorFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigTextBoxToPB converts ElementConfigTextBox to NodeConfigTextBoxPayload.
+func ElementConfigTextBoxToPB(r schematic.ElementConfigTextBox) (*NodeConfigTextBoxPayload, error) {
+	pb := &NodeConfigTextBoxPayload{
+		AutoFit: r.AutoFit,
+		Value:   r.Value,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Width != nil {
+		pb.Width = r.Width
+	}
+	if r.Align != nil {
+		val, err := FlexAlignmentToPB(*r.Align)
+		if err != nil {
+			return nil, err
+		}
+		pb.Align = &val
+	}
+	if r.Level != nil {
+		val, err := textpb.LevelToPB(*r.Level)
+		if err != nil {
+			return nil, err
+		}
+		pb.Level = &val
+	}
+	return pb, nil
+}
+
+// ElementConfigTextBoxFromPB converts NodeConfigTextBoxPayload to ElementConfigTextBox.
+func ElementConfigTextBoxFromPB(pb *NodeConfigTextBoxPayload) (schematic.ElementConfigTextBox, error) {
+	var r schematic.ElementConfigTextBox
+	if pb == nil {
+		return r, nil
+	}
+	r.AutoFit = pb.AutoFit
+	r.Value = pb.Value
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigTextBox{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigTextBox{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigTextBox{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Width != nil {
+		r.Width = pb.Width
+	}
+	if pb.Align != nil {
+		val, err := FlexAlignmentFromPB(*pb.Align)
+		if err != nil {
+			return schematic.ElementConfigTextBox{}, err
+		}
+		r.Align = &val
+	}
+	if pb.Level != nil {
+		val, err := textpb.LevelFromPB(*pb.Level)
+		if err != nil {
+			return schematic.ElementConfigTextBox{}, err
+		}
+		r.Level = &val
+	}
+	return r, nil
+}
+
+// ElementConfigTextBoxesToPB converts a slice of ElementConfigTextBox to NodeConfigTextBoxPayload.
+func ElementConfigTextBoxesToPB(rs []schematic.ElementConfigTextBox) ([]*NodeConfigTextBoxPayload, error) {
+	result := make([]*NodeConfigTextBoxPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigTextBoxToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigTextBoxesFromPB converts a slice of NodeConfigTextBoxPayload to ElementConfigTextBox.
+func ElementConfigTextBoxesFromPB(pbs []*NodeConfigTextBoxPayload) ([]schematic.ElementConfigTextBox, error) {
+	result := make([]schematic.ElementConfigTextBox, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigTextBoxFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigValueToPB converts ElementConfigValue to NodeConfigValuePayload.
+func ElementConfigValueToPB(r schematic.ElementConfigValue) (*NodeConfigValuePayload, error) {
+	pb := &NodeConfigValuePayload{
+		Tooltip:               r.Tooltip,
+		Units:                 r.Units,
+		UseWidthForBackground: r.UseWidthForBackground,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Position != nil {
+		var err error
+		pb.Position, err = spatialpb.XYToPB(*r.Position)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.TextColor != nil {
+		var err error
+		pb.TextColor, err = colorpb.ColorToPB(*r.TextColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Redline != nil {
+		var err error
+		pb.Redline, err = RedlineToPB(*r.Redline)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.InlineSize != nil {
+		pb.InlineSize = r.InlineSize
+	}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
+	}
+	if r.RollingAverage != nil {
+		pb.RollingAverage = r.RollingAverage
+	}
+	if r.Level != nil {
+		val, err := textpb.LevelToPB(*r.Level)
+		if err != nil {
+			return nil, err
+		}
+		pb.Level = &val
+	}
+	if r.Precision != nil {
+		pb.Precision = r.Precision
+	}
+	if r.StalenessTimeout != nil {
+		pb.StalenessTimeout = r.StalenessTimeout
+	}
+	if r.StalenessColor != nil {
+		var err error
+		pb.StalenessColor, err = colorpb.ColorToPB(*r.StalenessColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.MinWidth != nil {
+		pb.MinWidth = r.MinWidth
+	}
+	if r.Notation != nil {
+		val, err := notationpb.NotationToPB(*r.Notation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Notation = &val
+	}
+	if r.Location != nil {
+		var err error
+		pb.Location, err = spatialpb.LocationXYToPB(*r.Location)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.ValueBackgroundShift != nil {
+		var err error
+		pb.ValueBackgroundShift, err = spatialpb.XYToPB(*r.ValueBackgroundShift)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.ValueBackgroundOverScan != nil {
+		var err error
+		pb.ValueBackgroundOverScan, err = spatialpb.XYToPB(*r.ValueBackgroundOverScan)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ElementConfigValueFromPB converts NodeConfigValuePayload to ElementConfigValue.
+func ElementConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.ElementConfigValue, error) {
+	var r schematic.ElementConfigValue
+	if pb == nil {
+		return r, nil
+	}
+	r.Tooltip = pb.Tooltip
+	r.Units = pb.Units
+	r.UseWidthForBackground = pb.UseWidthForBackground
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Position != nil {
+		val, err := spatialpb.XYFromPB(pb.Position)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.Position = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.Color = &val
+	}
+	if pb.TextColor != nil {
+		val, err := colorpb.ColorFromPB(pb.TextColor)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.TextColor = &val
+	}
+	if pb.Redline != nil {
+		val, err := RedlineFromPB(pb.Redline)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.Redline = &val
+	}
+	if pb.InlineSize != nil {
+		r.InlineSize = pb.InlineSize
+	}
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
+	}
+	if pb.RollingAverage != nil {
+		r.RollingAverage = pb.RollingAverage
+	}
+	if pb.Level != nil {
+		val, err := textpb.LevelFromPB(*pb.Level)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.Level = &val
+	}
+	if pb.Precision != nil {
+		r.Precision = pb.Precision
+	}
+	if pb.StalenessTimeout != nil {
+		r.StalenessTimeout = pb.StalenessTimeout
+	}
+	if pb.StalenessColor != nil {
+		val, err := colorpb.ColorFromPB(pb.StalenessColor)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.StalenessColor = &val
+	}
+	if pb.MinWidth != nil {
+		r.MinWidth = pb.MinWidth
+	}
+	if pb.Notation != nil {
+		val, err := notationpb.NotationFromPB(*pb.Notation)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.Notation = &val
+	}
+	if pb.Location != nil {
+		val, err := spatialpb.LocationXYFromPB(pb.Location)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.Location = &val
+	}
+	if pb.ValueBackgroundShift != nil {
+		val, err := spatialpb.XYFromPB(pb.ValueBackgroundShift)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.ValueBackgroundShift = &val
+	}
+	if pb.ValueBackgroundOverScan != nil {
+		val, err := spatialpb.XYFromPB(pb.ValueBackgroundOverScan)
+		if err != nil {
+			return schematic.ElementConfigValue{}, err
+		}
+		r.ValueBackgroundOverScan = &val
+	}
+	return r, nil
+}
+
+// ElementConfigValuesToPB converts a slice of ElementConfigValue to NodeConfigValuePayload.
+func ElementConfigValuesToPB(rs []schematic.ElementConfigValue) ([]*NodeConfigValuePayload, error) {
+	result := make([]*NodeConfigValuePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigValueToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigValuesFromPB converts a slice of NodeConfigValuePayload to ElementConfigValue.
+func ElementConfigValuesFromPB(pbs []*NodeConfigValuePayload) ([]schematic.ElementConfigValue, error) {
+	result := make([]schematic.ElementConfigValue, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigValueFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigSolenoidValveToPB converts ElementConfigSolenoidValve to NodeConfigSolenoidValvePayload.
+func ElementConfigSolenoidValveToPB(r schematic.ElementConfigSolenoidValve) (*NodeConfigSolenoidValvePayload, error) {
+	pb := &NodeConfigSolenoidValvePayload{
+		OnClickDelay: r.OnClickDelay,
+		NormallyOpen: r.NormallyOpen,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
+	}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
+	}
+	if r.Control != nil {
+		var err error
+		pb.Control, err = ControlStateConfigToPB(*r.Control)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
+	return pb, nil
+}
+
+// ElementConfigSolenoidValveFromPB converts NodeConfigSolenoidValvePayload to ElementConfigSolenoidValve.
+func ElementConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schematic.ElementConfigSolenoidValve, error) {
+	var r schematic.ElementConfigSolenoidValve
+	if pb == nil {
+		return r, nil
+	}
+	r.OnClickDelay = pb.OnClickDelay
+	r.NormallyOpen = pb.NormallyOpen
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigSolenoidValve{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigSolenoidValve{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
+	}
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
+	}
+	if pb.Control != nil {
+		val, err := ControlStateConfigFromPB(pb.Control)
+		if err != nil {
+			return schematic.ElementConfigSolenoidValve{}, err
+		}
+		r.Control = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigSolenoidValve{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
+	return r, nil
+}
+
+// ElementConfigSolenoidValvesToPB converts a slice of ElementConfigSolenoidValve to NodeConfigSolenoidValvePayload.
+func ElementConfigSolenoidValvesToPB(rs []schematic.ElementConfigSolenoidValve) ([]*NodeConfigSolenoidValvePayload, error) {
+	result := make([]*NodeConfigSolenoidValvePayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigSolenoidValveToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigSolenoidValvesFromPB converts a slice of NodeConfigSolenoidValvePayload to ElementConfigSolenoidValve.
+func ElementConfigSolenoidValvesFromPB(pbs []*NodeConfigSolenoidValvePayload) ([]schematic.ElementConfigSolenoidValve, error) {
+	result := make([]schematic.ElementConfigSolenoidValve, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigSolenoidValveFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigCylinderToPB converts ElementConfigCylinder to NodeConfigCylinderPayload.
+func ElementConfigCylinderToPB(r schematic.ElementConfigCylinder) (*NodeConfigCylinderPayload, error) {
+	pb := &NodeConfigCylinderPayload{}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Dimensions != nil {
+		var err error
+		pb.Dimensions, err = spatialpb.DimensionsToPB(*r.Dimensions)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BorderRadius != nil {
+		var err error
+		pb.BorderRadius, err = borderpb.RadiusToPB(*r.BorderRadius)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BackgroundColor != nil {
+		var err error
+		pb.BackgroundColor, err = colorpb.ColorToPB(*r.BackgroundColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ElementConfigCylinderFromPB converts NodeConfigCylinderPayload to ElementConfigCylinder.
+func ElementConfigCylinderFromPB(pb *NodeConfigCylinderPayload) (schematic.ElementConfigCylinder, error) {
+	var r schematic.ElementConfigCylinder
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigCylinder{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigCylinder{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Dimensions != nil {
+		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
+		if err != nil {
+			return schematic.ElementConfigCylinder{}, err
+		}
+		r.Dimensions = &val
+	}
+	if pb.BorderRadius != nil {
+		val, err := borderpb.RadiusFromPB(pb.BorderRadius)
+		if err != nil {
+			return schematic.ElementConfigCylinder{}, err
+		}
+		r.BorderRadius = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigCylinder{}, err
+		}
+		r.Color = &val
+	}
+	if pb.BackgroundColor != nil {
+		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
+		if err != nil {
+			return schematic.ElementConfigCylinder{}, err
+		}
+		r.BackgroundColor = &val
+	}
+	return r, nil
+}
+
+// ElementConfigCylindersToPB converts a slice of ElementConfigCylinder to NodeConfigCylinderPayload.
+func ElementConfigCylindersToPB(rs []schematic.ElementConfigCylinder) ([]*NodeConfigCylinderPayload, error) {
+	result := make([]*NodeConfigCylinderPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigCylinderToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigCylindersFromPB converts a slice of NodeConfigCylinderPayload to ElementConfigCylinder.
+func ElementConfigCylindersFromPB(pbs []*NodeConfigCylinderPayload) ([]schematic.ElementConfigCylinder, error) {
+	result := make([]schematic.ElementConfigCylinder, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigCylinderFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigTankToPB converts ElementConfigTank to NodeConfigTankPayload.
+func ElementConfigTankToPB(r schematic.ElementConfigTank) (*NodeConfigTankPayload, error) {
+	pb := &NodeConfigTankPayload{}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BackgroundColor != nil {
+		var err error
+		pb.BackgroundColor, err = colorpb.ColorToPB(*r.BackgroundColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Dimensions != nil {
+		var err error
+		pb.Dimensions, err = spatialpb.DimensionsToPB(*r.Dimensions)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.BorderRadius != nil {
+		var err error
+		pb.BorderRadius, err = borderpb.RadiusToPB(*r.BorderRadius)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ElementConfigTankFromPB converts NodeConfigTankPayload to ElementConfigTank.
+func ElementConfigTankFromPB(pb *NodeConfigTankPayload) (schematic.ElementConfigTank, error) {
+	var r schematic.ElementConfigTank
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigTank{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigTank{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigTank{}, err
+		}
+		r.Color = &val
+	}
+	if pb.BackgroundColor != nil {
+		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
+		if err != nil {
+			return schematic.ElementConfigTank{}, err
+		}
+		r.BackgroundColor = &val
+	}
+	if pb.Dimensions != nil {
+		val, err := spatialpb.DimensionsFromPB(pb.Dimensions)
+		if err != nil {
+			return schematic.ElementConfigTank{}, err
+		}
+		r.Dimensions = &val
+	}
+	if pb.BorderRadius != nil {
+		val, err := borderpb.RadiusFromPB(pb.BorderRadius)
+		if err != nil {
+			return schematic.ElementConfigTank{}, err
+		}
+		r.BorderRadius = &val
+	}
+	return r, nil
+}
+
+// ElementConfigTanksToPB converts a slice of ElementConfigTank to NodeConfigTankPayload.
+func ElementConfigTanksToPB(rs []schematic.ElementConfigTank) ([]*NodeConfigTankPayload, error) {
+	result := make([]*NodeConfigTankPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigTankToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigTanksFromPB converts a slice of NodeConfigTankPayload to ElementConfigTank.
+func ElementConfigTanksFromPB(pbs []*NodeConfigTankPayload) ([]schematic.ElementConfigTank, error) {
+	result := make([]schematic.ElementConfigTank, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigTankFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigCustomActuatorToPB converts ElementConfigCustomActuator to NodeConfigCustomActuatorPayload.
+func ElementConfigCustomActuatorToPB(r schematic.ElementConfigCustomActuator) (*NodeConfigCustomActuatorPayload, error) {
+	stateOverridesVal, err := recordsToPB(r.StateOverrides)
+	if err != nil {
+		return nil, err
+	}
+	pb := &NodeConfigCustomActuatorPayload{
+		OnClickDelay:   r.OnClickDelay,
+		SpecKey:        r.SpecKey,
+		StateOverrides: stateOverridesVal,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.StateChannel != nil {
+		v := uint32(*r.StateChannel)
+		pb.StateChannel = &v
+	}
+	if r.CommandChannel != nil {
+		v := uint32(*r.CommandChannel)
+		pb.CommandChannel = &v
+	}
+	if r.Control != nil {
+		var err error
+		pb.Control, err = ControlStateConfigToPB(*r.Control)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
+	return pb, nil
+}
+
+// ElementConfigCustomActuatorFromPB converts NodeConfigCustomActuatorPayload to ElementConfigCustomActuator.
+func ElementConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (schematic.ElementConfigCustomActuator, error) {
+	var r schematic.ElementConfigCustomActuator
+	if pb == nil {
+		return r, nil
+	}
+	r.StateOverrides = recordsFromPB(pb.StateOverrides)
+	r.OnClickDelay = pb.OnClickDelay
+	r.SpecKey = pb.SpecKey
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigCustomActuator{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigCustomActuator{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.StateChannel != nil {
+		v := channel.Key(*pb.StateChannel)
+		r.StateChannel = &v
+	}
+	if pb.CommandChannel != nil {
+		v := channel.Key(*pb.CommandChannel)
+		r.CommandChannel = &v
+	}
+	if pb.Control != nil {
+		val, err := ControlStateConfigFromPB(pb.Control)
+		if err != nil {
+			return schematic.ElementConfigCustomActuator{}, err
+		}
+		r.Control = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigCustomActuator{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
+	return r, nil
+}
+
+// ElementConfigCustomActuatorsToPB converts a slice of ElementConfigCustomActuator to NodeConfigCustomActuatorPayload.
+func ElementConfigCustomActuatorsToPB(rs []schematic.ElementConfigCustomActuator) ([]*NodeConfigCustomActuatorPayload, error) {
+	result := make([]*NodeConfigCustomActuatorPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigCustomActuatorToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigCustomActuatorsFromPB converts a slice of NodeConfigCustomActuatorPayload to ElementConfigCustomActuator.
+func ElementConfigCustomActuatorsFromPB(pbs []*NodeConfigCustomActuatorPayload) ([]schematic.ElementConfigCustomActuator, error) {
+	result := make([]schematic.ElementConfigCustomActuator, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigCustomActuatorFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigCustomStaticToPB converts ElementConfigCustomStatic to NodeConfigCustomStaticPayload.
+func ElementConfigCustomStaticToPB(r schematic.ElementConfigCustomStatic) (*NodeConfigCustomStaticPayload, error) {
+	stateOverridesVal, err := recordsToPB(r.StateOverrides)
+	if err != nil {
+		return nil, err
+	}
+	pb := &NodeConfigCustomStaticPayload{
+		SpecKey:        r.SpecKey,
+		StateOverrides: stateOverridesVal,
+	}
+	if r.Label != nil {
+		var err error
+		pb.Label, err = LabelConfigToPB(*r.Label)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Orientation != nil {
+		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Orientation = &val
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Scale != nil {
+		pb.Scale = r.Scale
+	}
+	return pb, nil
+}
+
+// ElementConfigCustomStaticFromPB converts NodeConfigCustomStaticPayload to ElementConfigCustomStatic.
+func ElementConfigCustomStaticFromPB(pb *NodeConfigCustomStaticPayload) (schematic.ElementConfigCustomStatic, error) {
+	var r schematic.ElementConfigCustomStatic
+	if pb == nil {
+		return r, nil
+	}
+	r.StateOverrides = recordsFromPB(pb.StateOverrides)
+	r.SpecKey = pb.SpecKey
+	if pb.Label != nil {
+		val, err := LabelConfigFromPB(pb.Label)
+		if err != nil {
+			return schematic.ElementConfigCustomStatic{}, err
+		}
+		r.Label = &val
+	}
+	if pb.Orientation != nil {
+		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
+		if err != nil {
+			return schematic.ElementConfigCustomStatic{}, err
+		}
+		r.Orientation = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return schematic.ElementConfigCustomStatic{}, err
+		}
+		r.Color = &val
+	}
+	if pb.Scale != nil {
+		r.Scale = pb.Scale
+	}
+	return r, nil
+}
+
+// ElementConfigCustomStaticsToPB converts a slice of ElementConfigCustomStatic to NodeConfigCustomStaticPayload.
+func ElementConfigCustomStaticsToPB(rs []schematic.ElementConfigCustomStatic) ([]*NodeConfigCustomStaticPayload, error) {
+	result := make([]*NodeConfigCustomStaticPayload, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ElementConfigCustomStaticToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ElementConfigCustomStaticsFromPB converts a slice of NodeConfigCustomStaticPayload to ElementConfigCustomStatic.
+func ElementConfigCustomStaticsFromPB(pbs []*NodeConfigCustomStaticPayload) ([]schematic.ElementConfigCustomStatic, error) {
+	result := make([]schematic.ElementConfigCustomStatic, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ElementConfigCustomStaticFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -3885,67 +6293,67 @@ func NodeConfigToPB(r schematic.NodeConfig) (*NodeConfig, error) {
 		}
 		pb.Variant = &NodeConfig_FlowmeterOrifice{FlowmeterOrifice: inner}
 	case schematic.NodeConfigBox:
-		inner, err := BoxConfigToPB(v.BoxConfig)
+		inner, err := NodeConfigBoxToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Box{Box: inner}
 	case schematic.NodeConfigButton:
-		inner, err := ButtonConfigToPB(v.ButtonConfig)
+		inner, err := NodeConfigButtonToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Button{Button: inner}
 	case schematic.NodeConfigCircle:
-		inner, err := CircleConfigToPB(v.CircleConfig)
+		inner, err := NodeConfigCircleToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Circle{Circle: inner}
 	case schematic.NodeConfigGauge:
-		inner, err := GaugeConfigToPB(v.GaugeConfig)
+		inner, err := NodeConfigGaugeToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Gauge{Gauge: inner}
 	case schematic.NodeConfigInput:
-		inner, err := InputConfigToPB(v.InputConfig)
+		inner, err := NodeConfigInputToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Input{Input: inner}
 	case schematic.NodeConfigLight:
-		inner, err := LightConfigToPB(v.LightConfig)
+		inner, err := NodeConfigLightToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Light{Light: inner}
 	case schematic.NodeConfigOffPageReference:
-		inner, err := OffPageReferenceConfigToPB(v.OffPageReferenceConfig)
+		inner, err := NodeConfigOffPageReferenceToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_OffPageReference{OffPageReference: inner}
 	case schematic.NodeConfigPolygon:
-		inner, err := PolygonConfigToPB(v.PolygonConfig)
+		inner, err := NodeConfigPolygonToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Polygon{Polygon: inner}
 	case schematic.NodeConfigSelect:
-		inner, err := SelectConfigToPB(v.SelectConfig)
+		inner, err := NodeConfigSelectToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Select{Select: inner}
 	case schematic.NodeConfigSetpoint:
-		inner, err := SetpointConfigToPB(v.SetpointConfig)
+		inner, err := NodeConfigSetpointToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Setpoint{Setpoint: inner}
 	case schematic.NodeConfigStateIndicator:
-		inner, err := StateIndicatorConfigToPB(v.StateIndicatorConfig)
+		inner, err := NodeConfigStateIndicatorToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -3957,13 +6365,13 @@ func NodeConfigToPB(r schematic.NodeConfig) (*NodeConfig, error) {
 		}
 		pb.Variant = &NodeConfig_Switch{Switch: inner}
 	case schematic.NodeConfigTextBox:
-		inner, err := TextBoxConfigToPB(v.TextBoxConfig)
+		inner, err := NodeConfigTextBoxToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_TextBox{TextBox: inner}
 	case schematic.NodeConfigValue:
-		inner, err := ValueConfigToPB(v.ValueConfig)
+		inner, err := NodeConfigValueToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -4269,7 +6677,7 @@ func NodeConfigToPB(r schematic.NodeConfig) (*NodeConfig, error) {
 		}
 		pb.Variant = &NodeConfig_ReliefValve{ReliefValve: inner}
 	case schematic.NodeConfigSolenoidValve:
-		inner, err := SolenoidValveConfigToPB(v.SolenoidValveConfig)
+		inner, err := NodeConfigSolenoidValveToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -4305,13 +6713,13 @@ func NodeConfigToPB(r schematic.NodeConfig) (*NodeConfig, error) {
 		}
 		pb.Variant = &NodeConfig_CrossJunction{CrossJunction: inner}
 	case schematic.NodeConfigCylinder:
-		inner, err := CylinderConfigToPB(v.CylinderConfig)
+		inner, err := NodeConfigCylinderToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_Cylinder{Cylinder: inner}
 	case schematic.NodeConfigTank:
-		inner, err := TankConfigToPB(v.TankConfig)
+		inner, err := NodeConfigTankToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -4323,13 +6731,13 @@ func NodeConfigToPB(r schematic.NodeConfig) (*NodeConfig, error) {
 		}
 		pb.Variant = &NodeConfig_TJunction{TJunction: inner}
 	case schematic.NodeConfigCustomActuator:
-		inner, err := CustomActuatorConfigToPB(v.CustomActuatorConfig)
+		inner, err := NodeConfigCustomActuatorToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &NodeConfig_CustomActuator{CustomActuator: inner}
 	case schematic.NodeConfigCustomStatic:
-		inner, err := CustomStaticConfigToPB(v.CustomStaticConfig)
+		inner, err := NodeConfigCustomStaticToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -4498,71 +6906,82 @@ func NodeConfigFromPB(pb *NodeConfig) (schematic.NodeConfig, error) {
 		}
 		r.Variant = schematic.NodeConfigFlowmeterOrifice{StaticSymbolConfig: inner}
 	case *NodeConfig_Box:
-		inner, err := BoxConfigFromPB(v.Box)
+		inner, err := NodeConfigBoxFromPB(v.Box)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigBox{BoxConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Button:
-		inner, err := ButtonConfigFromPB(v.Button)
+		inner, err := NodeConfigButtonFromPB(v.Button)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigButton{ButtonConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Circle:
-		inner, err := CircleConfigFromPB(v.Circle)
+		inner, err := NodeConfigCircleFromPB(v.Circle)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigCircle{CircleConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Gauge:
-		inner, err := GaugeConfigFromPB(v.Gauge)
+		inner, err := NodeConfigGaugeFromPB(v.Gauge)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigGauge{GaugeConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Input:
-		inner, err := InputConfigFromPB(v.Input)
+		inner, err := NodeConfigInputFromPB(v.Input)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigInput{InputConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Light:
-		inner, err := LightConfigFromPB(v.Light)
+		inner, err := NodeConfigLightFromPB(v.Light)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigLight{LightConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_OffPageReference:
-		inner, err := OffPageReferenceConfigFromPB(v.OffPageReference)
+		inner, err := NodeConfigOffPageReferenceFromPB(v.OffPageReference)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigOffPageReference{OffPageReferenceConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Polygon:
-		inner, err := PolygonConfigFromPB(v.Polygon)
+		inner, err := NodeConfigPolygonFromPB(v.Polygon)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigPolygon{PolygonConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Select:
-		inner, err := SelectConfigFromPB(v.Select)
+		inner, err := NodeConfigSelectFromPB(v.Select)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigSelect{SelectConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Setpoint:
-		inner, err := SetpointConfigFromPB(v.Setpoint)
+		inner, err := NodeConfigSetpointFromPB(v.Setpoint)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigSetpoint{SetpointConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_StateIndicator:
-		inner, err := StateIndicatorConfigFromPB(v.StateIndicator)
+		inner, err := NodeConfigStateIndicatorFromPB(v.StateIndicator)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigStateIndicator{StateIndicatorConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Switch:
 		inner, err := ToggleSymbolConfigFromPB(v.Switch)
 		if err != nil {
@@ -4570,17 +6989,19 @@ func NodeConfigFromPB(pb *NodeConfig) (schematic.NodeConfig, error) {
 		}
 		r.Variant = schematic.NodeConfigSwitch{ToggleSymbolConfig: inner}
 	case *NodeConfig_TextBox:
-		inner, err := TextBoxConfigFromPB(v.TextBox)
+		inner, err := NodeConfigTextBoxFromPB(v.TextBox)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigTextBox{TextBoxConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Value:
-		inner, err := ValueConfigFromPB(v.Value)
+		inner, err := NodeConfigValueFromPB(v.Value)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigValue{ValueConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Agitator:
 		inner, err := ToggleSymbolConfigFromPB(v.Agitator)
 		if err != nil {
@@ -4882,11 +7303,12 @@ func NodeConfigFromPB(pb *NodeConfig) (schematic.NodeConfig, error) {
 		}
 		r.Variant = schematic.NodeConfigReliefValve{DummyToggleSymbolConfig: inner}
 	case *NodeConfig_SolenoidValve:
-		inner, err := SolenoidValveConfigFromPB(v.SolenoidValve)
+		inner, err := NodeConfigSolenoidValveFromPB(v.SolenoidValve)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigSolenoidValve{SolenoidValveConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_SpringLoadedReliefValve:
 		inner, err := DummyToggleSymbolConfigFromPB(v.SpringLoadedReliefValve)
 		if err != nil {
@@ -4918,17 +7340,19 @@ func NodeConfigFromPB(pb *NodeConfig) (schematic.NodeConfig, error) {
 		}
 		r.Variant = schematic.NodeConfigCrossJunction{StaticSymbolConfig: inner}
 	case *NodeConfig_Cylinder:
-		inner, err := CylinderConfigFromPB(v.Cylinder)
+		inner, err := NodeConfigCylinderFromPB(v.Cylinder)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigCylinder{CylinderConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_Tank:
-		inner, err := TankConfigFromPB(v.Tank)
+		inner, err := NodeConfigTankFromPB(v.Tank)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigTank{TankConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_TJunction:
 		inner, err := StaticSymbolConfigFromPB(v.TJunction)
 		if err != nil {
@@ -4936,17 +7360,19 @@ func NodeConfigFromPB(pb *NodeConfig) (schematic.NodeConfig, error) {
 		}
 		r.Variant = schematic.NodeConfigTJunction{StaticSymbolConfig: inner}
 	case *NodeConfig_CustomActuator:
-		inner, err := CustomActuatorConfigFromPB(v.CustomActuator)
+		inner, err := NodeConfigCustomActuatorFromPB(v.CustomActuator)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigCustomActuator{CustomActuatorConfig: inner}
+		m := inner
+		r.Variant = m
 	case *NodeConfig_CustomStatic:
-		inner, err := CustomStaticConfigFromPB(v.CustomStatic)
+		inner, err := NodeConfigCustomStaticFromPB(v.CustomStatic)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.NodeConfigCustomStatic{CustomStaticConfig: inner}
+		m := inner
+		r.Variant = m
 	}
 	return r, nil
 }
@@ -5135,67 +7561,67 @@ func ElementConfigToPB(r schematic.ElementConfig) (*ElementConfig, error) {
 		}
 		pb.Variant = &ElementConfig_FlowmeterOrifice{FlowmeterOrifice: inner}
 	case schematic.ElementConfigBox:
-		inner, err := BoxConfigToPB(v.BoxConfig)
+		inner, err := ElementConfigBoxToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Box{Box: inner}
 	case schematic.ElementConfigButton:
-		inner, err := ButtonConfigToPB(v.ButtonConfig)
+		inner, err := ElementConfigButtonToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Button{Button: inner}
 	case schematic.ElementConfigCircle:
-		inner, err := CircleConfigToPB(v.CircleConfig)
+		inner, err := ElementConfigCircleToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Circle{Circle: inner}
 	case schematic.ElementConfigGauge:
-		inner, err := GaugeConfigToPB(v.GaugeConfig)
+		inner, err := ElementConfigGaugeToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Gauge{Gauge: inner}
 	case schematic.ElementConfigInput:
-		inner, err := InputConfigToPB(v.InputConfig)
+		inner, err := ElementConfigInputToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Input{Input: inner}
 	case schematic.ElementConfigLight:
-		inner, err := LightConfigToPB(v.LightConfig)
+		inner, err := ElementConfigLightToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Light{Light: inner}
 	case schematic.ElementConfigOffPageReference:
-		inner, err := OffPageReferenceConfigToPB(v.OffPageReferenceConfig)
+		inner, err := ElementConfigOffPageReferenceToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_OffPageReference{OffPageReference: inner}
 	case schematic.ElementConfigPolygon:
-		inner, err := PolygonConfigToPB(v.PolygonConfig)
+		inner, err := ElementConfigPolygonToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Polygon{Polygon: inner}
 	case schematic.ElementConfigSelect:
-		inner, err := SelectConfigToPB(v.SelectConfig)
+		inner, err := ElementConfigSelectToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Select{Select: inner}
 	case schematic.ElementConfigSetpoint:
-		inner, err := SetpointConfigToPB(v.SetpointConfig)
+		inner, err := ElementConfigSetpointToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Setpoint{Setpoint: inner}
 	case schematic.ElementConfigStateIndicator:
-		inner, err := StateIndicatorConfigToPB(v.StateIndicatorConfig)
+		inner, err := ElementConfigStateIndicatorToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -5207,13 +7633,13 @@ func ElementConfigToPB(r schematic.ElementConfig) (*ElementConfig, error) {
 		}
 		pb.Variant = &ElementConfig_Switch{Switch: inner}
 	case schematic.ElementConfigTextBox:
-		inner, err := TextBoxConfigToPB(v.TextBoxConfig)
+		inner, err := ElementConfigTextBoxToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_TextBox{TextBox: inner}
 	case schematic.ElementConfigValue:
-		inner, err := ValueConfigToPB(v.ValueConfig)
+		inner, err := ElementConfigValueToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -5519,7 +7945,7 @@ func ElementConfigToPB(r schematic.ElementConfig) (*ElementConfig, error) {
 		}
 		pb.Variant = &ElementConfig_ReliefValve{ReliefValve: inner}
 	case schematic.ElementConfigSolenoidValve:
-		inner, err := SolenoidValveConfigToPB(v.SolenoidValveConfig)
+		inner, err := ElementConfigSolenoidValveToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -5555,13 +7981,13 @@ func ElementConfigToPB(r schematic.ElementConfig) (*ElementConfig, error) {
 		}
 		pb.Variant = &ElementConfig_CrossJunction{CrossJunction: inner}
 	case schematic.ElementConfigCylinder:
-		inner, err := CylinderConfigToPB(v.CylinderConfig)
+		inner, err := ElementConfigCylinderToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_Cylinder{Cylinder: inner}
 	case schematic.ElementConfigTank:
-		inner, err := TankConfigToPB(v.TankConfig)
+		inner, err := ElementConfigTankToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -5573,13 +7999,13 @@ func ElementConfigToPB(r schematic.ElementConfig) (*ElementConfig, error) {
 		}
 		pb.Variant = &ElementConfig_TJunction{TJunction: inner}
 	case schematic.ElementConfigCustomActuator:
-		inner, err := CustomActuatorConfigToPB(v.CustomActuatorConfig)
+		inner, err := ElementConfigCustomActuatorToPB(v)
 		if err != nil {
 			return nil, err
 		}
 		pb.Variant = &ElementConfig_CustomActuator{CustomActuator: inner}
 	case schematic.ElementConfigCustomStatic:
-		inner, err := CustomStaticConfigToPB(v.CustomStaticConfig)
+		inner, err := ElementConfigCustomStaticToPB(v)
 		if err != nil {
 			return nil, err
 		}
@@ -5790,71 +8216,82 @@ func ElementConfigFromPB(pb *ElementConfig) (schematic.ElementConfig, error) {
 		}
 		r.Variant = schematic.ElementConfigFlowmeterOrifice{StaticSymbolConfig: inner}
 	case *ElementConfig_Box:
-		inner, err := BoxConfigFromPB(v.Box)
+		inner, err := ElementConfigBoxFromPB(v.Box)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigBox{BoxConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Button:
-		inner, err := ButtonConfigFromPB(v.Button)
+		inner, err := ElementConfigButtonFromPB(v.Button)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigButton{ButtonConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Circle:
-		inner, err := CircleConfigFromPB(v.Circle)
+		inner, err := ElementConfigCircleFromPB(v.Circle)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigCircle{CircleConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Gauge:
-		inner, err := GaugeConfigFromPB(v.Gauge)
+		inner, err := ElementConfigGaugeFromPB(v.Gauge)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigGauge{GaugeConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Input:
-		inner, err := InputConfigFromPB(v.Input)
+		inner, err := ElementConfigInputFromPB(v.Input)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigInput{InputConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Light:
-		inner, err := LightConfigFromPB(v.Light)
+		inner, err := ElementConfigLightFromPB(v.Light)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigLight{LightConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_OffPageReference:
-		inner, err := OffPageReferenceConfigFromPB(v.OffPageReference)
+		inner, err := ElementConfigOffPageReferenceFromPB(v.OffPageReference)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigOffPageReference{OffPageReferenceConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Polygon:
-		inner, err := PolygonConfigFromPB(v.Polygon)
+		inner, err := ElementConfigPolygonFromPB(v.Polygon)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigPolygon{PolygonConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Select:
-		inner, err := SelectConfigFromPB(v.Select)
+		inner, err := ElementConfigSelectFromPB(v.Select)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigSelect{SelectConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Setpoint:
-		inner, err := SetpointConfigFromPB(v.Setpoint)
+		inner, err := ElementConfigSetpointFromPB(v.Setpoint)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigSetpoint{SetpointConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_StateIndicator:
-		inner, err := StateIndicatorConfigFromPB(v.StateIndicator)
+		inner, err := ElementConfigStateIndicatorFromPB(v.StateIndicator)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigStateIndicator{StateIndicatorConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Switch:
 		inner, err := ToggleSymbolConfigFromPB(v.Switch)
 		if err != nil {
@@ -5862,17 +8299,19 @@ func ElementConfigFromPB(pb *ElementConfig) (schematic.ElementConfig, error) {
 		}
 		r.Variant = schematic.ElementConfigSwitch{ToggleSymbolConfig: inner}
 	case *ElementConfig_TextBox:
-		inner, err := TextBoxConfigFromPB(v.TextBox)
+		inner, err := ElementConfigTextBoxFromPB(v.TextBox)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigTextBox{TextBoxConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Value:
-		inner, err := ValueConfigFromPB(v.Value)
+		inner, err := ElementConfigValueFromPB(v.Value)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigValue{ValueConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Agitator:
 		inner, err := ToggleSymbolConfigFromPB(v.Agitator)
 		if err != nil {
@@ -6174,11 +8613,12 @@ func ElementConfigFromPB(pb *ElementConfig) (schematic.ElementConfig, error) {
 		}
 		r.Variant = schematic.ElementConfigReliefValve{DummyToggleSymbolConfig: inner}
 	case *ElementConfig_SolenoidValve:
-		inner, err := SolenoidValveConfigFromPB(v.SolenoidValve)
+		inner, err := ElementConfigSolenoidValveFromPB(v.SolenoidValve)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigSolenoidValve{SolenoidValveConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_SpringLoadedReliefValve:
 		inner, err := DummyToggleSymbolConfigFromPB(v.SpringLoadedReliefValve)
 		if err != nil {
@@ -6210,17 +8650,19 @@ func ElementConfigFromPB(pb *ElementConfig) (schematic.ElementConfig, error) {
 		}
 		r.Variant = schematic.ElementConfigCrossJunction{StaticSymbolConfig: inner}
 	case *ElementConfig_Cylinder:
-		inner, err := CylinderConfigFromPB(v.Cylinder)
+		inner, err := ElementConfigCylinderFromPB(v.Cylinder)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigCylinder{CylinderConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Tank:
-		inner, err := TankConfigFromPB(v.Tank)
+		inner, err := ElementConfigTankFromPB(v.Tank)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigTank{TankConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_TJunction:
 		inner, err := StaticSymbolConfigFromPB(v.TJunction)
 		if err != nil {
@@ -6228,17 +8670,19 @@ func ElementConfigFromPB(pb *ElementConfig) (schematic.ElementConfig, error) {
 		}
 		r.Variant = schematic.ElementConfigTJunction{StaticSymbolConfig: inner}
 	case *ElementConfig_CustomActuator:
-		inner, err := CustomActuatorConfigFromPB(v.CustomActuator)
+		inner, err := ElementConfigCustomActuatorFromPB(v.CustomActuator)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigCustomActuator{CustomActuatorConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_CustomStatic:
-		inner, err := CustomStaticConfigFromPB(v.CustomStatic)
+		inner, err := ElementConfigCustomStaticFromPB(v.CustomStatic)
 		if err != nil {
 			return r, err
 		}
-		r.Variant = schematic.ElementConfigCustomStatic{CustomStaticConfig: inner}
+		m := inner
+		r.Variant = m
 	case *ElementConfig_Pipe:
 		inner, err := SegmentedEdgeConfigFromPB(v.Pipe)
 		if err != nil {

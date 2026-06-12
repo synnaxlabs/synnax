@@ -224,13 +224,6 @@ type DummyToggleSymbolConfig struct {
 	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
-// SolenoidValveConfig is the configuration for solenoid valve symbols.
-type SolenoidValveConfig struct {
-	ToggleSymbolConfig
-	// NormallyOpen indicates whether the valve is open when unpowered.
-	NormallyOpen bool `json:"normally_open" msgpack:"normally_open"`
-}
-
 // StateMapping maps a numeric channel value to a named, colored state.
 type StateMapping struct {
 	// Key is the unique identifier for the mapping entry.
@@ -249,323 +242,6 @@ type Redline struct {
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// Gradient is the color gradient applied across the bounds.
 	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
-}
-
-// BoxConfig is the configuration for box annotation symbols.
-type BoxConfig struct {
-	// Label is the box's label configuration.
-	Label *LabelConfig `json:"label,omitempty" msgpack:"label,omitempty"`
-	// Orientation is the orientation of the box within the diagram.
-	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
-	// Color is the border color of the box.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the box.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-	// Dimensions is the rendered size of the box in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// BorderRadius is the uniform corner radius of the box in pixels.
-	BorderRadius *float64 `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
-}
-
-// ButtonConfig is the configuration for button symbols.
-type ButtonConfig struct {
-	LabeledConfig
-	// Size is the rendered size preset of the button.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// Level is the typography level of the button text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
-	// CommandChannel is the channel button presses are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Mode is the actuation behavior of the button.
-	Mode *ButtonMode `json:"mode,omitempty" msgpack:"mode,omitempty"`
-	// Color is the background color of the button.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-}
-
-// CircleConfig is the configuration for circle annotation symbols.
-type CircleConfig struct {
-	LabeledConfig
-	// Radius is the radius of the circle in pixels.
-	Radius float64 `json:"radius" msgpack:"radius"`
-	// Color is the border color of the circle.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the circle.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
-}
-
-// GaugeConfig is the configuration for gauge symbols.
-type GaugeConfig struct {
-	LabeledConfig
-	// Position is the offset of the gauge contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
-	// Color is the accent color of the gauge arc.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Bounds is the numeric range displayed by the gauge.
-	Bounds *spatial.Bounds `json:"bounds,omitempty" msgpack:"bounds,omitempty"`
-	// BarWidth is the thickness of the gauge arc in pixels.
-	BarWidth *float64 `json:"bar_width,omitempty" msgpack:"bar_width,omitempty"`
-	// Channel is the channel whose value the gauge displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
-	// MinWidth is the minimum rendered width of the value in pixels.
-	MinWidth *float64 `json:"min_width,omitempty" msgpack:"min_width,omitempty"`
-	// Width is the rendered width of the gauge in pixels.
-	Width *float64 `json:"width,omitempty" msgpack:"width,omitempty"`
-	// Notation is the numeric notation used to format the value.
-	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
-	// Location is the anchor of the value within the gauge.
-	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
-	// Level is the typography level of the displayed value.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-}
-
-// InputConfig is the configuration for free-form input symbols.
-type InputConfig struct {
-	LabeledConfig
-	// Size is the rendered size preset of the input.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// CommandChannel is the channel submitted values are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Dimensions is the rendered size of the input in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// Color is the accent color of the input.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Disabled indicates whether the input rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-}
-
-// LightConfig is the configuration for indicator light symbols.
-type LightConfig struct {
-	LabeledConfig
-	// Channel is the channel whose value drives the light's on state.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// Threshold is the value range within which the light is considered on.
-	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
-	// Color is the illuminated color of the light.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
-}
-
-// OffPageReferenceConfig is the configuration for off-page reference symbols.
-type OffPageReferenceConfig struct {
-	// Orientation is the direction the reference arrow points.
-	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
-	// Label is the label displayed inside the reference.
-	Label LabelConfig `json:"label" msgpack:"label"`
-	// Level is the typography level of the reference text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// Color is the fill color of the reference.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Page is the key of the schematic this reference links to.
-	Page string `json:"page" msgpack:"page"`
-	// DblClickNav indicates whether double-clicking navigates to the linked schematic.
-	DblClickNav bool `json:"dbl_click_nav" msgpack:"dbl_click_nav"`
-}
-
-// PolygonConfig is the configuration for polygon annotation symbols.
-type PolygonConfig struct {
-	LabeledConfig
-	// NumSides is the number of sides of the polygon.
-	NumSides float64 `json:"num_sides" msgpack:"num_sides"`
-	// SideLength is the length of each side in pixels.
-	SideLength float64 `json:"side_length" msgpack:"side_length"`
-	// Rotation is the rotation of the polygon in degrees.
-	Rotation *float64 `json:"rotation,omitempty" msgpack:"rotation,omitempty"`
-	// CornerRounding is the corner rounding radius in pixels.
-	CornerRounding *float64 `json:"corner_rounding,omitempty" msgpack:"corner_rounding,omitempty"`
-	// Color is the border color of the polygon.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the polygon.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-	// StrokeWidth is the border stroke width in pixels.
-	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
-}
-
-// SelectConfig is the configuration for select symbols.
-type SelectConfig struct {
-	LabeledConfig
-	// Size is the rendered size preset of the select.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// CommandChannel is the channel the selected value is written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Color is the accent color of the select.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// InlineSize is the inline size of the select in pixels.
-	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
-	// Options is the set of selectable states.
-	Options []StateMapping `json:"options" msgpack:"options"`
-	// Disabled indicates whether the select rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-}
-
-// SetpointConfig is the configuration for numeric setpoint symbols.
-type SetpointConfig struct {
-	LabeledConfig
-	// Size is the rendered size preset of the setpoint.
-	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
-	// StateChannel is the channel whose value displays as the current setpoint.
-	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
-	// CommandChannel is the channel submitted setpoints are written to.
-	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
-	// Dimensions is the rendered size of the setpoint in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// Color is the accent color of the setpoint.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
-	// Disabled indicates whether the setpoint rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Control is the control state display configuration.
-	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
-}
-
-// StateIndicatorConfig is the configuration for multi-state indicator symbols.
-type StateIndicatorConfig struct {
-	LabeledConfig
-	// Channel is the channel whose value selects the displayed state.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// Color is the fallback color when no state matches.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// InlineSize is the inline size of the indicator in pixels.
-	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
-	// Options is the set of displayable states.
-	Options []StateMapping `json:"options" msgpack:"options"`
-}
-
-// TextBoxConfig is the configuration for text box annotation symbols.
-type TextBoxConfig struct {
-	LabeledConfig
-	// Color is the text color.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Width is the rendered width of the text box in pixels.
-	Width *float64 `json:"width,omitempty" msgpack:"width,omitempty"`
-	// Align is the alignment of the text within the box.
-	Align *FlexAlignment `json:"align,omitempty" msgpack:"align,omitempty"`
-	// AutoFit indicates whether the box resizes to fit its content.
-	AutoFit bool `json:"auto_fit" msgpack:"auto_fit"`
-	// Level is the typography level of the text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// Value is the text content of the box.
-	Value string `json:"value" msgpack:"value"`
-}
-
-// ValueConfig is the configuration for live telemetry value symbols.
-type ValueConfig struct {
-	LabeledConfig
-	// Position is the offset of the value contents within the symbol.
-	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
-	// Color is the background color of the value.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// TextColor is the color of the displayed text.
-	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
-	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
-	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
-	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
-	// InlineSize is the inline size of the value in pixels.
-	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
-	// Channel is the channel whose value the symbol displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
-	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
-	// Level is the typography level of the displayed value.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// Precision is the number of decimal places shown.
-	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
-	// StalenessTimeout is the duration in seconds after which the value is considered
-	// stale.
-	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
-	// StalenessColor is the color applied when the value is stale.
-	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
-	// MinWidth is the minimum rendered width of the value in pixels.
-	MinWidth *float64 `json:"min_width,omitempty" msgpack:"min_width,omitempty"`
-	// Notation is the numeric notation used to format the value.
-	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
-	// Location is the anchor of the value within the symbol.
-	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
-	// UseWidthForBackground indicates whether the background spans the full configured
-	// width.
-	UseWidthForBackground bool `json:"use_width_for_background" msgpack:"use_width_for_background"`
-	// ValueBackgroundShift is the offset applied to the value background.
-	ValueBackgroundShift *spatial.XY `json:"value_background_shift,omitempty" msgpack:"value_background_shift,omitempty"`
-	// ValueBackgroundOverScan is the extra padding applied around the value background.
-	ValueBackgroundOverScan *spatial.XY `json:"value_background_over_scan,omitempty" msgpack:"value_background_over_scan,omitempty"`
-}
-
-// TankConfig is the configuration for tank vessel symbols.
-type TankConfig struct {
-	LabeledConfig
-	// Color is the border color of the tank.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the tank.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-	// Dimensions is the rendered size of the tank in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// BorderRadius is the corner radius of the tank.
-	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
-}
-
-// CylinderConfig is the configuration for cylinder vessel symbols.
-type CylinderConfig struct {
-	LabeledConfig
-	// Dimensions is the rendered size of the cylinder in pixels.
-	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
-	// BorderRadius is the corner radius of the cylinder.
-	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
-	// Color is the border color of the cylinder.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// BackgroundColor is the fill color of the cylinder.
-	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
-}
-
-// CustomActuatorConfig is the configuration for user-defined actuator symbols.
-type CustomActuatorConfig struct {
-	ToggleConfig
-	// SpecKey is the key of the custom symbol spec this instance renders.
-	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
-	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-	// consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
-}
-
-// CustomStaticConfig is the configuration for user-defined static symbols.
-type CustomStaticConfig struct {
-	LabeledConfig
-	// SpecKey is the key of the custom symbol spec this instance renders.
-	SpecKey string `json:"spec_key" msgpack:"spec_key"`
-	// Color is the stroke color of the symbol.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
-	// Scale is the rendered scale multiplier of the symbol.
-	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
-	// StateOverrides contains per-instance overrides of the spec's visual states. Each
-	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
-	// consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
@@ -1009,68 +685,223 @@ type NodeConfigFlowmeterOrifice struct {
 
 func (NodeConfigFlowmeterOrifice) isNodeConfigVariant() {}
 
+// NodeConfigBox is the configuration for box annotation symbols.
 type NodeConfigBox struct {
-	BoxConfig
+	// Label is the box's label configuration.
+	Label *LabelConfig `json:"label,omitempty" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the box within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
+	// Color is the border color of the box.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the box.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	// Dimensions is the rendered size of the box in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the uniform corner radius of the box in pixels.
+	BorderRadius *float64 `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
 func (NodeConfigBox) isNodeConfigVariant() {}
 
+// NodeConfigButton is the configuration for button symbols.
 type NodeConfigButton struct {
-	ButtonConfig
+	LabeledConfig
+	// Size is the rendered size preset of the button.
+	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	// Level is the typography level of the button text.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	// CommandChannel is the channel button presses are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	// Mode is the actuation behavior of the button.
+	Mode *ButtonMode `json:"mode,omitempty" msgpack:"mode,omitempty"`
+	// Color is the background color of the button.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
 func (NodeConfigButton) isNodeConfigVariant() {}
 
+// NodeConfigCircle is the configuration for circle annotation symbols.
 type NodeConfigCircle struct {
-	CircleConfig
+	LabeledConfig
+	// Radius is the radius of the circle in pixels.
+	Radius float64 `json:"radius" msgpack:"radius"`
+	// Color is the border color of the circle.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the circle.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
 func (NodeConfigCircle) isNodeConfigVariant() {}
 
+// NodeConfigGauge is the configuration for gauge symbols.
 type NodeConfigGauge struct {
-	GaugeConfig
+	LabeledConfig
+	// Position is the offset of the gauge contents within the symbol.
+	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	// Color is the accent color of the gauge arc.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Bounds is the numeric range displayed by the gauge.
+	Bounds *spatial.Bounds `json:"bounds,omitempty" msgpack:"bounds,omitempty"`
+	// BarWidth is the thickness of the gauge arc in pixels.
+	BarWidth *float64 `json:"bar_width,omitempty" msgpack:"bar_width,omitempty"`
+	// Channel is the channel whose value the gauge displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
+	// MinWidth is the minimum rendered width of the value in pixels.
+	MinWidth *float64 `json:"min_width,omitempty" msgpack:"min_width,omitempty"`
+	// Width is the rendered width of the gauge in pixels.
+	Width *float64 `json:"width,omitempty" msgpack:"width,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
+	// Location is the anchor of the value within the gauge.
+	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units string `json:"units" msgpack:"units"`
+	// Level is the typography level of the displayed value.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 }
 
 func (NodeConfigGauge) isNodeConfigVariant() {}
 
+// NodeConfigInput is the configuration for free-form input symbols.
 type NodeConfigInput struct {
-	InputConfig
+	LabeledConfig
+	// Size is the rendered size preset of the input.
+	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	// CommandChannel is the channel submitted values are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	// Dimensions is the rendered size of the input in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// Color is the accent color of the input.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Disabled indicates whether the input rejects interaction.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
 func (NodeConfigInput) isNodeConfigVariant() {}
 
+// NodeConfigLight is the configuration for indicator light symbols.
 type NodeConfigLight struct {
-	LightConfig
+	LabeledConfig
+	// Channel is the channel whose value drives the light's on state.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// Threshold is the value range within which the light is considered on.
+	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
+	// Color is the illuminated color of the light.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
 func (NodeConfigLight) isNodeConfigVariant() {}
 
+// NodeConfigOffPageReference is the configuration for off-page reference symbols.
 type NodeConfigOffPageReference struct {
-	OffPageReferenceConfig
+	// Orientation is the direction the reference arrow points.
+	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
+	// Label is the label displayed inside the reference.
+	Label LabelConfig `json:"label" msgpack:"label"`
+	// Level is the typography level of the reference text.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// Color is the fill color of the reference.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Page is the key of the schematic this reference links to.
+	Page string `json:"page" msgpack:"page"`
+	// DblClickNav indicates whether double-clicking navigates to the linked schematic.
+	DblClickNav bool `json:"dbl_click_nav" msgpack:"dbl_click_nav"`
 }
 
 func (NodeConfigOffPageReference) isNodeConfigVariant() {}
 
+// NodeConfigPolygon is the configuration for polygon annotation symbols.
 type NodeConfigPolygon struct {
-	PolygonConfig
+	LabeledConfig
+	// NumSides is the number of sides of the polygon.
+	NumSides float64 `json:"num_sides" msgpack:"num_sides"`
+	// SideLength is the length of each side in pixels.
+	SideLength float64 `json:"side_length" msgpack:"side_length"`
+	// Rotation is the rotation of the polygon in degrees.
+	Rotation *float64 `json:"rotation,omitempty" msgpack:"rotation,omitempty"`
+	// CornerRounding is the corner rounding radius in pixels.
+	CornerRounding *float64 `json:"corner_rounding,omitempty" msgpack:"corner_rounding,omitempty"`
+	// Color is the border color of the polygon.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the polygon.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
 func (NodeConfigPolygon) isNodeConfigVariant() {}
 
+// NodeConfigSelect is the configuration for select symbols.
 type NodeConfigSelect struct {
-	SelectConfig
+	LabeledConfig
+	// Size is the rendered size preset of the select.
+	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	// CommandChannel is the channel the selected value is written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	// Color is the accent color of the select.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// InlineSize is the inline size of the select in pixels.
+	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
+	// Options is the set of selectable states.
+	Options []StateMapping `json:"options" msgpack:"options"`
+	// Disabled indicates whether the select rejects interaction.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
 func (NodeConfigSelect) isNodeConfigVariant() {}
 
+// NodeConfigSetpoint is the configuration for numeric setpoint symbols.
 type NodeConfigSetpoint struct {
-	SetpointConfig
+	LabeledConfig
+	// Size is the rendered size preset of the setpoint.
+	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	// StateChannel is the channel whose value displays as the current setpoint.
+	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel submitted setpoints are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	// Dimensions is the rendered size of the setpoint in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// Color is the accent color of the setpoint.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units string `json:"units" msgpack:"units"`
+	// Disabled indicates whether the setpoint rejects interaction.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
 func (NodeConfigSetpoint) isNodeConfigVariant() {}
 
+// NodeConfigStateIndicator is the configuration for multi-state indicator symbols.
 type NodeConfigStateIndicator struct {
-	StateIndicatorConfig
+	LabeledConfig
+	// Channel is the channel whose value selects the displayed state.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// Color is the fallback color when no state matches.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// InlineSize is the inline size of the indicator in pixels.
+	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
+	// Options is the set of displayable states.
+	Options []StateMapping `json:"options" msgpack:"options"`
 }
 
 func (NodeConfigStateIndicator) isNodeConfigVariant() {}
@@ -1081,14 +912,68 @@ type NodeConfigSwitch struct {
 
 func (NodeConfigSwitch) isNodeConfigVariant() {}
 
+// NodeConfigTextBox is the configuration for text box annotation symbols.
 type NodeConfigTextBox struct {
-	TextBoxConfig
+	LabeledConfig
+	// Color is the text color.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Width is the rendered width of the text box in pixels.
+	Width *float64 `json:"width,omitempty" msgpack:"width,omitempty"`
+	// Align is the alignment of the text within the box.
+	Align *FlexAlignment `json:"align,omitempty" msgpack:"align,omitempty"`
+	// AutoFit indicates whether the box resizes to fit its content.
+	AutoFit bool `json:"auto_fit" msgpack:"auto_fit"`
+	// Level is the typography level of the text.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// Value is the text content of the box.
+	Value string `json:"value" msgpack:"value"`
 }
 
 func (NodeConfigTextBox) isNodeConfigVariant() {}
 
+// NodeConfigValue is the configuration for live telemetry value symbols.
 type NodeConfigValue struct {
-	ValueConfig
+	LabeledConfig
+	// Position is the offset of the value contents within the symbol.
+	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	// Color is the background color of the value.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// TextColor is the color of the displayed text.
+	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
+	// Tooltip is the list of tooltip lines shown on hover.
+	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
+	// Redline is the bounds-to-gradient mapping applied to the background.
+	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units string `json:"units" msgpack:"units"`
+	// InlineSize is the inline size of the value in pixels.
+	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
+	// Channel is the channel whose value the symbol displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	// Level is the typography level of the displayed value.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
+	// MinWidth is the minimum rendered width of the value in pixels.
+	MinWidth *float64 `json:"min_width,omitempty" msgpack:"min_width,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
+	// Location is the anchor of the value within the symbol.
+	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
+	// UseWidthForBackground indicates whether the background spans the full configured
+	// width.
+	UseWidthForBackground bool `json:"use_width_for_background" msgpack:"use_width_for_background"`
+	// ValueBackgroundShift is the offset applied to the value background.
+	ValueBackgroundShift *spatial.XY `json:"value_background_shift,omitempty" msgpack:"value_background_shift,omitempty"`
+	// ValueBackgroundOverScan is the extra padding applied around the value background.
+	ValueBackgroundOverScan *spatial.XY `json:"value_background_over_scan,omitempty" msgpack:"value_background_over_scan,omitempty"`
 }
 
 func (NodeConfigValue) isNodeConfigVariant() {}
@@ -1393,8 +1278,11 @@ type NodeConfigReliefValve struct {
 
 func (NodeConfigReliefValve) isNodeConfigVariant() {}
 
+// NodeConfigSolenoidValve is the configuration for solenoid valve symbols.
 type NodeConfigSolenoidValve struct {
-	SolenoidValveConfig
+	ToggleSymbolConfig
+	// NormallyOpen indicates whether the valve is open when unpowered.
+	NormallyOpen bool `json:"normally_open" msgpack:"normally_open"`
 }
 
 func (NodeConfigSolenoidValve) isNodeConfigVariant() {}
@@ -1429,14 +1317,32 @@ type NodeConfigCrossJunction struct {
 
 func (NodeConfigCrossJunction) isNodeConfigVariant() {}
 
+// NodeConfigCylinder is the configuration for cylinder vessel symbols.
 type NodeConfigCylinder struct {
-	CylinderConfig
+	LabeledConfig
+	// Dimensions is the rendered size of the cylinder in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the corner radius of the cylinder.
+	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
+	// Color is the border color of the cylinder.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the cylinder.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
 }
 
 func (NodeConfigCylinder) isNodeConfigVariant() {}
 
+// NodeConfigTank is the configuration for tank vessel symbols.
 type NodeConfigTank struct {
-	TankConfig
+	LabeledConfig
+	// Color is the border color of the tank.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the tank.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	// Dimensions is the rendered size of the tank in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the corner radius of the tank.
+	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
 }
 
 func (NodeConfigTank) isNodeConfigVariant() {}
@@ -1447,14 +1353,36 @@ type NodeConfigTJunction struct {
 
 func (NodeConfigTJunction) isNodeConfigVariant() {}
 
+// NodeConfigCustomActuator is the configuration for user-defined actuator symbols.
 type NodeConfigCustomActuator struct {
-	CustomActuatorConfig
+	ToggleConfig
+	// SpecKey is the key of the custom symbol spec this instance renders.
+	SpecKey string `json:"spec_key" msgpack:"spec_key"`
+	// Color is the stroke color of the symbol.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
+	// StateOverrides contains per-instance overrides of the spec's visual states. Each
+	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
+	// consistent with how the symbol service stores specs.
+	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (NodeConfigCustomActuator) isNodeConfigVariant() {}
 
+// NodeConfigCustomStatic is the configuration for user-defined static symbols.
 type NodeConfigCustomStatic struct {
-	CustomStaticConfig
+	LabeledConfig
+	// SpecKey is the key of the custom symbol spec this instance renders.
+	SpecKey string `json:"spec_key" msgpack:"spec_key"`
+	// Color is the stroke color of the symbol.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
+	// StateOverrides contains per-instance overrides of the spec's visual states. Each
+	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
+	// consistent with how the symbol service stores specs.
+	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (NodeConfigCustomStatic) isNodeConfigVariant() {}
@@ -2574,68 +2502,223 @@ type ElementConfigFlowmeterOrifice struct {
 
 func (ElementConfigFlowmeterOrifice) isElementConfigVariant() {}
 
+// ElementConfigBox is the configuration for box annotation symbols.
 type ElementConfigBox struct {
-	BoxConfig
+	// Label is the box's label configuration.
+	Label *LabelConfig `json:"label,omitempty" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the box within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
+	// Color is the border color of the box.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the box.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	// Dimensions is the rendered size of the box in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the uniform corner radius of the box in pixels.
+	BorderRadius *float64 `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
 func (ElementConfigBox) isElementConfigVariant() {}
 
+// ElementConfigButton is the configuration for button symbols.
 type ElementConfigButton struct {
-	ButtonConfig
+	LabeledConfig
+	// Size is the rendered size preset of the button.
+	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	// Level is the typography level of the button text.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	// CommandChannel is the channel button presses are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	// Mode is the actuation behavior of the button.
+	Mode *ButtonMode `json:"mode,omitempty" msgpack:"mode,omitempty"`
+	// Color is the background color of the button.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
 func (ElementConfigButton) isElementConfigVariant() {}
 
+// ElementConfigCircle is the configuration for circle annotation symbols.
 type ElementConfigCircle struct {
-	CircleConfig
+	LabeledConfig
+	// Radius is the radius of the circle in pixels.
+	Radius float64 `json:"radius" msgpack:"radius"`
+	// Color is the border color of the circle.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the circle.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
 func (ElementConfigCircle) isElementConfigVariant() {}
 
+// ElementConfigGauge is the configuration for gauge symbols.
 type ElementConfigGauge struct {
-	GaugeConfig
+	LabeledConfig
+	// Position is the offset of the gauge contents within the symbol.
+	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	// Color is the accent color of the gauge arc.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Bounds is the numeric range displayed by the gauge.
+	Bounds *spatial.Bounds `json:"bounds,omitempty" msgpack:"bounds,omitempty"`
+	// BarWidth is the thickness of the gauge arc in pixels.
+	BarWidth *float64 `json:"bar_width,omitempty" msgpack:"bar_width,omitempty"`
+	// Channel is the channel whose value the gauge displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
+	// MinWidth is the minimum rendered width of the value in pixels.
+	MinWidth *float64 `json:"min_width,omitempty" msgpack:"min_width,omitempty"`
+	// Width is the rendered width of the gauge in pixels.
+	Width *float64 `json:"width,omitempty" msgpack:"width,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
+	// Location is the anchor of the value within the gauge.
+	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units string `json:"units" msgpack:"units"`
+	// Level is the typography level of the displayed value.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 }
 
 func (ElementConfigGauge) isElementConfigVariant() {}
 
+// ElementConfigInput is the configuration for free-form input symbols.
 type ElementConfigInput struct {
-	InputConfig
+	LabeledConfig
+	// Size is the rendered size preset of the input.
+	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	// CommandChannel is the channel submitted values are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	// Dimensions is the rendered size of the input in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// Color is the accent color of the input.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Disabled indicates whether the input rejects interaction.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
 func (ElementConfigInput) isElementConfigVariant() {}
 
+// ElementConfigLight is the configuration for indicator light symbols.
 type ElementConfigLight struct {
-	LightConfig
+	LabeledConfig
+	// Channel is the channel whose value drives the light's on state.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// Threshold is the value range within which the light is considered on.
+	Threshold *spatial.Bounds `json:"threshold,omitempty" msgpack:"threshold,omitempty"`
+	// Color is the illuminated color of the light.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
 }
 
 func (ElementConfigLight) isElementConfigVariant() {}
 
+// ElementConfigOffPageReference is the configuration for off-page reference symbols.
 type ElementConfigOffPageReference struct {
-	OffPageReferenceConfig
+	// Orientation is the direction the reference arrow points.
+	Orientation *spatial.OuterLocation `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
+	// Label is the label displayed inside the reference.
+	Label LabelConfig `json:"label" msgpack:"label"`
+	// Level is the typography level of the reference text.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// Color is the fill color of the reference.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Page is the key of the schematic this reference links to.
+	Page string `json:"page" msgpack:"page"`
+	// DblClickNav indicates whether double-clicking navigates to the linked schematic.
+	DblClickNav bool `json:"dbl_click_nav" msgpack:"dbl_click_nav"`
 }
 
 func (ElementConfigOffPageReference) isElementConfigVariant() {}
 
+// ElementConfigPolygon is the configuration for polygon annotation symbols.
 type ElementConfigPolygon struct {
-	PolygonConfig
+	LabeledConfig
+	// NumSides is the number of sides of the polygon.
+	NumSides float64 `json:"num_sides" msgpack:"num_sides"`
+	// SideLength is the length of each side in pixels.
+	SideLength float64 `json:"side_length" msgpack:"side_length"`
+	// Rotation is the rotation of the polygon in degrees.
+	Rotation *float64 `json:"rotation,omitempty" msgpack:"rotation,omitempty"`
+	// CornerRounding is the corner rounding radius in pixels.
+	CornerRounding *float64 `json:"corner_rounding,omitempty" msgpack:"corner_rounding,omitempty"`
+	// Color is the border color of the polygon.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the polygon.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitempty" msgpack:"stroke_width,omitempty"`
 }
 
 func (ElementConfigPolygon) isElementConfigVariant() {}
 
+// ElementConfigSelect is the configuration for select symbols.
 type ElementConfigSelect struct {
-	SelectConfig
+	LabeledConfig
+	// Size is the rendered size preset of the select.
+	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	// CommandChannel is the channel the selected value is written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	// Color is the accent color of the select.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// InlineSize is the inline size of the select in pixels.
+	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
+	// Options is the set of selectable states.
+	Options []StateMapping `json:"options" msgpack:"options"`
+	// Disabled indicates whether the select rejects interaction.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
 func (ElementConfigSelect) isElementConfigVariant() {}
 
+// ElementConfigSetpoint is the configuration for numeric setpoint symbols.
 type ElementConfigSetpoint struct {
-	SetpointConfig
+	LabeledConfig
+	// Size is the rendered size preset of the setpoint.
+	Size *ComponentSize `json:"size,omitempty" msgpack:"size,omitempty"`
+	// StateChannel is the channel whose value displays as the current setpoint.
+	StateChannel *channel.Key `json:"state_channel,omitempty" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel submitted setpoints are written to.
+	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
+	// Dimensions is the rendered size of the setpoint in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// Color is the accent color of the setpoint.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units string `json:"units" msgpack:"units"`
+	// Disabled indicates whether the setpoint rejects interaction.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Control is the control state display configuration.
+	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
 
 func (ElementConfigSetpoint) isElementConfigVariant() {}
 
+// ElementConfigStateIndicator is the configuration for multi-state indicator symbols.
 type ElementConfigStateIndicator struct {
-	StateIndicatorConfig
+	LabeledConfig
+	// Channel is the channel whose value selects the displayed state.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// Color is the fallback color when no state matches.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// InlineSize is the inline size of the indicator in pixels.
+	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
+	// Options is the set of displayable states.
+	Options []StateMapping `json:"options" msgpack:"options"`
 }
 
 func (ElementConfigStateIndicator) isElementConfigVariant() {}
@@ -2646,14 +2729,68 @@ type ElementConfigSwitch struct {
 
 func (ElementConfigSwitch) isElementConfigVariant() {}
 
+// ElementConfigTextBox is the configuration for text box annotation symbols.
 type ElementConfigTextBox struct {
-	TextBoxConfig
+	LabeledConfig
+	// Color is the text color.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Width is the rendered width of the text box in pixels.
+	Width *float64 `json:"width,omitempty" msgpack:"width,omitempty"`
+	// Align is the alignment of the text within the box.
+	Align *FlexAlignment `json:"align,omitempty" msgpack:"align,omitempty"`
+	// AutoFit indicates whether the box resizes to fit its content.
+	AutoFit bool `json:"auto_fit" msgpack:"auto_fit"`
+	// Level is the typography level of the text.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// Value is the text content of the box.
+	Value string `json:"value" msgpack:"value"`
 }
 
 func (ElementConfigTextBox) isElementConfigVariant() {}
 
+// ElementConfigValue is the configuration for live telemetry value symbols.
 type ElementConfigValue struct {
-	ValueConfig
+	LabeledConfig
+	// Position is the offset of the value contents within the symbol.
+	Position *spatial.XY `json:"position,omitempty" msgpack:"position,omitempty"`
+	// Color is the background color of the value.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// TextColor is the color of the displayed text.
+	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
+	// Tooltip is the list of tooltip lines shown on hover.
+	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
+	// Redline is the bounds-to-gradient mapping applied to the background.
+	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units string `json:"units" msgpack:"units"`
+	// InlineSize is the inline size of the value in pixels.
+	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
+	// Channel is the channel whose value the symbol displays.
+	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	// Level is the typography level of the displayed value.
+	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
+	// MinWidth is the minimum rendered width of the value in pixels.
+	MinWidth *float64 `json:"min_width,omitempty" msgpack:"min_width,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
+	// Location is the anchor of the value within the symbol.
+	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
+	// UseWidthForBackground indicates whether the background spans the full configured
+	// width.
+	UseWidthForBackground bool `json:"use_width_for_background" msgpack:"use_width_for_background"`
+	// ValueBackgroundShift is the offset applied to the value background.
+	ValueBackgroundShift *spatial.XY `json:"value_background_shift,omitempty" msgpack:"value_background_shift,omitempty"`
+	// ValueBackgroundOverScan is the extra padding applied around the value background.
+	ValueBackgroundOverScan *spatial.XY `json:"value_background_over_scan,omitempty" msgpack:"value_background_over_scan,omitempty"`
 }
 
 func (ElementConfigValue) isElementConfigVariant() {}
@@ -2958,8 +3095,11 @@ type ElementConfigReliefValve struct {
 
 func (ElementConfigReliefValve) isElementConfigVariant() {}
 
+// ElementConfigSolenoidValve is the configuration for solenoid valve symbols.
 type ElementConfigSolenoidValve struct {
-	SolenoidValveConfig
+	ToggleSymbolConfig
+	// NormallyOpen indicates whether the valve is open when unpowered.
+	NormallyOpen bool `json:"normally_open" msgpack:"normally_open"`
 }
 
 func (ElementConfigSolenoidValve) isElementConfigVariant() {}
@@ -2994,14 +3134,32 @@ type ElementConfigCrossJunction struct {
 
 func (ElementConfigCrossJunction) isElementConfigVariant() {}
 
+// ElementConfigCylinder is the configuration for cylinder vessel symbols.
 type ElementConfigCylinder struct {
-	CylinderConfig
+	LabeledConfig
+	// Dimensions is the rendered size of the cylinder in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the corner radius of the cylinder.
+	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
+	// Color is the border color of the cylinder.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the cylinder.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
 }
 
 func (ElementConfigCylinder) isElementConfigVariant() {}
 
+// ElementConfigTank is the configuration for tank vessel symbols.
 type ElementConfigTank struct {
-	TankConfig
+	LabeledConfig
+	// Color is the border color of the tank.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// BackgroundColor is the fill color of the tank.
+	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
+	// Dimensions is the rendered size of the tank in pixels.
+	Dimensions *spatial.Dimensions `json:"dimensions,omitempty" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the corner radius of the tank.
+	BorderRadius *border.Radius `json:"border_radius,omitempty" msgpack:"border_radius,omitempty"`
 }
 
 func (ElementConfigTank) isElementConfigVariant() {}
@@ -3012,14 +3170,36 @@ type ElementConfigTJunction struct {
 
 func (ElementConfigTJunction) isElementConfigVariant() {}
 
+// ElementConfigCustomActuator is the configuration for user-defined actuator symbols.
 type ElementConfigCustomActuator struct {
-	CustomActuatorConfig
+	ToggleConfig
+	// SpecKey is the key of the custom symbol spec this instance renders.
+	SpecKey string `json:"spec_key" msgpack:"spec_key"`
+	// Color is the stroke color of the symbol.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
+	// StateOverrides contains per-instance overrides of the spec's visual states. Each
+	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
+	// consistent with how the symbol service stores specs.
+	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (ElementConfigCustomActuator) isElementConfigVariant() {}
 
+// ElementConfigCustomStatic is the configuration for user-defined static symbols.
 type ElementConfigCustomStatic struct {
-	CustomStaticConfig
+	LabeledConfig
+	// SpecKey is the key of the custom symbol spec this instance renders.
+	SpecKey string `json:"spec_key" msgpack:"spec_key"`
+	// Color is the stroke color of the symbol.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitempty" msgpack:"scale,omitempty"`
+	// StateOverrides contains per-instance overrides of the spec's visual states. Each
+	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
+	// consistent with how the symbol service stores specs.
+	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
 }
 
 func (ElementConfigCustomStatic) isElementConfigVariant() {}

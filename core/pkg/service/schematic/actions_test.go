@@ -35,7 +35,7 @@ func mustColor(hex string) color.Color {
 
 // tankCfg constructs a typed tank element config. hex is optional.
 func tankCfg(label, hex string) schematic.ElementConfig {
-	cfg := schematic.TankConfig{
+	cfg := schematic.ElementConfigTank{
 		LabeledConfig: schematic.LabeledConfig{
 			Label: new(schematic.LabelConfig{Label: label}),
 		},
@@ -43,7 +43,7 @@ func tankCfg(label, hex string) schematic.ElementConfig {
 	if hex != "" {
 		cfg.Color = new(mustColor(hex))
 	}
-	return schematic.ElementConfig{Variant: schematic.ElementConfigTank{TankConfig: cfg}}
+	return schematic.ElementConfig{Variant: cfg}
 }
 
 // pipeCfg constructs a typed pipe edge config. hex is optional.
