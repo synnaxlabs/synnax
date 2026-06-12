@@ -118,7 +118,7 @@ func (s *Service) Close() error { return nil }
 // such as calculated channels. tx scopes channel lookups; nil consults the
 // service DB directly.
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return &channelResolver{dist: s.cfg.Distribution, tx: tx}
+	return &channelResolver{dist: s, tx: tx}
 }
 
 // NewWriter returns a Writer that infers DataTypes for calculated channels

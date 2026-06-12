@@ -16,7 +16,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -25,13 +24,13 @@ import (
 // cluster channels can appear or disappear at runtime, so they cannot be
 // snapshotted into the ambient prelude at analysis time.
 type channelResolver struct {
-	dist *distchannel.Service
+	dist *Service
 	tx   gorp.Tx
 }
 
 var _ symbol.Resolver = (*channelResolver)(nil)
 
-func channelToSymbol(ch distchannel.Channel) *symbol.Symbol {
+func channelToSymbol(ch Channel) *symbol.Symbol {
 	return &symbol.Symbol{
 		Name:       ch.Name,
 		Kind:       symbol.KindChannel,
@@ -44,12 +43,12 @@ func channelToSymbol(ch distchannel.Channel) *symbol.Symbol {
 // Resolve resolves a single cluster channel by name or numeric key.
 func (r *channelResolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
 	key, err := strconv.Atoi(name)
-	ch := distchannel.Channel{}
+	ch := Channel{}
 	q := r.dist.NewRetrieve().Entry(&ch)
 	if err == nil {
-		q = q.Where(distchannel.MatchKeys(distchannel.Key(key)))
+		q = q.Where(MatchKeys(Key(key)))
 	} else {
-		q = q.Where(distchannel.MatchNames(name))
+		q = q.Where(MatchNames(name))
 	}
 	if err = q.Exec(ctx, r.tx); err != nil {
 		return nil, err
@@ -59,14 +58,14 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (*symbol.Sym
 
 // Search fuzzy-searches non-internal cluster channels by name.
 func (r *channelResolver) Search(ctx context.Context, name string) ([]*symbol.Symbol, error) {
-	var results []distchannel.Channel
+	var results []Channel
 	if err := r.dist.NewRetrieve().
-		Where(distchannel.MatchInternal(false)).
+		Where(MatchInternal(false)).
 		Search(name).
 		Entries(&results).Exec(ctx, r.tx); err != nil {
 		return nil, err
 	}
-	return lo.Map(results, func(item distchannel.Channel, _ int) *symbol.Symbol {
+	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {
 		return channelToSymbol(item)
 	}), nil
 }
