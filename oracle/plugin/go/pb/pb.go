@@ -339,7 +339,12 @@ func (p *Plugin) generateFile(
 					"failed to process inline payload for union %s variant %q",
 					u.Name, v.Name)
 			}
+			// The translator is named after the member, not the payload message:
+			// a union composed from this one inherits the variant and generates
+			// its own member translator against the same payload message, so
+			// payload-message naming would collide.
 			memberName := casing.VariantTypeName(goName, v.Name)
+			pt.Name = memberName
 			pt.GoType = fmt.Sprintf("%s.%s", data.parentAlias, memberName)
 			pt.GoTypeShort = memberName
 			data.Translators = append(data.Translators, *pt)
@@ -493,18 +498,25 @@ func (p *Plugin) processUnionForTranslation(
 		if !ok {
 			return nil, errors.Newf("union %s variant %q: unresolved payload type", u.Name, v.Name)
 		}
-		prefix, payloadName := p.resolvePBTranslatorInfo(payload, data)
 		pbField := protocOneofGoName(v.Name)
 		vt := unionVariantTranslatorData{
 			GoVariantType: fmt.Sprintf("%s.%s", data.parentAlias, casing.VariantTypeName(goName, v.Name)),
 			PBWrapper:     fmt.Sprintf("%s_%s", pbName, pbField),
 			PBField:       pbField,
 			IsInline:      v.Inline,
-			PayloadToPB:   prefix + payloadName + "ToPB",
-			PayloadFromPB: prefix + payloadName + "FromPB",
 		}
-		if !v.Inline {
+		if v.Inline {
+			// Inline payload translators are member-typed and generated locally
+			// for each union that carries the variant, so they are referenced
+			// without a package prefix.
+			memberName := casing.VariantTypeName(goName, v.Name)
+			vt.PayloadToPB = memberName + "ToPB"
+			vt.PayloadFromPB = memberName + "FromPB"
+		} else {
+			prefix, payloadName := p.resolvePBTranslatorInfo(payload, data)
 			vt.PayloadGoField = naming.GetGoName(payload)
+			vt.PayloadToPB = prefix + payloadName + "ToPB"
+			vt.PayloadFromPB = prefix + payloadName + "FromPB"
 		}
 		ut.Variants = append(ut.Variants, vt)
 	}

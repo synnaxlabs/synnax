@@ -2563,6 +2563,34 @@ var _ = Describe("TS Union Generation", func() {
 		content.ToNotContain("TabViewPayload", "tabViewPayloadZ")
 	})
 
+	It("Should carry inline variants through union composition", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			NodeConfig union on variant {
+				box {
+					width float64
+				}
+			}
+
+			EdgeConfig union on variant {
+				pipe {
+					length float64
+				}
+			}
+
+			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+		`
+		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`export const elementConfigBoxZ = z.object({`,
+			`width: z.number(),`,
+			`export const elementConfigPipeZ = z.object({`,
+			`length: z.number(),`,
+			`export type ElementConfig = ElementConfigBox | ElementConfigPipe;`,
+		)
+	})
+
 	It("Should generate a bare object schema for an inline variant with no bases", func(ctx SpecContext) {
 		source := `
 			@ts output "out"
