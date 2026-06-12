@@ -146,12 +146,12 @@ var _ = Describe("Translator", func() {
 				{Type: "docs", Name: "Docs", Args: msgpack.EncodedJSON{"path": "/intro"}},
 				{Type: "about", Args: msgpack.EncodedJSON{}},
 			}
-			back := MustSucceed(pb.TabViewPayloadsFromPB(MustSucceed(pb.TabViewPayloadsToPB(vs))))
+			back := MustSucceed(pb.TabViewsFromPB(MustSucceed(pb.TabViewsToPB(vs))))
 			Expect(back).To(Equal(vs))
 		})
 
 		It("Should return a zero view member when decoding nil", func() {
-			Expect(pb.TabViewPayloadFromPB(nil)).To(Equal(panel.TabView{}))
+			Expect(pb.TabViewFromPB(nil)).To(Equal(panel.TabView{}))
 		})
 	})
 
