@@ -173,7 +173,7 @@ struct Bounds {
 /// @brief Viewport is the camera state of a viewport.
 struct Viewport {
     /// @brief zoom is the zoom level where 1.0 equals 100%.
-    double zoom = 0;
+    double zoom = 1;
     /// @brief position is the (x, y) pan offset of the viewport.
     XY position;
 
