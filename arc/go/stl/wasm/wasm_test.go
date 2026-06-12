@@ -2336,7 +2336,7 @@ trigger_ch -> emit_period{period=1s}
 			h.Execute(ctx, "count_rising")
 			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // input=0, no rising edge
-			Expect(outFr.Get(100).Series).To(HaveLen(0))
+			Expect(outFr.Get(100).Series).To(BeEmpty())
 
 			// Rising edge: input goes 0->1, prev=0, should increment
 			fr = telem.Frame[uint32]{}
@@ -2357,7 +2357,7 @@ trigger_ch -> emit_period{period=1s}
 			h.Execute(ctx, "count_rising")
 			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // No rising edge
-			Expect(outFr.Get(100).Series).To(HaveLen(0))
+			Expect(outFr.Get(100).Series).To(BeEmpty())
 
 			// Falling edge then rising: input 1->0->1
 			fr = telem.Frame[uint32]{}
@@ -2367,7 +2367,7 @@ trigger_ch -> emit_period{period=1s}
 			h.Execute(ctx, "count_rising")
 			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // Falling edge, no increment
-			Expect(outFr.Get(100).Series).To(HaveLen(0))
+			Expect(outFr.Get(100).Series).To(BeEmpty())
 
 			// Another rising edge
 			fr = telem.Frame[uint32]{}

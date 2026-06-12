@@ -10,6 +10,8 @@
 package symbol_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -175,7 +177,7 @@ var _ = Describe("Service", func() {
 
 			// Wait for all goroutines
 			for range 3 {
-				Eventually(done, "5s").Should(Receive())
+				Eventually(done, time.Second*5).Should(Receive())
 			}
 		})
 	})
