@@ -697,6 +697,21 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, data *templateData) t
 // the C++ type string and the underlying primitive type (if any).
 // Returns empty string if no explicit default is needed (e.g., for types with
 // proper default constructors like std::string, std::vector, std::optional).
+// wrapTelemDefault wraps numeric schema defaults on telem-typed fields in the
+// telem type's constructor (x::telem::TimeSpan(5)); other defaults pass through.
+func wrapTelemDefault(cppType, underlyingPrimitive string, kind resolution.ValueKind, lit string) string {
+	if kind != resolution.ValueKindInt && kind != resolution.ValueKindFloat {
+		return lit
+	}
+	if strings.Contains(cppType, "::telem::TimeStamp") || underlyingPrimitive == "timestamp" {
+		return fmt.Sprintf("x::telem::TimeStamp(%s)", lit)
+	}
+	if strings.Contains(cppType, "::telem::TimeSpan") || underlyingPrimitive == "timespan" {
+		return fmt.Sprintf("x::telem::TimeSpan(%s)", lit)
+	}
+	return lit
+}
+
 func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 	if strings.Contains(cppType, "::telem::TimeStamp") {
 		return "x::telem::TimeStamp(0)"
@@ -796,7 +811,11 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	defaultValue := cppDefaultValue(cppType, underlyingPrimitive)
 	if field.Default != nil {
 		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
-			defaultValue = lit
+			defaultValue = wrapTelemDefault(cppType, underlyingPrimitive, field.Default.Kind, lit)
+		} else if field.Default.Kind == resolution.ValueKindIdent &&
+			field.Default.IdentValue == "now" &&
+			(strings.Contains(cppType, "::telem::TimeStamp") || underlyingPrimitive == "timestamp") {
+			defaultValue = "x::telem::TimeStamp::now()"
 		}
 	}
 
@@ -817,6 +836,15 @@ func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.Ex
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
 	case resolution.ValueKindInt:
+		// Telem time types have explicit integer constructors, so a bare
+		// numeric literal would not compile as a member initializer.
+		cppType := p.typeRefToCpp(typeRef, data)
+		if strings.Contains(cppType, "::telem::TimeStamp") {
+			return fmt.Sprintf("x::telem::TimeStamp(%d)", val.IntValue)
+		}
+		if strings.Contains(cppType, "::telem::TimeSpan") {
+			return fmt.Sprintf("x::telem::TimeSpan(%d)", val.IntValue)
+		}
 		return fmt.Sprintf("%d", val.IntValue)
 	case resolution.ValueKindFloat:
 		return fmt.Sprintf("%f", val.FloatValue)
@@ -826,7 +854,16 @@ func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.Ex
 		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, data.table); ok {
 			return p.cppEnumVariantRef(ev, data)
 		}
-		return val.IdentValue
+		if val.IdentValue == "true" || val.IdentValue == "false" {
+			return val.IdentValue
+		}
+		if val.IdentValue == "now" &&
+			strings.Contains(p.typeRefToCpp(typeRef, data), "::telem::TimeStamp") {
+			return "x::telem::TimeStamp::now()"
+		}
+		// Unresolvable idents (magic defaults like create) have no C++
+		// rendering; the caller falls back to the type's zero value.
+		return ""
 	case resolution.ValueKindArray:
 		elem := cppArrayElementType(typeRef)
 		parts := make([]string, 0, len(val.Elements))

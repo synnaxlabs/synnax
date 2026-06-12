@@ -461,7 +461,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Type, cppType string, data *templateData, isSelfRef bool) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
-	hasDefault := field.IsOptional || field.Default != nil
+	hasDefault := field.IsOptional || hasRenderableDefault(field, data.table)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		if field.IsHardOptional {
@@ -650,10 +650,12 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		}
 		if hasDefault {
 			defaultVal := jsonDefaultLiteral(field, data.table)
-			if defaultVal == "" {
+			if defaultVal == "" && field.IsOptional {
 				defaultVal = defaultValueForPrimitive(typeRef.Name)
 			}
-			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+			if defaultVal != "" {
+				return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+			}
 		}
 		return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 	}
@@ -832,6 +834,20 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 	return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)
 }
 
+// hasRenderableDefault reports whether the field declares a default the parse
+// expression can honor. Struct and array defaults count (their branches render
+// them); identifier defaults count only when they resolve to an enum variant or
+// boolean literal, so sentinels like create do not relax a required field.
+func hasRenderableDefault(field resolution.Field, table *resolution.Table) bool {
+	if field.Default == nil {
+		return false
+	}
+	if field.Default.Kind != resolution.ValueKindIdent {
+		return true
+	}
+	return jsonDefaultLiteral(field, table) != ""
+}
+
 // jsonDefaultLiteral renders a field's schema default as a C++ literal usable as
 // parser.field's fallback argument. Returns "" when the default has no inline
 // scalar rendering (arrays, structs), leaving the caller's behavior unchanged.
@@ -853,7 +869,12 @@ func jsonDefaultLiteral(field resolution.Field, table *resolution.Table) string 
 		if ev, ok := validation.ResolveEnumVariant(v.IdentValue, field.Type, table); ok {
 			return fmt.Sprintf("%q", ev.Variant.StringValue())
 		}
-		return v.IdentValue
+		if v.IdentValue == "true" || v.IdentValue == "false" {
+			return v.IdentValue
+		}
+		// Unresolvable idents (magic defaults like create/now) have no C++
+		// rendering; the field stays required.
+		return ""
 	}
 	return ""
 }
