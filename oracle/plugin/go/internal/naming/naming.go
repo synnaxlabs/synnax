@@ -77,12 +77,15 @@ func GetFieldName(f resolution.Field) string {
 }
 
 // GetGoName returns the Go name for a type. It checks for a @go name
-// override first, then falls back to ToPascalCase of the schema type name.
+// override first, then falls back to the declared schema type name. The
+// declared name is used verbatim so acronym-bearing names (RTDType,
+// BaseAIChannel) survive; routing through ToPascalCase would mangle them
+// into names that diverge from how references resolve the type.
 func GetGoName(t resolution.Type) string {
 	if override := domain.GetStringFromType(t, "go", "name"); override != "" {
 		return override
 	}
-	return ToPascalCase(t.Name)
+	return t.Name
 }
 
 // LowerFirst lowercases the leading uppercase run of a string, handling

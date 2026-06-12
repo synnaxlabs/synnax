@@ -87,21 +87,25 @@ export const unitZ = z.object({
 export interface Unit extends z.infer<typeof unitZ> {}
 
 /** FunctionProperties contains common parameter definitions for function-like types. */
-export const functionPropertiesZ = z.object({
+export interface FunctionProperties {
+  inputs?: Params;
+  outputs?: Params;
+  config?: Params;
+}
+export const functionPropertiesZ: z.ZodType<FunctionProperties> = z.object({
   /** inputs contains input parameter definitions. */
-  get inputs(): z.ZodOptional<typeof paramsZ> {
+  get inputs() {
     return paramsZ.optional();
   },
   /** outputs contains output parameter definitions. */
-  get outputs(): z.ZodOptional<typeof paramsZ> {
+  get outputs() {
     return paramsZ.optional();
   },
   /** config contains configuration parameter definitions. */
-  get config(): z.ZodOptional<typeof paramsZ> {
+  get config() {
     return paramsZ.optional();
   },
 });
-export interface FunctionProperties extends z.infer<typeof functionPropertiesZ> {}
 
 export const typeZ = functionPropertiesZ.extend({
   kind: kindZ,
@@ -118,7 +122,12 @@ export const typeZ = functionPropertiesZ.extend({
 export interface Type extends z.infer<typeof typeZ> {}
 
 /** Param is a named, typed parameter with optional default value. */
-export const paramZ = z.object({
+export interface Param {
+  name: string;
+  type: Type;
+  value?: unknown;
+}
+export const paramZ: z.ZodType<Param> = z.object({
   /** name is the parameter name. */
   name: z.string(),
   /** type is the parameter type. */
@@ -126,7 +135,6 @@ export const paramZ = z.object({
   /** value is an optional default value. */
   value: z.unknown().optional(),
 });
-export interface Param extends z.infer<typeof paramZ> {}
 
 export const paramsZ = array.nullishToEmpty(paramZ);
 export type Params = z.infer<typeof paramsZ>;

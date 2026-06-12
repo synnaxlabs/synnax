@@ -441,6 +441,35 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Variant Variant`))
 			})
 
+			It("Should declare acronym-named enums under their declared name", func(ctx SpecContext) {
+				source := `
+				@go output "core/ni"
+
+				RTDType enum {
+					pt_3750 = "Pt3750"
+					pt_3851 = "Pt3851"
+				}
+
+				Channel struct {
+					rtd_type RTDType
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp := MustSucceed(goPlugin.Generate(req))
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type RTDType string`))
+				Expect(content).To(ContainSubstring(`RTDTypePt3750 RTDType = "Pt3750"`))
+				Expect(content).To(ContainSubstring(`RtdType RTDType`))
+				Expect(content).ToNot(ContainSubstring(`RtdTypePt3750`))
+			})
+
 			It("Should generate int enum type and iota constants", func(ctx SpecContext) {
 				source := `
 				@go output "core/priority"

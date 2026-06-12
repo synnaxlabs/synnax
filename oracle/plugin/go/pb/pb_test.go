@@ -1044,8 +1044,8 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "x/go/telem"
 					@pb
 
-					timestamp = uint64
-					timespan = int64
+					TimeStamp = uint64
+					TimeSpan = int64
 				`)
 			})
 
@@ -1057,14 +1057,14 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						created_at telem.timestamp
+						created_at telem.TimeStamp
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("uint64(r.CreatedAt)").
-					ToContain("telem.Timestamp(pb.CreatedAt)")
+					ToContain("telem.TimeStamp(pb.CreatedAt)")
 			})
 
 			It("Should convert timespan typedef via int64", func(ctx SpecContext) {
@@ -1075,14 +1075,14 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						duration telem.timespan
+						duration telem.TimeSpan
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("int64(r.Duration)").
-					ToContain("telem.Timespan(pb.Duration)")
+					ToContain("telem.TimeSpan(pb.Duration)")
 			})
 		})
 
@@ -1852,7 +1852,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain(
 						"ranger_pb.RangeToPB(ranger.Range(r))",
 						"ranger_pb.RangeFromPB",
-						"ts.TsRange(result)",
+						"ts.TSRange(result)",
 					)
 			})
 		})

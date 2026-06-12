@@ -541,6 +541,31 @@ func (p *Plugin) typeDefBaseToTS(typeRef *resolution.TypeRef, data *templateData
 	return p.typeRefToTS(typeRef, data.Request.Resolutions, data, false)
 }
 
+// isUnionPayload reports whether entry is referenced by any union as a variant
+// payload or shared base, meaning its generated zod schema must stay a
+// ZodObject so the variant schemas can .extend it.
+func isUnionPayload(entry resolution.Type, table *resolution.Table) bool {
+	for _, typ := range table.Types {
+		form, ok := typ.Form.(resolution.UnionForm)
+		if !ok {
+			continue
+		}
+		for _, ext := range form.Extends {
+			if resolved, ok := ext.Resolve(table); ok &&
+				resolved.QualifiedName == entry.QualifiedName {
+				return true
+			}
+		}
+		for _, v := range form.Variants {
+			if resolved, ok := v.Type.Resolve(table); ok &&
+				resolved.QualifiedName == entry.QualifiedName {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, data *templateData) structData {
 	if aliasForm, isAlias := entry.Form.(resolution.AliasForm); isAlias {
 		sd := structData{
@@ -614,7 +639,11 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		IsGeneric:     form.IsGeneric(),
 		IsSingleParam: len(form.TypeParams) == 1,
 		IsAlias:       false,
-		IsRecursive:   form.IsRecursive,
+		// Union variant payloads must keep a ZodObject schema so the variant
+		// can .extend it; the recursive-interface branch would annotate the
+		// schema as z.ZodType, which has no .extend. Their inference cycles
+		// are broken by annotated forward-reference getters instead.
+		IsRecursive: form.IsRecursive && !isUnionPayload(entry, table),
 	}
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {

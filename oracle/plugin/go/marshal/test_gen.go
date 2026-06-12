@@ -79,6 +79,42 @@ func generateTestCodecFile(
 	}
 
 	for _, e := range entries {
+		recv := ReceiverName(e.GoName)
+		// In test files the receiver is used as a local variable, so it must
+		// not shadow the package import alias.
+		if recv == packageName {
+			recv = recv + "v"
+		}
+
+		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
+			te := testEntry{GoName: e.GoName, Receiver: recv}
+			for _, v := range uform.Variants {
+				b := &testValueBuilder{
+					table:       table,
+					repoRoot:    repoRoot,
+					packageName: packageName,
+					parentPath:  parentPath,
+					imports:     fo.ExtraImports,
+					pkgPrefix:   packageName + ".",
+					mode:        modeFullyPopulated,
+				}
+				valueExpr, err := b.unionExpr(e.Type, uform, v)
+				if err != nil {
+					return nil, errors.Wrapf(err,
+						"failed to generate test value for %s variant %q", e.GoName, v.Name)
+				}
+				if b.needsUUID {
+					fo.NeedsUUID = true
+				}
+				te.Cases = append(te.Cases, testCase{
+					Name:      v.Name + " variant",
+					ValueExpr: valueExpr,
+				})
+			}
+			fo.Tests = append(fo.Tests, te)
+			continue
+		}
+
 		form, ok := e.Type.Form.(resolution.StructForm)
 		if !ok {
 			continue
@@ -96,13 +132,6 @@ func generateTestCodecFile(
 					Constraint: typeParamConstraint(tp),
 				})
 			}
-		}
-
-		recv := ReceiverName(e.GoName)
-		// In test files the receiver is used as a local variable, so it must
-		// not shadow the package import alias.
-		if recv == packageName {
-			recv = recv + "v"
 		}
 		modes := []struct {
 			name string
@@ -538,29 +567,61 @@ func (b *testValueBuilder) valueExpr(
 		if len(form.Variants) == 0 {
 			return "", errors.Newf("union %s has no variants", actual.Name)
 		}
-		goType, err := b.goTypeName(actual)
-		if err != nil {
-			return "", err
-		}
-		goName := naming.GetGoName(actual)
-		prefix := strings.TrimSuffix(goType, goName)
-		v := form.Variants[0]
-		payload, ok := v.Type.Resolve(b.table)
-		if !ok {
-			return "", errors.Newf("union %s variant %q: unresolved payload", actual.Name, v.Name)
-		}
-		payloadExpr, err := b.valueExpr(payload, v.Type)
-		if err != nil {
-			return "", err
-		}
-		variantType := prefix + casing.VariantTypeName(goName, v.Name)
-		return fmt.Sprintf(
-			"%s{Variant: %s{%s: %s}}",
-			goType, variantType, naming.GetGoName(payload), payloadExpr,
-		), nil
+		return b.unionExpr(actual, form, form.Variants[0])
 	default:
 		return b.primitiveExpr(resolved)
 	}
+}
+
+// unionExpr builds a wrapper literal holding the given variant with its base
+// and payload structs populated. Beyond the depth cutoff it falls back to an
+// empty variant struct, which still encodes (a zero Variant field would not).
+func (b *testValueBuilder) unionExpr(
+	actual resolution.Type, form resolution.UnionForm, v resolution.UnionVariant,
+) (string, error) {
+	goType, err := b.goTypeName(actual)
+	if err != nil {
+		return "", err
+	}
+	goName := naming.GetGoName(actual)
+	variantType := strings.TrimSuffix(goType, goName) +
+		casing.VariantTypeName(goName, v.Name)
+	payload, ok := v.Type.Resolve(b.table)
+	if !ok {
+		return "", errors.Newf(
+			"union %s variant %q: unresolved payload", actual.Name, v.Name)
+	}
+	if b.depth > 2 {
+		return fmt.Sprintf("%s{Variant: %s{}}", goType, variantType), nil
+	}
+	b.depth++
+	defer func() { b.depth-- }()
+
+	var embeds []string
+	for _, ext := range form.Extends {
+		parent, ok := ext.Resolve(b.table)
+		if !ok {
+			continue
+		}
+		parentGoType, err := b.goTypeName(parent)
+		if err != nil {
+			return "", err
+		}
+		parentExprs, err := b.buildStructFieldExprs(parent)
+		if err != nil {
+			return "", err
+		}
+		embeds = append(embeds,
+			naming.GetGoName(parent)+": "+b.formatComposite(parentGoType, parentExprs))
+	}
+	payloadExpr, err := b.valueExpr(payload, v.Type)
+	if err != nil {
+		return "", err
+	}
+	embeds = append(embeds, naming.GetGoName(payload)+": "+payloadExpr)
+	return fmt.Sprintf(
+		"%s{Variant: %s}", goType, b.formatComposite(variantType, embeds),
+	), nil
 }
 
 func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {

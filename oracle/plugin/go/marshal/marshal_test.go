@@ -877,6 +877,130 @@ var _ = Describe("Union Codecs", func() {
 				"w.Float64(float64(tc.Width))",
 			)
 	})
+
+	It("Should generate round-trip, benchmark, and fuzz harnesses covering every variant", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			BaseElement struct { key string }
+			TankConfig struct { width float64 }
+			ValveConfig struct { open bool }
+
+			ElementConfig union on variant extends BaseElement {
+				tank  TankConfig
+				valve ValveConfig
+			}
+
+			Test struct {
+				config ElementConfig
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "codec_gen_test.go").
+			ToBeValidGoSource().
+			ToContain(
+				`Describe("ElementConfig"`,
+				`Entry("tank variant"`,
+				`Entry("valve variant"`,
+				"test.ElementConfigTank{",
+				"test.ElementConfigValve{",
+				"BaseElement: test.BaseElement{",
+				"func BenchmarkEncodeDecodeElementConfig(b *testing.B) {",
+				"func FuzzDecodeElementConfig(f *testing.F) {",
+			)
+	})
+})
+
+var _ = Describe("Recursive Codecs", func() {
+	var (
+		loader        *MockFileLoader
+		marshalPlugin *marshal.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		marshalPlugin = marshal.New(marshal.DefaultOptions())
+	})
+
+	It("Should guard a recursive struct's decode with a depth limit", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			Node struct {
+				name     string
+				children Node[]
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "codec.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				`func (nv *Node) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()`,
+			).
+			ToNotContain("EncodeOrc(w *orc.Writer) error {\n\tif err := r.PushDepth")
+	})
+
+	It("Should guard a recursive union and its cycle members with a depth limit", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			LeafConfig struct { name string }
+			GroupConfig struct { children ElementConfig[] }
+
+			ElementConfig union on variant {
+				leaf  LeafConfig
+				group GroupConfig
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "codec.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				`func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
+	tag, err := r.String()`,
+				`func (gc *GroupConfig) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()`,
+				`func (lc *LeafConfig) DecodeOrc(r *orc.Reader) error {
+	var err error`,
+			)
+	})
+
+	It("Should not guard non-recursive decodes", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			TankConfig struct { width float64 }
+
+			ElementConfig union on variant {
+				tank TankConfig
+			}
+
+			Test struct {
+				config ElementConfig
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "codec.gen.go").ToNotContain("PushDepth")
+	})
 })
 
 // The rt* fixtures mirror the exact shape the generator emits for a
@@ -1032,5 +1156,63 @@ var _ = Describe("Union Codec Round Trip", func() {
 		r.ResetBytes(w.Bytes())
 		var out rtConfig
 		Expect(out.DecodeOrc(r)).To(MatchError(ContainSubstring(`unknown variant "bogus"`)))
+	})
+})
+
+// rtNode mirrors the depth guard the generator emits for recursive types,
+// locking the runtime semantics: input nested past orc.MaxDecodeDepth fails
+// with ErrRecursionDepth instead of growing the stack without bound.
+type rtNode struct{ Children []rtNode }
+
+func (n rtNode) EncodeOrc(w *orc.Writer) error {
+	w.Uint32(uint32(len(n.Children)))
+	for _, c := range n.Children {
+		if err := c.EncodeOrc(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (n *rtNode) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
+	count, err := r.CollectionLen()
+	if err != nil || count == 0 {
+		return err
+	}
+	n.Children = make([]rtNode, count)
+	for i := range n.Children {
+		if err := n.Children[i].DecodeOrc(r); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+var _ = Describe("Recursive Codec Depth Guard", func() {
+	It("Should round-trip nesting within the depth limit", func() {
+		in := rtNode{Children: []rtNode{{Children: []rtNode{{}}}, {}}}
+		w := orc.NewWriter(0)
+		Expect(in.EncodeOrc(w)).To(Succeed())
+		r := orc.NewReader(nil)
+		r.ResetBytes(w.Bytes())
+		var out rtNode
+		Expect(out.DecodeOrc(r)).To(Succeed())
+		Expect(out).To(Equal(in))
+	})
+
+	It("Should reject input nested past the depth limit", func() {
+		w := orc.NewWriter(0)
+		for range orc.MaxDecodeDepth {
+			w.Uint32(1)
+		}
+		w.Uint32(0)
+		r := orc.NewReader(nil)
+		r.ResetBytes(w.Bytes())
+		var out rtNode
+		Expect(out.DecodeOrc(r)).To(MatchError(orc.ErrRecursionDepth))
 	})
 })
