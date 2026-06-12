@@ -26,7 +26,6 @@ const createSchem = async () => {
     layout: {},
   });
   return await client.schematics.create(ws.key, {
-    ...schematic.ZERO_NEW,
     name: `dispatch_test_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -200,6 +199,24 @@ describe("Flux.createDispatch", () => {
       const doc = getDoc(result.current.store, key);
       expect(doc?.nodes[0].position).toEqual({ x: 1, y: 1 });
       expect(doc?.nodes[1].position).toEqual({ x: 2, y: 2 });
+    });
+
+    it("returns true without sending when given an empty actions array", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      let ok = false;
+      await act(async () => {
+        ok = await result.current.dispatch.dispatchAsync({ key, actions: [] });
+      });
+      expect(ok).toBe(true);
+      expect(send).not.toHaveBeenCalled();
+      expect(result.current.undo.canUndo).toBe(false);
     });
 
     it("returns false from dispatchAsync when the doc is not cached", async () => {
@@ -493,7 +510,7 @@ describe("Flux.createDispatch", () => {
         dispatch: td.useDispatch(),
         undo: td.useUndo({ key: k }),
       }));
-      // Seed an existing config so the next two setConfigs hit the
+      // Establish an existing config so the next two setConfigs hit the
       // "existing != null" branch and capture non-empty inverses. setNode's
       // kind differs from "set_config", so this entry won't coalesce with
       // the burst that follows.

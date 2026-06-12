@@ -25,6 +25,12 @@ func (n Nodes) Find(key string) (Node, bool) {
 // Get returns the node with the given key. Panics if not found.
 func (n Nodes) Get(key string) Node { return lo.Must(n.Find(key)) }
 
+// IsEntryNode reports whether n is an entry node: it has no incoming edges and
+// reads no channels. Entry nodes fire once per activation.
+func (n Node) IsEntryNode(edges Edges) bool {
+	return len(edges.GetInputs(n.Key)) == 0 && len(n.Channels.Read) == 0
+}
+
 // String returns the string representation of the node.
 func (n Node) String() string {
 	return n.stringWithPrefix("")

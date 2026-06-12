@@ -65,7 +65,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])).To(Equal([]float64{75.0}))
-			Expect(out.Get(300).Series).To(HaveLen(0))
+			Expect(out.Get(300).Series).To(BeEmpty())
 		})
 
 		It("Should route to low output and produce empty high output", func(ctx SpecContext) {
@@ -102,7 +102,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
-			Expect(out.Get(200).Series).To(HaveLen(0))
+			Expect(out.Get(200).Series).To(BeEmpty())
 			Expect(out.Get(300).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float64](out.Get(300).Series[0])).To(Equal([]float64{25.0}))
 		})
@@ -295,6 +295,35 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])).To(Equal([]float64{160.0, 180.0}))
 		})
+
+		It("Should re-fire a chained constant on every upstream trigger with monotonically increasing timestamps", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"log":  {types.U8(), 200},
+			})
+			h := newRuntimeHarness(ctx, `trig -> 1 -> log`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 200, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			const fires = 4
+			timestamps := make([]telem.TimeStamp, 0, fires)
+			for i := range fires {
+				h.Ingest(100, telem.NewSeriesV[uint8](1))
+				h.Tick(ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+				h.channelState.ClearReads()
+				out, _ := h.Flush()
+				Expect(out.Get(200).Series).ToNot(BeEmpty(),
+					"log should be written on every upstream trigger (fire %d)", i)
+				timestamps = append(timestamps,
+					telem.ValueAt[telem.TimeStamp](h.OutputTime("const_0", 0), 0))
+			}
+			for i := 1; i < len(timestamps); i++ {
+				Expect(timestamps[i]).To(BeNumerically(">", timestamps[i-1]),
+					"constant timestamp at fire %d should be strictly greater than fire %d", i, i-1)
+			}
+		})
 	})
 
 	Describe("Routing to Sequences", func() {
@@ -439,7 +468,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out.Get(200).Series[0])).To(Equal([]uint8{1}))
-			Expect(out.Get(300).Series).To(HaveLen(0))
+			Expect(out.Get(300).Series).To(BeEmpty())
 
 			// Tick 2: below threshold. log_event activates. open_valve
 			// constant already fired so it doesn't re-emit.
@@ -449,7 +478,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 			out2, changed2 := h.Flush()
 			Expect(changed2).To(BeTrue())
-			Expect(out2.Get(200).Series).To(HaveLen(0))
+			Expect(out2.Get(200).Series).To(BeEmpty())
 			Expect(out2.Get(300).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out2.Get(300).Series[0])).To(Equal([]uint8{1}))
 		})
@@ -569,7 +598,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out.Get(200).Series[0])).To(Equal([]uint8{1}))
-			Expect(out.Get(300).Series).To(HaveLen(0))
+			Expect(out.Get(300).Series).To(BeEmpty())
 
 			// Tick 2: flag=0 (falsy). select routes to "false" output,
 			// activating shut_valve.
@@ -584,7 +613,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 			out2, changed2 := h.Flush()
 			Expect(changed2).To(BeTrue())
-			Expect(out2.Get(200).Series).To(HaveLen(0))
+			Expect(out2.Get(200).Series).To(BeEmpty())
 			Expect(out2.Get(300).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out2.Get(300).Series[0])).To(Equal([]uint8{1}))
 		})
@@ -634,7 +663,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out.Get(200).Series[0])).To(Equal([]uint8{1}))
-			Expect(out.Get(300).Series).To(HaveLen(0))
+			Expect(out.Get(300).Series).To(BeEmpty())
 		})
 	})
 

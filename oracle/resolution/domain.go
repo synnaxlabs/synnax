@@ -70,4 +70,15 @@ type ExpressionValue struct {
 	FloatValue  float64
 	Kind        ValueKind
 	BoolValue   bool
+	// Elements holds the ordered element values when Kind is ValueKindArray.
+	Elements []ExpressionValue
+	// Fields holds the ordered field values when Kind is ValueKindStruct.
+	Fields []StructFieldValue
+}
+
+// StructFieldValue is a single `name = value` binding within a struct default
+// literal. Name is the unqualified field name as written in the schema.
+type StructFieldValue struct {
+	Name  string
+	Value ExpressionValue
 }

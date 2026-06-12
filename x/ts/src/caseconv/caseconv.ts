@@ -244,13 +244,49 @@ const createConverter = (
  */
 export const snakeToCamel = createConverter(snakeToCamelStr);
 
-const camelToSnakeStr = (str: string): string =>
-  // Don't convert the first character and don't convert a character that is after a
-  // non-alphanumeric character
-  str.replace(
-    /([a-z0-9])([A-Z])/g,
-    (_, p1: string, p2: string) => `${p1}_${p2.toLowerCase()}`,
-  );
+const UPPER_A = "A".charCodeAt(0);
+const UPPER_Z = "Z".charCodeAt(0);
+const LOWER_A = "a".charCodeAt(0);
+const LOWER_Z = "z".charCodeAt(0);
+const DIGIT_0 = "0".charCodeAt(0);
+const DIGIT_9 = "9".charCodeAt(0);
+const UPPER_TO_LOWER = LOWER_A - UPPER_A;
+
+// camelToSnakeStr inverts snakeToCamel. The first word break is always a capital
+// following a lowercase or digit, so the prefix scan finds it without allocating
+// (an already-snake string is returned as-is). From there a capital breaks a word
+// if it follows a lowercase/digit or continues an uppercase run entered from one,
+// so fooXY (from foo_x_y) splits fully while a leading run like NS=1;ID=5 stays put.
+const camelToSnakeStr = (str: string): string => {
+  const n = str.length;
+  let i = 1;
+  for (; i < n; i++) {
+    const c = str.charCodeAt(i);
+    if (c < UPPER_A || c > UPPER_Z) continue;
+    const prev = str.charCodeAt(i - 1);
+    if ((prev >= LOWER_A && prev <= LOWER_Z) || (prev >= DIGIT_0 && prev <= DIGIT_9))
+      break;
+  }
+  if (i >= n) return str;
+  let res = str.slice(0, i);
+  // enteredFromLower stays true across an uppercase run begun after a lowercase or
+  // digit, so every capital in fooXY splits rather than just the first.
+  let enteredFromLower = true;
+  for (; i < n; i++) {
+    const c = str.charCodeAt(i);
+    if (c < UPPER_A || c > UPPER_Z) {
+      enteredFromLower = false;
+      res += str[i];
+      continue;
+    }
+    const prev = str.charCodeAt(i - 1);
+    if ((prev >= LOWER_A && prev <= LOWER_Z) || (prev >= DIGIT_0 && prev <= DIGIT_9))
+      enteredFromLower = true;
+    else if (prev < UPPER_A || prev > UPPER_Z) enteredFromLower = false;
+    res += enteredFromLower ? `_${String.fromCharCode(c + UPPER_TO_LOWER)}` : str[i];
+  }
+  return res;
+};
 
 /**
  * Converts a camelCase string to snake_case.

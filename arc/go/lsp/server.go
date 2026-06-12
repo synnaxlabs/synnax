@@ -35,46 +35,59 @@ import (
 	"go.uber.org/zap"
 )
 
-// OnRename is invoked by the LSP when a Rename request resolves to a known
-// symbol. It runs before the server computes source-text edits and lets the
-// caller propagate the rename to the resource the symbol refers to (e.g.,
-// the underlying Synnax channel). Returning an error aborts the rename and
-// surfaces the error to the client. Callbacks should return nil for symbols
-// they do not handle.
-type OnRename func(ctx context.Context, sym *symbol.Symbol, oldName, newName string) error
+// OnRename is invoked by the LSP when a Rename request resolves to a known symbol. It
+// runs before the server computes source-text edits and lets the caller propagate the
+// rename to the resource the symbol refers to (e.g., the underlying Synnax channel).
+// Returning an error aborts the rename and surfaces the error to the client. Callbacks
+// should return nil for symbols they do not handle.
+type OnRename func(_ context.Context, _ *symbol.Symbol, oldName, newName string) error
 
 // Config defines the configuration for opening an arc LSP Server.
 type Config struct {
-	// NewRoot builds a fresh analyzer root scope. The LSP calls it once per
-	// document analysis (so per-document imports don't bleed across files)
-	// and again for completion fallback when the document has no analyzed
-	// scope yet. Callers compose STL, their custom globals, and any
-	// dynamic resolvers (cluster channels, etc.) into the returned root.
+	// NewRoot builds a fresh analyzer root scope. The LSP calls it once per document
+	// analysis (so per-document imports don't bleed across files) and again for
+	// completion fallback when the document has no analyzed scope yet. Callers compose
+	// STL, their custom globals, and any dynamic resolvers (cluster channels, etc.)
+	// into the returned root.
+	//
+	// [REQUIRED]
 	NewRoot func() *symbol.Symbol
-	// OnRename is invoked when a rename request targets a symbol the LSP itself
-	// cannot fully relocate by text edits alone (e.g., a channel). When nil,
-	// rename is restricted to source-defined symbols.
+	// OnRename is invoked when a rename request targets a symbol the LSP itself cannot
+	// fully relocate by text edits alone (e.g., a channel). When nil, rename is
+	// restricted to source-defined symbols.
+	//
+	// [OPTIONAL]
 	OnRename OnRename
-	// OnExternalChange is an observable that fires when external state (such as
-	// Synnax channels) changes. When this fires, the server will republish diagnostics
-	// for all open documents to ensure they reflect the current state.
+	// OnExternalChange is an observable that fires when external state (such as Synnax
+	// channels) changes. When this fires, the server will republish diagnostics for all
+	// open documents to ensure they reflect the current state.
+	//
+	// [OPTIONAL]
 	OnExternalChange observe.Observable[struct{}]
-	// RepublishTimeout is the maximum time to wait for a republish operation to complete.
-	// If zero, defaults to 30 seconds.
+	// RepublishTimeout is the maximum time to wait for a republish operation to
+	// complete. If zero, defaults to 30 seconds.
+	//
+	// [OPTIONAL] - Defaults to 30 seconds.
 	RepublishTimeout time.Duration
 	// DebounceDelay is the trailing-edge delay after the last keystroke before
 	// diagnostics are published. Defaults to 200ms.
+	//
+	// [OPTIONAL] - Defaults to 200ms.
 	DebounceDelay time.Duration
-	// MaxDebounceDelay caps the total delay from the first unprocessed change,
-	// ensuring fast typists still get periodic diagnostic updates. Defaults to 1s.
+	// MaxDebounceDelay caps the total delay from the first unprocessed change, ensuring
+	// fast typists still get periodic diagnostic updates. Defaults to 1s.
+	//
+	// [OPTIONAL] - Defaults to 1s.
 	MaxDebounceDelay time.Duration
 	// Instrumentation is used for logging, tracing, metrics, etc.
+	//
+	// [OPTIONAL]
 	alamos.Instrumentation
 }
 
 var (
 	_             config.Config[Config] = &Config{}
-	DefaultConfig                       = Config{
+	defaultConfig                       = Config{
 		RepublishTimeout: 30 * time.Second,
 		DebounceDelay:    200 * time.Millisecond,
 		MaxDebounceDelay: 1 * time.Second,
@@ -113,13 +126,14 @@ type Server struct {
 	republishMu              sync.Mutex
 	cancelRepublish          context.CancelFunc
 	externalChangeDisconnect observe.Disconnect
+	republishWG              sync.WaitGroup
 }
 
 var _ protocol.Server = (*Server)(nil)
 
 // New creates a new LSP server
 func New(cfgs ...Config) (*Server, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(defaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +192,7 @@ func (s *Server) SetClient(client lsp.Client) {
 			ctx, cancel := context.WithTimeout(ctx, s.cfg.RepublishTimeout)
 			s.cancelRepublish = cancel
 			s.republishMu.Unlock()
-			go s.republishAllDiagnostics(ctx)
+			s.republishWG.Go(func() { s.republishAllDiagnostics(ctx) })
 		})
 	}
 }
@@ -191,19 +205,30 @@ func (s *Server) Logger() *zap.Logger {
 	return s.cfg.L.Zap()
 }
 
-// getDocument retrieves a document from the server's cache by URI.
-// Returns the document and true if found, or nil and false if not found.
-// This method is thread-safe.
+// getDocument returns an immutable snapshot of the document with the given URI, and
+// true if found, or nil and false if not found. The returned *Document is a copy taken
+// under the read lock, so callers may read its fields (IR, Content, Diagnostics, ...)
+// without further locking: analysis replaces these fields on the live document under
+// the write lock, and a reader holding the snapshot is unaffected. Callers must not
+// mutate the returned document — writes do not reach the live document and would be
+// lost.
 func (s *Server) getDocument(uri protocol.DocumentURI) (*Document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	doc, ok := s.documents[uri]
-	return doc, ok
+	if !ok {
+		return nil, false
+	}
+	snapshot := *doc
+	return &snapshot, true
 }
 
 // Initialize handles the initialize request
-func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams) (*protocol.InitializeResult, error) {
-	s.cfg.L.Debug("initializing arc lsp", zap.String("client", params.ClientInfo.Name))
+func (s *Server) Initialize(
+	_ context.Context,
+	params *protocol.InitializeParams,
+) (*protocol.InitializeResult, error) {
+	s.cfg.L.Debug("initializing Arc LSP", zap.String("client", params.ClientInfo.Name))
 	return &protocol.InitializeResult{
 		Capabilities: s.capabilities,
 		ServerInfo:   &protocol.ServerInfo{Name: "arc-lsp", Version: "0.1.0"},
@@ -212,12 +237,12 @@ func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams
 
 // Initialized handles the initialized notification
 func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error {
-	s.cfg.L.Debug("arc lsp initialized")
+	s.cfg.L.Debug("Arc LSP initialized")
 	return nil
 }
 
-// Shutdown handles the shutdown request
-func (s *Server) Shutdown(_ context.Context) error {
+// Shutdown handles the shutdown request.
+func (s *Server) Shutdown(context.Context) error {
 	s.cfg.L.Info("Shutting down server")
 	if s.externalChangeDisconnect != nil {
 		s.externalChangeDisconnect()
@@ -227,6 +252,7 @@ func (s *Server) Shutdown(_ context.Context) error {
 		s.cancelRepublish()
 	}
 	s.republishMu.Unlock()
+	s.republishWG.Wait()
 	s.mu.RLock()
 	docs := make([]*Document, 0, len(s.documents))
 	for _, doc := range s.documents {
@@ -240,7 +266,10 @@ func (s *Server) Shutdown(_ context.Context) error {
 }
 
 // DidOpen handles opening a document
-func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
+func (s *Server) DidOpen(
+	ctx context.Context,
+	params *protocol.DidOpenTextDocumentParams,
+) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("document opened", zap.String("uri", string(uri)))
 	metadata := extractMetadataFromURI(uri)
@@ -273,7 +302,10 @@ func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocume
 }
 
 // DidChange handles document changes
-func (s *Server) DidChange(_ context.Context, params *protocol.DidChangeTextDocumentParams) error {
+func (s *Server) DidChange(
+	_ context.Context,
+	params *protocol.DidChangeTextDocumentParams,
+) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("Document changed", zap.String("uri", string(uri)))
 
@@ -298,7 +330,10 @@ func (s *Server) DidChange(_ context.Context, params *protocol.DidChangeTextDocu
 }
 
 // DidSave handles document save - force-flushes any pending analysis.
-func (s *Server) DidSave(ctx context.Context, params *protocol.DidSaveTextDocumentParams) error {
+func (s *Server) DidSave(
+	ctx context.Context,
+	params *protocol.DidSaveTextDocumentParams,
+) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("Document saved", zap.String("uri", string(uri)))
 
@@ -317,7 +352,10 @@ func (s *Server) DidSave(ctx context.Context, params *protocol.DidSaveTextDocume
 }
 
 // DidClose handles closing a document
-func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
+func (s *Server) DidClose(
+	ctx context.Context,
+	params *protocol.DidCloseTextDocumentParams,
+) error {
 	uri := params.TextDocument.URI
 	s.cfg.L.Debug("Document closed", zap.String("uri", string(uri)))
 
@@ -390,9 +428,8 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, uri protocol.Documen
 	}
 }
 
-// analyze performs parse+analyze on the given content and returns protocol
-// diagnostics, the resulting IR, and the raw diagnostics. It does NOT
-// mutate any Document fields.
+// analyze performs parse+analyze on the given content and returns protocol diagnostics,
+// the resulting IR, and the raw diagnostics. It does NOT mutate any Document fields.
 func (s *Server) analyze(
 	ctx context.Context,
 	content string,
@@ -411,9 +448,7 @@ func (s *Server) analyze(
 		if err != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
-			aCtx := acontext.NewRoot[parser.IBlockContext](
-				ctx, t, s.cfg.NewRoot(),
-			)
+			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot())
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
 			docDiag = *aCtx.Diagnostics
@@ -435,8 +470,8 @@ func (s *Server) analyze(
 	return pDiagnostics, docIR, docDiag
 }
 
-// publishDiagnostics synchronously parses and publishes diagnostics.
-// Used for DidOpen, DidSave, and republish where immediate feedback is expected.
+// publishDiagnostics synchronously parses and publishes diagnostics. Used for DidOpen,
+// DidSave, and republish where immediate feedback is expected.
 func (s *Server) publishDiagnostics(
 	ctx context.Context,
 	uri protocol.DocumentURI,

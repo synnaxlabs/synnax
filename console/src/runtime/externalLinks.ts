@@ -18,7 +18,7 @@ const handle = (e: MouseEvent) => {
   if (a == null || a.target !== "_blank" || a.href === "") return;
   e.preventDefault();
   e.stopPropagation();
-  open(a.href).catch((err) => console.error(`failed to open ${a.href}`, err));
+  open(a.href).catch((err: unknown) => console.error(`failed to open ${a.href}`, err));
 };
 
 /**

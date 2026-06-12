@@ -19,26 +19,36 @@ export interface CreateSelectorParams<
   ScopedStore extends base.Store,
   Args extends {},
   Selected,
+  Raw = Selected,
 > {
   subscribe: (
     store: ScopedStore,
     args: Args,
     notify: () => void,
   ) => destructor.Destructor;
-  select: (store: ScopedStore, args: Args) => Selected;
+  select: (store: ScopedStore, args: Args) => Raw;
+  /**
+   * transform derives the selected value from the raw selection. It is
+   * memoized on the raw value's reference: as long as select returns the same
+   * reference (e.g. a stored array that only changes when its contents change),
+   * transform is not re-run and the previous result is returned, so a derived
+   * mapping does not cause re-renders on unrelated store updates.
+   */
+  transform?: (raw: Raw, args: Args) => Selected;
   equal?: (a: Selected, b: Selected) => boolean;
 }
 
 export type UseSelect<Args extends {}, Selected> = (args: Args) => Selected;
 
 export const createSelector =
-  <ScopedStore extends base.Store, Args extends {}, Selected>(
-    params: CreateSelectorParams<ScopedStore, Args, Selected>,
+  <ScopedStore extends base.Store, Args extends {}, Selected, Raw = Selected>(
+    params: CreateSelectorParams<ScopedStore, Args, Selected, Raw>,
   ): UseSelect<Args, Selected> =>
   (args: Args): Selected => {
     const store = useStore<ScopedStore>();
     const memoArgs = useMemoDeepEqual(args);
     const versionRef = useRef(0);
+    const cacheRef = useRef<{ raw: Raw; out: Selected } | null>(null);
 
     const subscribe = useCallback(
       (onStoreChange: () => void) =>
@@ -50,10 +60,15 @@ export const createSelector =
     );
 
     const getSnapshot = useCallback(() => versionRef.current, []);
-    const selector = useCallback(
-      () => params.select(store, memoArgs),
-      [store, memoArgs],
-    );
+    const selector = useCallback((): Selected => {
+      const raw = params.select(store, memoArgs);
+      if (params.transform == null) return raw as unknown as Selected;
+      const cache = cacheRef.current;
+      if (cache != null && cache.raw === raw) return cache.out;
+      const out = params.transform(raw, memoArgs);
+      cacheRef.current = { raw, out };
+      return out;
+    }, [store, memoArgs]);
 
     return useSyncExternalStoreWithSelector(
       subscribe,

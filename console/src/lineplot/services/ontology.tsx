@@ -110,9 +110,7 @@ const handleSelect: Ontology.HandleSelect = ({
     const linePlot = await client.lineplots.retrieve({
       key: selection[0].id.key,
     });
-    placeLayout(
-      LinePlot.create({ ...linePlot.data, key: linePlot.key, name: linePlot.name }),
-    );
+    placeLayout(LinePlot.create({ key: linePlot.key, name: linePlot.name }));
   }, `Failed to select ${names}`);
 };
 
@@ -128,7 +126,6 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const linePlot = await client.lineplots.retrieve({ key });
     placeLayout(
       LinePlot.create({
-        ...linePlot.data,
         key: linePlot.key,
         name: linePlot.name,
         location: "mosaic",

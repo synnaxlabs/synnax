@@ -1393,7 +1393,50 @@ func (p *Plugin) generateArrayConversion(
 		}
 	}
 
+	// Distinct element types over primitive bases require per-element casts:
+	// `[]channel.Key` cannot be assigned to `[]uint32` (and vice-versa), so emit
+	// lo.Map conversions in both directions using the proto/distinct type names.
+	if ok {
+		if distinctForm, isDistinct := elemResolved.Form.(resolution.DistinctForm); isDistinct {
+			if resolution.IsPrimitive(distinctForm.Base.Name) && distinctForm.Base.Name != "uuid" {
+				data.imports.AddExternal("github.com/samber/lo")
+				elemGoType, ok := p.qualifiedDistinctGoName(elemResolved, data)
+				if ok {
+					protoType := primitiveToProtoType(distinctForm.Base.Name)
+					forward := fmt.Sprintf("lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
+						goField, elemGoType, protoType, protoType)
+					backward := fmt.Sprintf("lo.Map(%s, func(v %s, _ int) %s { return %s(v) })",
+						pbField, protoType, elemGoType, elemGoType)
+					return forward, backward, false, false
+				}
+			}
+		}
+	}
+
 	return goField, pbField, false, false
+}
+
+// qualifiedDistinctGoName returns the Go identifier for a distinct type as it
+// should appear in the generated translator file, including any package prefix
+// and registering the import if the type lives in a different package.
+func (p *Plugin) qualifiedDistinctGoName(resolved resolution.Type, data *templateData) (string, bool) {
+	prefix := ""
+	goOutput := output.GetPath(resolved, "go")
+	if resolved.Namespace != data.Namespace || (goOutput != "" && goOutput != data.ParentGoPath) {
+		if goOutput == "" {
+			return "", false
+		}
+		importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+		if err != nil {
+			return "", false
+		}
+		alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
+		data.imports.AddInternal(alias, importPath)
+		prefix = alias + "."
+	} else {
+		prefix = data.parentAlias + "."
+	}
+	return prefix + naming.GetGoName(resolved), true
 }
 
 func (p *Plugin) generateNestedArrayConversion(

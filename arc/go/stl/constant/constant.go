@@ -27,8 +27,8 @@ var symbolName = "constant"
 // is Internal — it is emitted by graph-mode lowering of literal flow nodes,
 // not called directly from user source.
 func NewSymbols() []*symbol.Symbol {
-	constraint := new(types.NumericConstraint())
-	typeVar := types.Variable("T", constraint)
+	constraint := types.NumericConstraint()
+	typeVar := types.Variable("T", &constraint)
 	return []*symbol.Symbol{
 		{
 			Name:     symbolName,
@@ -55,23 +55,30 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	return &constant{State: cfg.State, value: cfg.Node.Inputs[0].Value}, nil
+	return &constant{
+		State:       cfg.State,
+		value:       cfg.Node.Inputs[0].Value,
+		isEntryNode: cfg.Node.IsEntryNode(cfg.Program.Edges),
+	}, nil
 }
 
 type constant struct {
 	*node.State
 	clock       telem.MonoClock
 	value       any
+	isEntryNode bool
 	initialized bool
 }
 
 var _ node.Node = (*constant)(nil)
 
 func (c *constant) Next(ctx node.Context) {
-	if c.initialized {
-		return
+	if c.isEntryNode {
+		if c.initialized {
+			return
+		}
+		c.initialized = true
 	}
-	c.initialized = true
 	d := c.Output(0)
 	*d = telem.NewSeriesFromAny(c.value, d.DataType)
 	t := c.OutputTime(0)

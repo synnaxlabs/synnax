@@ -24,13 +24,16 @@ import {
   control as xcontrol,
   type CrudeSeries,
   type destructor,
+  errors,
   type status as xstatus,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { channel as aetherChannel } from "@/channel/aether";
 import { type theming } from "@/ether";
+import { flux } from "@/flux/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
@@ -54,6 +57,7 @@ export const controllerMethodsZ = {
 
 interface InternalState {
   client: Synnax | null;
+  store: aetherChannel.FluxSubStore;
   instrumentation: Instrumentation;
   stateProv: StateProvider;
   addStatus: status.Adder;
@@ -100,6 +104,7 @@ export class Controller
     i.stateProv = nextStateProv;
     i.telemCtx = telem.useChildContext(ctx, this, i.telemCtx);
     i.client = nextClient;
+    i.store = flux.useStore<aetherChannel.FluxSubStore>(ctx, this.key);
   }
 
   afterDelete(): void {
@@ -168,9 +173,9 @@ export class Controller
         autoIndex: true,
       });
       this.setState((p) => ({ ...p, status: "acquired" }));
-    } catch (e) {
+    } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));
-      if (!(e instanceof Error)) throw e;
+      const e = errors.fromUnknown(err);
       addStatus({
         variant: "error",
         message: `${this.state.name} failed to acquire control`,
@@ -182,11 +187,10 @@ export class Controller
   private async doRelease(): Promise<void> {
     try {
       await this.writer?.close();
-    } catch (e) {
+    } catch (err) {
+      const e = errors.fromUnknown(err);
       this.internal.addStatus({
-        message: `${this.state.name} failed to release control: ${
-          (e as Error).message
-        }`,
+        message: `${this.state.name} failed to release control: ${e.message}`,
         variant: "error",
       });
     } finally {
@@ -203,7 +207,7 @@ export class Controller
     try {
       await this.writer?.close();
     } catch (e) {
-      if (!Controller.isRetryable(e)) throw e;
+      if (!Controller.isRetryable(e)) throw errors.fromUnknown(e);
     } finally {
       this.writer = undefined;
     }
@@ -214,7 +218,7 @@ export class Controller
     try {
       await fn();
     } catch (e) {
-      if (!Controller.isRetryable(e)) throw e;
+      if (!Controller.isRetryable(e)) throw errors.fromUnknown(e);
       await this.closeWriter();
       await this.doAcquire();
       await fn();
@@ -224,20 +228,24 @@ export class Controller
   async set(
     frame: framer.CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>,
   ): Promise<void> {
-    await this.withRetry(async () => this.writer?.write(frame));
+    await this.withRetry(async () => await this.writer?.write(frame));
   }
 
   async setAuthority(channels: channel.Key[], value: control.Authority): Promise<void> {
-    await this.withRetry(async () =>
-      this.writer?.setAuthority(Object.fromEntries(channels.map((k) => [k, value]))),
+    await this.withRetry(
+      async () =>
+        await this.writer?.setAuthority(
+          Object.fromEntries(channels.map((k) => [k, value])),
+        ),
     );
   }
 
   async releaseAuthority(keys: channel.Key[]): Promise<void> {
-    await this.withRetry(async () =>
-      this.writer?.setAuthority(
-        Object.fromEntries(keys.map((k) => [k, this.state.authority])),
-      ),
+    await this.withRetry(
+      async () =>
+        await this.writer?.setAuthority(
+          Object.fromEntries(keys.map((k) => [k, this.state.authority])),
+        ),
     );
   }
 
@@ -305,7 +313,8 @@ export class SetChannelValue
 
   async needsControlOf(client: Synnax): Promise<channel.Key[]> {
     if (this.props.channel === 0) return [];
-    const chan = await client.channels.retrieve(this.props.channel);
+    const { store } = this.controller.internal;
+    const chan = await aetherChannel.retrieveCached(client, store, this.props.channel);
     const keys = [chan.key];
     if (chan.index !== 0) keys.push(chan.index);
     return keys;
@@ -356,7 +365,8 @@ export class AcquireChannelControl
   }
 
   async needsControlOf(client: Synnax): Promise<channel.Key[]> {
-    const chan = await client.channels.retrieve(this.props.channel);
+    const { store } = this.controller.internal;
+    const chan = await aetherChannel.retrieveCached(client, store, this.props.channel);
     const keys = [chan.key];
     if (chan.index !== 0) keys.push(chan.index);
     return keys;
@@ -365,9 +375,9 @@ export class AcquireChannelControl
   set(acquire: boolean): void {
     this.runAsync(async () => {
       const { controller } = this;
-      const { client } = controller.internal;
+      const { client, store } = controller.internal;
       if (client == null) return;
-      const ch = await client.channels.retrieve(this.props.channel);
+      const ch = await aetherChannel.retrieveCached(client, store, this.props.channel);
       const keys = [ch.key];
       if (ch.index !== 0) keys.push(ch.index);
       if (!acquire) await this.controller.releaseAuthority(keys);

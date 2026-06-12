@@ -40,15 +40,13 @@ func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
 }
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
-	keys := make([]Key, len(ids))
-	for i, id := range ids {
-		k, err := strconv.Atoi(id.Key)
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		k, err := strconv.ParseUint(id.Key, 10, 64)
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
-		keys[i] = Key(k)
-	}
-	return keys, nil
+		return Key(k), nil
+	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{

@@ -261,15 +261,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if _, err = node.NewService(ctx, node.ServiceConfig{
-		Instrumentation: cfg.Child("node"),
-		Cluster:         l.Cluster,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-	}); !ok(err, nil) {
-		return nil, err
-	}
-
 	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
 		Verifier:        cfg.Verifier,
 		DB:              l.DB.KV(),

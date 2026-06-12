@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { useMemoSelect } from "@/hooks";
-import { SLICE_NAME, type SliceState, type State, type StoreState } from "@/log/slice";
+import {
+  type PendingUpload,
+  SLICE_NAME,
+  type SliceState,
+  type State,
+  type StoreState,
+  type ToolbarTab,
+} from "@/log/slice";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -25,16 +32,28 @@ export const useSelect = (key: string): State =>
 
 export const useSelectOptional = useSelect as (key: string) => State | undefined;
 
+export const selectExists = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key) != null;
+
+export const useSelectExists = (key: string): boolean =>
+  useMemoSelect((s: StoreState) => selectExists(s, key), [key]);
+
+export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
+  select(state, key).toolbar.activeTab;
+
+export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
+  useMemoSelect((s: StoreState) => selectActiveToolbarTab(s, key), [key]);
+
 export const selectVersion = (state: StoreState, key: string): string | undefined =>
   selectOptional(state, key)?.version;
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((s: StoreState) => selectVersion(s, key), [key]);
 
-export const selectIsRemoteCreated = (
+export const selectPendingUpload = (
   state: StoreState,
   key: string,
-): boolean | undefined => selectOptional(state, key)?.remoteCreated;
+): PendingUpload | undefined => selectOptional(state, key)?.pendingUpload;
 
-export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
-  useMemoSelect((s: StoreState) => selectIsRemoteCreated(s, key), [key]);
+export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
+  useMemoSelect((s: StoreState) => selectPendingUpload(s, key), [key]);

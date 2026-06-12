@@ -83,18 +83,14 @@ export const Schematic = ({
   const edgesRef = useSyncedRef(edges);
   const { dispatch } = useDispatch();
   const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) => {
-      const actions = nodeChangesToActions(changes);
-      if (actions.length > 0) dispatch({ key, actions });
-    },
+    (changes: BaseDiagram.NodeChange[]) =>
+      dispatch({ key, actions: nodeChangesToActions(changes) }),
     [key, dispatch],
   );
 
   const handleEdgesChange = useCallback(
-    (changes: BaseDiagram.EdgeChange[]) => {
-      const actions = edgeChangesToActions(changes);
-      if (actions.length > 0) dispatch({ key, actions });
-    },
+    (changes: BaseDiagram.EdgeChange[]) =>
+      dispatch({ key, actions: edgeChangesToActions(changes) }),
     [key, dispatch],
   );
 

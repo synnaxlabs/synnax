@@ -10,6 +10,8 @@
 package resolution
 
 import (
+	"maps"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/set"
 )
@@ -55,11 +57,22 @@ func (f StructForm) IsFieldOmitted(name string) bool {
 }
 
 type EnumForm struct {
-	Values    []EnumValue
+	// Values are the enum's members, fully resolved. For an extending enum the
+	// analyzer expands this to the union of the parents' members plus any
+	// members declared in the enum's own body.
+	Values []EnumValue
+	// IsIntEnum reports whether members carry integer (vs string) values. An
+	// extending enum matches the kind of the enums it extends.
 	IsIntEnum bool
+	// Extends names the enums this enum is the union of. Empty for a plain
+	// (non-extending) enum.
+	Extends []TypeRef
 }
 
 func (EnumForm) typeForm() {}
+
+// IsExtension reports whether the enum extends one or more other enums.
+func (f EnumForm) IsExtension() bool { return len(f.Extends) > 0 }
 
 type DistinctForm struct {
 	Base       TypeRef
@@ -105,13 +118,27 @@ type Action struct {
 }
 
 type Field struct {
-	AST            any
-	Domains        map[string]Domain
-	Name           string
-	Type           TypeRef
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Type    TypeRef
+	// Default is the field's default value, declared inline as `name type = value`.
+	// It is nil when the field has no default.
+	Default        *ExpressionValue
 	IsOptional     bool
 	IsHardOptional bool
 	OmitIfUnset    bool
+	// OmittedDomains names domains to drop from the inherited parent field during
+	// override resolution, declared with the `-@domain` syntax.
+	OmittedDomains []string
+}
+
+// HasType reports whether the field declares a type. It is false only for a
+// partial override in an extending struct: a field that names an inherited field
+// and omits its type to inherit the parent's type, optionality, and (unless the
+// override sets its own) default.
+func (f Field) HasType() bool {
+	return f.Type.Name != "" || f.Type.TypeParam != nil
 }
 
 type EnumValue struct {
@@ -281,40 +308,66 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		}
 	}
 
-	// Build parent field map for domain merging during override
 	parentFieldMap := make(map[string]*Field, len(allParentFields))
 	for i := range allParentFields {
 		parentFieldMap[allParentFields[i].Name] = &allParentFields[i]
 	}
 
-	// Collect parent fields that are not overridden by child
+	// Parent fields the child does not override, in parent order. Overrides are
+	// emitted below in child-declaration order.
 	var result []Field
 	for _, pf := range allParentFields {
 		if childFieldMap[pf.Name] != nil {
-			continue // Child overrides this field
+			continue
 		}
 		result = append(result, pf)
 	}
 
-	// Add child fields with domain merging for overrides
 	for _, cf := range form.Fields {
 		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
-			mergedDomains := make(map[string]Domain, len(pf.Domains)+len(cf.Domains))
-			for k, v := range pf.Domains {
-				mergedDomains[k] = v
-			}
-			for k, v := range cf.Domains {
-				if existing, ok := mergedDomains[k]; ok {
-					mergedDomains[k] = v.Merge(existing)
-				} else {
-					mergedDomains[k] = v
-				}
-			}
-			cf.Domains = mergedDomains
+			result = append(result, mergeOverrideField(*pf, cf))
+		} else {
+			result = append(result, cf)
 		}
-		result = append(result, cf)
 	}
 	return result
+}
+
+// mergeOverrideField resolves a child field that overrides parent into a
+// complete field. When the child omits its type it inherits the parent's type,
+// optionality, and (unless the child declares its own) default; writing a type
+// fully (re)defines both, leaving the override to drop the parent's default by
+// omission, matching a from-scratch field declaration. Domains are always
+// merged (child expressions win per name), after which any domains the child
+// lists via `-@domain` are dropped.
+func mergeOverrideField(parent, child Field) Field {
+	out := child
+	if !child.HasType() {
+		out.Type = parent.Type
+		// A typeless override inherits the parent's optionality unless it forces
+		// its own with a standalone `?`/`??` marker (key? / key??).
+		if !child.IsOptional && !child.IsHardOptional {
+			out.IsOptional = parent.IsOptional
+			out.IsHardOptional = parent.IsHardOptional
+		}
+		if child.Default == nil {
+			out.Default = parent.Default
+		}
+	}
+	domains := make(map[string]Domain, len(parent.Domains)+len(child.Domains))
+	maps.Copy(domains, parent.Domains)
+	for k, v := range child.Domains {
+		if existing, ok := domains[k]; ok {
+			domains[k] = v.Merge(existing)
+		} else {
+			domains[k] = v
+		}
+	}
+	for _, name := range child.OmittedDomains {
+		delete(domains, name)
+	}
+	out.Domains = domains
+	return out
 }
 
 func SubstituteTypeRef(ref TypeRef, typeArgMap map[string]TypeRef) TypeRef {

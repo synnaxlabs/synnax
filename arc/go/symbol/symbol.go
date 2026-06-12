@@ -477,6 +477,10 @@ type resolveOpts struct {
 	// KindModule filter. Used by the compiler to reach host-function
 	// shims and module members that user code is not allowed to see.
 	includeInternal bool
+	// suppressUsage stops Resolve from recording that a module alias was
+	// consulted. Read-only callers operating on an already-analyzed tree
+	// set this so the lookup leaves no trace; see WithoutUsageTracking.
+	suppressUsage bool
 }
 
 // IncludeInternal causes Resolve to walk past the user-visibility filters:
@@ -485,6 +489,14 @@ type resolveOpts struct {
 // Use this from the compiler when resolving host-function shims; do not
 // use it from analysis paths that surface symbols to user code.
 func IncludeInternal(o *resolveOpts) { o.includeInternal = true }
+
+// WithoutUsageTracking causes Resolve to leave the alias Used flag untouched.
+// Marking an alias Used is a write into the symbol tree, which is unsafe when
+// the tree is a shared, already-analyzed snapshot read concurrently by other
+// callers. Feature queries (hover, rename, definition, completion) run against
+// such snapshots and must pass this; the analysis pass that builds the tree and
+// reports unused imports must not, since it relies on the usage record.
+func WithoutUsageTracking(o *resolveOpts) { o.suppressUsage = true }
 
 // Resolve looks up a single name using lexical scoping rules: children →
 // global resolver → parent. The walk stops at a KindModule scope — inside
@@ -546,7 +558,7 @@ func (s *Symbol) resolve(
 	}
 	if child := s.findChild(matches); child != nil {
 		if opts.includeInternal || (!child.Internal && child.Kind != KindModule) {
-			if child.Kind == KindModuleAlias {
+			if child.Kind == KindModuleAlias && !opts.suppressUsage {
 				child.Used = true
 			}
 			return child, nil

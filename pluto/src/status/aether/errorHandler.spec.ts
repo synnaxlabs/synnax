@@ -107,14 +107,13 @@ describe("errorHandler", () => {
 
       handler(func, "async error message");
 
-      // Wait for the async operation to complete
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(mockAdder).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: "async error message",
-        }),
-      );
+      await vi.waitFor(() => {
+        expect(mockAdder).toHaveBeenCalledWith(
+          expect.objectContaining({
+            message: "async error message",
+          }),
+        );
+      });
     });
 
     it("should handle async functions that resolve", async () => {
@@ -126,9 +125,9 @@ describe("errorHandler", () => {
 
       handler(func);
 
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(mockAdder).not.toHaveBeenCalled();
+      await vi.waitFor(() => {
+        expect(mockAdder).not.toHaveBeenCalled();
+      });
     });
 
     it("should not add status if error is skipped", () => {
@@ -300,26 +299,30 @@ describe("errorHandler", () => {
         }),
       );
     });
-    it("should rehrow exceptions that are not errors - undefined", async () => {
+    it("should coerce non-Error exceptions into a status - undefined", async () => {
       const mockAdder: Adder = vi.fn();
       const handler = createAsyncErrorHandler(mockAdder);
       const func = () => {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw undefined;
       };
-      await expect(handler(func, "undefined error")).rejects.toThrow("undefined error");
-      expect(mockAdder).not.toHaveBeenCalled();
+      await handler(func, "undefined error");
+      expect(mockAdder).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "undefined error" }),
+      );
     });
 
-    it("should rethrow exceptions that are not errors - string", async () => {
+    it("should coerce non-Error exceptions into a status - string", async () => {
       const mockAdder: Adder = vi.fn();
       const handler = createAsyncErrorHandler(mockAdder);
       const func = () => {
         // eslint-disable-next-line @typescript-eslint/only-throw-error
         throw "dog";
       };
-      await expect(handler(func, "string error")).rejects.toThrow("dog");
-      expect(mockAdder).not.toHaveBeenCalled();
+      await handler(func, "string error");
+      expect(mockAdder).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "string error" }),
+      );
     });
   });
 

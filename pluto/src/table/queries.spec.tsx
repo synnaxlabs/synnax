@@ -121,9 +121,9 @@ describe("table queries", () => {
       expect(retrieveResult.current.data?.name).toEqual("stored_table");
     });
 
-    it("should seed a 2x2 layout of empty text cells when rows and columns are empty", async () => {
+    it("should initialize a 2x2 layout of empty text cells when rows and columns are empty", async () => {
       const workspace = await client.workspaces.create({
-        name: "seed_workspace",
+        name: "default_layout_workspace",
         layout: {},
       });
 
@@ -134,7 +134,7 @@ describe("table queries", () => {
         await result.current.updateAsync({
           key,
           workspace: workspace.key,
-          name: "seeded_table",
+          name: "default_layout_table",
         });
       });
       expect(result.current.variant).toEqual("success");
@@ -152,9 +152,9 @@ describe("table queries", () => {
       }
     });
 
-    it("should not seed defaults when rows are provided", async () => {
+    it("should not apply defaults when rows are provided", async () => {
       const workspace = await client.workspaces.create({
-        name: "no_seed_workspace",
+        name: "explicit_layout_workspace",
         layout: {},
       });
 
@@ -312,12 +312,12 @@ describe("table queries", () => {
   });
 
   describe("useDispatch", () => {
-    const seedTable = async () => {
+    const createTable = async () => {
       const ws = await client.workspaces.create({
         name: `dispatch_ws_${uuid.create()}`,
         layout: {},
       });
-      return client.tables.create(ws.key, {
+      return await client.tables.create(ws.key, {
         name: "dispatch_test",
         rows: [{ size: 36, cells: ["a", "b"] }],
         columns: [{ size: 80 }, { size: 100 }],
@@ -329,10 +329,10 @@ describe("table queries", () => {
     };
 
     it("should apply a dispatched action and update the cached table", async () => {
-      const seeded = await seedTable();
+      const created = await createTable();
       const { result } = renderHook(
         () => ({
-          retrieve: Table.useRetrieve({ key: seeded.key }),
+          retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
         }),
         { wrapper },
@@ -340,7 +340,7 @@ describe("table queries", () => {
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [table.rename({ name: "after_dispatch" })],
         });
       });
@@ -350,19 +350,19 @@ describe("table queries", () => {
     });
 
     it("should restore prior state after a set_cell dispatch is undone", async () => {
-      const seeded = await seedTable();
+      const created = await createTable();
       const { result } = renderHook(
         () => ({
-          retrieve: Table.useRetrieve({ key: seeded.key }),
+          retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
-          undo: Table.useUndo({ key: seeded.key }),
+          undo: Table.useUndo({ key: created.key }),
         }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.setCell({
               cell: { key: "a", variant: "value", props: { units: "psi" } },
@@ -381,20 +381,20 @@ describe("table queries", () => {
     });
 
     it("should re-apply a set_cell dispatch after undo and redo", async () => {
-      const seeded = await seedTable();
+      const created = await createTable();
       const { result } = renderHook(
         () => ({
-          retrieve: Table.useRetrieve({ key: seeded.key }),
+          retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
-          undo: Table.useUndo({ key: seeded.key }),
-          redo: Table.useRedo({ key: seeded.key }),
+          undo: Table.useUndo({ key: created.key }),
+          redo: Table.useRedo({ key: created.key }),
         }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.setCell({
               cell: { key: "a", variant: "value", props: { units: "psi" } },
@@ -417,12 +417,12 @@ describe("table queries", () => {
     });
 
     it("should coalesce successive set_cell dispatches on the same cell into one undo step", async () => {
-      const seeded = await seedTable();
+      const created = await createTable();
       const { result } = renderHook(
         () => ({
-          retrieve: Table.useRetrieve({ key: seeded.key }),
+          retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
-          undo: Table.useUndo({ key: seeded.key }),
+          undo: Table.useUndo({ key: created.key }),
         }),
         { wrapper },
       );
@@ -430,7 +430,7 @@ describe("table queries", () => {
       for (const value of ["A1", "A2", "A3"])
         await act(async () => {
           await result.current.dispatch.dispatchAsync({
-            key: seeded.key,
+            key: created.key,
             actions: [
               table.setCell({
                 cell: { key: "a", variant: "text", props: { value } },
@@ -448,19 +448,19 @@ describe("table queries", () => {
     });
 
     it("should not coalesce set_cell dispatches across different cells", async () => {
-      const seeded = await seedTable();
+      const created = await createTable();
       const { result } = renderHook(
         () => ({
-          retrieve: Table.useRetrieve({ key: seeded.key }),
+          retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
-          undo: Table.useUndo({ key: seeded.key }),
+          undo: Table.useUndo({ key: created.key }),
         }),
         { wrapper },
       );
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.setCell({
               cell: { key: "a", variant: "text", props: { value: "A1" } },
@@ -470,7 +470,7 @@ describe("table queries", () => {
       });
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.setCell({
               cell: { key: "b", variant: "text", props: { value: "B1" } },
@@ -490,12 +490,12 @@ describe("table queries", () => {
     });
 
     it("should coalesce successive resize_row dispatches under the resize kind", async () => {
-      const seeded = await seedTable();
+      const created = await createTable();
       const { result } = renderHook(
         () => ({
-          retrieve: Table.useRetrieve({ key: seeded.key }),
+          retrieve: Table.useRetrieve({ key: created.key }),
           dispatch: Table.useDispatch(),
-          undo: Table.useUndo({ key: seeded.key }),
+          undo: Table.useUndo({ key: created.key }),
         }),
         { wrapper },
       );
@@ -503,7 +503,7 @@ describe("table queries", () => {
       for (const size of [40, 50, 60])
         await act(async () => {
           await result.current.dispatch.dispatchAsync({
-            key: seeded.key,
+            key: created.key,
             actions: [table.resizeRow({ index: 0, size })],
           });
         });
@@ -547,14 +547,14 @@ describe("table queries", () => {
         name: `ensure_ws_${uuid.create()}`,
         layout: {},
       });
-      const seeded = await client.tables.create(ws.key, {
+      const created = await client.tables.create(ws.key, {
         name: "ensure_test",
         rows: [{ size: 30, cells: ["a"] }],
         columns: [{ size: 80 }],
         cells: { a: { key: "a", variant: "text", props: { value: "A" } } },
       });
-      await loadTable(wrapper, seeded.key);
-      const { result } = renderHook(() => Table.useSelectName({ key: seeded.key }), {
+      await loadTable(wrapper, created.key);
+      const { result } = renderHook(() => Table.useSelectName({ key: created.key }), {
         wrapper,
       });
       expect(result.current).toEqual("ensure_test");
@@ -562,12 +562,12 @@ describe("table queries", () => {
   });
 
   describe("selectors", () => {
-    const seedTable = async () => {
+    const createTable = async () => {
       const ws = await client.workspaces.create({
         name: `selector_ws_${uuid.create()}`,
         layout: {},
       });
-      return client.tables.create(ws.key, {
+      return await client.tables.create(ws.key, {
         name: "selector_test",
         rows: [
           { size: 30, cells: ["a", "b"] },
@@ -593,15 +593,15 @@ describe("table queries", () => {
     };
 
     it("useSelectName returns the table's name and updates after a rename", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () => ({
-        name: Table.useSelectName({ key: seeded.key }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        name: Table.useSelectName({ key: created.key }),
         rename: Table.useRename(),
       }));
       expect(result.current.name).toEqual("selector_test");
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: seeded.key,
+          key: created.key,
           name: "selector_renamed",
         });
       });
@@ -609,16 +609,16 @@ describe("table queries", () => {
     });
 
     it("useSelectRows returns the table's rows and updates after addRow", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () => ({
-        rows: Table.useSelectRows({ key: seeded.key }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        rows: Table.useSelectRows({ key: created.key }),
         dispatch: Table.useDispatch(),
       }));
       expect(result.current.rows).toHaveLength(2);
       expect(result.current.rows[0].cells).toEqual(["a", "b"]);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.addRow({
               index: 2,
@@ -638,16 +638,16 @@ describe("table queries", () => {
     });
 
     it("useSelectColumns returns the table's columns and updates after a resize", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () => ({
-        columns: Table.useSelectColumns({ key: seeded.key }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        columns: Table.useSelectColumns({ key: created.key }),
         dispatch: Table.useDispatch(),
       }));
       expect(result.current.columns).toHaveLength(2);
       expect(result.current.columns[0].size).toEqual(80);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [table.resizeCol({ index: 0, size: 200 })],
         });
       });
@@ -655,9 +655,9 @@ describe("table queries", () => {
     });
 
     it("useSelectCell returns the cell for a known key and updates after setCell", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () => ({
-        cell: Table.useSelectCell({ key: seeded.key, cellKey: "a" }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        cell: Table.useSelectCell({ key: created.key, cellKey: "a" }),
         dispatch: Table.useDispatch(),
       }));
       const initial = result.current.cell;
@@ -665,7 +665,7 @@ describe("table queries", () => {
       if (initial?.variant === "text") expect(initial.props.value).toEqual("A");
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.setCell({
               cell: { key: "a", variant: "value", props: { units: "psi" } },
@@ -681,17 +681,17 @@ describe("table queries", () => {
     });
 
     it("useSelectCell returns undefined for an unknown cell key", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () =>
-        Table.useSelectCell({ key: seeded.key, cellKey: "ghost" }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () =>
+        Table.useSelectCell({ key: created.key, cellKey: "ghost" }),
       );
       expect(result.current).toBeUndefined();
     });
 
     it("useSelectCells returns the requested cells keyed by id", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () =>
-        Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "c"] }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () =>
+        Table.useSelectCells({ key: created.key, cellKeys: ["a", "c"] }),
       );
       expect(Array.from(result.current.keys())).toEqual(["a", "c"]);
       const a = result.current.get("a");
@@ -701,33 +701,33 @@ describe("table queries", () => {
     });
 
     it("useSelectCells omits missing keys without throwing", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () =>
-        Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "ghost", "c"] }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () =>
+        Table.useSelectCells({ key: created.key, cellKeys: ["a", "ghost", "c"] }),
       );
       expect(Array.from(result.current.keys())).toEqual(["a", "c"]);
       expect(result.current.has("ghost")).toBe(false);
     });
 
     it("useSelectCells returns an empty map when cellKeys is empty", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () =>
-        Table.useSelectCells({ key: seeded.key, cellKeys: [] }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () =>
+        Table.useSelectCells({ key: created.key, cellKeys: [] }),
       );
       expect(result.current.size).toBe(0);
     });
 
     it("useSelectCells keeps its reference when an unrelated cell changes", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () => ({
-        cells: Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "b"] }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        cells: Table.useSelectCells({ key: created.key, cellKeys: ["a", "b"] }),
         dispatch: Table.useDispatch(),
       }));
       const initial = result.current.cells;
       expect(initial.size).toBe(2);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.setCell({
               cell: { key: "c", variant: "value", props: { units: "psi" } },
@@ -739,15 +739,15 @@ describe("table queries", () => {
     });
 
     it("useSelectCells returns a new map when one of the requested cells changes", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () => ({
-        cells: Table.useSelectCells({ key: seeded.key, cellKeys: ["a", "b"] }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        cells: Table.useSelectCells({ key: created.key, cellKeys: ["a", "b"] }),
         dispatch: Table.useDispatch(),
       }));
       const initial = result.current.cells;
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.setCell({
               cell: { key: "a", variant: "value", props: { units: "psi" } },
@@ -762,11 +762,11 @@ describe("table queries", () => {
     });
 
     it("useCellPosition returns the grid coordinates of a known cell and null for an unknown one", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () => ({
-        a: Table.useCellPosition({ key: seeded.key, cellKey: "a" }),
-        d: Table.useCellPosition({ key: seeded.key, cellKey: "d" }),
-        ghost: Table.useCellPosition({ key: seeded.key, cellKey: "ghost" }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        a: Table.useCellPosition({ key: created.key, cellKey: "a" }),
+        d: Table.useCellPosition({ key: created.key, cellKey: "d" }),
+        ghost: Table.useCellPosition({ key: created.key, cellKey: "ghost" }),
       }));
       expect(result.current.a).toEqual({ x: 0, y: 0 });
       expect(result.current.d).toEqual({ x: 1, y: 1 });
@@ -774,15 +774,15 @@ describe("table queries", () => {
     });
 
     it("useCellPosition updates when a row is inserted above the cell", async () => {
-      const seeded = await seedTable();
-      const { result } = await loadAndSelect(seeded.key, () => ({
-        a: Table.useCellPosition({ key: seeded.key, cellKey: "a" }),
+      const created = await createTable();
+      const { result } = await loadAndSelect(created.key, () => ({
+        a: Table.useCellPosition({ key: created.key, cellKey: "a" }),
         dispatch: Table.useDispatch(),
       }));
       expect(result.current.a).toEqual({ x: 0, y: 0 });
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: seeded.key,
+          key: created.key,
           actions: [
             table.addRow({
               index: 0,
@@ -805,7 +805,7 @@ describe("table queries", () => {
         name: `obs_name_ws_${uuid.create()}`,
         layout: {},
       });
-      const seeded = await client.tables.create(ws.key, {
+      const created = await client.tables.create(ws.key, {
         name: "obs_initial",
       });
       const seen: string[] = [];
@@ -819,12 +819,12 @@ describe("table queries", () => {
         { wrapper },
       );
       await act(async () => {
-        await result.current.obs.retrieveAsync({ key: seeded.key });
+        await result.current.obs.retrieveAsync({ key: created.key });
       });
       await waitFor(() => expect(seen).toContain("obs_initial"));
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: seeded.key,
+          key: created.key,
           name: "obs_renamed",
         });
       });

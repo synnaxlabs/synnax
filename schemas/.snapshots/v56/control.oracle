@@ -1,0 +1,101 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@py output  "x/py/x/control"
+@go output  "x/go/control"
+@ts output  "x/ts/src/control"
+@cpp output "x/cpp/control"
+@pb
+
+Authority uint8 {
+    @doc value """
+        is a numeric value (0-255) representing the level of control authority a
+        subject has over a resource. Higher values indicate greater authority.
+        The maximum value of 255 represents absolute authority.
+    """
+}
+
+Concurrency enum {
+    exclusive = 0
+    shared    = 1
+
+    @doc value "defines whether a resource can have multiple subjects acting on it at once."
+}
+
+Subject struct {
+    key   string  {
+        @doc value "is a unique identifier for the subject."
+    }
+    name  string  {
+        @doc value "is a human-readable name for the subject."
+    }
+    group uint32? {
+        @doc value """
+            optional identifier shared by subjects from the same logical group
+            (e.g.) all writers from the same Driver rack.
+        """
+    }
+
+    @doc value """
+        is an entity that can hold control authority over a resource. Typically
+        represents a user, process, or service.
+    """
+}
+
+State struct<R> {
+    subject   Subject   {
+        @doc value "is the entity controlling the resource."
+    }
+    resource  R         {
+        @doc value "is the resource being controlled."
+    }
+    authority Authority {
+        @doc value """
+            is the level of control authority the subject has over the resource.
+        """
+    }
+
+    @doc value         """
+        represents the state of control over a resource at a point in time,
+        capturing who controls what and with how much authority.
+    """
+    @ts concrete_types
+}
+
+Transfer struct<R extends comparable> {
+    from State<R>?? {
+        @doc value "the previous authority holder. Null on initial acquire."
+    }
+    to   State<R>?? {
+        @doc value "the new authority holder. Null on release."
+    }
+
+    @doc value """
+    represents a transfer of control over a resource. It is represented as a
+    transition from one state to another over the same resource. A transfer between
+    resources that are different will result in a panic when any transfer methods
+    are called.
+
+    If From is nil, the entity was uncontrolled before the transfer. If To is nil, the
+    resource is uncontrolled after the transfer.
+
+    If both From and To are nil, no transfer occurred. If both From and To are not nil,
+    and From.Subject != To.Subject, a transfer occurred.
+    """
+    @ts omit
+}
+
+Update struct<R extends comparable> {
+    transfers Transfer<R>[] {
+        @doc value "is the list of control transfers that occurred in this update."
+    }
+
+    @doc value "represents a batch of control transfers that occurred atomically."
+    @ts omit
+}

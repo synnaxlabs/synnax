@@ -124,7 +124,7 @@ func (s *Server) renameTextEdits(
 		}
 		pos := position{Line: t.GetLine(), Col: t.GetColumn()}
 		scope := findScopeAtInternalPosition(doc.IR.Symbols, pos)
-		sym, err := scope.Resolve(ctx, tokenText)
+		sym, err := scope.Resolve(ctx, tokenText, symbol.WithoutUsageTracking)
 		if !isRenameable(sym, err) {
 			continue
 		}

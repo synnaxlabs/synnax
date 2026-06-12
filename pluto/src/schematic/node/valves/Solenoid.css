@@ -12,17 +12,17 @@
 .pluto-solenoid-valve.pluto--normally-open {
     &:hover {
         & svg {
-            stroke: rgb(var(--pluto-symbol-color), 0.95) !important;
-            fill: rgb(var(--pluto-symbol-color), 0.95) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 95%) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 95%) !important;
         }
 
         &:not(.pluto--enabled) svg {
-            fill: rgb(var(--pluto-symbol-color), 0.25) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
         }
     }
 
     & .pluto-body {
-        fill: rgb(var(--pluto-symbol-color));
+        fill: var(--pluto-symbol-display);
     }
 
     &.pluto--enabled {

@@ -53,9 +53,7 @@ Workspace struct {
 
 New struct extends Workspace {
     -author
-    key Key? {
-        @doc value "is an optional key for the workspace. If not provided, one will be automatically assigned."
-    }
+    key?
 
     @doc value    "contains parameters for creating a new workspace."
     @ts use_input

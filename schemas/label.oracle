@@ -42,12 +42,7 @@ Label struct {
 }
 
 New struct extends Label {
-    key Key? {
-        @doc value """
-            is an optional key for the label. If not provided, one will be
-            automatically assigned.
-        """
-    }
+    key?
 
     @doc value    "contains parameters for creating a new label."
     @py omit

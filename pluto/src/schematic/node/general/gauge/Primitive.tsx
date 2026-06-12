@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
+import { CSS } from "@/css";
 import { type Config } from "@/schematic/node/general/gauge/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
 interface RenderProps extends Omit<Config, "variant"> {
@@ -33,7 +34,7 @@ const METRICS_STYLE: CSSProperties = {
   textAlign: "center",
 };
 
-export const Gauge = ({ color: c }: RenderProps): ReactElement => {
+export const Gauge = ({ color: c, className }: RenderProps): ReactElement => {
   const radius = 27;
   const strokeWidth = 5;
   const centerX = 33.5;
@@ -54,8 +55,16 @@ export const Gauge = ({ color: c }: RenderProps): ReactElement => {
     A ${radius} ${radius} 0 ${valueAngle - 135 > 180 ? 1 : 0} 1 ${centerX + radius * Math.cos(valueEndAngle)} ${centerY + radius * Math.sin(valueEndAngle)}
   `;
 
+  const style = useMemo<CSSProperties>(
+    () => ({
+      ...CONTAINER_STYLE,
+      [CSS.var("symbol-color")]: symbolColorVar(c),
+    }),
+    [c],
+  );
+
   return (
-    <div style={CONTAINER_STYLE}>
+    <div className={CSS(CSS.B("symbol-colored"), className)} style={style}>
       <svg width="67" height="67" style={SVG_STYLE}>
         <path
           d={backgroundPath}
@@ -67,7 +76,6 @@ export const Gauge = ({ color: c }: RenderProps): ReactElement => {
         <path
           d={valuePath}
           fill="none"
-          stroke={color.cssString(c ?? "var(--pluto-primary-z)")}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />

@@ -113,8 +113,8 @@ class New(BaseModel):
     and will be assigned default values by Synnax.
 
     Attributes:
-        key: Is an optional key for the channel. If not provided, one will be
-            automatically assigned.
+        key: Is the unique identifier for this channel, automatically assigned
+            by Synnax.
         name: Is the human-readable channel name.
         leaseholder: Is an optional leaseholder node. If not provided, Synnax will assign one.
         data_type: Is the data type of samples stored in this channel (e.g., Float64,
@@ -130,7 +130,8 @@ class New(BaseModel):
         internal: Should be set to true to create a system channel hidden from normal
             user queries.
         expression: Is an Arc expression for creating a calculated channel.
-        operations: Contains aggregation operations to apply to the channel data.
+        operations: Contains optional aggregation operations (min, max, avg) applied to
+            channel data over time or triggered by a reset channel.
         concurrency: Sets the policy for concurrent writes. Only virtual channels can
             have shared concurrency.
         status: Is the current operational status of the channel.

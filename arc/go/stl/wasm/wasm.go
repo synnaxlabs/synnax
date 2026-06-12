@@ -12,7 +12,6 @@ package wasm
 import (
 	"context"
 	"math"
-	"strings"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -41,10 +40,7 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if fn == nil {
 		return nil, query.ErrNotFound
 	}
-	// Entry nodes have no incoming edges and are not expression nodes.
-	// They should only execute once per stage entry.
-	isEntryNode := !strings.HasPrefix(cfg.Node.Key, "expression_") &&
-		len(cfg.Program.Edges.GetInputs(cfg.Node.Key)) == 0
+	isEntryNode := cfg.Node.IsEntryNode(cfg.Program.Edges)
 
 	// Each input fills one WASM param slot. Wire-fed inputs are streamed per
 	// sample in Next; literal-fed inputs get their constant value set once here.

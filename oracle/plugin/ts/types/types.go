@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -170,12 +172,7 @@ func hasNonPrimitiveDependency(typ resolution.Type, table *resolution.Table) boo
 		}
 		// For Array and Map, check if their type arguments have dependencies
 		if ref.Name == "Array" || ref.Name == "Map" {
-			for _, arg := range ref.TypeArgs {
-				if checkRef(arg) {
-					return true
-				}
-			}
-			return false
+			return slices.ContainsFunc(ref.TypeArgs, checkRef)
 		}
 		// Any other named type is a schema dependency
 		return true
@@ -409,7 +406,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		if typeOverride := getTypeTypeOverride(td, "ts"); typeOverride != "" {
 			zodType := primitiveToZod(typeOverride, data)
 			if validateDomain, ok := td.Domains["validate"]; ok {
-				result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions, data)
+				result := p.applyValidation(zodType, validateDomain, nil, form.Base, td.Name, data.Request.Resolutions, data)
 				zodType = result.ZodType
 			}
 			if toNumber {
@@ -442,7 +439,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = p.typeDefBaseToZod(&form.Base, data)
 		}
 		if validateDomain, ok := td.Domains["validate"]; ok {
-			result := p.applyValidation(zodType, validateDomain, form.Base, td.Name, data.Request.Resolutions, data)
+			result := p.applyValidation(zodType, validateDomain, nil, form.Base, td.Name, data.Request.Resolutions, data)
 			zodType = result.ZodType
 		}
 		if toNumber {
@@ -475,7 +472,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = p.typeDefBaseToZod(&form.Target, data)
 		}
 		if validateDomain, ok := td.Domains["validate"]; ok {
-			result := p.applyValidation(zodType, validateDomain, form.Target, td.Name, data.Request.Resolutions, data)
+			result := p.applyValidation(zodType, validateDomain, nil, form.Target, td.Name, data.Request.Resolutions, data)
 			zodType = result.ZodType
 		}
 		return typeDefData{
@@ -633,7 +630,10 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		}
 	}
 
-	if len(form.Extends) > 0 {
+	// A domain removal (-@domain) cannot be expressed through Zod extend/omit
+	// chaining — the parent schema still carries the domain — so flatten via
+	// UnifiedFields. Typeless overrides are already resolved by the analyzer.
+	if len(form.Extends) > 0 && !resolver.HasDomainOmissions(form) {
 		// Collect all parent schema names for merge chaining
 		var allParentsValid = true
 		for _, extendsRef := range form.Extends {
@@ -769,7 +769,58 @@ func isFieldUnchanged(parent, child resolution.Field) bool {
 	if hasPreserveCase(parent) != hasPreserveCase(child) {
 		return false
 	}
+	if !sameDefault(parent.Default, child.Default) {
+		return false
+	}
 	return sameBaseType(parent.Type, child.Type)
+}
+
+// sameDefault reports whether two field defaults are structurally equal. A child
+// override that introduces or changes a default relative to its parent is a
+// real change, so the field must be re-emitted rather than inherited verbatim.
+func sameDefault(a, b *resolution.ExpressionValue) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	if a.Kind != b.Kind {
+		return false
+	}
+	switch a.Kind {
+	case resolution.ValueKindString:
+		return a.StringValue == b.StringValue
+	case resolution.ValueKindInt:
+		return a.IntValue == b.IntValue
+	case resolution.ValueKindFloat:
+		return a.FloatValue == b.FloatValue
+	case resolution.ValueKindBool:
+		return a.BoolValue == b.BoolValue
+	case resolution.ValueKindIdent:
+		return a.IdentValue == b.IdentValue
+	case resolution.ValueKindArray:
+		if len(a.Elements) != len(b.Elements) {
+			return false
+		}
+		for i := range a.Elements {
+			if !sameDefault(&a.Elements[i], &b.Elements[i]) {
+				return false
+			}
+		}
+		return true
+	case resolution.ValueKindStruct:
+		if len(a.Fields) != len(b.Fields) {
+			return false
+		}
+		for i := range a.Fields {
+			if a.Fields[i].Name != b.Fields[i].Name {
+				return false
+			}
+			if !sameDefault(&a.Fields[i].Value, &b.Fields[i].Value) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func isOnlyOptionalityChange(parent, child resolution.Field) bool {
@@ -1041,12 +1092,7 @@ func isForwardReference(t resolution.TypeRef, data *templateData, table *resolut
 			return false
 		}
 		if resolution.IsPrimitive(ref.Name) || ref.Name == "Array" || ref.Name == "Map" {
-			for _, arg := range ref.TypeArgs {
-				if checkRef(arg) {
-					return true
-				}
-			}
-			return false
+			return slices.ContainsFunc(ref.TypeArgs, checkRef)
 		}
 		resolved, ok := table.Get(ref.Name)
 		if !ok {
@@ -1061,12 +1107,7 @@ func isForwardReference(t resolution.TypeRef, data *templateData, table *resolut
 				return true
 			}
 		}
-		for _, arg := range ref.TypeArgs {
-			if checkRef(arg) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(ref.TypeArgs, checkRef)
 	}
 
 	return checkRef(t)
@@ -1089,11 +1130,11 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.ZodType = primitiveToZod(typeOverride, data)
 		fd.TSType = primitiveToTS(typeOverride)
 		fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
-		if validateDomain, ok := field.Domains["validate"]; ok {
-			result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table, data)
+		if validateDomain, ok := field.Domains["validate"]; ok || field.Default != nil {
+			result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data)
 			fd.ZodType = result.ZodType
 			if result.HasDefault {
-				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+				fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 			}
 		}
 	} else {
@@ -1104,35 +1145,28 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.ZodType = p.typeRefToZod(typeRefToProcess, table, data)
 		fd.TSType = p.typeRefToTS(typeRefToProcess, table, data, needsTypeImports)
 		fd.ZodSchemaType = p.typeRefToZodSchemaType(typeRefToProcess, table, data)
-		if validateDomain, ok := field.Domains["validate"]; ok {
+		// An array field's default applies to the wrapped array (see the isArray
+		// block below), not to the element schema processed here.
+		elemDefault := field.Default
+		if isArray {
+			elemDefault = nil
+		}
+		if validateDomain, ok := field.Domains["validate"]; ok || elemDefault != nil {
 			if sepIndex := strings.Index(fd.ZodType, " ?? "); sepIndex > 0 {
 				paramPart := fd.ZodType[:sepIndex]
 				fallbackPart := fd.ZodType[sepIndex+4:]
-				result := p.applyValidation(fallbackPart, validateDomain, field.Type, field.Name, table, data)
+				result := p.applyValidation(fallbackPart, validateDomain, elemDefault, field.Type, field.Name, table, data)
 				fd.ZodType = paramPart + " ?? " + result.ZodType
 				if result.HasDefault {
-					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+					fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 				}
 			} else {
-				result := p.applyValidation(fd.ZodType, validateDomain, field.Type, field.Name, table, data)
+				result := p.applyValidation(fd.ZodType, validateDomain, elemDefault, field.Type, field.Name, table, data)
 				fd.ZodType = result.ZodType
 				if result.HasDefault {
-					fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+					fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 				}
 			}
-		}
-	}
-	if key.HasGenerate(field) {
-		primitive := key.ResolvePrimitive(field.Type, table)
-		switch primitive {
-		case "string":
-			addXImport(data, xImport{name: "id", submodule: "id"})
-			fd.ZodType = fmt.Sprintf("%s.default(() => id.create())", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
-		case "uuid":
-			addXImport(data, xImport{name: "uuid", submodule: "uuid"})
-			fd.ZodType = fmt.Sprintf("%s.default(() => uuid.create())", fd.ZodType)
-			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 		}
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
@@ -1148,6 +1182,12 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			addXImport(data, xImport{name: "array", submodule: "array"})
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
+			// nullishToEmpty already defaults a missing array to []; only a
+			// non-empty declared default needs an explicit .default().
+			if field.Default != nil && field.Default.Kind == resolution.ValueKindArray && len(field.Default.Elements) > 0 {
+				fd.ZodType = fmt.Sprintf("%s.default(%s)", fd.ZodType, p.tsDefaultLiteral(field.Type, *field.Default, table, data))
+				fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
+			}
 		}
 	} else if isMap {
 		keyZ := p.typeRefToZod(&field.Type.TypeArgs[0], table, data)
@@ -1649,14 +1689,28 @@ func primitiveToZod(primitive string, data *templateData) string {
 type validationResult struct {
 	ZodType    string
 	HasDefault bool
+	// IsPrefault is true when the default was emitted as .prefault() rather than
+	// .default(). Struct defaults use .prefault() so the literal is re-parsed,
+	// filling each field's own default when a caller supplies a partial value.
+	IsPrefault bool
 }
 
-func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData) validationResult {
+// defaultSchemaWrapper wraps a zod schema type for a defaulted field, picking
+// ZodPrefault for struct defaults (.prefault) and ZodDefault otherwise.
+func defaultSchemaWrapper(r validationResult, inner string) string {
+	if r.IsPrefault {
+		return fmt.Sprintf("z.ZodPrefault<%s>", inner)
+	}
+	return fmt.Sprintf("z.ZodDefault<%s>", inner)
+}
+
+func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defaultVal *resolution.ExpressionValue, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData) validationResult {
 	rules := validation.Parse(domain)
-	if validation.IsEmpty(rules) {
+	if validation.IsEmpty(rules) && defaultVal == nil {
 		return validationResult{ZodType: zodType, HasDefault: false}
 	}
-	hasDefault := rules.Default != nil
+	hasDefault := defaultVal != nil
+	isPrefault := false
 	effectiveType := typeRef.Name
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil && typeRef.TypeParam.Constraint != nil {
 		effectiveType = typeRef.TypeParam.Constraint.Name
@@ -1676,7 +1730,7 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 		}
 		if rules.Pattern != nil {
 			if rules.PatternMessage != nil {
-				zodType = fmt.Sprintf("%s.regex(/%s/, %q)", zodType, *rules.Pattern, *rules.PatternMessage)
+				zodType = fmt.Sprintf("%s.regex(/%s/, %s)", zodType, *rules.Pattern, tsStringLiteral(*rules.PatternMessage))
 			} else {
 				zodType = fmt.Sprintf("%s.regex(/%s/)", zodType, *rules.Pattern)
 			}
@@ -1698,13 +1752,13 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			}
 		}
 	}
-	if rules.Default != nil {
-		switch rules.Default.Kind {
+	if defaultVal != nil {
+		switch defaultVal.Kind {
 		case resolution.ValueKindString:
-			zodType = fmt.Sprintf("%s.default(%q)", zodType, rules.Default.StringValue)
+			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(defaultVal.StringValue))
 		case resolution.ValueKindInt:
 			// Special handling for timestamp/timespan with default of 0
-			if rules.Default.IntValue == 0 {
+			if defaultVal.IntValue == 0 {
 				if typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp") {
 					addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 					zodType = fmt.Sprintf("%s.default(TimeStamp.ZERO)", zodType)
@@ -1712,34 +1766,150 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 					addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
 					zodType = fmt.Sprintf("%s.default(TimeSpan.ZERO)", zodType)
 				} else {
-					zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
+					zodType = fmt.Sprintf("%s.default(%d)", zodType, defaultVal.IntValue)
 				}
 			} else {
-				zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
+				zodType = fmt.Sprintf("%s.default(%d)", zodType, defaultVal.IntValue)
 			}
 		case resolution.ValueKindFloat:
-			zodType = fmt.Sprintf("%s.default(%f)", zodType, rules.Default.FloatValue)
+			zodType = fmt.Sprintf("%s.default(%f)", zodType, defaultVal.FloatValue)
 		case resolution.ValueKindBool:
-			zodType = fmt.Sprintf("%s.default(%t)", zodType, rules.Default.BoolValue)
+			zodType = fmt.Sprintf("%s.default(%t)", zodType, defaultVal.BoolValue)
 		case resolution.ValueKindIdent:
 			// Handle identifier-based defaults like "now" for timestamps
-			if rules.Default.IdentValue == "now" && (typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
+			if defaultVal.IdentValue == "now" && (typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
 				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
 			}
-			// Handle "create" for auto-generating string keys
-			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`
+			// Handle "create" for auto-generating keys. uuid keys generate a UUID
+			// via uuid.create(); string keys generate a short id via id.create().
+			// uuid is a string primitive, so check it first.
+			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`.
 			primitive := key.ResolvePrimitive(typeRef, table)
-			if rules.Default.IdentValue == "create" && (isString || primitive == "string") {
-				addXImport(data, xImport{name: "id", submodule: "id"})
-				zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
+			if defaultVal.IdentValue == "create" {
+				if primitive == "uuid" {
+					addXImport(data, xImport{name: "uuid", submodule: "uuid"})
+					zodType = fmt.Sprintf("%s.default(() => uuid.create())", zodType)
+				} else if isString || primitive == "string" {
+					addXImport(data, xImport{name: "id", submodule: "id"})
+					zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
+				}
 			}
-			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
+			if ev, ok := validation.ResolveEnumVariant(defaultVal.IdentValue, typeRef, table); ok {
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))
+			}
+		case resolution.ValueKindArray:
+			zodType = fmt.Sprintf("%s.default(%s)", zodType, p.tsDefaultLiteral(typeRef, *defaultVal, table, data))
+		case resolution.ValueKindStruct:
+			// .prefault re-parses the literal, so a partial value a caller supplies
+			// is merged with each field's own default rather than rejected.
+			zodType = fmt.Sprintf("%s.prefault(%s)", zodType, p.tsDefaultLiteral(typeRef, *defaultVal, table, data))
+			isPrefault = true
+		}
+	}
+	return validationResult{ZodType: zodType, HasDefault: hasDefault, IsPrefault: isPrefault}
+}
+
+// tsStringLiteral renders a Go string as a double-quoted TypeScript string
+// literal. Unlike Go's %q verb, supplementary-plane code points (> U+FFFF) are
+// emitted as a surrogate pair (\uD8xx\uDCxx) rather than \U0001XXXX, which is
+// not valid JavaScript/TypeScript syntax.
+func tsStringLiteral(s string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range s {
+		switch r {
+		case '"':
+			b.WriteString(`\"`)
+		case '\\':
+			b.WriteString(`\\`)
+		case '\n':
+			b.WriteString(`\n`)
+		case '\r':
+			b.WriteString(`\r`)
+		case '\t':
+			b.WriteString(`\t`)
+		default:
+			switch {
+			case r < 0x20:
+				fmt.Fprintf(&b, `\u%04X`, r)
+			case r > 0xFFFF:
+				v := r - 0x10000
+				fmt.Fprintf(&b, `\u%04X\u%04X`, 0xD800+(v>>10), 0xDC00+(v&0x3FF))
+			default:
+				b.WriteRune(r)
 			}
 		}
 	}
-	return validationResult{ZodType: zodType, HasDefault: hasDefault}
+	b.WriteByte('"')
+	return b.String()
+}
+
+// tsDefaultLiteral renders a default value as a TypeScript literal. typeRef is
+// the declared type of the value, used to resolve enum variants, array element
+// types, and nested struct field types. Arrays and structs recurse.
+func (p *Plugin) tsDefaultLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	switch val.Kind {
+	case resolution.ValueKindString:
+		return tsStringLiteral(val.StringValue)
+	case resolution.ValueKindInt:
+		return fmt.Sprintf("%d", val.IntValue)
+	case resolution.ValueKindFloat:
+		return fmt.Sprintf("%f", val.FloatValue)
+	case resolution.ValueKindBool:
+		return fmt.Sprintf("%t", val.BoolValue)
+	case resolution.ValueKindIdent:
+		if ev, ok := validation.ResolveEnumVariant(val.IdentValue, typeRef, table); ok {
+			return p.enumVariantToTS(ev, data)
+		}
+		return val.IdentValue
+	case resolution.ValueKindArray:
+		elem := arrayElementType(typeRef)
+		parts := make([]string, 0, len(val.Elements))
+		for _, el := range val.Elements {
+			parts = append(parts, p.tsDefaultLiteral(elem, el, table, data))
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	case resolution.ValueKindStruct:
+		return p.tsStructLiteral(typeRef, val, table, data)
+	}
+	return ""
+}
+
+// tsStructLiteral renders a struct default as a TypeScript object literal,
+// resolving each field's value against its declared type in the struct named by
+// typeRef.
+func (p *Plugin) tsStructLiteral(typeRef resolution.TypeRef, val resolution.ExpressionValue, table *resolution.Table, data *templateData) string {
+	fieldsByName := structFieldsByName(typeRef, table)
+	parts := make([]string, 0, len(val.Fields))
+	for _, fv := range val.Fields {
+		parts = append(parts, fmt.Sprintf("%s: %s", camelCase(fv.Name), p.tsDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data)))
+	}
+	return "{ " + strings.Join(parts, ", ") + " }"
+}
+
+// arrayElementType returns the element type of an array type reference, or the
+// reference itself when it is not an array.
+func arrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
+	if typeRef.Name == "Array" && len(typeRef.TypeArgs) > 0 {
+		return typeRef.TypeArgs[0]
+	}
+	return typeRef
+}
+
+// structFieldsByName resolves typeRef to a struct type and maps its unified
+// fields by unqualified name. It returns an empty map when typeRef does not
+// resolve to a struct.
+func structFieldsByName(typeRef resolution.TypeRef, table *resolution.Table) map[string]resolution.Field {
+	out := map[string]resolution.Field{}
+	resolved, ok := typeRef.Resolve(table)
+	if !ok {
+		return out
+	}
+	for _, f := range resolution.UnifiedFields(resolved, table) {
+		out[f.Name] = f
+	}
+	return out
 }
 
 func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) string {
@@ -1748,7 +1918,7 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 	// only numeric enums get the `Type.variant` form, since those emit as TS
 	// runtime enums.
 	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
-		return fmt.Sprintf("%q", ev.Variant.StringValue())
+		return tsStringLiteral(ev.Variant.StringValue())
 	}
 	enumName := domain.GetName(ev.Type, "ts")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)

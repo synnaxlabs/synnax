@@ -38,7 +38,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "hello",
 				Variant:   xstatus.VariantInfo,
@@ -60,10 +60,10 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Key: key, Name: "api_uuid", Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now(),
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
+				[]access.Action{access.ActionUpdate},
 				status.OntologyID(key))
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: key,
 				Message:   "updated",
 				Variant:   xstatus.VariantWarning,
@@ -81,10 +81,10 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "b", Time: telem.Now(),
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
-				[]access.Action{access.ActionCreate},
+				[]access.Action{access.ActionUpdate},
 				statusTypeOnly)
 
-			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "updated",
 				Variant:   xstatus.VariantWarning,
@@ -100,7 +100,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
+			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "x",
 				Variant:   "bogus",
@@ -112,7 +112,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), apistatus.SetByKeyOrNameRequest{
+			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: "",
 				Message:   "x",
 				Variant:   xstatus.VariantInfo,
@@ -123,7 +123,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			name := "api_unauth_" + uuid.New().String()
 			anon := freshUser(ctx)
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), apistatus.SetByKeyOrNameRequest{
+			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "noop",
 				Variant:   xstatus.VariantInfo,
@@ -140,7 +140,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				status.OntologyID(uuid.NewString()))
 
-			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), apistatus.SetByKeyOrNameRequest{
+			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "x",
 				Variant:   xstatus.VariantInfo,

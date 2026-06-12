@@ -93,13 +93,13 @@ var _ = Describe("Edge Cases", func() {
 	})
 
 	Describe("Auto-generated key defaults", func() {
-		It("Should emit id.create() default for string key fields with @key generate", func(ctx SpecContext) {
+		It("Should emit id.create() default for string key fields with create", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
 				Item struct {
-					key string {
-						@key generate
+					key string = create {
+						@key
 					}
 					name string
 				}
@@ -109,13 +109,13 @@ var _ = Describe("Edge Cases", func() {
 			Expect(content).To(ContainSubstring("id.create()"))
 		})
 
-		It("Should emit uuid.create() default for uuid key fields with @key generate", func(ctx SpecContext) {
+		It("Should emit uuid.create() default for uuid key fields with create", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
 				Item struct {
-					key uuid {
-						@key generate
+					key uuid = create {
+						@key
 					}
 					name string
 				}

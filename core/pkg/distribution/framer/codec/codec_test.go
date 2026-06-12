@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"slices"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -239,6 +240,59 @@ var _ = Describe("Codec", func() {
 		})
 	})
 
+	Describe("Multiple Contiguous Series Per Channel (throttle pattern)", func() {
+		It("Should preserve alignment when a channel has multiple contiguous series", func(ctx SpecContext) {
+			keys := channel.Keys{1, 2}
+			dataTypes := []telem.DataType{telem.Int64T, telem.Int64T}
+			// Channel 1 carries two contiguous series in the same leading domain, which
+			// is what the accumulation throttle produces when it batches several writes
+			// into one streamed frame.
+			s1a := telem.NewSeriesV[int64](1, 2)
+			s1a.Alignment = cesium.LeadingAlignment(4, 100) // [100, 102)
+			s1b := telem.NewSeriesV[int64](3, 4)
+			s1b.Alignment = cesium.LeadingAlignment(4, 102) // [102, 104)
+			s2 := telem.NewSeriesV[int64](5, 6)
+			s2.Alignment = cesium.LeadingAlignment(4, 100)
+			fr := frame.NewMulti(channel.Keys{1, 1, 2}, []telem.Series{s1a, s1b, s2})
+
+			cdc := codec.NewStatic(keys, dataTypes)
+			decoded := MustSucceed(cdc.Decode(MustSucceed(cdc.Encode(ctx, fr))))
+
+			var ch1 []telem.Series
+			for k, s := range decoded.Entries() {
+				if k == 1 {
+					ch1 = append(ch1, s)
+				}
+			}
+			slices.SortFunc(ch1, func(a, b telem.Series) int {
+				switch {
+				case a.Alignment < b.Alignment:
+					return -1
+				case a.Alignment > b.Alignment:
+					return 1
+				default:
+					return 0
+				}
+			})
+			// The decoded series for channel 1 must cover [100, 104) with no overlap
+			// and no gap. A backward-overlap bug shows up as prev.Upper > next.Lower.
+			Expect(ch1[0].AlignmentBounds().Lower).To(Equal(cesium.LeadingAlignment(4, 100)))
+			var total int64
+			for i, s := range ch1 {
+				total += s.Len()
+				if i > 0 {
+					Expect(ch1[i-1].AlignmentBounds().Upper).To(
+						Equal(s.AlignmentBounds().Lower),
+					)
+				}
+			}
+			Expect(total).To(Equal(int64(4)))
+			Expect(ch1[len(ch1)-1].AlignmentBounds().Upper).To(
+				Equal(cesium.LeadingAlignment(4, 104)),
+			)
+		})
+	})
+
 	Describe("Error Handling", func() {
 		It("Should return a validation error when a series has the wrong data type", func(ctx SpecContext) {
 			c := codec.NewStatic(
@@ -247,7 +301,7 @@ var _ = Describe("Codec", func() {
 			)
 			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
-			Expect(encoded).To(HaveLen(0))
+			Expect(encoded).To(BeEmpty())
 			Expect(err).To(MatchError(validate.ErrValidation))
 		})
 	})
@@ -372,12 +426,57 @@ var _ = Describe("Codec", func() {
 			Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
 			encoded = MustSucceed(encoder.Encode(ctx, frame1))
 			decoded = MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame.SeriesSlice()).To(HaveLen(0))
+			Expect(decoded.Frame.SeriesSlice()).To(BeEmpty())
 
 			frame2 := frame.NewUnary(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
 			encoded = MustSucceed(encoder.Encode(ctx, frame2))
 			decoded = MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame(frame2.Frame))
+		})
+
+		It("Should preserve alignment across rapid key churn (schematic pattern)", func(ctx SpecContext) {
+			enc := codec.NewDynamic(channelSvc)
+			dec := codec.NewDynamic(channelSvc)
+			only := channel.Keys{dataCh.Key()}
+			both := channel.Keys{dataCh.Key(), idxCh.Key()}
+			Expect(enc.Update(ctx, only)).To(Succeed())
+			Expect(dec.Update(ctx, only)).To(Succeed())
+
+			var (
+				prevEnd telem.Alignment
+				hasPrev bool
+				sample  uint32
+			)
+			for i := range 60 {
+				// Churn the streamed key set the way mounting/unmounting schematic
+				// symbols does. The decoder is updated a beat before the encoder so a
+				// frame is sometimes encoded under a key set the decoder has already
+				// moved past (the seqNum-backlog path).
+				switch i % 4 {
+				case 0:
+					Expect(dec.Update(ctx, both)).To(Succeed())
+					Expect(enc.Update(ctx, both)).To(Succeed())
+				case 2:
+					Expect(dec.Update(ctx, only)).To(Succeed())
+				case 3:
+					Expect(enc.Update(ctx, only)).To(Succeed())
+				}
+				s := telem.NewSeriesV[float32](float32(i))
+				s.Alignment = cesium.LeadingAlignment(1, sample)
+				fr := frame.NewUnary(dataCh.Key(), s)
+				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
+				for k, ds := range decoded.Entries() {
+					if k != dataCh.Key() {
+						continue
+					}
+					if hasPrev {
+						Expect(ds.AlignmentBounds().Lower).To(Equal(prevEnd))
+					}
+					prevEnd = ds.AlignmentBounds().Upper
+					hasPrev = true
+				}
+				sample++
+			}
 		})
 
 		// This test is a regression that ensures the codec is designed to handle
@@ -410,7 +509,7 @@ var _ = Describe("Codec", func() {
 					)
 					encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
 					decoded = MustSucceed(decoder.Decode(encoded))
-					Expect(decoded.Frame.KeysSlice()).To(HaveLen(0))
+					Expect(decoded.Frame.KeysSlice()).To(BeEmpty())
 				})
 			})
 
@@ -528,11 +627,11 @@ var _ = Describe("Codec", func() {
 			Expect(decoded.Count()).To(Equal(7))
 
 			ch10Series := decoded.Get(10)
-			Expect(len(ch10Series.Series)).To(Equal(3))
+			Expect(ch10Series.Series).To(HaveLen(3))
 			ch20Series := decoded.Get(20)
-			Expect(len(ch20Series.Series)).To(Equal(2))
+			Expect(ch20Series.Series).To(HaveLen(2))
 			ch30Series := decoded.Get(30)
-			Expect(len(ch30Series.Series)).To(Equal(2))
+			Expect(ch30Series.Series).To(HaveLen(2))
 
 			Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
 		})
@@ -644,7 +743,7 @@ var _ = Describe("Codec", func() {
 
 			// Verify the data is correct (concatenated)
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(1))
+			Expect(series.Series).To(HaveLen(1))
 			mergedData := telem.UnmarshalSeries[int32](series.Series[0])
 			Expect(mergedData).To(Equal([]int32{1, 2, 3, 4, 5}))
 
@@ -674,7 +773,7 @@ var _ = Describe("Codec", func() {
 
 			Expect(decoded.Count()).To(Equal(1))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(1))
+			Expect(series.Series).To(HaveLen(1))
 			mergedData := telem.UnmarshalSeries[uint8](series.Series[0])
 			Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
 		})
@@ -701,7 +800,7 @@ var _ = Describe("Codec", func() {
 			// Should have two separate series
 			Expect(decoded.Count()).To(Equal(2))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(2))
+			Expect(series.Series).To(HaveLen(2))
 		})
 
 		It("Should handle mixed contiguous and non-contiguous series", func(ctx SpecContext) {
@@ -732,7 +831,7 @@ var _ = Describe("Codec", func() {
 			// Should have 2 merged series: [s1+s2] and [s3+s4]
 			Expect(decoded.Count()).To(Equal(2))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(2))
+			Expect(series.Series).To(HaveLen(2))
 
 			// First merged series should be [1, 2, 3, 4]
 			firstData := telem.UnmarshalSeries[int32](series.Series[0])
@@ -773,13 +872,13 @@ var _ = Describe("Codec", func() {
 
 			// Channel 1 should have merged series
 			ch1Series := decoded.Get(1)
-			Expect(len(ch1Series.Series)).To(Equal(1))
+			Expect(ch1Series.Series).To(HaveLen(1))
 			ch1Data := telem.UnmarshalSeries[int32](ch1Series.Series[0])
 			Expect(ch1Data).To(Equal([]int32{1, 2, 3, 4}))
 
 			// Channel 2 should have merged series
 			ch2Series := decoded.Get(2)
-			Expect(len(ch2Series.Series)).To(Equal(1))
+			Expect(ch2Series.Series).To(HaveLen(1))
 			ch2Data := telem.UnmarshalSeries[float32](ch2Series.Series[0])
 			Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
 		})
@@ -838,7 +937,7 @@ var _ = Describe("Codec", func() {
 
 			Expect(decoded.Count()).To(Equal(1))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(1))
+			Expect(series.Series).To(HaveLen(1))
 
 			// Time range should span both series
 			mergedSeries := series.Series[0]
@@ -867,7 +966,7 @@ var _ = Describe("Codec", func() {
 
 			Expect(decoded.Count()).To(Equal(1))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(1))
+			Expect(series.Series).To(HaveLen(1))
 
 			// Data should be concatenated correctly
 			mergedStrings := telem.UnmarshalSeries[string](series.Series[0])
@@ -930,11 +1029,11 @@ var _ = Describe("Codec", func() {
 
 			Expect(decoded.Count()).To(Equal(4))
 			idx := decoded.Get(1)
-			Expect(len(idx.Series)).To(Equal(2))
+			Expect(idx.Series).To(HaveLen(2))
 			Expect(idx.Series[0]).To(telem.MatchSeriesData(idxA))
 			Expect(idx.Series[1]).To(telem.MatchSeriesData(idxB))
 			dat := decoded.Get(2)
-			Expect(len(dat.Series)).To(Equal(2))
+			Expect(dat.Series).To(HaveLen(2))
 			Expect(dat.Series[0]).To(telem.MatchSeriesData(datA))
 			Expect(dat.Series[1]).To(telem.MatchSeriesData(datB))
 		})

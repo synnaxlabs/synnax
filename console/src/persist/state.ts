@@ -91,7 +91,9 @@ export const hardClearAndReload = () => {
   openAndMigrateKV()
     .then(async (db) => await db.clear())
     .finally(() => window.location.reload())
-    .catch(console.error);
+    .catch((err: unknown) => {
+      console.error("failed to clear store during hard reload", err);
+    });
 };
 
 interface Engine<S extends RequiredState> {
@@ -144,8 +146,12 @@ export const open = async <S extends RequiredState>(
       if (typeof key === "function") deepCopy = key(deepCopy);
       else deep.remove<S>(deepCopy, key);
     });
-    await db.set(persistedStateKey(version), deepCopy).catch(console.error);
-    await db.set(DB_VERSION_KEY, { version }).catch(console.error);
+    await db.set(persistedStateKey(version), deepCopy).catch((err: unknown) => {
+      console.error(`failed to write state at version ${version}`, err);
+    });
+    await db.set(DB_VERSION_KEY, { version }).catch((err: unknown) => {
+      console.error(`failed to bump version key to ${version}`, err);
+    });
   };
 
   let state = (await db.get(persistedStateKey(version))) as S;
@@ -189,7 +195,9 @@ export const middleware = <S extends RequiredState>(
   debounceInterval: CrudeTimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<record.Unknown> => {
   const debouncedPersist = debounce((state: S) => {
-    engine.persist(state).catch((e) => console.error("Failed to persist state", e));
+    engine
+      .persist(state)
+      .catch((e: unknown) => console.error("Failed to persist state", e));
   }, debounceInterval);
   return (store) => (next) => (action) => {
     const result = next(action);
@@ -198,12 +206,16 @@ export const middleware = <S extends RequiredState>(
       engine
         .revert()
         .then(() => window.location.reload())
-        .catch(console.error);
+        .catch((err: unknown) => {
+          console.error("failed to revert state", err);
+        });
     else if (type === CLEAR_STATE.type)
       engine
         .clear()
         .then(() => window.location.reload())
-        .catch(console.error);
+        .catch((err: unknown) => {
+          console.error("failed to clear state", err);
+        });
     else void debouncedPersist(store.getState());
     return result;
   };

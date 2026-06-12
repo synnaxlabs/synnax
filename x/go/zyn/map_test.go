@@ -45,7 +45,7 @@ var _ = Describe("Map", func() {
 			data := map[string]any{}
 			var dest map[string]string
 			Expect(schema.Parse(data, &dest)).To(Succeed())
-			Expect(dest).To(HaveLen(0))
+			Expect(dest).To(BeEmpty())
 		})
 		Specify("nested map of objects", func() {
 			type Config struct {
