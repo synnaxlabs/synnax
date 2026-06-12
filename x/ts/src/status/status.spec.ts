@@ -10,7 +10,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { id } from "@/id";
 import { status } from "@/status";
 import { TimeStamp } from "@/telem";
 
@@ -20,7 +19,6 @@ describe("status", () => {
   describe("create", () => {
     it("should create a status", () => {
       const s = status.create({ variant: "success", message: "test" });
-      expect(s.key).toHaveLength(id.LENGTH);
       expect(s.time).toBeInstanceOf(TimeStamp);
       expect(s.time.beforeEq(TimeStamp.now())).toBe(true);
     });
@@ -130,11 +128,10 @@ describe("status", () => {
       expect(s.description).toEqual("custom desc");
     });
 
-    it("should include valid key and timestamp", () => {
+    it("should include valid timestamp", () => {
       const error = new Error("Test error");
       const s = status.fromException(error);
 
-      expect(s.key).toHaveLength(id.LENGTH);
       expect(s.time).toBeInstanceOf(TimeStamp);
       expect(s.time.beforeEq(TimeStamp.now())).toBe(true);
     });
@@ -266,26 +263,6 @@ describe("status", () => {
       expect(result).toBe("SUCCESS: Operation completed");
     });
 
-    it("should include name when present and includeName is true", () => {
-      const s = status.create({
-        variant: "info",
-        message: "System started",
-        name: "SystemStatus",
-      });
-      const result = status.toString(s);
-      expect(result).toBe("INFO [SystemStatus]: System started");
-    });
-
-    it("should exclude name when includeName is false", () => {
-      const s = status.create({
-        variant: "warning",
-        message: "Low memory",
-        name: "MemoryMonitor",
-      });
-      const result = status.toString(s, { includeName: false });
-      expect(result).toBe("WARNING: Low memory");
-    });
-
     it("should include timestamp when includeTimestamp is true", () => {
       const s = status.create({ variant: "error", message: "Failed" });
       const result = status.toString(s, { includeTimestamp: true });
@@ -345,9 +322,8 @@ describe("status", () => {
     it("should handle status with all optional fields", () => {
       const error = new Error("Full error");
       const s = status.fromException(error, "Custom message");
-      s.name = "ErrorHandler";
       const result = status.toString(s, { includeTimestamp: true });
-      expect(result).toContain("ERROR [ErrorHandler]: Custom message");
+      expect(result).toContain("ERROR: Custom message");
       expect(result).toContain("Description: Full error");
       expect(result).toContain("Stack Trace:");
     });

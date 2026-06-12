@@ -16,13 +16,13 @@ import {
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
-  status,
   TimeSpan,
   type TypedArray,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Params } from "@/channel/payload";
+import { status } from "@/status";
 import {
   analyzeParams,
   CacheRetriever,

@@ -10,18 +10,14 @@
 import { z } from "zod";
 
 import { errors } from "@/errors";
-import { id } from "@/id";
 import { narrow } from "@/narrow";
 import { type optional } from "@/optional";
-import { primitive } from "@/primitive";
 import { record } from "@/record";
 import { type Status, type Variant } from "@/status/types.gen";
 import { TimeStamp } from "@/telem";
 
 // Input type for creating statuses - uses conditional typing for optional details
 type Base<V extends Variant> = {
-  key: string;
-  name: string;
   variant: V;
   message: string;
   description?: string;
@@ -31,7 +27,7 @@ type Base<V extends Variant> = {
 export type Crude<
   DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
-> = optional.Optional<Base<V>, "key" | "time" | "name"> &
+> = optional.Optional<Base<V>, "time"> &
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
 /**
@@ -130,9 +126,7 @@ export const create = <
   spec: Crude<DetailsSchema, V>,
 ): Status<DetailsSchema, z.ZodType<V>> =>
   ({
-    key: id.create(),
     time: TimeStamp.now(),
-    name: "",
     ...spec,
   }) as Status<DetailsSchema, z.ZodType<V>>;
 
@@ -162,12 +156,10 @@ export const removeVariants = (
 
 export interface ToStringOptions {
   includeTimestamp?: boolean;
-  includeName?: boolean;
 }
 
 const DEFAULT_TO_STRING_OPTIONS: ToStringOptions = {
   includeTimestamp: false,
-  includeName: true,
 };
 
 const renderDescription = (description: string): string => {
@@ -187,7 +179,6 @@ export const toString = <Details extends z.ZodType = z.ZodNever>(
   const opts = { ...DEFAULT_TO_STRING_OPTIONS, ...options };
   const parts: string[] = [];
   let header = stat.variant.toUpperCase();
-  if (opts.includeName && primitive.isNonZero(stat.name)) header += ` [${stat.name}]`;
   header += `: ${stat.message}`;
   if (opts.includeTimestamp) header += ` (${stat.time.toString("dateTime", "local")})`;
   parts.push(header);

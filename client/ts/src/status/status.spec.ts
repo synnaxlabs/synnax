@@ -256,7 +256,7 @@ describe("Status", () => {
       const keys = ["del-1", "del-2", "del-3"];
       await client.statuses.set(
         keys.map((key) =>
-          xStatus.create({
+          status.create({
             name: `Delete ${key}`,
             key,
             variant: "info",
