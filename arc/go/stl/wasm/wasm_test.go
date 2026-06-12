@@ -605,6 +605,30 @@ var _ = Describe("WASM", func() {
 			h.Execute(ctx, "add")
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))).To(Equal([]int64{105}))
 		})
+
+		It("Should bind a literal input ordered before a wire input", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "scale",
+						Inputs:  types.Params{{Name: "gain", Type: types.F64(), Value: 3.0}, {Name: "value", Type: types.F64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return gain * value }`},
+					},
+					{Key: "value", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}}, Body: ir.Body{Raw: `{ return 1.0 }`}},
+				},
+				Nodes: []graph.Node{{Key: "value", Type: "value"}, {Key: "scale", Type: "scale"}},
+				Edges: []graph.Edge{
+					{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}},
+				},
+			}
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
+
+			h.SetInput("value", 0, telem.NewSeriesV[float64](10.0, 20.0), telem.NewSeriesSecondsTSV(1, 2))
+			h.Execute(ctx, "scale")
+			Expect(telem.UnmarshalSeries[float64](h.Output("scale", 0))).To(Equal([]float64{30.0, 60.0}))
+		})
 	})
 
 	Describe("TimeSpan Config Values", func() {

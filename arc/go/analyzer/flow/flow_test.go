@@ -2138,3 +2138,46 @@ var _ = Describe("TriggerOnly upstream activation", func() {
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring("has no return value"))
 	})
 })
+
+var _ = Describe("Trigger in select routing branches", func() {
+	It("Should not type-check a select branch routing into a TriggerOnly func", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func setter{key_or_name str, message str, variant str} () {}
+		start_cmd -> select{} -> {
+			true: setter{key_or_name="a", message="up", variant="info"},
+			false: setter{key_or_name="b", message="down", variant="info"}
+		}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+	})
+
+	It("Should type-check a select branch routing into a func with a wire-fed input", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func sink(v str) {}
+		start_cmd -> select{} -> {
+			true: sink{},
+			false: sink{}
+		}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring("does not match"))
+	})
+
+	It("Should accept a select branch chaining time.now into an i64 channel", func(bCtx SpecContext) {
+		customResolver := StaticResolver{
+			{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+			{Name: "i64_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
+		}
+		ast := MustSucceed(parser.Parse(`
+		import time
+		flag -> select{} -> {
+			true: time.now{} -> i64_ch,
+			false: time.now{} -> i64_ch
+		}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+	})
+})

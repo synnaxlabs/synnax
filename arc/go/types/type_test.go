@@ -780,6 +780,30 @@ var _ = Describe("Types", func() {
 			fnType := types.Function(types.FunctionProperties{})
 			Expect(types.ToTelem(fnType)).To(Equal(telem.UnknownT))
 		})
+
+		// The value type mirrors what literal.Parse emits per kind, so a missing
+		// cast case in NewSeriesFromAny (the TimeSpan regression) is caught here.
+		DescribeTable("ToTelem output must seed a series via NewSeriesFromAny",
+			func(arcType types.Type, value any) {
+				dt := types.ToTelem(arcType)
+				s := telem.NewSeriesFromAny(value, dt)
+				Expect(s.DataType).To(Equal(dt))
+				Expect(s.Len()).To(Equal(int64(1)))
+			},
+			Entry("U8", types.U8(), uint8(1)),
+			Entry("U16", types.U16(), uint16(1)),
+			Entry("U32", types.U32(), uint32(1)),
+			Entry("U64", types.U64(), uint64(1)),
+			Entry("I8", types.I8(), int8(1)),
+			Entry("I16", types.I16(), int16(1)),
+			Entry("I32", types.I32(), int32(1)),
+			Entry("I64", types.I64(), int64(1)),
+			Entry("F32", types.F32(), float32(1)),
+			Entry("F64", types.F64(), float64(1)),
+			Entry("String", types.String(), "x"),
+			Entry("TimeStamp", types.TimeStamp(), telem.TimeSpan(1)),
+			Entry("TimeSpan", types.TimeSpan(), telem.TimeSpan(1)),
+		)
 	})
 
 	Describe("Density", func() {
