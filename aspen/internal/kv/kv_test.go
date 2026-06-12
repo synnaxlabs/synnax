@@ -289,7 +289,7 @@ var _ = Describe("txn", func() {
 					fired.Add(1)
 				})
 				Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
-				Consistently(func() int64 { return fired.Load() }, "200ms", "20ms").
+				Consistently(func() int64 { return fired.Load() }, time.Millisecond*200, time.Millisecond*20).
 					Should(Equal(int64(0)))
 			})
 
@@ -344,7 +344,7 @@ var _ = Describe("txn", func() {
 					for _, ch := range seen {
 						g.Expect(string(ch.Key)).ToNot(Equal("local"))
 					}
-				}, "200ms", "20ms").Should(Succeed())
+				}, time.Millisecond*200, time.Millisecond*20).Should(Succeed())
 			})
 		})
 
@@ -379,7 +379,7 @@ var _ = Describe("txn", func() {
 			}
 
 			Eventually(fired.Load).Should(Equal(int64(1)))
-			Consistently(fired.Load, "200ms", "20ms").Should(Equal(int64(1)))
+			Consistently(fired.Load, time.Millisecond*200, time.Millisecond*20).Should(Equal(int64(1)))
 		})
 
 		It("Should deliver every change when no options are passed", func(ctx SpecContext) {
@@ -421,7 +421,7 @@ var _ = Describe("txn", func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(v).To(Equal([]byte("value3")))
 				g.Expect(closer.Close()).To(Succeed())
-			})
+			}).Should(Succeed())
 		})
 
 		It("Should persist digests during recovery so recovered keys can be deleted", func(ctx SpecContext) {
@@ -450,11 +450,9 @@ var _ = Describe("txn", func() {
 			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
 			kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Eventually(func(g Gomega) {
-				v, closer, err := kv2.Get(ctx, []byte("key"))
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(v).To(Equal([]byte("value")))
-				g.Expect(closer.Close()).To(Succeed())
-			})
+				g.Expect(kv2.Get(ctx, []byte("key"))).Error().
+					To(MatchError(query.ErrNotFound))
+			}).Should(Succeed())
 		})
 	})
 })
