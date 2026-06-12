@@ -82,7 +82,20 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) ([]stru
 			}
 		}
 		if payload, ok := v.Type.Resolve(data.table); ok {
-			sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(v.Type, payload, data))
+			if v.Inline {
+				pform := payload.Form.(resolution.StructForm)
+				for _, ext := range pform.Extends {
+					if parent, ok := ext.Resolve(data.table); ok {
+						sd.ExtendsTypes = append(sd.ExtendsTypes,
+							p.resolveExtendsType(ext, parent, data))
+					}
+				}
+				for _, f := range pform.Fields {
+					sd.Fields = append(sd.Fields, p.processField(f, payload, data))
+				}
+			} else {
+				sd.ExtendsTypes = append(sd.ExtendsTypes, p.resolveExtendsType(v.Type, payload, data))
+			}
 		}
 		data.includes.addInternal("x/cpp/json/json.h")
 		variants = append(variants, sd)

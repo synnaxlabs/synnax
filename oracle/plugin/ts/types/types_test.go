@@ -2531,6 +2531,81 @@ var _ = Describe("TS Union Generation", func() {
 			)
 	})
 
+	It("Should declare inline variant fields directly on the member schema", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			TabBase struct { key string }
+			Labeled struct { label string }
+
+			Tab union on variant extends TabBase {
+				resource {
+					resource string
+				}
+				view extends Labeled {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		content := ExpectContent(resp, "types.gen.ts")
+		content.ToContain(
+			`export const tabResourceZ = tabBaseZ.extend({`,
+			`variant: z.literal("resource"),`,
+			`resource: z.string(),`,
+			`export const tabViewZ = tabBaseZ.extend(labeledZ.shape).extend({`,
+			`variant: z.literal("view"),`,
+			`type: z.string(),`,
+			`export const tabEmptyZ = tabBaseZ.extend({`,
+			`variant: z.literal("empty"),`,
+		)
+		content.ToNotContain("TabViewPayload", "tabViewPayloadZ")
+	})
+
+	It("Should carry inline variants through union composition", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			NodeConfig union on variant {
+				box {
+					width float64
+				}
+			}
+
+			EdgeConfig union on variant {
+				pipe {
+					length float64
+				}
+			}
+
+			ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+		`
+		resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`export const elementConfigBoxZ = z.object({`,
+			`width: z.number(),`,
+			`export const elementConfigPipeZ = z.object({`,
+			`length: z.number(),`,
+			`export type ElementConfig = ElementConfigBox | ElementConfigPipe;`,
+		)
+	})
+
+	It("Should generate a bare object schema for an inline variant with no bases", func(ctx SpecContext) {
+		source := `
+			@ts output "out"
+
+			Tab union on variant {
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`export const tabEmptyZ = z.object({`,
+			`variant: z.literal("empty"),`,
+		)
+	})
+
 	It("Should break the inference cycle when a variant struct references the union recursively", func(ctx SpecContext) {
 		source := `
 			@ts output "out"

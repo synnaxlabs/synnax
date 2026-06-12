@@ -1215,9 +1215,10 @@ func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
 
 	maxNameLen := 0
 	for _, v := range variants {
-		nameLen := len(v.VariantName().GetText())
-		if nameLen > maxNameLen {
-			maxNameLen = nameLen
+		if named, ok := v.(*parser.NamedVariantContext); ok {
+			if nameLen := len(named.VariantName().GetText()); nameLen > maxNameLen {
+				maxNameLen = nameLen
+			}
 		}
 	}
 
@@ -1233,6 +1234,15 @@ func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
 }
 
 func (f *formatter) formatUnionVariant(ctx parser.IUnionVariantContext, nameWidth int) {
+	switch v := ctx.(type) {
+	case *parser.NamedVariantContext:
+		f.formatNamedVariant(v, nameWidth)
+	case *parser.InlineVariantContext:
+		f.formatInlineVariant(v)
+	}
+}
+
+func (f *formatter) formatNamedVariant(ctx *parser.NamedVariantContext, nameWidth int) {
 	f.writeIndent()
 	name := ctx.VariantName().GetText()
 	f.write(name)
@@ -1250,6 +1260,39 @@ func (f *formatter) formatUnionVariant(ctx parser.IUnionVariantContext, nameWidt
 	f.writeLine(" {")
 	f.currentIndent++
 	f.formatDomains(body.AllDomain())
+	f.currentIndent--
+	f.writeIndent()
+	f.writeLine("}")
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+// formatInlineVariant renders an inline variant body with struct-body
+// formatting: name, optional extends clause, then fields and domains.
+func (f *formatter) formatInlineVariant(ctx *parser.InlineVariantContext) {
+	f.writeIndent()
+	f.write(ctx.VariantName().GetText())
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
+		f.write(" extends ")
+		for i, tr := range ctx.TypeRefList().AllTypeRef() {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.formatTypeRef(tr)
+		}
+	}
+
+	body := ctx.StructBody()
+	if body == nil ||
+		(len(body.AllFieldDef()) == 0 && len(body.AllDomain()) == 0 &&
+			len(body.AllFieldOmit()) == 0 && len(body.AllActionDef()) == 0) {
+		f.writeLine(" {}")
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatStructBody(body)
 	f.currentIndent--
 	f.writeIndent()
 	f.writeLine("}")

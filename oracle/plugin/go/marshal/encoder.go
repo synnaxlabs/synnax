@@ -109,9 +109,15 @@ func generateEncoderCodecFile(
 			imports:     fo.ExtraImports,
 		}
 		if uform, isUnion := e.Type.Form.(resolution.UnionForm); isUnion {
-			uc, err := buildUnionCodec(e.Type, uform, table, fo.ExtraImports)
+			uc, err := buildUnionCodec(e.Type, uform, b)
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to generate union codec for %s", e.GoName)
+			}
+			if b.needsMath {
+				fo.NeedsMath = true
+			}
+			if b.needsJSON {
+				fo.NeedsJSON = true
 			}
 			uc.Recursive = typeIsRecursive(e.Type, table)
 			fo.ConcreteCodecs = append(fo.ConcreteCodecs, uc)
@@ -494,18 +500,30 @@ func typeIsRecursive(typ resolution.Type, table *resolution.Table) bool {
 // positionally through their own codecs. The discriminator string keeps stored
 // bytes stable under variant addition and reordering; variant field changes
 // version through frozen codecs like any struct change.
+// indentLines shifts builder-emitted method-body statements one tab deeper so
+// they sit inside a union codec's switch case.
+func indentLines(lines []string) []string {
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		for sub := range strings.SplitSeq(l, "\n") {
+			out = append(out, "\t"+sub)
+		}
+	}
+	return out
+}
+
 func buildUnionCodec(
 	entry resolution.Type,
 	form resolution.UnionForm,
-	table *resolution.Table,
-	imports map[string]string,
+	b *encoderBuilder,
 ) (concreteCodec, error) {
+	table := b.table
 	goName := naming.GetGoName(entry)
 	recv := ReceiverName(goName)
 	if recv == "tag" {
 		recv += "v"
 	}
-	imports["github.com/synnaxlabs/x/errors"] = ""
+	b.imports["github.com/synnaxlabs/x/errors"] = ""
 
 	var baseEmbeds []string
 	for _, ext := range form.Extends {
@@ -531,7 +549,23 @@ func buildUnionCodec(
 				entry.Name, v.Name, v.Type.Name)
 		}
 		variantType := casing.VariantTypeName(goName, v.Name)
-		embeds := append(append([]string{}, baseEmbeds...), naming.GetGoName(payload))
+		embeds := append([]string{}, baseEmbeds...)
+		var inlineFields []resolution.Field
+		if v.Inline {
+			pform := payload.Form.(resolution.StructForm)
+			for _, ext := range pform.Extends {
+				parent, ok := ext.Resolve(table)
+				if !ok {
+					return concreteCodec{}, errors.Newf(
+						"union %s variant %q: unresolved base %s",
+						entry.Name, v.Name, ext.Name)
+				}
+				embeds = append(embeds, naming.GetGoName(parent))
+			}
+			inlineFields = pform.Fields
+		} else {
+			embeds = append(embeds, naming.GetGoName(payload))
+		}
 		enc = append(enc,
 			fmt.Sprintf("\tcase %s:", variantType),
 			fmt.Sprintf("\t\tw.String(%q)", v.Name),
@@ -545,6 +579,23 @@ func buildUnionCodec(
 				"\t\tif err := v.%s.EncodeOrc(w); err != nil { return err }", embed))
 			dec = append(dec, fmt.Sprintf(
 				"\t\tif err := v.%s.DecodeOrc(r); err != nil { return err }", embed))
+		}
+		if len(inlineFields) > 0 {
+			fb := &encoderBuilder{
+				table:       table,
+				repoRoot:    b.repoRoot,
+				packageName: b.packageName,
+				parentPath:  b.parentPath,
+				imports:     b.imports,
+			}
+			if err := fb.processFields(inlineFields, "v", "v"); err != nil {
+				return concreteCodec{}, errors.Wrapf(err,
+					"union %s variant %q: inline field codec", entry.Name, v.Name)
+			}
+			enc = append(enc, indentLines(fb.encodeLines)...)
+			dec = append(dec, indentLines(fb.decodeLines)...)
+			b.needsMath = b.needsMath || fb.needsMath
+			b.needsJSON = b.needsJSON || fb.needsJSON
 		}
 		dec = append(dec, fmt.Sprintf("\t\t%s.Variant = v", recv))
 	}
@@ -947,7 +998,9 @@ func walkSerializableTypes(
 	}
 	visited.Add(typ.QualifiedName)
 	goPath := output.GetPath(typ, "go")
-	if goPath != "" {
+	// Synthetic inline variant payloads have no standalone Go type; their
+	// fields encode through the union codec, so only their dependencies walk.
+	if goPath != "" && !typ.Synthetic {
 		switch typ.Form.(type) {
 		case resolution.StructForm, resolution.UnionForm:
 			result[goPath] = append(result[goPath], typ)

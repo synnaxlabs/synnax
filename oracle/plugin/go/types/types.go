@@ -655,6 +655,12 @@ type {{.TypeName}} struct {
 {{- range .Embeds}}
 	{{.}}
 {{- end}}
+{{- range .Fields}}
+{{- if .Doc}}
+	{{formatDoc .GoName .Doc | printf "%s"}}
+{{- end}}
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+{{- end}}
 }
 
 func ({{.TypeName}}) {{$u.Marker}}() {}
