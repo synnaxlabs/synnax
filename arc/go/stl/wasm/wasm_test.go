@@ -1590,8 +1590,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "add_config",
-						Config:  types.Params{{Name: "x", Type: types.I64()}},
-						Inputs:  types.Params{{Name: "y", Type: types.I64()}},
+						Inputs:  types.Params{{Name: "x", Type: types.I64()}, {Name: "y", Type: types.I64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 						Body:    ir.Body{Raw: `{ return x + y }`},
 					},
@@ -1628,8 +1627,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "multi_config",
-						Config:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
-						Inputs:  types.Params{{Name: "c", Type: types.I32()}},
+						Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}, {Name: "c", Type: types.I32()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 						Body:    ir.Body{Raw: `{ return a + b + c }`},
 					},
@@ -1665,8 +1663,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "scale_config",
-						Config:  types.Params{{Name: "factor", Type: types.F64()}},
-						Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+						Inputs:  types.Params{{Name: "factor", Type: types.F64()}, {Name: "value", Type: types.F64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 						Body:    ir.Body{Raw: `{ return value * factor }`},
 					},
@@ -1702,8 +1699,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "offset_func",
-						Config:  types.Params{{Name: "offset", Type: types.I64()}},
-						Inputs:  types.Params{{Name: "value", Type: types.I64()}},
+						Inputs:  types.Params{{Name: "offset", Type: types.I64()}, {Name: "value", Type: types.I64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 						Body:    ir.Body{Raw: `{ return value + offset }`},
 					},
@@ -1740,8 +1736,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "scale_neg",
-						Config:  types.Params{{Name: "factor", Type: types.F64()}},
-						Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+						Inputs:  types.Params{{Name: "factor", Type: types.F64()}, {Name: "value", Type: types.F64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 						Body:    ir.Body{Raw: `{ return value * factor }`},
 					},
@@ -2252,8 +2247,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "increment_counter",
-						Config:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
-						Inputs:  types.Params{},
+						Inputs:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							counter = counter + 1.0
@@ -2297,8 +2291,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "count_rising",
-						Config:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
-						Inputs:  types.Params{{Name: "input", Type: types.U8()}},
+						Inputs:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}, {Name: "input", Type: types.U8()}},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							prev u8 $= input
@@ -2393,12 +2386,11 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key: "combine_sensors",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "temp", Type: types.Chan(types.F32())},
 							{Name: "pressure", Type: types.Chan(types.F32())},
 							{Name: "result", Type: types.Chan(types.F32())},
 						},
-						Inputs:  types.Params{},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							result = temp + pressure
@@ -2452,14 +2444,13 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key: "multi_op",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "a", Type: types.Chan(types.F64())},
 							{Name: "b", Type: types.Chan(types.F64())},
 							{Name: "sum", Type: types.Chan(types.F64())},
 							{Name: "diff", Type: types.Chan(types.F64())},
 							{Name: "product", Type: types.Chan(types.F64())},
 						},
-						Inputs:  types.Params{},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							sum = a + b
@@ -2524,11 +2515,10 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key: "square_value",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "value", Type: types.Chan(types.F32())},
 							{Name: "squared", Type: types.Chan(types.F32())},
 						},
-						Inputs:  types.Params{},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							squared = value * value
@@ -2587,13 +2577,13 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key: "tolerance_check",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "tolerance_upper", Type: types.F32()},
 							{Name: "tolerance_lower", Type: types.F32()},
 							{Name: "set_point", Type: types.Chan(types.F32())},
 							{Name: "samples", Type: types.I64()},
+							{Name: "value", Type: types.F32()},
 						},
-						Inputs:  types.Params{{Name: "value", Type: types.F32()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 						Body: ir.Body{Raw: `{
 							count i64 $= 0
@@ -3140,7 +3130,7 @@ input_ch -> count_local{} -> sink_ch
 			g := arc.Graph{
 				Functions: []ir.Function{{
 					Key:     "log_fn",
-					Config:  types.Params{{Name: "msg", Type: types.String()}},
+					Inputs:  types.Params{{Name: "msg", Type: types.String()}},
 					Outputs: types.Params{},
 					Body:    ir.Body{Raw: `{}`},
 				}},

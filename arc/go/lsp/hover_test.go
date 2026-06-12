@@ -558,7 +558,7 @@ func add(a i32, b i32) i32 {
 		Entry("function",
 			"func foo() i32 { return 0 }\n",
 			uint32(0), uint32(5),
-			"foo", "Function"),
+			"foo", "Node"),
 		Entry("variable",
 			"func test() {\n    x i32 := 42\n    y := x + 10\n}\n",
 			uint32(2), uint32(9),

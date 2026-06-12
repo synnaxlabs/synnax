@@ -624,16 +624,6 @@ var _ = Describe("Types", func() {
 			}
 			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
 		})
-
-		It("Should return false for function types with different config", func() {
-			props1 := types.FunctionProperties{
-				Config: types.Params{{Name: "option", Type: types.I32()}},
-			}
-			props2 := types.FunctionProperties{
-				Config: types.Params{{Name: "option", Type: types.F64()}},
-			}
-			Expect(types.Equal(types.Function(props1), types.Function(props2))).To(BeFalse())
-		})
 	})
 
 	Describe("UnitsAssignable", func() {
@@ -654,13 +644,12 @@ var _ = Describe("Types", func() {
 	})
 
 	Describe("Function constructor", func() {
-		It("Should create function with nil inputs/outputs/config", func() {
+		It("Should create function with nil inputs/outputs", func() {
 			var props types.FunctionProperties
 			fn := types.Function(props)
 			Expect(fn.Kind).To(Equal(types.KindFunction))
 			Expect(fn.Inputs).To(BeNil())
 			Expect(fn.Outputs).To(BeNil())
-			Expect(fn.Config).To(BeNil())
 		})
 
 		It("Should preserve provided inputs/outputs/config", func() {

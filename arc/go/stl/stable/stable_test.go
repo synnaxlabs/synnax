@@ -39,10 +39,8 @@ var _ = Describe("StableFor", func() {
 		irNode = ir.Node{
 			Key:  "stable",
 			Type: "stable_for",
-			Config: types.Params{
-				{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 1},
-			},
 			Inputs: types.Params{
+				{Name: "duration", Type: types.TimeSpan(), Value: telem.Second * 1},
 				{Name: ir.DefaultInputParam, Type: types.U8()},
 			},
 			Outputs: types.Params{
@@ -132,7 +130,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -167,7 +165,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -209,7 +207,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -243,7 +241,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -283,7 +281,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -319,7 +317,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -349,7 +347,7 @@ var _ = Describe("StableFor", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "stable_for",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.SecondTS},
 					},
 				},
@@ -415,10 +413,8 @@ var _ = Describe("StableFor", func() {
 					},
 					{
 						Key: "stable_for",
-						Config: types.Params{
-							{Name: "duration", Type: types.TimeSpan()},
-						},
 						Inputs: types.Params{
+							{Name: "duration", Type: types.TimeSpan()},
 							{Name: ir.DefaultInputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{

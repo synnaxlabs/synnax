@@ -439,7 +439,7 @@ var _ = Describe("Completion", func() {
 				Name: "myTask",
 				Kind: symbol.KindFunction,
 				Type: types.Function(types.FunctionProperties{
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "threshold", Type: types.F64()},
 						{Name: "timeout", Type: types.I64()},
 						{Name: "channel", Type: types.Chan(types.F64())},

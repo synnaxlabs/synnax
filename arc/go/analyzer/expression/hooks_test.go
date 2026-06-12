@@ -19,15 +19,14 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("AnalyzeCall hook", func() {
+var _ = Describe("AnalyzeArguments hook (call form)", func() {
 	It("Should invoke the hook on a func-form call inside a function body", func(bCtx SpecContext) {
 		var (
 			called  int
-			callAST parser.IFunctionCallSuffixContext
+			gotArgs []symbol.Argument
 		)
 		hooked := symbol.Symbol{
 			Name: "hooked",
@@ -35,13 +34,12 @@ var _ = Describe("AnalyzeCall hook", func() {
 			Exec: symbol.ExecBoth,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.I32()}},
-				Config:  types.Params{{Name: "a", Type: types.I32()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 			}),
-			AnalyzeCall: symbol.CallHook(func(_ *diagnostics.Diagnostics, c parser.IFunctionCallSuffixContext) {
+			AnalyzeArguments: func(_ any, args []symbol.Argument) {
 				called++
-				callAST = c
-			}),
+				gotArgs = args
+			},
 		}
 		src := `func main() i32 { return hooked(1) }`
 		ast := MustSucceed(parser.Parse(src))
@@ -49,7 +47,7 @@ var _ = Describe("AnalyzeCall hook", func() {
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		Expect(called).To(Equal(1))
-		Expect(callAST).ToNot(BeNil())
+		Expect(gotArgs).To(HaveLen(1))
 	})
 
 	It("Should not invoke the hook when the symbol does not define one", func(bCtx SpecContext) {
@@ -59,7 +57,6 @@ var _ = Describe("AnalyzeCall hook", func() {
 			Exec: symbol.ExecBoth,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.I32()}},
-				Config:  types.Params{{Name: "a", Type: types.I32()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 			}),
 		}

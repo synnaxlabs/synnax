@@ -473,7 +473,7 @@ var _ = Describe("Construction validation", func() {
 			Expect(op.NewHost().Create(ctx, cfg)).Error().
 				To(MatchError(node.ErrInputNotFound))
 		},
-		Entry("binary add", "add"),
-		Entry("unary neg", "neg"),
+		Entry("binary ge", "ge"),
+		Entry("unary not", "not"),
 	)
 })

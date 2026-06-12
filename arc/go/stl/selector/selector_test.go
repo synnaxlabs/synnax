@@ -45,7 +45,7 @@ var _ = Describe("Select", func() {
 				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
 				},
 				Functions: []graph.Function{
@@ -58,7 +58,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -101,7 +101,7 @@ var _ = Describe("Select", func() {
 				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
 				},
 				Functions: []graph.Function{
@@ -114,7 +114,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -386,7 +386,7 @@ var _ = Describe("Select", func() {
 				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
 				},
 				Functions: []graph.Function{
@@ -399,7 +399,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},
@@ -430,7 +430,7 @@ var _ = Describe("Select", func() {
 				Edges: []graph.Edge{
 					{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
-						Target: ir.Handle{Node: "select", Param: ir.DefaultInputParam},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
 				},
 				Functions: []graph.Function{
@@ -443,7 +443,7 @@ var _ = Describe("Select", func() {
 					{
 						Key: "select",
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
 						Outputs: types.Params{
 							{Name: "true", Type: types.U8()},

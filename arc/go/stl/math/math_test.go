@@ -79,7 +79,7 @@ func openMath(
 	ctx SpecContext,
 	nodeType string,
 	dt types.Type,
-	config types.Params,
+	inputs types.Params,
 ) mathSetup {
 	g := makeMathGraph(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -88,7 +88,7 @@ func openMath(
 	inputNode := s.Node("input")
 	m := MustSucceed(stlmath.NewHost(ctx, nil))
 	n := MustSucceed(m.Create(ctx, node.Config{
-		Node:    ir.Node{Key: "math", Type: nodeType, Config: config},
+		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
 		State:   s.Node("math"),
 		Program: program.Program{IR: analyzed},
 	}))
@@ -99,7 +99,7 @@ func openMathWithReset(
 	ctx SpecContext,
 	nodeType string,
 	dt types.Type,
-	config types.Params,
+	inputs types.Params,
 ) mathSetup {
 	g := makeMathGraphWithReset(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -108,7 +108,7 @@ func openMathWithReset(
 	inputNode := s.Node("input")
 	m := MustSucceed(stlmath.NewHost(ctx, nil))
 	n := MustSucceed(m.Create(ctx, node.Config{
-		Node:    ir.Node{Key: "math", Type: nodeType, Config: config},
+		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
 		State:   s.Node("math"),
 		Program: program.Program{IR: analyzed},
 	}))

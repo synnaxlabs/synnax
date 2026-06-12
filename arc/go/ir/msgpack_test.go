@@ -106,14 +106,13 @@ var _ = Describe("DecodeMsgpack", func() {
 			legacy := struct {
 				Key      string
 				Type     string
-				Config   types.Params
 				Inputs   types.Params
 				Outputs  types.Params
 				Channels types.Channels
 			}{
 				Key:  "node1",
 				Type: "fn1",
-				Config: types.Params{
+				Inputs: types.Params{
 					{Name: "rate", Type: types.Type{Kind: types.KindF32}},
 				},
 			}
@@ -122,7 +121,7 @@ var _ = Describe("DecodeMsgpack", func() {
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("node1"))
 			Expect(decoded.Type).To(Equal("fn1"))
-			Expect(decoded.Config).To(HaveLen(1))
+			Expect(decoded.Inputs).To(HaveLen(1))
 		})
 	})
 
