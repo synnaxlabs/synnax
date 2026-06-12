@@ -410,8 +410,8 @@ int_chan -> consumer{}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("upstream value type"))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
+				Expect((*ctx.Diagnostics)[0].Message).To(Equal(
+					"upstream value type i32 does not match func 'consumer' trigger parameter 'v' type f64"))
 			})
 		})
 
@@ -2136,6 +2136,43 @@ var _ = Describe("TriggerOnly upstream activation", func() {
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring("has no return value"))
+	})
+})
+
+var _ = Describe("Trigger call-site conflict", func() {
+	It("Should flag a param bound by both a named call-site argument and an upstream wire", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func consumer(v f64) {}
+		sensor_chan -> consumer{v=5.0}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+			"parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire"))
+	})
+
+	It("Should flag a param bound by both a positional call-site argument and an upstream wire", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func consumer(v f64) {}
+		sensor_chan -> consumer{5.0}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+			"parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire"))
+	})
+})
+
+var _ = Describe("Duplicate call-site argument", func() {
+	It("Should flag a parameter supplied twice by name", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func sink{v i32}() {}
+		sensor_chan -> sink{v=1, v=2}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+			"duplicate argument for parameter 'v' of func 'sink'"))
 	})
 })
 

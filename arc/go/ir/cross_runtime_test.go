@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -56,4 +57,23 @@ var _ = Describe("Cross-runtime IR contract", Ordered, func() {
 		Entry("lhs input param", "lhs_input_param", ir.LHSInputParam),
 		Entry("rhs input param", "rhs_input_param", ir.RHSInputParam),
 	)
+
+	// Guard against drift-by-addition: a new constant added to the C++ header
+	// without a matching Go agreement Entry above must fail the suite.
+	It("Should cover every C++ ir.h param-name constant", func() {
+		covered := set.New(
+			"default_output_param",
+			"default_input_param",
+			"lhs_input_param",
+			"rhs_input_param",
+		)
+		var uncovered []string
+		for name := range cppConstants {
+			if !covered.Contains(name) {
+				uncovered = append(uncovered, name)
+			}
+		}
+		Expect(uncovered).To(BeEmpty(),
+			"C++ ir.h declares param-name constants with no Go agreement Entry: %v", uncovered)
+	})
 })

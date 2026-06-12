@@ -882,4 +882,42 @@ TEST(StateTest, ResetClearsBufferedAuthorityChanges) {
     EXPECT_TRUE(s.flush_authority_changes().empty());
 }
 
+/// @brief resolve_input maps an input name to its declaration-order index and
+/// returns VALIDATION for an unknown name (so a stdlib wiring typo fails at
+/// node construction, not mid-execution).
+TEST(StateTest, ResolveInput_ByNameAndMissing) {
+    arc::types::Param a;
+    a.name = "a";
+    a.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    a.value = 1.0f;
+
+    arc::types::Param b;
+    b.name = "b";
+    b.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    b.value = 2.0f;
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.push_back(a);
+    consumer.inputs.push_back(b);
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(consumer);
+    ir.functions.push_back(fn);
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+    auto node = ASSERT_NIL_P(s.node("consumer"));
+
+    const auto idx_a = ASSERT_NIL_P(node.resolve_input("a"));
+    EXPECT_EQ(idx_a, 0u);
+    const auto idx_b = ASSERT_NIL_P(node.resolve_input("b"));
+    EXPECT_EQ(idx_b, 1u);
+    ASSERT_OCCURRED_AS_P(node.resolve_input("missing"), x::errors::VALIDATION);
+}
+
 }

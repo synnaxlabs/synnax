@@ -90,6 +90,18 @@ TEST(ConstantModuleTest, CreatesConstantNode) {
     ASSERT_NE(node, nullptr);
 }
 
+/// @brief Test that create returns VALIDATION when the value parameter has no value.
+TEST(ConstantModuleTest, ErrorsWhenValueMissing) {
+    TestSetup setup(types::Kind::F32, x::json::json(nullptr));
+    Module module;
+    ASSERT_OCCURRED_AS_P(
+        module.create(
+            runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
+        ),
+        x::errors::VALIDATION
+    );
+}
+
 /// @brief Test that next() outputs the constant value on first call.
 TEST(ConstantTest, NextOutputsValueOnFirstCall) {
     TestSetup setup(types::Kind::F32, 42.5f);

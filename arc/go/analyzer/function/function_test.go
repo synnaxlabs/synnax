@@ -154,6 +154,32 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(fn.Type.Inputs[2].Value).To(Equal(int32(10)))
 			})
 		})
+		Describe("trigger assignment", func() {
+			It("should be TriggerOnly for a function with no parameters", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo() {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerOnly))
+			})
+			It("should be TriggerOnly for a function with only brace-block inputs", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo{a i32}() {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerOnly))
+			})
+			It("should bind the trigger to the sole parens param", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo(x i32) {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerInput("x")))
+			})
+			It("should bind the trigger to the first parens param", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo(x i32, y f64) {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerInput("x")))
+			})
+			It("should bind the trigger to the first parens param, not the leading brace-block input", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo{a i32}(x i32) {}`, nil)
+				fn := ctx.Scope.Children()[0]
+				Expect(fn.Type.Inputs).To(HaveLen(2))
+				Expect(fn.Type.Inputs[0].Name).To(Equal("a"))
+				Expect(fn.Type.Inputs[1].Name).To(Equal("x"))
+				Expect(fn.Trigger).To(Equal(symbol.TriggerInput("x")))
+			})
+		})
 		Describe("output parameter collection", func() {
 			It("should handle void function", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo() {}`, nil)
