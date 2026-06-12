@@ -102,6 +102,8 @@ export interface GridProps extends PropsWithChildren<{}> {
   // Locks every resize handle (edges included) to aspect ratio, so vertical
   // edges also drive width. Use for single-dimension symbols (circle, polygon).
   keepAspectRatio?: boolean;
+  // Restricts which resize handles render. Defaults to all eight.
+  resizeHandles?: (ControlLinePosition | ControlPosition)[];
 }
 
 const HAUL_TYPE = "schematic_grid";
@@ -232,6 +234,7 @@ export const Grid: FC<GridProps> = ({
   onRotate,
   onResize,
   keepAspectRatio = false,
+  resizeHandles,
   nodeKey,
   orientation = "left",
 }) => {
@@ -246,20 +249,22 @@ export const Grid: FC<GridProps> = ({
     onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
   const resizeControls = useMemo(() => {
     if (!editable || onResize == null) return null;
-    return RESIZE_CONTROLS.map(
-      ({ position, variant, keepAspectRatio: corner, cursor }) => (
-        <NodeResizeControl
-          key={position}
-          position={position}
-          variant={variant}
-          keepAspectRatio={keepAspectRatio || corner}
-          onResizeStart={() => setResizeCursor(cursor)}
-          onResizeEnd={() => setResizeCursor(null)}
-          onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
-        />
-      ),
-    );
-  }, [editable, onResize, keepAspectRatio]);
+    const controls =
+      resizeHandles == null
+        ? RESIZE_CONTROLS
+        : RESIZE_CONTROLS.filter(({ position }) => resizeHandles.includes(position));
+    return controls.map(({ position, variant, keepAspectRatio: corner, cursor }) => (
+      <NodeResizeControl
+        key={position}
+        position={position}
+        variant={variant}
+        keepAspectRatio={keepAspectRatio || corner}
+        onResizeStart={() => setResizeCursor(cursor)}
+        onResizeEnd={() => setResizeCursor(null)}
+        onResize={(_, { width, height }) => onResize(roundDimensions(width, height))}
+      />
+    ));
+  }, [editable, onResize, keepAspectRatio, resizeHandles]);
   return (
     <>
       <Zone key="top" loc="top" editable={editable} nodeKey={nodeKey} items={items} />
