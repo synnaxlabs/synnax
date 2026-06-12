@@ -50,7 +50,7 @@
 				<Property
                     Name="Source[0].itemID"
                     Type="Str"
-                >{D5033973-DA57-40D0-B87A-676810619212}</Property>
+                >{2D240BC7-E900-4AD1-AC2D-166323595D14}</Property>
 				<Property Name="Source[0].type" Type="Str">Container</Property>
 				<Property Name="Source[1].destinationIndex" Type="Int">0</Property>
 				<Property Name="Source[1].itemID" Type="Ref">/My Computer/synnax_lib.lvlib</Property>
