@@ -71,7 +71,7 @@ Range struct {
     @go migrate
     @cpp name        "Range"
     @ts name         "Base"
-    @py name         "Base"
+    @py name         "Payload"
     @cpp methods     "ranger::kv::Client kv"
     @cpp includes    "client/cpp/ranger/kv/kv.h"
 }

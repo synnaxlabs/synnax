@@ -24,7 +24,7 @@ from x import telem
 Key: TypeAlias = UUID
 
 
-class Base(BaseModel):
+class Payload(BaseModel):
     """Is a user-defined region of time in the Synnax cluster. Ranges act as a
     method for labeling and categorizing telemetry data within specific time
     periods.
@@ -47,7 +47,7 @@ class Base(BaseModel):
     time_range: telem.TimeRange
     color: color_.Color | None = None
     labels: list[label.Label] | None = None
-    parent: Base | None = None
+    parent: Payload | None = None
 
     def __hash__(self) -> int:
         return hash(self.key)

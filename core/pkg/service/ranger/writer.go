@@ -124,7 +124,7 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 // descendant range (via the parent-of relationship). Delete is idempotent: missing keys
 // are silently ignored. The full subtree is collected in a single batched breadth-first
 // sweep over the ontology — one query per tree level rather than one per node — and the
-// underlying gorp and ontology deletes are issued as bulk operations.
+// underlying Gorp and ontology deletes are issued as bulk operations.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if len(keys) == 0 {
 		return nil

@@ -11,6 +11,7 @@ import re
 from uuid import uuid4
 
 import numpy as np
+import pydantic
 import pytest
 
 import synnax as sy
@@ -97,6 +98,14 @@ class TestRangeClient:
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
 
+    def test_create_rejects_empty_name(self, client: sy.Synnax):
+        """Should reject creation of a range with an empty name (Pydantic min_length=1)"""
+        with pytest.raises(pydantic.ValidationError):
+            client.ranges.create(
+                name="",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+
     @pytest.mark.ranger
     class TestRangeDelete:
         @pytest.fixture(scope="class")
@@ -111,6 +120,30 @@ class TestRangeClient:
             client.ranges.delete(rng.key)
             with pytest.raises(sy.exceptions.QueryError):
                 client.ranges.retrieve(key=rng.key)
+
+        def test_delete_multiple_keys(self, client: sy.Synnax):
+            """Should delete multiple ranges in a single call"""
+            ranges = client.ranges.create(
+                [
+                    sy.Range(
+                        name=random_name(),
+                        time_range=sy.TimeStamp.now().span_range(
+                            10 * sy.TimeSpan.SECOND
+                        ),
+                    ),
+                    sy.Range(
+                        name=random_name(),
+                        time_range=sy.TimeStamp.now().span_range(
+                            5 * sy.TimeSpan.SECOND
+                        ),
+                    ),
+                ]
+            )
+            keys = [r.key for r in ranges]
+            client.ranges.delete(keys)
+            for k in keys:
+                with pytest.raises(sy.exceptions.QueryError):
+                    client.ranges.retrieve(key=k)
 
     @pytest.mark.ranger
     class TestRangeChannelResolution:
@@ -280,6 +313,123 @@ class TestRangeClient:
 
             child_names = {child.name for child in children}
             assert child_names == {"child1", "child2"}
+
+        def test_create_kwargs_with_parent_attaches(self, client: sy.Synnax):
+            """Client.create(parent=range) should attach the child under the parent"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            child_name = random_name()
+            child = client.ranges.create(
+                name=child_name,
+                time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+                parent=parent_rng,
+            )
+            assert child.parent is not None
+            assert child.parent.key == parent_rng.key
+            children = parent_rng.children
+            assert child_name in {c.name for c in children}
+
+        def test_create_single_range_with_parent_attaches(self, client: sy.Synnax):
+            """Passing a Range with .parent set should attach it under the parent"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            child_name = random_name()
+            child = client.ranges.create(
+                sy.Range(
+                    name=child_name,
+                    time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+                    parent=parent_rng,
+                )
+            )
+            assert child.parent is not None
+            assert child.parent.key == parent_rng.key
+            children = parent_rng.children
+            assert child_name in {c.name for c in children}
+
+        def test_create_list_with_parent_attaches(self, client: sy.Synnax):
+            """List-form create should preserve each Range's parent assignment"""
+            parent_rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            names = [random_name(), random_name()]
+            created = client.ranges.create(
+                [
+                    sy.Range(
+                        name=names[0],
+                        time_range=sy.TimeStamp.now().span_range(
+                            5 * sy.TimeSpan.SECOND
+                        ),
+                        parent=parent_rng,
+                    ),
+                    sy.Range(
+                        name=names[1],
+                        time_range=sy.TimeStamp.now().span_range(
+                            3 * sy.TimeSpan.SECOND
+                        ),
+                        parent=parent_rng,
+                    ),
+                ]
+            )
+            for c in created:
+                assert c.parent is not None
+                assert c.parent.key == parent_rng.key
+            children = parent_rng.children
+            child_names = {c.name for c in children}
+            assert names[0] in child_names
+            assert names[1] in child_names
+
+
+@pytest.mark.ranger
+class TestRangeConstructor:
+    """Pure-Pydantic tests of Range construction — no server required."""
+
+    def test_accepts_range_as_parent(self):
+        """Range(parent=other_range) should store the parent's identity"""
+        parent = sy.Range(
+            name="parent",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        child = sy.Range(
+            name="child",
+            time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            parent=parent,
+        )
+        assert child.parent is not None
+        assert child.parent.key == parent.key
+        assert child.parent.name == parent.name
+
+    def test_strips_grandparent(self):
+        """A parent that itself has a parent should be flattened to depth 1"""
+        grandparent = sy.Range(
+            name="grandparent",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        parent = sy.Range(
+            name="parent",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            parent=grandparent,
+        )
+        child = sy.Range(
+            name="child",
+            time_range=sy.TimeStamp.now().span_range(5 * sy.TimeSpan.SECOND),
+            parent=parent,
+        )
+        assert child.parent is not None
+        assert child.parent.key == parent.key
+        assert child.parent.parent is None
+
+    def test_no_parent(self):
+        """Range without a parent should have parent=None"""
+        rng = sy.Range(
+            name="solo",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        assert rng.parent is None
 
 
 @pytest.mark.ranger
