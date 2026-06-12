@@ -37,7 +37,7 @@ import (
 )
 
 // CollectDeclarations registers all function declarations in the symbol table,
-// including their full signatures (config, inputs, outputs). This is called during
+// including their full signatures (inputs and outputs). This is called during
 // the first pass of AnalyzeProgram to establish scopes and signatures before
 // analyzing function bodies that may reference other functions.
 func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
@@ -45,8 +45,8 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
 
-			// The brace block holds inputs and the parens block holds the trigger;
-			// they concatenate into one Inputs list, inputs first.
+			// The brace and parens blocks concatenate into one Inputs list; the
+			// trigger is the first parens-block param, if any.
 			var inputs, outputs types.Params
 			collectConfig(ctx, fn.ConfigBlock(), &inputs)
 			parensStart := len(inputs)
@@ -202,7 +202,7 @@ func collectOutputs[T antlr.ParserRuleContext](
 
 // Analyze performs semantic analysis on a function declaration.
 // This is called during the second pass after all declarations have been collected.
-// The function signature (config, inputs, outputs) is already populated by CollectDeclarations;
+// The function signature (inputs and outputs) is already populated by CollectDeclarations;
 // this function adds the parameters to the function's scope and analyzes the body.
 func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
@@ -212,7 +212,7 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 		return
 	}
 
-	// Add config, inputs, and outputs to the function's scope
+	// Add inputs and outputs to the function's scope
 	// (types are already populated by CollectDeclarations)
 	addConfigToScope(ctx, ctx.AST.ConfigBlock(), fn)
 	addInputsToScope(acontext.Child(ctx, ctx.AST.InputList()).WithScope(fn))

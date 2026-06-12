@@ -60,9 +60,9 @@ func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.Variable("T", &numConstraint)},
 				{Name: durationConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
 				{Name: countConfigParam, Type: types.I64(), Value: 0},
-				{Name: ir.DefaultInputParam, Type: types.Variable("T", &numConstraint)},
 				{Name: resetInputParam, Type: types.U8(), Value: 0},
 			},
 			Outputs: types.Params{

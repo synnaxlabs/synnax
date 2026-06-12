@@ -42,8 +42,8 @@ var (
 func newSymbolType() types.Type {
 	return types.Function(types.FunctionProperties{
 		Inputs: types.Params{
-			{Name: "duration", Type: types.TimeSpan()},
 			{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+			{Name: "duration", Type: types.TimeSpan()},
 		},
 		Outputs: types.Params{
 			{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},

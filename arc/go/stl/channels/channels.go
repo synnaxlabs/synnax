@@ -65,8 +65,8 @@ func NewSymbols() []*symbol.Symbol {
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
 				Inputs: types.Params{
-					{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))},
 					{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+					{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))},
 				},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			}),
