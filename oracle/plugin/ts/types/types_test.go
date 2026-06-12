@@ -998,7 +998,7 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`export const typeZ = functionPropertiesZ`))
 			Expect(content).To(ContainSubstring(`.extend({`))
 			Expect(content).ToNot(ContainSubstring(`functionPropertiesZ: z.ZodType`))
-			Expect(content).To(ContainSubstring(`export const paramZ: z.ZodType<Param> = z.object({`))
+			Expect(content).To(ContainSubstring(`export const paramZ = z.object({`))
 		})
 
 		It("Should keep recursive union variant payloads extendable", func(ctx SpecContext) {

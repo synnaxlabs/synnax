@@ -22,14 +22,6 @@ export type Key = z.infer<typeof keyZ>;
  * method for labeling and categorizing telemetry data within specific time
  * periods.
  */
-export interface Base {
-  key: Key;
-  name: string;
-  timeRange: telem.TimeRange;
-  color?: color.Color;
-  labels?: label.Label[];
-  parent?: Base;
-}
 export const baseZ = z.object({
   /** key is the unique identifier for this range. */
   key: keyZ,
@@ -58,6 +50,7 @@ export const baseZ = z.object({
     return baseZ.optional();
   },
 });
+export interface Base extends z.infer<typeof baseZ> {}
 
 export const payloadZ = baseZ.omit({ timeRange: true, parent: true }).extend({
   timeRange: telem.timeRangeBoundedZ,

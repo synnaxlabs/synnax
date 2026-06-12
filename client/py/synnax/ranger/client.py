@@ -615,7 +615,7 @@ class Client:
                 Range(
                     key=key,
                     name=name,
-                    time_range=time_range,
+                    time_range=time_range if time_range is not None else TimeRange.ZERO,
                     color=color,
                     parent=parent,
                 ).to_payload()

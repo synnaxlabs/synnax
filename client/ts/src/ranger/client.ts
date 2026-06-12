@@ -25,13 +25,7 @@ import { type ontology } from "@/ontology";
 import { type Client as AliasClient } from "@/ranger/alias/client";
 import { type Client as KVClient } from "@/ranger/kv/client";
 import { type Name, type Params } from "@/ranger/payload";
-import {
-  type Key,
-  keyZ,
-  ontologyID,
-  type Payload,
-  payloadZ,
-} from "@/ranger/types.gen";
+import { type Key, keyZ, ontologyID, type Payload, payloadZ } from "@/ranger/types.gen";
 import { type CreatePayload, type Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 

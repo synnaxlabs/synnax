@@ -2591,7 +2591,6 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{- end }}
 {{- end }}
 {{- end }}
-{{- end }}
 {{- else if .IsUnion }}
 {{- with .Union }}
 {{- $disc := .Discriminator }}
@@ -2639,6 +2638,7 @@ export const {{ .SchemasConst }}: {
   {{ .Value }}: {{ .SchemaName }},
 {{- end }}
 };
+{{- end }}
 {{- end }}
 {{- end }}
 {{- if .Ontology }}
