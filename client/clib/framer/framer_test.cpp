@@ -202,6 +202,7 @@ TEST(ClibWriter, testWriteWithNullWriterReturnsValidationError) {
         channels,
         1,
         data,
+        sizeof(data),
         1,
         "float32",
         &err
@@ -259,6 +260,7 @@ TEST(ClibWriter, testWritesFixedWidthRoundTrip) {
             channels,
             1,
             values.data(),
+            values.size() * sizeof(float),
             values.size(),
             "float32",
             &err
@@ -307,6 +309,7 @@ TEST(ClibWriter, testRejectsUnknownDataType) {
         channels,
         1,
         values,
+        sizeof(values),
         1,
         "not_a_real_type",
         &err
@@ -314,6 +317,86 @@ TEST(ClibWriter, testRejectsUnknownDataType) {
     EXPECT_NE(code, OK);
     EXPECT_STREQ(err.type, "sy.validation");
     EXPECT_NE(std::strstr(err.message, "unknown data type"), nullptr);
+
+    synnax_writer_close(writer, &err);
+    synnax_client_close(client);
+}
+
+/// @brief it should reject a fixed-width write whose data buffer size disagrees with
+/// channel_count * sample_count * density.
+TEST(ClibWriter, testRejectsDataBufferSizeMismatch) {
+    auto cpp_client = new_test_client();
+    auto [time, data] = create_indexed_pair(cpp_client);
+
+    SynnaxError err;
+    SynnaxClient *client = open_test_client(&err);
+    ASSERT_NE(client, nullptr) << err.message;
+    SynnaxWriter *writer = open_test_writer(
+        client,
+        x::telem::TimeStamp::now().nanoseconds(),
+        {time.key, data.key},
+        &err
+    );
+    ASSERT_NE(writer, nullptr) << err.message;
+
+    const uint32_t channels[] = {data.key};
+    const float values[] = {1.0f, 2.0f, 3.0f};
+    const int64_t timestamps[] = {x::telem::TimeStamp::now().nanoseconds()};
+    const int32_t code = synnax_writer_write(
+        writer,
+        time.key,
+        timestamps,
+        channels,
+        1,
+        values,
+        sizeof(float),
+        3,
+        "float32",
+        &err
+    );
+    EXPECT_NE(code, OK);
+    EXPECT_STREQ(err.type, "sy.validation");
+    EXPECT_NE(std::strstr(err.message, "data buffer size"), nullptr);
+
+    synnax_writer_close(writer, &err);
+    synnax_client_close(client);
+}
+
+/// @brief it should reject a fixed-width write whose data buffer is larger than the
+/// declared samples require.
+TEST(ClibWriter, testRejectsDataBufferWithTrailingBytes) {
+    auto cpp_client = new_test_client();
+    auto [time, data] = create_indexed_pair(cpp_client);
+
+    SynnaxError err;
+    SynnaxClient *client = open_test_client(&err);
+    ASSERT_NE(client, nullptr) << err.message;
+    SynnaxWriter *writer = open_test_writer(
+        client,
+        x::telem::TimeStamp::now().nanoseconds(),
+        {time.key, data.key},
+        &err
+    );
+    ASSERT_NE(writer, nullptr) << err.message;
+
+    const uint32_t channels[] = {data.key};
+    const float values[] = {1.0f, 2.0f, 3.0f, 4.0f};
+    const int64_t timestamps[] = {x::telem::TimeStamp::now().nanoseconds()};
+    const int32_t code = synnax_writer_write(
+        writer,
+        time.key,
+        timestamps,
+        channels,
+        1,
+        values,
+        sizeof(values),
+        3,
+        "float32",
+        &err
+    );
+    EXPECT_NE(code, OK);
+    EXPECT_STREQ(err.type, "sy.validation");
+    EXPECT_NE(std::strstr(err.message, "data buffer size"), nullptr);
 
     synnax_writer_close(writer, &err);
     synnax_client_close(client);
@@ -587,6 +670,7 @@ TEST(ClibWriter, testWritesMultiChannelFixedWidthRoundTrip) {
             channels,
             2,
             packed.data(),
+            packed.size() * sizeof(float),
             3,
             "float32",
             &err
@@ -649,6 +733,7 @@ TEST(ClibWriter, testWritesInt64RoundTrip) {
             channels,
             1,
             values.data(),
+            values.size() * sizeof(int64_t),
             values.size(),
             "int64",
             &err
@@ -708,6 +793,7 @@ TEST(ClibWriter, testWritesUint8RoundTrip) {
             channels,
             1,
             values.data(),
+            values.size() * sizeof(uint8_t),
             values.size(),
             "uint8",
             &err
@@ -881,6 +967,7 @@ TEST(ClibWriter, testWritesAutoIndexWithoutIndexChannel) {
             channels,
             1,
             values.data(),
+            values.size() * sizeof(float),
             values.size(),
             "float32",
             &err

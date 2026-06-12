@@ -87,6 +87,7 @@ SYNNAX_EXPORT int32_t synnax_writer_write(
     const uint32_t *channels,
     uint64_t channel_count,
     const void *data,
+    uint64_t data_size,
     uint64_t sample_count,
     const char *data_type,
     SynnaxError err

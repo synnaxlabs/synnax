@@ -103,6 +103,7 @@ int32_t synnax_writer_write(
     const uint32_t *channels,
     const size_t channel_count,
     const void *data,
+    const size_t data_size,
     const size_t sample_count,
     const char *data_type,
     SynnaxError *err
@@ -116,6 +117,15 @@ int32_t synnax_writer_write(
         const x::telem::DataType dt{str_or(data_type, "")};
         if (dt.density() == 0) {
             set_err(err, CODE_INTERNAL, "sy.validation", "unknown data type");
+            return CODE_INTERNAL;
+        }
+        if (data_size != channel_count * sample_count * dt.density()) {
+            set_err(
+                err,
+                CODE_INTERNAL,
+                "sy.validation",
+                "data buffer size does not match channel_count * sample_count * density"
+            );
             return CODE_INTERNAL;
         }
         const bool has_index = index_channel != 0 && timestamps != nullptr;
