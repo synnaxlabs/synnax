@@ -439,19 +439,19 @@ func (b *testValueBuilder) hardOptionalExpr(
 	if inner == "" {
 		return "nil", nil
 	}
-	// For struct/map/slice literals, extract the type from "Type{...}".
-	// For primitives, cast the value to the correct type so that Go's
-	// type inference assigns the right type to v (e.g., uint8(5) not just 5).
-	var goType string
-	if before, _, ok := strings.Cut(inner, "{"); ok {
-		goType = before
-		return fmt.Sprintf("func() *%s { v := %s; return &v }()", goType, inner), nil
+	// Composite literals carry their type; bare primitives are cast so the
+	// pointer gets the declared type (e.g., new(uint8(5)), not *int).
+	if strings.Contains(inner, "{") {
+		return fmt.Sprintf("new(%s)", inner), nil
 	}
-	goType, err = b.goTypeName(resolved)
+	goType, err := b.goTypeName(resolved)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("func() *%s { v := %s(%s); return &v }()", goType, goType, inner), nil
+	if strings.HasPrefix(inner, goType+"(") {
+		return fmt.Sprintf("new(%s)", inner), nil
+	}
+	return fmt.Sprintf("new(%s(%s))", goType, inner), nil
 }
 
 func (b *testValueBuilder) valueExpr(

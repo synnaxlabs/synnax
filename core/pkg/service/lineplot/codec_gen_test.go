@@ -63,7 +63,7 @@ var _ = Describe("Codec", func() {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    10.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				X2: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -73,7 +73,7 @@ var _ = Describe("Codec", func() {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    21.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y1: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -83,7 +83,7 @@ var _ = Describe("Codec", func() {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    32.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y2: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -93,7 +93,7 @@ var _ = Describe("Codec", func() {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    43.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y3: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -103,7 +103,7 @@ var _ = Describe("Codec", func() {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    54.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y4: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -113,7 +113,7 @@ var _ = Describe("Codec", func() {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    65.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 			}),
 			Entry("zero values", lineplot.Axes{
@@ -199,7 +199,7 @@ var _ = Describe("Codec", func() {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 				TickSpacing:    9.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			}),
 			Entry("zero values", lineplot.Axis{
 				Key:            lineplot.AxisKey(""),
@@ -266,17 +266,11 @@ var _ = Describe("Codec", func() {
 				Position: spatial.StickyXY{
 					X: 3.5,
 					Y: 4.5,
-					Root: func() *spatial.CornerLocation {
-						v := spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						}
-						return &v
-					}(),
-					Units: func() *spatial.StickyUnits {
-						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-						return &v
-					}(),
+					Root: new(spatial.CornerLocation{
+						X: spatial.XLocation("left"),
+						Y: spatial.YLocation("top"),
+					}),
+					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
 				},
 			}),
 			Entry("zero values", lineplot.Legend{
@@ -303,16 +297,13 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", lineplot.Line{
 				Key:   "test_1",
-				Label: func() *string { v := string("test_2"); return &v }(),
-				Color: func() *color.Color {
-					v := color.Color{
-						R: 5,
-						G: 6,
-						B: 7,
-						A: 7.5,
-					}
-					return &v
-				}(),
+				Label: new(string("test_2")),
+				Color: new(color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				}),
 				StrokeWidth:    8.5,
 				Downsample:     10,
 				DownsampleMode: lineplot.DownsampleMode("average"),
@@ -347,17 +338,11 @@ var _ = Describe("Codec", func() {
 					Position: spatial.StickyXY{
 						X: 9.5,
 						Y: 10.5,
-						Root: func() *spatial.CornerLocation {
-							v := spatial.CornerLocation{
-								X: spatial.XLocation("left"),
-								Y: spatial.YLocation("top"),
-							}
-							return &v
-						}(),
-						Units: func() *spatial.StickyUnits {
-							v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-							return &v
-						}(),
+						Root: new(spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}),
+						Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
 					},
 				},
 				Channels: lineplot.Channels{
@@ -378,7 +363,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 						TickSpacing:    37.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					X2: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -388,7 +373,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 						TickSpacing:    48.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					Y1: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -398,7 +383,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 						TickSpacing:    59.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					Y2: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -408,7 +393,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 						TickSpacing:    70.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					Y3: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -418,7 +403,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 						TickSpacing:    81.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					Y4: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -428,22 +413,19 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 						TickSpacing:    92.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 				},
 				Lines: []lineplot.Line{
 					{
 						Key:   "test_95",
-						Label: func() *string { v := string("test_96"); return &v }(),
-						Color: func() *color.Color {
-							v := color.Color{
-								R: 99,
-								G: 100,
-								B: 101,
-								A: 101.5,
-							}
-							return &v
-						}(),
+						Label: new(string("test_96")),
+						Color: new(color.Color{
+							R: 99,
+							G: 100,
+							B: 101,
+							A: 101.5,
+						}),
 						StrokeWidth:    102.5,
 						Downsample:     104,
 						DownsampleMode: lineplot.DownsampleMode("average"),
@@ -453,15 +435,12 @@ var _ = Describe("Codec", func() {
 					{
 						Key:   "test_106",
 						Label: "test_107",
-						Color: func() *color.Color {
-							v := color.Color{
-								R: 110,
-								G: 111,
-								B: 112,
-								A: 112.5,
-							}
-							return &v
-						}(),
+						Color: new(color.Color{
+							R: 110,
+							G: 111,
+							B: 112,
+							A: 112.5,
+						}),
 						Axis:      lineplot.AxisKey("x1"),
 						LineWidth: 114.5,
 						LineDash:  115.5,
@@ -566,17 +545,11 @@ var _ = Describe("Codec", func() {
 					Position: spatial.StickyXY{
 						X: 9.5,
 						Y: 10.5,
-						Root: func() *spatial.CornerLocation {
-							v := spatial.CornerLocation{
-								X: spatial.XLocation("left"),
-								Y: spatial.YLocation("top"),
-							}
-							return &v
-						}(),
-						Units: func() *spatial.StickyUnits {
-							v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-							return &v
-						}(),
+						Root: new(spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}),
+						Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
 					},
 				},
 				Channels: lineplot.Channels{
@@ -597,7 +570,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 						TickSpacing:    37.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					X2: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -607,7 +580,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 						TickSpacing:    48.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					Y1: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -617,7 +590,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 						TickSpacing:    59.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					Y2: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -627,7 +600,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 						TickSpacing:    70.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					Y3: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -637,7 +610,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 						TickSpacing:    81.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 					Y4: lineplot.Axis{
 						Key:            lineplot.AxisKey("x1"),
@@ -647,7 +620,7 @@ var _ = Describe("Codec", func() {
 						Bounds:         spatial.Bounds{},
 						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 						TickSpacing:    92.5,
-						Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+						Type:           new(lineplot.TickType("linear")),
 					},
 				},
 				Lines: []lineplot.Line{},
@@ -685,15 +658,12 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", lineplot.Rule{
 				Key:   "test_1",
 				Label: "test_2",
-				Color: func() *color.Color {
-					v := color.Color{
-						R: 5,
-						G: 6,
-						B: 7,
-						A: 7.5,
-					}
-					return &v
-				}(),
+				Color: new(color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				}),
 				Axis:      lineplot.AxisKey("x1"),
 				LineWidth: 9.5,
 				LineDash:  10.5,
@@ -756,7 +726,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			Bounds:         spatial.Bounds{},
 			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 			TickSpacing:    10.5,
-			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			Type:           new(lineplot.TickType("linear")),
 		},
 		X2: lineplot.Axis{
 			Key:            lineplot.AxisKey("x1"),
@@ -766,7 +736,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			Bounds:         spatial.Bounds{},
 			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 			TickSpacing:    21.5,
-			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			Type:           new(lineplot.TickType("linear")),
 		},
 		Y1: lineplot.Axis{
 			Key:            lineplot.AxisKey("x1"),
@@ -776,7 +746,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			Bounds:         spatial.Bounds{},
 			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 			TickSpacing:    32.5,
-			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			Type:           new(lineplot.TickType("linear")),
 		},
 		Y2: lineplot.Axis{
 			Key:            lineplot.AxisKey("x1"),
@@ -786,7 +756,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			Bounds:         spatial.Bounds{},
 			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 			TickSpacing:    43.5,
-			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			Type:           new(lineplot.TickType("linear")),
 		},
 		Y3: lineplot.Axis{
 			Key:            lineplot.AxisKey("x1"),
@@ -796,7 +766,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			Bounds:         spatial.Bounds{},
 			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 			TickSpacing:    54.5,
-			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			Type:           new(lineplot.TickType("linear")),
 		},
 		Y4: lineplot.Axis{
 			Key:            lineplot.AxisKey("x1"),
@@ -806,7 +776,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			Bounds:         spatial.Bounds{},
 			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 			TickSpacing:    65.5,
-			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			Type:           new(lineplot.TickType("linear")),
 		},
 	}
 	w := orc.NewWriter(0)
@@ -833,7 +803,7 @@ func BenchmarkEncodeDecodeAxis(b *testing.B) {
 		Bounds:         spatial.Bounds{},
 		AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 		TickSpacing:    9.5,
-		Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+		Type:           new(lineplot.TickType("linear")),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -880,17 +850,11 @@ func BenchmarkEncodeDecodeLegend(b *testing.B) {
 		Position: spatial.StickyXY{
 			X: 3.5,
 			Y: 4.5,
-			Root: func() *spatial.CornerLocation {
-				v := spatial.CornerLocation{
-					X: spatial.XLocation("left"),
-					Y: spatial.YLocation("top"),
-				}
-				return &v
-			}(),
-			Units: func() *spatial.StickyUnits {
-				v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-				return &v
-			}(),
+			Root: new(spatial.CornerLocation{
+				X: spatial.XLocation("left"),
+				Y: spatial.YLocation("top"),
+			}),
+			Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
 		},
 	}
 	w := orc.NewWriter(0)
@@ -911,16 +875,13 @@ func BenchmarkEncodeDecodeLegend(b *testing.B) {
 func BenchmarkEncodeDecodeLine(b *testing.B) {
 	lv := lineplot.Line{
 		Key:   "test_1",
-		Label: func() *string { v := string("test_2"); return &v }(),
-		Color: func() *color.Color {
-			v := color.Color{
-				R: 5,
-				G: 6,
-				B: 7,
-				A: 7.5,
-			}
-			return &v
-		}(),
+		Label: new(string("test_2")),
+		Color: new(color.Color{
+			R: 5,
+			G: 6,
+			B: 7,
+			A: 7.5,
+		}),
 		StrokeWidth:    8.5,
 		Downsample:     10,
 		DownsampleMode: lineplot.DownsampleMode("average"),
@@ -950,17 +911,11 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Position: spatial.StickyXY{
 				X: 9.5,
 				Y: 10.5,
-				Root: func() *spatial.CornerLocation {
-					v := spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					}
-					return &v
-				}(),
-				Units: func() *spatial.StickyUnits {
-					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-					return &v
-				}(),
+				Root: new(spatial.CornerLocation{
+					X: spatial.XLocation("left"),
+					Y: spatial.YLocation("top"),
+				}),
+				Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
 			},
 		},
 		Channels: lineplot.Channels{
@@ -981,7 +936,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 				TickSpacing:    37.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			X2: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -991,7 +946,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 				TickSpacing:    48.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			Y1: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1001,7 +956,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 				TickSpacing:    59.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			Y2: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1011,7 +966,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 				TickSpacing:    70.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			Y3: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1021,7 +976,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 				TickSpacing:    81.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			Y4: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1031,22 +986,19 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 				TickSpacing:    92.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 		},
 		Lines: []lineplot.Line{
 			{
 				Key:   "test_95",
-				Label: func() *string { v := string("test_96"); return &v }(),
-				Color: func() *color.Color {
-					v := color.Color{
-						R: 99,
-						G: 100,
-						B: 101,
-						A: 101.5,
-					}
-					return &v
-				}(),
+				Label: new(string("test_96")),
+				Color: new(color.Color{
+					R: 99,
+					G: 100,
+					B: 101,
+					A: 101.5,
+				}),
 				StrokeWidth:    102.5,
 				Downsample:     104,
 				DownsampleMode: lineplot.DownsampleMode("average"),
@@ -1056,15 +1008,12 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			{
 				Key:   "test_106",
 				Label: "test_107",
-				Color: func() *color.Color {
-					v := color.Color{
-						R: 110,
-						G: 111,
-						B: 112,
-						A: 112.5,
-					}
-					return &v
-				}(),
+				Color: new(color.Color{
+					R: 110,
+					G: 111,
+					B: 112,
+					A: 112.5,
+				}),
 				Axis:      lineplot.AxisKey("x1"),
 				LineWidth: 114.5,
 				LineDash:  115.5,
@@ -1109,15 +1058,12 @@ func BenchmarkEncodeDecodeRule(b *testing.B) {
 	rv := lineplot.Rule{
 		Key:   "test_1",
 		Label: "test_2",
-		Color: func() *color.Color {
-			v := color.Color{
-				R: 5,
-				G: 6,
-				B: 7,
-				A: 7.5,
-			}
-			return &v
-		}(),
+		Color: new(color.Color{
+			R: 5,
+			G: 6,
+			B: 7,
+			A: 7.5,
+		}),
 		Axis:      lineplot.AxisKey("x1"),
 		LineWidth: 9.5,
 		LineDash:  10.5,
@@ -1213,7 +1159,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 				TickSpacing:    10.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			X2: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1223,7 +1169,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 				TickSpacing:    21.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			Y1: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1233,7 +1179,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 				TickSpacing:    32.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			Y2: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1243,7 +1189,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 				TickSpacing:    43.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			Y3: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1253,7 +1199,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 				TickSpacing:    54.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 			Y4: lineplot.Axis{
 				Key:            lineplot.AxisKey("x1"),
@@ -1263,7 +1209,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				Bounds:         spatial.Bounds{},
 				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 				TickSpacing:    65.5,
-				Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+				Type:           new(lineplot.TickType("linear")),
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1380,7 +1326,7 @@ func FuzzDecodeAxis(f *testing.F) {
 			Bounds:         spatial.Bounds{},
 			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 			TickSpacing:    9.5,
-			Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+			Type:           new(lineplot.TickType("linear")),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1516,17 +1462,11 @@ func FuzzDecodeLegend(f *testing.F) {
 			Position: spatial.StickyXY{
 				X: 3.5,
 				Y: 4.5,
-				Root: func() *spatial.CornerLocation {
-					v := spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					}
-					return &v
-				}(),
-				Units: func() *spatial.StickyUnits {
-					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-					return &v
-				}(),
+				Root: new(spatial.CornerLocation{
+					X: spatial.XLocation("left"),
+					Y: spatial.YLocation("top"),
+				}),
+				Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1584,16 +1524,13 @@ func FuzzDecodeLine(f *testing.F) {
 	{
 		seed := lineplot.Line{
 			Key:   "test_1",
-			Label: func() *string { v := string("test_2"); return &v }(),
-			Color: func() *color.Color {
-				v := color.Color{
-					R: 5,
-					G: 6,
-					B: 7,
-					A: 7.5,
-				}
-				return &v
-			}(),
+			Label: new(string("test_2")),
+			Color: new(color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			}),
 			StrokeWidth:    8.5,
 			Downsample:     10,
 			DownsampleMode: lineplot.DownsampleMode("average"),
@@ -1659,17 +1596,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Position: spatial.StickyXY{
 					X: 9.5,
 					Y: 10.5,
-					Root: func() *spatial.CornerLocation {
-						v := spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						}
-						return &v
-					}(),
-					Units: func() *spatial.StickyUnits {
-						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-						return &v
-					}(),
+					Root: new(spatial.CornerLocation{
+						X: spatial.XLocation("left"),
+						Y: spatial.YLocation("top"),
+					}),
+					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
 				},
 			},
 			Channels: lineplot.Channels{
@@ -1690,7 +1621,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    37.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				X2: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1700,7 +1631,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    48.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y1: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1710,7 +1641,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    59.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y2: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1720,7 +1651,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    70.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y3: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1730,7 +1661,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    81.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y4: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1740,22 +1671,19 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    92.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 			},
 			Lines: []lineplot.Line{
 				{
 					Key:   "test_95",
-					Label: func() *string { v := string("test_96"); return &v }(),
-					Color: func() *color.Color {
-						v := color.Color{
-							R: 99,
-							G: 100,
-							B: 101,
-							A: 101.5,
-						}
-						return &v
-					}(),
+					Label: new(string("test_96")),
+					Color: new(color.Color{
+						R: 99,
+						G: 100,
+						B: 101,
+						A: 101.5,
+					}),
 					StrokeWidth:    102.5,
 					Downsample:     104,
 					DownsampleMode: lineplot.DownsampleMode("average"),
@@ -1765,15 +1693,12 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				{
 					Key:   "test_106",
 					Label: "test_107",
-					Color: func() *color.Color {
-						v := color.Color{
-							R: 110,
-							G: 111,
-							B: 112,
-							A: 112.5,
-						}
-						return &v
-					}(),
+					Color: new(color.Color{
+						R: 110,
+						G: 111,
+						B: 112,
+						A: 112.5,
+					}),
 					Axis:      lineplot.AxisKey("x1"),
 					LineWidth: 114.5,
 					LineDash:  115.5,
@@ -1892,17 +1817,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Position: spatial.StickyXY{
 					X: 9.5,
 					Y: 10.5,
-					Root: func() *spatial.CornerLocation {
-						v := spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						}
-						return &v
-					}(),
-					Units: func() *spatial.StickyUnits {
-						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
-						return &v
-					}(),
+					Root: new(spatial.CornerLocation{
+						X: spatial.XLocation("left"),
+						Y: spatial.YLocation("top"),
+					}),
+					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
 				},
 			},
 			Channels: lineplot.Channels{
@@ -1923,7 +1842,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    37.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				X2: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1933,7 +1852,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    48.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y1: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1943,7 +1862,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    59.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y2: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1953,7 +1872,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    70.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y3: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1963,7 +1882,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
 					TickSpacing:    81.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 				Y4: lineplot.Axis{
 					Key:            lineplot.AxisKey("x1"),
@@ -1973,7 +1892,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Bounds:         spatial.Bounds{},
 					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
 					TickSpacing:    92.5,
-					Type:           func() *lineplot.TickType { v := lineplot.TickType(lineplot.TickType("linear")); return &v }(),
+					Type:           new(lineplot.TickType("linear")),
 				},
 			},
 			Lines: []lineplot.Line{},
@@ -2073,15 +1992,12 @@ func FuzzDecodeRule(f *testing.F) {
 		seed := lineplot.Rule{
 			Key:   "test_1",
 			Label: "test_2",
-			Color: func() *color.Color {
-				v := color.Color{
-					R: 5,
-					G: 6,
-					B: 7,
-					A: 7.5,
-				}
-				return &v
-			}(),
+			Color: new(color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			}),
 			Axis:      lineplot.AxisKey("x1"),
 			LineWidth: 9.5,
 			LineDash:  10.5,
