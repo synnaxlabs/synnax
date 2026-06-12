@@ -13,7 +13,7 @@ import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { setActive } from "@/project/slice";
 import { Triggers } from "@/triggers";

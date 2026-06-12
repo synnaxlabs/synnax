@@ -62,11 +62,9 @@ const tabFor = (layout: State): panel.Tab => {
   return {
     key: uuid.create(),
     variant: "view",
-    view: {
-      type: layout.type,
-      name: layout.name,
-      args: layout.args as panel.View["args"],
-    },
+    type: layout.type,
+    name: layout.name,
+    args: layout.args as panel.View["args"],
   };
 };
 

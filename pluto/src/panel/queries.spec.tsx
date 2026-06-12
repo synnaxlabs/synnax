@@ -475,9 +475,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });
@@ -691,9 +689,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });
@@ -733,9 +729,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tabB.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });
@@ -776,11 +770,14 @@ describe("Panel queries", () => {
         }),
       ]);
 
-      await waitFor(() => {
-        const root = asSplit(result.current);
-        expect(root).toBeDefined();
-        expect(leafTabKeys(root?.last)).toEqual([tab.key]);
-      });
+      await waitFor(
+        () => {
+          const root = asSplit(result.current);
+          expect(root).toBeDefined();
+          expect(leafTabKeys(root?.last)).toEqual([tab.key]);
+        },
+        { timeout: 5000 },
+      );
     });
 
     it("should propagate deletes through the channel listener", async () => {

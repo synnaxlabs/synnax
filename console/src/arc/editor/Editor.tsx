@@ -88,7 +88,14 @@ export const Selectable: Selector.Selectable = ({
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const createArcModal = useCreateModal();
   const dispatch = useDispatch();
-  const { update } = Arc.useCreate();
+  const { update } = Arc.useCreate({
+    afterSuccess: useCallback(
+      async ({ data: { key } }) => {
+        onResolved?.({ resource: arc.ontologyID(key) });
+      },
+      [onResolved],
+    ),
+  });
 
   const handleClick = useCallback(() => {
     handleError(async () => {
@@ -100,6 +107,7 @@ export const Selectable: Selector.Selectable = ({
       // otherwise open it as a mosaic tab as before.
       if (onResolved != null) {
         const zero = deep.copy(ZERO_STATE);
+        dispatch(internalCreate({ ...zero, key, mode: result.mode }));
         update({
           key,
           name: result.name,
@@ -107,8 +115,6 @@ export const Selectable: Selector.Selectable = ({
           graph: translateGraphToServer(zero.graph),
           text: zero.text,
         });
-        dispatch(internalCreate({ ...zero, key, mode: result.mode }));
-        onResolved({ resource: arc.ontologyID(key) });
       } else onPlace(create({ key, name: result.name, mode: result.mode }));
     }, "Failed to create Arc program");
   }, [onResolved, onPlace, dispatch, createArcModal, handleError, update]);

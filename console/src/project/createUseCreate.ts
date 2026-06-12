@@ -91,7 +91,7 @@ export const createUseCreate =
           await maybeChangeProject(project);
           placeLayout(createSessionState({ key, name }));
         },
-        [project, onResolved],
+        [project, onResolved, maybeChangeProject, placeLayout],
       ),
     });
     return useCallback(
