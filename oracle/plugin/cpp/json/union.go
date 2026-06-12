@@ -69,9 +69,23 @@ func (p *Plugin) processUnion(u resolution.Type, data *templateData) ([]serializ
 			}
 		}
 		if payload, ok := v.Type.Resolve(data.table); ok {
-			s.ParentTypes = append(s.ParentTypes, parentTypeData{
-				QualifiedName: p.resolveExtendsType(v.Type, payload, data),
-			})
+			if v.Inline {
+				pform := payload.Form.(resolution.StructForm)
+				for _, ext := range pform.Extends {
+					if parent, ok := ext.Resolve(data.table); ok {
+						s.ParentTypes = append(s.ParentTypes, parentTypeData{
+							QualifiedName: p.resolveExtendsType(ext, parent, data),
+						})
+					}
+				}
+				for _, f := range pform.Fields {
+					s.Fields = append(s.Fields, p.processField(f, payload, data))
+				}
+			} else {
+				s.ParentTypes = append(s.ParentTypes, parentTypeData{
+					QualifiedName: p.resolveExtendsType(v.Type, payload, data),
+				})
+			}
 		}
 		s.Fields = append(s.Fields, p.processField(discField, u, data))
 		serializers = append(serializers, s)

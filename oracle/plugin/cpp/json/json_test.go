@@ -690,6 +690,28 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			)
 	})
 
+	It("Should parse inline variant fields directly on the variant struct", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			TabBase struct { key string }
+
+			Tab union on variant extends TabBase {
+				view {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, jsonPlugin)
+		content := ExpectContent(resp, "json.gen.h")
+		content.ToContain(
+			`if (discriminator == "view") return TabView::parse(parser);`,
+			`if (discriminator == "empty") return TabEmpty::parse(parser);`,
+		)
+		content.ToNotContain("TabViewPayload")
+	})
+
 	It("Should generate per-variant parse/to_json bodies", func(ctx SpecContext) {
 		source := `
 			@cpp output "out"

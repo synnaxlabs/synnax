@@ -222,7 +222,9 @@ func (p *Plugin) generateFile(
 			existingQNames.Add(t.QualifiedName)
 		}
 		for _, t := range allNamespaceTypes {
-			if !existingQNames.Contains(t.QualifiedName) {
+			// Synthetic inline variant payloads flatten into their variant
+			// structs; they have no standalone C++ type.
+			if !existingQNames.Contains(t.QualifiedName) && !t.Synthetic {
 				combinedTypes = append(combinedTypes, t)
 			}
 		}

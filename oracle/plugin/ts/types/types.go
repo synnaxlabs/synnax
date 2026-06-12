@@ -541,6 +541,36 @@ func (p *Plugin) typeDefBaseToTS(typeRef *resolution.TypeRef, data *templateData
 	return p.typeRefToTS(typeRef, data.Request.Resolutions, data, false)
 }
 
+// isExtendBase reports whether another type's generated zod schema calls
+// .extend on entry's schema: struct extends bases, union shared bases, and
+// union variant payloads. Such schemas must stay ZodObjects, since the
+// z.ZodType annotation used to break recursive inference has no .extend.
+func isExtendBase(entry resolution.Type, table *resolution.Table) bool {
+	matches := func(ref resolution.TypeRef) bool {
+		resolved, ok := ref.Resolve(table)
+		return ok && resolved.QualifiedName == entry.QualifiedName
+	}
+	for _, typ := range table.Types {
+		switch form := typ.Form.(type) {
+		case resolution.StructForm:
+			if slices.ContainsFunc(form.Extends, matches) {
+				return true
+			}
+		case resolution.UnionForm:
+			if slices.ContainsFunc(form.Extends, matches) {
+				return true
+			}
+			if slices.ContainsFunc(
+				form.Variants,
+				func(v resolution.UnionVariant) bool { return matches(v.Type) },
+			) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, data *templateData) structData {
 	if aliasForm, isAlias := entry.Form.(resolution.AliasForm); isAlias {
 		sd := structData{
@@ -614,7 +644,11 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		IsGeneric:     form.IsGeneric(),
 		IsSingleParam: len(form.TypeParams) == 1,
 		IsAlias:       false,
-		IsRecursive:   form.IsRecursive,
+		// Extend bases must keep a ZodObject schema so extenders can .extend
+		// it; the recursive-interface branch would annotate the schema as
+		// z.ZodType, which has no .extend. Their inference cycles are broken
+		// by annotated forward-reference getters instead.
+		IsRecursive: form.IsRecursive && !isExtendBase(entry, table),
 	}
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
@@ -2580,8 +2614,14 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{ if .Doc -}}
 {{ formatDoc .TypeName .Doc }}
 {{ end -}}
-export const {{ .SchemaName }} = {{ range $i, $p := .ParentSchemas }}{{ if $i }}.extend({{ end }}{{ $p }}{{ if $i }}.shape){{ end }}{{ end }}.extend({
+export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .ParentSchemas }}{{ if $i }}.extend({{ end }}{{ $p }}{{ if $i }}.shape){{ end }}{{ end }}.extend({{ else }}z.object({{ end }}{
   {{ $disc }}: z.literal("{{ .Value }}"),
+{{- range .Fields }}
+{{- if .Doc }}
+  {{ formatDoc .TSName .Doc }}
+{{- end }}
+  {{ .TSName }}: {{ .ZodType }},
+{{- end }}
 });
 {{- if $.GenerateTypes }}
 export interface {{ .TypeName }} extends z.infer<typeof {{ .SchemaName }}> {}

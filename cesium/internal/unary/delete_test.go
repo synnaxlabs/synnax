@@ -440,9 +440,9 @@ var _ = Describe("Delete", func() {
 			Context("Index channels", func() {
 				BeforeEach(func(ctx SpecContext) {
 					By("Writing data to the channel")
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
-					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 24)))
-					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 33, 34, 35, 36, 37)))
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 24))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 33, 34, 35, 36, 37))).To(Succeed())
 				})
 
 				It("Should delete between two domains", func(ctx SpecContext) {
@@ -493,9 +493,9 @@ var _ = Describe("Delete", func() {
 			Context("Overshooting time range", func() {
 				BeforeEach(func(ctx SpecContext) {
 					By("Writing data to the channel")
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
-					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24)))
-					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37))).To(Succeed())
 				})
 
 				It("Should delete even when the start timestamp is not in bounds of a domain", func(ctx SpecContext) {
@@ -529,7 +529,7 @@ var _ = Describe("Delete", func() {
 
 				It("Should delete even when the end timestamp is not in bounds of a pointer", func(ctx SpecContext) {
 					By("Deleting channel data")
-					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(23, 26)))
+					Expect(indexDB.Delete(ctx, telem.NewRangeSeconds(23, 26))).To(Succeed())
 
 					frame := MustSucceed(indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)))
 					Expect(frame.Count()).To(Equal(2))
