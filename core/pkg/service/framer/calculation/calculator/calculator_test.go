@@ -15,10 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
@@ -57,7 +56,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		}
 		Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: svcchannel.Wrap(dist.Channel),
+			ChannelService: channel.Wrap(dist.Channel),
 			Channel:        *calc,
 		}))
 		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
@@ -935,12 +934,12 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
-			res := MustSucceed(channelanalyzer.New(svcchannel.Wrap(dist.Channel).NewArcSymbolResolver(nil)).
+			res := MustSucceed(channelanalyzer.New(channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)).
 				Analyze(ctx, *calc))
 			calc.DataType = res.ChanDataType
 			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: svcchannel.Wrap(dist.Channel),
+				ChannelService: channel.Wrap(dist.Channel),
 				Channel:        *calc,
 			}))
 			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
@@ -1036,7 +1035,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(dist.Channel.CreateMany(ctx, &base)).To(Succeed())
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: svcchannel.Wrap(dist.Channel),
+				ChannelService: channel.Wrap(dist.Channel),
 				Channel:        calc,
 			}))
 			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))

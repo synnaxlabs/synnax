@@ -59,8 +59,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// Channel is used to retrieve information about the channels being calculated
-	// and to resolve channel symbols for Arc expression compilation.
+	// Channel is used to retrieve information about the channels being calculated and
+	// to resolve channel symbols for Arc expression compilation.
 	//
 	// [REQUIRED]
 	Channel *channel.Service

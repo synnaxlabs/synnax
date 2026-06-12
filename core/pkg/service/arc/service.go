@@ -129,7 +129,18 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
 		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
-		OnRename:        channelRename(s.cfg.Channel),
+		OnRename: func(
+			ctx context.Context,
+			sym *arcsymbol.Symbol,
+			oldName,
+			newName string,
+		) error {
+			if sym.Kind != arcsymbol.KindChannel {
+				return nil
+			}
+			return s.cfg.Channel.NewWriter(nil).
+				Rename(ctx, channel.Key(sym.ID), newName, false)
+		},
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
 			Translate: func(

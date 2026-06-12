@@ -38,6 +38,7 @@ var (
 	ParseKey                                    = distchannel.ParseKey
 	OntologyID                                  = distchannel.OntologyID
 	MatchKeys                                   = distchannel.MatchKeys
+	NewRandomName                               = distchannel.NewRandomName
 )
 
 // ServiceConfig configures a channel Service.
