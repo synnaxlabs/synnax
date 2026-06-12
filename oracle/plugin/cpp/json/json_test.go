@@ -756,7 +756,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`.custom_scale = parse_scale(parser.child("custom_scale")),`,
-				`j["custom_scale"] = to_json(this->custom_scale);`,
+				`j["custom_scale"] = ::synnax::out::to_json(this->custom_scale);`,
 			)
 	})
 })
@@ -792,7 +792,7 @@ var _ = Describe("C++ JSON Union Array Fields", func() {
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
 				`parser.iter("scales", [&result](x::json::Parser& p) { result.push_back(parse_scale(p)); });`,
-				`for (const auto& item : this->scales) arr.push_back(to_json(item));`,
+				`for (const auto& item : this->scales) arr.push_back(::synnax::out::to_json(item));`,
 			)
 	})
 })

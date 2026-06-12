@@ -733,17 +733,21 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 				return fmt.Sprintf(`j["%s"] = x::json::to_array(this->%s);`, jsonName, fieldName)
 			}
 			if _, isUnion := elemResolved.Form.(resolution.UnionForm); isUnion {
+				// Qualify the free to_json: unqualified lookup inside a member
+				// to_json() finds the member and never reaches the overload.
+				qualifier := "::" + data.Namespace
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
 						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						qualifier = "::" + deriveNamespace(targetOutputPath)
 					}
 				}
 				return fmt.Sprintf(`{
         auto arr = x::json::json::array();
-        for (const auto& item : this->%s) arr.push_back(to_json(item));
+        for (const auto& item : this->%s) arr.push_back(%s::to_json(item));
         j["%s"] = arr;
-    }`, fieldName, jsonName)
+    }`, fieldName, qualifier, jsonName)
 			}
 			// Nested-array-of-struct case: outer element resolves to another
 			// array (e.g., Members = []Member) whose inner element is a
@@ -778,16 +782,20 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 			return fmt.Sprintf(`j["%s"] = this->%s.to_json();`, jsonName, fieldName)
 		}
 		if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
+			// Qualify the free to_json: unqualified lookup inside a member
+			// to_json() finds the member and never reaches the overload.
+			qualifier := "::" + data.Namespace
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+					qualifier = "::" + deriveNamespace(targetOutputPath)
 				}
 			}
 			if field.IsHardOptional {
-				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = to_json(*this->%s);`, fieldName, jsonName, fieldName)
+				return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = %s::to_json(*this->%s);`, fieldName, jsonName, qualifier, fieldName)
 			}
-			return fmt.Sprintf(`j["%s"] = to_json(this->%s);`, jsonName, fieldName)
+			return fmt.Sprintf(`j["%s"] = %s::to_json(this->%s);`, jsonName, qualifier, fieldName)
 		}
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 			if targetResolved, targetOk := aliasForm.Target.Resolve(data.table); targetOk {
