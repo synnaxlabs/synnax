@@ -28,12 +28,12 @@ from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
 from synnax.ranger import kv
+from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Key,
     Payload,
     ontology_id,
 )
-from synnax.ranger.retrieve import Retriever
 from synnax.ranger.writer import Writer
 from synnax.signals.signals import Registry
 from synnax.state import LatestState
