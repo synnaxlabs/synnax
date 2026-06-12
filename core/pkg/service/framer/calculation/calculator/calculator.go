@@ -53,7 +53,7 @@ type Calculator struct {
 	state     calcState
 	scheduler *scheduler.Scheduler
 	cfg       Config
-	stateCfg  calculation.ExtendedStateConfig
+	stateCfg  calculation.StateConfig
 	start     telem.TimeStamp
 	closer    io.MultiCloser
 }

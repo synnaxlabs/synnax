@@ -84,7 +84,7 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 // execution by the framer's calculator runtime.
 type Module struct {
 	// StateConfig describes the channels read and written by this calculation.
-	StateConfig calculation.ExtendedStateConfig
+	StateConfig calculation.StateConfig
 	// Program is the compiled Arc program containing WASM bytecode.
 	arc.Program
 	// Channel is the calculated channel this module was compiled for.

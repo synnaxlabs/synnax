@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// ExtendedStateConfig describes the channels a compiled calculation reads from and
+// StateConfig describes the channels a compiled calculation reads from and
 // writes to, along with the channel digests and IR needed to execute it.
-type ExtendedStateConfig struct {
+type StateConfig struct {
 	// Reads is the set of channel keys the calculation reads from, including the
 	// index channels of any non-virtual channels it reads.
 	Reads set.Set[channel.Key]
@@ -68,7 +68,7 @@ func NewStateConfig(
 	ctx context.Context,
 	channelSvc *channel.Service,
 	prog arc.Program,
-) (ExtendedStateConfig, error) {
+) (StateConfig, error) {
 	var (
 		reads  = make(set.Set[channel.Key])
 		writes = make(set.Set[channel.Key])
@@ -86,7 +86,7 @@ func NewStateConfig(
 	}
 	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Slice(), writes.Slice()))
 	if err != nil {
-		return ExtendedStateConfig{}, err
+		return StateConfig{}, err
 	}
 	channelDigests := make([]stlchannels.Digest, 0, len(channels))
 	for _, ch := range channels {
@@ -102,7 +102,7 @@ func NewStateConfig(
 			writes.Add(ch.Index())
 		}
 	}
-	return ExtendedStateConfig{
+	return StateConfig{
 		Reads:          reads,
 		Writes:         writes,
 		ChannelDigests: lo.Uniq(channelDigests),
