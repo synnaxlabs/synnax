@@ -275,10 +275,10 @@ func convertNode(
 		if !exists {
 			continue
 		}
-		tabs = append(tabs, Tab{Variant: TabResource{ResourceTab: ResourceTab{
-			Key:      uuid.New(),
+		tabs = append(tabs, Tab{Variant: TabResource{
+			TabBase:  TabBase{Key: uuid.New()},
 			Resource: id,
-		}}})
+		}})
 	}
 	if len(tabs) == 0 {
 		return nil, nil
