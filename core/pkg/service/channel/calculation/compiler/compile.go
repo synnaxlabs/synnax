@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/state"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -84,7 +84,7 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 // execution by the framer's calculator runtime.
 type Module struct {
 	// StateConfig describes the channels read and written by this calculation.
-	StateConfig calculation.StateConfig
+	StateConfig state.Config
 	// Program is the compiled Arc program containing WASM bytecode.
 	arc.Program
 	// Channel is the calculated channel this module was compiled for.
@@ -199,7 +199,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	if err != nil {
 		return Module{}, err
 	}
-	stateCfg, err := calculation.NewStateConfig(ctx, cfg.ChannelService, program)
+	stateCfg, err := state.New(ctx, cfg.ChannelService, program)
 	if err != nil {
 		return Module{}, err
 	}

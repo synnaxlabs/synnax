@@ -111,7 +111,7 @@ func Wrap(dist *channel.Service) *Service {
 // name or numeric key, for analyzing and compiling Arc expressions such as calculated
 // channels. tx scopes channel lookups; nil consults the service DB directly.
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return &channelResolver{svc: s, tx: tx}
+	return &symbolResolver{svc: s, tx: tx}
 }
 
 // NewWriter returns a Writer that infers DataTypes for calculated channels before
