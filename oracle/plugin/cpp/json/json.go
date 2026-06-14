@@ -666,6 +666,24 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 		}
 		return fmt.Sprintf(`parser.field<std::optional<%s>>("%s")`, cppType, jsonName)
 	}
+	if hasDefault {
+		if defaultVal := jsonDefaultLiteral(field, data.table); defaultVal != "" {
+			// Telem time types have explicit integer constructors, so bare
+			// numeric defaults must be wrapped to bind as the fallback value.
+			if field.Default != nil &&
+				(field.Default.Kind == resolution.ValueKindInt ||
+					field.Default.Kind == resolution.ValueKindFloat) {
+				if strings.Contains(cppType, "::telem::TimeStamp") {
+					defaultVal = fmt.Sprintf("x::telem::TimeStamp(%s)", defaultVal)
+				} else if strings.Contains(cppType, "::telem::TimeSpan") {
+					defaultVal = fmt.Sprintf("x::telem::TimeSpan(%s)", defaultVal)
+				} else if strings.Contains(cppType, "::telem::Rate") {
+					defaultVal = fmt.Sprintf("x::telem::Rate(%s)", defaultVal)
+				}
+			}
+			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
+		}
+	}
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
