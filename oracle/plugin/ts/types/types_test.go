@@ -2424,6 +2424,23 @@ var _ = Describe("TS Types Plugin", func() {
 						`window: telem.timeSpanZ.default(new TimeSpan(100))`,
 					)
 			})
+
+			It("Should emit a plain number default when a telem field is overridden to number", func(ctx SpecContext) {
+				source := `
+					import "schemas/telem"
+
+					@ts output "out"
+
+					Config struct {
+						sample_rate telem.Rate = 10 {
+							@ts type "number"
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`sampleRate: z.number().default(10)`)
+			})
 		})
 
 		Context("enum variant defaults", func() {

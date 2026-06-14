@@ -448,7 +448,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 		if typeOverride := getTypeTypeOverride(td, "ts"); typeOverride != "" {
 			zodType := primitiveToZod(typeOverride, data)
 			if validateDomain, ok := td.Domains["validate"]; ok {
-				result := p.applyValidation(zodType, validateDomain, nil, form.Base, td.Name, data.Request.Resolutions, data)
+				result := p.applyValidation(zodType, validateDomain, nil, form.Base, td.Name, data.Request.Resolutions, data, typeOverride)
 				zodType = result.ZodType
 			}
 			if toNumber {
@@ -481,7 +481,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = p.typeDefBaseToZod(&form.Base, data)
 		}
 		if validateDomain, ok := td.Domains["validate"]; ok {
-			result := p.applyValidation(zodType, validateDomain, nil, form.Base, td.Name, data.Request.Resolutions, data)
+			result := p.applyValidation(zodType, validateDomain, nil, form.Base, td.Name, data.Request.Resolutions, data, "")
 			zodType = result.ZodType
 		}
 		if toNumber {
@@ -514,7 +514,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = p.typeDefBaseToZod(&form.Target, data)
 		}
 		if validateDomain, ok := td.Domains["validate"]; ok {
-			result := p.applyValidation(zodType, validateDomain, nil, form.Target, td.Name, data.Request.Resolutions, data)
+			result := p.applyValidation(zodType, validateDomain, nil, form.Target, td.Name, data.Request.Resolutions, data, "")
 			zodType = result.ZodType
 		}
 		return typeDefData{
@@ -1258,7 +1258,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.TSType = primitiveToTS(typeOverride)
 		fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
 		if validateDomain, ok := field.Domains["validate"]; ok || field.Default != nil {
-			result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data)
+			result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data, typeOverride)
 			fd.ZodType = result.ZodType
 			if result.HasDefault {
 				fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
@@ -1282,13 +1282,13 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			if sepIndex := strings.Index(fd.ZodType, " ?? "); sepIndex > 0 {
 				paramPart := fd.ZodType[:sepIndex]
 				fallbackPart := fd.ZodType[sepIndex+4:]
-				result := p.applyValidation(fallbackPart, validateDomain, elemDefault, field.Type, field.Name, table, data)
+				result := p.applyValidation(fallbackPart, validateDomain, elemDefault, field.Type, field.Name, table, data, "")
 				fd.ZodType = paramPart + " ?? " + result.ZodType
 				if result.HasDefault {
 					fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
 				}
 			} else {
-				result := p.applyValidation(fd.ZodType, validateDomain, elemDefault, field.Type, field.Name, table, data)
+				result := p.applyValidation(fd.ZodType, validateDomain, elemDefault, field.Type, field.Name, table, data, "")
 				fd.ZodType = result.ZodType
 				if result.HasDefault {
 					fd.ZodSchemaType = defaultSchemaWrapper(result, fd.ZodSchemaType)
@@ -1668,7 +1668,7 @@ var primitiveTSTypes = map[string]string{
 	"bool": "boolean",
 	"int8": "number", "int16": "number", "int32": "number", "int64": "number",
 	"uint8": "number", "uint12": "number", "uint16": "number", "uint20": "number", "uint32": "number", "uint64": "number",
-	"float32": "number", "float64": "number",
+	"float32": "number", "float64": "number", "number": "number",
 	"timestamp": "TimeStamp", "timespan": "TimeSpan", "data_type": "DataType",
 	"record": "unknown", "bytes": "Uint8Array",
 }
@@ -1706,6 +1706,7 @@ var primitiveZodTypes = map[string]primitiveMapping{
 	"uint64":             {schema: "z.uint64()"},
 	"float32":            {schema: "z.number()"},
 	"float64":            {schema: "z.number()"},
+	"number":             {schema: "z.number()"},
 	"timestamp":          {schema: "TimeStamp.z", xImports: []xImport{{name: "TimeStamp", submodule: "telem"}}},
 	"timespan":           {schema: "TimeSpan.z", xImports: []xImport{{name: "TimeSpan", submodule: "telem"}}},
 	"time_range":         {schema: "TimeRange.z", xImports: []xImport{{name: "TimeRange", submodule: "telem"}}},
@@ -1734,6 +1735,7 @@ var primitiveZodSchemaTypes = map[string]string{
 	"uint64":             "z.ZodBigInt",
 	"float32":            "z.ZodNumber",
 	"float64":            "z.ZodNumber",
+	"number":             "z.ZodNumber",
 	"timestamp":          "typeof TimeStamp.z",
 	"timespan":           "typeof TimeSpan.z",
 	"time_range":         "typeof TimeRange.z",
@@ -1879,7 +1881,7 @@ func defaultSchemaWrapper(r validationResult, inner string) string {
 	return fmt.Sprintf("z.ZodDefault<%s>", inner)
 }
 
-func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defaultVal *resolution.ExpressionValue, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData) validationResult {
+func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defaultVal *resolution.ExpressionValue, typeRef resolution.TypeRef, fieldName string, table *resolution.Table, data *templateData, tsTypeOverride string) validationResult {
 	rules := validation.Parse(domain)
 	if validation.IsEmpty(rules) && defaultVal == nil {
 		return validationResult{ZodType: zodType, HasDefault: false}
@@ -1889,6 +1891,12 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 	effectiveType := typeRef.Name
 	if typeRef.IsTypeParam() && typeRef.TypeParam != nil && typeRef.TypeParam.Constraint != nil {
 		effectiveType = typeRef.TypeParam.Constraint.Name
+	}
+	// A @ts type override (e.g. a telem.Rate field surfaced as a plain "number"
+	// in TypeScript) drives both the validation rules and the default literal off
+	// the overridden primitive, not the underlying schema type.
+	if tsTypeOverride != "" {
+		effectiveType = tsTypeOverride
 	}
 	isString := resolution.IsPrimitive(effectiveType) && resolution.IsStringPrimitive(effectiveType)
 	isNumber := resolution.IsPrimitive(effectiveType) && resolution.IsNumberPrimitive(effectiveType)
@@ -1932,17 +1940,25 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		case resolution.ValueKindString:
 			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(defaultVal.StringValue))
 		case resolution.ValueKindInt:
-			if expr, ok := tsTelemNumericDefault(
-				typeRef, data, fmt.Sprintf("%d", defaultVal.IntValue), defaultVal.IntValue == 0,
-			); ok {
+			expr, ok := "", false
+			if tsTypeOverride == "" {
+				expr, ok = tsTelemNumericDefault(
+					typeRef, data, fmt.Sprintf("%d", defaultVal.IntValue), defaultVal.IntValue == 0,
+				)
+			}
+			if ok {
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, expr)
 			} else {
 				zodType = fmt.Sprintf("%s.default(%d)", zodType, defaultVal.IntValue)
 			}
 		case resolution.ValueKindFloat:
-			if expr, ok := tsTelemNumericDefault(
-				typeRef, data, fmt.Sprintf("%g", defaultVal.FloatValue), defaultVal.FloatValue == 0,
-			); ok {
+			expr, ok := "", false
+			if tsTypeOverride == "" {
+				expr, ok = tsTelemNumericDefault(
+					typeRef, data, fmt.Sprintf("%g", defaultVal.FloatValue), defaultVal.FloatValue == 0,
+				)
+			}
+			if ok {
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, expr)
 			} else {
 				zodType = fmt.Sprintf("%s.default(%f)", zodType, defaultVal.FloatValue)
