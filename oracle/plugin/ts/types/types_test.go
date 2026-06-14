@@ -2387,6 +2387,45 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("telem numeric defaults", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/telem", `
+					@ts output "x/ts/src/telem"
+
+					TimeSpan int64 {
+						@ts omit
+					}
+
+					Rate float64 {
+						@ts omit
+					}
+				`)
+			})
+
+			It("Should construct telem instances for numeric defaults", func(ctx SpecContext) {
+				source := `
+					import "schemas/telem"
+
+					@ts output "out"
+
+					Config struct {
+						sample_rate telem.Rate = 10
+						stream_rate telem.Rate = 2.5
+						duration    telem.TimeSpan = 0
+						window      telem.TimeSpan = 100
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`sampleRate: telem.rateZ.default(new Rate(10))`,
+						`streamRate: telem.rateZ.default(new Rate(2.5))`,
+						`duration: telem.timeSpanZ.default(TimeSpan.ZERO)`,
+						`window: telem.timeSpanZ.default(new TimeSpan(100))`,
+					)
+			})
+		})
+
 		Context("enum variant defaults", func() {
 			It("Should generate default for same-namespace enum variant", func(ctx SpecContext) {
 				source := `

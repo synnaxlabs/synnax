@@ -1932,22 +1932,21 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		case resolution.ValueKindString:
 			zodType = fmt.Sprintf("%s.default(%s)", zodType, tsStringLiteral(defaultVal.StringValue))
 		case resolution.ValueKindInt:
-			// Special handling for timestamp/timespan with default of 0
-			if defaultVal.IntValue == 0 {
-				if typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp") {
-					addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-					zodType = fmt.Sprintf("%s.default(TimeStamp.ZERO)", zodType)
-				} else if typeRef.Name == "TimeSpan" || strings.HasSuffix(typeRef.Name, ".TimeSpan") {
-					addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
-					zodType = fmt.Sprintf("%s.default(TimeSpan.ZERO)", zodType)
-				} else {
-					zodType = fmt.Sprintf("%s.default(%d)", zodType, defaultVal.IntValue)
-				}
+			if expr, ok := tsTelemNumericDefault(
+				typeRef, data, fmt.Sprintf("%d", defaultVal.IntValue), defaultVal.IntValue == 0,
+			); ok {
+				zodType = fmt.Sprintf("%s.default(%s)", zodType, expr)
 			} else {
 				zodType = fmt.Sprintf("%s.default(%d)", zodType, defaultVal.IntValue)
 			}
 		case resolution.ValueKindFloat:
-			zodType = fmt.Sprintf("%s.default(%f)", zodType, defaultVal.FloatValue)
+			if expr, ok := tsTelemNumericDefault(
+				typeRef, data, fmt.Sprintf("%g", defaultVal.FloatValue), defaultVal.FloatValue == 0,
+			); ok {
+				zodType = fmt.Sprintf("%s.default(%s)", zodType, expr)
+			} else {
+				zodType = fmt.Sprintf("%s.default(%f)", zodType, defaultVal.FloatValue)
+			}
 		case resolution.ValueKindBool:
 			zodType = fmt.Sprintf("%s.default(%t)", zodType, defaultVal.BoolValue)
 		case resolution.ValueKindIdent:
@@ -1983,6 +1982,30 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, defau
 		}
 	}
 	return validationResult{ZodType: zodType, HasDefault: hasDefault, IsPrefault: isPrefault}
+}
+
+// tsTelemNumericDefault returns the .default(...) argument for a numeric default
+// on a telem class field, registering the import, or ("", false) when typeRef is
+// not such a type. The telem zod schemas output class instances, so a bare number
+// would not type-check as the default; the literal is wrapped in the constructor
+// ("new Rate(10)"). A zero TimeStamp or TimeSpan keeps the canonical .ZERO
+// constant.
+func tsTelemNumericDefault(
+	typeRef resolution.TypeRef, data *templateData, literal string, isZero bool,
+) (string, bool) {
+	name := typeRef.Name
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		name = name[i+1:]
+	}
+	switch name {
+	case "TimeStamp", "TimeSpan", "Rate":
+		addXImport(data, xImport{name: name, submodule: "telem"})
+		if isZero && name != "Rate" {
+			return name + ".ZERO", true
+		}
+		return fmt.Sprintf("new %s(%s)", name, literal), true
+	}
+	return "", false
 }
 
 // tsStringLiteral renders a Go string as a double-quoted TypeScript string
