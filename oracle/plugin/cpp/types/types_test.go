@@ -1550,6 +1550,10 @@ var _ = Describe("C++ Types Plugin", func() {
 					TimeSpan int64 {
 						@cpp omit
 					}
+
+					Rate float64 {
+						@cpp omit
+					}
 				`)
 				source := `
 					import "schemas/telem"
@@ -1557,8 +1561,10 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp output "out"
 
 					Config struct {
-						duration telem.TimeSpan = 0
-						start    telem.TimeStamp = 5
+						duration    telem.TimeSpan = 0
+						start       telem.TimeStamp = 5
+						sample_rate telem.Rate = 10
+						stream_rate telem.Rate = 2.5
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
@@ -1566,6 +1572,8 @@ var _ = Describe("C++ Types Plugin", func() {
 					ToContain(
 						`duration = x::telem::TimeSpan(0);`,
 						`start = x::telem::TimeStamp(5);`,
+						`sample_rate = x::telem::Rate(10);`,
+						`stream_rate = x::telem::Rate(2.500000);`,
 					)
 			})
 

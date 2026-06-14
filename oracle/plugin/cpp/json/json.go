@@ -677,6 +677,8 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 					defaultVal = fmt.Sprintf("x::telem::TimeStamp(%s)", defaultVal)
 				} else if strings.Contains(cppType, "::telem::TimeSpan") {
 					defaultVal = fmt.Sprintf("x::telem::TimeSpan(%s)", defaultVal)
+				} else if strings.Contains(cppType, "::telem::Rate") {
+					defaultVal = fmt.Sprintf("x::telem::Rate(%s)", defaultVal)
 				}
 			}
 			return fmt.Sprintf(`parser.field<%s>("%s", %s)`, cppType, jsonName, defaultVal)
