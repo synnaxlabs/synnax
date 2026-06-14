@@ -10,6 +10,7 @@
 import "schemas/user"
 
 @ts output "client/ts/src/project"
+@py output "client/py/synnax/project"
 @go output "core/pkg/service/project"
 @pb
 
