@@ -11,5 +11,5 @@ import { schematic } from "@synnaxlabs/client";
 
 export const VARIANT = "t_junction" as const;
 
-export const configZ = schematic.nodeConfigTjunctionZ;
+export const configZ = schematic.nodeConfigTJunctionZ;
 export type Config = schematic.NodeConfigTJunction;
