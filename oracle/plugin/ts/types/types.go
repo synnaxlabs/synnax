@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
+	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
@@ -368,7 +369,7 @@ func (p *Plugin) extractOntology(
 	if data == nil {
 		return nil
 	}
-	keyType := lo.Capitalize(camelCase(data.KeyField.Name))
+	keyType := lo.Capitalize(fieldCamel(data.KeyField.Name))
 	primitive := data.KeyField.Primitive
 	if override := findFieldTypeOverride(structs, data.KeyField.Name, "ts"); override != "" {
 		primitive = override
@@ -759,7 +760,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			sd.ExtendsParentSchemaArgs = sd.ExtendsParents[0].SchemaArgs
 
 			for _, f := range form.OmittedFields {
-				sd.OmittedFields = append(sd.OmittedFields, camelCase(f))
+				sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
 			}
 
 			parentFields := make(map[string]resolution.Field)
@@ -778,9 +779,9 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 					if isFieldUnchanged(parentField, field) {
 						continue
 					} else if isOnlyOptionalityChange(parentField, field) {
-						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: camelCase(field.Name)})
+						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: fieldCamel(field.Name)})
 					} else {
-						sd.OmittedFields = append(sd.OmittedFields, camelCase(field.Name))
+						sd.OmittedFields = append(sd.OmittedFields, fieldCamel(field.Name))
 						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
 					}
 				} else {
@@ -977,14 +978,22 @@ func computeCoalescedTypes(sd *structData) {
 	}
 }
 
-// camelCase converts a name to camelCase, preserving trailing acronym runs of
-// two or more uppercase letters in the source. For example "ClientXY" becomes
-// "clientXY" rather than "clientXy", and "EntityID" becomes "entityID". When
-// the entire input is uppercase ("XY", "URL"), the standard all-lowercase
-// camelCase result is returned ("xy", "url"). Inputs containing underscores or
-// other non-alpha separators are routed through lo.CamelCase first so existing
-// snake_case/kebab-case handling is preserved.
+// camelCase converts a generated type or schema-const identifier to camelCase,
+// keeping known acronyms upper-cased after the first word ("BaseAOChannel" ->
+// "baseAOChannel", "AIVoltageRMSChannel" -> "aiVoltageRMSChannel"). It is the
+// template helper behind every "<name>Z" const, so const names stay consistent
+// with their acronym-aware type names. Wire field keys must NOT use this; they go
+// through fieldCamel to match the JSON codec's naive snake/camel conversion.
 func camelCase(s string) string {
+	return casing.CamelAcronym(s)
+}
+
+// fieldCamel converts a field identifier to camelCase using the naive conversion
+// the JSON codec's snake/camel round-trip relies on, preserving only a trailing
+// acronym run of two or more uppercase letters in the source ("ClientXY" ->
+// "clientXY", "EntityID" -> "entityID"). Use this for wire field keys,
+// discriminators, and key-field names, never for type or schema-const identifiers.
+func fieldCamel(s string) string {
 	if s == "" {
 		return s
 	}
@@ -1065,7 +1074,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 		resolved, ok := tp.Constraint.Resolve(table)
 		if ok {
 			if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-				enumTypeName := lo.Capitalize(camelCase(resolved.Name))
+				enumTypeName := lo.Capitalize(fieldCamel(resolved.Name))
 				tpd.Constraint = "z.ZodType<" + enumTypeName + ">"
 			}
 		}
@@ -1237,7 +1246,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 
 	fd := fieldData{
 		Name:           field.Name,
-		TSName:         camelCase(field.Name),
+		TSName:         fieldCamel(field.Name),
 		Doc:            doc.Get(field.Domains),
 		IsOptional:     field.IsOptional,
 		IsHardOptional: field.IsHardOptional,
@@ -2049,7 +2058,7 @@ func (p *Plugin) tsStructLiteral(typeRef resolution.TypeRef, val resolution.Expr
 	fieldsByName := structFieldsByName(typeRef, table)
 	parts := make([]string, 0, len(val.Fields))
 	for _, fv := range val.Fields {
-		parts = append(parts, fmt.Sprintf("%s: %s", camelCase(fv.Name), p.tsDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data)))
+		parts = append(parts, fmt.Sprintf("%s: %s", fieldCamel(fv.Name), p.tsDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data)))
 	}
 	return "{ " + strings.Join(parts, ", ") + " }"
 }

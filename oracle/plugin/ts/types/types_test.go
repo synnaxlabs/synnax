@@ -2761,8 +2761,8 @@ var _ = Describe("TS Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		content := MustContentOf(resp, "types.gen.ts")
 		// The variant composes the base and payload schemas and adds only the
-		// discriminator; the shared fields live on baseAiChanZ / voltageFieldsZ.
-		Expect(content).To(ContainSubstring("export const aiVoltageChannelZ = baseAiChanZ.extend(voltageFieldsZ.shape).extend({\n  type: z.literal(\"ai_voltage\"),\n});"))
+		// discriminator; the shared fields live on baseAIChanZ / voltageFieldsZ.
+		Expect(content).To(ContainSubstring("export const aiVoltageChannelZ = baseAIChanZ.extend(voltageFieldsZ.shape).extend({\n  type: z.literal(\"ai_voltage\"),\n});"))
 		Expect(content).To(ContainSubstring(`port: z.int32(),`))
 		Expect(content).To(ContainSubstring(`minVal: z.number(),`))
 	})
