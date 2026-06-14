@@ -657,6 +657,29 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`email: str`))
 		})
 
+		It("Should import and qualify a base class defined in another schema module", func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+				@py output "client/py/synnax/common"
+
+				BaseConfig struct {
+					enabled bool = false
+				}
+			`)
+			source := `
+				import "schemas/common"
+
+				@py output "client/py/synnax/ni"
+
+				ReadConfig struct extends common.BaseConfig {
+					rate int32 = 10
+				}
+			`
+			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`from synnax import common`))
+			Expect(content).To(ContainSubstring(`class ReadConfig(common.BaseConfig):`))
+		})
+
 		It("Should inline parent fields when child makes required fields optional", func(ctx SpecContext) {
 			source := `
 				@py output "out"
