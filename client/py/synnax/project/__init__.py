@@ -7,8 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.user.client import Client
-from synnax.user.payload import New, User
-from synnax.user.types_gen import Key
+from synnax.project.client import Client
+from synnax.project.types_gen import (
+    ONTOLOGY_TYPE,
+    Key,
+    New,
+    Project,
+    ontology_id,
+)
 
-__all__ = ["Client", "Key", "New", "User"]
+__all__ = [
+    "Client",
+    "Key",
+    "New",
+    "ONTOLOGY_TYPE",
+    "Project",
+    "ontology_id",
+]
