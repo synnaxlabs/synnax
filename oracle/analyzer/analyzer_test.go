@@ -1902,7 +1902,7 @@ var _ = Describe("Analyzer", func() {
 				resolution.ExpressionValue{Kind: resolution.ValueKindFloat, FloatValue: 1.5}),
 			Entry("string", "name string = \"untitled\"",
 				resolution.ExpressionValue{Kind: resolution.ValueKindString, StringValue: "untitled"}),
-			Entry("bool", "active bool = true",
+			Entry("bool", "active bool? = true",
 				resolution.ExpressionValue{Kind: resolution.ValueKindBool, BoolValue: true}),
 			Entry("ident", "key string = create",
 				resolution.ExpressionValue{Kind: resolution.ValueKindIdent, IdentValue: "create"}),

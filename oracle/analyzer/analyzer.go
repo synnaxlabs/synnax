@@ -201,6 +201,7 @@ func analyze(c *analysisCtx) {
 	}
 
 	desugarPartialOverrides(c)
+	checkDefaultInvariant(c)
 }
 
 // desugarPartialOverrides rewrites each struct's typeless override fields into
