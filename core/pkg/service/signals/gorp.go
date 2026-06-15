@@ -30,16 +30,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// GorpPublisherConfig is the configuration for opening a Signals pipeline that subscribes
-// changes to a particular entry type in a gorp.DB. It's not typically necessary
-// to instantiate this configuration directly, instead use a helper function
+// GorpPublisherConfig is the configuration for opening a Signals pipeline that
+// subscribes changes to a particular entry type in a gorp.DB. It's not typically
+// necessary to instantiate this configuration directly, instead use a helper function
 // such as GorpPublisherConfigUUID.
 //
 // SetName and DeleteName default to "sy_<type>_set" / "sy_<type>_delete" when the
-// caller does not override them. To opt out of a channel entirely (e.g. when the
-// caller is publishing the set events through a separate, custom pipeline) set
-// DisableSet or DisableDelete; the corresponding events are then dropped and the
-// channel is not created. At least one of the two channels must remain enabled.
+// caller does not override them. To opt out of a channel entirely (e.g. when the caller
+// is publishing the set events through a separate, custom pipeline) set DisableSet or
+// DisableDelete; the corresponding events are then dropped and the channel is not
+// created. At least one of the two channels must remain enabled.
 type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// Observable is the observable to subscribe to for entry changes.
 	Observable observe.Observable[gorp.TxReader[K, E]]
@@ -48,7 +48,7 @@ type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// DeleteDataType is the data type of the delete channel.
 	DeleteDataType telem.DataType
 	// MarshalSet is a function that marshals an entry into the set channel's payload.
-	MarshalSet func(entry E) ([]byte, error)
+	MarshalSet func(E) ([]byte, error)
 	// MarshalDelete is a function that marshals a deleted entry's key into the delete
 	// channel's payload.
 	MarshalDelete func(K) ([]byte, error)
@@ -56,16 +56,22 @@ type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	SetName string
 	// DeleteName is the name of the delete channel.
 	DeleteName string
-	// DisableSet drops VariantSet events and skips creating the set channel. Use
-	// when the caller propagates set events through a separate pipeline.
+	// DisableSet drops VariantSet events and skips creating the set channel. Use when
+	// the caller propagates set events through a separate pipeline.
 	DisableSet bool
 	// DisableDelete drops VariantDelete events and skips creating the delete channel.
 	DisableDelete bool
 }
 
-var _ config.Config[GorpPublisherConfig[uuid.UUID, gorp.Entry[uuid.UUID]]] = GorpPublisherConfig[uuid.UUID, gorp.Entry[uuid.UUID]]{}
+var _ config.Config[GorpPublisherConfig[
+	string,
+	gorp.Entry[string],
+]] = GorpPublisherConfig[string, gorp.Entry[string]]{}
 
-func DefaultGorpPublisherConfig[K gorp.Key, E gorp.Entry[K]]() GorpPublisherConfig[K, E] {
+func DefaultGorpPublisherConfig[
+	K gorp.Key,
+	E gorp.Entry[K],
+]() GorpPublisherConfig[K, E] {
 	t := types.Name[E]()
 	return GorpPublisherConfig[K, E]{
 		SetName:    fmt.Sprintf("sy_%s_set", strings.ToLower(t)),

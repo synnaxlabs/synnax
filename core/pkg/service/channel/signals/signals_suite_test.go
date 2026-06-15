@@ -14,26 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestSignals(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Signals Suite")
+	RunSpecs(t, "Channel Signals Suite")
 }
-
-var (
-	dist mock.Node
-	sigs *signals.Provider
-)
-
-var _ = BeforeSuite(func(ctx SpecContext) {
-	mockCluster := DeferClose(mock.NewCluster())
-	dist = DeferClose(mockCluster.Provision(ctx))
-	sigs = MustSucceed(signals.New(signals.Config{
-		Channel: dist.Channel,
-		Framer:  dist.Framer,
-	}))
-})

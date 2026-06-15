@@ -18,5 +18,5 @@ import (
 
 func TestSignals(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Ontology Signals Suite")
+	RunSpecs(t, "Service Ontology Signals Suite")
 }

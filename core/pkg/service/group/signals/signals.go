@@ -28,6 +28,6 @@ func Publish(
 	return signals.PublishFromGorp(
 		ctx,
 		prov,
-		signals.GorpPublisherConfigUUID[group.Group](obs),
+		signals.GorpPublisherConfigUUID(obs),
 	)
 }

@@ -30,33 +30,28 @@ import (
 	"go.uber.org/zap"
 )
 
-// ObservablePublisherConfig is the configuration for opening a Signals pipeline that subscribes
-// to the provided observable and writes changes to the provided channels. Higher
-// level Signals pipeline should be preferred, such as the PublishFromGorp.
+// ObservablePublisherConfig is the configuration for opening a Signals pipeline that
+// subscribes to the provided observable and writes changes to the provided channels.
+// Higher level Signals pipeline should be preferred, such as the PublishFromGorp.
 type ObservablePublisherConfig struct {
 	// Observable is the observable used to subscribe to changes. This observable should
 	// return byte slice keys that are properly encoded for the channel's data type.
 	Observable observe.Observable[[]change.Change[[]byte, struct{}]]
 	// Name is an optional name for the Signals pipeline, used for debugging purposes.
 	Name string
-	// SetChannel is the channel used to propagate set operations. Only Name and DataType
-	// need to be provided. The config will automatically set Leaseholder to Free
-	// and Virtual to true. Leave Name empty to disable the set channel; in that case
-	// VariantSet events from the observable are dropped.
+	// SetChannel is the channel used to propagate set operations. Only Name and
+	// DataType need to be provided. The config will automatically set Leaseholder to
+	// Free and Virtual to true. Leave Name empty to disable the set channel; in that
+	// case VariantSet events from the observable are dropped.
 	SetChannel channel.Channel
 	// DeleteChannel is the channel used to propagate delete operations. Only Name and
-	// DataType need to be provided. The config will automatically set Leaseholder
-	// to Free and Virtual to true. Leave Name empty to disable the delete channel; in
-	// that case VariantDelete events from the observable are dropped.
+	// DataType need to be provided. The config will automatically set Leaseholder to
+	// Free and Virtual to true. Leave Name empty to disable the delete channel; in that
+	// case VariantDelete events from the observable are dropped.
 	DeleteChannel channel.Channel
 }
 
-var (
-	_ config.Config[ObservablePublisherConfig] = ObservablePublisherConfig{}
-	// DefaultObservablePublisherConfig is the default configuration for the
-	// PublishFromObservable Signals pipeline.
-	DefaultObservablePublisherConfig = ObservablePublisherConfig{}
-)
+var _ config.Config[ObservablePublisherConfig] = ObservablePublisherConfig{}
 
 const (
 	nonVirtual = "Signals can only work with virtual free channels. Received false for %s"
@@ -76,8 +71,18 @@ func (c ObservablePublisherConfig) Validate() error {
 		v.Ternaryf("set_channel.virtual", !c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
 	}
 	if c.DeleteChannel.Name != "" {
-		v.Ternaryf("delete_channel.leaseholder", !c.DeleteChannel.Free(), nonFree, c.DeleteChannel.Leaseholder)
-		v.Ternaryf("delete_channel.virtual", !c.DeleteChannel.Virtual, nonVirtual, c.DeleteChannel.Name)
+		v.Ternaryf(
+			"delete_channel.leaseholder",
+			!c.DeleteChannel.Free(),
+			nonFree,
+			c.DeleteChannel.Leaseholder,
+		)
+		v.Ternaryf(
+			"delete_channel.virtual",
+			!c.DeleteChannel.Virtual,
+			nonVirtual,
+			c.DeleteChannel.Name,
+		)
 	}
 	validate.NotNil(v, "observable", c.Observable)
 	return v.Error()
@@ -87,7 +92,9 @@ func (c ObservablePublisherConfig) Validate() error {
 func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) ObservablePublisherConfig {
 	c.Name = override.If(c.Name, other.Name, c.Name == "")
 	c.SetChannel = override.If(c.SetChannel, other.SetChannel, c.SetChannel.Name == "")
-	c.DeleteChannel = override.If(c.DeleteChannel, other.DeleteChannel, c.DeleteChannel.Name == "")
+	c.DeleteChannel = override.If(
+		c.DeleteChannel, other.DeleteChannel, c.DeleteChannel.Name == "",
+	)
 	c.Observable = override.Nil(c.Observable, other.Observable)
 	if c.SetChannel.Name != "" {
 		c.SetChannel.Virtual = true
@@ -101,10 +108,13 @@ func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) Obs
 }
 
 // PublishFromObservable opens a new Signals pipeline that subscribes to the configured
-// ObservableSubscriber and writes changes to the configured channels. The returned io.Closer
-// can be used to close the pipeline when done.
-func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...ObservablePublisherConfig) (io.Closer, error) {
-	cfg, err := config.New(DefaultObservablePublisherConfig, cfgs...)
+// ObservableSubscriber and writes changes to the configured channels. The returned
+// io.Closer can be used to close the pipeline when done.
+func (s *Provider) PublishFromObservable(
+	ctx context.Context,
+	cfgs ...ObservablePublisherConfig,
+) (io.Closer, error) {
+	cfg, err := config.New(ObservablePublisherConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +127,12 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 	if deleteEnabled {
 		channels = append(channels, cfg.DeleteChannel)
 	}
-	if err = s.Channel.CreateMany(ctx, &channels, channel.RetrieveIfNameExists(), channel.OverwriteIfNameExistsAndDifferentProperties()); err != nil {
+	if err = s.Channel.CreateMany(
+		ctx,
+		&channels,
+		channel.RetrieveIfNameExists(),
+		channel.OverwriteIfNameExistsAndDifferentProperties(),
+	); err != nil {
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
@@ -171,14 +186,15 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 			if len(sets.Data) == 0 && len(deletes.Data) == 0 {
 				return framer.WriterRequest{}, false, nil
 			}
-			return framer.WriterRequest{Command: writer.CommandWrite, Frame: frame}, true, nil
+			return framer.WriterRequest{Command: writer.CommandWrite, Frame: frame},
+				true, nil
 		},
 	}
 	p := plumber.New()
 	plumber.SetSource(p, "source", t)
 	plumber.SetSegment(p, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
-		Sink: func(ctx context.Context, value framer.WriterResponse) error {
+		Sink: func(_ context.Context, value framer.WriterResponse) error {
 			s.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},
@@ -195,6 +211,10 @@ func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...Observable
 		}
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Child(name)))
-	p.Flow(sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic())
+	p.Flow(
+		sCtx,
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+	)
 	return signal.NewHardShutdown(sCtx, cancel), nil
 }
