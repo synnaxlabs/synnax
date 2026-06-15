@@ -475,9 +475,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });
@@ -691,9 +689,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });
@@ -733,9 +729,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tabB.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });

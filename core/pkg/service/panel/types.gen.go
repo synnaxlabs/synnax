@@ -31,6 +31,22 @@ type TabBase struct {
 	Key uuid.UUID `json:"key" msgpack:"key"`
 }
 
+// View is an inline, self-describing view: a Console-owned type plus an opaque
+// configuration payload, with no backing core document. Used for app-views and tools
+// (docs, explorers, about, the visualization picker).
+type View struct {
+	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
+	// a renderer.
+	Type string `json:"type" msgpack:"type"`
+	// Name is the human-readable tab name for the view. A view has no backing resource to
+	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
+	// the Console falls back to a type-derived default.
+	Name string `json:"name" msgpack:"name"`
+	// Args is an opaque, Console-owned configuration payload for the view. Core never
+	// interprets it; it round-trips as-is.
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
+}
+
 // Leaf is a leaf node in the panel tree displaying a tab strip.
 type Leaf struct {
 	// Tabs is the ordered list of tabs in this leaf.
@@ -93,16 +109,7 @@ func (TabResource) isTabVariant() {}
 // app-views and tools (docs, explorers, about, the visualization picker).
 type TabView struct {
 	TabBase
-	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-	// a renderer.
-	Type string `json:"type" msgpack:"type"`
-	// Name is the human-readable tab name for the view. A view has no backing resource to
-	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-	// the Console falls back to a type-derived default.
-	Name string `json:"name" msgpack:"name"`
-	// Args is an opaque, Console-owned configuration payload for the view. Core never
-	// interprets it; it round-trips as-is.
-	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
+	View
 }
 
 func (TabView) isTabVariant() {}
