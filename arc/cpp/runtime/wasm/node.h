@@ -32,8 +32,8 @@ class Node : public node::Node {
     std::vector<int> offsets;
     std::vector<bool> string_inputs;
     std::vector<bool> string_outputs;
-    /// @brief one flag per input, true when wire-fed (streamed per sample).
-    /// Literal-fed inputs are set once in the WASM Function and skipped here.
+    /// @brief one flag per input, true when edge-fed (streamed per sample).
+    /// Literal inputs are set once in the WASM Function and skipped here.
     std::vector<bool> edge_fed;
     std::shared_ptr<stl::strings::State> str_state;
     bool initialized = false;
@@ -88,7 +88,7 @@ public:
             }
         }
 
-        // With no wire-fed inputs, the node executes once over its literal inputs.
+        // With no edge-fed inputs, the node executes once over its literal inputs.
         if (longest_input_idx < 0) max_length = 1;
         if (max_length <= 0) return x::errors::NIL;
         for (auto &offset: this->offsets)
