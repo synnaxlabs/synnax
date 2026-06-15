@@ -17,6 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
 	svcsignals "github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/observe"
@@ -39,7 +41,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 	dist.Ontology.RegisterService(svc)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
-		Channel: dist.Channel, Framer: dist.Framer,
+		Channel: channel.Wrap(dist.Channel),
+		Framer:  framer.Wrap(dist.Framer),
 	}))
 	MustOpen(signals.Publish(ctx, sigs, dist.Ontology))
 })

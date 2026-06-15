@@ -187,7 +187,7 @@ func GorpPublisherConfigString[E gorp.Entry[string]](
 // closed to stop the Signals pipeline.
 func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
-	svc *Provider,
+	p *Provider,
 	cfgs ...GorpPublisherConfig[K, E],
 ) (io.Closer, error) {
 	cfg, err := config.New(DefaultGorpPublisherConfig[K, E](), cfgs...)
@@ -211,7 +211,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 					}
 					v, err := cfg.MarshalSet(c.Value)
 					if err != nil {
-						svc.cfg.L.Error(
+						p.cfg.L.Error(
 							"failed to marshal set",
 							zap.Error(err),
 							zap.String("channel", cfg.SetName),
@@ -225,7 +225,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 					}
 					k, err := cfg.MarshalDelete(c.Key)
 					if err != nil {
-						svc.cfg.L.Error(
+						p.cfg.L.Error(
 							"failed to marshal delete",
 							zap.Error(err),
 							zap.String("channel", cfg.DeleteName),
@@ -253,5 +253,5 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 			Name: cfg.DeleteName, DataType: cfg.DeleteDataType, Internal: true,
 		}
 	}
-	return svc.PublishFromObservable(ctx, obsCfg)
+	return p.PublishFromObservable(ctx, obsCfg)
 }

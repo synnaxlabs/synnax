@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -40,14 +39,10 @@ var _ = Describe("Alias", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		distB := DeferClose(mock.NewCluster())
 		dist = DeferClose(distB.Provision(ctx))
-		sigs := MustSucceed(signals.New(signals.Config{
-			Channel: dist.Channel, Framer: dist.Framer,
-		}))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  sigs,
 			Search:   dist.Search,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{

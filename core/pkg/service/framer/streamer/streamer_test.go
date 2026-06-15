@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -39,21 +38,16 @@ var _ = Describe("Streamer", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		builder := DeferClose(mock.NewCluster())
 		dist = DeferClose(builder.Provision(ctx))
-		sigs := MustSucceed(signals.New(signals.Config{
-			Channel: dist.Channel, Framer: dist.Framer,
-		}))
 		searchIdx := MustOpen(search.Open())
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  sigs,
 			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
-			Signals:  sigs,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
 			Search:   searchIdx,

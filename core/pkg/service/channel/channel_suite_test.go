@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -36,20 +35,15 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = DeferClose(mock.NewCluster().Provision(ctx))
-	sigs := MustSucceed(signals.New(signals.Config{
-		Channel: dist.Channel, Framer: dist.Framer,
-	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
-		Signals:  sigs,
 		Search:   dist.Search,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
-		Signals:  sigs,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
 		Search:   dist.Search,

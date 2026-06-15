@@ -11,7 +11,6 @@ package task
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -19,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
@@ -58,11 +56,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Signals is used to propagate task changes through the Synnax signals' channel
-	// communication mechanism.
-	//
-	// [OPTIONAL]
-	Signals *signals.Provider
 	// Channel is used to create channels related to task operations.
 	//
 	// [OPTIONAL]
@@ -87,7 +80,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Search = override.Nil(c.Search, other.Search)
 	return c
@@ -165,17 +157,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
-	if cfg.Signals == nil {
-		return s, nil
-	}
-	var sig io.Closer
-	if sig, err = signals.PublishFromGorp(
-		ctx,
-		cfg.Signals,
-		signals.GorpPublisherConfigPureNumeric(s.table.Observe(), telem.Uint64T),
-	); !ok(err, sig) {
-		return nil, err
-	}
 	return s, nil
 }
 

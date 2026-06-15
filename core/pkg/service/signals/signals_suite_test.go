@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,7 +35,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	mockCluster := DeferClose(mock.NewCluster())
 	dist = DeferClose(mockCluster.Provision(ctx))
 	sigs = MustSucceed(signals.New(signals.Config{
-		Channel: dist.Channel,
-		Framer:  dist.Framer,
+		Channel: channel.Wrap(dist.Channel),
+		Framer:  framer.Wrap(dist.Framer),
 	}))
 })
