@@ -63,7 +63,6 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(fn.Name).To(Equal("foo"))
 				Expect(fn.Kind).To(Equal(symbol.KindFunction))
 				Expect(fn.Type.Inputs).To(BeEmpty())
-				Expect(fn.Type.Inputs).To(BeEmpty())
 				Expect(fn.Type.Outputs).To(BeEmpty())
 			})
 			It("should collect multiple functions before body analysis", func(bCtx SpecContext) {
