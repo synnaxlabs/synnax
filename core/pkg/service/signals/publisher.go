@@ -36,8 +36,12 @@ import (
 type ObservablePublisherConfig struct {
 	// Observable is the observable used to subscribe to changes. This observable should
 	// return byte slice keys that are properly encoded for the channel's data type.
+	//
+	// [REQUIRED]
 	Observable observe.Observable[[]change.Change[[]byte, struct{}]]
 	// Name is an optional name for the Signals pipeline, used for debugging purposes.
+	//
+	// [OPTIONAL]
 	Name string
 	// SetChannel is the channel used to propagate set operations. Only Name and
 	// DataType need to be provided. The config will automatically set Leaseholder to
@@ -67,8 +71,15 @@ func (c ObservablePublisherConfig) Validate() error {
 		"at least one of set_channel or delete_channel must be provided",
 	)
 	if c.SetChannel.Name != "" {
-		v.Ternaryf("set_channel.leaseholder", !c.SetChannel.Free(), nonFree, c.SetChannel.Leaseholder)
-		v.Ternaryf("set_channel.virtual", !c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
+		v.Ternaryf(
+			"set_channel.leaseholder",
+			!c.SetChannel.Free(),
+			nonFree,
+			c.SetChannel.Leaseholder,
+		)
+		v.Ternaryf(
+			"set_channel.virtual", !c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name,
+		)
 	}
 	if c.DeleteChannel.Name != "" {
 		v.Ternaryf(
@@ -89,7 +100,9 @@ func (c ObservablePublisherConfig) Validate() error {
 }
 
 // Override implements config.Config.
-func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) ObservablePublisherConfig {
+func (c ObservablePublisherConfig) Override(
+	other ObservablePublisherConfig,
+) ObservablePublisherConfig {
 	c.Name = override.If(c.Name, other.Name, c.Name == "")
 	c.SetChannel = override.If(c.SetChannel, other.SetChannel, c.SetChannel.Name == "")
 	c.DeleteChannel = override.If(
@@ -110,7 +123,7 @@ func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) Obs
 // PublishFromObservable opens a new Signals pipeline that subscribes to the configured
 // ObservableSubscriber and writes changes to the configured channels. The returned
 // io.Closer can be used to close the pipeline when done.
-func (s *Provider) PublishFromObservable(
+func (p *Provider) PublishFromObservable(
 	ctx context.Context,
 	cfgs ...ObservablePublisherConfig,
 ) (io.Closer, error) {
@@ -127,7 +140,7 @@ func (s *Provider) PublishFromObservable(
 	if deleteEnabled {
 		channels = append(channels, cfg.DeleteChannel)
 	}
-	if err = s.Channel.CreateMany(
+	if err = p.Channel.CreateMany(
 		ctx,
 		&channels,
 		channel.RetrieveIfNameExists(),
@@ -136,7 +149,7 @@ func (s *Provider) PublishFromObservable(
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
-	w, err := s.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+	w, err := p.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:        keys,
 		Start:       telem.Now(),
 		Authorities: []control.Authority{255},
@@ -155,7 +168,7 @@ func (s *Provider) PublishFromObservable(
 	t := &confluence.ObservableTransformPublisher[
 		[]change.Change[[]byte, struct{}], framer.WriterRequest,
 	]{
-		Instrumentation: s.Instrumentation,
+		Instrumentation: p.Instrumentation,
 		Observable:      cfg.Observable,
 		Transform: func(
 			_ context.Context, changes []change.Change[[]byte, struct{}],
@@ -194,18 +207,18 @@ func (s *Provider) PublishFromObservable(
 				true, nil
 		},
 	}
-	p := plumber.New()
-	plumber.SetSource(p, "source", t)
-	plumber.SetSegment(p, "writer", w)
+	pipeline := plumber.New()
+	plumber.SetSource(pipeline, "source", t)
+	plumber.SetSegment(pipeline, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(_ context.Context, value framer.WriterResponse) error {
-			s.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
+			p.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},
 	}
-	plumber.SetSink(p, "responses", responses)
-	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
-	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
+	plumber.SetSink(pipeline, "responses", responses)
+	plumber.MustConnect[framer.WriterRequest](pipeline, "source", "writer", 10)
+	plumber.MustConnect[framer.WriterResponse](pipeline, "writer", "responses", 10)
 	name := cfg.Name
 	if name == "" {
 		if setEnabled {
@@ -214,8 +227,8 @@ func (s *Provider) PublishFromObservable(
 			name = cfg.DeleteChannel.Name
 		}
 	}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Child(name)))
-	p.Flow(
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(p.Child(name)))
+	pipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
