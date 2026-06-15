@@ -298,6 +298,28 @@ func (t *Table) collectDependencies(typ Type) []string {
 		}
 		for _, variant := range form.Variants {
 			addDep(variant.Type)
+			if !variant.Inline {
+				continue
+			}
+			// An inline variant's synthetic payload struct is flattened into the
+			// union member rather than emitted as a standalone type, so the union
+			// must inherit the payload's own dependencies (the mixins it extends and
+			// its field types) to be ordered after them.
+			payload, ok := t.Get(variant.Type.Name)
+			if !ok {
+				payload, ok = t.Lookup(typ.Namespace, variant.Type.Name)
+			}
+			if !ok {
+				continue
+			}
+			if sf, ok := payload.Form.(StructForm); ok {
+				for _, extendsRef := range sf.Extends {
+					addDep(extendsRef)
+				}
+				for _, field := range sf.Fields {
+					addDep(field.Type)
+				}
+			}
 		}
 	case EnumForm:
 		for _, extendsRef := range form.Extends {

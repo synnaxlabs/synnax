@@ -10,7 +10,6 @@
 package types
 
 import (
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
@@ -64,7 +63,7 @@ func (fp *FieldProcessor) CollectTypeImports(ref *resolution.TypeRef) {
 		return
 	}
 	if resolved.Namespace == fp.Namespace {
-		zodName := lo.CamelCase(resolved.Name) + "Z"
+		zodName := camelCase(resolved.Name) + "Z"
 		importPath := paths.CalculateImport(fp.OutputPath, fp.OutputPath) + "/types.gen"
 		fp.Imports.AddImport(importPath, zodName)
 	}

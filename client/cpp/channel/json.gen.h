@@ -25,8 +25,9 @@ namespace synnax::channel {
 inline Operation Operation::parse(x::json::Parser parser) {
     return Operation{
         .type = parser.field<std::string>("type"),
-        .reset_channel = parser.field<Key>("reset_channel"),
-        .duration = parser.field<::x::telem::TimeSpan>("duration"),
+        .reset_channel = parser.field<Key>("reset_channel", 0),
+        .duration = parser
+                        .field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0)),
     };
 }
 

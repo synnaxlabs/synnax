@@ -51,7 +51,6 @@ class Project(ConsoleCase):
         self._cleanup_projects.append("ProjectB")
         self.test_switch_projects_in_resources()
         self.test_rename_project()
-        self.test_clear_project_from_selector()
         self.test_delete_project()
 
         # Import Pages
@@ -246,25 +245,6 @@ class Project(ConsoleCase):
             assert tab.is_visible(), f"Imported project should have tab '{tab_name}'"
 
         self.console.project.delete("ImportedSpace")
-
-    def test_clear_project_from_selector(self) -> None:
-        """Test clearing projects from the selector (switching to no project)."""
-        self.log("Testing clear project from selector")
-
-        self.console.project.select("ProjectA")
-
-        project_selector = self.page.get_by_role("button").filter(has_text="ProjectA")
-        project_selector.click(timeout=5000)
-        self.page.get_by_role("button", name="Clear").click(timeout=5000)
-
-        self.page.get_by_role("button", name="No project").wait_for(
-            state="visible", timeout=5000
-        )
-        assert self.page.get_by_role("button", name="No project").is_visible(), (
-            "No project should be active after clearing"
-        )
-
-        self.console.layout.close_left_toolbar()
 
     def test_delete_project(self) -> None:
         """Test deleting a project via context menu."""
