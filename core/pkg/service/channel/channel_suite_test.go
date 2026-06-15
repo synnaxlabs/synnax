@@ -36,7 +36,9 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = DeferClose(mock.NewCluster().Provision(ctx))
-	sigs := MustSucceed(signals.New(signals.Config{Channel: dist.Channel, Framer: dist.Framer}))
+	sigs := MustSucceed(signals.New(signals.Config{
+		Channel: dist.Channel, Framer: dist.Framer,
+	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
