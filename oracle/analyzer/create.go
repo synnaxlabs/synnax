@@ -69,10 +69,11 @@ func synthesizeCreateTypes(c *analysisCtx) {
 // `use_input` for TS. The New is omitted from Go, protobuf, and C++, where the base
 // struct is reused rather than a distinct input type.
 //
-// The base's `name` and `omit` expressions are deliberately dropped: the New is a
-// distinct sibling that emits under its own name (`New`), so it must not adopt the
-// base's renamed identifier (which would collide with the base) nor its omission (a
-// `@py omit` base is still creatable, so its New must be generated).
+// The base's `name` expression is deliberately dropped: the New is a distinct sibling
+// that emits under its own name (`New`), so it must not adopt the base's renamed
+// identifier (which would collide with the base). A base `omit` is preserved, since the
+// New mirrors the base's per-language presence: a type that does not exist in a language
+// cannot be created there, so a `@py omit` base yields a `@py omit` New.
 func newTypeDomains(base resolution.Type) map[string]resolution.Domain {
 	domains := map[string]resolution.Domain{
 		"go":  {Name: "go", Expressions: resolution.Expressions{{Name: "omit"}}},
@@ -89,9 +90,9 @@ func newTypeDomains(base resolution.Type) map[string]resolution.Domain {
 }
 
 // inheritedNewExpressions returns the base type's expressions for the given domain with
-// `name` and `omit` removed, so a synthesized New inherits output paths and behavioral
-// flags but not the base's identity or omission. Returns an empty slice when the base
-// has no such domain.
+// the `name` expression removed, so a synthesized New inherits output paths, omission,
+// and behavioral flags but emits under its own name rather than the base's. Returns an
+// empty slice when the base has no such domain.
 func inheritedNewExpressions(base resolution.Type, domain string) resolution.Expressions {
 	d, ok := base.Domains[domain]
 	if !ok {
@@ -99,7 +100,7 @@ func inheritedNewExpressions(base resolution.Type, domain string) resolution.Exp
 	}
 	out := make(resolution.Expressions, 0, len(d.Expressions))
 	for _, e := range d.Expressions {
-		if e.Name == "name" || e.Name == "omit" {
+		if e.Name == "name" {
 			continue
 		}
 		out = append(out, e)
