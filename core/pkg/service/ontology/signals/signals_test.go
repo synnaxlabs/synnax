@@ -20,10 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologysignals "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -109,28 +106,7 @@ func (s *changeService) RetrieveResource(
 	), nil
 }
 
-var _ = Describe("Signals", Ordered, func() {
-	var (
-		builder *mock.Cluster
-		dist    mock.Node
-		svc     *changeService
-		closer  io.Closer
-	)
-	BeforeAll(func(ctx SpecContext) {
-		builder = mock.NewCluster()
-		dist = builder.Provision(context.Background())
-		svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
-		dist.Ontology.RegisterService(svc)
-		sigs := MustSucceed(signals.New(signals.Config{
-			Channel: dist.Channel,
-			Framer:  dist.Framer,
-		}))
-		closer = MustSucceed(ontologysignals.Publish(ctx, sigs, dist.Ontology))
-	})
-	AfterAll(func() {
-		Expect(closer.Close()).To(Succeed())
-		Expect(builder.Close()).To(Succeed())
-	})
+var _ = Describe("Signals", func() {
 	Describe("DecodeIDs", func() {
 		It("Should decode a series of IDs", func() {
 			encoded := encodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})

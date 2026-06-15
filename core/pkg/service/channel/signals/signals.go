@@ -11,16 +11,15 @@ package signals
 
 import (
 	"context"
-	"io"
-
 	"encoding/json"
+	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 func Publish(
@@ -33,7 +32,7 @@ func Publish(
 		DeleteDataType: telem.Uint32T,
 		SetDataType:    telem.JSONT,
 		MarshalDelete: func(k channel.Key) ([]byte, error) {
-			return xunsafe.CastToBytes(k), nil
+			return unsafe.CastToBytes(k), nil
 		},
 		MarshalSet: func(c channel.Channel) ([]byte, error) {
 			v, err := json.Marshal(channel.ToPayload(c))

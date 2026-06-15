@@ -32,7 +32,7 @@ const (
 	publisherDeleteChannelName = "publisher_delete"
 )
 
-var _ = Describe("Publisher", Ordered, Serial, func() {
+var _ = Describe("Publisher", Serial, func() {
 	var (
 		obs           observe.Observer[[]change.Change[[]byte, struct{}]]
 		cfg           signals.ObservablePublisherConfig

@@ -18,9 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -31,48 +28,29 @@ type channelPayload struct {
 	Name string `json:"name"`
 }
 
-var _ = Describe("Signals", Ordered, func() {
-	var (
-		builder *mock.Cluster
-		dist    mock.Node
-		closer  io.Closer
-	)
-	BeforeAll(func(ctx SpecContext) {
-		builder = mock.NewCluster()
-		dist = builder.Provision(ctx)
-		sigs := MustSucceed(signals.New(signals.Config{
-			Channel: dist.Channel,
-			Framer:  dist.Framer,
-		}))
-		closer = MustSucceed(channelsignals.Publish(ctx, sigs, dist.Channel.Observe()))
-	})
-	AfterAll(func() {
-		Expect(closer.Close()).To(Succeed())
-		Expect(builder.Close()).To(Succeed())
-	})
+func openStreamer(
+	ctx context.Context,
+	name string,
+) (confluence.Inlet[framer.StreamerRequest], confluence.Outlet[framer.StreamerResponse], io.Closer) {
+	var sigCh channel.Channel
+	Expect(dist.Channel.NewRetrieve().
+		Where(channel.MatchNames(name)).
+		Entry(&sigCh).
+		Exec(ctx, nil),
+	).To(Succeed())
+	streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		Keys: channel.Keys{sigCh.Key()},
+	}))
+	requests, responses := confluence.Attach(streamer, 2)
+	sCtx, cancel := signal.Isolated()
+	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	// A slight delay guarantees the streamer has started up and is subscribed
+	// before the change that should propagate to it is made.
+	time.Sleep(5 * time.Millisecond)
+	return requests, responses, signal.NewHardShutdown(sCtx, cancel)
+}
 
-	openStreamer := func(
-		ctx context.Context,
-		name string,
-	) (confluence.Inlet[framer.StreamerRequest], confluence.Outlet[framer.StreamerResponse], io.Closer) {
-		var sigCh channel.Channel
-		Expect(dist.Channel.NewRetrieve().
-			Where(channel.MatchNames(name)).
-			Entry(&sigCh).
-			Exec(ctx, nil),
-		).To(Succeed())
-		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys: channel.Keys{sigCh.Key()},
-		}))
-		requests, responses := confluence.Attach(streamer, 2)
-		sCtx, cancel := signal.Isolated()
-		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-		// A slight delay guarantees the streamer has started up and is subscribed
-		// before the change that should propagate to it is made.
-		time.Sleep(5 * time.Millisecond)
-		return requests, responses, signal.NewHardShutdown(sCtx, cancel)
-	}
-
+var _ = Describe("Signals", func() {
 	It("Should propagate a channel creation to the set channel", func(ctx SpecContext) {
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
 		ch := channel.Channel{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}

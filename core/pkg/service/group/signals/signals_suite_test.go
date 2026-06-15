@@ -14,9 +14,22 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	groupsignals "github.com/synnaxlabs/synnax/pkg/service/group/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestSignals(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Group Signals Suite")
 }
+
+var dist mock.Node
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	builder := DeferClose(mock.NewCluster())
+	dist = DeferClose(builder.Provision(ctx))
+	sigs := MustSucceed(signals.New(signals.Config{Channel: dist.Channel, Framer: dist.Framer}))
+	MustOpen(groupsignals.Publish(ctx, sigs, dist.Group.Observe()))
+})

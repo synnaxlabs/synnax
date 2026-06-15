@@ -14,9 +14,22 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestSignals(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Channel Signals Suite")
 }
+
+var dist mock.Node
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	builder := DeferClose(mock.NewCluster())
+	dist = DeferClose(builder.Provision(ctx))
+	sigs := MustSucceed(signals.New(signals.Config{Channel: dist.Channel, Framer: dist.Framer}))
+	MustOpen(channelsignals.Publish(ctx, sigs, dist.Channel.Observe()))
+})

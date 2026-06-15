@@ -10,13 +10,34 @@
 package signals_test
 
 import (
+	"iter"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	ontologysignals "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/x/observe"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestSignals(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Ontology Signals Suite")
 }
+
+var (
+	dist mock.Node
+	svc  *changeService
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	builder := DeferClose(mock.NewCluster())
+	dist = DeferClose(builder.Provision(ctx))
+	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
+	dist.Ontology.RegisterService(svc)
+	sigs := MustSucceed(signals.New(signals.Config{Channel: dist.Channel, Framer: dist.Framer}))
+	MustOpen(ontologysignals.Publish(ctx, sigs, dist.Ontology))
+})
