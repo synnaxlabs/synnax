@@ -312,8 +312,8 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "out"
 
 				Mode enum {
-					off  = 0
-					on   = 1
+					on   = 0
+					off  = 1
 				}
 
 				Channel struct {

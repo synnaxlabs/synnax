@@ -45,4 +45,47 @@ var _ = Describe("Create and Output markers", func() {
 		Expect(ok).To(BeTrue())
 		Expect(name.Domains).NotTo(HaveKey("output"))
 	})
+
+	It("Should synthesize a derived New type for @create, omitting @output fields", func(ctx SpecContext) {
+		source := `
+			Thing struct {
+				key    uuid @key
+				name   string
+				author uuid @output
+				@create
+			}
+		`
+		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+		Expect(diag.Ok()).To(BeTrue())
+
+		newType, ok := table.Get("x.New")
+		Expect(ok).To(BeTrue())
+
+		form := newType.Form.(resolution.StructForm)
+		Expect(form.Extends).To(HaveLen(1))
+		Expect(form.Extends[0].Name).To(Equal("Thing"))
+		Expect(form.OmittedFields).To(ContainElement("author"))
+		Expect(newType.Domains).To(HaveKey("ts"))
+		Expect(newType.Domains).To(HaveKey("go"))
+	})
+
+	It("Should not synthesize a New when one is hand-written", func(ctx SpecContext) {
+		source := `
+			Thing struct {
+				key  uuid @key
+				name string
+				@create
+			}
+			New struct extends Thing {
+				key?
+				@ts use_input
+			}
+		`
+		// A duplicate synthesized New would add a diagnostic, so a clean analysis
+		// proves the hand-written New was respected.
+		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+		Expect(diag.Ok()).To(BeTrue())
+		_, ok := table.Get("x.New")
+		Expect(ok).To(BeTrue())
+	})
 })

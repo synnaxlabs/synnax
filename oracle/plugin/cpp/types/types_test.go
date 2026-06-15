@@ -1525,7 +1525,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp output "out"
 
 					Config struct {
-						enabled     bool = true
+						enabled     bool? = true
 						sample_rate float64 = 10
 						label       string = "dflt"
 					}

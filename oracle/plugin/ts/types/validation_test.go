@@ -145,7 +145,7 @@ var _ = Describe("Validation Rules", func() {
 			@ts output "out"
 
 			Item struct {
-				active bool = true
+				active bool? = true
 			}
 		`
 		resp := MustGenerate(ctx, source, "item", loader, p)

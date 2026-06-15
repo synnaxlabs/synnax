@@ -800,7 +800,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			}
 
 			Config struct {
-				enabled bool = true
+				enabled bool? = true
 				units   Units = volts
 				label   string = ""
 			}
