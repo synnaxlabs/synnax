@@ -64,7 +64,7 @@ var _ = Describe("Writer", func() {
 				Objects: []ontology.ID{
 					{Type: "channel", Key: "ch1"},
 					{Type: "channel", Key: "ch2"},
-					{Type: "workspace", Key: "ws1"},
+					{Type: "project", Key: "p1"},
 				},
 				Actions: []access.Action{access.ActionRetrieve, access.ActionUpdate},
 			}
@@ -134,7 +134,7 @@ var _ = Describe("Writer", func() {
 				{
 					Name:    "policy-2",
 					Key:     uuid.New(),
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Objects: []ontology.ID{{Type: "project", Key: "proj1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -160,7 +160,7 @@ var _ = Describe("Writer", func() {
 				},
 				{
 					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -210,7 +210,7 @@ var _ = Describe("Writer", func() {
 				},
 				{
 					Name:    "policy-2",
-					Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+					Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 					Actions: []access.Action{access.ActionUpdate},
 				},
 			}
@@ -266,7 +266,7 @@ var _ = Describe("Retriever", func() {
 			},
 			{
 				Name:    "beta-policy",
-				Objects: []ontology.ID{{Type: "workspace", Key: "ws1"}},
+				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
 				Actions: []access.Action{access.ActionDelete},
 			},
 			{

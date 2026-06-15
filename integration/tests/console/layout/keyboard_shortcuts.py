@@ -27,7 +27,7 @@ class KeyboardShortcuts(ConsoleCase):
         ("s", "notification", "Statuses"),
         ("t", "task", "Tasks"),
         ("u", "user", "Users"),
-        ("w", "workspace", "Workspaces"),
+        ("w", "project", "Projects"),
     ]
 
     def run(self) -> None:
@@ -44,7 +44,7 @@ class KeyboardShortcuts(ConsoleCase):
 
         # Create a page
         page_name = "Close Me"
-        console.workspace.create_page("Line Plot", page_name)
+        console.project.create_page("Line Plot", page_name)
         self._cleanup_pages.append(page_name)
 
         # Verify tab exists
@@ -73,7 +73,7 @@ class KeyboardShortcuts(ConsoleCase):
 
         # Create a page
         original_name = "Rename Via Shortcut"
-        console.workspace.create_page("Line Plot", original_name)
+        console.project.create_page("Line Plot", original_name)
         self._cleanup_pages.append(original_name)
 
         # Verify tab exists
@@ -97,7 +97,7 @@ class KeyboardShortcuts(ConsoleCase):
         assert new_tab.is_visible(), f"Tab '{new_name}' should be visible after rename"
 
         # Clean up
-        console.workspace.close_page(new_name)
+        console.project.close_page(new_name)
         self.log("test_rename_with_cmd_e: PASSED")
 
     def test_new_tab_with_cmd_t(self) -> None:

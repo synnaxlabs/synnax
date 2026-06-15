@@ -11,12 +11,15 @@ package testutil
 
 import (
 	"context"
+	"go/parser"
+	"go/token"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
+	xtestutil "github.com/synnaxlabs/x/testutil"
 )
 
 // generateRequest creates a plugin request from a source string by analyzing the source
@@ -131,6 +134,16 @@ func (c *ContentExpectation) ToContain(substrings ...string) *ContentExpectation
 	for _, s := range substrings {
 		gomega.Expect(c.content).To(gomega.ContainSubstring(s), "expected content to contain: %q", s)
 	}
+	return c
+}
+
+// ToBeValidGoSource asserts that the content parses as a syntactically valid
+// Go source file. Substring assertions cannot catch malformed emission around
+// the asserted fragments; this can.
+func (c *ContentExpectation) ToBeValidGoSource() *ContentExpectation {
+	ginkgo.GinkgoHelper()
+	xtestutil.MustSucceed(parser.ParseFile(
+		token.NewFileSet(), "", c.content, parser.SkipObjectResolution))
 	return c
 }
 

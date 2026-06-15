@@ -35,15 +35,9 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", ir.Authorities{
-				Default:  func() *uint8 { v := uint8(2); return &v }(),
-				Channels: map[uint32]uint8{3: 3},
-			}),
+			Entry("fully populated", ir.Authorities{Default: new(uint8(2)), Channels: map[uint32]uint8{3: 3}}),
 			Entry("zero values", ir.Authorities{Default: nil, Channels: nil}),
-			Entry("empty collections", ir.Authorities{
-				Default:  func() *uint8 { v := uint8(2); return &v }(),
-				Channels: map[uint32]uint8{},
-			}),
+			Entry("empty collections", ir.Authorities{Default: new(uint8(2)), Channels: map[uint32]uint8{}}),
 		)
 	})
 	Describe("Body", func() {
@@ -120,44 +114,35 @@ var _ = Describe("Codec", func() {
 							},
 							Kind: types.Kind(0),
 							Name: "test_16",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_21",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      28.5,
-									Name:       "test_29",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_34",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_21",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      28.5,
+								Name:       "test_29",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_34",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_40": "value_40"},
@@ -185,44 +170,35 @@ var _ = Describe("Codec", func() {
 							},
 							Kind: types.Kind(0),
 							Name: "test_53",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_58",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      65.5,
-									Name:       "test_66",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_71",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_58",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      65.5,
+								Name:       "test_66",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_71",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_77": "value_77"},
@@ -290,9 +266,9 @@ var _ = Describe("Codec", func() {
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_11",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
 								Value: map[string]interface{}{"key_16": "value_16"},
@@ -308,9 +284,9 @@ var _ = Describe("Codec", func() {
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_23",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
 								Value: map[string]interface{}{"key_28": "value_28"},
@@ -336,9 +312,9 @@ var _ = Describe("Codec", func() {
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_41",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
 								Value: map[string]interface{}{"key_46": "value_46"},
@@ -354,9 +330,9 @@ var _ = Describe("Codec", func() {
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_53",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
 								Value: map[string]interface{}{"key_58": "value_58"},
@@ -375,55 +351,46 @@ var _ = Describe("Codec", func() {
 						Kind:   ir.EdgeKind(0),
 					},
 				},
-				Authorities: ir.Authorities{
-					Default:  func() *uint8 { v := uint8(72); return &v }(),
-					Channels: map[uint32]uint8{73: 73},
-				},
+				Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 				Root: ir.Scope{
 					Key:        "test_74",
 					Mode:       ir.ScopeMode(0),
 					Liveness:   ir.Liveness(0),
-					Activation: func() *ir.Handle { v := ir.Handle{Node: "test_78", Param: "test_79"}; return &v }(),
+					Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 					Strata: [][]ir.Member{
 						{
 							{
-								NodeKey: func() *string { v := string("test_81"); return &v }(),
-								Scope: func() *ir.Scope {
-									v := ir.Scope{
-										Key:         "test_83",
-										Mode:        ir.ScopeMode(0),
-										Liveness:    ir.Liveness(0),
-										Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-										Strata:      [][]ir.Member{{{}}},
-										Steps:       []ir.Member{{}},
-										Transitions: []ir.Transition{{}},
-									}
-									return &v
-								}(),
+								NodeKey: new(string("test_81")),
+								Scope: new(ir.Scope{
+									Key:         "test_83",
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  new(ir.Handle{}),
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
+								}),
 							},
 						},
 					},
 					Steps: []ir.Member{
 						{
-							NodeKey: func() *string { v := string("test_91"); return &v }(),
-							Scope: func() *ir.Scope {
-								v := ir.Scope{
-									Key:         "test_93",
-									Mode:        ir.ScopeMode(0),
-									Liveness:    ir.Liveness(0),
-									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-									Strata:      [][]ir.Member{{{}}},
-									Steps:       []ir.Member{{}},
-									Transitions: []ir.Transition{{}},
-								}
-								return &v
-							}(),
+							NodeKey: new(string("test_91")),
+							Scope: new(ir.Scope{
+								Key:         "test_93",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
+							}),
 						},
 					},
 					Transitions: []ir.Transition{
 						{
 							On:        ir.Handle{Node: "test_102", Param: "test_103"},
-							TargetKey: func() *string { v := string("test_104"); return &v }(),
+							TargetKey: new(string("test_104")),
 						},
 					},
 				},
@@ -444,18 +411,15 @@ var _ = Describe("Codec", func() {
 				},
 			}),
 			Entry("empty collections", ir.IR{
-				Functions: []ir.Function{},
-				Nodes:     []ir.Node{},
-				Edges:     []ir.Edge{},
-				Authorities: ir.Authorities{
-					Default:  func() *uint8 { v := uint8(6); return &v }(),
-					Channels: map[uint32]uint8{},
-				},
+				Functions:   []ir.Function{},
+				Nodes:       []ir.Node{},
+				Edges:       []ir.Edge{},
+				Authorities: ir.Authorities{Default: new(uint8(6)), Channels: map[uint32]uint8{}},
 				Root: ir.Scope{
 					Key:         "test_8",
 					Mode:        ir.ScopeMode(0),
 					Liveness:    ir.Liveness(0),
-					Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_12", Param: "test_13"}; return &v }(),
+					Activation:  new(ir.Handle{Node: "test_12", Param: "test_13"}),
 					Strata:      [][]ir.Member{},
 					Steps:       []ir.Member{},
 					Transitions: []ir.Transition{},
@@ -475,58 +439,49 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", ir.Member{
-				NodeKey: func() *string { v := string("test_1"); return &v }(),
-				Scope: func() *ir.Scope {
-					v := ir.Scope{
-						Key:        "test_3",
-						Mode:       ir.ScopeMode(0),
-						Liveness:   ir.Liveness(0),
-						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_7", Param: "test_8"}; return &v }(),
-						Strata: [][]ir.Member{
+				NodeKey: new(string("test_1")),
+				Scope: new(ir.Scope{
+					Key:        "test_3",
+					Mode:       ir.ScopeMode(0),
+					Liveness:   ir.Liveness(0),
+					Activation: new(ir.Handle{Node: "test_7", Param: "test_8"}),
+					Strata: [][]ir.Member{
+						{
 							{
-								{
-									NodeKey: func() *string { v := string("test_10"); return &v }(),
-									Scope: func() *ir.Scope {
-										v := ir.Scope{
-											Key:         "test_12",
-											Mode:        ir.ScopeMode(0),
-											Liveness:    ir.Liveness(0),
-											Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-											Strata:      [][]ir.Member{{{}}},
-											Steps:       []ir.Member{{}},
-											Transitions: []ir.Transition{{}},
-										}
-										return &v
-									}(),
-								},
+								NodeKey: new(string("test_10")),
+								Scope: new(ir.Scope{
+									Key:         "test_12",
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  new(ir.Handle{}),
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
+								}),
 							},
 						},
-						Steps: []ir.Member{
-							{
-								NodeKey: func() *string { v := string("test_20"); return &v }(),
-								Scope: func() *ir.Scope {
-									v := ir.Scope{
-										Key:         "test_22",
-										Mode:        ir.ScopeMode(0),
-										Liveness:    ir.Liveness(0),
-										Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-										Strata:      [][]ir.Member{{{}}},
-										Steps:       []ir.Member{{}},
-										Transitions: []ir.Transition{{}},
-									}
-									return &v
-								}(),
-							},
+					},
+					Steps: []ir.Member{
+						{
+							NodeKey: new(string("test_20")),
+							Scope: new(ir.Scope{
+								Key:         "test_22",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
+							}),
 						},
-						Transitions: []ir.Transition{
-							{
-								On:        ir.Handle{Node: "test_31", Param: "test_32"},
-								TargetKey: func() *string { v := string("test_33"); return &v }(),
-							},
+					},
+					Transitions: []ir.Transition{
+						{
+							On:        ir.Handle{Node: "test_31", Param: "test_32"},
+							TargetKey: new(string("test_33")),
 						},
-					}
-					return &v
-				}(),
+					},
+				}),
 			}),
 			Entry("zero values", ir.Member{NodeKey: nil, Scope: nil}),
 		)
@@ -567,44 +522,35 @@ var _ = Describe("Codec", func() {
 							},
 							Kind: types.Kind(0),
 							Name: "test_15",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_20",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      27.5,
-									Name:       "test_28",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_33",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_20",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      27.5,
+								Name:       "test_28",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_33",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_39": "value_39"},
@@ -632,44 +578,35 @@ var _ = Describe("Codec", func() {
 							},
 							Kind: types.Kind(0),
 							Name: "test_52",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_57",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      64.5,
-									Name:       "test_65",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_70",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_57",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      64.5,
+								Name:       "test_65",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_70",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_76": "value_76"},
@@ -711,81 +648,41 @@ var _ = Describe("Codec", func() {
 				Key:        "test_1",
 				Mode:       ir.ScopeMode(0),
 				Liveness:   ir.Liveness(0),
-				Activation: func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
+				Activation: new(ir.Handle{Node: "test_5", Param: "test_6"}),
 				Strata: [][]ir.Member{
 					{
 						{
-							NodeKey: func() *string { v := string("test_8"); return &v }(),
-							Scope: func() *ir.Scope {
-								v := ir.Scope{
-									Key:        "test_10",
-									Mode:       ir.ScopeMode(0),
-									Liveness:   ir.Liveness(0),
-									Activation: func() *ir.Handle { v := ir.Handle{Node: "test_14", Param: "test_15"}; return &v }(),
-									Strata: [][]ir.Member{
-										{
-											{
-												NodeKey: func() *string { v := string("test_17"); return &v }(),
-												Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-											},
-										},
-									},
-									Steps: []ir.Member{
-										{
-											NodeKey: func() *string { v := string("test_20"); return &v }(),
-											Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-										},
-									},
-									Transitions: []ir.Transition{
-										{
-											On:        ir.Handle{},
-											TargetKey: func() *string { v := string("test_24"); return &v }(),
-										},
-									},
-								}
-								return &v
-							}(),
+							NodeKey: new(string("test_8")),
+							Scope: new(ir.Scope{
+								Key:         "test_10",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{Node: "test_14", Param: "test_15"}),
+								Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
+								Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
+								Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
+							}),
 						},
 					},
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: func() *string { v := string("test_26"); return &v }(),
-						Scope: func() *ir.Scope {
-							v := ir.Scope{
-								Key:        "test_28",
-								Mode:       ir.ScopeMode(0),
-								Liveness:   ir.Liveness(0),
-								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_32", Param: "test_33"}; return &v }(),
-								Strata: [][]ir.Member{
-									{
-										{
-											NodeKey: func() *string { v := string("test_35"); return &v }(),
-											Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-										},
-									},
-								},
-								Steps: []ir.Member{
-									{
-										NodeKey: func() *string { v := string("test_38"); return &v }(),
-										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-									},
-								},
-								Transitions: []ir.Transition{
-									{
-										On:        ir.Handle{},
-										TargetKey: func() *string { v := string("test_42"); return &v }(),
-									},
-								},
-							}
-							return &v
-						}(),
+						NodeKey: new(string("test_26")),
+						Scope: new(ir.Scope{
+							Key:         "test_28",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
+							Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
+							Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
+							Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
+						}),
 					},
 				},
 				Transitions: []ir.Transition{
 					{
 						On:        ir.Handle{Node: "test_45", Param: "test_46"},
-						TargetKey: func() *string { v := string("test_47"); return &v }(),
+						TargetKey: new(string("test_47")),
 					},
 				},
 			}),
@@ -802,7 +699,7 @@ var _ = Describe("Codec", func() {
 				Key:         "test_1",
 				Mode:        ir.ScopeMode(0),
 				Liveness:    ir.Liveness(0),
-				Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
+				Activation:  new(ir.Handle{Node: "test_5", Param: "test_6"}),
 				Strata:      [][]ir.Member{},
 				Steps:       []ir.Member{},
 				Transitions: []ir.Transition{},
@@ -822,7 +719,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", ir.Transition{
 				On:        ir.Handle{Node: "test_2", Param: "test_3"},
-				TargetKey: func() *string { v := string("test_4"); return &v }(),
+				TargetKey: new(string("test_4")),
 			}),
 			Entry("zero values", ir.Transition{On: ir.Handle{Node: "", Param: ""}, TargetKey: nil}),
 		)
@@ -830,10 +727,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeAuthorities(b *testing.B) {
-	a := ir.Authorities{
-		Default:  func() *uint8 { v := uint8(2); return &v }(),
-		Channels: map[uint32]uint8{3: 3},
-	}
+	a := ir.Authorities{Default: new(uint8(2)), Channels: map[uint32]uint8{3: 3}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -913,44 +807,35 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 					},
 					Kind: types.Kind(0),
 					Name: "test_16",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_21",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      28.5,
-							Name:       "test_29",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_34",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_21",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      28.5,
+						Name:       "test_29",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_34",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_40": "value_40"},
@@ -978,44 +863,35 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 					},
 					Kind: types.Kind(0),
 					Name: "test_53",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_58",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      65.5,
-							Name:       "test_66",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_71",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_58",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      65.5,
+						Name:       "test_66",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_71",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_77": "value_77"},
@@ -1074,9 +950,9 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_11",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_16": "value_16"},
@@ -1092,9 +968,9 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_23",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_28": "value_28"},
@@ -1120,9 +996,9 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_41",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_46": "value_46"},
@@ -1138,9 +1014,9 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_53",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_58": "value_58"},
@@ -1159,55 +1035,46 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 				Kind:   ir.EdgeKind(0),
 			},
 		},
-		Authorities: ir.Authorities{
-			Default:  func() *uint8 { v := uint8(72); return &v }(),
-			Channels: map[uint32]uint8{73: 73},
-		},
+		Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 		Root: ir.Scope{
 			Key:        "test_74",
 			Mode:       ir.ScopeMode(0),
 			Liveness:   ir.Liveness(0),
-			Activation: func() *ir.Handle { v := ir.Handle{Node: "test_78", Param: "test_79"}; return &v }(),
+			Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 			Strata: [][]ir.Member{
 				{
 					{
-						NodeKey: func() *string { v := string("test_81"); return &v }(),
-						Scope: func() *ir.Scope {
-							v := ir.Scope{
-								Key:         "test_83",
-								Mode:        ir.ScopeMode(0),
-								Liveness:    ir.Liveness(0),
-								Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-								Strata:      [][]ir.Member{{{}}},
-								Steps:       []ir.Member{{}},
-								Transitions: []ir.Transition{{}},
-							}
-							return &v
-						}(),
+						NodeKey: new(string("test_81")),
+						Scope: new(ir.Scope{
+							Key:         "test_83",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
+						}),
 					},
 				},
 			},
 			Steps: []ir.Member{
 				{
-					NodeKey: func() *string { v := string("test_91"); return &v }(),
-					Scope: func() *ir.Scope {
-						v := ir.Scope{
-							Key:         "test_93",
-							Mode:        ir.ScopeMode(0),
-							Liveness:    ir.Liveness(0),
-							Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-							Strata:      [][]ir.Member{{{}}},
-							Steps:       []ir.Member{{}},
-							Transitions: []ir.Transition{{}},
-						}
-						return &v
-					}(),
+					NodeKey: new(string("test_91")),
+					Scope: new(ir.Scope{
+						Key:         "test_93",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{}),
+						Strata:      [][]ir.Member{{{}}},
+						Steps:       []ir.Member{{}},
+						Transitions: []ir.Transition{{}},
+					}),
 				},
 			},
 			Transitions: []ir.Transition{
 				{
 					On:        ir.Handle{Node: "test_102", Param: "test_103"},
-					TargetKey: func() *string { v := string("test_104"); return &v }(),
+					TargetKey: new(string("test_104")),
 				},
 			},
 		},
@@ -1229,58 +1096,49 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 
 func BenchmarkEncodeDecodeMember(b *testing.B) {
 	mv := ir.Member{
-		NodeKey: func() *string { v := string("test_1"); return &v }(),
-		Scope: func() *ir.Scope {
-			v := ir.Scope{
-				Key:        "test_3",
-				Mode:       ir.ScopeMode(0),
-				Liveness:   ir.Liveness(0),
-				Activation: func() *ir.Handle { v := ir.Handle{Node: "test_7", Param: "test_8"}; return &v }(),
-				Strata: [][]ir.Member{
+		NodeKey: new(string("test_1")),
+		Scope: new(ir.Scope{
+			Key:        "test_3",
+			Mode:       ir.ScopeMode(0),
+			Liveness:   ir.Liveness(0),
+			Activation: new(ir.Handle{Node: "test_7", Param: "test_8"}),
+			Strata: [][]ir.Member{
+				{
 					{
-						{
-							NodeKey: func() *string { v := string("test_10"); return &v }(),
-							Scope: func() *ir.Scope {
-								v := ir.Scope{
-									Key:         "test_12",
-									Mode:        ir.ScopeMode(0),
-									Liveness:    ir.Liveness(0),
-									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-									Strata:      [][]ir.Member{{{}}},
-									Steps:       []ir.Member{{}},
-									Transitions: []ir.Transition{{}},
-								}
-								return &v
-							}(),
-						},
+						NodeKey: new(string("test_10")),
+						Scope: new(ir.Scope{
+							Key:         "test_12",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
+						}),
 					},
 				},
-				Steps: []ir.Member{
-					{
-						NodeKey: func() *string { v := string("test_20"); return &v }(),
-						Scope: func() *ir.Scope {
-							v := ir.Scope{
-								Key:         "test_22",
-								Mode:        ir.ScopeMode(0),
-								Liveness:    ir.Liveness(0),
-								Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-								Strata:      [][]ir.Member{{{}}},
-								Steps:       []ir.Member{{}},
-								Transitions: []ir.Transition{{}},
-							}
-							return &v
-						}(),
-					},
+			},
+			Steps: []ir.Member{
+				{
+					NodeKey: new(string("test_20")),
+					Scope: new(ir.Scope{
+						Key:         "test_22",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{}),
+						Strata:      [][]ir.Member{{{}}},
+						Steps:       []ir.Member{{}},
+						Transitions: []ir.Transition{{}},
+					}),
 				},
-				Transitions: []ir.Transition{
-					{
-						On:        ir.Handle{Node: "test_31", Param: "test_32"},
-						TargetKey: func() *string { v := string("test_33"); return &v }(),
-					},
+			},
+			Transitions: []ir.Transition{
+				{
+					On:        ir.Handle{Node: "test_31", Param: "test_32"},
+					TargetKey: new(string("test_33")),
 				},
-			}
-			return &v
-		}(),
+			},
+		}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1323,44 +1181,35 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 					},
 					Kind: types.Kind(0),
 					Name: "test_15",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_20",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      27.5,
-							Name:       "test_28",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_33",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_20",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      27.5,
+						Name:       "test_28",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_33",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_39": "value_39"},
@@ -1388,44 +1237,35 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 					},
 					Kind: types.Kind(0),
 					Name: "test_52",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_57",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      64.5,
-							Name:       "test_65",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_70",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_57",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      64.5,
+						Name:       "test_65",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_70",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_76": "value_76"},
@@ -1456,81 +1296,41 @@ func BenchmarkEncodeDecodeScope(b *testing.B) {
 		Key:        "test_1",
 		Mode:       ir.ScopeMode(0),
 		Liveness:   ir.Liveness(0),
-		Activation: func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
+		Activation: new(ir.Handle{Node: "test_5", Param: "test_6"}),
 		Strata: [][]ir.Member{
 			{
 				{
-					NodeKey: func() *string { v := string("test_8"); return &v }(),
-					Scope: func() *ir.Scope {
-						v := ir.Scope{
-							Key:        "test_10",
-							Mode:       ir.ScopeMode(0),
-							Liveness:   ir.Liveness(0),
-							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_14", Param: "test_15"}; return &v }(),
-							Strata: [][]ir.Member{
-								{
-									{
-										NodeKey: func() *string { v := string("test_17"); return &v }(),
-										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-									},
-								},
-							},
-							Steps: []ir.Member{
-								{
-									NodeKey: func() *string { v := string("test_20"); return &v }(),
-									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-								},
-							},
-							Transitions: []ir.Transition{
-								{
-									On:        ir.Handle{},
-									TargetKey: func() *string { v := string("test_24"); return &v }(),
-								},
-							},
-						}
-						return &v
-					}(),
+					NodeKey: new(string("test_8")),
+					Scope: new(ir.Scope{
+						Key:         "test_10",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{Node: "test_14", Param: "test_15"}),
+						Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
+						Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
+						Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
+					}),
 				},
 			},
 		},
 		Steps: []ir.Member{
 			{
-				NodeKey: func() *string { v := string("test_26"); return &v }(),
-				Scope: func() *ir.Scope {
-					v := ir.Scope{
-						Key:        "test_28",
-						Mode:       ir.ScopeMode(0),
-						Liveness:   ir.Liveness(0),
-						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_32", Param: "test_33"}; return &v }(),
-						Strata: [][]ir.Member{
-							{
-								{
-									NodeKey: func() *string { v := string("test_35"); return &v }(),
-									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-								},
-							},
-						},
-						Steps: []ir.Member{
-							{
-								NodeKey: func() *string { v := string("test_38"); return &v }(),
-								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-							},
-						},
-						Transitions: []ir.Transition{
-							{
-								On:        ir.Handle{},
-								TargetKey: func() *string { v := string("test_42"); return &v }(),
-							},
-						},
-					}
-					return &v
-				}(),
+				NodeKey: new(string("test_26")),
+				Scope: new(ir.Scope{
+					Key:         "test_28",
+					Mode:        ir.ScopeMode(0),
+					Liveness:    ir.Liveness(0),
+					Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
+					Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
+					Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
+					Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
+				}),
 			},
 		},
 		Transitions: []ir.Transition{
 			{
 				On:        ir.Handle{Node: "test_45", Param: "test_46"},
-				TargetKey: func() *string { v := string("test_47"); return &v }(),
+				TargetKey: new(string("test_47")),
 			},
 		},
 	}
@@ -1552,7 +1352,7 @@ func BenchmarkEncodeDecodeScope(b *testing.B) {
 func BenchmarkEncodeDecodeTransition(b *testing.B) {
 	t := ir.Transition{
 		On:        ir.Handle{Node: "test_2", Param: "test_3"},
-		TargetKey: func() *string { v := string("test_4"); return &v }(),
+		TargetKey: new(string("test_4")),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1571,10 +1371,7 @@ func BenchmarkEncodeDecodeTransition(b *testing.B) {
 
 func FuzzDecodeAuthorities(f *testing.F) {
 	{
-		seed := ir.Authorities{
-			Default:  func() *uint8 { v := uint8(2); return &v }(),
-			Channels: map[uint32]uint8{3: 3},
-		}
+		seed := ir.Authorities{Default: new(uint8(2)), Channels: map[uint32]uint8{3: 3}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1590,10 +1387,7 @@ func FuzzDecodeAuthorities(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Authorities{
-			Default:  func() *uint8 { v := uint8(2); return &v }(),
-			Channels: map[uint32]uint8{},
-		}
+		seed := ir.Authorities{Default: new(uint8(2)), Channels: map[uint32]uint8{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1756,44 +1550,35 @@ func FuzzDecodeFunction(f *testing.F) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_16",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_21",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      28.5,
-								Name:       "test_29",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_34",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_21",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      28.5,
+							Name:       "test_29",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_34",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_40": "value_40"},
@@ -1821,44 +1606,35 @@ func FuzzDecodeFunction(f *testing.F) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_53",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_58",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      65.5,
-								Name:       "test_66",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_71",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_58",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      65.5,
+							Name:       "test_66",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_71",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_77": "value_77"},
@@ -1995,9 +1771,9 @@ func FuzzDecodeIR(f *testing.F) {
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_11",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_16": "value_16"},
@@ -2013,9 +1789,9 @@ func FuzzDecodeIR(f *testing.F) {
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_23",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_28": "value_28"},
@@ -2041,9 +1817,9 @@ func FuzzDecodeIR(f *testing.F) {
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_41",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_46": "value_46"},
@@ -2059,9 +1835,9 @@ func FuzzDecodeIR(f *testing.F) {
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_53",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_58": "value_58"},
@@ -2080,55 +1856,46 @@ func FuzzDecodeIR(f *testing.F) {
 					Kind:   ir.EdgeKind(0),
 				},
 			},
-			Authorities: ir.Authorities{
-				Default:  func() *uint8 { v := uint8(72); return &v }(),
-				Channels: map[uint32]uint8{73: 73},
-			},
+			Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 			Root: ir.Scope{
 				Key:        "test_74",
 				Mode:       ir.ScopeMode(0),
 				Liveness:   ir.Liveness(0),
-				Activation: func() *ir.Handle { v := ir.Handle{Node: "test_78", Param: "test_79"}; return &v }(),
+				Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 				Strata: [][]ir.Member{
 					{
 						{
-							NodeKey: func() *string { v := string("test_81"); return &v }(),
-							Scope: func() *ir.Scope {
-								v := ir.Scope{
-									Key:         "test_83",
-									Mode:        ir.ScopeMode(0),
-									Liveness:    ir.Liveness(0),
-									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-									Strata:      [][]ir.Member{{{}}},
-									Steps:       []ir.Member{{}},
-									Transitions: []ir.Transition{{}},
-								}
-								return &v
-							}(),
+							NodeKey: new(string("test_81")),
+							Scope: new(ir.Scope{
+								Key:         "test_83",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
+							}),
 						},
 					},
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: func() *string { v := string("test_91"); return &v }(),
-						Scope: func() *ir.Scope {
-							v := ir.Scope{
-								Key:         "test_93",
-								Mode:        ir.ScopeMode(0),
-								Liveness:    ir.Liveness(0),
-								Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-								Strata:      [][]ir.Member{{{}}},
-								Steps:       []ir.Member{{}},
-								Transitions: []ir.Transition{{}},
-							}
-							return &v
-						}(),
+						NodeKey: new(string("test_91")),
+						Scope: new(ir.Scope{
+							Key:         "test_93",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
+						}),
 					},
 				},
 				Transitions: []ir.Transition{
 					{
 						On:        ir.Handle{Node: "test_102", Param: "test_103"},
-						TargetKey: func() *string { v := string("test_104"); return &v }(),
+						TargetKey: new(string("test_104")),
 					},
 				},
 			},
@@ -2163,18 +1930,15 @@ func FuzzDecodeIR(f *testing.F) {
 	}
 	{
 		seed := ir.IR{
-			Functions: []ir.Function{},
-			Nodes:     []ir.Node{},
-			Edges:     []ir.Edge{},
-			Authorities: ir.Authorities{
-				Default:  func() *uint8 { v := uint8(6); return &v }(),
-				Channels: map[uint32]uint8{},
-			},
+			Functions:   []ir.Function{},
+			Nodes:       []ir.Node{},
+			Edges:       []ir.Edge{},
+			Authorities: ir.Authorities{Default: new(uint8(6)), Channels: map[uint32]uint8{}},
 			Root: ir.Scope{
 				Key:         "test_8",
 				Mode:        ir.ScopeMode(0),
 				Liveness:    ir.Liveness(0),
-				Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_12", Param: "test_13"}; return &v }(),
+				Activation:  new(ir.Handle{Node: "test_12", Param: "test_13"}),
 				Strata:      [][]ir.Member{},
 				Steps:       []ir.Member{},
 				Transitions: []ir.Transition{},
@@ -2218,58 +1982,49 @@ func FuzzDecodeIR(f *testing.F) {
 func FuzzDecodeMember(f *testing.F) {
 	{
 		seed := ir.Member{
-			NodeKey: func() *string { v := string("test_1"); return &v }(),
-			Scope: func() *ir.Scope {
-				v := ir.Scope{
-					Key:        "test_3",
-					Mode:       ir.ScopeMode(0),
-					Liveness:   ir.Liveness(0),
-					Activation: func() *ir.Handle { v := ir.Handle{Node: "test_7", Param: "test_8"}; return &v }(),
-					Strata: [][]ir.Member{
+			NodeKey: new(string("test_1")),
+			Scope: new(ir.Scope{
+				Key:        "test_3",
+				Mode:       ir.ScopeMode(0),
+				Liveness:   ir.Liveness(0),
+				Activation: new(ir.Handle{Node: "test_7", Param: "test_8"}),
+				Strata: [][]ir.Member{
+					{
 						{
-							{
-								NodeKey: func() *string { v := string("test_10"); return &v }(),
-								Scope: func() *ir.Scope {
-									v := ir.Scope{
-										Key:         "test_12",
-										Mode:        ir.ScopeMode(0),
-										Liveness:    ir.Liveness(0),
-										Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-										Strata:      [][]ir.Member{{{}}},
-										Steps:       []ir.Member{{}},
-										Transitions: []ir.Transition{{}},
-									}
-									return &v
-								}(),
-							},
+							NodeKey: new(string("test_10")),
+							Scope: new(ir.Scope{
+								Key:         "test_12",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
+							}),
 						},
 					},
-					Steps: []ir.Member{
-						{
-							NodeKey: func() *string { v := string("test_20"); return &v }(),
-							Scope: func() *ir.Scope {
-								v := ir.Scope{
-									Key:         "test_22",
-									Mode:        ir.ScopeMode(0),
-									Liveness:    ir.Liveness(0),
-									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-									Strata:      [][]ir.Member{{{}}},
-									Steps:       []ir.Member{{}},
-									Transitions: []ir.Transition{{}},
-								}
-								return &v
-							}(),
-						},
+				},
+				Steps: []ir.Member{
+					{
+						NodeKey: new(string("test_20")),
+						Scope: new(ir.Scope{
+							Key:         "test_22",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
+						}),
 					},
-					Transitions: []ir.Transition{
-						{
-							On:        ir.Handle{Node: "test_31", Param: "test_32"},
-							TargetKey: func() *string { v := string("test_33"); return &v }(),
-						},
+				},
+				Transitions: []ir.Transition{
+					{
+						On:        ir.Handle{Node: "test_31", Param: "test_32"},
+						TargetKey: new(string("test_33")),
 					},
-				}
-				return &v
-			}(),
+				},
+			}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2341,44 +2096,35 @@ func FuzzDecodeNode(f *testing.F) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_15",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_20",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      27.5,
-								Name:       "test_28",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_33",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_20",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      27.5,
+							Name:       "test_28",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_33",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_39": "value_39"},
@@ -2406,44 +2152,35 @@ func FuzzDecodeNode(f *testing.F) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_52",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_57",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      64.5,
-								Name:       "test_65",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_70",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_57",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      64.5,
+							Name:       "test_65",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_70",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_76": "value_76"},
@@ -2523,81 +2260,41 @@ func FuzzDecodeScope(f *testing.F) {
 			Key:        "test_1",
 			Mode:       ir.ScopeMode(0),
 			Liveness:   ir.Liveness(0),
-			Activation: func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
+			Activation: new(ir.Handle{Node: "test_5", Param: "test_6"}),
 			Strata: [][]ir.Member{
 				{
 					{
-						NodeKey: func() *string { v := string("test_8"); return &v }(),
-						Scope: func() *ir.Scope {
-							v := ir.Scope{
-								Key:        "test_10",
-								Mode:       ir.ScopeMode(0),
-								Liveness:   ir.Liveness(0),
-								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_14", Param: "test_15"}; return &v }(),
-								Strata: [][]ir.Member{
-									{
-										{
-											NodeKey: func() *string { v := string("test_17"); return &v }(),
-											Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-										},
-									},
-								},
-								Steps: []ir.Member{
-									{
-										NodeKey: func() *string { v := string("test_20"); return &v }(),
-										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-									},
-								},
-								Transitions: []ir.Transition{
-									{
-										On:        ir.Handle{},
-										TargetKey: func() *string { v := string("test_24"); return &v }(),
-									},
-								},
-							}
-							return &v
-						}(),
+						NodeKey: new(string("test_8")),
+						Scope: new(ir.Scope{
+							Key:         "test_10",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{Node: "test_14", Param: "test_15"}),
+							Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
+							Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
+							Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
+						}),
 					},
 				},
 			},
 			Steps: []ir.Member{
 				{
-					NodeKey: func() *string { v := string("test_26"); return &v }(),
-					Scope: func() *ir.Scope {
-						v := ir.Scope{
-							Key:        "test_28",
-							Mode:       ir.ScopeMode(0),
-							Liveness:   ir.Liveness(0),
-							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_32", Param: "test_33"}; return &v }(),
-							Strata: [][]ir.Member{
-								{
-									{
-										NodeKey: func() *string { v := string("test_35"); return &v }(),
-										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-									},
-								},
-							},
-							Steps: []ir.Member{
-								{
-									NodeKey: func() *string { v := string("test_38"); return &v }(),
-									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-								},
-							},
-							Transitions: []ir.Transition{
-								{
-									On:        ir.Handle{},
-									TargetKey: func() *string { v := string("test_42"); return &v }(),
-								},
-							},
-						}
-						return &v
-					}(),
+					NodeKey: new(string("test_26")),
+					Scope: new(ir.Scope{
+						Key:         "test_28",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
+						Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
+						Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
+						Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
+					}),
 				},
 			},
 			Transitions: []ir.Transition{
 				{
 					On:        ir.Handle{Node: "test_45", Param: "test_46"},
-					TargetKey: func() *string { v := string("test_47"); return &v }(),
+					TargetKey: new(string("test_47")),
 				},
 			},
 		}
@@ -2628,7 +2325,7 @@ func FuzzDecodeScope(f *testing.F) {
 			Key:         "test_1",
 			Mode:        ir.ScopeMode(0),
 			Liveness:    ir.Liveness(0),
-			Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
+			Activation:  new(ir.Handle{Node: "test_5", Param: "test_6"}),
 			Strata:      [][]ir.Member{},
 			Steps:       []ir.Member{},
 			Transitions: []ir.Transition{},
@@ -2672,7 +2369,7 @@ func FuzzDecodeTransition(f *testing.F) {
 	{
 		seed := ir.Transition{
 			On:        ir.Handle{Node: "test_2", Param: "test_3"},
-			TargetKey: func() *string { v := string("test_4"); return &v }(),
+			TargetKey: new(string("test_4")),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

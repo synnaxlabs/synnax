@@ -114,7 +114,12 @@ export const typeZ = functionPropertiesZ.extend({
 export interface Type extends z.infer<typeof typeZ> {}
 
 /** Param is a named, typed parameter with optional default value. */
-export const paramZ = z.object({
+export interface Param {
+  name: string;
+  type: Type;
+  value?: unknown;
+}
+export const paramZ: z.ZodType<Param> = z.object({
   /** name is the parameter name. */
   name: z.string(),
   /** type is the parameter type. */
@@ -122,7 +127,6 @@ export const paramZ = z.object({
   /** value is an optional default value. */
   value: z.unknown().optional(),
 });
-export interface Param extends z.infer<typeof paramZ> {}
 
 export const paramsZ = array.nullishToEmpty(paramZ);
 export type Params = z.infer<typeof paramsZ>;

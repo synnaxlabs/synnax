@@ -32,12 +32,10 @@ import {
   useSelectControlState,
   useSelectExists,
   useSelectHiddenLines,
-  useSelectPendingUpload,
   useSelectSelection,
   useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
-  clearPendingUpload,
   internalCreate,
   setActiveToolbarTab,
   setControlState,
@@ -51,14 +49,6 @@ import {
 import { type DownloadLine, useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { Range } from "@/range";
 import { type RootState } from "@/store";
-import { createUseAutoUpload } from "@/vis/useAutoUpload";
-
-const useAutoUpload = createUseAutoUpload({
-  useSelectPendingUpload,
-  toCreateParams: (pending, fields) => ({ ...pending, ...fields }),
-  useCreate: PLinePlot.useCreate,
-  clearPendingUpload,
-});
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
@@ -313,9 +303,7 @@ const useEnsureState = createEnsureState({
 
 export const LinePlot: Layout.Renderer = (props) => {
   const exists = useEnsureState(props.layoutKey);
-  useAutoUpload(props.layoutKey);
-  const pendingUpload = useSelectPendingUpload(props.layoutKey);
-  if (!exists || pendingUpload != null) return null;
+  if (!exists) return null;
   return <Loaded {...props} />;
 };
 

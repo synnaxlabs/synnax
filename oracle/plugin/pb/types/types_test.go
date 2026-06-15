@@ -543,6 +543,26 @@ var _ = Describe("Plugin", func() {
 				Expect(content).To(ContainSubstring(`enum Status`))
 				Expect(content).NotTo(ContainSubstring(`DebugLevel`))
 			})
+
+			It("Should not emit a proto file for an output path whose types are all omitted", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/task"
+					@pb
+
+					Command struct {
+						key string
+					}
+
+					BaseConfig struct {
+						auto_start bool
+						@go output "core/pkg/service/task/common"
+						@pb omit
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, p)
+				Expect(resp.Files).To(HaveLen(1))
+				Expect(resp.Files[0].Path).To(ContainSubstring("core/pkg/service/task/pb"))
+			})
 		})
 
 		Context("type parameters", func() {
@@ -940,5 +960,141 @@ var _ = Describe("Plugin", func() {
 				Expect(content).ToNot(ContainSubstring("message "))
 			})
 		})
+	})
+})
+
+var _ = Describe("Protobuf Union Generation", func() {
+	var (
+		loader *MockFileLoader
+		p      *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		p = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a wrapper message with a oneof of variant messages", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain(
+				"message Scale {",
+				"oneof variant {",
+				"LinearScale linear = 1;",
+				"NoneScale none = 2;",
+			)
+	})
+
+	It("Should nest shared bases as message fields outside the oneof", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain(
+				"message AIChannel {",
+				"BaseAIChan base_ai_chan = 1;",
+				"oneof variant {",
+				"VoltageFields ai_voltage = 2;",
+			)
+	})
+
+	It("Should generate messages for inline variant payloads", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/panel"
+			@pb
+
+			TabBase struct { key string }
+
+			Tab union on variant extends TabBase {
+				view {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, p)
+		ExpectContent(resp, "panel.proto").
+			ToContain(
+				"message TabViewPayload {",
+				"message TabEmptyPayload {",
+				"message Tab {",
+				"TabBase tab_base = 1;",
+				"oneof variant {",
+				"TabViewPayload view = 2;",
+				"TabEmptyPayload empty = 3;",
+			)
+	})
+
+	It("Should reference a union message from a union-typed field", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/hw/ni"
+			@pb
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain("Scale custom_scale = 1;")
+	})
+	It("Should import a union field from another proto package", func(ctx SpecContext) {
+		loader.Add("schemas/scale", `
+			@pb
+			@go output "core/pkg/service/scale"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none   NoneScale
+			}
+		`)
+		source := `
+			import "schemas/scale"
+
+			@pb
+			@go output "core/pkg/service/ni"
+
+			Channel struct {
+				custom_scale scale.Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, p)
+		ExpectContent(resp, "ni.proto").
+			ToContain(
+				`import "core/pkg/service/scale/pb/scale.proto";`,
+				"custom_scale = 1;",
+			)
 	})
 })

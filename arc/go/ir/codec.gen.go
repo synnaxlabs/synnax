@@ -334,6 +334,10 @@ func (mv Member) EncodeOrc(w *orc.Writer) error {
 }
 
 func (mv *Member) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -489,6 +493,10 @@ func (s Scope) EncodeOrc(w *orc.Writer) error {
 }
 
 func (s *Scope) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	var err error
 	if s.Key, err = r.String(); err != nil {
 		return err

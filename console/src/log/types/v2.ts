@@ -21,8 +21,8 @@ export const toolbarStateZ = v1.toolbarStateZ;
 export type ToolbarState = v1.ToolbarState;
 export const ZERO_TOOLBAR_STATE = v1.ZERO_TOOLBAR_STATE;
 
-export const pendingUploadZ = log.logZ.omit({ name: true });
-export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
+const pendingUploadZ = log.logZ.omit({ name: true });
+interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = z.object({
   key: z.string(),

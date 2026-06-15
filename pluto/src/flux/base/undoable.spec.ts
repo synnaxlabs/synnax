@@ -110,7 +110,16 @@ describe("UndoableStore", () => {
       expect(r?.processed).toEqual([{ type: "set", key: "a", value: 9 }]);
       expect(r?.inverse).toEqual([{ type: "set", key: "a", value: 5 }]);
       expect(r?.targets).toEqual(["a"]);
+      expect(r?.changed).toBe(true);
       expect(store.get("k")).toEqual({ values: { a: 9 } });
+    });
+
+    it("reports changed=false when no action touches the state", () => {
+      const { store } = setupStore();
+      prime(store, "k", { a: 5 });
+      const r = store.replay("k", [{ type: "noop" }]);
+      expect(r).not.toBeNull();
+      expect(r?.changed).toBe(false);
     });
 
     it("rollback restores the prior doc state", () => {

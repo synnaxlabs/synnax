@@ -33,7 +33,6 @@ import {
   useSelectControlStatus,
   useSelectEditable,
   useSelectExists,
-  useSelectPendingUpload,
   useSelectSelected,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
@@ -169,7 +168,6 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 
 export const Toolbar = (props: ToolbarProps) => {
   const exists = useSelectExists(props.layoutKey);
-  const pendingUpload = useSelectPendingUpload(props.layoutKey);
-  if (!exists || pendingUpload != null) return null;
+  if (!exists) return null;
   return <Internal {...props} />;
 };
