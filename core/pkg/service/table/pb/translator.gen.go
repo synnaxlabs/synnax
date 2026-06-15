@@ -13,20 +13,317 @@ package pb
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"google.golang.org/protobuf/types/known/structpb"
+	colorpb "github.com/synnaxlabs/x/color/pb"
+	"github.com/synnaxlabs/x/errors"
+	notationpb "github.com/synnaxlabs/x/notation/pb"
+	spatialpb "github.com/synnaxlabs/x/spatial/pb"
+	textpb "github.com/synnaxlabs/x/text/pb"
 )
+
+// TextCellConfigToPB converts TextCellConfig to TextCellConfig.
+func TextCellConfigToPB(r table.TextCellConfig) (*TextCellConfig, error) {
+	pb := &TextCellConfig{
+		Value: r.Value,
+	}
+	if r.Level != nil {
+		val, err := textpb.LevelToPB(*r.Level)
+		if err != nil {
+			return nil, err
+		}
+		pb.Level = &val
+	}
+	if r.Weight != nil {
+		pb.Weight = r.Weight
+	}
+	if r.Align != nil {
+		val, err := spatialpb.AlignmentToPB(*r.Align)
+		if err != nil {
+			return nil, err
+		}
+		pb.Align = &val
+	}
+	if r.BackgroundColor != nil {
+		var err error
+		pb.BackgroundColor, err = colorpb.ColorToPB(*r.BackgroundColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// TextCellConfigFromPB converts TextCellConfig to TextCellConfig.
+func TextCellConfigFromPB(pb *TextCellConfig) (table.TextCellConfig, error) {
+	var r table.TextCellConfig
+	if pb == nil {
+		return r, nil
+	}
+	r.Value = pb.Value
+	if pb.Level != nil {
+		val, err := textpb.LevelFromPB(*pb.Level)
+		if err != nil {
+			return table.TextCellConfig{}, err
+		}
+		r.Level = &val
+	}
+	if pb.Weight != nil {
+		r.Weight = pb.Weight
+	}
+	if pb.Align != nil {
+		val, err := spatialpb.AlignmentFromPB(*pb.Align)
+		if err != nil {
+			return table.TextCellConfig{}, err
+		}
+		r.Align = &val
+	}
+	if pb.BackgroundColor != nil {
+		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
+		if err != nil {
+			return table.TextCellConfig{}, err
+		}
+		r.BackgroundColor = &val
+	}
+	return r, nil
+}
+
+// TextCellConfigsToPB converts a slice of TextCellConfig to TextCellConfig.
+func TextCellConfigsToPB(rs []table.TextCellConfig) ([]*TextCellConfig, error) {
+	result := make([]*TextCellConfig, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TextCellConfigToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TextCellConfigsFromPB converts a slice of TextCellConfig to TextCellConfig.
+func TextCellConfigsFromPB(pbs []*TextCellConfig) ([]table.TextCellConfig, error) {
+	result := make([]table.TextCellConfig, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TextCellConfigFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RedlineToPB converts Redline to Redline.
+func RedlineToPB(r table.Redline) (*Redline, error) {
+	boundsVal, err := spatialpb.BoundsToPB(r.Bounds)
+	if err != nil {
+		return nil, err
+	}
+	gradientVal, err := colorpb.StopsToPB(r.Gradient)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Redline{
+		Bounds:   boundsVal,
+		Gradient: gradientVal,
+	}
+	return pb, nil
+}
+
+// RedlineFromPB converts Redline to Redline.
+func RedlineFromPB(pb *Redline) (table.Redline, error) {
+	var r table.Redline
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Bounds, err = spatialpb.BoundsFromPB(pb.Bounds)
+	if err != nil {
+		return table.Redline{}, err
+	}
+	r.Gradient, err = colorpb.StopsFromPB(pb.Gradient)
+	if err != nil {
+		return table.Redline{}, err
+	}
+	return r, nil
+}
+
+// RedlinesToPB converts a slice of Redline to Redline.
+func RedlinesToPB(rs []table.Redline) ([]*Redline, error) {
+	result := make([]*Redline, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RedlineToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RedlinesFromPB converts a slice of Redline to Redline.
+func RedlinesFromPB(pbs []*Redline) ([]table.Redline, error) {
+	result := make([]table.Redline, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RedlineFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ValueCellConfigToPB converts ValueCellConfig to ValueCellConfig.
+func ValueCellConfigToPB(r table.ValueCellConfig) (*ValueCellConfig, error) {
+	pb := &ValueCellConfig{
+		Units: r.Units,
+	}
+	if r.Channel != nil {
+		v := uint32(*r.Channel)
+		pb.Channel = &v
+	}
+	if r.RollingAverage != nil {
+		pb.RollingAverage = r.RollingAverage
+	}
+	if r.Precision != nil {
+		pb.Precision = r.Precision
+	}
+	if r.Notation != nil {
+		val, err := notationpb.NotationToPB(*r.Notation)
+		if err != nil {
+			return nil, err
+		}
+		pb.Notation = &val
+	}
+	if r.Redline != nil {
+		var err error
+		pb.Redline, err = RedlineToPB(*r.Redline)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Level != nil {
+		val, err := textpb.LevelToPB(*r.Level)
+		if err != nil {
+			return nil, err
+		}
+		pb.Level = &val
+	}
+	if r.Color != nil {
+		var err error
+		pb.Color, err = colorpb.ColorToPB(*r.Color)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.StalenessTimeout != nil {
+		pb.StalenessTimeout = r.StalenessTimeout
+	}
+	if r.StalenessColor != nil {
+		var err error
+		pb.StalenessColor, err = colorpb.ColorToPB(*r.StalenessColor)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ValueCellConfigFromPB converts ValueCellConfig to ValueCellConfig.
+func ValueCellConfigFromPB(pb *ValueCellConfig) (table.ValueCellConfig, error) {
+	var r table.ValueCellConfig
+	if pb == nil {
+		return r, nil
+	}
+	r.Units = pb.Units
+	if pb.Channel != nil {
+		v := channel.Key(*pb.Channel)
+		r.Channel = &v
+	}
+	if pb.RollingAverage != nil {
+		r.RollingAverage = pb.RollingAverage
+	}
+	if pb.Precision != nil {
+		r.Precision = pb.Precision
+	}
+	if pb.Notation != nil {
+		val, err := notationpb.NotationFromPB(*pb.Notation)
+		if err != nil {
+			return table.ValueCellConfig{}, err
+		}
+		r.Notation = &val
+	}
+	if pb.Redline != nil {
+		val, err := RedlineFromPB(pb.Redline)
+		if err != nil {
+			return table.ValueCellConfig{}, err
+		}
+		r.Redline = &val
+	}
+	if pb.Level != nil {
+		val, err := textpb.LevelFromPB(*pb.Level)
+		if err != nil {
+			return table.ValueCellConfig{}, err
+		}
+		r.Level = &val
+	}
+	if pb.Color != nil {
+		val, err := colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return table.ValueCellConfig{}, err
+		}
+		r.Color = &val
+	}
+	if pb.StalenessTimeout != nil {
+		r.StalenessTimeout = pb.StalenessTimeout
+	}
+	if pb.StalenessColor != nil {
+		val, err := colorpb.ColorFromPB(pb.StalenessColor)
+		if err != nil {
+			return table.ValueCellConfig{}, err
+		}
+		r.StalenessColor = &val
+	}
+	return r, nil
+}
+
+// ValueCellConfigsToPB converts a slice of ValueCellConfig to ValueCellConfig.
+func ValueCellConfigsToPB(rs []table.ValueCellConfig) ([]*ValueCellConfig, error) {
+	result := make([]*ValueCellConfig, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ValueCellConfigToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ValueCellConfigsFromPB converts a slice of ValueCellConfig to ValueCellConfig.
+func ValueCellConfigsFromPB(pbs []*ValueCellConfig) ([]table.ValueCellConfig, error) {
+	result := make([]table.ValueCellConfig, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ValueCellConfigFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // CellToPB converts Cell to Cell.
 func CellToPB(r table.Cell) (*Cell, error) {
-	propsVal, err := structpb.NewStruct(r.Props)
+	configVal, err := CellConfigToPB(r.Config)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Cell{
-		Key:     r.Key,
-		Variant: r.Variant,
-		Props:   propsVal,
+		Key:    r.Key,
+		Config: configVal,
 	}
 	return pb, nil
 }
@@ -37,9 +334,12 @@ func CellFromPB(pb *Cell) (table.Cell, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Props = pb.Props.AsMap()
+	var err error
+	r.Config, err = CellConfigFromPB(pb.Config)
+	if err != nil {
+		return table.Cell{}, err
+	}
 	r.Key = pb.Key
-	r.Variant = pb.Variant
 	return r, nil
 }
 
@@ -62,56 +362,6 @@ func CellsFromPB(pbs []*Cell) ([]table.Cell, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = CellFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// CellTemplateToPB converts CellTemplate to CellTemplate.
-func CellTemplateToPB(r table.CellTemplate) (*CellTemplate, error) {
-	propsVal, err := structpb.NewStruct(r.Props)
-	if err != nil {
-		return nil, err
-	}
-	pb := &CellTemplate{
-		Variant: r.Variant,
-		Props:   propsVal,
-	}
-	return pb, nil
-}
-
-// CellTemplateFromPB converts CellTemplate to CellTemplate.
-func CellTemplateFromPB(pb *CellTemplate) (table.CellTemplate, error) {
-	var r table.CellTemplate
-	if pb == nil {
-		return r, nil
-	}
-	r.Props = pb.Props.AsMap()
-	r.Variant = pb.Variant
-	return r, nil
-}
-
-// CellTemplatesToPB converts a slice of CellTemplate to CellTemplate.
-func CellTemplatesToPB(rs []table.CellTemplate) ([]*CellTemplate, error) {
-	result := make([]*CellTemplate, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = CellTemplateToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// CellTemplatesFromPB converts a slice of CellTemplate to CellTemplate.
-func CellTemplatesFromPB(pbs []*CellTemplate) ([]table.CellTemplate, error) {
-	result := make([]table.CellTemplate, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = CellTemplateFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -226,9 +476,9 @@ func TableToPB(r table.Table) (*Table, error) {
 		Columns: columnsVal,
 	}
 	if r.Cells != nil {
-		pb.Cells = make(map[string]*Cell, len(r.Cells))
+		pb.Cells = make(map[string]*CellConfig, len(r.Cells))
 		for k, v := range r.Cells {
-			converted, err := CellToPB(v)
+			converted, err := CellConfigToPB(v)
 			if err != nil {
 				return nil, err
 			}
@@ -260,9 +510,9 @@ func TableFromPB(pb *Table) (table.Table, error) {
 	}
 	r.Name = pb.Name
 	if pb.Cells != nil {
-		r.Cells = make(map[string]table.Cell, len(pb.Cells))
+		r.Cells = make(map[string]table.CellConfig, len(pb.Cells))
 		for k, v := range pb.Cells {
-			converted, err := CellFromPB(v)
+			converted, err := CellConfigFromPB(v)
 			if err != nil {
 				return table.Table{}, err
 			}
@@ -291,6 +541,80 @@ func TablesFromPB(pbs []*Table) ([]table.Table, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = TableFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CellConfigToPB converts CellConfig to CellConfig.
+func CellConfigToPB(r table.CellConfig) (*CellConfig, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &CellConfig{}
+	switch v := r.Variant.(type) {
+	case table.CellConfigText:
+		inner, err := TextCellConfigToPB(v.TextCellConfig)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &CellConfig_Text{Text: inner}
+	case table.CellConfigValue:
+		inner, err := ValueCellConfigToPB(v.ValueCellConfig)
+		if err != nil {
+			return nil, err
+		}
+		pb.Variant = &CellConfig_Value{Value: inner}
+	default:
+		return nil, errors.Newf("CellConfig: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// CellConfigFromPB converts CellConfig to CellConfig.
+func CellConfigFromPB(pb *CellConfig) (table.CellConfig, error) {
+	var r table.CellConfig
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+	case *CellConfig_Text:
+		inner, err := TextCellConfigFromPB(v.Text)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = table.CellConfigText{TextCellConfig: inner}
+	case *CellConfig_Value:
+		inner, err := ValueCellConfigFromPB(v.Value)
+		if err != nil {
+			return r, err
+		}
+		r.Variant = table.CellConfigValue{ValueCellConfig: inner}
+	}
+	return r, nil
+}
+
+// CellConfigsToPB converts a slice of CellConfig to CellConfig.
+func CellConfigsToPB(rs []table.CellConfig) ([]*CellConfig, error) {
+	result := make([]*CellConfig, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CellConfigToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CellConfigsFromPB converts a slice of CellConfig to CellConfig.
+func CellConfigsFromPB(pbs []*CellConfig) ([]table.CellConfig, error) {
+	result := make([]table.CellConfig, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CellConfigFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

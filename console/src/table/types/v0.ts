@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Table, Theming } from "@synnaxlabs/pluto";
+import { type Table } from "@synnaxlabs/pluto";
 import { id, type record, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -41,9 +41,15 @@ export interface CellState<
   props: P;
 }
 
-export const ZERO_TEXT_CELL_PROPS = Table.Cell.REGISTRY.text.defaultProps(
-  Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark),
-);
+// ZERO_TEXT_CELL_PROPS is the legacy text cell prop shape frozen at v0;
+// the live registry now produces typed cell configs.
+export const ZERO_TEXT_CELL_PROPS: record.Unknown = {
+  value: "",
+  level: "h5",
+  weight: 400,
+  align: "center",
+  backgroundColor: "#00000000",
+};
 
 export const ZERO_CELL_STATE: CellState = {
   key: "",

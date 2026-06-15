@@ -29,8 +29,28 @@ const LEGACY_V0 = {
     columns: [{ size: 72 }, { size: 72 }],
   },
   cells: {
-    c1: { key: "c1", variant: "text", selected: false, props: { value: "hello" } },
-    c2: { key: "c2", variant: "value", selected: false, props: {} },
+    c1: {
+      key: "c1",
+      variant: "text",
+      selected: false,
+      props: { value: "hello", align: "left" },
+    },
+    c2: {
+      key: "c2",
+      variant: "value",
+      selected: false,
+      props: {
+        telem: {
+          props: {
+            segments: {
+              valueStream: { props: { channel: 42 } },
+              rollingAverage: { props: { windowSize: 5 } },
+            },
+          },
+        },
+        units: "psi",
+      },
+    },
   },
 };
 
@@ -42,8 +62,8 @@ const TYPED_EXPORT = {
   rows: [{ size: 36, cells: ["c1", "c2"] }],
   columns: [{ size: 72 }, { size: 72 }],
   cells: {
-    c1: { key: "c1", variant: "text", props: { value: "hello" } },
-    c2: { key: "c2", variant: "value", props: {} },
+    c1: { variant: "text", value: "hello" },
+    c2: { variant: "value", units: "psi" },
   },
 };
 
@@ -57,6 +77,34 @@ describe("table import", () => {
       expect(out.rows).toHaveLength(1);
       expect(out.columns).toHaveLength(2);
       expect(Object.keys(cellsOf(out))).toEqual(["c1", "c2"]);
+    });
+
+    it("should convert legacy cell props into typed cell configs", () => {
+      const out = parseImport(LEGACY_V0, undefined);
+      expect(out.cells?.c1).toMatchObject({
+        variant: "text",
+        value: "hello",
+        align: "start",
+      });
+      expect(out.cells?.c2).toMatchObject({
+        variant: "value",
+        channel: 42,
+        rollingAverage: 5,
+        units: "psi",
+      });
+      expect(out.cells?.c2).not.toHaveProperty("telem");
+    });
+
+    it("should validate typed imports through the cell config union", () => {
+      expect(() =>
+        parseImport(
+          {
+            ...TYPED_EXPORT,
+            cells: { c1: { variant: "hologram" } },
+          },
+          undefined,
+        ),
+      ).toThrow();
     });
 
     it("should not silently drop the layout by parsing a legacy file as a typed one", () => {

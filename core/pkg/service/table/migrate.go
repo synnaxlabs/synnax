@@ -11,63 +11,59 @@ package table
 
 import (
 	"context"
+	"encoding/json"
 
-	"github.com/synnaxlabs/synnax/pkg/service/table/migrations/legacy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/legacy/v0"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v56"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 )
 
-// MigrateTable transforms the previous Table snapshot (v55) into the current
-// strongly-typed Table. AutoMigrateTable handles the trivially-copyable
-// gorp-entry fields (Key, Name); the structural fields (Rows, Columns, Cells)
-// are sourced from the opaque blob the console used to persist alongside those
-// fields, after legacy.MigrateData decodes it as v0.Data. v55 is the last
-// snapshot in which Table.Data is untyped; future migrations transform one
-// typed snapshot into another and never need this blob handling.
-func MigrateTable(ctx context.Context, old v55.Table) (Table, error) {
+// MigrateTable transforms the previous table snapshot (v56) into the current
+// Table. v56 stored cell props as opaque records written verbatim by the
+// Console (camelCase field keys, never validated); each cell is normalized to
+// the snake_case wire form and decoded into the typed cell config union.
+// Cells that fail to decode fall back to an empty text cell rather than being
+// dropped, so rows never reference missing entries.
+func MigrateTable(ctx context.Context, old v56.Table) (Table, error) {
 	out, err := AutoMigrateTable(ctx, old)
 	if err != nil {
 		return Table{}, err
 	}
-	d, err := legacy.MigrateData(old.Data)
-	if err != nil {
-		return Table{}, err
+	out.Cells = make(map[string]CellConfig, len(old.Cells))
+	for k, c := range old.Cells {
+		out.Cells[k] = migrateCellEntry(c)
 	}
-	out.Rows = migrateRows(d.Layout.Rows)
-	out.Columns = migrateColumns(d.Layout.Columns)
-	out.Cells = migrateCells(d.Cells)
 	return out, nil
 }
 
-func migrateRows(in []v0.Row) []Row {
-	out := make([]Row, len(in))
-	for i, r := range in {
-		cells := make([]string, len(r.Cells))
-		for j, c := range r.Cells {
-			cells[j] = c.Key
-		}
-		out[i] = Row{Size: r.Size, Cells: cells}
+// migrateCellEntry converts a v56 stored cell (variant string plus camelCase
+// props written verbatim by the Console) into the typed cell config. Entries
+// that conform to no known variant degrade to an empty text cell.
+func migrateCellEntry(c v56.Cell) CellConfig {
+	fields := normalizeConfigKeys(c.Props)
+	if fields == nil {
+		fields = msgpack.EncodedJSON{}
 	}
-	return out
+	fields["variant"] = c.Variant
+	extractLegacyArgs(fields)
+	cfg, err := decodeCellConfig(fields)
+	if err != nil {
+		return CellConfig{Variant: CellConfigText{}}
+	}
+	return cfg
 }
 
-func migrateColumns(in []v0.Column) []Column {
-	out := make([]Column, len(in))
-	for i, c := range in {
-		out[i] = Column{Size: c.Size}
+// decodeCellConfig validates an opaque cell config payload against the cell
+// config union, returning an error when the payload conforms to no known
+// variant.
+func decodeCellConfig(raw msgpack.EncodedJSON) (CellConfig, error) {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return CellConfig{}, err
 	}
-	return out
-}
-
-func migrateCells(in map[string]v0.Cell) map[string]Cell {
-	out := make(map[string]Cell, len(in))
-	for k, c := range in {
-		out[k] = Cell{
-			Key:     c.Key,
-			Variant: c.Variant,
-			Props:   msgpack.EncodedJSON(c.Props),
-		}
+	var cfg CellConfig
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return CellConfig{}, errors.Wrap(err, "invalid cell config")
 	}
-	return out
+	return cfg, nil
 }

@@ -117,8 +117,7 @@ export const useSelectCell = Flux.createSelector<
   Cell.Config | undefined
 >({
   subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key, cellKey }) =>
-    store.tables.get(key)?.cells?.[cellKey] as Cell.Config | undefined,
+  select: (store, { key, cellKey }) => store.tables.get(key)?.cells?.[cellKey],
 });
 
 export interface SelectCellsArgs {
@@ -142,7 +141,7 @@ export const useSelectCells = Flux.createSelector<
     const t = store.tables.get(key);
     if (t == null) return result;
     for (const cellKey of cellKeys) {
-      const cell = t.cells?.[cellKey] as Cell.Config | undefined;
+      const cell = t.cells?.[cellKey];
       if (cell != null) result.set(cellKey, cell);
     }
     return result;
@@ -173,16 +172,14 @@ const createDefaultLayout = (
   theme: ReturnType<typeof Theming.use>,
 ): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
-  const props = Cell.REGISTRY.text.defaultProps(theme);
+  const config = Cell.REGISTRY.text.defaultConfig(theme);
   return {
     rows: [
       { size: BASE_ROW_SIZE, cells: [cellKeys[0], cellKeys[1]] },
       { size: BASE_ROW_SIZE, cells: [cellKeys[2], cellKeys[3]] },
     ],
     columns: [{ size: BASE_COL_SIZE }, { size: BASE_COL_SIZE }],
-    cells: Object.fromEntries(
-      cellKeys.map((k) => [k, { key: k, variant: "text", props }]),
-    ),
+    cells: Object.fromEntries(cellKeys.map((k) => [k, config])),
   };
 };
 

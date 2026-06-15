@@ -20,32 +20,75 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
+)
+
+var (
+	fullyPopulatedTextCellConfig = table.TextCellConfig{
+		Value:  "test_1",
+		Level:  new(text.Level("h1")),
+		Weight: new(float64(3.5)),
+		Align:  new(spatial.Alignment("start")),
+		BackgroundColor: new(color.Color{
+			R: 7,
+			G: 8,
+			B: 9,
+			A: 9.5,
+		}),
+	}
+	fullyPopulatedValueCellConfig = table.ValueCellConfig{
+		Channel:        new(channel.Key(2)),
+		RollingAverage: new(int32(3)),
+		Precision:      new(float64(3.5)),
+		Notation:       new(notation.Notation("standard")),
+		Redline: new(table.Redline{
+			Bounds: spatial.Bounds{},
+			Gradient: []color.Stop{
+				{
+					Key:      "test_8",
+					Color:    color.Color{},
+					Position: 10.5,
+					Switched: true,
+				},
+			},
+		}),
+		Level: new(text.Level("h1")),
+		Color: new(color.Color{
+			R: 15,
+			G: 16,
+			B: 17,
+			A: 17.5,
+		}),
+		Units:            "test_18",
+		StalenessTimeout: new(float64(19.5)),
+		StalenessColor: new(color.Color{
+			R: 22,
+			G: 23,
+			B: 24,
+			A: 24.5,
+		}),
+	}
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Cell", func() {
+	Describe("CellConfig", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original table.Cell) {
+			func(original table.CellConfig) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded table.Cell
+				var decoded table.CellConfig
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", table.Cell{
-				Key:     "test_1",
-				Variant: "test_2",
-				Props:   msgpack.EncodedJSON{"key_3": "value_3"},
-			}),
-			Entry("zero values", table.Cell{
-				Key:     "",
-				Variant: "",
-				Props:   nil,
-			}),
+			Entry("text variant", table.CellConfig{Variant: table.CellConfigText{TextCellConfig: fullyPopulatedTextCellConfig}}),
+			Entry("value variant", table.CellConfig{Variant: table.CellConfigValue{ValueCellConfig: fullyPopulatedValueCellConfig}}),
 		)
 	})
 	Describe("Column", func() {
@@ -61,6 +104,37 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", table.Column{Size: 1.5}),
 			Entry("zero values", table.Column{Size: 0}),
+		)
+	})
+	Describe("Redline", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original table.Redline) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded table.Redline
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", table.Redline{
+				Bounds: spatial.Bounds{},
+				Gradient: []color.Stop{
+					{
+						Key: "test_3",
+						Color: color.Color{
+							R: 6,
+							G: 7,
+							B: 8,
+							A: 8.5,
+						},
+						Position: 9.5,
+						Switched: false,
+					},
+				},
+			}),
+			Entry("zero values", table.Redline{Bounds: spatial.Bounds{}, Gradient: nil}),
+			Entry("empty collections", table.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}),
 		)
 	})
 	Describe("Row", func() {
@@ -95,13 +169,7 @@ var _ = Describe("Codec", func() {
 				Name:    "test_2",
 				Rows:    []table.Row{{Size: 4.5, Cells: []string{"test_5"}}},
 				Columns: []table.Column{{Size: 7.5}},
-				Cells: map[string]table.Cell{
-					"test_8": {
-						Key:     "test_9",
-						Variant: "test_10",
-						Props:   msgpack.EncodedJSON{"key_11": "value_11"},
-					},
-				},
+				Cells:   map[string]table.CellConfig{"test_8": {Variant: table.CellConfigText{TextCellConfig: fullyPopulatedTextCellConfig}}},
 			}),
 			Entry("zero values", table.Table{
 				Key:     uuid.Nil,
@@ -115,26 +183,69 @@ var _ = Describe("Codec", func() {
 				Name:    "test_2",
 				Rows:    []table.Row{},
 				Columns: []table.Column{},
-				Cells:   map[string]table.Cell{},
+				Cells:   map[string]table.CellConfig{},
+			}),
+		)
+	})
+	Describe("TextCellConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original table.TextCellConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded table.TextCellConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedTextCellConfig),
+			Entry("zero values", table.TextCellConfig{
+				Value:           "",
+				Level:           nil,
+				Weight:          nil,
+				Align:           nil,
+				BackgroundColor: nil,
+			}),
+		)
+	})
+	Describe("ValueCellConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original table.ValueCellConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded table.ValueCellConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedValueCellConfig),
+			Entry("zero values", table.ValueCellConfig{
+				Channel:          nil,
+				RollingAverage:   nil,
+				Precision:        nil,
+				Notation:         nil,
+				Redline:          nil,
+				Level:            nil,
+				Color:            nil,
+				Units:            "",
+				StalenessTimeout: nil,
+				StalenessColor:   nil,
 			}),
 		)
 	})
 })
 
-func BenchmarkEncodeDecodeCell(b *testing.B) {
-	c := table.Cell{
-		Key:     "test_1",
-		Variant: "test_2",
-		Props:   msgpack.EncodedJSON{"key_3": "value_3"},
-	}
+func BenchmarkEncodeDecodeCellConfig(b *testing.B) {
+	cc := table.CellConfig{Variant: table.CellConfigText{TextCellConfig: fullyPopulatedTextCellConfig}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
 		w.Reset()
-		if err := c.EncodeOrc(w); err != nil {
+		if err := cc.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded table.Cell
+		var decoded table.CellConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -152,6 +263,38 @@ func BenchmarkEncodeDecodeColumn(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded table.Column
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRedline(b *testing.B) {
+	rv := table.Redline{
+		Bounds: spatial.Bounds{},
+		Gradient: []color.Stop{
+			{
+				Key: "test_3",
+				Color: color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				},
+				Position: 9.5,
+				Switched: false,
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := rv.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded table.Redline
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -182,13 +325,7 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 		Name:    "test_2",
 		Rows:    []table.Row{{Size: 4.5, Cells: []string{"test_5"}}},
 		Columns: []table.Column{{Size: 7.5}},
-		Cells: map[string]table.Cell{
-			"test_8": {
-				Key:     "test_9",
-				Variant: "test_10",
-				Props:   msgpack.EncodedJSON{"key_11": "value_11"},
-			},
-		},
+		Cells:   map[string]table.CellConfig{"test_8": {Variant: table.CellConfigText{TextCellConfig: fullyPopulatedTextCellConfig}}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -205,13 +342,43 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 	}
 }
 
-func FuzzDecodeCell(f *testing.F) {
-	{
-		seed := table.Cell{
-			Key:     "test_1",
-			Variant: "test_2",
-			Props:   msgpack.EncodedJSON{"key_3": "value_3"},
+func BenchmarkEncodeDecodeTextCellConfig(b *testing.B) {
+	tcc := fullyPopulatedTextCellConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := tcc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
 		}
+		var decoded table.TextCellConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeValueCellConfig(b *testing.B) {
+	vcc := fullyPopulatedValueCellConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := vcc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded table.ValueCellConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeCellConfig(f *testing.F) {
+	{
+		seed := table.CellConfig{Variant: table.CellConfigText{TextCellConfig: fullyPopulatedTextCellConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -219,11 +386,7 @@ func FuzzDecodeCell(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := table.Cell{
-			Key:     "",
-			Variant: "",
-			Props:   nil,
-		}
+		seed := table.CellConfig{Variant: table.CellConfigValue{ValueCellConfig: fullyPopulatedValueCellConfig}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -231,7 +394,7 @@ func FuzzDecodeCell(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded table.Cell
+		var decoded table.CellConfig
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -241,7 +404,7 @@ func FuzzDecodeCell(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded table.Cell
+		var redecoded table.CellConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -288,6 +451,75 @@ func FuzzDecodeColumn(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded table.Column
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRedline(f *testing.F) {
+	{
+		seed := table.Redline{
+			Bounds: spatial.Bounds{},
+			Gradient: []color.Stop{
+				{
+					Key: "test_3",
+					Color: color.Color{
+						R: 6,
+						G: 7,
+						B: 8,
+						A: 8.5,
+					},
+					Position: 9.5,
+					Switched: false,
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := table.Redline{Bounds: spatial.Bounds{}, Gradient: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := table.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded table.Redline
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded table.Redline
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -366,13 +598,7 @@ func FuzzDecodeTable(f *testing.F) {
 			Name:    "test_2",
 			Rows:    []table.Row{{Size: 4.5, Cells: []string{"test_5"}}},
 			Columns: []table.Column{{Size: 7.5}},
-			Cells: map[string]table.Cell{
-				"test_8": {
-					Key:     "test_9",
-					Variant: "test_10",
-					Props:   msgpack.EncodedJSON{"key_11": "value_11"},
-				},
-			},
+			Cells:   map[string]table.CellConfig{"test_8": {Variant: table.CellConfigText{TextCellConfig: fullyPopulatedTextCellConfig}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -400,7 +626,7 @@ func FuzzDecodeTable(f *testing.F) {
 			Name:    "test_2",
 			Rows:    []table.Row{},
 			Columns: []table.Column{},
-			Cells:   map[string]table.Cell{},
+			Cells:   map[string]table.CellConfig{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -420,6 +646,115 @@ func FuzzDecodeTable(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded table.Table
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeTextCellConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedTextCellConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := table.TextCellConfig{
+			Value:           "",
+			Level:           nil,
+			Weight:          nil,
+			Align:           nil,
+			BackgroundColor: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded table.TextCellConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded table.TextCellConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeValueCellConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedValueCellConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := table.ValueCellConfig{
+			Channel:          nil,
+			RollingAverage:   nil,
+			Precision:        nil,
+			Notation:         nil,
+			Redline:          nil,
+			Level:            nil,
+			Color:            nil,
+			Units:            "",
+			StalenessTimeout: nil,
+			StalenessColor:   nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded table.ValueCellConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded table.ValueCellConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

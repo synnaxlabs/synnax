@@ -12,40 +12,53 @@
 package table
 
 import (
-	"encoding/json"
-
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 )
 
-func (c Cell) EncodeOrc(w *orc.Writer) error {
-	w.String(c.Key)
-	w.String(c.Variant)
-	{
-		b, err := json.Marshal(c.Props)
-		if err != nil {
+func (cc CellConfig) EncodeOrc(w *orc.Writer) error {
+	switch v := cc.Variant.(type) {
+	case CellConfigText:
+		w.String("text")
+		if err := v.TextCellConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.WriteWithLen(b)
+	case CellConfigValue:
+		w.String("value")
+		if err := v.ValueCellConfig.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("CellConfig: nil or unknown variant %T", cc.Variant)
 	}
 	return nil
 }
 
-func (c *Cell) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if c.Key, err = r.String(); err != nil {
+func (cc *CellConfig) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
 		return err
 	}
-	if c.Variant, err = r.String(); err != nil {
-		return err
-	}
-	{
-		b, err := r.ReadWithLen()
-		if err != nil {
+	switch tag {
+	case "text":
+		var v CellConfigText
+		if err := v.TextCellConfig.DecodeOrc(r); err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &c.Props); err != nil {
+		cc.Variant = v
+	case "value":
+		var v CellConfigValue
+		if err := v.ValueCellConfig.DecodeOrc(r); err != nil {
 			return err
 		}
+		cc.Variant = v
+	default:
+		return errors.Newf("CellConfig: unknown variant %q", tag)
 	}
 	return nil
 }
@@ -59,6 +72,50 @@ func (c *Column) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if c.Size, err = r.Float64(); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (rv Redline) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(rv.Bounds.Lower))
+	w.Float64(float64(rv.Bounds.Upper))
+	w.Bool(rv.Gradient != nil)
+	if rv.Gradient != nil {
+		w.Uint32(uint32(len(rv.Gradient)))
+		for i := range rv.Gradient {
+			if err := rv.Gradient[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (rv *Redline) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rv.Bounds.Lower, err = r.Float64(); err != nil {
+		return err
+	}
+	if rv.Bounds.Upper, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rv.Gradient = make([]color.Stop, n)
+			for i := range rv.Gradient {
+				if err = rv.Gradient[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }
@@ -189,10 +246,10 @@ func (t *Table) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			t.Cells = make(map[string]Cell, n)
+			t.Cells = make(map[string]CellConfig, n)
 			for range n {
 				var key string
-				var val Cell
+				var val CellConfig
 				if key, err = r.String(); err != nil {
 					return err
 				}
@@ -201,6 +258,307 @@ func (t *Table) DecodeOrc(r *orc.Reader) error {
 				}
 				t.Cells[key] = val
 			}
+		}
+	}
+	return nil
+}
+
+func (tcc TextCellConfig) EncodeOrc(w *orc.Writer) error {
+	w.String(tcc.Value)
+	if tcc.Level != nil {
+		w.Bool(true)
+		w.String(string((*tcc.Level)))
+	} else {
+		w.Bool(false)
+	}
+	if tcc.Weight != nil {
+		w.Bool(true)
+		w.Float64(float64((*tcc.Weight)))
+	} else {
+		w.Bool(false)
+	}
+	if tcc.Align != nil {
+		w.Bool(true)
+		w.String(string((*tcc.Align)))
+	} else {
+		w.Bool(false)
+	}
+	if tcc.BackgroundColor != nil {
+		w.Bool(true)
+		if err := (*tcc.BackgroundColor).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (tcc *TextCellConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if tcc.Value, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv text.Level
+			{
+				v, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = text.Level(v)
+			}
+			tcc.Level = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tcc.Weight = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv spatial.Alignment
+			{
+				v, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = spatial.Alignment(v)
+			}
+			tcc.Align = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			tcc.BackgroundColor = &hv
+		}
+	}
+	return nil
+}
+
+func (vcc ValueCellConfig) EncodeOrc(w *orc.Writer) error {
+	if vcc.Channel != nil {
+		w.Bool(true)
+		w.Uint32(uint32((*vcc.Channel)))
+	} else {
+		w.Bool(false)
+	}
+	if vcc.RollingAverage != nil {
+		w.Bool(true)
+		w.Int32(int32((*vcc.RollingAverage)))
+	} else {
+		w.Bool(false)
+	}
+	if vcc.Precision != nil {
+		w.Bool(true)
+		w.Float64(float64((*vcc.Precision)))
+	} else {
+		w.Bool(false)
+	}
+	if vcc.Notation != nil {
+		w.Bool(true)
+		w.String(string((*vcc.Notation)))
+	} else {
+		w.Bool(false)
+	}
+	if vcc.Redline != nil {
+		w.Bool(true)
+		if err := (*vcc.Redline).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if vcc.Level != nil {
+		w.Bool(true)
+		w.String(string((*vcc.Level)))
+	} else {
+		w.Bool(false)
+	}
+	if vcc.Color != nil {
+		w.Bool(true)
+		if err := (*vcc.Color).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	w.String(vcc.Units)
+	if vcc.StalenessTimeout != nil {
+		w.Bool(true)
+		w.Float64(float64((*vcc.StalenessTimeout)))
+	} else {
+		w.Bool(false)
+	}
+	if vcc.StalenessColor != nil {
+		w.Bool(true)
+		if err := (*vcc.StalenessColor).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (vcc *ValueCellConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv channel.Key
+			{
+				v, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(v)
+			}
+			vcc.Channel = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv int32
+			if hv, err = r.Int32(); err != nil {
+				return err
+			}
+			vcc.RollingAverage = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			vcc.Precision = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv notation.Notation
+			{
+				v, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = notation.Notation(v)
+			}
+			vcc.Notation = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Redline
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			vcc.Redline = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv text.Level
+			{
+				v, err := r.String()
+				if err != nil {
+					return err
+				}
+				hv = text.Level(v)
+			}
+			vcc.Level = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			vcc.Color = &hv
+		}
+	}
+	if vcc.Units, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			vcc.StalenessTimeout = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			vcc.StalenessColor = &hv
 		}
 	}
 	return nil

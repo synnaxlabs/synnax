@@ -105,12 +105,12 @@ type SetCellPayload struct {
 
 // EraseCellsPayload erases the cells whose keys are in cells. Any row whose every cell
 // is in the selection is removed entirely; same for columns. Cells that survive that
-// row/column removal have their variant and props replaced with the template's, keeping
-// their original keys. Cells in the selection whose keys are not in the table's cells
-// map are silently skipped.
+// row/column removal have their config replaced with the template, keeping their
+// original keys. Cells in the selection whose keys are not in the table's cells map are
+// silently skipped.
 type EraseCellsPayload struct {
-	Cells    []string     `json:"cells" msgpack:"cells"`
-	Template CellTemplate `json:"template" msgpack:"template"`
+	Cells    []string   `json:"cells" msgpack:"cells"`
+	Template CellConfig `json:"template" msgpack:"template"`
 }
 
 // Action is a discriminated union for all Table mutations. Type names

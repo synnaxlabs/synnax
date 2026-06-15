@@ -13,34 +13,68 @@ syntax = "proto3";
 
 package service.table.pb;
 
-import "google/protobuf/struct.proto";
+import "x/go/color/pb/color.proto";
+import "x/go/notation/pb/notation.proto";
+import "x/go/spatial/pb/spatial.proto";
+import "x/go/text/pb/text.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/table/pb";
 
-// Cell is a single cell in a table, identified by key and variant.
+// TextCellConfig is the configuration for static text cells.
+message TextCellConfig {
+  // value is the text content of the cell.
+  string value = 1;
+  // level is the typography level of the cell text.
+  optional .x.text.pb.Level level = 2;
+  // weight is the font weight of the cell text.
+  optional double weight = 3;
+  // align is the alignment of the cell text along the row axis.
+  optional .x.spatial.pb.Alignment align = 4;
+  // background_color is the background color of the cell.
+  optional .x.color.pb.Color background_color = 5;
+}
+
+// Redline maps a numeric range to a color gradient for limit visualization.
+message Redline {
+  // bounds is the numeric range mapped onto the gradient.
+  .x.spatial.pb.Bounds bounds = 1;
+  // gradient is the color gradient applied across the bounds.
+  repeated .x.color.pb.Stop gradient = 2;
+}
+
+// ValueCellConfig is the configuration for live telemetry value cells.
+message ValueCellConfig {
+  // channel is the channel whose value the cell displays.
+  optional uint32 channel = 1;
+  // rolling_average is the sample window for rolling-average smoothing.
+  optional int32 rolling_average = 2;
+  // precision is the number of decimal places shown.
+  optional double precision = 3;
+  // notation is the numeric notation used to format the value.
+  optional .x.notation.pb.Notation notation = 4;
+  // redline is the bounds-to-gradient mapping applied to the background.
+  optional Redline redline = 5;
+  // level is the typography level of the displayed value.
+  optional .x.text.pb.Level level = 6;
+  // color is the color of the displayed text.
+  optional .x.color.pb.Color color = 7;
+  // units is the unit suffix displayed after the value.
+  string units = 8;
+  // staleness_timeout is the duration in seconds after which the value is considered
+  // stale.
+  optional double staleness_timeout = 9;
+  // staleness_color is the color applied when the value is stale.
+  optional .x.color.pb.Color staleness_color = 10;
+}
+
+// Cell is a keyed cell configuration used by actions that address cells explicitly.
+// Inside the table state itself, cell configurations are stored in the cells map keyed
+// by cell key.
 message Cell {
   // key is the unique identifier for this cell within the table.
   string key = 1;
-  // variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-  // the shape of props and which Pluto cell component renders the cell.
-  string variant = 2;
-  // props is the variant-specific cell configuration. The shape is determined by the
-  // variant; the wire format intentionally stores it as an opaque record so new variants
-  // can be added without a schema migration.
-  google.protobuf.Struct props = 3;
-}
-
-// CellTemplate is a variant + props pair describing what a cell should look like,
-// without identifying which cell. Used by actions that overwrite existing cells in
-// place (EraseCells), where the target cell's key is provided separately.
-message CellTemplate {
-  // variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-  // the shape of props and which Pluto cell component renders the cell.
-  string variant = 1;
-  // props is the variant-specific cell configuration. The shape is determined by the
-  // variant; the wire format intentionally stores it as an opaque record so new variants
-  // can be added without a schema migration.
-  google.protobuf.Struct props = 2;
+  // config is the cell's variant-discriminated configuration.
+  CellConfig config = 2;
 }
 
 // Row is a single row in a table, with height and ordered cell keys.
@@ -73,5 +107,14 @@ message Table {
   // cells contains all cells in the table, keyed by cell key. Cell positions are derived
   // from rows[*].cells[*] references; cells not referenced by any row are orphaned and
   // will be pruned on the next structural edit.
-  map<string, Cell> cells = 5;
+  map<string, CellConfig> cells = 5;
+}
+
+// CellConfig is the per-cell configuration stored in the table cells map. The variant
+// selects which Pluto cell component renders the cell.
+message CellConfig {
+  oneof variant {
+    TextCellConfig text = 1;
+    ValueCellConfig value = 2;
+  }
 }

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { box, dimensions, type record, xy } from "@synnaxlabs/x";
+import { box, dimensions, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -28,7 +28,7 @@ export interface RowProps {
   showIndicator?: boolean;
   onResize: (size: number, index: number) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
-  onCellSelect: (cellKey: string, ev: MouseEvent) => void;
+  onCellSelect: (cellKey: string, ev: React.MouseEvent) => void;
 }
 
 export const Row = memo(
@@ -89,7 +89,7 @@ interface VariantCellProps {
   width: number;
   height: number;
   editable: boolean;
-  onSelect: (cellKey: string, ev: MouseEvent) => void;
+  onSelect: (cellKey: string, ev: React.MouseEvent) => void;
 }
 
 // VariantCell is the bridge between the connected Table and the per-variant
@@ -119,19 +119,16 @@ const VariantCell = memo(
       [x, y, width, height],
     );
     const handleChange = useCallback(
-      (props: record.Unknown) => {
-        if (cell == null) return;
+      (config: table.CellConfig) => {
         dispatch({
           key: resourceKey,
-          actions: [
-            table.setCell({ cell: { key: cellKey, variant: cell.variant, props } }),
-          ],
+          actions: [table.setCell({ cell: { key: cellKey, config } })],
         });
       },
-      [dispatch, resourceKey, cellKey, cell],
+      [dispatch, resourceKey, cellKey],
     );
     if (cell == null) return null;
-    const Spec = Cell.REGISTRY[cell.variant];
+    const Spec = Cell.resolveSpec(cell.variant);
     return (
       <Spec.Cell
         cellKey={cellKey}
@@ -140,7 +137,7 @@ const VariantCell = memo(
         editable={editable}
         onSelect={onSelect}
         onChange={handleChange}
-        {...cell.props}
+        {...cell}
       />
     );
   },

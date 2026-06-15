@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package table_test
+package migrations_test
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"os"
@@ -21,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v56"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -62,6 +64,24 @@ func assertMigrated(fixture string, got table.Table) {
 		"%s drifted from its canonical migrated form — review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }
 
+// cfgFields returns a typed cell config's wire fields for shape assertions.
+func cfgFields(cfg table.CellConfig) map[string]any {
+	b := MustSucceed(json.Marshal(cfg))
+	var m map[string]any
+	Expect(json.Unmarshal(b, &m)).To(Succeed())
+	return m
+}
+
+// migrateFromV55 composes the full migration chain from a v55 snapshot to the
+// current typed Table.
+func migrateFromV55(ctx context.Context, old v55.Table) (table.Table, error) {
+	mid, err := v56.MigrateTable(ctx, old)
+	if err != nil {
+		return table.Table{}, err
+	}
+	return table.MigrateTable(ctx, mid)
+}
+
 var _ = Describe("MigrateTable", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured fixture. Run with UPDATE_MIGRATED=1 to regenerate the
@@ -72,7 +92,7 @@ var _ = Describe("MigrateTable", func() {
 			func(ctx SpecContext, fixture string) {
 				blob := loadFixture(fixture)
 				snap := v55.Table{Key: fixedKey, Name: fixture, Data: blob}
-				out := MustSucceed(table.MigrateTable(ctx, snap))
+				out := MustSucceed(migrateFromV55(ctx, snap))
 				assertMigrated(fixture, out)
 			},
 			Entry("v0 empty", "v0_empty.json"),
@@ -82,7 +102,7 @@ var _ = Describe("MigrateTable", func() {
 
 	Describe("v0 reshape semantics", func() {
 		migrate := func(ctx SpecContext, body string) table.Table {
-			return MustSucceed(table.MigrateTable(ctx, v55.Table{
+			return MustSucceed(migrateFromV55(ctx, v55.Table{
 				Key: uuid.New(), Data: jsonMap(body),
 			}))
 		}
@@ -109,38 +129,17 @@ var _ = Describe("MigrateTable", func() {
 					"a": {"key": "a", "variant": "text", "selected": true, "props": {"value": "hi"}}
 				}
 			}`)
-			cell, ok := out.Cells["a"]
-			Expect(ok).To(BeTrue())
-			Expect(cell.Variant).To(Equal("text"))
-			Expect(cell.Props["value"]).To(Equal("hi"))
-			Expect(cell.Props).NotTo(HaveKey("selected"))
-		})
-
-		It("Should preserve arbitrary key casing inside cell props through the migration", func(ctx SpecContext) {
-			out := migrate(ctx, `{
-				"version": "0.0.0",
-				"layout": {"rows": [], "columns": []},
-				"cells": {
-					"a": {
-						"key": "a", "variant": "value", "selected": false,
-						"props": {
-							"camelCaseKey": "v1",
-							"PascalCaseKey": "v2",
-							"snake_case_key": "v3"
-						}
-					}
-				}
-			}`)
-			Expect(out.Cells["a"].Props).To(SatisfyAll(
-				HaveKeyWithValue("camelCaseKey", "v1"),
-				HaveKeyWithValue("PascalCaseKey", "v2"),
-				HaveKeyWithValue("snake_case_key", "v3"),
+			fields := cfgFields(out.Cells["a"])
+			Expect(fields).To(SatisfyAll(
+				HaveKeyWithValue("variant", "text"),
+				HaveKeyWithValue("value", "hi"),
 			))
+			Expect(fields).NotTo(HaveKey("selected"))
 		})
 
 		It("Should pass through the gorp-entry fields (Key, Name)", func(ctx SpecContext) {
 			key := uuid.New()
-			out := MustSucceed(table.MigrateTable(ctx, v55.Table{
+			out := MustSucceed(migrateFromV55(ctx, v55.Table{
 				Key: key, Name: "trip-table", Data: jsonMap(`{"version": "0.0.0"}`),
 			}))
 			Expect(out.Key).To(Equal(key))
@@ -149,7 +148,7 @@ var _ = Describe("MigrateTable", func() {
 
 		DescribeTable("Should produce empty (not nil) collections for empty inputs",
 			func(ctx SpecContext, data msgpack.EncodedJSON) {
-				out := MustSucceed(table.MigrateTable(ctx, v55.Table{
+				out := MustSucceed(migrateFromV55(ctx, v55.Table{
 					Key: uuid.New(), Name: "empty", Data: data,
 				}))
 				Expect(out.Rows).NotTo(BeNil())
@@ -162,33 +161,6 @@ var _ = Describe("MigrateTable", func() {
 			Entry("nil blob", msgpack.EncodedJSON(nil)),
 			Entry("empty object", jsonMap(`{}`)),
 		)
-
-		It("Should preserve cell key, variant, and full props through the migration", func(ctx SpecContext) {
-			out := migrate(ctx, `{
-				"version": "0.0.0",
-				"layout": {"rows": [], "columns": []},
-				"cells": {
-					"alpha": {
-						"key": "alpha",
-						"variant": "value",
-						"selected": false,
-						"props": {
-							"telem": {"channel": 42},
-							"redline": {"lower": 0, "upper": 100},
-							"color": "#ff0000"
-						}
-					}
-				}
-			}`)
-			cell := out.Cells["alpha"]
-			Expect(cell.Key).To(Equal("alpha"))
-			Expect(cell.Variant).To(Equal("value"))
-			Expect(cell.Props).To(SatisfyAll(
-				HaveKey("telem"),
-				HaveKey("redline"),
-				HaveKeyWithValue("color", "#ff0000"),
-			))
-		})
 
 		It("Should preserve multi-row layout ordering and per-row size", func(ctx SpecContext) {
 			out := migrate(ctx, `{
@@ -213,25 +185,129 @@ var _ = Describe("MigrateTable", func() {
 		})
 	})
 
+	Describe("typed cell configs", func() {
+		migrateCell := func(ctx SpecContext, cell string) table.CellConfig {
+			out := MustSucceed(migrateFromV55(ctx, v55.Table{
+				Key: uuid.New(), Data: jsonMap(`{
+					"version": "0.0.0",
+					"layout": {"rows": [], "columns": []},
+					"cells": {"a": ` + cell + `}
+				}`),
+			}))
+			Expect(out.Cells).To(HaveKey("a"))
+			return out.Cells["a"]
+		}
+
+		It("Should normalize camelCase props to the snake_case wire form", func(ctx SpecContext) {
+			fields := cfgFields(migrateCell(ctx, `{
+				"key": "a", "variant": "text", "selected": false,
+				"props": {"value": "hi", "backgroundColor": "#112233"}
+			}`))
+			Expect(fields).To(HaveKey("background_color"))
+			Expect(fields).NotTo(HaveKey("backgroundColor"))
+		})
+
+		It("Should extract value cell telem args from the stored pipeline spec", func(ctx SpecContext) {
+			fields := cfgFields(migrateCell(ctx, `{
+				"key": "a", "variant": "value", "selected": false,
+				"props": {
+					"telem": {
+						"type": "source-pipeline",
+						"variant": "source",
+						"valueType": "string",
+						"props": {
+							"segments": {
+								"valueStream": {"props": {"channel": 42}},
+								"rollingAverage": {"props": {"windowSize": 5}},
+								"stringifier": {"props": {"precision": 3, "notation": "scientific"}}
+							},
+							"outlet": "stringifier"
+						}
+					},
+					"units": "psi"
+				}
+			}`))
+			Expect(fields).To(SatisfyAll(
+				HaveKeyWithValue("variant", "value"),
+				HaveKeyWithValue("channel", 42.0),
+				HaveKeyWithValue("rolling_average", 5.0),
+				HaveKeyWithValue("precision", 3.0),
+				HaveKeyWithValue("notation", "scientific"),
+				HaveKeyWithValue("units", "psi"),
+			))
+			Expect(fields).NotTo(HaveKey("telem"))
+		})
+
+		It("Should not emit a channel arg for the zero channel sentinel", func(ctx SpecContext) {
+			fields := cfgFields(migrateCell(ctx, `{
+				"key": "a", "variant": "value", "selected": false,
+				"props": {
+					"telem": {
+						"props": {"segments": {"valueStream": {"props": {"channel": 0}}}}
+					}
+				}
+			}`))
+			Expect(fields).NotTo(HaveKey("channel"))
+		})
+
+		DescribeTable("Should map legacy x-location alignments onto flex alignments",
+			func(ctx SpecContext, legacy, want string) {
+				fields := cfgFields(migrateCell(ctx, `{
+					"key": "a", "variant": "text", "selected": false,
+					"props": {"value": "hi", "align": "`+legacy+`"}
+				}`))
+				Expect(fields).To(HaveKeyWithValue("align", want))
+			},
+			Entry("left", "left", "start"),
+			Entry("right", "right", "end"),
+			Entry("center", "center", "center"),
+			Entry("start passes through", "start", "start"),
+			Entry("end passes through", "end", "end"),
+		)
+
+		It("Should map named font weights onto numeric weights", func(ctx SpecContext) {
+			fields := cfgFields(migrateCell(ctx, `{
+				"key": "a", "variant": "text", "selected": false,
+				"props": {"value": "hi", "weight": "bold"}
+			}`))
+			Expect(fields).To(HaveKeyWithValue("weight", 700.0))
+		})
+
+		It("Should degrade cells with an unknown variant to an empty text cell", func(ctx SpecContext) {
+			fields := cfgFields(migrateCell(ctx, `{
+				"key": "a", "variant": "hologram", "selected": false,
+				"props": {"value": "hi"}
+			}`))
+			Expect(fields).To(HaveKeyWithValue("variant", "text"))
+		})
+	})
+
 	Describe("malformed input", func() {
 		It("Should return an error for an invalid Data shape", func(ctx SpecContext) {
-			Expect(table.MigrateTable(ctx, v55.Table{
+			Expect(migrateFromV55(context.Background(), v55.Table{
 				Key: uuid.New(), Data: msgpack.EncodedJSON{"layout": "not-an-object"},
 			})).Error().To(MatchError(ContainSubstring("table data")))
 		})
 	})
 
-	// Drives MigrateTable through the real gorp migration pipeline so the
-	// on-disk v55 → typed Table path is exercised end-to-end.
+	// Drives the full chain through the real gorp migration pipeline so the
+	// on-disk v55 → v56 → typed Table path is exercised end-to-end.
 	Describe("storage integration", func() {
 		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, table.Table] {
 			return MustOpen(gorp.OpenTable[uuid.UUID, table.Table](
 				ctx, gorp.TableConfig[uuid.UUID, table.Table]{
 					DB: db,
 					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Table, table.Table](
+						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Table, v56.Table](
 							"v55_lift_typed_table",
-							table.MigrateTable,
+							v56.MigrateTable,
+						),
+						migrate.WithAddedDeps(
+							gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v56.Table, table.Table](
+								"v56_typed_cell_configs",
+								table.MigrateTable,
+							),
+							"v55_lift_typed_table",
 						),
 					},
 				},
@@ -269,7 +345,10 @@ var _ = Describe("MigrateTable", func() {
 						"key": "pt1",
 						"variant": "value",
 						"selected": false,
-						"props": {"telem": {"channel": 7}, "color": "#00aaff"}
+						"props": {
+							"telem": {"props": {"segments": {"valueStream": {"props": {"channel": 7}}}}},
+							"color": "#00aaff"
+						}
 					}
 				}
 			}`)
@@ -279,8 +358,11 @@ var _ = Describe("MigrateTable", func() {
 			Expect(got.Rows).To(HaveLen(1))
 			Expect(got.Rows[0].Cells).To(Equal([]string{"pt1"}))
 			Expect(got.Columns).To(HaveLen(1))
-			Expect(got.Cells["pt1"].Variant).To(Equal("value"))
-			Expect(got.Cells["pt1"].Props["color"]).To(Equal("#00aaff"))
+			fields := cfgFields(got.Cells["pt1"])
+			Expect(fields).To(SatisfyAll(
+				HaveKeyWithValue("variant", "value"),
+				HaveKeyWithValue("channel", 7.0),
+			))
 		})
 
 		It("Should lift a minimal blob lacking layout / cells fields", func(ctx SpecContext) {

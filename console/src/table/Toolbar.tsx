@@ -23,9 +23,10 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { color, deep, record, type text } from "@synnaxlabs/x";
+import { color, deep, type record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
+import { type z } from "zod";
 
 import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Tb } from "@/components";
@@ -125,12 +126,12 @@ const buildVariantSwapActions = (
   const actions: table.Action[] = [];
   for (const [key, cell] of cells) {
     if (cell.variant === variant) continue;
-    const props = deep.overrideValidItems(
-      cell.props,
-      spec.defaultProps(theme),
-      spec.schema,
+    const config = deep.overrideValidItems(
+      cell,
+      spec.defaultConfig(theme),
+      spec.schema as z.ZodType<Base.Cell.Config>,
     );
-    actions.push(table.setCell({ cell: { key, variant, props } }));
+    actions.push(table.setCell({ cell: { key, config } }));
   }
   return actions;
 };
@@ -157,23 +158,19 @@ const CellForm = ({ tableKey, cellKey }: CellFormProps): ReactElement | null => 
   );
 
   const handleChange = useCallback(
-    ({ values }: Form.OnChangeArgs<ReturnType<typeof record.unknownZ>>) => {
+    ({ values }: Form.OnChangeArgs<typeof Base.Cell.configZ>) => {
       if (cell == null) return;
       dispatch({
         key: tableKey,
-        actions: [
-          table.setCell({
-            cell: { key: cellKey, variant: cell.variant, props: deep.copy(values) },
-          }),
-        ],
+        actions: [table.setCell({ cell: { key: cellKey, config: deep.copy(values) } })],
       });
     },
     [cell, cellKey, dispatch, tableKey],
   );
 
-  const methods = Form.use<ReturnType<typeof record.unknownZ>>({
-    values: cell != null ? deep.copy(cell.props) : {},
-    schema: record.unknownZ(),
+  const methods = Form.use<typeof Base.Cell.configZ>({
+    values: cell != null ? deep.copy(cell) : { variant: "text" },
+    schema: Base.Cell.configZ,
     onChange: handleChange,
     sync: true,
   });
@@ -181,7 +178,7 @@ const CellForm = ({ tableKey, cellKey }: CellFormProps): ReactElement | null => 
   if (cell == null) return null;
   const C = Base.Cell.REGISTRY[cell.variant];
   return (
-    <Form.Form<ReturnType<typeof record.unknownZ>> {...methods}>
+    <Form.Form<typeof Base.Cell.configZ> {...methods}>
       <C.Form onVariantChange={handleVariantChange} />
     </Form.Form>
   );
@@ -217,11 +214,9 @@ const NotEditableContent = ({
 const readCellColor = (cell: Base.Cell.Config): color.Hex | null => {
   switch (cell.variant) {
     case "text":
-      return cell.props.backgroundColor == null
-        ? null
-        : color.hex(cell.props.backgroundColor);
+      return cell.backgroundColor == null ? null : color.hex(cell.backgroundColor);
     case "value":
-      return color.hex(cell.props.color);
+      return cell.color == null ? null : color.hex(cell.color);
   }
 };
 
@@ -262,11 +257,7 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
         if (next == null) continue;
         actions.push(
           table.setCell({
-            cell: {
-              key,
-              variant: cell.variant,
-              props: { ...cell.props, ...next },
-            },
+            cell: { key, config: { ...cell, ...next } },
           }),
         );
       }
@@ -314,8 +305,8 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
   const commonLevel = useMemo((): text.Level | undefined => {
     let result: text.Level | undefined;
     for (const cell of cellsByKey.values())
-      if (result == null) result = cell.props.level;
-      else if (result !== cell.props.level) return undefined;
+      if (result == null) result = cell.level;
+      else if (result !== cell.level) return undefined;
 
     return result;
   }, [cellsByKey]);

@@ -7,92 +7,75 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { NotFoundError, table } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod";
+import { type z } from "zod";
 
-import {
-  type CellProps,
-  Text,
-  textPropsZ,
-  Value,
-  valuePropsZ,
-} from "@/table/cells/Cells";
+import { type CellProps, Text, Value } from "@/table/cells/Cells";
 import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
-import { telem } from "@/telem/aether";
 import { type Theming } from "@/theming";
-import { Value as BaseValue } from "@/vis/value";
 
-const VARIANTS = ["text", "value"] as const;
+export const variantZ = table.cellConfigTypeZ;
+export type Variant = table.CellConfigType;
 
-export const variantZ = z.enum(VARIANTS);
-export type Variant = z.infer<typeof variantZ>;
+export const configZ = table.cellConfigZ;
+export type Config = table.CellConfig;
+export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
 
-export interface Spec<Z extends z.ZodObject> {
-  key: Variant;
+export interface Spec<V extends Variant = Variant> {
+  key: V;
   name: string;
   Form: FC<FormProps>;
-  Cell: FC<CellProps<z.infer<Z>>>;
-  schema: Z;
-  defaultProps: (t: Theming.Theme) => z.infer<Z>;
+  Cell: FC<CellProps<ConfigOf<V>>>;
+  schema: z.ZodType<ConfigOf<V>>;
+  defaultConfig: (t: Theming.Theme) => ConfigOf<V>;
 }
 
-const value: Spec<typeof valuePropsZ> = {
+const value: Spec<"value"> = {
   key: "value",
   name: "Value",
   Form: ValueForm,
   Cell: Value,
-  defaultProps: (t) => ({
-    telem: telem.sourcePipeline("string", {
-      connections: [
-        { from: "valueStream", to: "rollingAverage" },
-        { from: "rollingAverage", to: "stringifier" },
-      ],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: 0 }),
-        rollingAverage: telem.rollingAverage({ windowSize: 1 }),
-        stringifier: telem.stringifyNumber({ precision: 2, notation: "standard" }),
-      },
-      outlet: "stringifier",
-    }),
-    redline: BaseValue.ZERO_READLINE,
-    color: color.hex(t.colors.gray.l10),
+  defaultConfig: (t) => ({
+    variant: "value",
+    channel: 0,
+    rollingAverage: 1,
+    precision: 2,
+    notation: "standard",
+    redline: { bounds: { lower: 0, upper: 1 }, gradient: [] },
+    color: color.construct(t.colors.gray.l10),
     level: "h5",
     units: "",
     stalenessTimeout: 5,
     stalenessColor: t.colors.warning.m1,
   }),
-  schema: valuePropsZ,
+  schema: table.CELL_CONFIG_SCHEMAS.value,
 };
 
-const text: Spec<typeof textPropsZ> = {
+const text: Spec<"text"> = {
   key: "text",
   name: "Text",
   Form: TextForm,
   Cell: Text,
-  defaultProps: () => ({
+  defaultConfig: () => ({
+    variant: "text",
     value: "",
     level: "h5",
-    units: "",
     weight: 400,
     align: "center",
-    backgroundColor: "#00000000",
+    backgroundColor: color.construct("#00000000"),
   }),
-  schema: textPropsZ,
+  schema: table.CELL_CONFIG_SCHEMAS.text,
 };
 
-export const REGISTRY: Record<Variant, Spec<any>> = { text, value };
+export const REGISTRY = { text, value } as const satisfies {
+  [V in Variant]: Spec<V>;
+};
 
-export const configZ = z.discriminatedUnion("variant", [
-  z.object({ key: z.string(), variant: z.literal("text"), props: textPropsZ }),
-  z.object({ key: z.string(), variant: z.literal("value"), props: valuePropsZ }),
-]);
-export type Config = z.infer<typeof configZ>;
-
-export const resolveSpec = (variant: string): Spec<any> => {
+export const resolveSpec = (variant: string): Spec => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null)
     throw new NotFoundError(`Table cell with variant ${variant} not found`);
-  return spec;
+  return spec as Spec;
 };

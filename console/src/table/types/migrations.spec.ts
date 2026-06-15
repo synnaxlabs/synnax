@@ -68,8 +68,110 @@ describe("table migrations", () => {
       expect(upload.rows[1].cells).toEqual(["c", "d"]);
       expect(upload.columns).toEqual([{ size: 72 }, { size: 72 }]);
       expect(Object.keys(upload.cells).sort()).toEqual(["a", "b", "c", "d"]);
-      expect(upload.cells.a.variant).toEqual("text");
-      expect((upload.cells.a.props as Record<string, unknown>).value).toEqual("A");
+      expect(upload.cells.a).toEqual({ variant: "text", value: "A" });
+    });
+
+    it("should extract value cell telem args from the stored pipeline spec", () => {
+      const upload = migrateState(
+        populatedV0State({
+          remoteCreated: false,
+          cells: {
+            a: {
+              key: "a",
+              variant: "value",
+              selected: false,
+              props: {
+                telem: {
+                  type: "source-pipeline",
+                  variant: "source",
+                  valueType: "string",
+                  props: {
+                    segments: {
+                      valueStream: { props: { channel: 42 } },
+                      rollingAverage: { props: { windowSize: 5 } },
+                      stringifier: { props: { precision: 3, notation: "scientific" } },
+                    },
+                    outlet: "stringifier",
+                  },
+                },
+                units: "psi",
+              },
+            },
+          },
+        }),
+      ).pendingUpload;
+      if (upload == null) throw new Error("expected pendingUpload to be defined");
+      expect(upload.cells.a).toMatchObject({
+        variant: "value",
+        channel: 42,
+        rollingAverage: 5,
+        precision: 3,
+        notation: "scientific",
+        units: "psi",
+      });
+      expect(upload.cells.a).not.toHaveProperty("telem");
+    });
+
+    it("should not emit a channel arg for the zero channel sentinel", () => {
+      const upload = migrateState(
+        populatedV0State({
+          remoteCreated: false,
+          cells: {
+            a: {
+              key: "a",
+              variant: "value",
+              selected: false,
+              props: {
+                telem: {
+                  props: { segments: { valueStream: { props: { channel: 0 } } } },
+                },
+              },
+            },
+          },
+        }),
+      ).pendingUpload;
+      if (upload == null) throw new Error("expected pendingUpload to be defined");
+      expect(upload.cells.a).not.toHaveProperty("channel");
+    });
+
+    it("should map legacy x-location alignments and named weights", () => {
+      const upload = migrateState(
+        populatedV0State({
+          remoteCreated: false,
+          cells: {
+            a: {
+              key: "a",
+              variant: "text",
+              selected: false,
+              props: { value: "hi", align: "left", weight: "bold" },
+            },
+          },
+        }),
+      ).pendingUpload;
+      if (upload == null) throw new Error("expected pendingUpload to be defined");
+      expect(upload.cells.a).toMatchObject({
+        variant: "text",
+        align: "start",
+        weight: 700,
+      });
+    });
+
+    it("should degrade cells with an unknown variant to an empty text cell", () => {
+      const upload = migrateState(
+        populatedV0State({
+          remoteCreated: false,
+          cells: {
+            a: {
+              key: "a",
+              variant: "hologram",
+              selected: false,
+              props: { value: "hi" },
+            },
+          },
+        }),
+      ).pendingUpload;
+      if (upload == null) throw new Error("expected pendingUpload to be defined");
+      expect(upload.cells.a).toEqual({ variant: "text" });
     });
 
     it("should drop the per-cell selected flag from pendingUpload", () => {
@@ -84,6 +186,7 @@ describe("table migrations", () => {
       if (upload == null) throw new Error("expected pendingUpload to be defined");
       const cell = upload.cells.a as Record<string, unknown>;
       expect(cell.selected).toBeUndefined();
+      expect(cell.variant).toEqual("text");
     });
 
     it("should preserve editable and lastSelected across migration", () => {

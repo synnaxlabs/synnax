@@ -7,6 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/channel"
+import "schemas/color"
+import "schemas/notation"
+import "schemas/spatial"
+import "schemas/text"
+
 @ts output "client/ts/src/table"
 @go output "core/pkg/service/table"
 @pb
@@ -15,38 +21,94 @@ Key = uuid {
     @doc value "is a unique identifier for a table, represented as a UUID."
 }
 
-Cell struct {
-    key     string {
-        @doc value "is the unique identifier for this cell within the table."
+TextCellConfig struct {
+    value            string?             {
+        @doc value "is the text content of the cell."
     }
-    variant string {
-        @doc value """
-            is the cell variant identifier (e.g. "text", "value"). The variant
-            determines the shape of props and which Pluto cell component renders
-            the cell.
-        """
+    level            text.Level??        {
+        @doc value "is the typography level of the cell text."
     }
-    props   record {
-        @doc value        """
-            is the variant-specific cell configuration. The shape is determined
-            by the variant; the wire format intentionally stores it as an
-            opaque record so new variants can be added without a schema
-            migration.
-        """
-        @ts preserve_case
+    weight           float64??           {
+        @doc value "is the font weight of the cell text."
+    }
+    align            spatial.Alignment?? {
+        @doc value "is the alignment of the cell text along the row axis."
+    }
+    background_color color.Color??       {
+        @doc value "is the background color of the cell."
     }
 
-    @doc value "is a single cell in a table, identified by key and variant."
+    @doc value "is the configuration for static text cells."
 }
 
-CellTemplate struct extends Cell {
-    -key
+Redline struct {
+    bounds   spatial.Bounds {
+        @doc value "is the numeric range mapped onto the gradient."
+    }
+    gradient color.Stop[]   {
+        @doc value "is the color gradient applied across the bounds."
+    }
+
+    @doc value "maps a numeric range to a color gradient for limit visualization."
+}
+
+ValueCellConfig struct {
+    channel           channel.Key??       {
+        @doc value "is the channel whose value the cell displays."
+    }
+    rolling_average   int32??             {
+        @doc value "is the sample window for rolling-average smoothing."
+    }
+    precision         float64??           {
+        @doc value "is the number of decimal places shown."
+    }
+    notation          notation.Notation?? {
+        @doc value "is the numeric notation used to format the value."
+    }
+    redline           Redline??           {
+        @doc value "is the bounds-to-gradient mapping applied to the background."
+    }
+    level             text.Level??        {
+        @doc value "is the typography level of the displayed value."
+    }
+    color             color.Color??       {
+        @doc value "is the color of the displayed text."
+    }
+    units             string?             {
+        @doc value "is the unit suffix displayed after the value."
+    }
+    staleness_timeout float64??           {
+        @doc value "is the duration in seconds after which the value is considered stale."
+    }
+    staleness_color   color.Color??       {
+        @doc value "is the color applied when the value is stale."
+    }
+
+    @doc value "is the configuration for live telemetry value cells."
+}
+
+CellConfig union on variant {
+    text  TextCellConfig
+    value ValueCellConfig
 
     @doc value """
-        is a variant + props pair describing what a cell should look like,
-        without identifying which cell. Used by actions that overwrite
-        existing cells in place (EraseCells), where the target cell's key
-        is provided separately.
+        is the per-cell configuration stored in the table cells map. The
+        variant selects which Pluto cell component renders the cell.
+    """
+}
+
+Cell struct {
+    key    string     {
+        @doc value "is the unique identifier for this cell within the table."
+    }
+    config CellConfig {
+        @doc value "is the cell's variant-discriminated configuration."
+    }
+
+    @doc value """
+        is a keyed cell configuration used by actions that address cells
+        explicitly. Inside the table state itself, cell configurations are
+        stored in the cells map keyed by cell key.
     """
 }
 
@@ -73,27 +135,27 @@ Column struct {
 }
 
 Table struct {
-    key     Key               {
+    key     Key                     {
         @doc value "is the unique identifier for this table."
         @key
     }
-    name    string            {
+    name    string                  {
         @doc value "is a human-readable name for the table."
     }
-    rows    Row[]             {
+    rows    Row[]                   {
         @doc value "are the table rows in display order, top to bottom."
     }
-    columns Column[]          {
+    columns Column[]                {
         @doc value "are the table columns in display order, left to right."
     }
-    cells   map<string, Cell> {
+    cells   map<string, CellConfig> {
         @doc value        """
             contains all cells in the table, keyed by cell key. Cell positions
             are derived from rows[*].cells[*] references; cells not referenced
             by any row are orphaned and will be pruned on the next structural
             edit.
         """
-        @ts preserve_case
+        @ts preserve_keys
     }
 
     action Rename {
@@ -199,15 +261,15 @@ Table struct {
 
     action EraseCells {
         cells    string[]
-        template CellTemplate
+        template CellConfig
 
         @doc value """
             erases the cells whose keys are in cells. Any row whose every
             cell is in the selection is removed entirely; same for columns.
-            Cells that survive that row/column removal have their variant
-            and props replaced with the template's, keeping their original
-            keys. Cells in the selection whose keys are not in the table's
-            cells map are silently skipped.
+            Cells that survive that row/column removal have their config
+            replaced with the template, keeping their original keys. Cells
+            in the selection whose keys are not in the table's cells map are
+            silently skipped.
         """
     }
 

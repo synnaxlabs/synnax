@@ -76,8 +76,7 @@ const BASE_COL_SIZE = 72;
 
 const newDefaultCell = (theme: ReturnType<typeof Theming.use>): table.Cell => ({
   key: id.create(),
-  variant: "text",
-  props: Cell.REGISTRY.text.defaultProps(theme),
+  config: Cell.REGISTRY.text.defaultConfig(theme),
 });
 
 export interface TableProps
@@ -206,10 +205,7 @@ export const Table = ({
         actions: [
           table.eraseCells({
             cells: selected,
-            template: {
-              variant: "text",
-              props: Cell.REGISTRY.text.defaultProps(theme),
-            },
+            template: Cell.REGISTRY.text.defaultConfig(theme),
           }),
         ],
       });
@@ -301,7 +297,7 @@ export const Table = ({
   });
 
   const handleCellSelect = useCallback(
-    (cellKey: string, ev: MouseEvent) => {
+    (cellKey: string, ev: React.MouseEvent) => {
       if (!editable) return;
       tableElRef.current?.focus({ preventScroll: true });
       const { shiftKey, ctrlKey, metaKey, type } = ev;

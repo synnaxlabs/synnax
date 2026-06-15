@@ -1,0 +1,94 @@
+{
+  "version": "0.0.0",
+  "lastSelected": "cell2",
+  "editable": true,
+  "remoteCreated": true,
+  "layout": {
+    "rows": [
+      {
+        "size": 36,
+        "cells": [{ "key": "cell1" }, { "key": "cell2" }]
+      },
+      {
+        "size": 50,
+        "cells": [{ "key": "cell3" }, { "key": "cell4" }]
+      }
+    ],
+    "columns": [{ "size": 72 }, { "size": 100 }]
+  },
+  "cells": {
+    "cell1": {
+      "key": "cell1",
+      "variant": "text",
+      "selected": false,
+      "props": { "value": "Hello", "level": "p", "weight": 400 }
+    },
+    "cell2": {
+      "key": "cell2",
+      "variant": "value",
+      "selected": true,
+      "props": {
+        "telem": {
+          "type": "source-pipeline",
+          "variant": "source",
+          "valueType": "string",
+          "props": {
+            "connections": [
+              { "from": "valueStream", "to": "rollingAverage" },
+              { "from": "rollingAverage", "to": "stringifier" }
+            ],
+            "segments": {
+              "valueStream": {
+                "type": "stream-channel-value",
+                "variant": "source",
+                "valueType": "number",
+                "props": { "channel": 42 }
+              },
+              "rollingAverage": {
+                "type": "rolling-average",
+                "variant": "source-transformer",
+                "valueType": "number",
+                "props": { "windowSize": 5 }
+              },
+              "stringifier": {
+                "type": "stringify-number",
+                "variant": "source-transformer",
+                "valueType": "string",
+                "props": { "precision": 3, "notation": "scientific" }
+              }
+            },
+            "outlet": "stringifier"
+          }
+        },
+        "redline": {
+          "bounds": { "lower": 0, "upper": 100 },
+          "gradient": [
+            { "key": "g1", "color": "#00ff00", "position": 0 },
+            { "key": "g2", "color": "#ff0000", "position": 1 }
+          ]
+        },
+        "color": "#ff0000",
+        "units": "psi",
+        "stalenessTimeout": 5,
+        "stalenessColor": "#ffaa00"
+      }
+    },
+    "cell3": {
+      "key": "cell3",
+      "variant": "text",
+      "selected": false,
+      "props": {
+        "value": "Row 2",
+        "level": "h3",
+        "align": "left",
+        "backgroundColor": "#112233"
+      }
+    },
+    "cell4": {
+      "key": "cell4",
+      "variant": "text",
+      "selected": false,
+      "props": { "value": "World" }
+    }
+  }
+}
