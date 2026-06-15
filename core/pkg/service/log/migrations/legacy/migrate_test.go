@@ -12,7 +12,7 @@ package legacy_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"

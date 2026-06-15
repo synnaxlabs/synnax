@@ -17,7 +17,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -204,7 +203,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err = s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			distchannel.OntologyIDsFromChannels(metricsChannels),
+			channel.OntologyIDsFromChannels(metricsChannels),
 		); err != nil {
 			return err
 		}
@@ -227,7 +226,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		if err = s.maybeDefineGroupRelationship(
 			ctx,
 			tx,
-			distchannel.OntologyIDsFromChannels(calculatedChannels),
+			channel.OntologyIDsFromChannels(calculatedChannels),
 		); err != nil {
 			return err
 		}
@@ -238,7 +237,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	w, err := cfg.Framer.NewStreamWriter(
 		ctx,
 		framer.WriterConfig{
-			Keys:                     distchannel.KeysFromChannels(metricsChannels),
+			Keys:                     channel.KeysFromChannels(metricsChannels),
 			AutoIndex:                new(true),
 			AutoIndexPersistInterval: telem.Second * 30,
 		},

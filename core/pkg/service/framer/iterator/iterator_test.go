@@ -15,18 +15,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -35,54 +28,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 	var (
 		dist        mock.Node
 		iteratorSvc *iterator.Service
-		arcSvc      *arc.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		builder := DeferClose(mock.NewCluster())
 		dist = DeferClose(builder.Provision(ctx))
-		searchIdx := MustOpen(search.Open())
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-			Search:   searchIdx,
-		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       dist.DB,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-			Ontology: dist.Ontology,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-		rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           dist.DB,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       statusSvc,
-			Search:       searchIdx,
-		}))
-		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Rack:     rackService,
-			Status:   statusSvc,
-			Search:   searchIdx,
-		}))
-		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			DB:       dist.DB,
-			Channel:  dist.Channel,
-			Ontology: dist.Ontology,
-			Task:     taskSvc,
-			Search:   searchIdx,
-		}))
 		iteratorSvc = MustSucceed(iterator.NewService(iterator.ServiceConfig{
 			DistFramer: dist.Framer,
-			Channel:    svcchannel.Wrap(dist.Channel),
-			Arc:        arcSvc,
+			Channel:    channel.Wrap(dist.Channel),
 		}))
 	})
 	Describe("Basic Iteration", func() {
