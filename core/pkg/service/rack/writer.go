@@ -58,6 +58,26 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 	return &stat
 }
 
+// healStatus restores a rack's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Racks are re-created on every scan
+// cycle, so on a no-op update the default "unknown" status must not overwrite a status
+// the driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *status.Status[StatusDetails],
+) error {
+	exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+		Exists(ctx, w.tx)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return w.status.Set(ctx, stat)
+}
+
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
 // does not exist, a new rack will be created. If a status is provided on the rack,
 // it will be used instead of the default "unknown" status.
@@ -80,7 +100,11 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 		return err
 	}
 	stat := resolveStatus(r)
-	if err = w.status.Set(ctx, stat); err != nil {
+	if r.Status != nil {
+		if err = w.status.Set(ctx, stat); err != nil {
+			return err
+		}
+	} else if err = w.healStatus(ctx, stat); err != nil {
 		return err
 	}
 	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)

@@ -599,6 +599,29 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(healed.Details.Rack).To(Equal(r.Key))
 		})
 
+		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
+			r := rack.Rack{
+				Name: "live status rack",
+				Status: &rack.Status{
+					Variant: xstatus.VariantSuccess,
+					Message: "Rack is connected",
+					Time:    telem.Now(),
+				},
+			}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+
+			reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
+			Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
+
+			var preserved rack.Status
+			Expect(status.NewRetrieve[rack.StatusDetails](stat).
+				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Entry(&preserved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(preserved.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(preserved.Message).To(Equal("Rack is connected"))
+		})
+
 		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dead test rack"}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())

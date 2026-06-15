@@ -449,6 +449,30 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(healed.Details.Task).To(Equal(t.Key))
 		})
 
+		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 0),
+				Name: "Live Status Task",
+				Status: &task.Status{
+					Variant: xstatus.VariantSuccess,
+					Message: "Task is running",
+					Time:    telem.Now(),
+				},
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+
+			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+			Expect(w.Create(ctx, reconfigured)).To(Succeed())
+
+			var preserved task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+				Entry(&preserved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(preserved.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(preserved.Message).To(Equal("Task is running"))
+		})
+
 		It("Should create an unknown status when copying a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
