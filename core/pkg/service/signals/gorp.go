@@ -93,7 +93,6 @@ func (g GorpPublisherConfig[K, E]) Override(
 	g.DeleteName = override.String(g.DeleteName, other.DeleteName)
 	g.DisableSet = g.DisableSet || other.DisableSet
 	g.DisableDelete = g.DisableDelete || other.DisableDelete
-	g.Observable = override.Nil(g.Observable, other.Observable)
 	return g
 }
 
@@ -217,6 +216,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 							zap.Error(err),
 							zap.String("channel", cfg.SetName),
 						)
+						continue
 					}
 					oc.Key = v
 				} else {
@@ -230,6 +230,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 							zap.Error(err),
 							zap.String("channel", cfg.DeleteName),
 						)
+						continue
 					}
 					oc.Key = k
 				}
