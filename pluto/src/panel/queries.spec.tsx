@@ -756,10 +756,17 @@ describe("Panel queries", () => {
 
     it("applies dispatches from other writers through the action channel", async () => {
       const created = await createPanel();
+      // Seed the root with a tab so the split's original side stays non-empty;
+      // splitting an empty leaf and filling only the new sibling collapses the
+      // empty pane back to a single leaf.
+      const seed = newTab();
+      await client.panels.dispatch(created.key, "", [
+        panel.insertTab({ tab: seed, targetLeaf: panel.ROOT_PATH }),
+      ]);
       const { result } = await loadAndUse(created.key, () =>
         Panel.useSelectRoot({ key: created.key }),
       );
-      expect(result.current.variant).toEqual("leaf");
+      expect(leafTabKeys(result.current)).toEqual([seed.key]);
 
       const tab = newTab();
       await client.panels.dispatch(created.key, "", [
@@ -776,7 +783,6 @@ describe("Panel queries", () => {
           expect(root).toBeDefined();
           expect(leafTabKeys(root?.last)).toEqual([tab.key]);
         },
-        { timeout: 5000 },
       );
     });
 

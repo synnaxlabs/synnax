@@ -506,6 +506,36 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
+			It("Should wrap telem-typed numeric defaults in their constructors", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeSpan int64 {
+						@cpp omit
+					}
+
+					Rate float64 {
+						@cpp omit
+					}
+				`)
+				source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						stream_rate telem.Rate = 5
+						duration    telem.TimeSpan = 0
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+				ExpectContent(resp, "out/json.gen.h").
+					ToContain(
+						`parser.field<::x::telem::Rate>("stream_rate", x::telem::Rate(5))`,
+						`parser.field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0))`,
+					)
+			})
+
 			It("Should default soft-optional uuid fields to x::uuid::UUID{}", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
@@ -782,6 +812,43 @@ var _ = Describe("C++ JSON Union Generation", func() {
 				`.units = parser.field<std::string>("units", "Volts"),`,
 				`.label = parser.field<std::string>("label", ""),`,
 			)
+	})
+
+	It("Should parse defaulted distinct-typed fields with their schema defaults", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Key string {}
+
+			Config struct {
+				device Key = ""
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(`.device = parser.field<Key>("device", ""),`)
+	})
+
+	It("Should wrap telem-typed numeric defaults in their constructors", func(ctx SpecContext) {
+		loader.Add("schemas/telem", `
+			@cpp output "x/cpp/telem"
+
+			TimeSpan int64 {
+				@cpp omit
+			}
+		`)
+		source := `
+			import "schemas/telem"
+
+			@cpp output "out"
+
+			Config struct {
+				duration telem.TimeSpan = 0
+			}
+		`
+		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
+		ExpectContent(resp, "out/json.gen.h").
+			ToContain(`.duration = parser.field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0)),`)
 	})
 
 	It("Should keep fields with sentinel defaults required", func(ctx SpecContext) {

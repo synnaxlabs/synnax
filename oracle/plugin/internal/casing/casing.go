@@ -47,6 +47,58 @@ func PascalAcronym(s string) string {
 	return strings.Join(segs, "")
 }
 
+// CamelAcronym converts an identifier to camelCase while keeping known acronyms
+// upper-cased after the first word, mirroring PascalAcronym. Only the leading
+// word or acronym is lower-cased: "AIVoltageRMSChannel" -> "aiVoltageRMSChannel",
+// "BaseAOChannel" -> "baseAOChannel", "RTDType" -> "rtdType", "Channel" ->
+// "channel". Use this for generated type and schema-const identifiers. It must
+// not be used for wire field keys, which have to match the naive snake/camel
+// conversion the JSON codec performs.
+func CamelAcronym(s string) string {
+	if s == "" {
+		return s
+	}
+	// Normalize snake_case/kebab-case or camelCase input to acronym-aware
+	// PascalCase. Already-PascalCase input is used as-is: routing it back through
+	// PascalAcronym would collapse adjacent acronyms ("AIRTD" -> "Airtd") that a
+	// snake round-trip cannot re-split.
+	p := s
+	if isLower(s[0]) || strings.ContainsAny(s, "_-") {
+		p = PascalAcronym(s)
+	}
+	// Lower-case only the leading word or acronym; the remainder is preserved
+	// verbatim so embedded acronyms survive (the AO in "BaseAOChannel", the RMS
+	// in "AIVoltageRMSChannel"). A known acronym is matched first so adjacent
+	// acronyms split naturally ("AIRTDChannel" -> "aiRTDChannel"); otherwise the
+	// whole leading uppercase run is lowered so unknown leading acronyms still
+	// read naturally ("CJCSource" -> "cjcSource", "URLValue" -> "urlValue").
+	if acr := leadingKnownAcronym(p); acr != "" {
+		return strings.ToLower(acr) + p[len(acr):]
+	}
+	if run := leadingAcronym(p); run != "" {
+		return strings.ToLower(run) + p[len(run):]
+	}
+	return strings.ToLower(p[:1]) + p[1:]
+}
+
+// leadingKnownAcronym returns the longest known acronym that prefixes s as a whole
+// upper-cased word, or "" if s does not begin with one. The character after the
+// acronym (if any) must not be lowercase, so "Aircraft" does not match "ai".
+func leadingKnownAcronym(s string) string {
+	best := ""
+	for a := range acronyms {
+		up := strings.ToUpper(a)
+		if len(up) <= len(best) || !strings.HasPrefix(s, up) {
+			continue
+		}
+		if len(s) > len(up) && isLower(s[len(up)]) {
+			continue
+		}
+		best = up
+	}
+	return best
+}
+
 // VariantTypeName derives a discriminated-union variant's type name from the
 // union's type name and the variant's discriminator value. When the variant
 // repeats the union's leading acronym (e.g. value "ai_voltage" under union

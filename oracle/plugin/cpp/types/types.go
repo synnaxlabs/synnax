@@ -754,6 +754,20 @@ func cppDefaultValue(cppType string, underlyingPrimitive string) string {
 	return ""
 }
 
+// wrapCppTelemNumeric wraps a bare numeric default literal in its telem scalar
+// class constructor when cppType is one of those classes. They expose only
+// explicit numeric constructors, so a bare literal fails copy-initialization
+// both as a struct member initializer and as the fallback argument to
+// parser.field.
+func wrapCppTelemNumeric(cppType, literal string) string {
+	for _, t := range []string{"TimeStamp", "TimeSpan", "Rate", "Size", "Alignment"} {
+		if strings.Contains(cppType, "::telem::"+t) {
+			return fmt.Sprintf("x::telem::%s(%s)", t, literal)
+		}
+	}
+	return literal
+}
+
 func getUnderlyingPrimitive(typeRef resolution.TypeRef, table *resolution.Table) string {
 	if resolution.IsPrimitive(typeRef.Name) {
 		return typeRef.Name
@@ -817,18 +831,13 @@ func (p *Plugin) cppDefaultLiteral(typeRef resolution.TypeRef, val resolution.Ex
 	case resolution.ValueKindString:
 		return fmt.Sprintf("%q", val.StringValue)
 	case resolution.ValueKindInt:
-		// Telem time types have explicit integer constructors, so a bare
-		// numeric literal would not compile as a member initializer.
-		cppType := p.typeRefToCpp(typeRef, data)
-		if strings.Contains(cppType, "::telem::TimeStamp") {
-			return fmt.Sprintf("x::telem::TimeStamp(%d)", val.IntValue)
-		}
-		if strings.Contains(cppType, "::telem::TimeSpan") {
-			return fmt.Sprintf("x::telem::TimeSpan(%d)", val.IntValue)
-		}
-		return fmt.Sprintf("%d", val.IntValue)
+		return wrapCppTelemNumeric(
+			p.typeRefToCpp(typeRef, data), fmt.Sprintf("%d", val.IntValue),
+		)
 	case resolution.ValueKindFloat:
-		return fmt.Sprintf("%f", val.FloatValue)
+		return wrapCppTelemNumeric(
+			p.typeRefToCpp(typeRef, data), fmt.Sprintf("%f", val.FloatValue),
+		)
 	case resolution.ValueKindBool:
 		return fmt.Sprintf("%t", val.BoolValue)
 	case resolution.ValueKindIdent:
