@@ -117,7 +117,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			longestInputIdx = i
 		}
 	}
-	// With no wire-fed inputs, the node executes once over its literal inputs.
+	// With no edge-fed inputs, the node executes once over its literal inputs.
 	if longestInputIdx == -1 {
 		maxLength = 1
 	}

@@ -172,11 +172,6 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
         output_idx.push_back(this->value_index[handle]);
     }
 
-    std::unordered_map<std::string, size_t> input_index;
-    input_index.reserve(num_inputs);
-    for (size_t i = 0; i < num_inputs; i++)
-        input_index[ir_node.inputs[i].name] = i;
-
     return {
         Node(
             *this,
@@ -186,8 +181,7 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             std::move(output_idx),
             std::move(accumulated),
             std::move(aligned_data),
-            std::move(aligned_time),
-            std::move(input_index)
+            std::move(aligned_time)
         ),
         x::errors::NIL
     };
@@ -281,15 +275,6 @@ const Series &Node::input_time(const size_t param_index) const {
     return this->aligned_time[param_index];
 }
 
-std::pair<size_t, x::errors::Error> Node::resolve_input(const std::string &name) const {
-    const auto it = this->input_index.find(name);
-    if (it == this->input_index.end())
-        return {
-            0,
-            x::errors::Error(x::errors::VALIDATION, "node has no input named " + name)
-        };
-    return {it->second, x::errors::NIL};
-}
 Series &Node::output(const size_t param_index) const {
     return this->state.values[this->output_idx[param_index]].data;
 }

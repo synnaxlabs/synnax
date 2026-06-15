@@ -59,8 +59,6 @@ class Node {
     std::vector<ir::Handle> outputs;
     std::vector<size_t> input_source_idx;
     std::vector<size_t> output_idx;
-    /// @brief maps an input's parameter name to its position in the input list.
-    std::unordered_map<std::string, size_t> input_index;
 
     struct InputEntry {
         size_t source;
@@ -82,15 +80,13 @@ class Node {
         std::vector<size_t> output_idx,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
-        std::vector<Series> aligned_time,
-        std::unordered_map<std::string, size_t> input_index
+        std::vector<Series> aligned_time
     ):
         state(state),
         inputs(std::move(inputs)),
         outputs(std::move(outputs)),
         input_source_idx(std::move(input_source_idx)),
         output_idx(std::move(output_idx)),
-        input_index(std::move(input_index)),
         accumulated(std::move(accumulated)),
         aligned_data(std::move(aligned_data)),
         aligned_time(std::move(aligned_time)) {}
@@ -108,11 +104,6 @@ public:
     }
 
     [[nodiscard]] const Series &input_time(size_t param_index) const;
-
-    /// @brief returns the position of the named input, or an error if the node
-    /// has no such param. Resolve at construction so wiring mistakes fail at load.
-    [[nodiscard]] std::pair<size_t, x::errors::Error>
-    resolve_input(const std::string &name) const;
 
     [[nodiscard]] Series &output(size_t param_index) const;
     [[nodiscard]] Series &output_time(size_t param_index) const;

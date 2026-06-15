@@ -42,8 +42,8 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	isEntryNode := cfg.Node.IsEntryNode(cfg.Program.Edges)
 
-	// Each input fills one WASM param slot. Wire-fed inputs are streamed per
-	// sample in Next; literal-fed inputs get their constant value set once here.
+	// Each input fills one WASM param slot. Edge-fed inputs are streamed per
+	// sample in Next; literal inputs get their constant value set once here.
 	params := make([]uint64, len(irFn.Inputs))
 	edgeFed := make([]bool, len(irFn.Inputs))
 	for i, param := range cfg.Node.Inputs {

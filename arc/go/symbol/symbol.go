@@ -37,6 +37,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
@@ -56,9 +57,9 @@ type Argument struct {
 	AST antlr.ParserRuleContext
 }
 
-// ArgumentsHook runs optional symbol-specific argument validation; ctx is the
-// untyped analyzer context, type-asserted by the hook.
-type ArgumentsHook func(ctx any, args []Argument)
+// ArgumentsHook runs optional symbol-specific argument validation, reporting any
+// findings to the analyzer's diagnostics sink.
+type ArgumentsHook func(diags *diagnostics.Diagnostics, args []Argument)
 
 // TriggerBinding declares what an upstream wire does to a symbol in flow context.
 type TriggerBinding struct {

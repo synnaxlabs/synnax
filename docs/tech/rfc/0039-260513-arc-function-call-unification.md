@@ -51,10 +51,10 @@ recoverable from each symbol's own semantics; the type system does not need to e
 it.
 
 **Replace the `ExecBoth` heuristic with an explicit declaration.** Today the flow
-analyzer guesses whether an upstream wire is a value source or a pure activation pulse
+analyzer guesses whether an upstream edge is a value source or a pure activation pulse
 by inspecting `Exec` and `len(Config)`. The guess happens to be correct for every stdlib
 symbol today because of the mirror trick, but the rule is implicit. Replace it with a
-`Trigger` field on `Symbol` that names the wire-fed param (or declares `TriggerOnly`).
+`Trigger` field on `Symbol` that names the edge-fed param (or declares `TriggerOnly`).
 
 **Demote `Exec` to a superficial gate.** A symbol's composition is its `Inputs` list and
 its `Trigger`. `Exec` no longer selects a parameter array or participates in trigger
@@ -137,7 +137,7 @@ symbols, which it could not if the two fields still encoded distinct content.
 
 What the split was actually tracking, for the symbols where it still meant anything, is
 **which param the upstream wire feeds**. A mixed-shape flow symbol like `channel.write`
-puts its configured `channel` in one array and its wire-fed `input` in the other, but
+puts its configured `channel` in one array and its edge-fed `input` in the other, but
 those are not two kinds of param. They are one param list with one entry singled out as
 the wire target. That single fact is the only thing worth preserving, and it now lives
 explicitly on `Symbol.Trigger`. The reframing is the whole RFC in one line: a symbol has
@@ -633,7 +633,7 @@ both sites delegate to `call.Analyze`. `upstreamIsTrigger` is removed; flow.go c
 For user-defined functions, the surface syntax is unchanged:
 
 ```arc
-// With a wire-fed trigger
+// With an edge-fed trigger
 func my_tally{threshold f32} (sample f32) u8 { return sample > threshold }
 
 // Without a trigger
@@ -912,7 +912,7 @@ supervisor, written once and reused across signals with a different classifier e
 time, shows the shape:
 
 ```go
-// `value` is the trigger (wire-fed); `severity` (a function) and `limit`
+// `value` is the trigger (edge-fed); `severity` (a function) and `limit`
 // are ordinary inputs, fixed when the graph is built.
 func limit_status{value f32}(severity fn(f32) string, limit f32) string {
     if value <= limit { return "ok" }
@@ -1086,7 +1086,7 @@ Work) and leave the note here as a record. Entry heading:
 ### Phase 3 - Brace/parens surface convention may invert
 
 Today a user-defined function's brace block holds the non-trigger inputs and the parens
-block holds the trigger (its first param is the wire-fed one):
+block holds the trigger (its first param is the edge-fed one):
 
 ```go
 func my_func{inputs}(trigger) { ... }
@@ -1168,17 +1168,17 @@ Independent of the grammar rename; neither blocks the other.
 The plan scoped the runtime touch as a one-liner (`len(Config)` to `len(Inputs)`), but
 the merge broke more than that: the runtime read inputs by position and split params via
 a `configCount` prefix (`params[configCount+j]`). With the lists unified there is no
-contiguous boundary to recover (`math.avg`'s wire-fed `reset` carries a default value
-while its wire-fed `input` does not), and a host node reading `Input(0)` for its data
+contiguous boundary to recover (`math.avg`'s edge-fed `reset` carries a default value
+while its edge-fed `input` does not), and a host node reading `Input(0)` for its data
 now hits a former config param.
 
 So the split is retired from the runtime, not patched. `node.State` already materializes
 literal-fed inputs as constant series, so the model was half-realized; three changes
 finish it: host nodes read inputs by name (`State.InputNamed`, etc.) so declaration
 order stops mattering to them; `wasm.go`/`node.go` drop `configCount` and fill each
-param slot from its source (wire-fed streams per sample, literal-fed set once, strings
-the only real edge-vs-literal branch); and `Context.Diags()` lets the `AnalyzeArguments`
-hook reach diagnostics from `ctx any` without a type switch.
+param slot from its source (edge-fed streams per sample, literal-fed set once, strings
+the only real edge-vs-literal branch); and the `AnalyzeArguments` hook receives the
+diagnostics sink directly, so it needs neither the analyzer context nor a type switch.
 
 Order is now cosmetic for the runtime, surviving only for positional argument binding
 and the self-consistent WASM param sequence. This is the first change to the runtime

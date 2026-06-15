@@ -535,7 +535,7 @@ TEST(StableConstructionTest, ErrorsWhenInputMissing) {
         module.create(
             runtime::node::Config(ir, ir.nodes[0], ASSERT_NIL_P(state.node("stable")))
         ),
-        x::errors::VALIDATION
+        x::errors::NOT_FOUND
     );
 }
 }

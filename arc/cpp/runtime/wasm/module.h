@@ -297,7 +297,7 @@ public:
         Module &module;
         wasmtime::Func fn;
         types::Params outputs;
-        /// @brief one flag per input, true when wire-fed (streamed per sample).
+        /// @brief one flag per input, true when edge-fed (streamed per sample).
         std::vector<bool> edge_fed;
         uint32_t base;
         std::vector<wasmtime::Val> args;
@@ -318,7 +318,7 @@ public:
             edge_fed(std::move(edge_fed)),
             base(base) {
             this->args.resize(inputs.size(), wasmtime::Val(0));
-            // Literal-fed inputs are set once here; wire-fed inputs stream in call().
+            // Literal inputs are set once here; edge-fed inputs stream in call().
             for (size_t i = 0; i < inputs.size(); i++) {
                 if (this->edge_fed[i] || inputs[i].value.is_null()) continue;
                 if (inputs[i].value.is_string()) {
@@ -399,7 +399,7 @@ public:
             return x::errors::NIL;
         }
 
-        /// @brief one flag per input, true when wire-fed (streamed per sample).
+        /// @brief one flag per input, true when edge-fed (streamed per sample).
         [[nodiscard]] const std::vector<bool> &input_edge_fed() const {
             return this->edge_fed;
         }
@@ -415,14 +415,14 @@ public:
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
     }
 
-    /// @brief Wraps the WASM export `name` using its declared inputs, all wire-fed.
-    /// Use the three-arg overload for nodes with literal/config inputs.
+    /// @brief Wraps the WASM export `name` using its declared inputs, all edge-fed.
+    /// Use the three-arg overload for nodes with literal inputs.
     std::pair<Function, x::errors::Error> func(const std::string &name) {
         return this->func(name, {}, {});
     }
 
     /// @brief Wraps the WASM export `name` for a node's inputs. edge_fed is parallel
-    /// to node_inputs (true = wire-fed, false = literal-fed) and required, derived
+    /// to node_inputs (true = edge-fed, false = literal) and required, derived
     /// from the graph edges (see wasm::Factory::create); omitting it cannot compile.
     std::pair<Function, x::errors::Error> func(
         const std::string &name,
