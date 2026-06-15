@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -40,6 +41,7 @@ type Service struct {
 	internal *channel.Service
 	ranger   *ranger.Service
 	alias    *alias.Service
+	status   *status.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -52,6 +54,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		internal: cfg.Service.Channel,
 		ranger:   cfg.Service.Ranger,
 		alias:    cfg.Service.Alias,
+		status:   cfg.Service.Status,
 	}, nil
 }
 
@@ -131,6 +134,10 @@ type RetrieveRequest struct {
 	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// RangeKey is used for fetching aliases.
 	RangeKey ranger.Key `json:"range_key" msgpack:"range_key"`
+	// IncludeStatus attaches each channel's status row (e.g. calculation status) to the
+	// returned channels when true. Channels with no status row are returned with a nil
+	// status.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // RetrieveResponse is the response for a RetrieveRequest.
@@ -229,6 +236,18 @@ func (s *Service) Retrieve(
 			if err == nil {
 				oChannels[i].Alias = al
 			}
+		}
+	}
+	if req.IncludeStatus {
+		statuses := make([]Status, 0, len(resChannels))
+		if err := status.NewRetrieve[types.Nil](s.status).
+			Where(status.MatchKeys[types.Nil](ontology.IDsToKeys(channel.OntologyIDsFromChannels(resChannels))...)).
+			Entries(&statuses).
+			Exec(ctx, nil); err != nil {
+			return RetrieveResponse{}, err
+		}
+		for i, stat := range statuses {
+			oChannels[i].Status = &stat
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
