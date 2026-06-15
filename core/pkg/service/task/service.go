@@ -14,11 +14,11 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
@@ -38,38 +38,46 @@ import (
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	// DB is the gorp database that tasks will be stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between tasks and other resources
-	// in the Synnax cluster.
+	// Ontology is used to define relationships between tasks and other resources in the
+	// Synnax cluster.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create task related groups of ontology resources.
+	//
 	// [REQUIRED]
 	Group *group.Service
 	// Rack is used to manage rack-related operations for tasks.
+	//
 	// [REQUIRED]
 	Rack *rack.Service
 	// Status is used to define and process statuses for tasks.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Signals is used to propagate task changes through the Synnax signals' channel
 	// communication mechanism.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Channel is used to create channels related to task operations.
+	//
 	// [OPTIONAL]
 	Channel *channel.Service
 	// Search is the search index for fuzzy searching tasks.
+	//
 	// [REQUIRED]
 	Search *search.Index
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -111,7 +119,7 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}

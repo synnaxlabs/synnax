@@ -1596,6 +1596,120 @@ func MigrateEntry(_ context.Context, old v1.Entry) (Entry, error) { return AutoM
 		})
 	})
 
+	Describe("alias-to-slice field migration", func() {
+		It("Should migrate each element of an alias-to-slice field instead of casting", func() {
+			oldSchema := `
+				@go output "out"
+				Key = uuid
+				Member struct {
+					node string
+				}
+				Members = Member[]
+				Scope struct {
+					key Key {@key}
+					strata Members[]
+					@go migrate
+				}
+			`
+			newSchema := `
+				@go output "out"
+				Key = uuid
+				Member struct {
+					node string
+					weight int32
+				}
+				Members = Member[]
+				Scope struct {
+					key Key {@key}
+					strata Members[]
+					@go migrate
+				}
+			`
+			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+			autoCopy := fileContent(resp, "migrate_auto.gen.go")
+			Expect(autoCopy).To(ContainSubstring("AutoMigrateMembers"))
+			Expect(autoCopy).To(ContainSubstring("AutoMigrateMember(ctx, v)"))
+		})
+	})
+
+	Describe("dependency prior-version retarget chaining", func() {
+		It("Should retarget a dependency's prior-version migrator to the new frozen version, not live", func() {
+			tmpDir := GinkgoT().TempDir()
+			v1Dir := tmpDir + "/out/migrations/v1"
+			v1DepDir := tmpDir + "/dep/migrations/v1"
+			Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
+			Expect(os.MkdirAll(v1DepDir, 0755)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/codec.gen.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(v1Dir+"/migrate.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(v1DepDir+"/codec.gen.go", []byte("package v1"), 0644)).To(Succeed())
+			Expect(os.WriteFile(tmpDir+"/out/migrate.go", []byte(`package out
+func MigrateEntry(_ context.Context, old v1.Entry) (Entry, error) { return AutoMigrateEntry(old) }
+`), 0644)).To(Succeed())
+
+			depV1 := `@go output "dep"  Inner struct { value int32 }`
+			depV2 := `@go output "dep"  Inner struct { value int32  extra string }`
+			schemaV1 := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					inner dep.Inner
+					@go migrate
+				}
+			`
+			schemaV2 := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					inner dep.Inner
+					label string
+					@go migrate
+				}
+			`
+			schemaV3 := `
+				import "schemas/dep"
+				@go output "out"
+				Key = uuid
+				Entry struct {
+					key Key {@key}
+					inner dep.Inner
+					label string
+					tag string
+					@go migrate
+				}
+			`
+			customLoader := testutil.NewMockFileLoaderWithRoot(tmpDir)
+			customLoader.Add("schemas/dep", depV1)
+			v1Table := MustSucceed(analyze(ctx, schemaV1, "test", customLoader))
+			customLoader.Add("schemas/dep", depV2)
+			oldTable := MustSucceed(analyze(ctx, schemaV2, "test", customLoader))
+			newTable := MustSucceed(analyze(ctx, schemaV3, "test", customLoader))
+			req := &plugin.Request{
+				Resolutions:     newTable,
+				OldResolutions:  oldTable,
+				SnapshotVersion: 2,
+				RepoRoot:        tmpDir,
+				LoadSnapshot: func(version int) (*resolution.Table, error) {
+					if version == 1 {
+						return v1Table, nil
+					}
+					return nil, nil
+				},
+			}
+			resp := MustSucceed(p.Generate(req))
+			depAutoCopy := fileContent(resp, "dep/migrations/v1/migrate_auto.gen.go")
+			Expect(depAutoCopy).NotTo(BeEmpty())
+			Expect(depAutoCopy).To(ContainSubstring("migrations/v2"))
+			depTemplate := fileContent(resp, "dep/migrations/v1/migrate.go")
+			Expect(depTemplate).NotTo(BeEmpty())
+			Expect(depTemplate).To(ContainSubstring("package v1"))
+			Expect(depTemplate).To(ContainSubstring("migrations/v2"))
+		})
+	})
+
 	Describe("context.Context in generated code", func() {
 		It("Should use context.Context in developer transform template", func() {
 			oldSchema := `

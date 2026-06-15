@@ -12,74 +12,25 @@ package graph_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var (
-	arcSvc *arc.Service
-	dist   mock.Node
-)
+var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := DeferClose(mock.NewCluster())
 	dist = DeferClose(distB.Provision(ctx))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-		Search:   dist.Search,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-		Ontology: dist.Ontology,
-		Label:    labelSvc,
-		Search:   dist.Search,
-	}))
-	rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		HostProvider: mock.StaticHostKeyProvider(1),
-		Status:       statusSvc,
-		Search:       dist.Search,
-	}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Rack:     rackService,
-		Status:   statusSvc,
-		Search:   dist.Search,
-	}))
-	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Task:     taskSvc,
-		Search:   dist.Search,
-	}))
 })
 
 var _ = Describe("Graph", func() {
 	var g *graph.Graph
 	BeforeEach(func() {
 		g = MustSucceed(graph.New(graph.Config{
-			Channel:        svcchannel.Wrap(dist.Channel),
-			SymbolResolver: arcSvc.NewSymbolResolver(nil),
+			Channel: channel.Wrap(dist.Channel),
 		}))
 	})
 	Describe("Add", func() {

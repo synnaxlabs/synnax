@@ -12,7 +12,7 @@ package calculation
 import (
 	"go/types"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
