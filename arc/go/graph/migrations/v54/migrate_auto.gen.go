@@ -13,39 +13,39 @@ package v54
 
 import (
 	"context"
-	graph "github.com/synnaxlabs/arc/graph"
-	ir "github.com/synnaxlabs/arc/ir"
+	graphv56 "github.com/synnaxlabs/arc/graph/migrations/v56"
 	irv54 "github.com/synnaxlabs/arc/ir/migrations/v54"
-	spatial "github.com/synnaxlabs/x/spatial"
+	irv56 "github.com/synnaxlabs/arc/ir/migrations/v56"
+	spatialv56 "github.com/synnaxlabs/x/spatial/migrations/v56"
 )
 
-func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
+func AutoMigrateGraph(ctx context.Context, old Graph) (graphv56.Graph, error) {
 	viewport, err := AutoMigrateViewport(ctx, old.Viewport)
 	if err != nil {
-		return graph.Graph{}, err
+		return graphv56.Graph{}, err
 	}
-	functions := make(ir.Functions, len(old.Functions))
+	functions := make(irv56.Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
 		if functions[i], err = irv54.MigrateFunction(ctx, v); err != nil {
-			return graph.Graph{}, err
+			return graphv56.Graph{}, err
 		}
 	}
-	edges := make(ir.Edges, len(old.Edges))
+	edges := make(irv56.Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
 		if edges[i], err = irv54.MigrateEdge(ctx, v); err != nil {
-			return graph.Graph{}, err
+			return graphv56.Graph{}, err
 		}
 	}
-	nodes := make(graph.Nodes, len(old.Nodes))
+	nodes := make(graphv56.Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
 		if nodes[i], err = AutoMigrateNode(ctx, v); err != nil {
-			return graph.Graph{}, err
+			return graphv56.Graph{}, err
 		}
 	}
-	return graph.Graph{
+	return graphv56.Graph{
 		Viewport:  viewport,
 		Functions: functions,
 		Edges:     edges,
@@ -53,18 +53,18 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 	}, nil
 }
 
-func AutoMigrateViewport(_ context.Context, old Viewport) (graph.Viewport, error) {
-	return graph.Viewport{
-		Position: spatial.XY(old.Position),
+func AutoMigrateViewport(_ context.Context, old Viewport) (graphv56.Viewport, error) {
+	return graphv56.Viewport{
+		Position: spatialv56.XY(old.Position),
 		Zoom:     old.Zoom,
 	}, nil
 }
 
-func AutoMigrateNode(_ context.Context, old Node) (graph.Node, error) {
-	return graph.Node{
+func AutoMigrateNode(_ context.Context, old Node) (graphv56.Node, error) {
+	return graphv56.Node{
 		Key:      old.Key,
 		Type:     old.Type,
 		Config:   old.Config,
-		Position: spatial.XY(old.Position),
+		Position: spatialv56.XY(old.Position),
 	}, nil
 }

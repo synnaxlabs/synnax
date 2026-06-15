@@ -16,45 +16,16 @@ package arc
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/graph"
-	v54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
-	"github.com/synnaxlabs/x/encoding/msgpack"
+	irv56 "github.com/synnaxlabs/arc/ir/migrations/v56"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 )
 
-func MigrateArc(ctx context.Context, old v54.Arc) (Arc, error) {
+func MigrateArc(ctx context.Context, old v56.Arc) (Arc, error) {
+	for i := range old.Graph.Functions {
+		old.Graph.Functions[i] = irv56.MergeFunctionConfig(old.Graph.Functions[i])
+	}
+	if old.Program != nil {
+		old.Program.IR = irv56.MergeIRConfig(old.Program.IR)
+	}
 	return AutoMigrateArc(ctx, old)
-}
-
-// RenameSetStatus rewrites every deprecated set_status flow node in a to status.set.
-func RenameSetStatus(_ context.Context, a Arc) (Arc, error) {
-	for i := range a.Graph.Nodes {
-		a.Graph.Nodes[i] = migrateLegacySetStatusNode(a.Graph.Nodes[i])
-	}
-	return a, nil
-}
-
-// migrateLegacySetStatusNode rewrites a deprecated set_status flow node to status.set,
-// remapping the legacy statusKey config parameter to key_or_name and dropping any
-// parameters the new function no longer accepts. Nodes of any other type are returned
-// unchanged. This mirrors the Console-side migration in console/src/arc/types/v2.ts.
-func migrateLegacySetStatusNode(n graph.Node) graph.Node {
-	if n.Type != "set_status" {
-		return n
-	}
-	n.Type = "status.set"
-	n.Config = msgpack.EncodedJSON{
-		"key_or_name": legacyStatusConfigString(n.Config, "statusKey", ""),
-		"variant":     legacyStatusConfigString(n.Config, "variant", "success"),
-		"message":     legacyStatusConfigString(n.Config, "message", ""),
-	}
-	return n
-}
-
-// legacyStatusConfigString returns the string value stored at key in config, falling
-// back to def when the key is absent or does not hold a string.
-func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) string {
-	if v, ok := config[key].(string); ok {
-		return v
-	}
-	return def
 }
