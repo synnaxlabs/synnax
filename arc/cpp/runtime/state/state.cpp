@@ -23,8 +23,11 @@ Series parse_default_value(
 ) {
     auto data_type = type.telem();
     if (value.has_value()) {
-        auto casted = data_type.cast(*value);
-        return x::mem::make_local_shared<x::telem::Series>(casted);
+        // Non-telem kinds (e.g. a channel handle) carry their concrete value
+        // already; only numeric/string kinds need a cast to their telem type.
+        if (data_type == x::telem::UNKNOWN_T)
+            return x::mem::make_local_shared<x::telem::Series>(*value);
+        return x::mem::make_local_shared<x::telem::Series>(data_type.cast(*value));
     }
     switch (type.kind) {
         case types::Kind::I8:
