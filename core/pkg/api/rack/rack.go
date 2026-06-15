@@ -25,6 +25,7 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -142,14 +143,23 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
+		ids := rack.OntologyIDsFromRacks(resRacks)
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](s.status).
-			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
+			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
-		for i, stat := range statuses {
+		statusByKey := make(map[string]rack.Status, len(statuses))
+		for _, stat := range statuses {
+			statusByKey[stat.Key] = stat
+		}
+		for i := range resRacks {
+			stat, ok := statusByKey[ids[i].String()]
+			if !ok {
+				return RetrieveResponse{}, errors.Wrapf(query.ErrNotFound, "status for rack %s", resRacks[i].Key)
+			}
 			resRacks[i].Status = &stat
 		}
 	}

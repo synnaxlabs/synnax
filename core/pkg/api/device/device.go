@@ -140,14 +140,23 @@ func (s *Service) Retrieve(
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
+		ids := device.OntologyIDsFromDevices(res.Devices)
 		statuses := make([]device.Status, 0, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](s.status).
-			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
+			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
-		for i, stat := range statuses {
+		statusByKey := make(map[string]device.Status, len(statuses))
+		for _, stat := range statuses {
+			statusByKey[stat.Key] = stat
+		}
+		for i := range res.Devices {
+			stat, ok := statusByKey[ids[i].String()]
+			if !ok {
+				return RetrieveResponse{}, errors.Wrapf(query.ErrNotFound, "status for device %s", res.Devices[i].Key)
+			}
 			res.Devices[i].Status = &stat
 		}
 	}

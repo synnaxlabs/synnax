@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -139,14 +141,23 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
+		ids := task.OntologyIDsFromTasks(res.Tasks)
 		statuses := make([]task.Status, 0, len(res.Tasks))
 		if err := status.NewRetrieve[task.StatusDetails](s.status).
-			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
+			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
-		for i, stat := range statuses {
+		statusByKey := make(map[string]task.Status, len(statuses))
+		for _, stat := range statuses {
+			statusByKey[stat.Key] = stat
+		}
+		for i := range res.Tasks {
+			stat, ok := statusByKey[ids[i].String()]
+			if !ok {
+				return RetrieveResponse{}, errors.Wrapf(query.ErrNotFound, "status for task %s", res.Tasks[i].Key)
+			}
 			res.Tasks[i].Status = &stat
 		}
 	}

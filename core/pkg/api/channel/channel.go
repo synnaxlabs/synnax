@@ -239,15 +239,22 @@ func (s *Service) Retrieve(
 		}
 	}
 	if req.IncludeStatus {
+		ids := channel.OntologyIDsFromChannels(resChannels)
 		statuses := make([]Status, 0, len(resChannels))
 		if err := status.NewRetrieve[types.Nil](s.status).
-			Where(status.MatchKeys[types.Nil](ontology.IDsToKeys(channel.OntologyIDsFromChannels(resChannels))...)).
+			Where(status.MatchKeys[types.Nil](ontology.IDsToKeys(ids)...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
-		for i, stat := range statuses {
-			oChannels[i].Status = &stat
+		statusByKey := make(map[string]Status, len(statuses))
+		for _, stat := range statuses {
+			statusByKey[stat.Key] = stat
+		}
+		for i := range oChannels {
+			if stat, ok := statusByKey[ids[i].String()]; ok {
+				oChannels[i].Status = &stat
+			}
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
