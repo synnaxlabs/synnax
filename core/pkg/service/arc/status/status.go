@@ -203,16 +203,10 @@ const variantIndex = 2
 
 // analyzeStatusSetArguments validates the variant argument across both call
 // forms: it binds by name ("variant") or, when positional, by index.
-func analyzeStatusSetArguments(ctx any, args []symbol.Argument) {
-	db, ok := ctx.(interface {
-		Diags() *diagnostics.Diagnostics
-	})
-	if !ok {
-		return
-	}
+func analyzeStatusSetArguments(diags *diagnostics.Diagnostics, args []symbol.Argument) {
 	for _, arg := range args {
 		if arg.Name == "variant" || (arg.Name == "" && arg.Index == variantIndex) {
-			checkVariantLiteral(db.Diags(), arg.Expr)
+			checkVariantLiteral(diags, arg.Expr)
 			return
 		}
 	}

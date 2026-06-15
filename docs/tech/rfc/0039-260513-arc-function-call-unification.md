@@ -1177,8 +1177,8 @@ literal-fed inputs as constant series, so the model was half-realized; three cha
 finish it: host nodes read inputs by name (`State.InputNamed`, etc.) so declaration
 order stops mattering to them; `wasm.go`/`node.go` drop `configCount` and fill each
 param slot from its source (wire-fed streams per sample, literal-fed set once, strings
-the only real edge-vs-literal branch); and `Context.Diags()` lets the `AnalyzeArguments`
-hook reach diagnostics from `ctx any` without a type switch.
+the only real edge-vs-literal branch); and the `AnalyzeArguments` hook receives the
+diagnostics sink directly, so it needs neither the analyzer context nor a type switch.
 
 Order is now cosmetic for the runtime, surviving only for positional argument binding
 and the self-consistent WASM param sequence. This is the first change to the runtime

@@ -105,10 +105,6 @@ type Context[AST antlr.ParserRuleContext] struct {
 	InTypeInferenceMode bool
 }
 
-// Diags returns the diagnostics sink, letting a holder of an untyped context
-// (e.g. an ArgumentsHook's ctx any) reach diagnostics without the AST type param.
-func (c Context[AST]) Diags() *diagnostics.Diagnostics { return c.Diagnostics }
-
 // WithScope returns a new context with an updated scope. The original context is
 // not mutated. All other fields (including shared state pointers) are preserved.
 //
