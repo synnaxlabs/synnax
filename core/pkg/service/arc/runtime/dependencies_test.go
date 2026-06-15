@@ -17,23 +17,23 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("StateConfig", Ordered, func() {
+var _ = Describe("Dependencies", Ordered, func() {
 	var dist mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
 		dist = DeferClose(mock.NewCluster()).Provision(ctx)
 	})
 
-	Describe("NewStateConfig", func() {
-		It("Should build config with read node channels", func(ctx SpecContext) {
+	Describe("NewDependencies", func() {
+		It("Should build dependencies with read node channels", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "sensor_1",
 				Virtual:  true,
@@ -55,12 +55,12 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads.Contains(ch.Key())).To(BeTrue())
-			Expect(cfg.Writes.Contains(ch.Key())).To(BeFalse())
-			Expect(cfg.ChannelDigests).To(HaveLen(1))
-			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(ch.Key())))
-			Expect(cfg.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Reads.Contains(ch.Key())).To(BeTrue())
+			Expect(deps.Writes.Contains(ch.Key())).To(BeFalse())
+			Expect(deps.ChannelDigests).To(HaveLen(1))
+			Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(ch.Key())))
+			Expect(deps.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
 		It("Should add channels from write nodes to writes set", func(ctx SpecContext) {
@@ -85,9 +85,9 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Writes.Contains(ch.Key())).To(BeTrue())
-			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Writes.Contains(ch.Key())).To(BeTrue())
+			Expect(deps.Reads.Contains(ch.Key())).To(BeFalse())
 		})
 
 		It("Should add Channels.Write to writes set", func(ctx SpecContext) {
@@ -112,9 +112,9 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Writes.Contains(ch.Key())).To(BeTrue())
-			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Writes.Contains(ch.Key())).To(BeTrue())
+			Expect(deps.Reads.Contains(ch.Key())).To(BeFalse())
 		})
 
 		It("Should track index channels for reads", func(ctx SpecContext) {
@@ -148,10 +148,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads.Contains(dataCh.Key())).To(BeTrue())
-			Expect(cfg.Reads.Contains(indexCh.Key())).To(BeTrue())
-			Expect(cfg.ChannelDigests).To(HaveLen(2))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Reads.Contains(dataCh.Key())).To(BeTrue())
+			Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())
+			Expect(deps.ChannelDigests).To(HaveLen(2))
 		})
 
 		It("Should track index channels for writes", func(ctx SpecContext) {
@@ -185,9 +185,9 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Writes.Contains(dataCh.Key())).To(BeTrue())
-			Expect(cfg.Writes.Contains(indexCh.Key())).To(BeTrue())
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Writes.Contains(dataCh.Key())).To(BeTrue())
+			Expect(deps.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
 
 		It("Should handle nodes with both read and write channels", func(ctx SpecContext) {
@@ -220,10 +220,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads.Contains(readCh.Key())).To(BeTrue())
-			Expect(cfg.Writes.Contains(writeCh.Key())).To(BeTrue())
-			Expect(cfg.ChannelDigests).To(HaveLen(2))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Reads.Contains(readCh.Key())).To(BeTrue())
+			Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
+			Expect(deps.ChannelDigests).To(HaveLen(2))
 		})
 
 		It("Should handle multiple nodes with overlapping channels", func(ctx SpecContext) {
@@ -255,9 +255,9 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads.Contains(sharedCh.Key())).To(BeTrue())
-			Expect(cfg.ChannelDigests).To(HaveLen(1))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Reads.Contains(sharedCh.Key())).To(BeTrue())
+			Expect(deps.ChannelDigests).To(HaveLen(1))
 		})
 
 		It("Should handle empty module", func(ctx SpecContext) {
@@ -266,10 +266,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 					Nodes: []ir.Node{},
 				},
 			}
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads).To(BeEmpty())
-			Expect(cfg.Writes).To(BeEmpty())
-			Expect(cfg.ChannelDigests).To(BeEmpty())
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Reads).To(BeEmpty())
+			Expect(deps.Writes).To(BeEmpty())
+			Expect(deps.ChannelDigests).To(BeEmpty())
 		})
 
 		It("Should handle module with nodes that have no channels", func(ctx SpecContext) {
@@ -285,10 +285,10 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads).To(BeEmpty())
-			Expect(cfg.Writes).To(BeEmpty())
-			Expect(cfg.ChannelDigests).To(BeEmpty())
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Reads).To(BeEmpty())
+			Expect(deps.Writes).To(BeEmpty())
+			Expect(deps.ChannelDigests).To(BeEmpty())
 		})
 
 		It("Should return error when channel retrieval fails", func(ctx SpecContext) {
@@ -306,8 +306,8 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			_, err := runtime.NewStateConfig(ctx, dist.Channel, prog)
-			Expect(err).To(HaveOccurred())
+			Expect(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog)).
+				Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should not add index channel to sets when channel is virtual", func(ctx SpecContext) {
@@ -333,9 +333,9 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads.Contains(virtualCh.Key())).To(BeTrue())
-			Expect(cfg.ChannelDigests).To(HaveLen(1))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Reads.Contains(virtualCh.Key())).To(BeTrue())
+			Expect(deps.ChannelDigests).To(HaveLen(1))
 		})
 
 		It("Should handle interval-triggered function with stateful variable writing to channel", func(ctx SpecContext) {
@@ -357,16 +357,16 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, virtCh.Name),
 			}
 
-			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
-			Expect(cfg.Reads).To(BeEmpty())
-			Expect(cfg.Writes.Contains(virtCh.Key())).To(BeTrue())
-			Expect(cfg.Writes).To(HaveLen(1))
-			Expect(cfg.ChannelDigests).To(HaveLen(1))
-			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(virtCh.Key())))
-			Expect(cfg.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), compiled))
+			Expect(deps.Reads).To(BeEmpty())
+			Expect(deps.Writes.Contains(virtCh.Key())).To(BeTrue())
+			Expect(deps.Writes).To(HaveLen(1))
+			Expect(deps.ChannelDigests).To(HaveLen(1))
+			Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(virtCh.Key())))
+			Expect(deps.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
 		It("Should add dynamic set_authority channel to writes even if never written to", func(ctx SpecContext) {
@@ -395,11 +395,11 @@ var _ = Describe("StateConfig", Ordered, func() {
 				`, valveCh.Name, triggerCh.Name),
 			}
 
-			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
-			Expect(cfg.Writes.Contains(valveCh.Key())).To(BeTrue(),
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), compiled))
+			Expect(deps.Writes.Contains(valveCh.Key())).To(BeTrue(),
 				"channel referenced only in set_authority config should be in writes")
 		})
 
@@ -422,13 +422,13 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
-			Expect(cfg.ChannelDigests).To(HaveLen(1))
-			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
+			Expect(deps.ChannelDigests).To(HaveLen(1))
+			Expect(deps.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
 		})
 
-		It("Should build complete config with complex module", func(ctx SpecContext) {
+		It("Should build complete dependencies with complex module", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "complex_index",
 				DataType: telem.TimeStampT,
@@ -487,14 +487,14 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads.Contains(readCh1.Key())).To(BeTrue())
-			Expect(cfg.Reads.Contains(readCh2.Key())).To(BeTrue())
-			Expect(cfg.Reads.Contains(indexCh.Key())).To(BeTrue())
-			Expect(cfg.Writes.Contains(readCh1.Key())).To(BeTrue())
-			Expect(cfg.Writes.Contains(writeCh.Key())).To(BeTrue())
-			Expect(cfg.Writes.Contains(indexCh.Key())).To(BeTrue())
-			Expect(cfg.ChannelDigests).To(HaveLen(4))
+			deps := MustSucceed(runtime.NewDependencies(ctx, channel.Wrap(dist.Channel), prog))
+			Expect(deps.Reads.Contains(readCh1.Key())).To(BeTrue())
+			Expect(deps.Reads.Contains(readCh2.Key())).To(BeTrue())
+			Expect(deps.Reads.Contains(indexCh.Key())).To(BeTrue())
+			Expect(deps.Writes.Contains(readCh1.Key())).To(BeTrue())
+			Expect(deps.Writes.Contains(writeCh.Key())).To(BeTrue())
+			Expect(deps.Writes.Contains(indexCh.Key())).To(BeTrue())
+			Expect(deps.ChannelDigests).To(HaveLen(4))
 		})
 	})
 })

@@ -15,17 +15,23 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/ir"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/set"
 )
 
-type ExtendedStateConfig struct {
-	Reads          set.Set[channel.Key]
-	Writes         set.Set[channel.Key]
+// Dependencies describes the channels a compiled Arc program reads from and writes to,
+// along with the channel digests needed to execute it.
+type Dependencies struct {
+	// Reads is the set of channel keys the program reads from, including the index
+	// channels of any non-virtual channels it reads.
+	Reads set.Set[channel.Key]
+	// Writes is the set of channel keys the program writes to, including the index
+	// channels of any non-virtual channels it writes.
+	Writes set.Set[channel.Key]
+	// ChannelDigests holds the key, data type, and index for every channel the program
+	// touches.
 	ChannelDigests []stlchannels.Digest
-	IR             ir.IR
 }
 
 func retrieveChannels(
@@ -40,8 +46,11 @@ func retrieveChannels(
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
-	indexes := lo.FilterMap(channels, func(item channel.Channel, index int) (channel.Key, bool) {
-		return item.Index(), !item.Virtual
+	indexes := lo.FilterMap(channels, func(
+		ch channel.Channel,
+		_ int,
+	) (channel.Key, bool) {
+		return ch.Index(), !ch.Virtual
 	})
 	indexChannels := make([]channel.Channel, 0, len(indexes))
 	if err := channelSvc.NewRetrieve().
@@ -52,11 +61,14 @@ func retrieveChannels(
 	return slices.Concat(channels, indexChannels), nil
 }
 
-func NewStateConfig(
+// NewDependencies derives the read/write channel sets and digests for a compiled
+// program. Non-virtual channels pull in their index channels so the executor can align
+// samples. It returns an error if any referenced channel cannot be retrieved.
+func NewDependencies(
 	ctx context.Context,
 	channelSvc *channel.Service,
 	prog arc.Program,
-) (ExtendedStateConfig, error) {
+) (Dependencies, error) {
 	var (
 		reads  = make(set.Set[channel.Key])
 		writes = make(set.Set[channel.Key])
@@ -74,7 +86,7 @@ func NewStateConfig(
 	}
 	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Slice(), writes.Slice()))
 	if err != nil {
-		return ExtendedStateConfig{}, err
+		return Dependencies{}, err
 	}
 	channelDigests := make([]stlchannels.Digest, 0, len(channels))
 	for _, ch := range channels {
@@ -90,10 +102,9 @@ func NewStateConfig(
 			writes.Add(ch.Index())
 		}
 	}
-	return ExtendedStateConfig{
+	return Dependencies{
 		Reads:          reads,
 		Writes:         writes,
 		ChannelDigests: lo.Uniq(channelDigests),
-		IR:             prog.IR,
 	}, nil
 }

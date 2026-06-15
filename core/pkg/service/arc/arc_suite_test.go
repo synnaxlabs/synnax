@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -96,7 +97,7 @@ var (
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Channel:  dist.Channel,
+			Channel:  channel.Wrap(dist.Channel),
 			Task:     taskSvc,
 			Search:   searchIdx,
 		}))

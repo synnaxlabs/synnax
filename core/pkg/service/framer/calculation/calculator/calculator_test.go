@@ -15,68 +15,21 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Calculator", Ordered, func() {
-	var (
-		arcSvc *arc.Service
-		dist   mock.Node
-	)
+	var dist mock.Node
 	BeforeAll(func(ctx SpecContext) {
 		distB := DeferClose(mock.NewCluster())
 		dist = DeferClose(distB.Provision(ctx))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-			Search:   dist.Search,
-		}))
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       dist.DB,
-			Group:    dist.Group,
-			Signals:  dist.Signals,
-			Ontology: dist.Ontology,
-			Label:    labelSvc,
-			Search:   dist.Search,
-		}))
-		rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           dist.DB,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       statusSvc,
-			Search:       dist.Search,
-		}))
-		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Rack:     rackService,
-			Status:   statusSvc,
-			Search:   dist.Search,
-		}))
-		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			Channel:  dist.Channel,
-			Ontology: dist.Ontology,
-			DB:       dist.DB,
-			Signals:  dist.Signals,
-			Task:     taskSvc,
-			Search:   dist.Search,
-		}))
 	})
 
 	open := func(
@@ -103,9 +56,8 @@ var _ = Describe("Calculator", Ordered, func() {
 		}
 		Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.Channel,
+			ChannelService: channel.Wrap(dist.Channel),
 			Channel:        *calc,
-			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 	}
@@ -982,14 +934,13 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
-			res := MustSucceed(channelanalyzer.New(arcSvc.NewSymbolResolver(nil)).
+			res := MustSucceed(channelanalyzer.New(channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)).
 				Analyze(ctx, *calc))
 			calc.DataType = res.ChanDataType
 			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: dist.Channel,
+				ChannelService: channel.Wrap(dist.Channel),
 				Channel:        *calc,
-				SymbolResolver: arcSvc.NewSymbolResolver(nil),
 			}))
 			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 		}
@@ -1084,9 +1035,8 @@ var _ = Describe("Calculator", Ordered, func() {
 			Expect(dist.Channel.CreateMany(ctx, &base)).To(Succeed())
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: dist.Channel,
+				ChannelService: channel.Wrap(dist.Channel),
 				Channel:        calc,
-				SymbolResolver: arcSvc.NewSymbolResolver(nil),
 			}))
 			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
 			fr := frame.NewUnary(
