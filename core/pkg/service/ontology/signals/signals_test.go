@@ -31,6 +31,7 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -43,6 +44,44 @@ const changeOntologyType ontology.ResourceType = "change"
 
 func newChangeID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: changeOntologyType}
+}
+
+func encodeID(id ontology.ID) []byte {
+	return telem.MarshalVariableSample([]byte(id.String()))
+}
+
+func encodeIDs(ids []ontology.ID) []byte {
+	var buf []byte
+	for _, id := range ids {
+		buf = append(buf, encodeID(id)...)
+	}
+	return buf
+}
+
+func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
+	samples := telem.UnmarshalSeries[string](telem.Series{DataType: telem.StringT, Data: ser})
+	relationships := make([]ontology.Relationship, 0, len(samples))
+	for _, s := range samples {
+		relationship, err := ontology.ParseRelationship(s)
+		if err != nil {
+			return nil, err
+		}
+		relationships = append(relationships, relationship)
+	}
+	return relationships, nil
+}
+
+func decodeIDs(ser []byte) ([]ontology.ID, error) {
+	samples := telem.UnmarshalSeries[string](telem.Series{DataType: telem.StringT, Data: ser})
+	ids := make([]ontology.ID, 0, len(samples))
+	for _, s := range samples {
+		id, err := ontology.ParseID(s)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 var _ ontology.Service = (*changeService)(nil)
@@ -94,8 +133,8 @@ var _ = Describe("Signals", Ordered, func() {
 	})
 	Describe("DecodeIDs", func() {
 		It("Should decode a series of IDs", func() {
-			encoded := ontologysignals.EncodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})
-			decoded := MustSucceed(ontologysignals.DecodeIDs(encoded))
+			encoded := encodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})
+			decoded := MustSucceed(decodeIDs(encoded))
 			Expect(decoded).To(Equal([]ontology.ID{newChangeID("one"), newChangeID("two")}))
 		})
 	})
@@ -161,7 +200,7 @@ var _ = Describe("Signals", Ordered, func() {
 			})
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			ids := MustSucceed(ontologysignals.DecodeIDs(res.Frame.SeriesAt(0).Data))
+			ids := MustSucceed(decodeIDs(res.Frame.SeriesAt(0).Data))
 			// There's a condition here where we might receive the channel creation
 			// signal, so we just do a length assertion.
 			Expect(ids).ToNot(BeEmpty())
@@ -196,7 +235,7 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(w.DefineRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
-		relationships := MustSucceed(ontologysignals.DecodeRelationships(res.Frame.SeriesAt(0).Data))
+		relationships := MustSucceed(decodeRelationships(res.Frame.SeriesAt(0).Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
 		Expect(relationships).ToNot(BeEmpty())
@@ -236,7 +275,7 @@ var _ = Describe("Signals", Ordered, func() {
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		By("Decoding the relationships")
-		relationships := MustSucceed(ontologysignals.DecodeRelationships(res.Frame.SeriesAt(0).Data))
+		relationships := MustSucceed(decodeRelationships(res.Frame.SeriesAt(0).Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
 		Expect(relationships).ToNot(BeEmpty())

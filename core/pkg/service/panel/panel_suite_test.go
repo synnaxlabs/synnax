@@ -42,7 +42,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = DeferClose(builder.Provision(ctx))
 	db = dist.DB
 	otg = dist.Ontology
-	sigs := MustSucceed(signals.New(signals.Config{Channel: dist.Channel, Framer: dist.Framer}))
+	sigs := MustSucceed(signals.New(signals.Config{
+		Channel: dist.Channel, Framer: dist.Framer,
+	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,

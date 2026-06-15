@@ -42,6 +42,8 @@ import (
 // created. At least one of the two channels must remain enabled.
 type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// Observable is the observable to subscribe to for entry changes.
+	//
+	// [REQUIRED]
 	Observable observe.Observable[gorp.TxReader[K, E]]
 	// SetDataType is the data type of the set channel.
 	SetDataType telem.DataType
@@ -72,14 +74,16 @@ func DefaultGorpPublisherConfig[
 	K gorp.Key,
 	E gorp.Entry[K],
 ]() GorpPublisherConfig[K, E] {
-	t := types.Name[E]()
+	t := strings.ToLower(types.Name[E]())
 	return GorpPublisherConfig[K, E]{
-		SetName:    fmt.Sprintf("sy_%s_set", strings.ToLower(t)),
-		DeleteName: fmt.Sprintf("sy_%s_delete", strings.ToLower(t)),
+		SetName:    fmt.Sprintf("sy_%s_set", t),
+		DeleteName: fmt.Sprintf("sy_%s_delete", t),
 	}
 }
 
-func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) GorpPublisherConfig[K, E] {
+func (g GorpPublisherConfig[K, E]) Override(
+	other GorpPublisherConfig[K, E],
+) GorpPublisherConfig[K, E] {
 	g.Observable = override.Nil(g.Observable, other.Observable)
 	g.SetDataType = override.String(g.SetDataType, other.SetDataType)
 	g.DeleteDataType = override.String(g.DeleteDataType, other.DeleteDataType)
@@ -140,10 +144,10 @@ func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](obs o
 		Observable:     obs,
 		DeleteDataType: dt,
 		SetDataType:    dt,
-		MarshalDelete: func(k K) (b []byte, err error) {
+		MarshalDelete: func(k K) ([]byte, error) {
 			return xunsafe.CastToBytes(k), nil
 		},
-		MarshalSet: func(e E) (b []byte, err error) {
+		MarshalSet: func(e E) ([]byte, error) {
 			return xunsafe.CastToBytes(e.GorpKey()), nil
 		},
 	}
@@ -154,7 +158,7 @@ func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](obs obser
 		Observable:     obs,
 		DeleteDataType: dt,
 		SetDataType:    telem.JSONT,
-		MarshalDelete: func(k K) (b []byte, err error) {
+		MarshalDelete: func(k K) ([]byte, error) {
 			return xunsafe.CastToBytes(k), nil
 		},
 		MarshalSet: MarshalJSON[K, E],
@@ -166,8 +170,10 @@ func GorpPublisherConfigString[E gorp.Entry[string]](obs observe.Observable[gorp
 		Observable:     obs,
 		DeleteDataType: telem.StringT,
 		SetDataType:    telem.JSONT,
-		MarshalDelete:  func(k string) ([]byte, error) { return telem.MarshalVariableSample([]byte(k)), nil },
-		MarshalSet:     MarshalJSON[string, E],
+		MarshalDelete: func(k string) ([]byte, error) {
+			return telem.MarshalVariableSample([]byte(k)), nil
+		},
+		MarshalSet: MarshalJSON[string, E],
 	}
 }
 

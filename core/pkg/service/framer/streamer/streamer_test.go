@@ -39,7 +39,9 @@ var _ = Describe("Streamer", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		builder := DeferClose(mock.NewCluster())
 		dist = DeferClose(builder.Provision(ctx))
-		sigs := MustSucceed(signals.New(signals.Config{Channel: dist.Channel, Framer: dist.Framer}))
+		sigs := MustSucceed(signals.New(signals.Config{
+			Channel: dist.Channel, Framer: dist.Framer,
+		}))
 		searchIdx := MustOpen(search.Open())
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,

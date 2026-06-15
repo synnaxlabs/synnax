@@ -152,11 +152,15 @@ func (s *Provider) PublishFromObservable(
 			cfg.DeleteChannel = ch
 		}
 	}
-	t := &confluence.ObservableTransformPublisher[[]change.Change[[]byte, struct{}], framer.WriterRequest]{
+	t := &confluence.ObservableTransformPublisher[
+		[]change.Change[[]byte, struct{}], framer.WriterRequest,
+	]{
 		Instrumentation: s.Instrumentation,
 		Observable:      cfg.Observable,
-		Transform: func(ctx context.Context, r []change.Change[[]byte, struct{}]) (framer.WriterRequest, bool, error) {
-			if len(r) == 0 {
+		Transform: func(
+			_ context.Context, changes []change.Change[[]byte, struct{}],
+		) (framer.WriterRequest, bool, error) {
+			if len(changes) == 0 {
 				return framer.WriterRequest{}, false, nil
 			}
 			var (
@@ -164,17 +168,17 @@ func (s *Provider) PublishFromObservable(
 				sets    = telem.Series{DataType: cfg.SetChannel.DataType}
 				deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
 			)
-			for _, c := range r {
-				if c.Variant == change.VariantDelete {
+			for _, ch := range changes {
+				if ch.Variant == change.VariantDelete {
 					if !deleteEnabled {
 						continue
 					}
-					deletes.Data = append(deletes.Data, c.Key...)
+					deletes.Data = append(deletes.Data, ch.Key...)
 				} else {
 					if !setEnabled {
 						continue
 					}
-					sets.Data = append(sets.Data, c.Key...)
+					sets.Data = append(sets.Data, ch.Key...)
 				}
 			}
 			if len(sets.Data) > 0 {
