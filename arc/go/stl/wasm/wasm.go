@@ -13,7 +13,6 @@ import (
 	"context"
 	"math"
 
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/types"
@@ -44,17 +43,10 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 
 	// Each input fills one WASM param slot. Edge-fed inputs are streamed per
 	// sample in Next; literal inputs get their constant value set once here.
+	edgeFed := cfg.Program.Edges.EdgeFedMask(cfg.Node)
 	params := make([]uint64, len(irFn.Inputs))
-	edgeFed := make([]bool, len(irFn.Inputs))
 	for i, param := range cfg.Node.Inputs {
-		if _, found := cfg.Program.Edges.FindByTarget(ir.Handle{
-			Node:  cfg.Node.Key,
-			Param: param.Name,
-		}); found {
-			edgeFed[i] = true
-			continue
-		}
-		if param.Value == nil {
+		if edgeFed[i] || param.Value == nil {
 			continue
 		}
 		if s, ok := param.Value.(string); ok {

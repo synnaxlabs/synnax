@@ -250,7 +250,7 @@ sequence main {
         if (node.type == "interval") {
             found_interval = true;
             bool found_period = false;
-            for (const auto &param: node.config)
+            for (const auto &param: node.inputs)
                 if (param.name == "period") found_period = true;
             ASSERT_TRUE(found_period);
             break;
