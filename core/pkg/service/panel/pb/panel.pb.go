@@ -83,6 +83,76 @@ func (x *TabBase) GetKey() string {
 	return ""
 }
 
+// View is an inline, self-describing view: a Console-owned type plus an opaque
+// configuration payload, with no backing core document. Used for app-views and tools
+// (docs, explorers, about, the visualization picker).
+type View struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
+	// a renderer.
+	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	// name is the human-readable tab name for the view. A view has no backing resource to
+	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
+	// the Console falls back to a type-derived default.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// args is an opaque, Console-owned configuration payload for the view. Core never
+	// interprets it; it round-trips as-is.
+	Args          *structpb.Struct `protobuf:"bytes,3,opt,name=args,proto3" json:"args,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *View) Reset() {
+	*x = View{}
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *View) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*View) ProtoMessage() {}
+
+func (x *View) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use View.ProtoReflect.Descriptor instead.
+func (*View) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *View) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *View) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *View) GetArgs() *structpb.Struct {
+	if x != nil {
+		return x.Args
+	}
+	return nil
+}
+
 // Leaf is a leaf node in the panel tree displaying a tab strip.
 type Leaf struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -94,7 +164,7 @@ type Leaf struct {
 
 func (x *Leaf) Reset() {
 	*x = Leaf{}
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[1]
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -106,7 +176,7 @@ func (x *Leaf) String() string {
 func (*Leaf) ProtoMessage() {}
 
 func (x *Leaf) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[1]
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -119,7 +189,7 @@ func (x *Leaf) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Leaf.ProtoReflect.Descriptor instead.
 func (*Leaf) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{1}
+	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Leaf) GetTabs() []*Tab {
@@ -147,7 +217,7 @@ type Split struct {
 
 func (x *Split) Reset() {
 	*x = Split{}
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[2]
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -159,7 +229,7 @@ func (x *Split) String() string {
 func (*Split) ProtoMessage() {}
 
 func (x *Split) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[2]
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -172,7 +242,7 @@ func (x *Split) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Split.ProtoReflect.Descriptor instead.
 func (*Split) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Split) GetDirection() pb.Direction {
@@ -225,7 +295,7 @@ type Panel struct {
 
 func (x *Panel) Reset() {
 	*x = Panel{}
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[3]
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -237,7 +307,7 @@ func (x *Panel) String() string {
 func (*Panel) ProtoMessage() {}
 
 func (x *Panel) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[3]
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -250,7 +320,7 @@ func (x *Panel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Panel.ProtoReflect.Descriptor instead.
 func (*Panel) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{3}
+	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Panel) GetKey() string {
@@ -291,7 +361,7 @@ type TabResourcePayload struct {
 
 func (x *TabResourcePayload) Reset() {
 	*x = TabResourcePayload{}
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[4]
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -303,7 +373,7 @@ func (x *TabResourcePayload) String() string {
 func (*TabResourcePayload) ProtoMessage() {}
 
 func (x *TabResourcePayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[4]
+	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -316,79 +386,12 @@ func (x *TabResourcePayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TabResourcePayload.ProtoReflect.Descriptor instead.
 func (*TabResourcePayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{4}
+	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *TabResourcePayload) GetResource() *pb1.ID {
 	if x != nil {
 		return x.Resource
-	}
-	return nil
-}
-
-type TabViewPayload struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-	// a renderer.
-	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	// name is the human-readable tab name for the view. A view has no backing resource to
-	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-	// the Console falls back to a type-derived default.
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// args is an opaque, Console-owned configuration payload for the view. Core never
-	// interprets it; it round-trips as-is.
-	Args          *structpb.Struct `protobuf:"bytes,3,opt,name=args,proto3" json:"args,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TabViewPayload) Reset() {
-	*x = TabViewPayload{}
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TabViewPayload) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TabViewPayload) ProtoMessage() {}
-
-func (x *TabViewPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_panel_pb_panel_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TabViewPayload.ProtoReflect.Descriptor instead.
-func (*TabViewPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *TabViewPayload) GetType() string {
-	if x != nil {
-		return x.Type
-	}
-	return ""
-}
-
-func (x *TabViewPayload) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *TabViewPayload) GetArgs() *structpb.Struct {
-	if x != nil {
-		return x.Args
 	}
 	return nil
 }
@@ -500,7 +503,7 @@ func (x *Tab) GetResource() *TabResourcePayload {
 	return nil
 }
 
-func (x *Tab) GetView() *TabViewPayload {
+func (x *Tab) GetView() *View {
 	if x != nil {
 		if x, ok := x.Variant.(*Tab_View); ok {
 			return x.View
@@ -527,7 +530,7 @@ type Tab_Resource struct {
 }
 
 type Tab_View struct {
-	View *TabViewPayload `protobuf:"bytes,3,opt,name=view,proto3,oneof"`
+	View *View `protobuf:"bytes,3,opt,name=view,proto3,oneof"`
 }
 
 type Tab_Empty struct {
@@ -631,7 +634,11 @@ const file_core_pkg_service_panel_pb_panel_proto_rawDesc = "" +
 	"\n" +
 	"%core/pkg/service/panel/pb/panel.proto\x12\x10service.panel.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x1b\n" +
 	"\aTabBase\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\"1\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\"[\n" +
+	"\x04View\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
+	"\x04args\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04args\"1\n" +
 	"\x04Leaf\x12)\n" +
 	"\x04tabs\x18\x01 \x03(\v2\x15.service.panel.pb.TabR\x04tabs\"\xac\x01\n" +
 	"\x05Split\x125\n" +
@@ -646,16 +653,12 @@ const file_core_pkg_service_panel_pb_panel_proto_rawDesc = "" +
 	"\x06parent\x18\x04 \x01(\v2\x1c.distribution.ontology.pb.IDH\x00R\x06parent\x88\x01\x01B\t\n" +
 	"\a_parent\"N\n" +
 	"\x12TabResourcePayload\x128\n" +
-	"\bresource\x18\x01 \x01(\v2\x1c.distribution.ontology.pb.IDR\bresource\"e\n" +
-	"\x0eTabViewPayload\x12\x12\n" +
-	"\x04type\x18\x01 \x01(\tR\x04type\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
-	"\x04args\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04args\"\x11\n" +
-	"\x0fTabEmptyPayload\"\xfd\x01\n" +
+	"\bresource\x18\x01 \x01(\v2\x1c.distribution.ontology.pb.IDR\bresource\"\x11\n" +
+	"\x0fTabEmptyPayload\"\xf3\x01\n" +
 	"\x03Tab\x124\n" +
 	"\btab_base\x18\x01 \x01(\v2\x19.service.panel.pb.TabBaseR\atabBase\x12B\n" +
-	"\bresource\x18\x02 \x01(\v2$.service.panel.pb.TabResourcePayloadH\x00R\bresource\x126\n" +
-	"\x04view\x18\x03 \x01(\v2 .service.panel.pb.TabViewPayloadH\x00R\x04view\x129\n" +
+	"\bresource\x18\x02 \x01(\v2$.service.panel.pb.TabResourcePayloadH\x00R\bresource\x12,\n" +
+	"\x04view\x18\x03 \x01(\v2\x16.service.panel.pb.ViewH\x00R\x04view\x129\n" +
 	"\x05empty\x18\x04 \x01(\v2!.service.panel.pb.TabEmptyPayloadH\x00R\x05emptyB\t\n" +
 	"\avariant\"p\n" +
 	"\x04Node\x12,\n" +
@@ -680,33 +683,33 @@ func file_core_pkg_service_panel_pb_panel_proto_rawDescGZIP() []byte {
 var file_core_pkg_service_panel_pb_panel_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_panel_pb_panel_proto_goTypes = []any{
 	(*TabBase)(nil),            // 0: service.panel.pb.TabBase
-	(*Leaf)(nil),               // 1: service.panel.pb.Leaf
-	(*Split)(nil),              // 2: service.panel.pb.Split
-	(*Panel)(nil),              // 3: service.panel.pb.Panel
-	(*TabResourcePayload)(nil), // 4: service.panel.pb.TabResourcePayload
-	(*TabViewPayload)(nil),     // 5: service.panel.pb.TabViewPayload
+	(*View)(nil),               // 1: service.panel.pb.View
+	(*Leaf)(nil),               // 2: service.panel.pb.Leaf
+	(*Split)(nil),              // 3: service.panel.pb.Split
+	(*Panel)(nil),              // 4: service.panel.pb.Panel
+	(*TabResourcePayload)(nil), // 5: service.panel.pb.TabResourcePayload
 	(*TabEmptyPayload)(nil),    // 6: service.panel.pb.TabEmptyPayload
 	(*Tab)(nil),                // 7: service.panel.pb.Tab
 	(*Node)(nil),               // 8: service.panel.pb.Node
-	(pb.Direction)(0),          // 9: x.spatial.pb.Direction
-	(*pb1.ID)(nil),             // 10: distribution.ontology.pb.ID
-	(*structpb.Struct)(nil),    // 11: google.protobuf.Struct
+	(*structpb.Struct)(nil),    // 9: google.protobuf.Struct
+	(pb.Direction)(0),          // 10: x.spatial.pb.Direction
+	(*pb1.ID)(nil),             // 11: distribution.ontology.pb.ID
 }
 var file_core_pkg_service_panel_pb_panel_proto_depIdxs = []int32{
-	7,  // 0: service.panel.pb.Leaf.tabs:type_name -> service.panel.pb.Tab
-	9,  // 1: service.panel.pb.Split.direction:type_name -> x.spatial.pb.Direction
-	8,  // 2: service.panel.pb.Split.first:type_name -> service.panel.pb.Node
-	8,  // 3: service.panel.pb.Split.last:type_name -> service.panel.pb.Node
-	8,  // 4: service.panel.pb.Panel.root:type_name -> service.panel.pb.Node
-	10, // 5: service.panel.pb.Panel.parent:type_name -> distribution.ontology.pb.ID
-	10, // 6: service.panel.pb.TabResourcePayload.resource:type_name -> distribution.ontology.pb.ID
-	11, // 7: service.panel.pb.TabViewPayload.args:type_name -> google.protobuf.Struct
+	9,  // 0: service.panel.pb.View.args:type_name -> google.protobuf.Struct
+	7,  // 1: service.panel.pb.Leaf.tabs:type_name -> service.panel.pb.Tab
+	10, // 2: service.panel.pb.Split.direction:type_name -> x.spatial.pb.Direction
+	8,  // 3: service.panel.pb.Split.first:type_name -> service.panel.pb.Node
+	8,  // 4: service.panel.pb.Split.last:type_name -> service.panel.pb.Node
+	8,  // 5: service.panel.pb.Panel.root:type_name -> service.panel.pb.Node
+	11, // 6: service.panel.pb.Panel.parent:type_name -> distribution.ontology.pb.ID
+	11, // 7: service.panel.pb.TabResourcePayload.resource:type_name -> distribution.ontology.pb.ID
 	0,  // 8: service.panel.pb.Tab.tab_base:type_name -> service.panel.pb.TabBase
-	4,  // 9: service.panel.pb.Tab.resource:type_name -> service.panel.pb.TabResourcePayload
-	5,  // 10: service.panel.pb.Tab.view:type_name -> service.panel.pb.TabViewPayload
+	5,  // 9: service.panel.pb.Tab.resource:type_name -> service.panel.pb.TabResourcePayload
+	1,  // 10: service.panel.pb.Tab.view:type_name -> service.panel.pb.View
 	6,  // 11: service.panel.pb.Tab.empty:type_name -> service.panel.pb.TabEmptyPayload
-	1,  // 12: service.panel.pb.Node.leaf:type_name -> service.panel.pb.Leaf
-	2,  // 13: service.panel.pb.Node.split:type_name -> service.panel.pb.Split
+	2,  // 12: service.panel.pb.Node.leaf:type_name -> service.panel.pb.Leaf
+	3,  // 13: service.panel.pb.Node.split:type_name -> service.panel.pb.Split
 	14, // [14:14] is the sub-list for method output_type
 	14, // [14:14] is the sub-list for method input_type
 	14, // [14:14] is the sub-list for extension type_name
@@ -719,7 +722,7 @@ func file_core_pkg_service_panel_pb_panel_proto_init() {
 	if File_core_pkg_service_panel_pb_panel_proto != nil {
 		return
 	}
-	file_core_pkg_service_panel_pb_panel_proto_msgTypes[3].OneofWrappers = []any{}
+	file_core_pkg_service_panel_pb_panel_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_panel_pb_panel_proto_msgTypes[7].OneofWrappers = []any{
 		(*Tab_Resource)(nil),
 		(*Tab_View)(nil),
