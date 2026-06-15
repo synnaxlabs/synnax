@@ -234,6 +234,116 @@ func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
 	return result, nil
 }
 {{- end}}
+{{- range .UnionTranslators}}
+{{- $ut := .}}
+
+// {{.Name}}ToPB converts {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
+	if r.Variant == nil {
+		return nil, nil
+	}
+	pb := &{{.PBType}}{}
+	switch v := r.Variant.(type) {
+{{- range .Variants}}
+	case {{.GoVariantType}}:
+		inner, err := {{.PayloadToPB}}({{if .IsInline}}v{{else}}v.{{.PayloadGoField}}{{end}})
+		if err != nil {
+			return nil, err
+		}
+{{- range $ut.Bases}}
+		pb.{{.PBGoName}}, err = {{.ToPB}}(v.{{.GoEmbed}})
+		if err != nil {
+			return nil, err
+		}
+{{- end}}
+		pb.Variant = &{{.PBWrapper}}{{"{"}}{{.PBField}}: inner}
+{{- end}}
+	default:
+		return nil, errors.Newf("{{.Name}}: unknown variant %T", r.Variant)
+	}
+	return pb, nil
+}
+
+// {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
+	var r {{.GoType}}
+	if pb == nil {
+		return r, nil
+	}
+	switch v := pb.Variant.(type) {
+{{- range .Variants}}
+	case *{{.PBWrapper}}:
+		inner, err := {{.PayloadFromPB}}(v.{{.PBField}})
+		if err != nil {
+			return r, err
+		}
+{{- if or $ut.Bases .IsInline}}
+		m := {{if .IsInline}}inner{{else}}{{.GoVariantType}}{{"{"}}{{.PayloadGoField}}: inner}{{end}}
+{{- range $ut.Bases}}
+		m.{{.GoEmbed}}, err = {{.FromPB}}(pb.{{.PBGoName}})
+		if err != nil {
+			return r, err
+		}
+{{- end}}
+		r.Variant = m
+{{- else}}
+		r.Variant = {{.GoVariantType}}{{"{"}}{{.PayloadGoField}}: inner}
+{{- end}}
+{{- end}}
+	}
+	return r, nil
+}
+
+// {{pluralize .Name}}ToPB converts a slice of {{.GoTypeShort}} to {{.PBTypeShort}}.
+func {{pluralize .Name}}ToPB(rs []{{.GoType}}) ([]*{{.PBType}}, error) {
+	result := make([]*{{.PBType}}, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = {{.Name}}ToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// {{pluralize .Name}}FromPB converts a slice of {{.PBTypeShort}} to {{.GoTypeShort}}.
+func {{pluralize .Name}}FromPB(pbs []*{{.PBType}}) ([]{{.GoType}}, error) {
+	result := make([]{{.GoType}}, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = {{.Name}}FromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+{{- end}}
+{{- if .NeedsRecordArrayHelpers}}
+
+// recordsToPB converts a slice of opaque records to structpb structs.
+func recordsToPB(rs []msgpack.EncodedJSON) ([]*structpb.Struct, error) {
+	result := make([]*structpb.Struct, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = structpb.NewStruct(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// recordsFromPB converts a slice of structpb structs to opaque records.
+func recordsFromPB(pbs []*structpb.Struct) []msgpack.EncodedJSON {
+	result := make([]msgpack.EncodedJSON, len(pbs))
+	for i, pb := range pbs {
+		result[i] = pb.AsMap()
+	}
+	return result
+}
+{{- end}}
 {{- range .EnumTranslators}}
 
 // {{.Name}}ToPB converts {{.GoType}} to {{.PBType}}.

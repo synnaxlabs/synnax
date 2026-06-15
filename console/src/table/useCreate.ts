@@ -9,15 +9,15 @@
 
 import { Table as PTable } from "@synnaxlabs/pluto";
 
+import { Project } from "@/project";
 import { create } from "@/table/layout";
-import { Workspace } from "@/workspace";
 
-export const useCreate = Workspace.createUseCreate({
+export const useCreate = Project.createUseCreate({
   useCreate: PTable.useCreate,
-  toCreateParams: ({ overrides, workspace }) => ({
+  toCreateParams: ({ overrides, project }) => ({
     name: "Table",
     ...overrides,
-    workspace,
+    project,
   }),
   createSessionState: ({ key, name }) => create({ key, name, editable: true }),
 });

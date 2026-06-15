@@ -35,7 +35,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology will be used to create relationships between users and other resources,
-	// such as workspaces, within the Synnax cluster.
+	// such as projects, within the Synnax cluster.
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology

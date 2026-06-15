@@ -601,10 +601,10 @@ var _ = Describe("Calculation", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
-				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
-			}).Should(Succeed())
+			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})

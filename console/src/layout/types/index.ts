@@ -21,9 +21,10 @@ import * as v7 from "@/layout/types/v7";
 import * as v8 from "@/layout/types/v8";
 import * as v9 from "@/layout/types/v9";
 import * as v10 from "@/layout/types/v10";
+import * as v11 from "@/layout/types/v11";
 
 export type State<A = unknown> = v0.State<A>;
-export type SliceState = v10.SliceState;
+export type SliceState = v11.SliceState;
 export type NavDrawerLocation = v0.NavDrawerLocation;
 export type NavDrawerEntryState = v0.NavDrawerEntryState;
 export type WindowProps = v0.WindowProps;
@@ -39,7 +40,8 @@ export type AnySliceState =
   | v7.SliceState
   | v8.SliceState
   | v9.SliceState
-  | v10.SliceState;
+  | v10.SliceState
+  | v11.SliceState;
 
 export const SLICE_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.sliceMigration,
@@ -52,9 +54,10 @@ export const SLICE_MIGRATIONS: migrate.Migrations = {
   [v7.VERSION]: v8.sliceMigration,
   [v8.VERSION]: v9.sliceMigration,
   [v9.VERSION]: v10.sliceMigration,
+  [v10.VERSION]: v11.sliceMigration,
 };
 
-export const ZERO_SLICE_STATE = v10.ZERO_SLICE_STATE;
+export const ZERO_SLICE_STATE = v11.ZERO_SLICE_STATE;
 export const ZERO_MOSAIC_STATE = v0.ZERO_MOSAIC_STATE;
 export const MAIN_LAYOUT = v0.MAIN_LAYOUT;
 
@@ -66,6 +69,7 @@ export const migrateSlice = migrate.migrator<AnySliceState, SliceState>({
 
 export const anySliceStateZ = z
   .union([
+    v11.sliceStateZ,
     v10.sliceStateZ,
     v9.sliceStateZ,
     v8.sliceStateZ,

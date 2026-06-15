@@ -118,7 +118,10 @@ export interface TabsProps
       | "onDrop"
     >,
     ContextValue,
-    Pick<SelectorProps, "addTooltip" | "contextMenu" | "onDrop" | "actions">,
+    Pick<
+      SelectorProps,
+      "addTooltip" | "contextMenu" | "onDrop" | "actions" | "variant"
+    >,
     Pick<Flex.BoxProps, "direction" | "x" | "y"> {
   children?: RenderProp | ReactNode;
   size?: Component.Size;
@@ -185,8 +188,9 @@ export const Tabs = ({
   contextMenu,
   actions,
   addTooltip,
-  Name,
+  tabName,
   size = "medium",
+  variant,
   direction: dir = "y",
   x,
   y,
@@ -217,7 +221,7 @@ export const Tabs = ({
         onRename,
         onCreate,
         onDrop,
-        Name,
+        tabName,
       }}
     >
       <Selector
@@ -227,6 +231,7 @@ export const Tabs = ({
         contextMenu={contextMenu}
         addTooltip={addTooltip}
         actions={actions}
+        variant={variant}
       />
       <Content />
     </Provider>

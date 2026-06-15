@@ -73,7 +73,7 @@ class CustomSymbols(ConsoleCase):
 
     def run(self) -> None:
         """Run all custom symbol tests."""
-        schematic = self.console.workspace.create_schematic(self.schematic_name)
+        schematic = self.console.project.create_schematic(self.schematic_name)
         toolbar = SymbolToolbar(self.console.layout)
         toolbar.show()
         self.console.notifications.close_all()

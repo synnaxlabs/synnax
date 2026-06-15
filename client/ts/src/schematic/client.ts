@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { project } from "@/project";
 import {
   type Action,
   dispatchReqZ,
@@ -26,7 +27,6 @@ import {
   schematicZ,
 } from "@/schematic/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 
@@ -52,7 +52,7 @@ export type CopyArgs = z.input<typeof copyReqZ>;
 const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
-  workspace: workspace.keyZ,
+  project: project.keyZ,
   schematics: newZ.array(),
 });
 const createResZ = z.object({ schematics: schematicZ.array() });
@@ -69,16 +69,16 @@ export class Client {
     this.symbols = new symbol.Client(client);
   }
 
-  async create(workspace: workspace.Key, schematic: New): Promise<Schematic>;
-  async create(workspace: workspace.Key, schematics: New[]): Promise<Schematic[]>;
+  async create(project: project.Key, schematic: New): Promise<Schematic>;
+  async create(project: project.Key, schematics: New[]): Promise<Schematic[]>;
   async create(
-    workspace: workspace.Key,
+    project: project.Key,
     schematics: New | New[],
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
     const res = await this.client.send(
       "/schematic/create",
-      { workspace, schematics: array.toArray(schematics) },
+      { project, schematics: array.toArray(schematics) },
       createReqZ,
       createResZ,
     );

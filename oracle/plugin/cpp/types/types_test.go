@@ -1501,6 +1501,109 @@ var _ = Describe("C++ Types Plugin", func() {
 					ToContain(`Mode mode = Mode::Automatic`)
 			})
 
+			It("Should reference string enum defaults via their generated constants", func(ctx SpecContext) {
+				source := `
+					@cpp output "out"
+
+					Units enum {
+						volts = "Volts"
+						amps  = "Amps"
+					}
+
+					Config struct {
+						units Units = volts
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				content := ExpectContent(resp, "types.gen.h")
+				content.ToContain(`units = UNITS_VOLTS`)
+				content.ToNotContain(`Units::Volts`)
+			})
+
+			It("Should emit scalar field defaults as member initializers", func(ctx SpecContext) {
+				source := `
+					@cpp output "out"
+
+					Config struct {
+						enabled     bool = true
+						sample_rate float64 = 10
+						label       string = "dflt"
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						`bool enabled = true;`,
+						`double sample_rate = 10;`,
+						`std::string label = "dflt";`,
+					)
+			})
+
+			It("Should wrap numeric defaults on telem-typed fields in their constructors", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp omit
+					}
+
+					TimeSpan int64 {
+						@cpp omit
+					}
+
+					Rate float64 {
+						@cpp omit
+					}
+				`)
+				source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Config struct {
+						duration    telem.TimeSpan = 0
+						start       telem.TimeStamp = 5
+						sample_rate telem.Rate = 10
+						stream_rate telem.Rate = 2.5
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				ExpectContent(resp, "out/types.gen.h").
+					ToContain(
+						`duration = x::telem::TimeSpan(0);`,
+						`start = x::telem::TimeStamp(5);`,
+						`sample_rate = x::telem::Rate(10);`,
+						`stream_rate = x::telem::Rate(2.500000);`,
+					)
+			})
+
+			It("Should map the now sentinel to TimeStamp::now and skip unrenderable sentinels", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+
+					TimeStamp int64 {
+						@cpp omit
+					}
+				`)
+				source := `
+					import "schemas/telem"
+
+					@cpp output "out"
+
+					Status struct {
+						key  string = create
+						time telem.TimeStamp = now
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
+				content := ExpectContent(resp, "out/types.gen.h")
+				content.ToContain(
+					`std::string key;`,
+					`time = x::telem::TimeStamp::now();`,
+				)
+				content.ToNotContain(`= create;`, `= now;`)
+			})
+
 			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
 				loader.Add("schemas/control", `
 					@cpp output "x/cpp/control"
@@ -1559,5 +1662,210 @@ var _ = Describe("C++ Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`p = {.x = 1, .y = 2}`))
 			})
 		})
+	})
+})
+
+var _ = Describe("C++ Union Generation", func() {
+	var (
+		loader    *MockFileLoader
+		cppPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		cppPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate variant structs and a std::variant alias", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+
+				@doc value "determines how raw values are transformed."
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`struct ScaleLinear : public LinearScale {`,
+				`std::string type = "linear";`,
+				`struct ScaleNone : public NoneScale {`,
+				`std::string type = "none";`,
+				"/// @brief Scale determines how raw values are transformed.\nusing Scale = std::variant<ScaleLinear, ScaleNone>;",
+				`Scale parse_scale(x::json::Parser parser);`,
+				`[[nodiscard]] x::json::json to_json(const Scale& value);`,
+			)
+	})
+
+	It("Should declare inline variant fields directly on the variant struct", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			TabBase struct { key string }
+			Labeled struct { label string }
+
+			Tab union on variant extends TabBase {
+				view extends Labeled {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, cppPlugin)
+		content := ExpectContent(resp, "types.gen.h")
+		content.ToContain(
+			`struct TabView : public TabBase, public Labeled {`,
+			`std::string type;`,
+			`struct TabEmpty : public TabBase {`,
+			`using Tab = std::variant<TabView, TabEmpty>;`,
+		)
+		content.ToNotContain("TabViewPayload")
+	})
+
+	It("Should omit the base list for a variant whose union and payload have no extends", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			Other struct { x int32 }
+
+			DIChannel union on type {
+				digital_input {
+					port int32
+				}
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		content := ExpectContent(resp, "types.gen.h")
+		content.ToContain(`struct DigitalInputChannel {`)
+		content.ToNotContain(`struct DigitalInputChannel : {`)
+	})
+
+	It("Should inherit the union base and payload in every variant struct, not flatten", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`struct AIVoltageChannel : public BaseAIChan, public VoltageFields {`,
+				`std::string type = "ai_voltage";`,
+				`std::int32_t port = 0;`,
+				`double min_val = 0;`,
+				`using AIChannel = std::variant<AIVoltageChannel>;`,
+			)
+	})
+
+	It("Should resolve a union-typed field to the variant alias", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(`Scale custom_scale;`)
+	})
+})
+
+var _ = Describe("C++ Union Variant Doc Coverage", func() {
+	var (
+		loader    *MockFileLoader
+		cppPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		cppPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should resolve a union field from an imported namespace", func(ctx SpecContext) {
+		loader.Add("schemas/scale", `
+			@cpp output "client/cpp/scale"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none   NoneScale
+			}
+		`)
+		source := `
+			import "schemas/scale"
+
+			@cpp output "client/cpp/ni"
+
+			Channel struct {
+				custom_scale scale.Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`#include "client/cpp/scale/types.gen.h"`,
+				"::scale::Scale custom_scale;",
+			)
+	})
+
+	It("Should render a per-variant doc comment on the variant struct", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale {
+					@doc value "a linear scale."
+				}
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain("/// @brief ScaleLinear a linear scale.", "struct ScaleLinear : public LinearScale {")
+	})
+
+	It("Should route per-type cpp output overrides to their own file", func(ctx SpecContext) {
+		source := `
+			@cpp output "client/cpp/task"
+
+			Task struct { key string }
+
+			BaseConfig struct {
+				auto_start bool
+				@cpp output "client/cpp/task/common"
+			}
+		`
+		resp := MustGenerate(ctx, source, "task", loader, cppPlugin)
+		taskContent := ExpectContent(resp, "client/cpp/task/types.gen.h")
+		taskContent.ToContain("struct Task {")
+		taskContent.ToNotContain("struct BaseConfig {")
+		commonContent := ExpectContent(resp, "client/cpp/task/common/types.gen.h")
+		commonContent.ToContain("struct BaseConfig {")
+		commonContent.ToNotContain("struct Task {")
 	})
 })

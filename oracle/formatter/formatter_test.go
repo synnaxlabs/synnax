@@ -417,6 +417,74 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Union Definitions", func() {
+		It("should format an empty union", func() {
+			Expect(format("Empty union on type {}\n")).To(Equal("Empty union on type {}\n"))
+		})
+
+		It("should format a simple union with variants", func() {
+			source := "A struct {}\nB struct {}\nFoo union on type {\n  a A\n  b B\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("Foo union on type {"))
+			Expect(result).To(ContainSubstring("a A"))
+			Expect(result).To(ContainSubstring("b B"))
+		})
+
+		It("should align variant names", func() {
+			source := "A struct {}\nLongName struct {}\nFoo union on type {\n  x A\n  veryLongVariant LongName\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("x               A"))
+			Expect(result).To(ContainSubstring("veryLongVariant LongName"))
+		})
+
+		It("should format a union with extends", func() {
+			source := "Base struct {\n  k string\n}\nA struct {}\nB struct {}\nFoo union on type extends Base {\n  a A\n  b B\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("Foo union on type extends Base {"))
+		})
+
+		It("should format a union with multiple bases", func() {
+			source := "X struct {\n  x string\n}\nY struct {\n  y string\n}\nA struct {}\nB struct {}\nFoo union on kind extends X, Y {\n  a A\n  b B\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("union on kind extends X, Y {"))
+		})
+
+		It("should format inline variant bodies with struct-body formatting", func() {
+			source := "Base struct {\n  k string\n}\nFoo union on type extends Base {\n  a {\n    width float64\n  }\n  b extends Base {\n    height float64\n  }\n  c {}\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("a {"))
+			Expect(result).To(ContainSubstring("width float64"))
+			Expect(result).To(ContainSubstring("b extends Base {"))
+			Expect(result).To(ContainSubstring("c {}"))
+		})
+
+		It("should be idempotent on inline variant bodies", func() {
+			source := "Foo union on type {\n  a {\n    width float64\n  }\n  b {}\n}\n"
+			once := format(source)
+			Expect(format(once)).To(Equal(once))
+		})
+
+		It("should format a union with per-variant domains", func() {
+			source := "A struct {}\nB struct {}\nFoo union on type {\n  a A {\n    @doc value \"variant a\"\n  }\n  b B\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("a A {"))
+			Expect(result).To(ContainSubstring("@doc value \"variant a\""))
+		})
+
+		It("should format a union with union-level domains", func() {
+			source := "A struct {}\nB struct {}\nFoo union on type {\n  a A\n  b B\n  @doc value \"the foo union\"\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("@doc value \"the foo union\""))
+		})
+
+		It("should be idempotent for unions and produce the canonical layout", func() {
+			source := "A struct {\n    x int32\n}\n\nB struct {\n    y string\n}\n\nBase struct {\n    k string\n}\n\nFoo union on type extends Base {\n    a A\n    b B\n}\n"
+			first := format(source)
+			Expect(first).To(Equal(source))
+			Expect(format(first)).To(Equal(first))
+		})
+	})
+
 	Describe("Idempotency", func() {
 		It("should produce the same output when formatted twice", func() {
 			source := "import \"common.oracle\"\n\n@go output \"core/pkg/user\"\n\nUser struct {\n  name string @validate required\n  age  int32\n}\n"
