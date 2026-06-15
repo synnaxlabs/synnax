@@ -777,13 +777,12 @@ describe("Panel queries", () => {
         }),
       ]);
 
-      await waitFor(
-        () => {
-          const root = asSplit(result.current);
-          expect(root).toBeDefined();
-          expect(leafTabKeys(root?.last)).toEqual([tab.key]);
-        },
-      );
+      await waitFor(() => {
+        const root = asSplit(result.current);
+        expect(root).toBeDefined();
+        expect(leafTabKeys(root?.first)).toEqual([seed.key]);
+        expect(leafTabKeys(root?.last)).toEqual([tab.key]);
+      });
     });
 
     it("should propagate deletes through the channel listener", async () => {
