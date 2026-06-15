@@ -166,10 +166,14 @@ type Field struct {
 	Type    TypeRef
 	// Default is the field's default value, declared inline as `name type = value`.
 	// It is nil when the field has no default.
-	Default        *ExpressionValue
-	IsOptional     bool
-	IsHardOptional bool
-	OmitIfUnset    bool
+	Default *ExpressionValue
+	// Optional reports whether the field is optional, declared with a trailing `?`
+	// on the field. An optional field admits an explicit absence (a Go pointer, a
+	// TypeScript `.optional()`, a Python `| None`, a C++ `std::optional`, a proto3
+	// `optional`) that round-trips faithfully rather than collapsing to the zero
+	// value.
+	Optional    bool
+	OmitIfUnset bool
 	// OmittedDomains names domains to drop from the inherited parent field during
 	// override resolution, declared with the `-@domain` syntax.
 	OmittedDomains []string
@@ -454,11 +458,10 @@ func mergeOverrideField(parent, child Field) Field {
 	out := child
 	if !child.HasType() {
 		out.Type = parent.Type
-		// A typeless override inherits the parent's optionality unless it forces
-		// its own with a standalone `?`/`??` marker (key? / key??).
-		if !child.IsOptional && !child.IsHardOptional {
-			out.IsOptional = parent.IsOptional
-			out.IsHardOptional = parent.IsHardOptional
+		// A typeless override inherits the parent's nullability unless it forces
+		// its own with a standalone `?` marker (key?).
+		if !child.Optional {
+			out.Optional = parent.Optional
 		}
 		if child.Default == nil {
 			out.Default = parent.Default

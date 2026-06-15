@@ -151,7 +151,7 @@ func processField(
 	ctx *resolver.Context,
 ) fieldData {
 	goType := r.ResolveTypeRef(field.Type, ctx)
-	if field.IsHardOptional &&
+	if field.Optional &&
 		!strings.HasPrefix(goType, "[]") &&
 		!strings.HasPrefix(goType, "map[") &&
 		!strings.HasPrefix(goType, "msgpack.EncodedJSON") {
@@ -161,7 +161,7 @@ func processField(
 		GoName:         naming.GetFieldName(field),
 		GoType:         goType,
 		JSONName:       casing.FieldSnake(field.Name),
-		IsHardOptional: field.IsHardOptional,
+		IsHardOptional: field.Optional,
 	}
 }
 

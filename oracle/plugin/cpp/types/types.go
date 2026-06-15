@@ -790,7 +790,7 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 	isSelfRef := resolution.RefersTo(field.Type, entry.QualifiedName, data.table)
 	underlyingPrimitive := getUnderlyingPrimitive(field.Type, data.table)
 
-	if field.IsHardOptional {
+	if field.Optional {
 		if isSelfRef {
 			data.includes.addInternal("x/cpp/mem/indirect.h")
 			cppType = fmt.Sprintf("x::mem::indirect<%s>", cppType)

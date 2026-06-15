@@ -41,7 +41,7 @@ type enumCheckData struct {
 // no default, nullable/optional fields, defaults that equal the zero value (nothing to
 // fill), and non-static defaults such as `create`/`now`.
 func goDefaultFill(field resolution.Field, data *templateData) (defaultFillData, bool) {
-	if field.Default == nil || field.IsOptional || field.IsHardOptional {
+	if field.Default == nil || field.Optional {
 		return defaultFillData{}, false
 	}
 	name := naming.GetFieldName(field)
@@ -87,7 +87,7 @@ func goDefaultFill(field resolution.Field, data *templateData) (defaultFillData,
 // an enum (RFC 0043 section 5.2). Nullable and optional fields are skipped: their
 // pointer may be nil, and absence is legitimate.
 func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, bool) {
-	if field.IsOptional || field.IsHardOptional {
+	if field.Optional {
 		return enumCheckData{}, false
 	}
 	resolved, ok := field.Type.Resolve(data.table)

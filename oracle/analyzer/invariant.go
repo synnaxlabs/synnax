@@ -35,9 +35,9 @@ func checkDefaultInvariant(c *analysisCtx) {
 			continue
 		}
 		for _, f := range form.Fields {
-			// Nullable and optional fields are exempt: their absence is itself
-			// meaningful, so no static default is overlaid onto a zero value.
-			if f.Default == nil || f.IsOptional || f.IsHardOptional {
+			// Optional fields are exempt: their absence is itself meaningful, so
+			// no static default is overlaid onto a zero value.
+			if f.Default == nil || f.Optional {
 				continue
 			}
 			reason, violates := defaultInvariantViolation(f, c.table)
@@ -47,7 +47,7 @@ func checkDefaultInvariant(c *analysisCtx) {
 			c.diag.Add(diagnostics.Errorf(
 				nil,
 				"field %q in %q violates the default invariant: %s. Make the field "+
-					"nullable with `?`, add a bound that excludes the zero value, or set "+
+					"optional with `?`, add a bound that excludes the zero value, or set "+
 					"the default to the type's zero value.",
 				f.Name, typ.Name, reason,
 			))

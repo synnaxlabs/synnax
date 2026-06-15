@@ -427,11 +427,11 @@ var _ = Describe("Analyzer", func() {
 			Expect(labelsField.Type.Name).To(Equal("Array"))
 			Expect(labelsField.Type.TypeArgs).To(HaveLen(1))
 			Expect(labelsField.Type.TypeArgs[0].Name).To(Equal("uuid"))
-			Expect(labelsField.IsOptional).To(BeFalse())
+			Expect(labelsField.Optional).To(BeFalse())
 
 			tagsField, _ := form.Field("tags")
 			Expect(tagsField.Type.Name).To(Equal("Array"))
-			Expect(tagsField.IsOptional).To(BeTrue())
+			Expect(tagsField.Optional).To(BeTrue())
 		})
 
 		It("Should handle optional types", func(ctx SpecContext) {
@@ -446,7 +446,7 @@ var _ = Describe("Analyzer", func() {
 			rangeType := table.MustGet("ranger.Range")
 			form := rangeType.Form.(resolution.StructForm)
 			parentField, _ := form.Field("parent")
-			Expect(parentField.IsOptional).To(BeTrue())
+			Expect(parentField.Optional).To(BeTrue())
 			Expect(parentField.Type.Name).To(Equal("uuid"))
 		})
 	})
@@ -845,7 +845,7 @@ var _ = Describe("Analyzer", func() {
 			// Child has its own name field that overrides parent
 			Expect(form.Fields).To(HaveLen(1))
 			Expect(form.Fields[0].Name).To(Equal("name"))
-			Expect(form.Fields[0].IsOptional).To(BeTrue())
+			Expect(form.Fields[0].Optional).To(BeTrue())
 
 			// UnifiedFields should have child's version of name
 			allFields := resolution.UnifiedFields(childType, table)
@@ -859,7 +859,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			}
 			Expect(nameField).NotTo(BeNil())
-			Expect(nameField.IsOptional).To(BeTrue())
+			Expect(nameField.Optional).To(BeTrue())
 		})
 
 		It("Should inherit type and optionality when an override omits its type", func(ctx SpecContext) {
@@ -998,24 +998,23 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		DescribeTable("Should resolve optionality on a typeless override",
-			func(ctx SpecContext, parentField, childField, field, wantType string, wantOptional, wantHard bool) {
+			func(ctx SpecContext, parentField, childField, field, wantType string, wantOptional bool) {
 				source := "Key uint32\n\nParent struct {\n  " + parentField +
 					"\n}\n\nChild struct extends Parent {\n  " + childField + "\n}\n"
 				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 				f := findField(resolution.UnifiedFields(table.MustGet("test.Child"), table), field)
 				Expect(f.Type.Name).To(Equal(wantType))
-				Expect(f.IsOptional).To(Equal(wantOptional))
-				Expect(f.IsHardOptional).To(Equal(wantHard))
+				Expect(f.Optional).To(Equal(wantOptional))
 			},
-			Entry("? makes a required field soft-optional",
-				"key Key", "key?", "key", "test.Key", true, false),
-			Entry("? makes a required array field soft-optional",
-				"items string[]", "items?", "items", "Array", true, false),
-			Entry("?? makes a field hard-optional",
-				"note string", "note??", "note", "string", false, true),
+			Entry("? makes a required field optional",
+				"key Key", "key?", "key", "test.Key", true),
+			Entry("? makes a required array field optional",
+				"items string[]", "items?", "items", "Array", true),
+			Entry("?? is accepted as an alias for ?",
+				"note string", "note??", "note", "string", true),
 			Entry("restating the type makes an optional field required",
-				"name string?", "name string", "name", "string", false, false),
+				"name string?", "name string", "name", "string", false),
 		)
 
 		DescribeTable("Should reject partial-override syntax that cannot resolve",
@@ -1226,7 +1225,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			}
 			Expect(keyField).NotTo(BeNil())
-			Expect(keyField.IsOptional).To(BeTrue())   // Child's type
+			Expect(keyField.Optional).To(BeTrue())     // Child's type
 			Expect(keyField.Domains).To(HaveKey("id")) // Parent's domain inherited
 		})
 
@@ -1295,7 +1294,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			}
 			Expect(keyField).NotTo(BeNil())
-			Expect(keyField.IsOptional).To(BeTrue())
+			Expect(keyField.Optional).To(BeTrue())
 			Expect(keyField.Domains).To(HaveKey("id"))       // Inherited from parent
 			Expect(keyField.Domains).To(HaveKey("validate")) // Added by child
 		})
@@ -1917,7 +1916,7 @@ var _ = Describe("Analyzer", func() {
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := table.MustGet("test.Item").Form.(resolution.StructForm)
-			Expect(form.Fields[0].IsOptional).To(BeTrue())
+			Expect(form.Fields[0].Optional).To(BeTrue())
 			Expect(form.Fields[0].Default).NotTo(BeNil())
 		})
 

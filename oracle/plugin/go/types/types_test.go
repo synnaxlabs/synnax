@@ -808,7 +808,7 @@ var _ = Describe("Go Types Plugin", func() {
 				User struct {
 					key uuid
 					name string
-					address Address?
+					address Address
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -844,7 +844,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Task struct {
 					key uuid
 					name string
-					status status.Status?
+					status status.Status
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)

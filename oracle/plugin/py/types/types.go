@@ -383,7 +383,7 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 // assigned by the server) is normally absent, so hashing by it is meaningless;
 // only a required key yields a __hash__.
 func hashableKey(field resolution.Field) bool {
-	return key.HasKey(field) && !field.IsOptional && !field.IsHardOptional
+	return key.HasKey(field) && !field.Optional && !field.Optional
 }
 
 func processStruct(
@@ -491,9 +491,9 @@ func processStruct(
 			// type: ignore comments.
 			hasTypeConflict := false
 			for _, field := range form.Fields {
-				if field.IsOptional || field.IsHardOptional {
+				if field.Optional {
 					for _, pf := range parentFields {
-						if pf.Name == field.Name && !pf.IsOptional && !pf.IsHardOptional {
+						if pf.Name == field.Name && !pf.Optional {
 							hasTypeConflict = true
 							break
 						}
@@ -589,7 +589,7 @@ func processStruct(
 							Name:   pf.Name,
 							PyType: typeToPython(pf.Type, table, data),
 						}
-						if pf.IsOptional || pf.IsHardOptional {
+						if pf.Optional {
 							fd.PyType = fd.PyType + " | None"
 							fd.Default = " = Field(default=None, exclude=True)"
 						} else {
@@ -682,8 +682,8 @@ func processField(
 	fd := fieldData{
 		Name:           escapedName,
 		Doc:            doc.Get(field.Domains),
-		IsOptional:     field.IsOptional,
-		IsHardOptional: field.IsHardOptional,
+		IsOptional:     field.Optional,
+		IsHardOptional: field.Optional,
 		IsArray:        field.Type.Name == "Array",
 	}
 	if escapedName != field.Name {
@@ -722,7 +722,7 @@ func processField(
 	}
 
 	// Both soft optional (?) and hard optional (??) become T | None in Python
-	if field.IsOptional || field.IsHardOptional {
+	if field.Optional {
 		fd.PyType = fd.PyType + " | None"
 	}
 
@@ -737,7 +737,7 @@ func buildDefault(
 	alias string,
 	data *templateData,
 ) string {
-	isAnyOptional := field.IsOptional || field.IsHardOptional
+	isAnyOptional := field.Optional
 
 	// When field is optional, filter out any default= constraints from validation
 	// since we'll be using default=None for the optional field

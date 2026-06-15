@@ -482,7 +482,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("soft-optional primitive defaults", func() {
-			It("Should call parser.field with a default value for each numeric/bool/string primitive", func(ctx SpecContext) {
+			It("Should parse optional primitives as std::optional", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -497,12 +497,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// defaultValueForPrimitive: numeric → 0, float → 0.0,
-						// bool → false, string → "".
-						`parser.field<std::uint32_t>("count", 0)`,
-						`parser.field<double>("ratio", 0.0)`,
-						`parser.field<bool>("enabled", false)`,
-						`parser.field<std::string>("label", "")`,
+						`parser.field<std::optional<std::uint32_t>>("count")`,
+						`parser.field<std::optional<double>>("ratio")`,
+						`parser.field<std::optional<bool>>("enabled")`,
+						`parser.field<std::optional<std::string>>("label")`,
 					)
 			})
 
@@ -536,7 +534,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
-			It("Should default soft-optional uuid fields to x::uuid::UUID{}", func(ctx SpecContext) {
+			It("Should parse optional uuid fields as std::optional", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -547,10 +545,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
 
 				ExpectContent(resp, "json.gen.h").
-					ToContain(`parser.field<x::uuid::UUID>("owner", x::uuid::UUID{})`)
+					ToContain(`parser.field<std::optional<x::uuid::UUID>>("owner")`)
 			})
 
-			It("Should default soft-optional signed integer fields", func(ctx SpecContext) {
+			It("Should parse optional signed integer fields as std::optional", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 
@@ -564,9 +562,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
-						`parser.field<std::int8_t>("delta_small", 0)`,
-						`parser.field<std::int16_t>("delta_med", 0)`,
-						`parser.field<std::int64_t>("delta_big", 0)`,
+						`parser.field<std::optional<std::int8_t>>("delta_small")`,
+						`parser.field<std::optional<std::int16_t>>("delta_med")`,
+						`parser.field<std::optional<std::int64_t>>("delta_big")`,
 					)
 			})
 		})
@@ -800,7 +798,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			}
 
 			Config struct {
-				enabled bool? = true
+				enabled bool = false
 				units   Units = volts
 				label   string = ""
 			}
@@ -808,7 +806,7 @@ var _ = Describe("C++ JSON Union Generation", func() {
 		resp := MustGenerate(ctx, source, "config", loader, jsonPlugin)
 		ExpectContent(resp, "json.gen.h").
 			ToContain(
-				`.enabled = parser.field<bool>("enabled", true),`,
+				`.enabled = parser.field<bool>("enabled", false),`,
 				`.units = parser.field<std::string>("units", "Volts"),`,
 				`.label = parser.field<std::string>("label", ""),`,
 			)

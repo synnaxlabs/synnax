@@ -442,7 +442,7 @@ func (p *Plugin) processFieldForTranslation(
 		BackwardExpr:     backwardExpr,
 		ForwardJSONExpr:  forwardJSONExpr,
 		BackwardJSONExpr: backwardJSONExpr,
-		IsOptional:       field.IsHardOptional,
+		IsOptional:       field.Optional,
 		IsArray:          field.Type.Name == "Array",
 		IsGenericField:   isGenericField,
 		TypeParamName:    typeParamName,
@@ -472,7 +472,7 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if resolution.IsPrimitive(typeRef.Name) {
-		return p.generatePrimitiveConversion(typeRef.Name, cppFieldName, pbAccessorName, pbSetter, field.IsHardOptional, data)
+		return p.generatePrimitiveConversion(typeRef.Name, cppFieldName, pbAccessorName, pbSetter, field.Optional, data)
 	}
 
 	if typeRef.TypeParam != nil {
@@ -492,13 +492,13 @@ func (p *Plugin) generateFieldConversion(
 
 	switch form := resolved.Form.(type) {
 	case resolution.StructForm:
-		return p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, cppFieldName, pbAccessorName)
+		return p.generateStructConversion(typeRef, resolved, field.Optional, data, cppFieldName, pbAccessorName)
 	case resolution.EnumForm:
 		return p.generateEnumConversion(resolved, form, cppFieldName, pbAccessorName, pbSetter, data)
 	case resolution.DistinctForm:
 		return p.generateDistinctConversion(resolved, form, cppFieldName, pbAccessorName, pbSetter, data)
 	case resolution.AliasForm:
-		return p.generateAliasConversion(resolved, form, field.IsHardOptional, cppFieldName, pbAccessorName, pbSetter, data)
+		return p.generateAliasConversion(resolved, form, field.Optional, cppFieldName, pbAccessorName, pbSetter, data)
 	default:
 		return fmt.Sprintf("%s(this->%s)", pbSetter, cppFieldName),
 			fmt.Sprintf("cpp.%s = pb.%s();", cppFieldName, pbAccessorName)
@@ -511,7 +511,7 @@ func (p *Plugin) generateJSONFieldConversion(
 	pbAccessorName string,
 	data *templateData,
 ) (forward, backward string) {
-	if field.IsHardOptional {
+	if field.Optional {
 		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)", cppFieldName, pbAccessorName, cppFieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
         auto [v, err] = x::json::from_any(pb.%s());
@@ -710,7 +710,7 @@ func (p *Plugin) generateTypeParamConversion(
 	// Always use JSON serialization for generic type parameters.
 	// This ensures compatibility with the Go server which stores details as JSON.
 	// Handle monostate specially since it doesn't have to_json()/parse() methods.
-	if field.IsHardOptional {
+	if field.Optional {
 		forward = fmt.Sprintf(`if (this->%s.has_value()) {
         if constexpr (std::is_same_v<%s, std::monostate>)
             *pb.mutable_%s() = x::json::to_any(x::json::json(nullptr));

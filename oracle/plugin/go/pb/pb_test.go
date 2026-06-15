@@ -96,7 +96,7 @@ var _ = Describe("Go PB Plugin", func() {
 					}
 
 					Config struct {
-						source Source?
+						source Source
 						sources Source[]
 					}
 				`
@@ -161,7 +161,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Config struct {
-						overrides record[]?
+						overrides record[]
 					}
 				`
 				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
@@ -1643,8 +1643,8 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
-		Context("soft optional fields", func() {
-			It("Should handle soft optional with question mark", func(ctx SpecContext) {
+		Context("optional fields", func() {
+			It("Should round-trip an optional scalar through a pointer", func(ctx SpecContext) {
 				source := `
 					@go output "core/test"
 					@pb
@@ -1657,18 +1657,19 @@ var _ = Describe("Go PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
-					ToContain("Name: r.Name")
+					ToContain(
+						"if r.Name != nil {",
+						"pb.Name = r.Name",
+						"if pb.Name != nil {",
+						"r.Name = pb.Name",
+					)
 			})
 
-			It("Should round-trip a soft optional struct as a non-nullable wire field", func(ctx SpecContext) {
-				// A struct field with a single "?" keeps its Go type as a
-				// value, and the proto field is plain (no `optional` keyword).
-				// The translator converts unconditionally in both directions:
-				// no zero-value guard on the Go side, no nil-check carve-out
-				// on the proto side. AnchorFromPB's own pb == nil guard makes
-				// the unconditional FromPB call safe even when the proto
-				// pointer is unset. Enum translators tolerate the Go zero, so
-				// converting a zero-valued Anchor does not error.
+			It("Should round-trip an optional struct as a nullable wire field", func(ctx SpecContext) {
+				// A struct field with a "?" is nullable: its Go type is a
+				// pointer and the proto field is `optional`. The translator
+				// guards both directions on the pointer, converting only when
+				// the value is present.
 				source := `
 					@go output "core/test"
 					@pb
@@ -1691,13 +1692,14 @@ var _ = Describe("Go PB Plugin", func() {
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain(
-						"anchorVal, err := AnchorToPB(r.Anchor)",
-						"Anchor: anchorVal",
-						"r.Anchor, err = AnchorFromPB(pb.Anchor)",
+						"if r.Anchor != nil {",
+						"pb.Anchor, err = AnchorToPB(*r.Anchor)",
+						"if pb.Anchor != nil {",
+						"val, err := AnchorFromPB(pb.Anchor)",
+						"r.Anchor = &val",
 					).
 					ToNotContain(
 						"if r.Anchor != (test.Anchor{}) {",
-						"if pb.Anchor != nil {",
 					)
 			})
 

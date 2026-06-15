@@ -550,8 +550,8 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
-		Context("hard optional array field", func() {
-			It("Should generate a single presence bit without a redundant inner nil check", func() {
+		Context("optional struct-array field", func() {
+			It("Should encode the slice in place without a pointer deref", func() {
 				source := `
 					@go output "core/pkg/test"
 					@go marshal
@@ -572,10 +572,10 @@ var _ = Describe("Go Marshal Plugin", func() {
 				content.ToContain(
 					"if t.Items != nil {",
 					"w.Bool(true)",
-					"w.Uint32(uint32(len((*t.Items))))",
+					"w.Uint32(uint32(len(t.Items)))",
 				)
 				content.ToNotContain(
-					"w.Bool((*t.Items) != nil)",
+					"(*t.Items)",
 				)
 			})
 		})

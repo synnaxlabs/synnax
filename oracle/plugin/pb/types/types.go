@@ -368,7 +368,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 			Doc:        doc.Get(field.Domains),
 			Type:       "bytes",
 			Number:     number,
-			IsOptional: field.IsHardOptional,
+			IsOptional: field.Optional,
 			IsRepeated: false, // bytes is not repeated
 		}, nil
 	}
@@ -385,7 +385,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 			Doc:        doc.Get(field.Domains),
 			Type:       wrapperName,
 			Number:     number,
-			IsOptional: field.IsHardOptional,
+			IsOptional: field.Optional,
 			IsRepeated: true,
 		}, nil
 	}
@@ -400,7 +400,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 		Doc:        doc.Get(field.Domains),
 		Type:       protoType,
 		Number:     number,
-		IsOptional: field.IsHardOptional,
+		IsOptional: field.Optional,
 		IsRepeated: isArray,
 	}, nil
 }

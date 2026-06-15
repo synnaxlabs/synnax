@@ -837,8 +837,8 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 }
 
 func isFieldUnchanged(parent, child resolution.Field) bool {
-	childIsOptional := child.IsOptional || child.IsHardOptional
-	parentIsOptional := parent.IsOptional || parent.IsHardOptional
+	childIsOptional := child.Optional
+	parentIsOptional := parent.Optional
 	if childIsOptional != parentIsOptional {
 		return false
 	}
@@ -907,8 +907,8 @@ func sameDefault(a, b *resolution.ExpressionValue) bool {
 }
 
 func isOnlyOptionalityChange(parent, child resolution.Field) bool {
-	childIsOptional := child.IsOptional || child.IsHardOptional
-	parentIsOptional := parent.IsOptional || parent.IsHardOptional
+	childIsOptional := child.Optional
+	parentIsOptional := parent.Optional
 	if !childIsOptional || parentIsOptional {
 		return false
 	}
@@ -1252,8 +1252,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		Name:           field.Name,
 		TSName:         fieldCamel(field.Name),
 		Doc:            doc.Get(field.Domains),
-		IsOptional:     field.IsOptional,
-		IsHardOptional: field.IsHardOptional,
+		IsOptional:     field.Optional,
+		IsHardOptional: field.Optional,
 		IsArray:        isArray,
 		IsSelfRef:      needsGetter,
 	}
@@ -1326,7 +1326,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		fd.ZodType = fmt.Sprintf("%s.pick({ %s: true })", fd.ZodType, camel)
 		fd.TSType = fmt.Sprintf("Pick<%s, %q>", fd.TSType, camel)
 	}
-	isAnyOptional := field.IsOptional || field.IsHardOptional
+	isAnyOptional := field.Optional
 	typeOverride := getFieldTypeOverride(field, "ts")
 	isJSON := field.Type.Name == "record" || typeOverride == "record"
 	isMap := field.Type.Name == "Map" && len(field.Type.TypeArgs) >= 2
@@ -1379,7 +1379,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<%s>>", fd.ZodSchemaType)
 		} else if !field.Type.IsTypeParam() {
 			fd.ZodType += ".optional()"
-		} else if field.IsHardOptional {
+		} else if field.Optional {
 			// Hard-optional (??) on a type-param field: the field is ALWAYS
 			// optional, even when a caller passes a concrete schema. Wrap the
 			// whole "param ?? fallback" expression in .optional() so caller

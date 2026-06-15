@@ -316,11 +316,11 @@ func (b *encoderBuilder) processFields(
 			}
 		}
 
-		if f.IsHardOptional {
+		if f.Optional && !b.isGoNilable(f.Type) {
 			if err := b.processHardOptional(f, getPath, setPath); err != nil {
 				return err
 			}
-		} else if f.IsOptional && b.isGoNilable(f.Type) {
+		} else if f.Optional && b.isGoNilable(f.Type) {
 			if err := b.processSoftOptionalNilable(f, getPath, setPath); err != nil {
 				return err
 			}

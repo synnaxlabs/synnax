@@ -607,7 +607,7 @@ func (p *Plugin) processFieldForTranslation(
 	goName := naming.GetFieldName(field)
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 
-	isHardOptional := field.IsHardOptional
+	isHardOptional := field.Optional
 	isOptional := isHardOptional
 	isOptionalStruct := isOptional &&
 		(isStructType(field.Type, data.table) || isUnionType(field.Type, data.table))
@@ -815,7 +815,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 	typeRef := field.Type
 
-	isHardOptional := field.IsHardOptional
+	isHardOptional := field.Optional
 	isOptional := isHardOptional
 
 	goFieldName := "r." + goName
@@ -825,10 +825,9 @@ func (p *Plugin) processGenericFieldForTranslation(
 		if typeRef.TypeParam.HasDefault() {
 			forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(
 				resolution.Field{
-					Name:           field.Name,
-					Type:           *typeRef.TypeParam.Default,
-					IsOptional:     field.IsOptional,
-					IsHardOptional: field.IsHardOptional,
+					Name:     field.Name,
+					Type:     *typeRef.TypeParam.Default,
+					Optional: field.Optional,
 				},
 				data, parentStruct,
 			)
@@ -1163,7 +1162,7 @@ func (p *Plugin) generateFieldConversion(
 
 	if _, isUnion := resolved.Form.(resolution.UnionForm); isUnion {
 		prefix, name := p.resolveUnionTranslatorName(resolved, data)
-		if field.IsHardOptional {
+		if field.Optional {
 			return fmt.Sprintf("%s%sToPB(*%s)", prefix, name, goFieldName),
 				fmt.Sprintf("%s%sFromPB(%s)", prefix, name, pbFieldName),
 				"", true, true
@@ -1174,35 +1173,35 @@ func (p *Plugin) generateFieldConversion(
 	}
 
 	if _, isStruct := resolved.Form.(resolution.StructForm); isStruct {
-		f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+		f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.Optional, data, goFieldName, pbFieldName)
 		return f, b, c, hasErr, hasErr
 	}
 
 	if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
 		if target, ok := aliasForm.Target.Resolve(data.table); ok {
 			if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-				f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+				f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.Optional, data, goFieldName, pbFieldName)
 				return f, b, c, hasErr, hasErr
 			}
 		}
 	}
 
 	if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
-		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName, field.IsHardOptional)
+		f, b := p.generateEnumConversion(typeRef, resolved, data, goFieldName, pbFieldName, field.Optional)
 		return f, b, "", true, true
 	}
 
 	if form, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 		if baseResolved, ok := form.Base.Resolve(data.table); ok {
 			if _, isStruct := baseResolved.Form.(resolution.StructForm); isStruct {
-				f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+				f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.Optional, data, goFieldName, pbFieldName)
 				return f, b, c, hasErr, hasErr
 			}
 			// Also check if base is an alias to a struct
 			if aliasForm, isAlias := baseResolved.Form.(resolution.AliasForm); isAlias {
 				if target, ok := aliasForm.Target.Resolve(data.table); ok {
 					if _, isStruct := target.Form.(resolution.StructForm); isStruct {
-						f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.IsHardOptional, data, goFieldName, pbFieldName)
+						f, b, c, hasErr := p.generateStructConversion(typeRef, resolved, field.Optional, data, goFieldName, pbFieldName)
 						return f, b, c, hasErr, hasErr
 					}
 				}

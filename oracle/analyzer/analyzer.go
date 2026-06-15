@@ -241,9 +241,8 @@ func desugarPartialOverrides(c *analysisCtx) {
 				continue
 			}
 			f.Type = pf.Type
-			if !f.IsOptional && !f.IsHardOptional {
-				f.IsOptional = pf.IsOptional
-				f.IsHardOptional = pf.IsHardOptional
+			if !f.Optional {
+				f.Optional = pf.Optional
 			}
 			if f.Default == nil {
 				f.Default = pf.Default
@@ -836,7 +835,7 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		var arraySize *int64
 
 		if isNormal {
-			field.IsOptional, field.IsHardOptional = extractTypeModifiersNormal(normalCtx)
+			field.Optional = extractTypeModifiersNormal(normalCtx)
 			if arrMod := normalCtx.ArrayModifier(); arrMod != nil {
 				isArray = true
 				if intLit := arrMod.INT_LIT(); intLit != nil {
@@ -845,7 +844,7 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 				}
 			}
 		} else if isMap {
-			field.IsOptional, field.IsHardOptional = extractTypeModifiersMap(mapCtx)
+			field.Optional = extractTypeModifiersMap(mapCtx)
 		}
 
 		typeRef := collectTypeRef(tr, typeParams)
@@ -858,9 +857,9 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		}
 		field.Type = typeRef
 	} else if mods := def.TypeModifiers(); mods != nil {
-		// Typeless override that overrides only optionality (key? / key??); the
-		// type is inherited from the parent during override resolution.
-		field.IsOptional, field.IsHardOptional = modifiersFrom(mods)
+		// Typeless override that overrides only nullability (key?); the type is
+		// inherited from the parent during override resolution.
+		field.Optional = modifiersFrom(mods)
 	}
 
 	if fd := def.FieldDefault(); fd != nil {
@@ -1452,24 +1451,21 @@ func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 	return ids[0].GetText()
 }
 
-// modifiersFrom translates an optionality modifier context into the soft/hard
-// optional flags: one `?` is soft-optional, `??` is hard-optional.
-func modifiersFrom(mods parser.ITypeModifiersContext) (isOptional, isHardOptional bool) {
+// modifiersFrom reports whether an optionality modifier context marks the field
+// optional. A trailing `?` makes the field optional; `??` is accepted as a
+// transitional alias for `?` while schemas migrate to the single marker.
+func modifiersFrom(mods parser.ITypeModifiersContext) (optional bool) {
 	if mods == nil {
-		return false, false
+		return false
 	}
-	questionCount := len(mods.AllQUESTION())
-	if questionCount >= 2 {
-		return false, true
-	}
-	return questionCount >= 1, false
+	return len(mods.AllQUESTION()) >= 1
 }
 
-func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (isOptional, isHardOptional bool) {
+func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (optional bool) {
 	return modifiersFrom(tr.TypeModifiers())
 }
 
-func extractTypeModifiersMap(tr *parser.TypeRefMapContext) (isOptional, isHardOptional bool) {
+func extractTypeModifiersMap(tr *parser.TypeRefMapContext) (optional bool) {
 	return modifiersFrom(tr.TypeModifiers())
 }
 
