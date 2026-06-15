@@ -84,10 +84,6 @@ func Publish(
 	if err != nil {
 		return nil, err
 	}
-	// Relationships are wholly stored in a single gorp table, so unlike resources they
-	// can publish straight from that table's observable. A relationship's GorpKey
-	// encodes its entire value (from->type->to) and round-trips via ParseRelationship,
-	// so both set and delete publish the key string rather than a JSON payload.
 	relationshipCloser, err := signals.PublishFromGorp(
 		ctx,
 		prov,

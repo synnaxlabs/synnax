@@ -56,7 +56,9 @@ func encodeIDs(ids []ontology.ID) []byte {
 }
 
 func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
-	samples := telem.UnmarshalSeries[string](telem.Series{DataType: telem.StringT, Data: ser})
+	samples := telem.UnmarshalSeries[string](telem.Series{
+		DataType: telem.StringT, Data: ser,
+	})
 	relationships := make([]ontology.Relationship, 0, len(samples))
 	for _, s := range samples {
 		relationship, err := ontology.ParseRelationship(s)
@@ -69,7 +71,9 @@ func decodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 }
 
 func decodeIDs(ser []byte) ([]ontology.ID, error) {
-	samples := telem.UnmarshalSeries[string](telem.Series{DataType: telem.StringT, Data: ser})
+	samples := telem.UnmarshalSeries[string](telem.Series{
+		DataType: telem.StringT, Data: ser,
+	})
 	ids := make([]ontology.ID, 0, len(samples))
 	for _, s := range samples {
 		id, err := ontology.ParseID(s)
