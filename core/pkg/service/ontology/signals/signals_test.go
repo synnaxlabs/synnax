@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -81,7 +82,11 @@ var _ = Describe("Signals", Ordered, func() {
 		dist = builder.Provision(context.Background())
 		svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 		dist.Ontology.RegisterService(svc)
-		cdcCloser = MustSucceed(ontologycdc.Publish(ctx, dist.Signals, dist.Ontology))
+		sigs := MustSucceed(signals.New(signals.Config{
+			Channel: dist.Channel,
+			Framer:  dist.Framer,
+		}))
+		cdcCloser = MustSucceed(ontologycdc.Publish(ctx, sigs, dist.Ontology))
 	})
 	AfterAll(func() {
 		Expect(cdcCloser.Close()).To(Succeed())

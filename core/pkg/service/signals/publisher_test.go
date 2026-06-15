@@ -49,7 +49,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 			DeleteChannel: channel.Channel{Name: publisherDeleteChannelName, DataType: telem.UUIDT},
 			Observable:    obs,
 		}
-		closer = MustSucceed(dist.Signals.PublishFromObservable(ctx, cfg))
+		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
 		Expect(dist.Channel.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
