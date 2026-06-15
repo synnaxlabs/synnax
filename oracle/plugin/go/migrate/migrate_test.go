@@ -1703,6 +1703,10 @@ func MigrateEntry(_ context.Context, old v1.Entry) (Entry, error) { return AutoM
 			depAutoCopy := fileContent(resp, "dep/migrations/v1/migrate_auto.gen.go")
 			Expect(depAutoCopy).NotTo(BeEmpty())
 			Expect(depAutoCopy).To(ContainSubstring("migrations/v2"))
+			depTemplate := fileContent(resp, "dep/migrations/v1/migrate.go")
+			Expect(depTemplate).NotTo(BeEmpty())
+			Expect(depTemplate).To(ContainSubstring("package v1"))
+			Expect(depTemplate).To(ContainSubstring("migrations/v2"))
 		})
 	})
 
