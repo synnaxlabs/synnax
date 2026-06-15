@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"

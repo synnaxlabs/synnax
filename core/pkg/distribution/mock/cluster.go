@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
@@ -33,6 +34,11 @@ import (
 type Node struct {
 	*distribution.Layer
 	Storage *storage.Layer
+	// Signals is a stateless CDC provider built on the node's channel and framer
+	// services. The service layer owns signal propagation in production; the mock
+	// exposes a provider here so distribution and service tests can publish signals
+	// without standing up the full service layer.
+	Signals *signals.Provider
 }
 
 type Cluster struct {
@@ -102,10 +108,13 @@ func (c *Cluster) Provision(
 			AspenOptions: []aspen.Option{
 				aspen.WithPropagationConfig(aspen.FastPropagationConfig),
 			},
-			EnableServiceSignals: new(false),
 		}, c.cfg}, cfgs...)...))
+		signalsProvider = testutil.MustSucceed(signals.New(signals.Config{
+			Channel: distributionLayer.Channel,
+			Framer:  distributionLayer.Framer,
+		}))
 	)
-	node := Node{Layer: distributionLayer, Storage: storageLayer}
+	node := Node{Layer: distributionLayer, Storage: storageLayer, Signals: signalsProvider}
 	c.Nodes[distributionLayer.Cluster.HostKey()] = node
 	c.WaitForTopologyToStabilize()
 	return node

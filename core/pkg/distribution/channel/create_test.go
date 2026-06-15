@@ -146,7 +146,7 @@ var _ = Describe("Create", Ordered, func() {
 			})
 			It("Should create the channel without error", func(ctx SpecContext) {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
-				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
+				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
 					Error().To(MatchError(query.ErrNotFound))
 			})
