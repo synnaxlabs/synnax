@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+import "github.com/synnaxlabs/synnax/pkg/service/channel"
 
 // Version is the semantic version string written by the console at this state version.
 const Version = "0.0.0"

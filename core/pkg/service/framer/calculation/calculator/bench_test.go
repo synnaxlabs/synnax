@@ -15,19 +15,17 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type benchEnv struct {
-	ctx    context.Context
-	dist   mock.Node
-	arcSvc *arc.Service
+	ctx  context.Context
+	dist mock.Node
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
@@ -35,19 +33,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	ctx := context.Background()
 	distB := mock.NewCluster()
 	dist := distB.Provision(ctx)
-
-	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Search:   dist.Search,
-	})
-	if err != nil {
-		b.Fatalf("failed to open arc service: %v", err)
-	}
-
-	return &benchEnv{ctx: ctx, dist: dist, arcSvc: arcSvc}
+	return &benchEnv{ctx: ctx, dist: dist}
 }
 
 func (e *benchEnv) close(b *testing.B) {
@@ -86,9 +72,8 @@ func (e *benchEnv) openCalculator(
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		ChannelService: e.dist.Channel,
+		ChannelService: channel.Wrap(e.dist.Channel),
 		Channel:        *calc,
-		SymbolResolver: e.arcSvc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		b.Fatalf("failed to compile calculator: %v", err)
