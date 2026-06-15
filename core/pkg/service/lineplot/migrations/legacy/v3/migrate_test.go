@@ -12,7 +12,7 @@ package v3_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/legacy/v2"

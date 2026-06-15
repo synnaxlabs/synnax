@@ -15,13 +15,10 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -31,7 +28,6 @@ type benchIterEnv struct {
 	builder     *mock.Cluster
 	dist        mock.Node
 	iteratorSvc *iterator.Service
-	arcSvc      *arc.Service
 }
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
@@ -40,25 +36,9 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
-	searchIdx, err := search.Open()
-	if err != nil {
-		b.Fatalf("failed to create search index: %v", err)
-	}
-
-	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
-		DB:       dist.DB,
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		Search:   searchIdx,
-	})
-	if err != nil {
-		b.Fatalf("failed to open arc service: %v", err)
-	}
-
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: dist.Framer,
-		Channel:    svcchannel.Wrap(dist.Channel),
-		Arc:        arcSvc,
+		Channel:    channel.Wrap(dist.Channel),
 	})
 	if err != nil {
 		b.Fatalf("failed to open iterator service: %v", err)
@@ -69,7 +49,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		builder:     builder,
 		dist:        dist,
 		iteratorSvc: iteratorSvc,
-		arcSvc:      arcSvc,
 	}
 }
 

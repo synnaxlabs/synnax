@@ -13,10 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,20 +24,32 @@ import (
 )
 
 type (
-	Key          = distchannel.Key
-	Keys         = distchannel.Keys
-	Channel      = distchannel.Channel
-	Operation    = distchannel.Operation
-	CreateOption = distchannel.CreateOption
+	Key          = channel.Key
+	Keys         = channel.Keys
+	LocalKey     = channel.LocalKey
+	Channel      = channel.Channel
+	Operation    = channel.Operation
+	CreateOption = channel.CreateOption
 )
 
 var (
-	RetrieveIfNameExists                        = distchannel.RetrieveIfNameExists
-	OverwriteIfNameExistsAndDifferentProperties = distchannel.OverwriteIfNameExistsAndDifferentProperties
-	CreateWithoutGroupRelationship              = distchannel.CreateWithoutGroupRelationship
-	ParseKey                                    = distchannel.ParseKey
-	OntologyID                                  = distchannel.OntologyID
-	MatchKeys                                   = distchannel.MatchKeys
+	RetrieveIfNameExists                        = channel.RetrieveIfNameExists
+	OverwriteIfNameExistsAndDifferentProperties = channel.OverwriteIfNameExistsAndDifferentProperties
+	CreateWithoutGroupRelationship              = channel.CreateWithoutGroupRelationship
+	ParseKey                                    = channel.ParseKey
+	OntologyID                                  = channel.OntologyID
+	MatchKeys                                   = channel.MatchKeys
+	MatchNames                                  = channel.MatchNames
+	OntologyIDsFromChannels                     = channel.OntologyIDsFromChannels
+	KeysFromChannels                            = channel.KeysFromChannels
+	MatchLeaseholders                           = channel.MatchLeaseholders
+	MatchDataTypes                              = channel.MatchDataTypes
+	MatchVirtual                                = channel.MatchVirtual
+	MatchIsIndex                                = channel.MatchIsIndex
+	MatchInternal                               = channel.MatchInternal
+	MatchCalculated                             = channel.MatchCalculated
+	Not                                         = channel.Not
+	NewRandomName                               = channel.NewRandomName
 )
 
 // ServiceConfig configures a channel Service.
@@ -46,25 +57,19 @@ type ServiceConfig struct {
 	// DB is the underlying database for transactional operations.
 	DB *gorp.DB
 	// Distribution is the distribution-layer channel service.
-	Distribution *distchannel.Service
+	Distribution *channel.Service
 	// Status is used to publish error/clear statuses for calculated channels.
 	Status *status.Service
-	// Arc provides symbol resolution for expression analysis.
-	Arc *arc.Service
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "distribution", c.Distribution)
 	validate.NotNil(v, "status", c.Status)
-	validate.NotNil(v, "arc", c.Arc)
 	return v.Error()
 }
 
@@ -73,62 +78,49 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Distribution = override.Nil(c.Distribution, other.Distribution)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Arc = override.Nil(c.Arc, other.Arc)
 	return c
 }
 
-// Service is the top-level channel service. It wraps the distribution-layer
-// channel service and adds calculated channel type inference and dependency
-// tracking.
+// Service is the top-level channel service. It wraps the distribution-layer channel
+// service and adds DataType inference for calculated channels on write. The calculated
+// channel dependency graph (type repair, status reporting) is a separate reactive
+// component opened independently of this Service.
 type Service struct {
-	*distchannel.Service
-	cfg   ServiceConfig
-	graph *graph.Graph
+	*channel.Service
+	cfg ServiceConfig
 }
 
-// OpenService opens a channel Service, hydrating the calculated channel graph
-// and subscribing to reactive updates.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+// NewService opens a channel Service. The ctx is accepted for consistency with other
+// service constructors and may be used by future initialization work.
+func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{Service: cfg.Distribution, cfg: cfg}
-	if s.graph, err = graph.Open(ctx, graph.Config{
-		Channel:         cfg.Distribution,
-		Status:          cfg.Status,
-		Instrumentation: cfg.Child("calculation.graph"),
-	}); err != nil {
-		return nil, err
-	}
-	return s, nil
+	return &Service{Service: cfg.Distribution, cfg: cfg}, nil
 }
 
-// Wrap creates a Service that delegates directly to the distribution-layer channel
-// service without calculated channel features (type inference, dependency tracking).
-// Use OpenService for full functionality.
-func Wrap(dist *distchannel.Service) *Service {
+// Wrap builds a Service from an existing distribution-layer channel service without a
+// full ServiceConfig. It provides the same write-time DataType inference for calculated
+// channels as a Service opened with NewService, but carries only the distribution
+// dependency (no Status service or instrumentation), so it suits tests and other
+// lightweight contexts. Use NewService when a complete configuration is available.
+func Wrap(dist *channel.Service) *Service {
 	return &Service{Service: dist, cfg: ServiceConfig{Distribution: dist}}
 }
 
-// Close shuts down the calculated channel graph and its observable subscription.
-func (s *Service) Close() error {
-	if s.graph != nil {
-		return s.graph.Close()
-	}
-	return nil
+// NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
+// name or numeric key, for analyzing and compiling Arc expressions such as calculated
+// channels. tx scopes channel lookups; nil consults the service DB directly.
+func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
+	return &symbolResolver{svc: s, tx: tx}
 }
 
-// NewWriter returns a Writer that infers DataTypes for calculated channels
-// before delegating to the distribution-layer writer. If Arc is not configured
-// (e.g. when using Wrap), returns a Writer that delegates directly without
-// type inference.
+// NewWriter returns a Writer that infers DataTypes for calculated channels before
+// delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
-	if s.cfg.Arc != nil {
-		w.tx = gorp.OverrideTx(s.cfg.DB, tx)
-		w.analyzer = analyzer.New(s.cfg.Arc.NewSymbolResolver(tx))
-	}
+	w.analyzer = analyzer.New(s.NewArcSymbolResolver(tx))
 	return w
 }
 

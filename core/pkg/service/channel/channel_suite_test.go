@@ -15,19 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcChannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	dist   mock.Node
-	svc    *svcChannel.Service
-	arcSvc *arc.Service
+	dist mock.Node
+	svc  *channel.Service
 )
 
 func TestChannel(t *testing.T) {
@@ -54,34 +50,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   dist.Search,
 	}))
-	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		HostProvider: mock.StaticHostKeyProvider(1),
-		Status:       statusSvc,
-		Search:       dist.Search,
-	}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		Search:   dist.Search,
-	}))
-	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Task:     taskSvc,
-		Search:   dist.Search,
-	}))
-	svc = MustOpen(svcChannel.OpenService(ctx, svcChannel.ServiceConfig{
+	svc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
-		Arc:          arcSvc,
 	}))
 })

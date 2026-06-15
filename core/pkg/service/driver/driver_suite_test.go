@@ -80,7 +80,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  dist.Channel,
+		Channel:  channel.Wrap(dist.Channel),
 		Search:   searchIdx,
 	}))
 })
