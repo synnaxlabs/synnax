@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state
+package arc
 
 import (
 	"context"
@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Config describes the channels a compiled Arc program reads from and writes to, along
+// State describes the channels a compiled Arc program reads from and writes to, along
 // with the channel digests and IR needed to execute it.
-type Config struct {
+type State struct {
 	// Reads is the set of channel keys the program reads from, including the index
 	// channels of any non-virtual channels it reads.
 	Reads set.Set[channel.Key]
@@ -61,14 +61,14 @@ func retrieveChannels(
 	return slices.Concat(channels, indexChannels), nil
 }
 
-// New derives the read/write channel sets and digests for a compiled program.
+// NewState derives the read/write channel sets and digests for a compiled program.
 // Non-virtual channels pull in their index channels so the executor can align samples.
 // It returns an error if any referenced channel cannot be retrieved.
-func New(
+func NewState(
 	ctx context.Context,
 	channelSvc *channel.Service,
 	prog arc.Program,
-) (Config, error) {
+) (State, error) {
 	var (
 		reads  = make(set.Set[channel.Key])
 		writes = make(set.Set[channel.Key])
@@ -86,7 +86,7 @@ func New(
 	}
 	channels, err := retrieveChannels(ctx, channelSvc, slices.Concat(reads.Slice(), writes.Slice()))
 	if err != nil {
-		return Config{}, err
+		return State{}, err
 	}
 	channelDigests := make([]stlchannels.Digest, 0, len(channels))
 	for _, ch := range channels {
@@ -102,7 +102,7 @@ func New(
 			writes.Add(ch.Index())
 		}
 	}
-	return Config{
+	return State{
 		Reads:          reads,
 		Writes:         writes,
 		ChannelDigests: lo.Uniq(channelDigests),

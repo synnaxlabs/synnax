@@ -28,7 +28,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/state"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
@@ -53,7 +53,7 @@ type Calculator struct {
 	state     calcState
 	scheduler *scheduler.Scheduler
 	cfg       Config
-	stateCfg  state.Config
+	arcState  arc.State
 	start     telem.TimeStamp
 	closer    io.MultiCloser
 }
@@ -62,10 +62,7 @@ type Config struct {
 	Module compiler.Module
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
@@ -85,17 +82,14 @@ func (c Config) Validate() error {
 // corresponding to the keys specified in ch.Requires.
 //
 // The calculator must be closed by calling Close() after use, or memory leaks will occur.
-func Open(
-	ctx context.Context,
-	cfgs ...Config,
-) (_ *Calculator, err error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 
 	var cs calcState
-	cs.channel = stlchannels.NewProgramState(cfg.Module.StateConfig.ChannelDigests)
+	cs.channel = stlchannels.NewProgramState(cfg.Module.State.ChannelDigests)
 	cs.series = series.NewProgramState()
 	cs.strings = stlstrings.NewProgramState()
 
@@ -171,7 +165,7 @@ func Open(
 		})
 	}
 
-	cs.nodes = node.New(cfg.Module.StateConfig.IR)
+	cs.nodes = node.New(cfg.Module.State.IR)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
 		n, nodeErr := f.Create(ctx, node.Config{
@@ -190,7 +184,7 @@ func Open(
 		cfg:       cfg,
 		scheduler: sched,
 		state:     cs,
-		stateCfg:  cfg.Module.StateConfig,
+		arcState:  cfg.Module.State,
 		closer:    closers,
 		start:     telem.Now(),
 	}
@@ -198,9 +192,9 @@ func Open(
 	return c, nil
 }
 
-func (c *Calculator) WriteTo() channel.Keys { return c.stateCfg.Writes.Slice() }
+func (c *Calculator) WriteTo() channel.Keys { return c.arcState.Writes.Slice() }
 
-func (c *Calculator) ReadFrom() channel.Keys { return c.stateCfg.Reads.Slice() }
+func (c *Calculator) ReadFrom() channel.Keys { return c.arcState.Reads.Slice() }
 
 func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }
 

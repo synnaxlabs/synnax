@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package state_test
+package arc_test
 
 import (
 	"fmt"
@@ -18,22 +18,22 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/state"
+	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("StateConfig", Ordered, func() {
+var _ = Describe("State", Ordered, func() {
 	var dist mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
 		dist = DeferClose(mock.NewCluster()).Provision(ctx)
 	})
 
-	Describe("NewStateConfig", func() {
-		It("Should build config with read node channels", func(ctx SpecContext) {
+	Describe("NewState", func() {
+		It("Should build state with read node channels", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "sensor_1",
 				Virtual:  true,
@@ -55,7 +55,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeFalse())
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
@@ -85,7 +85,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -112,7 +112,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Writes.Contains(ch.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(ch.Key())).To(BeFalse())
 		})
@@ -148,7 +148,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Reads.Contains(dataCh.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(indexCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(2))
@@ -185,7 +185,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Writes.Contains(dataCh.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(indexCh.Key())).To(BeTrue())
 		})
@@ -220,7 +220,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Reads.Contains(readCh.Key())).To(BeTrue())
 			Expect(cfg.Writes.Contains(writeCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(2))
@@ -255,7 +255,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Reads.Contains(sharedCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
 		})
@@ -266,7 +266,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 					Nodes: []ir.Node{},
 				},
 			}
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Reads).To(BeEmpty())
 			Expect(cfg.Writes).To(BeEmpty())
 			Expect(cfg.ChannelDigests).To(BeEmpty())
@@ -285,7 +285,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Reads).To(BeEmpty())
 			Expect(cfg.Writes).To(BeEmpty())
 			Expect(cfg.ChannelDigests).To(BeEmpty())
@@ -306,7 +306,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			Expect(state.New(ctx, channel.Wrap(dist.Channel), prog)).
+			Expect(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog)).
 				Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -333,7 +333,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Reads.Contains(virtualCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
 		})
@@ -360,7 +360,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), compiled))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), compiled))
 			Expect(cfg.Reads).To(BeEmpty())
 			Expect(cfg.Writes.Contains(virtCh.Key())).To(BeTrue())
 			Expect(cfg.Writes).To(HaveLen(1))
@@ -398,7 +398,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.NewRoot(resolver)))
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), compiled))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), compiled))
 			Expect(cfg.Writes.Contains(valveCh.Key())).To(BeTrue(),
 				"channel referenced only in set_authority config should be in writes")
 		})
@@ -422,13 +422,13 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Writes.Contains(authOnlyCh.Key())).To(BeTrue())
 			Expect(cfg.ChannelDigests).To(HaveLen(1))
 			Expect(cfg.ChannelDigests[0].Key).To(Equal(uint32(authOnlyCh.Key())))
 		})
 
-		It("Should build complete config with complex module", func(ctx SpecContext) {
+		It("Should build complete state with complex module", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
 				Name:     "complex_index",
 				DataType: telem.TimeStampT,
@@ -487,7 +487,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 				},
 			}
 
-			cfg := MustSucceed(state.New(ctx, channel.Wrap(dist.Channel), prog))
+			cfg := MustSucceed(svcarc.NewState(ctx, channel.Wrap(dist.Channel), prog))
 			Expect(cfg.Reads.Contains(readCh1.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(readCh2.Key())).To(BeTrue())
 			Expect(cfg.Reads.Contains(indexCh.Key())).To(BeTrue())
