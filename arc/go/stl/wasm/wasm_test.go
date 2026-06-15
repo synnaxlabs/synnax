@@ -606,7 +606,7 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))).To(Equal([]int64{105}))
 		})
 
-		It("Should bind a literal input ordered before a wire input", func(ctx SpecContext) {
+		It("Should bind a literal input ordered before an edge-fed input", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{

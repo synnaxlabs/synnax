@@ -65,16 +65,6 @@ find_node_by_type(const arc::program::Program &mod, const std::string &type) {
     return nullptr;
 }
 
-/// @brief Per-input wire-fed flags, as wasm::Factory::create computes them: an input
-/// is wire-fed when an edge targets it, else literal-fed. A wasm::Node built without
-/// the factory must pass this to Module::func, or literal inputs are dropped.
-std::vector<bool> edge_fed_for(const arc::ir::IR &ir, const arc::ir::Node &node) {
-    std::vector<bool> ef(node.inputs.size());
-    for (size_t i = 0; i < node.inputs.size(); i++)
-        ef[i] = ir.edge_to(arc::ir::Handle(node.key, node.inputs[i].name)).has_value();
-    return ef;
-}
-
 node::Context make_context() {
     return node::Context{
         .elapsed = x::telem::SECOND,
@@ -1008,9 +998,11 @@ func add_config{x i32}(y i32) i32 {
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(
-        wasm_mod->func("add_config", func_node->inputs, edge_fed_for(mod, *func_node))
-    );
+    auto func = ASSERT_NIL_P(wasm_mod->func(
+        "add_config",
+        func_node->inputs,
+        arc::ir::edge_fed_mask(mod, *func_node)
+    ));
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
@@ -1102,9 +1094,11 @@ func multi_config{a i32, b i32}(c i32) i32 {
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(
-        wasm_mod->func("multi_config", func_node->inputs, edge_fed_for(mod, *func_node))
-    );
+    auto func = ASSERT_NIL_P(wasm_mod->func(
+        "multi_config",
+        func_node->inputs,
+        arc::ir::edge_fed_mask(mod, *func_node)
+    ));
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
@@ -1406,9 +1400,11 @@ func read_chan{ch chan f32}(trigger u8) f32 {
 
     // Set up the function node with config param.
     auto node_state = ASSERT_NIL_P(state->node(func_node->key));
-    auto func = ASSERT_NIL_P(
-        wasm_mod->func("read_chan", func_node->inputs, edge_fed_for(mod, *func_node))
-    );
+    auto func = ASSERT_NIL_P(wasm_mod->func(
+        "read_chan",
+        func_node->inputs,
+        arc::ir::edge_fed_mask(mod, *func_node)
+    ));
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
@@ -2762,9 +2758,9 @@ func double(val f32) f32 {
 }
 
 /// @brief Locks the Module::func slot-mapping contract: edge_fed marks each input
-/// wire-fed (streamed) or literal-fed (set once), and a literal ordered before a
-/// wire input must still be honored. C++ analog of the Go config-first lock.
-TEST(NodeEdgeFedTest, EdgeFedHonorsLiteralInputBeforeWireInput) {
+/// edge-fed (streamed) or literal-fed (set once), and a literal ordered before an
+/// edge-fed input must still be honored.
+TEST(NodeEdgeFedTest, EdgeFedHonorsLiteralInputBeforeEdgeFedInput) {
     const auto client = new_test_client();
     const std::string func_def = R"(
 func sum2(x i32, y i32) i32 {
@@ -2805,7 +2801,7 @@ func sum2(x i32, y i32) i32 {
 }
 
 /// @brief A non-empty edge_fed whose length does not match node_inputs is a wiring
-/// bug; Module::func rejects it rather than silently treating every input as wire-fed.
+/// bug; Module::func rejects it rather than silently treating every input as edge-fed.
 TEST(NodeEdgeFedTest, ErrorsOnEdgeFedSizeMismatch) {
     const auto client = new_test_client();
     const std::string func_def = R"(

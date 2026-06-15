@@ -25,13 +25,7 @@ public:
 
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
-        std::vector<bool> edge_fed(cfg.node.inputs.size());
-        for (size_t i = 0; i < cfg.node.inputs.size(); i++)
-            edge_fed[i] = cfg.prog
-                              .edge_to(
-                                  ir::Handle(cfg.node.key, cfg.node.inputs[i].name)
-                              )
-                              .has_value();
+        const auto edge_fed = ir::edge_fed_mask(cfg.prog, cfg.node);
         auto [func, err] = this->mod->func(cfg.node.type, cfg.node.inputs, edge_fed);
         if (err) return {nullptr, err};
         return {

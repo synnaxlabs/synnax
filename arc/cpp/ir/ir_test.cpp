@@ -208,6 +208,47 @@ TEST(IRTest, testEdgesTo) {
     ASSERT_TRUE(no_edges.empty());
 }
 
+/// @brief it should mark an input edge-fed when an edge feeds it, literal-fed otherwise
+TEST(IRTest, testEdgeFedMask) {
+    IR ir;
+    ir.edges.emplace_back(Handle("src", default_output_param), Handle("math", "input"));
+
+    Node node;
+    node.key = "math";
+    types::Param input;
+    input.name = "input";
+    types::Param scale;
+    scale.name = "scale";
+    scale.value = 2;
+    node.inputs.push_back(input);
+    node.inputs.push_back(scale);
+
+    ASSERT_EQ(edge_fed_mask(ir, node), std::vector<bool>({true, false}));
+}
+
+/// @brief it should mark a param edge-fed even when it also carries a default
+TEST(IRTest, testEdgeFedMaskDefaultedParamStillEdgeFed) {
+    IR ir;
+    ir.edges.emplace_back(Handle("src", default_output_param), Handle("math", "reset"));
+
+    Node node;
+    node.key = "math";
+    types::Param reset;
+    reset.name = "reset";
+    reset.value = 0;
+    node.inputs.push_back(reset);
+
+    ASSERT_EQ(edge_fed_mask(ir, node), std::vector<bool>({true}));
+}
+
+/// @brief it should return an empty mask for a node with no inputs
+TEST(IRTest, testEdgeFedMaskNoInputs) {
+    IR ir;
+    Node node;
+    node.key = "x";
+    ASSERT_TRUE(edge_fed_mask(ir, node).empty());
+}
+
 /// @brief it should format a Handle as "node.param"
 TEST(IRTest, testHandleToString) {
     const Handle h("node_a", "output");
