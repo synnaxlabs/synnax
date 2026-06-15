@@ -51,7 +51,7 @@ func synthesizeCreateTypes(c *analysisCtx) {
 			QualifiedName: c.namespace + ".New",
 			FilePath:      c.filePath,
 			Form: resolution.StructForm{
-				Extends:       []resolution.TypeRef{{Name: typ.Name}},
+				Extends:       []resolution.TypeRef{{Name: typ.QualifiedName}},
 				OmittedFields: omitted,
 			},
 			Domains: newTypeDomains(typ),
@@ -68,21 +68,41 @@ func synthesizeCreateTypes(c *analysisCtx) {
 // TypeScript and Python output paths (so the New lands in the same files) and adds
 // `use_input` for TS. The New is omitted from Go, protobuf, and C++, where the base
 // struct is reused rather than a distinct input type.
+//
+// The base's `name` and `omit` expressions are deliberately dropped: the New is a
+// distinct sibling that emits under its own name (`New`), so it must not adopt the
+// base's renamed identifier (which would collide with the base) nor its omission (a
+// `@py omit` base is still creatable, so its New must be generated).
 func newTypeDomains(base resolution.Type) map[string]resolution.Domain {
 	domains := map[string]resolution.Domain{
 		"go":  {Name: "go", Expressions: resolution.Expressions{{Name: "omit"}}},
 		"pb":  {Name: "pb", Expressions: resolution.Expressions{{Name: "omit"}}},
 		"cpp": {Name: "cpp", Expressions: resolution.Expressions{{Name: "omit"}}},
 	}
-	if ts, ok := base.Domains["ts"]; ok {
-		exprs := append(resolution.Expressions{}, ts.Expressions...)
-		exprs = append(exprs, resolution.Expression{Name: "use_input"})
-		domains["ts"] = resolution.Domain{Name: "ts", Expressions: exprs}
-	} else {
-		domains["ts"] = resolution.Domain{Name: "ts", Expressions: resolution.Expressions{{Name: "use_input"}}}
-	}
-	if py, ok := base.Domains["py"]; ok {
-		domains["py"] = resolution.Domain{Name: "py", Expressions: append(resolution.Expressions{}, py.Expressions...)}
+	tsExprs := inheritedNewExpressions(base, "ts")
+	tsExprs = append(tsExprs, resolution.Expression{Name: "use_input"})
+	domains["ts"] = resolution.Domain{Name: "ts", Expressions: tsExprs}
+	if _, ok := base.Domains["py"]; ok {
+		domains["py"] = resolution.Domain{Name: "py", Expressions: inheritedNewExpressions(base, "py")}
 	}
 	return domains
+}
+
+// inheritedNewExpressions returns the base type's expressions for the given domain with
+// `name` and `omit` removed, so a synthesized New inherits output paths and behavioral
+// flags but not the base's identity or omission. Returns an empty slice when the base
+// has no such domain.
+func inheritedNewExpressions(base resolution.Type, domain string) resolution.Expressions {
+	d, ok := base.Domains[domain]
+	if !ok {
+		return resolution.Expressions{}
+	}
+	out := make(resolution.Expressions, 0, len(d.Expressions))
+	for _, e := range d.Expressions {
+		if e.Name == "name" || e.Name == "omit" {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out
 }

@@ -63,7 +63,10 @@ var _ = Describe("Create and Output markers", func() {
 
 		form := newType.Form.(resolution.StructForm)
 		Expect(form.Extends).To(HaveLen(1))
-		Expect(form.Extends[0].Name).To(Equal("Thing"))
+		Expect(form.Extends[0].Name).To(Equal("x.Thing"))
+		resolved, resolvedOK := form.Extends[0].Resolve(table)
+		Expect(resolvedOK).To(BeTrue())
+		Expect(resolved.Name).To(Equal("Thing"))
 		Expect(form.OmittedFields).To(ContainElement("author"))
 		Expect(newType.Domains).To(HaveKey("ts"))
 		Expect(newType.Domains).To(HaveKey("go"))

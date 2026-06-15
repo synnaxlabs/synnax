@@ -37,12 +37,34 @@ var _ = Describe("Derived New from @create", func() {
 			}
 		`
 		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
-		// The derived New is emitted as a z.input projection that omits the @output
-		// author field via .omit (the analyzer test asserts author is in OmittedFields).
 		ExpectContent(resp, "types.gen.ts").ToContain(
-			"export const newZ",
-			"z.input<typeof newZ>",
-			"author",
+			"export const newZ = thingZ",
+			".omit({ author: true })",
+			"export interface New extends z.input<typeof newZ> {}",
+		)
+	})
+
+	It("Should derive New under its own name when the base is renamed", func(ctx SpecContext) {
+		source := `
+			@ts output "client/ts/src/thing"
+
+			Thing struct {
+				key    uuid @key
+				name   string
+				author uuid @output
+				@create
+				@ts name "Payload"
+			}
+		`
+		resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+		// The derived New must emit as newZ/New, extending the base's payloadZ, not
+		// re-emit the base's renamed payloadZ/Payload (which would be a duplicate
+		// symbol with an empty body).
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			"export const payloadZ = z.object(",
+			"export const newZ = payloadZ",
+			".omit({ author: true })",
+			"export interface New extends z.input<typeof newZ> {}",
 		)
 	})
 })
