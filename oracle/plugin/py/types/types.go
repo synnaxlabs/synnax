@@ -68,6 +68,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		MergeByName:     true,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
+		CollectUnions:   true,
 	}
 	return gen.Generate(req)
 }
@@ -76,7 +77,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type pyFileGenerator struct{}
 
 func (g *pyFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table)
+	content, err := generatePyFile(ctx.Namespace, ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table)
 	if err != nil {
 		return "", err
 	}
@@ -89,6 +90,7 @@ func generatePyFile(
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
+	unions []resolution.Type,
 	table *resolution.Table,
 ) ([]byte, error) {
 	data := &templateData{
@@ -152,10 +154,11 @@ func generatePyFile(
 		data.Enums = append(data.Enums, processEnum(e, data))
 	}
 
-	// Combine aliases and structs for topological sorting
+	// Combine aliases, structs, and unions for topological sorting
 	var combinedTypes []resolution.Type
 	combinedTypes = append(combinedTypes, aliasTypeDefs...)
 	combinedTypes = append(combinedTypes, structs...)
+	combinedTypes = append(combinedTypes, unions...)
 
 	// Sort topologically so dependencies come before dependents
 	sortedTypes := table.TopologicalSort(combinedTypes)
@@ -180,6 +183,11 @@ func generatePyFile(
 			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
 				IsStruct: true,
 				Struct:   sd,
+			})
+		case resolution.UnionForm:
+			data.SortedDecls = append(data.SortedDecls, sortedDeclData{
+				IsUnion: true,
+				Union:   processUnion(typ, table, data, keyFields),
 			})
 		}
 	}
@@ -619,6 +627,16 @@ func getPyName(typ resolution.Type) string {
 func buildExtendsExpr(extendsRef resolution.TypeRef, parent resolution.Type, table *resolution.Table, data *templateData) string {
 	baseName := getPyName(parent)
 
+	// A base class defined in another schema module must be imported and
+	// referenced through its module alias (e.g. task_.BaseReadConfig).
+	if parent.Namespace != data.Namespace {
+		outputPath := output.GetPath(parent, "py")
+		if outputPath == "" {
+			outputPath = parent.Namespace
+		}
+		baseName = addCrossNamespaceImport(toPythonModulePath(outputPath), baseName, data)
+	}
+
 	// Check if parent is generic
 	parentForm, ok := parent.Form.(resolution.StructForm)
 	if !ok || !parentForm.IsGeneric() {
@@ -914,6 +932,13 @@ func pyArrayElementType(typeRef resolution.TypeRef) resolution.TypeRef {
 }
 
 func enumVariantToPython(ev validation.EnumVariant, table *resolution.Table, data *templateData) string {
+	// String-valued enums are emitted as a Literal alias with no runtime class to
+	// dot into, so reference the variant's string value directly (the field's type
+	// is that Literal). Only integer enums become IntEnum classes whose members can
+	// be accessed as Enum.variant.
+	if form, ok := ev.Type.Form.(resolution.EnumForm); ok && !form.IsIntEnum {
+		return fmt.Sprintf("%q", ev.Variant.StringValue())
+	}
 	enumName := domain.GetName(ev.Type, "py")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
 	if ev.Type.Namespace != data.Namespace {
@@ -1121,6 +1146,17 @@ func typeToPython(
 		return pyName
 
 	case resolution.AliasForm:
+		if resolved.Namespace != data.Namespace {
+			outputPath := output.GetPath(resolved, "py")
+			if outputPath == "" {
+				outputPath = resolved.Namespace
+			}
+			modulePath := toPythonModulePath(outputPath)
+			return addCrossNamespaceImport(modulePath, pyName, data)
+		}
+		return pyName
+
+	case resolution.UnionForm:
 		if resolved.Namespace != data.Namespace {
 			outputPath := output.GetPath(resolved, "py")
 			if outputPath == "" {
@@ -1345,8 +1381,10 @@ type templateData struct {
 type sortedDeclData struct {
 	TypeDef   typeDefData
 	Struct    structData
+	Union     unionData
 	IsTypeDef bool
 	IsStruct  bool
+	IsUnion   bool
 }
 
 type typeDefData struct {
@@ -1449,26 +1487,59 @@ type moduleImportData struct {
 	Alias string
 }
 
-func formatGoogleDocstring(s structData) string {
-	fields := make([]doc.FieldDoc, 0, len(s.Fields))
-	for _, f := range s.Fields {
+func googleDocstring(docText string, fields []fieldData) string {
+	fds := make([]doc.FieldDoc, 0, len(fields))
+	for _, f := range fields {
 		if f.Doc != "" {
-			fields = append(fields, doc.FieldDoc{Name: f.Name, Doc: f.Doc})
+			fds = append(fds, doc.FieldDoc{Name: f.Name, Doc: f.Doc})
 		}
 	}
-	return doc.FormatPyDocstringGoogle(s.Doc, fields)
+	return doc.FormatPyDocstringGoogle(docText, fds)
 }
 
-func hasDocumentation(s structData) bool {
-	if s.Doc != "" {
+func hasFieldOrTypeDoc(docText string, fields []fieldData) bool {
+	if docText != "" {
 		return true
 	}
-	for _, f := range s.Fields {
+	for _, f := range fields {
 		if f.Doc != "" {
 			return true
 		}
 	}
 	return false
+}
+
+func formatGoogleDocstring(s structData) string {
+	return googleDocstring(s.Doc, s.Fields)
+}
+
+func hasDocumentation(s structData) bool {
+	return hasFieldOrTypeDoc(s.Doc, s.Fields)
+}
+
+// formatVariantDocstring renders a union variant's summary docstring. A variant
+// inherits its fields from the union base and payload classes, which carry the
+// field-level docs, so the variant docstring is a bare summary with no
+// Attributes section.
+func formatVariantDocstring(v unionVariantData) string {
+	return googleDocstring(v.Doc, nil)
+}
+
+// pyDocComment renders doc text as a Python line comment, capitalizing the first
+// letter (Python convention omits the identifier name) and prefixing every line
+// with "# ". It is used to document module-level aliases that cannot carry a
+// docstring, such as a discriminated union's Annotated alias.
+func pyDocComment(docText string) string {
+	if docText == "" {
+		return ""
+	}
+	r := []rune(docText)
+	docText = strings.ToUpper(string(r[0])) + string(r[1:])
+	lines := strings.Split(docText, "\n")
+	for i := range lines {
+		lines[i] = "# " + lines[i]
+	}
+	return strings.Join(lines, "\n")
 }
 
 // genericArg returns the Python type argument for a type parameter in Generic[...].
@@ -1486,14 +1557,16 @@ func toScreamingSnake(s string) string {
 }
 
 var templateFuncs = template.FuncMap{
-	"title":                 lo.Capitalize,
-	"join":                  strings.Join,
-	"upper":                 strings.ToUpper,
-	"screamingSnake":        toScreamingSnake,
-	"formatGoogleDocstring": formatGoogleDocstring,
-	"hasDocumentation":      hasDocumentation,
-	"genericArg":            genericArg,
-	"hasTypeParams":         hasTypeParams,
+	"title":                  lo.Capitalize,
+	"join":                   strings.Join,
+	"upper":                  strings.ToUpper,
+	"screamingSnake":         toScreamingSnake,
+	"formatGoogleDocstring":  formatGoogleDocstring,
+	"hasDocumentation":       hasDocumentation,
+	"formatVariantDocstring": formatVariantDocstring,
+	"pyDocComment":           pyDocComment,
+	"genericArg":             genericArg,
+	"hasTypeParams":          hasTypeParams,
 }
 
 var fileTemplate = template.Must(template.New("python").Funcs(templateFuncs).Parse(`# Code generated by Oracle. DO NOT EDIT.
@@ -1633,8 +1706,35 @@ class {{ .PyName }}(BaseModel):
     def __hash__(self) -> int:
         return hash(self.{{ .KeyField }})
 {{- end }}
+{{- if and (not .Fields) (not .KeyField) (not (hasDocumentation .)) (not .HasKeywordAlias) }}
+    pass
 {{- end }}
 {{- end }}
+{{- end }}
+{{- end }}
+{{- else if .IsUnion }}
+{{- with .Union }}
+{{- $disc := .DiscName }}
+{{- range .Variants }}
+
+
+class {{ .ClassName }}({{ range $i, $p := .Parents }}{{ if $i }}, {{ end }}{{ $p }}{{ end }}):
+{{- if .Doc }}
+{{ formatVariantDocstring . }}
+{{- end }}
+    {{ $disc }}: Literal["{{ .Value }}"]
+{{- range .Fields }}
+    {{ .Name }}: {{ .PyType }}{{ .Default }}
+{{- end }}
+{{- end }}
+
+
+{{ if .Doc }}{{ pyDocComment .Doc }}
+{{ end -}}
+{{ .Name }} = Annotated[
+    Union[{{ range $i, $v := .Variants }}{{ if $i }}, {{ end }}{{ $v.ClassName }}{{ end }}],
+    Field(discriminator="{{ .DiscName }}"),
+]
 {{- end }}
 {{- end }}
 {{- end }}

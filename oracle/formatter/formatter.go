@@ -263,6 +263,8 @@ func (f *formatter) formatDefinition(ctx parser.IDefinitionContext) {
 		f.formatEnumDef(ctx.EnumDef())
 	} else if ctx.TypeDefDef() != nil {
 		f.formatTypeDefDef(ctx.TypeDefDef())
+	} else if ctx.UnionDef() != nil {
+		f.formatUnionDef(ctx.UnionDef())
 	}
 }
 
@@ -1166,6 +1168,134 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 		f.write(ctx.STRING_LIT().GetText())
 	}
 	f.newline()
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatUnionDef(ctx parser.IUnionDefContext) {
+	idents := ctx.AllIDENT()
+	if len(idents) < 3 {
+		return
+	}
+	f.write(idents[0].GetText())
+	f.write(" union on ")
+	f.write(idents[2].GetText())
+
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
+		f.write(" extends ")
+		for i, tr := range ctx.TypeRefList().AllTypeRef() {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.formatTypeRef(tr)
+		}
+	}
+
+	body := ctx.UnionBody()
+	if isEmptyUnionBody(body) {
+		f.writeLine(" {}")
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatUnionBody(body)
+	f.currentIndent--
+	f.writeLine("}")
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func isEmptyUnionBody(ctx parser.IUnionBodyContext) bool {
+	return ctx == nil || (len(ctx.AllUnionVariant()) == 0 && len(ctx.AllDomain()) == 0)
+}
+
+func (f *formatter) formatUnionBody(ctx parser.IUnionBodyContext) {
+	variants := ctx.AllUnionVariant()
+	domains := ctx.AllDomain()
+
+	maxNameLen := 0
+	for _, v := range variants {
+		if named, ok := v.(*parser.NamedVariantContext); ok {
+			if nameLen := len(named.VariantName().GetText()); nameLen > maxNameLen {
+				maxNameLen = nameLen
+			}
+		}
+	}
+
+	for _, v := range variants {
+		f.emitCommentsBefore(v.GetStart().GetTokenIndex())
+		f.formatUnionVariant(v, maxNameLen)
+	}
+
+	if len(variants) > 0 && len(domains) > 0 {
+		f.newline()
+	}
+	f.formatDomains(domains)
+}
+
+func (f *formatter) formatUnionVariant(ctx parser.IUnionVariantContext, nameWidth int) {
+	switch v := ctx.(type) {
+	case *parser.NamedVariantContext:
+		f.formatNamedVariant(v, nameWidth)
+	case *parser.InlineVariantContext:
+		f.formatInlineVariant(v)
+	}
+}
+
+func (f *formatter) formatNamedVariant(ctx *parser.NamedVariantContext, nameWidth int) {
+	f.writeIndent()
+	name := ctx.VariantName().GetText()
+	f.write(name)
+	f.writePadding(nameWidth - len(name))
+	f.write(" ")
+	f.write(f.formatTypeRefToString(ctx.TypeRef()))
+
+	body := ctx.UnionVariantBody()
+	if body == nil || len(body.AllDomain()) == 0 {
+		f.newline()
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatDomains(body.AllDomain())
+	f.currentIndent--
+	f.writeIndent()
+	f.writeLine("}")
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+// formatInlineVariant renders an inline variant body with struct-body
+// formatting: name, optional extends clause, then fields and domains.
+func (f *formatter) formatInlineVariant(ctx *parser.InlineVariantContext) {
+	f.writeIndent()
+	f.write(ctx.VariantName().GetText())
+	if ctx.EXTENDS() != nil && ctx.TypeRefList() != nil {
+		f.write(" extends ")
+		for i, tr := range ctx.TypeRefList().AllTypeRef() {
+			if i > 0 {
+				f.write(", ")
+			}
+			f.formatTypeRef(tr)
+		}
+	}
+
+	body := ctx.StructBody()
+	if body == nil ||
+		(len(body.AllFieldDef()) == 0 && len(body.AllDomain()) == 0 &&
+			len(body.AllFieldOmit()) == 0 && len(body.AllActionDef()) == 0) {
+		f.writeLine(" {}")
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatStructBody(body)
+	f.currentIndent--
+	f.writeIndent()
+	f.writeLine("}")
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 

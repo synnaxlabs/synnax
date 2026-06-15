@@ -27,7 +27,7 @@ const toColor = (hex: string): color.Color | undefined =>
 // single channel or range only need to set what they have; the rest fills
 // from the newZ schema defaults at upload time.
 const pendingUploadZ = lineplot.linePlotZ.omit({ name: true }).partial();
-export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
+interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = v4.stateZ
   .omit({

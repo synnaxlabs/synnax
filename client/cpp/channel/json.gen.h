@@ -25,8 +25,9 @@ namespace synnax::channel {
 inline Operation Operation::parse(x::json::Parser parser) {
     return Operation{
         .type = parser.field<std::string>("type"),
-        .reset_channel = parser.field<Key>("reset_channel"),
-        .duration = parser.field<::x::telem::TimeSpan>("duration"),
+        .reset_channel = parser.field<Key>("reset_channel", 0),
+        .duration = parser
+                        .field<::x::telem::TimeSpan>("duration", x::telem::TimeSpan(0)),
     };
 }
 
@@ -47,9 +48,9 @@ inline Channel Channel::parse(x::json::Parser parser) {
         .is_index = parser.field<bool>("is_index"),
         .index = parser.field<Key>("index"),
         .alias = parser.field<std::string>("alias", ""),
-        .is_virtual = parser.field<bool>("virtual"),
-        .internal = parser.field<bool>("internal"),
-        .expression = parser.field<std::string>("expression"),
+        .is_virtual = parser.field<bool>("virtual", false),
+        .internal = parser.field<bool>("internal", false),
+        .expression = parser.field<std::string>("expression", ""),
         .operations = parser.field<std::vector<Operation>>("operations"),
         .concurrency = parser.field<::x::control::Concurrency>("concurrency"),
         .status = parser.field<std::optional<Status>>("status"),

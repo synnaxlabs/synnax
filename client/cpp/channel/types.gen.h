@@ -108,7 +108,7 @@ struct Channel {
     /// @brief expression is an Arc expression for calculated channels. If set, the
     /// channel
     /// is automatically configured as virtual.
-    std::string expression;
+    std::string expression = "";
     /// @brief operations contains optional aggregation operations (min, max, avg)
     /// applied
     /// to channel data over time or triggered by a reset channel.

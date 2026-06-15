@@ -8,8 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { log } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
@@ -20,15 +18,12 @@ import {
   selectActiveToolbarTab,
   selectExists,
   selectOptional,
-  selectPendingUpload,
   selectSliceState,
   selectVersion,
   useSelect,
   useSelectExists,
-  useSelectPendingUpload,
 } from "@/log/selectors";
 import {
-  type PendingUpload,
   reducer,
   SLICE_NAME,
   type State,
@@ -39,15 +34,10 @@ import {
 
 const KEY = "log-1";
 
-const PENDING: PendingUpload = log.newZ.omit({ name: true }).parse({
-  channels: [log.channelEntryZ.parse({ channel: 42, color: color.ZERO })],
-});
-
 const entry: State = {
   ...ZERO_STATE,
   key: KEY,
   toolbar: { ...ZERO_STATE.toolbar, activeTab: "properties" },
-  pendingUpload: PENDING,
 };
 
 const state: StoreState = {
@@ -105,13 +95,6 @@ describe("log selectors", () => {
     });
   });
 
-  describe("selectPendingUpload", () => {
-    it("reads the pending upload, undefined when absent", () => {
-      expect(selectPendingUpload(state, KEY)).toBe(PENDING);
-      expect(selectPendingUpload(empty, "absent")).toBeUndefined();
-    });
-  });
-
   describe("hooks", () => {
     it("useSelect reads through the Redux provider", () => {
       const { result } = renderHook(() => useSelect(KEY), {
@@ -125,13 +108,6 @@ describe("log selectors", () => {
         wrapper: wrapperFor(state),
       });
       expect(result.current).toBe(true);
-    });
-
-    it("useSelectPendingUpload reads through the Redux provider", () => {
-      const { result } = renderHook(() => useSelectPendingUpload(KEY), {
-        wrapper: wrapperFor(state),
-      });
-      expect(result.current).toBe(PENDING);
     });
   });
 });

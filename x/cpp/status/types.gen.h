@@ -49,7 +49,7 @@ struct Status {
     /// context.
     std::string description;
     /// @brief time is the timestamp when the status was created.
-    ::x::telem::TimeStamp time = x::telem::TimeStamp(0);
+    ::x::telem::TimeStamp time = x::telem::TimeStamp::now();
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;

@@ -116,46 +116,37 @@ var _ = Describe("Codec", func() {
 							},
 							Kind: types.Kind(0),
 							Name: "test_17",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_23",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      30.5,
-									Name:       "test_31",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_37",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_23",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      30.5,
+								Name:       "test_31",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_37",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_43": "value_43"},
@@ -190,46 +181,37 @@ var _ = Describe("Codec", func() {
 							},
 							Kind: types.Kind(0),
 							Name: "test_60",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_66",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      73.5,
-									Name:       "test_74",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_80",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_66",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      73.5,
+								Name:       "test_74",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_80",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_86": "value_86"},
@@ -264,46 +246,37 @@ var _ = Describe("Codec", func() {
 							},
 							Kind: types.Kind(0),
 							Name: "test_103",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_109",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      116.5,
-									Name:       "test_117",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_123",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_109",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      116.5,
+								Name:       "test_117",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_123",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_129": "value_129"},
@@ -348,9 +321,9 @@ var _ = Describe("Codec", func() {
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_10",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
 								Value: map[string]interface{}{"key_15": "value_15"},
@@ -367,9 +340,9 @@ var _ = Describe("Codec", func() {
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_23",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
 								Value: map[string]interface{}{"key_28": "value_28"},
@@ -386,9 +359,9 @@ var _ = Describe("Codec", func() {
 									},
 									Kind:          types.Kind(0),
 									Name:          "test_36",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
 								Value: map[string]interface{}{"key_41": "value_41"},
@@ -397,165 +370,138 @@ var _ = Describe("Codec", func() {
 					},
 					Kind: types.Kind(0),
 					Name: "test_43",
-					Elem: func() *types.Type {
-						v := types.Type{
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs: []types.Param{
+								{
+									Name:  "test_46",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_48": "value_48"},
+								},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_50",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_52": "value_52"},
+								},
+							},
+							Config: []types.Param{
+								{
+									Name:  "test_54",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_56": "value_56"},
+								},
+							},
+						},
+						Kind: types.Kind(0),
+						Name: "test_58",
+						Elem: new(types.Type{
 							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_46",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_48": "value_48"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_50",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_52": "value_52"},
-									},
-								},
-								Config: []types.Param{
-									{
-										Name:  "test_54",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_56": "value_56"},
-									},
-								},
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
 							},
-							Kind: types.Kind(0),
-							Name: "test_58",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_64",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      71.5,
-									Name:       "test_72",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_78",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Kind:          types.Kind(0),
+							Name:          "test_64",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{
-								Length:      87,
-								Mass:        88,
-								Time:        89,
-								Current:     90,
-								Temperature: 91,
-								Angle:       92,
-								Count:       93,
-								Data:        94,
-							},
-							Scale: 94.5,
-							Name:  "test_95",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      71.5,
+							Name:       "test_72",
+						}),
+						Constraint: new(types.Type{
 							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_98",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_100": "value_100"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_102",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_104": "value_104"},
-									},
-								},
-								Config: []types.Param{
-									{
-										Name:  "test_106",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_108": "value_108"},
-									},
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_78",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{
+							Length:      87,
+							Mass:        88,
+							Time:        89,
+							Current:     90,
+							Temperature: 91,
+							Angle:       92,
+							Count:       93,
+							Data:        94,
+						},
+						Scale: 94.5,
+						Name:  "test_95",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs: []types.Param{
+								{
+									Name:  "test_98",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_100": "value_100"},
 								},
 							},
-							Kind: types.Kind(0),
-							Name: "test_110",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_116",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      123.5,
-									Name:       "test_124",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_130",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Outputs: []types.Param{
+								{
+									Name:  "test_102",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_104": "value_104"},
+								},
+							},
+							Config: []types.Param{
+								{
+									Name:  "test_106",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_108": "value_108"},
+								},
+							},
+						},
+						Kind: types.Kind(0),
+						Name: "test_110",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_116",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      123.5,
+							Name:       "test_124",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_130",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_137": "value_137"},
@@ -621,46 +567,37 @@ var _ = Describe("Codec", func() {
 								},
 								Kind: types.Kind(0),
 								Name: "test_17",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_23",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      30.5,
-										Name:       "test_31",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_37",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
+								Elem: new(types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_23",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								}),
+								Unit: new(types.Unit{
+									Dimensions: types.Dimensions{},
+									Scale:      30.5,
+									Name:       "test_31",
+								}),
+								Constraint: new(types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_37",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_43": "value_43"},
@@ -695,46 +632,37 @@ var _ = Describe("Codec", func() {
 								},
 								Kind: types.Kind(0),
 								Name: "test_60",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_66",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      73.5,
-										Name:       "test_74",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_80",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
+								Elem: new(types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_66",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								}),
+								Unit: new(types.Unit{
+									Dimensions: types.Dimensions{},
+									Scale:      73.5,
+									Name:       "test_74",
+								}),
+								Constraint: new(types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_80",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_86": "value_86"},
@@ -769,46 +697,37 @@ var _ = Describe("Codec", func() {
 								},
 								Kind: types.Kind(0),
 								Name: "test_103",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_109",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      116.5,
-										Name:       "test_117",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_123",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
+								Elem: new(types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_109",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								}),
+								Unit: new(types.Unit{
+									Dimensions: types.Dimensions{},
+									Scale:      116.5,
+									Name:       "test_117",
+								}),
+								Constraint: new(types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_123",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_129": "value_129"},
@@ -817,475 +736,412 @@ var _ = Describe("Codec", func() {
 				},
 				Kind: types.Kind(0),
 				Name: "test_131",
-				Elem: func() *types.Type {
-					v := types.Type{
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs: []types.Param{
+							{
+								Name: "test_134",
+								Type: types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_140",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								},
+								Value: map[string]interface{}{"key_145": "value_145"},
+							},
+						},
+						Outputs: []types.Param{
+							{
+								Name: "test_147",
+								Type: types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_153",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								},
+								Value: map[string]interface{}{"key_158": "value_158"},
+							},
+						},
+						Config: []types.Param{
+							{
+								Name: "test_160",
+								Type: types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_166",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								},
+								Value: map[string]interface{}{"key_171": "value_171"},
+							},
+						},
+					},
+					Kind: types.Kind(0),
+					Name: "test_173",
+					Elem: new(types.Type{
 						FunctionProperties: types.FunctionProperties{
 							Inputs: []types.Param{
 								{
-									Name: "test_134",
-									Type: types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_140",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									},
-									Value: map[string]interface{}{"key_145": "value_145"},
+									Name:  "test_176",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_178": "value_178"},
 								},
 							},
 							Outputs: []types.Param{
 								{
-									Name: "test_147",
-									Type: types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_153",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									},
-									Value: map[string]interface{}{"key_158": "value_158"},
+									Name:  "test_180",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_182": "value_182"},
 								},
 							},
 							Config: []types.Param{
 								{
-									Name: "test_160",
-									Type: types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_166",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									},
-									Value: map[string]interface{}{"key_171": "value_171"},
+									Name:  "test_184",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_186": "value_186"},
 								},
 							},
 						},
 						Kind: types.Kind(0),
-						Name: "test_173",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs: []types.Param{
-										{
-											Name:  "test_176",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_178": "value_178"},
-										},
-									},
-									Outputs: []types.Param{
-										{
-											Name:  "test_180",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_182": "value_182"},
-										},
-									},
-									Config: []types.Param{
-										{
-											Name:  "test_184",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_186": "value_186"},
-										},
-									},
-								},
-								Kind: types.Kind(0),
-								Name: "test_188",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_194",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      201.5,
-										Name:       "test_202",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_208",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{
-									Length:      91,
-									Mass:        92,
-									Time:        93,
-									Current:     94,
-									Temperature: 95,
-									Angle:       96,
-									Count:       97,
-									Data:        98,
-								},
-								Scale: 224.5,
-								Name:  "test_225",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs: []types.Param{
-										{
-											Name:  "test_228",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_230": "value_230"},
-										},
-									},
-									Outputs: []types.Param{
-										{
-											Name:  "test_232",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_234": "value_234"},
-										},
-									},
-									Config: []types.Param{
-										{
-											Name:  "test_236",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_238": "value_238"},
-										},
-									},
-								},
-								Kind: types.Kind(0),
-								Name: "test_240",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_246",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      253.5,
-										Name:       "test_254",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_260",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Name: "test_188",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_194",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      201.5,
+							Name:       "test_202",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_208",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
-				Unit: func() *types.Unit {
-					v := types.Unit{
+					}),
+					Unit: new(types.Unit{
 						Dimensions: types.Dimensions{
-							Length:      18,
-							Mass:        19,
-							Time:        20,
-							Current:     21,
-							Temperature: 22,
-							Angle:       23,
-							Count:       24,
-							Data:        25,
+							Length:      91,
+							Mass:        92,
+							Time:        93,
+							Current:     94,
+							Temperature: 95,
+							Angle:       96,
+							Count:       97,
+							Data:        98,
 						},
-						Scale: 277.5,
-						Name:  "test_278",
-					}
-					return &v
-				}(),
-				Constraint: func() *types.Type {
-					v := types.Type{
+						Scale: 224.5,
+						Name:  "test_225",
+					}),
+					Constraint: new(types.Type{
 						FunctionProperties: types.FunctionProperties{
 							Inputs: []types.Param{
 								{
-									Name: "test_281",
-									Type: types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_287",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									},
-									Value: map[string]interface{}{"key_292": "value_292"},
+									Name:  "test_228",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_230": "value_230"},
 								},
 							},
 							Outputs: []types.Param{
 								{
-									Name: "test_294",
-									Type: types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_300",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									},
-									Value: map[string]interface{}{"key_305": "value_305"},
+									Name:  "test_232",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_234": "value_234"},
 								},
 							},
 							Config: []types.Param{
 								{
-									Name: "test_307",
-									Type: types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_313",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									},
-									Value: map[string]interface{}{"key_318": "value_318"},
+									Name:  "test_236",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_238": "value_238"},
 								},
 							},
 						},
 						Kind: types.Kind(0),
-						Name: "test_320",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs: []types.Param{
-										{
-											Name:  "test_323",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_325": "value_325"},
-										},
-									},
-									Outputs: []types.Param{
-										{
-											Name:  "test_327",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_329": "value_329"},
-										},
-									},
-									Config: []types.Param{
-										{
-											Name:  "test_331",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_333": "value_333"},
-										},
-									},
-								},
-								Kind: types.Kind(0),
-								Name: "test_335",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_341",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      348.5,
-										Name:       "test_349",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_355",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{
-									Length:      112,
-									Mass:        113,
-									Time:        114,
-									Current:     115,
-									Temperature: 116,
-									Angle:       117,
-									Count:       118,
-									Data:        119,
-								},
-								Scale: 371.5,
-								Name:  "test_372",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs: []types.Param{
-										{
-											Name:  "test_375",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_377": "value_377"},
-										},
-									},
-									Outputs: []types.Param{
-										{
-											Name:  "test_379",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_381": "value_381"},
-										},
-									},
-									Config: []types.Param{
-										{
-											Name:  "test_383",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_385": "value_385"},
-										},
-									},
-								},
-								Kind: types.Kind(0),
-								Name: "test_387",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_393",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      400.5,
-										Name:       "test_401",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_407",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Name: "test_240",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_246",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      253.5,
+							Name:       "test_254",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_260",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{
+						Length:      18,
+						Mass:        19,
+						Time:        20,
+						Current:     21,
+						Temperature: 22,
+						Angle:       23,
+						Count:       24,
+						Data:        25,
+					},
+					Scale: 277.5,
+					Name:  "test_278",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs: []types.Param{
+							{
+								Name: "test_281",
+								Type: types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_287",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								},
+								Value: map[string]interface{}{"key_292": "value_292"},
+							},
+						},
+						Outputs: []types.Param{
+							{
+								Name: "test_294",
+								Type: types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_300",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								},
+								Value: map[string]interface{}{"key_305": "value_305"},
+							},
+						},
+						Config: []types.Param{
+							{
+								Name: "test_307",
+								Type: types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_313",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								},
+								Value: map[string]interface{}{"key_318": "value_318"},
+							},
+						},
+					},
+					Kind: types.Kind(0),
+					Name: "test_320",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs: []types.Param{
+								{
+									Name:  "test_323",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_325": "value_325"},
+								},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_327",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_329": "value_329"},
+								},
+							},
+							Config: []types.Param{
+								{
+									Name:  "test_331",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_333": "value_333"},
+								},
+							},
+						},
+						Kind: types.Kind(0),
+						Name: "test_335",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_341",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      348.5,
+							Name:       "test_349",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_355",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{
+							Length:      112,
+							Mass:        113,
+							Time:        114,
+							Current:     115,
+							Temperature: 116,
+							Angle:       117,
+							Count:       118,
+							Data:        119,
+						},
+						Scale: 371.5,
+						Name:  "test_372",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs: []types.Param{
+								{
+									Name:  "test_375",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_377": "value_377"},
+								},
+							},
+							Outputs: []types.Param{
+								{
+									Name:  "test_379",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_381": "value_381"},
+								},
+							},
+							Config: []types.Param{
+								{
+									Name:  "test_383",
+									Type:  types.Type{},
+									Value: map[string]interface{}{"key_385": "value_385"},
+								},
+							},
+						},
+						Kind: types.Kind(0),
+						Name: "test_387",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_393",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      400.5,
+							Name:       "test_401",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_407",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
 				ChanDirection: types.ChanDirection(0),
 			}),
 			Entry("zero values", types.Type{
@@ -1309,295 +1165,232 @@ var _ = Describe("Codec", func() {
 				},
 				Kind: types.Kind(0),
 				Name: "test_5",
-				Elem: func() *types.Type {
-					v := types.Type{
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{},
+						Outputs: []types.Param{},
+						Config:  []types.Param{},
+					},
+					Kind: types.Kind(0),
+					Name: "test_11",
+					Elem: new(types.Type{
 						FunctionProperties: types.FunctionProperties{
 							Inputs:  []types.Param{},
 							Outputs: []types.Param{},
 							Config:  []types.Param{},
 						},
 						Kind: types.Kind(0),
-						Name: "test_11",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{},
-									Outputs: []types.Param{},
-									Config:  []types.Param{},
-								},
-								Kind: types.Kind(0),
-								Name: "test_17",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{},
-											Outputs: []types.Param{},
-											Config:  []types.Param{},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_23",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      30.5,
-										Name:       "test_31",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{},
-											Outputs: []types.Param{},
-											Config:  []types.Param{},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_37",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{
-									Length:      46,
-									Mass:        47,
-									Time:        48,
-									Current:     49,
-									Temperature: 50,
-									Angle:       51,
-									Count:       52,
-									Data:        53,
-								},
-								Scale: 53.5,
-								Name:  "test_54",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{},
-									Outputs: []types.Param{},
-									Config:  []types.Param{},
-								},
-								Kind: types.Kind(0),
-								Name: "test_60",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{},
-											Outputs: []types.Param{},
-											Config:  []types.Param{},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_66",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      73.5,
-										Name:       "test_74",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{},
-											Outputs: []types.Param{},
-											Config:  []types.Param{},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_80",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Name: "test_17",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{},
+								Outputs: []types.Param{},
+								Config:  []types.Param{},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_23",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      30.5,
+							Name:       "test_31",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{},
+								Outputs: []types.Param{},
+								Config:  []types.Param{},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_37",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
-				Unit: func() *types.Unit {
-					v := types.Unit{
+					}),
+					Unit: new(types.Unit{
 						Dimensions: types.Dimensions{
-							Length:      90,
-							Mass:        91,
-							Time:        92,
-							Current:     93,
-							Temperature: 94,
-							Angle:       95,
-							Count:       96,
-							Data:        97,
+							Length:      46,
+							Mass:        47,
+							Time:        48,
+							Current:     49,
+							Temperature: 50,
+							Angle:       51,
+							Count:       52,
+							Data:        53,
 						},
-						Scale: 97.5,
-						Name:  "test_98",
-					}
-					return &v
-				}(),
-				Constraint: func() *types.Type {
-					v := types.Type{
+						Scale: 53.5,
+						Name:  "test_54",
+					}),
+					Constraint: new(types.Type{
 						FunctionProperties: types.FunctionProperties{
 							Inputs:  []types.Param{},
 							Outputs: []types.Param{},
 							Config:  []types.Param{},
 						},
 						Kind: types.Kind(0),
-						Name: "test_104",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{},
-									Outputs: []types.Param{},
-									Config:  []types.Param{},
-								},
-								Kind: types.Kind(0),
-								Name: "test_110",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{},
-											Outputs: []types.Param{},
-											Config:  []types.Param{},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_116",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      123.5,
-										Name:       "test_124",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{},
-											Outputs: []types.Param{},
-											Config:  []types.Param{},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_130",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{
-									Length:      13,
-									Mass:        14,
-									Time:        15,
-									Current:     16,
-									Temperature: 17,
-									Angle:       18,
-									Count:       19,
-									Data:        20,
-								},
-								Scale: 146.5,
-								Name:  "test_147",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{},
-									Outputs: []types.Param{},
-									Config:  []types.Param{},
-								},
-								Kind: types.Kind(0),
-								Name: "test_153",
-								Elem: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{},
-											Outputs: []types.Param{},
-											Config:  []types.Param{},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_159",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								Unit: func() *types.Unit {
-									v := types.Unit{
-										Dimensions: types.Dimensions{},
-										Scale:      166.5,
-										Name:       "test_167",
-									}
-									return &v
-								}(),
-								Constraint: func() *types.Type {
-									v := types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{},
-											Outputs: []types.Param{},
-											Config:  []types.Param{},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_173",
-										Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-										Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-										Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-										ChanDirection: types.ChanDirection(0),
-									}
-									return &v
-								}(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Name: "test_60",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{},
+								Outputs: []types.Param{},
+								Config:  []types.Param{},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_66",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      73.5,
+							Name:       "test_74",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{},
+								Outputs: []types.Param{},
+								Config:  []types.Param{},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_80",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{
+						Length:      90,
+						Mass:        91,
+						Time:        92,
+						Current:     93,
+						Temperature: 94,
+						Angle:       95,
+						Count:       96,
+						Data:        97,
+					},
+					Scale: 97.5,
+					Name:  "test_98",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{},
+						Outputs: []types.Param{},
+						Config:  []types.Param{},
+					},
+					Kind: types.Kind(0),
+					Name: "test_104",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind: types.Kind(0),
+						Name: "test_110",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{},
+								Outputs: []types.Param{},
+								Config:  []types.Param{},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_116",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      123.5,
+							Name:       "test_124",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{},
+								Outputs: []types.Param{},
+								Config:  []types.Param{},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_130",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{
+							Length:      13,
+							Mass:        14,
+							Time:        15,
+							Current:     16,
+							Temperature: 17,
+							Angle:       18,
+							Count:       19,
+							Data:        20,
+						},
+						Scale: 146.5,
+						Name:  "test_147",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind: types.Kind(0),
+						Name: "test_153",
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{},
+								Outputs: []types.Param{},
+								Config:  []types.Param{},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_159",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      166.5,
+							Name:       "test_167",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{},
+								Outputs: []types.Param{},
+								Config:  []types.Param{},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_173",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
 				ChanDirection: types.ChanDirection(0),
 			}),
 		)
@@ -1722,46 +1515,37 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 					},
 					Kind: types.Kind(0),
 					Name: "test_17",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_23",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      30.5,
-							Name:       "test_31",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_37",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_23",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      30.5,
+						Name:       "test_31",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_37",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_43": "value_43"},
@@ -1796,46 +1580,37 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 					},
 					Kind: types.Kind(0),
 					Name: "test_60",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_66",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      73.5,
-							Name:       "test_74",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_80",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_66",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      73.5,
+						Name:       "test_74",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_80",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_86": "value_86"},
@@ -1870,46 +1645,37 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 					},
 					Kind: types.Kind(0),
 					Name: "test_103",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_109",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      116.5,
-							Name:       "test_117",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_123",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_109",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      116.5,
+						Name:       "test_117",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_123",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_129": "value_129"},
@@ -1947,9 +1713,9 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_10",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_15": "value_15"},
@@ -1966,9 +1732,9 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_23",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_28": "value_28"},
@@ -1985,9 +1751,9 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 							},
 							Kind:          types.Kind(0),
 							Name:          "test_36",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_41": "value_41"},
@@ -1996,165 +1762,138 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 			},
 			Kind: types.Kind(0),
 			Name: "test_43",
-			Elem: func() *types.Type {
-				v := types.Type{
+			Elem: new(types.Type{
+				FunctionProperties: types.FunctionProperties{
+					Inputs: []types.Param{
+						{
+							Name:  "test_46",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_48": "value_48"},
+						},
+					},
+					Outputs: []types.Param{
+						{
+							Name:  "test_50",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_52": "value_52"},
+						},
+					},
+					Config: []types.Param{
+						{
+							Name:  "test_54",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_56": "value_56"},
+						},
+					},
+				},
+				Kind: types.Kind(0),
+				Name: "test_58",
+				Elem: new(types.Type{
 					FunctionProperties: types.FunctionProperties{
-						Inputs: []types.Param{
-							{
-								Name:  "test_46",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_48": "value_48"},
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_50",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_52": "value_52"},
-							},
-						},
-						Config: []types.Param{
-							{
-								Name:  "test_54",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_56": "value_56"},
-							},
-						},
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
 					},
-					Kind: types.Kind(0),
-					Name: "test_58",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_64",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      71.5,
-							Name:       "test_72",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_78",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Kind:          types.Kind(0),
+					Name:          "test_64",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
 					ChanDirection: types.ChanDirection(0),
-				}
-				return &v
-			}(),
-			Unit: func() *types.Unit {
-				v := types.Unit{
-					Dimensions: types.Dimensions{
-						Length:      87,
-						Mass:        88,
-						Time:        89,
-						Current:     90,
-						Temperature: 91,
-						Angle:       92,
-						Count:       93,
-						Data:        94,
-					},
-					Scale: 94.5,
-					Name:  "test_95",
-				}
-				return &v
-			}(),
-			Constraint: func() *types.Type {
-				v := types.Type{
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{},
+					Scale:      71.5,
+					Name:       "test_72",
+				}),
+				Constraint: new(types.Type{
 					FunctionProperties: types.FunctionProperties{
-						Inputs: []types.Param{
-							{
-								Name:  "test_98",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_100": "value_100"},
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_102",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_104": "value_104"},
-							},
-						},
-						Config: []types.Param{
-							{
-								Name:  "test_106",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_108": "value_108"},
-							},
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_78",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				ChanDirection: types.ChanDirection(0),
+			}),
+			Unit: new(types.Unit{
+				Dimensions: types.Dimensions{
+					Length:      87,
+					Mass:        88,
+					Time:        89,
+					Current:     90,
+					Temperature: 91,
+					Angle:       92,
+					Count:       93,
+					Data:        94,
+				},
+				Scale: 94.5,
+				Name:  "test_95",
+			}),
+			Constraint: new(types.Type{
+				FunctionProperties: types.FunctionProperties{
+					Inputs: []types.Param{
+						{
+							Name:  "test_98",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_100": "value_100"},
 						},
 					},
-					Kind: types.Kind(0),
-					Name: "test_110",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_116",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      123.5,
-							Name:       "test_124",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_130",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Outputs: []types.Param{
+						{
+							Name:  "test_102",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_104": "value_104"},
+						},
+					},
+					Config: []types.Param{
+						{
+							Name:  "test_106",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_108": "value_108"},
+						},
+					},
+				},
+				Kind: types.Kind(0),
+				Name: "test_110",
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_116",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
 					ChanDirection: types.ChanDirection(0),
-				}
-				return &v
-			}(),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{},
+					Scale:      123.5,
+					Name:       "test_124",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_130",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				ChanDirection: types.ChanDirection(0),
+			}),
 			ChanDirection: types.ChanDirection(0),
 		},
 		Value: map[string]interface{}{"key_137": "value_137"},
@@ -2206,46 +1945,37 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_17",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_23",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      30.5,
-								Name:       "test_31",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_37",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_23",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      30.5,
+							Name:       "test_31",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_37",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_43": "value_43"},
@@ -2280,46 +2010,37 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_60",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_66",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      73.5,
-								Name:       "test_74",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_80",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_66",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      73.5,
+							Name:       "test_74",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_80",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_86": "value_86"},
@@ -2354,46 +2075,37 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_103",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_109",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      116.5,
-								Name:       "test_117",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_123",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_109",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      116.5,
+							Name:       "test_117",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_123",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_129": "value_129"},
@@ -2402,475 +2114,412 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 		},
 		Kind: types.Kind(0),
 		Name: "test_131",
-		Elem: func() *types.Type {
-			v := types.Type{
+		Elem: new(types.Type{
+			FunctionProperties: types.FunctionProperties{
+				Inputs: []types.Param{
+					{
+						Name: "test_134",
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_140",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						},
+						Value: map[string]interface{}{"key_145": "value_145"},
+					},
+				},
+				Outputs: []types.Param{
+					{
+						Name: "test_147",
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_153",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						},
+						Value: map[string]interface{}{"key_158": "value_158"},
+					},
+				},
+				Config: []types.Param{
+					{
+						Name: "test_160",
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_166",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						},
+						Value: map[string]interface{}{"key_171": "value_171"},
+					},
+				},
+			},
+			Kind: types.Kind(0),
+			Name: "test_173",
+			Elem: new(types.Type{
 				FunctionProperties: types.FunctionProperties{
 					Inputs: []types.Param{
 						{
-							Name: "test_134",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_140",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_145": "value_145"},
+							Name:  "test_176",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_178": "value_178"},
 						},
 					},
 					Outputs: []types.Param{
 						{
-							Name: "test_147",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_153",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_158": "value_158"},
+							Name:  "test_180",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_182": "value_182"},
 						},
 					},
 					Config: []types.Param{
 						{
-							Name: "test_160",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_166",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_171": "value_171"},
+							Name:  "test_184",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_186": "value_186"},
 						},
 					},
 				},
 				Kind: types.Kind(0),
-				Name: "test_173",
-				Elem: func() *types.Type {
-					v := types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_176",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_178": "value_178"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_180",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_182": "value_182"},
-								},
-							},
-							Config: []types.Param{
-								{
-									Name:  "test_184",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_186": "value_186"},
-								},
-							},
-						},
-						Kind: types.Kind(0),
-						Name: "test_188",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_194",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      201.5,
-								Name:       "test_202",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_208",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
-				Unit: func() *types.Unit {
-					v := types.Unit{
-						Dimensions: types.Dimensions{
-							Length:      91,
-							Mass:        92,
-							Time:        93,
-							Current:     94,
-							Temperature: 95,
-							Angle:       96,
-							Count:       97,
-							Data:        98,
-						},
-						Scale: 224.5,
-						Name:  "test_225",
-					}
-					return &v
-				}(),
-				Constraint: func() *types.Type {
-					v := types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_228",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_230": "value_230"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_232",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_234": "value_234"},
-								},
-							},
-							Config: []types.Param{
-								{
-									Name:  "test_236",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_238": "value_238"},
-								},
-							},
-						},
-						Kind: types.Kind(0),
-						Name: "test_240",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_246",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      253.5,
-								Name:       "test_254",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_260",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
+				Name: "test_188",
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_194",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{},
+					Scale:      201.5,
+					Name:       "test_202",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_208",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
 				ChanDirection: types.ChanDirection(0),
-			}
-			return &v
-		}(),
-		Unit: func() *types.Unit {
-			v := types.Unit{
+			}),
+			Unit: new(types.Unit{
 				Dimensions: types.Dimensions{
-					Length:      18,
-					Mass:        19,
-					Time:        20,
-					Current:     21,
-					Temperature: 22,
-					Angle:       23,
-					Count:       24,
-					Data:        25,
+					Length:      91,
+					Mass:        92,
+					Time:        93,
+					Current:     94,
+					Temperature: 95,
+					Angle:       96,
+					Count:       97,
+					Data:        98,
 				},
-				Scale: 277.5,
-				Name:  "test_278",
-			}
-			return &v
-		}(),
-		Constraint: func() *types.Type {
-			v := types.Type{
+				Scale: 224.5,
+				Name:  "test_225",
+			}),
+			Constraint: new(types.Type{
 				FunctionProperties: types.FunctionProperties{
 					Inputs: []types.Param{
 						{
-							Name: "test_281",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_287",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_292": "value_292"},
+							Name:  "test_228",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_230": "value_230"},
 						},
 					},
 					Outputs: []types.Param{
 						{
-							Name: "test_294",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_300",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_305": "value_305"},
+							Name:  "test_232",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_234": "value_234"},
 						},
 					},
 					Config: []types.Param{
 						{
-							Name: "test_307",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_313",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_318": "value_318"},
+							Name:  "test_236",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_238": "value_238"},
 						},
 					},
 				},
 				Kind: types.Kind(0),
-				Name: "test_320",
-				Elem: func() *types.Type {
-					v := types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_323",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_325": "value_325"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_327",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_329": "value_329"},
-								},
-							},
-							Config: []types.Param{
-								{
-									Name:  "test_331",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_333": "value_333"},
-								},
-							},
-						},
-						Kind: types.Kind(0),
-						Name: "test_335",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_341",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      348.5,
-								Name:       "test_349",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_355",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
-				Unit: func() *types.Unit {
-					v := types.Unit{
-						Dimensions: types.Dimensions{
-							Length:      112,
-							Mass:        113,
-							Time:        114,
-							Current:     115,
-							Temperature: 116,
-							Angle:       117,
-							Count:       118,
-							Data:        119,
-						},
-						Scale: 371.5,
-						Name:  "test_372",
-					}
-					return &v
-				}(),
-				Constraint: func() *types.Type {
-					v := types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_375",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_377": "value_377"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_379",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_381": "value_381"},
-								},
-							},
-							Config: []types.Param{
-								{
-									Name:  "test_383",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_385": "value_385"},
-								},
-							},
-						},
-						Kind: types.Kind(0),
-						Name: "test_387",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_393",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      400.5,
-								Name:       "test_401",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_407",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
+				Name: "test_240",
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_246",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{},
+					Scale:      253.5,
+					Name:       "test_254",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_260",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
 				ChanDirection: types.ChanDirection(0),
-			}
-			return &v
-		}(),
+			}),
+			ChanDirection: types.ChanDirection(0),
+		}),
+		Unit: new(types.Unit{
+			Dimensions: types.Dimensions{
+				Length:      18,
+				Mass:        19,
+				Time:        20,
+				Current:     21,
+				Temperature: 22,
+				Angle:       23,
+				Count:       24,
+				Data:        25,
+			},
+			Scale: 277.5,
+			Name:  "test_278",
+		}),
+		Constraint: new(types.Type{
+			FunctionProperties: types.FunctionProperties{
+				Inputs: []types.Param{
+					{
+						Name: "test_281",
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_287",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						},
+						Value: map[string]interface{}{"key_292": "value_292"},
+					},
+				},
+				Outputs: []types.Param{
+					{
+						Name: "test_294",
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_300",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						},
+						Value: map[string]interface{}{"key_305": "value_305"},
+					},
+				},
+				Config: []types.Param{
+					{
+						Name: "test_307",
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_313",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						},
+						Value: map[string]interface{}{"key_318": "value_318"},
+					},
+				},
+			},
+			Kind: types.Kind(0),
+			Name: "test_320",
+			Elem: new(types.Type{
+				FunctionProperties: types.FunctionProperties{
+					Inputs: []types.Param{
+						{
+							Name:  "test_323",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_325": "value_325"},
+						},
+					},
+					Outputs: []types.Param{
+						{
+							Name:  "test_327",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_329": "value_329"},
+						},
+					},
+					Config: []types.Param{
+						{
+							Name:  "test_331",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_333": "value_333"},
+						},
+					},
+				},
+				Kind: types.Kind(0),
+				Name: "test_335",
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_341",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{},
+					Scale:      348.5,
+					Name:       "test_349",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_355",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				ChanDirection: types.ChanDirection(0),
+			}),
+			Unit: new(types.Unit{
+				Dimensions: types.Dimensions{
+					Length:      112,
+					Mass:        113,
+					Time:        114,
+					Current:     115,
+					Temperature: 116,
+					Angle:       117,
+					Count:       118,
+					Data:        119,
+				},
+				Scale: 371.5,
+				Name:  "test_372",
+			}),
+			Constraint: new(types.Type{
+				FunctionProperties: types.FunctionProperties{
+					Inputs: []types.Param{
+						{
+							Name:  "test_375",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_377": "value_377"},
+						},
+					},
+					Outputs: []types.Param{
+						{
+							Name:  "test_379",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_381": "value_381"},
+						},
+					},
+					Config: []types.Param{
+						{
+							Name:  "test_383",
+							Type:  types.Type{},
+							Value: map[string]interface{}{"key_385": "value_385"},
+						},
+					},
+				},
+				Kind: types.Kind(0),
+				Name: "test_387",
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_393",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{},
+					Scale:      400.5,
+					Name:       "test_401",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{{}},
+						Outputs: []types.Param{{}},
+						Config:  []types.Param{{}},
+					},
+					Kind:          types.Kind(0),
+					Name:          "test_407",
+					Elem:          new(types.Type{}),
+					Unit:          new(types.Unit{}),
+					Constraint:    new(types.Type{}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				ChanDirection: types.ChanDirection(0),
+			}),
+			ChanDirection: types.ChanDirection(0),
+		}),
 		ChanDirection: types.ChanDirection(0),
 	}
 	w := orc.NewWriter(0)
@@ -3071,46 +2720,37 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_17",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_23",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      30.5,
-								Name:       "test_31",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_37",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_23",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      30.5,
+							Name:       "test_31",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_37",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_43": "value_43"},
@@ -3145,46 +2785,37 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_60",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_66",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      73.5,
-								Name:       "test_74",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_80",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_66",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      73.5,
+							Name:       "test_74",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_80",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_86": "value_86"},
@@ -3219,46 +2850,37 @@ func FuzzDecodeFunctionProperties(f *testing.F) {
 						},
 						Kind: types.Kind(0),
 						Name: "test_103",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_109",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      116.5,
-								Name:       "test_117",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_123",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_109",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
+							Scale:      116.5,
+							Name:       "test_117",
+						}),
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_123",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						}),
 						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_129": "value_129"},
@@ -3341,9 +2963,9 @@ func FuzzDecodeParam(f *testing.F) {
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_10",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_15": "value_15"},
@@ -3360,9 +2982,9 @@ func FuzzDecodeParam(f *testing.F) {
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_23",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_28": "value_28"},
@@ -3379,9 +3001,9 @@ func FuzzDecodeParam(f *testing.F) {
 								},
 								Kind:          types.Kind(0),
 								Name:          "test_36",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
 							Value: map[string]interface{}{"key_41": "value_41"},
@@ -3390,165 +3012,138 @@ func FuzzDecodeParam(f *testing.F) {
 				},
 				Kind: types.Kind(0),
 				Name: "test_43",
-				Elem: func() *types.Type {
-					v := types.Type{
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs: []types.Param{
+							{
+								Name:  "test_46",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_48": "value_48"},
+							},
+						},
+						Outputs: []types.Param{
+							{
+								Name:  "test_50",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_52": "value_52"},
+							},
+						},
+						Config: []types.Param{
+							{
+								Name:  "test_54",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_56": "value_56"},
+							},
+						},
+					},
+					Kind: types.Kind(0),
+					Name: "test_58",
+					Elem: new(types.Type{
 						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_46",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_48": "value_48"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_50",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_52": "value_52"},
-								},
-							},
-							Config: []types.Param{
-								{
-									Name:  "test_54",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_56": "value_56"},
-								},
-							},
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
 						},
-						Kind: types.Kind(0),
-						Name: "test_58",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_64",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      71.5,
-								Name:       "test_72",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_78",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Kind:          types.Kind(0),
+						Name:          "test_64",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
 						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
-				Unit: func() *types.Unit {
-					v := types.Unit{
-						Dimensions: types.Dimensions{
-							Length:      87,
-							Mass:        88,
-							Time:        89,
-							Current:     90,
-							Temperature: 91,
-							Angle:       92,
-							Count:       93,
-							Data:        94,
-						},
-						Scale: 94.5,
-						Name:  "test_95",
-					}
-					return &v
-				}(),
-				Constraint: func() *types.Type {
-					v := types.Type{
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      71.5,
+						Name:       "test_72",
+					}),
+					Constraint: new(types.Type{
 						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_98",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_100": "value_100"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_102",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_104": "value_104"},
-								},
-							},
-							Config: []types.Param{
-								{
-									Name:  "test_106",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_108": "value_108"},
-								},
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_78",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{
+						Length:      87,
+						Mass:        88,
+						Time:        89,
+						Current:     90,
+						Temperature: 91,
+						Angle:       92,
+						Count:       93,
+						Data:        94,
+					},
+					Scale: 94.5,
+					Name:  "test_95",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs: []types.Param{
+							{
+								Name:  "test_98",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_100": "value_100"},
 							},
 						},
-						Kind: types.Kind(0),
-						Name: "test_110",
-						Elem: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_116",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
-						Unit: func() *types.Unit {
-							v := types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      123.5,
-								Name:       "test_124",
-							}
-							return &v
-						}(),
-						Constraint: func() *types.Type {
-							v := types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_130",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-								ChanDirection: types.ChanDirection(0),
-							}
-							return &v
-						}(),
+						Outputs: []types.Param{
+							{
+								Name:  "test_102",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_104": "value_104"},
+							},
+						},
+						Config: []types.Param{
+							{
+								Name:  "test_106",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_108": "value_108"},
+							},
+						},
+					},
+					Kind: types.Kind(0),
+					Name: "test_110",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_116",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
 						ChanDirection: types.ChanDirection(0),
-					}
-					return &v
-				}(),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      123.5,
+						Name:       "test_124",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_130",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
 				ChanDirection: types.ChanDirection(0),
 			},
 			Value: map[string]interface{}{"key_137": "value_137"},
@@ -3645,46 +3240,37 @@ func FuzzDecodeType(f *testing.F) {
 							},
 							Kind: types.Kind(0),
 							Name: "test_17",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_23",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      30.5,
-									Name:       "test_31",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_37",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_23",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      30.5,
+								Name:       "test_31",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_37",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_43": "value_43"},
@@ -3719,46 +3305,37 @@ func FuzzDecodeType(f *testing.F) {
 							},
 							Kind: types.Kind(0),
 							Name: "test_60",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_66",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      73.5,
-									Name:       "test_74",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_80",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_66",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      73.5,
+								Name:       "test_74",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_80",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_86": "value_86"},
@@ -3793,46 +3370,37 @@ func FuzzDecodeType(f *testing.F) {
 							},
 							Kind: types.Kind(0),
 							Name: "test_103",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_109",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      116.5,
-									Name:       "test_117",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_123",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_109",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
+								Scale:      116.5,
+								Name:       "test_117",
+							}),
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_123",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							}),
 							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_129": "value_129"},
@@ -3841,475 +3409,412 @@ func FuzzDecodeType(f *testing.F) {
 			},
 			Kind: types.Kind(0),
 			Name: "test_131",
-			Elem: func() *types.Type {
-				v := types.Type{
+			Elem: new(types.Type{
+				FunctionProperties: types.FunctionProperties{
+					Inputs: []types.Param{
+						{
+							Name: "test_134",
+							Type: types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_140",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							},
+							Value: map[string]interface{}{"key_145": "value_145"},
+						},
+					},
+					Outputs: []types.Param{
+						{
+							Name: "test_147",
+							Type: types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_153",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							},
+							Value: map[string]interface{}{"key_158": "value_158"},
+						},
+					},
+					Config: []types.Param{
+						{
+							Name: "test_160",
+							Type: types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_166",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							},
+							Value: map[string]interface{}{"key_171": "value_171"},
+						},
+					},
+				},
+				Kind: types.Kind(0),
+				Name: "test_173",
+				Elem: new(types.Type{
 					FunctionProperties: types.FunctionProperties{
 						Inputs: []types.Param{
 							{
-								Name: "test_134",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_140",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_145": "value_145"},
+								Name:  "test_176",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_178": "value_178"},
 							},
 						},
 						Outputs: []types.Param{
 							{
-								Name: "test_147",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_153",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_158": "value_158"},
+								Name:  "test_180",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_182": "value_182"},
 							},
 						},
 						Config: []types.Param{
 							{
-								Name: "test_160",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_166",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_171": "value_171"},
+								Name:  "test_184",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_186": "value_186"},
 							},
 						},
 					},
 					Kind: types.Kind(0),
-					Name: "test_173",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_176",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_178": "value_178"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_180",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_182": "value_182"},
-									},
-								},
-								Config: []types.Param{
-									{
-										Name:  "test_184",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_186": "value_186"},
-									},
-								},
-							},
-							Kind: types.Kind(0),
-							Name: "test_188",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_194",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      201.5,
-									Name:       "test_202",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_208",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{
-								Length:      91,
-								Mass:        92,
-								Time:        93,
-								Current:     94,
-								Temperature: 95,
-								Angle:       96,
-								Count:       97,
-								Data:        98,
-							},
-							Scale: 224.5,
-							Name:  "test_225",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_228",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_230": "value_230"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_232",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_234": "value_234"},
-									},
-								},
-								Config: []types.Param{
-									{
-										Name:  "test_236",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_238": "value_238"},
-									},
-								},
-							},
-							Kind: types.Kind(0),
-							Name: "test_240",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_246",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      253.5,
-									Name:       "test_254",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_260",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Name: "test_188",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_194",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      201.5,
+						Name:       "test_202",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_208",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
-				}
-				return &v
-			}(),
-			Unit: func() *types.Unit {
-				v := types.Unit{
+				}),
+				Unit: new(types.Unit{
 					Dimensions: types.Dimensions{
-						Length:      18,
-						Mass:        19,
-						Time:        20,
-						Current:     21,
-						Temperature: 22,
-						Angle:       23,
-						Count:       24,
-						Data:        25,
+						Length:      91,
+						Mass:        92,
+						Time:        93,
+						Current:     94,
+						Temperature: 95,
+						Angle:       96,
+						Count:       97,
+						Data:        98,
 					},
-					Scale: 277.5,
-					Name:  "test_278",
-				}
-				return &v
-			}(),
-			Constraint: func() *types.Type {
-				v := types.Type{
+					Scale: 224.5,
+					Name:  "test_225",
+				}),
+				Constraint: new(types.Type{
 					FunctionProperties: types.FunctionProperties{
 						Inputs: []types.Param{
 							{
-								Name: "test_281",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_287",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_292": "value_292"},
+								Name:  "test_228",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_230": "value_230"},
 							},
 						},
 						Outputs: []types.Param{
 							{
-								Name: "test_294",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_300",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_305": "value_305"},
+								Name:  "test_232",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_234": "value_234"},
 							},
 						},
 						Config: []types.Param{
 							{
-								Name: "test_307",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_313",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_318": "value_318"},
+								Name:  "test_236",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_238": "value_238"},
 							},
 						},
 					},
 					Kind: types.Kind(0),
-					Name: "test_320",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_323",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_325": "value_325"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_327",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_329": "value_329"},
-									},
-								},
-								Config: []types.Param{
-									{
-										Name:  "test_331",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_333": "value_333"},
-									},
-								},
-							},
-							Kind: types.Kind(0),
-							Name: "test_335",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_341",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      348.5,
-									Name:       "test_349",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_355",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{
-								Length:      112,
-								Mass:        113,
-								Time:        114,
-								Current:     115,
-								Temperature: 116,
-								Angle:       117,
-								Count:       118,
-								Data:        119,
-							},
-							Scale: 371.5,
-							Name:  "test_372",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_375",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_377": "value_377"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_379",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_381": "value_381"},
-									},
-								},
-								Config: []types.Param{
-									{
-										Name:  "test_383",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_385": "value_385"},
-									},
-								},
-							},
-							Kind: types.Kind(0),
-							Name: "test_387",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_393",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      400.5,
-									Name:       "test_401",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_407",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Name: "test_240",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_246",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      253.5,
+						Name:       "test_254",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_260",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
-				}
-				return &v
-			}(),
+				}),
+				ChanDirection: types.ChanDirection(0),
+			}),
+			Unit: new(types.Unit{
+				Dimensions: types.Dimensions{
+					Length:      18,
+					Mass:        19,
+					Time:        20,
+					Current:     21,
+					Temperature: 22,
+					Angle:       23,
+					Count:       24,
+					Data:        25,
+				},
+				Scale: 277.5,
+				Name:  "test_278",
+			}),
+			Constraint: new(types.Type{
+				FunctionProperties: types.FunctionProperties{
+					Inputs: []types.Param{
+						{
+							Name: "test_281",
+							Type: types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_287",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							},
+							Value: map[string]interface{}{"key_292": "value_292"},
+						},
+					},
+					Outputs: []types.Param{
+						{
+							Name: "test_294",
+							Type: types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_300",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							},
+							Value: map[string]interface{}{"key_305": "value_305"},
+						},
+					},
+					Config: []types.Param{
+						{
+							Name: "test_307",
+							Type: types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_313",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							},
+							Value: map[string]interface{}{"key_318": "value_318"},
+						},
+					},
+				},
+				Kind: types.Kind(0),
+				Name: "test_320",
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs: []types.Param{
+							{
+								Name:  "test_323",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_325": "value_325"},
+							},
+						},
+						Outputs: []types.Param{
+							{
+								Name:  "test_327",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_329": "value_329"},
+							},
+						},
+						Config: []types.Param{
+							{
+								Name:  "test_331",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_333": "value_333"},
+							},
+						},
+					},
+					Kind: types.Kind(0),
+					Name: "test_335",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_341",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      348.5,
+						Name:       "test_349",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_355",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{
+						Length:      112,
+						Mass:        113,
+						Time:        114,
+						Current:     115,
+						Temperature: 116,
+						Angle:       117,
+						Count:       118,
+						Data:        119,
+					},
+					Scale: 371.5,
+					Name:  "test_372",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs: []types.Param{
+							{
+								Name:  "test_375",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_377": "value_377"},
+							},
+						},
+						Outputs: []types.Param{
+							{
+								Name:  "test_379",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_381": "value_381"},
+							},
+						},
+						Config: []types.Param{
+							{
+								Name:  "test_383",
+								Type:  types.Type{},
+								Value: map[string]interface{}{"key_385": "value_385"},
+							},
+						},
+					},
+					Kind: types.Kind(0),
+					Name: "test_387",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_393",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      400.5,
+						Name:       "test_401",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
+							Config:  []types.Param{{}},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_407",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				ChanDirection: types.ChanDirection(0),
+			}),
 			ChanDirection: types.ChanDirection(0),
 		}
 		w := orc.NewWriter(0)
@@ -4347,295 +3852,232 @@ func FuzzDecodeType(f *testing.F) {
 			},
 			Kind: types.Kind(0),
 			Name: "test_5",
-			Elem: func() *types.Type {
-				v := types.Type{
+			Elem: new(types.Type{
+				FunctionProperties: types.FunctionProperties{
+					Inputs:  []types.Param{},
+					Outputs: []types.Param{},
+					Config:  []types.Param{},
+				},
+				Kind: types.Kind(0),
+				Name: "test_11",
+				Elem: new(types.Type{
 					FunctionProperties: types.FunctionProperties{
 						Inputs:  []types.Param{},
 						Outputs: []types.Param{},
 						Config:  []types.Param{},
 					},
 					Kind: types.Kind(0),
-					Name: "test_11",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{},
-								Outputs: []types.Param{},
-								Config:  []types.Param{},
-							},
-							Kind: types.Kind(0),
-							Name: "test_17",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{},
-										Outputs: []types.Param{},
-										Config:  []types.Param{},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_23",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      30.5,
-									Name:       "test_31",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{},
-										Outputs: []types.Param{},
-										Config:  []types.Param{},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_37",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{
-								Length:      46,
-								Mass:        47,
-								Time:        48,
-								Current:     49,
-								Temperature: 50,
-								Angle:       51,
-								Count:       52,
-								Data:        53,
-							},
-							Scale: 53.5,
-							Name:  "test_54",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{},
-								Outputs: []types.Param{},
-								Config:  []types.Param{},
-							},
-							Kind: types.Kind(0),
-							Name: "test_60",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{},
-										Outputs: []types.Param{},
-										Config:  []types.Param{},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_66",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      73.5,
-									Name:       "test_74",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{},
-										Outputs: []types.Param{},
-										Config:  []types.Param{},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_80",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Name: "test_17",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_23",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      30.5,
+						Name:       "test_31",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_37",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
-				}
-				return &v
-			}(),
-			Unit: func() *types.Unit {
-				v := types.Unit{
+				}),
+				Unit: new(types.Unit{
 					Dimensions: types.Dimensions{
-						Length:      90,
-						Mass:        91,
-						Time:        92,
-						Current:     93,
-						Temperature: 94,
-						Angle:       95,
-						Count:       96,
-						Data:        97,
+						Length:      46,
+						Mass:        47,
+						Time:        48,
+						Current:     49,
+						Temperature: 50,
+						Angle:       51,
+						Count:       52,
+						Data:        53,
 					},
-					Scale: 97.5,
-					Name:  "test_98",
-				}
-				return &v
-			}(),
-			Constraint: func() *types.Type {
-				v := types.Type{
+					Scale: 53.5,
+					Name:  "test_54",
+				}),
+				Constraint: new(types.Type{
 					FunctionProperties: types.FunctionProperties{
 						Inputs:  []types.Param{},
 						Outputs: []types.Param{},
 						Config:  []types.Param{},
 					},
 					Kind: types.Kind(0),
-					Name: "test_104",
-					Elem: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{},
-								Outputs: []types.Param{},
-								Config:  []types.Param{},
-							},
-							Kind: types.Kind(0),
-							Name: "test_110",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{},
-										Outputs: []types.Param{},
-										Config:  []types.Param{},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_116",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      123.5,
-									Name:       "test_124",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{},
-										Outputs: []types.Param{},
-										Config:  []types.Param{},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_130",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
-					Unit: func() *types.Unit {
-						v := types.Unit{
-							Dimensions: types.Dimensions{
-								Length:      13,
-								Mass:        14,
-								Time:        15,
-								Current:     16,
-								Temperature: 17,
-								Angle:       18,
-								Count:       19,
-								Data:        20,
-							},
-							Scale: 146.5,
-							Name:  "test_147",
-						}
-						return &v
-					}(),
-					Constraint: func() *types.Type {
-						v := types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{},
-								Outputs: []types.Param{},
-								Config:  []types.Param{},
-							},
-							Kind: types.Kind(0),
-							Name: "test_153",
-							Elem: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{},
-										Outputs: []types.Param{},
-										Config:  []types.Param{},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_159",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							Unit: func() *types.Unit {
-								v := types.Unit{
-									Dimensions: types.Dimensions{},
-									Scale:      166.5,
-									Name:       "test_167",
-								}
-								return &v
-							}(),
-							Constraint: func() *types.Type {
-								v := types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{},
-										Outputs: []types.Param{},
-										Config:  []types.Param{},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_173",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
-									ChanDirection: types.ChanDirection(0),
-								}
-								return &v
-							}(),
-							ChanDirection: types.ChanDirection(0),
-						}
-						return &v
-					}(),
+					Name: "test_60",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_66",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      73.5,
+						Name:       "test_74",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_80",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
 					ChanDirection: types.ChanDirection(0),
-				}
-				return &v
-			}(),
+				}),
+				ChanDirection: types.ChanDirection(0),
+			}),
+			Unit: new(types.Unit{
+				Dimensions: types.Dimensions{
+					Length:      90,
+					Mass:        91,
+					Time:        92,
+					Current:     93,
+					Temperature: 94,
+					Angle:       95,
+					Count:       96,
+					Data:        97,
+				},
+				Scale: 97.5,
+				Name:  "test_98",
+			}),
+			Constraint: new(types.Type{
+				FunctionProperties: types.FunctionProperties{
+					Inputs:  []types.Param{},
+					Outputs: []types.Param{},
+					Config:  []types.Param{},
+				},
+				Kind: types.Kind(0),
+				Name: "test_104",
+				Elem: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{},
+						Outputs: []types.Param{},
+						Config:  []types.Param{},
+					},
+					Kind: types.Kind(0),
+					Name: "test_110",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_116",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      123.5,
+						Name:       "test_124",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_130",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				Unit: new(types.Unit{
+					Dimensions: types.Dimensions{
+						Length:      13,
+						Mass:        14,
+						Time:        15,
+						Current:     16,
+						Temperature: 17,
+						Angle:       18,
+						Count:       19,
+						Data:        20,
+					},
+					Scale: 146.5,
+					Name:  "test_147",
+				}),
+				Constraint: new(types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs:  []types.Param{},
+						Outputs: []types.Param{},
+						Config:  []types.Param{},
+					},
+					Kind: types.Kind(0),
+					Name: "test_153",
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_159",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
+						Scale:      166.5,
+						Name:       "test_167",
+					}),
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{},
+							Outputs: []types.Param{},
+							Config:  []types.Param{},
+						},
+						Kind:          types.Kind(0),
+						Name:          "test_173",
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
+					}),
+					ChanDirection: types.ChanDirection(0),
+				}),
+				ChanDirection: types.ChanDirection(0),
+			}),
 			ChanDirection: types.ChanDirection(0),
 		}
 		w := orc.NewWriter(0)

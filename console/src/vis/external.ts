@@ -13,7 +13,6 @@ import { Selector, SELECTOR_LAYOUT_TYPE } from "@/vis/Selector";
 export * from "@/vis/Canvas";
 export * from "@/vis/Selector";
 export * from "@/vis/Toolbar";
-export * from "@/vis/useAutoUpload";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [SELECTOR_LAYOUT_TYPE]: Selector,

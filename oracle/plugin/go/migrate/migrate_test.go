@@ -140,6 +140,36 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 		})
 
+		Context("union type changes", func() {
+			It("Should skip auto-copying fields whose union-ness changed", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						configs map<string, record>
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					TankConfig struct { width float64 }
+					ElementConfig union on variant {
+						tank TankConfig
+					}
+					Entry struct {
+						key Key {@key}
+						configs map<string, ElementConfig>
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				content := fileContent(resp, "migrate_auto.gen.go")
+				Expect(content).NotTo(ContainSubstring("Configs: old.Configs"))
+			})
+		})
+
 		Context("enum value-set changes", func() {
 			It("Should not generate a migration when a string enum value is removed", func() {
 				oldSchema := `

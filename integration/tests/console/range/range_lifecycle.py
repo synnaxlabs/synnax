@@ -240,7 +240,7 @@ class RangeLifecycle(ConsoleCase):
         assert self.range_name is not None
         self.log("Testing: Add range to active plot")
         plot_name = f"TestPlot_{self.rand_suffix}"
-        plot = self.console.workspace.create_plot(plot_name)
+        plot = self.console.project.create_plot(plot_name)
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", "sy_node_1_metrics_cpu_percentage")
         self.console.layout.hide_visualization_toolbar()

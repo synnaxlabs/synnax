@@ -36,7 +36,6 @@ import { useExport } from "@/table/export";
 import {
   useSelectEditable,
   useSelectExists,
-  useSelectPendingUpload,
   useSelectSelectedCellKeys,
 } from "@/table/selectors";
 import { setEditable } from "@/table/slice";
@@ -111,8 +110,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const exists = useSelectExists(layoutKey);
-  const pendingUpload = useSelectPendingUpload(layoutKey);
-  if (!exists || pendingUpload != null) return null;
+  if (!exists) return null;
   return <Internal layoutKey={layoutKey} />;
 };
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, NotFoundError, ontology, type workspace } from "@synnaxlabs/client";
+import { lineplot, NotFoundError, ontology, type project } from "@synnaxlabs/client";
 import {
   array,
   color,
@@ -518,7 +518,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
 });
 
 export interface CreateParams extends lineplot.New {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -531,8 +531,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   update: async ({ client, data, store, rollbacks }) => {
     const optimistic = lineplot.newZ.parse(data);
     rollbacks.push(store.lineplots.set(optimistic));
-    const workspace = data.workspace ?? uuid.ZERO;
-    const created = await client.lineplots.create(workspace, optimistic);
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.lineplots.create(project, optimistic);
     store.lineplots.set(created);
     return created;
   },

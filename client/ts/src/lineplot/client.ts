@@ -24,8 +24,8 @@ import {
   type New,
   newZ,
 } from "@/lineplot/types.gen";
+import { project } from "@/project";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
 
 export const SET_CHANNEL_NAME = "sy_lineplot_set";
 
@@ -43,7 +43,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ linePlots: array.nullishToEmpty(linePlotZ) });
 
-const createReqZ = z.object({ workspace: workspace.keyZ, linePlots: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, linePlots: newZ.array() });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
@@ -55,16 +55,16 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: workspace.Key, linePlot: New): Promise<LinePlot>;
-  async create(workspace: workspace.Key, linePlots: New[]): Promise<LinePlot[]>;
+  async create(project: project.Key, linePlot: New): Promise<LinePlot>;
+  async create(project: project.Key, linePlots: New[]): Promise<LinePlot[]>;
   async create(
-    workspace: workspace.Key,
+    project: project.Key,
     linePlots: New | New[],
   ): Promise<LinePlot | LinePlot[]> {
     const isMany = Array.isArray(linePlots);
     const res = await this.client.send(
       "/lineplot/create",
-      { workspace, linePlots: array.toArray(linePlots) },
+      { project, linePlots: array.toArray(linePlots) },
       createReqZ,
       createResZ,
     );
