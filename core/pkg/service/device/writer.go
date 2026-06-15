@@ -54,6 +54,27 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 	return &stat
 }
 
+// healStatus restores a device's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Devices are re-created on every scan
+// cycle, so on a no-op update the default "unknown" status must not overwrite a status
+// the driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *status.Status[StatusDetails],
+) error {
+	// If the status already exists, do nothing.
+	exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+		Exists(ctx, w.tx)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	return w.status.Set(ctx, stat)
+}
+
 // Create creates or updates the given device. If device.Parent is non-zero, the device
 // is parented to that ontology resource; otherwise it defaults to the device's rack.
 // If a status is provided on the device, it will be used instead of the default
@@ -101,7 +122,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 		if device.Name != existing.Name {
 			return w.status.Set(ctx, stat)
 		}
-		return nil
+		return w.healStatus(ctx, stat)
 	}
 	stat := resolveStatus(device, providedStatus)
 	device.Status = stat

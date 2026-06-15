@@ -578,6 +578,27 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
 		})
 
+		It("Should restore a missing status row when the rack is re-configured", func(ctx SpecContext) {
+			r := rack.Rack{Name: "heal rack"}
+			Expect(writer.Create(ctx, &r)).To(Succeed())
+
+			Expect(status.NewWriter[rack.StatusDetails](stat, tx).
+				Delete(ctx, rack.OntologyID(r.Key).String())).To(Succeed())
+			Expect(status.NewRetrieve[rack.StatusDetails](stat).
+				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+
+			reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
+			Expect(writer.Create(ctx, &reconfigured)).To(Succeed())
+
+			var healed rack.Status
+			Expect(status.NewRetrieve[rack.StatusDetails](stat).
+				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Entry(&healed).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(healed.Details.Rack).To(Equal(r.Key))
+		})
+
 		It("Should mark a rack as dead when it doesn't receive a status within the health check interval", func(ctx SpecContext) {
 			r := rack.Rack{Name: "dead test rack"}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
