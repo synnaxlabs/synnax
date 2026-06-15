@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -36,17 +37,18 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	distB := DeferClose(mock.NewCluster())
 	dist = DeferClose(distB.Provision(ctx))
+	sigs := MustSucceed(signals.New(signals.Config{Channel: dist.Channel, Framer: dist.Framer}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
+		Signals:  sigs,
 		Search:   dist.Search,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
+		Signals:  sigs,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
 		Search:   dist.Search,

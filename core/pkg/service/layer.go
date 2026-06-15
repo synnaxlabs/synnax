@@ -15,7 +15,6 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	distnode "github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -215,15 +214,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, groupSignalsCloser) {
 		return nil, err
 	}
-	if cfg.Distribution.Cluster.HostKey() == distnode.KeyBootstrapper {
-		ontologyCDCCloser, err := ontologysignals.Publish(
-			ctx,
-			l.Signals,
-			cfg.Distribution.Ontology,
-		)
-		if !ok(err, ontologyCDCCloser) {
-			return nil, err
-		}
+	ontologyCDCCloser, err := ontologysignals.Publish(
+		ctx,
+		l.Signals,
+		cfg.Distribution.Ontology,
+	)
+	if !ok(err, ontologyCDCCloser) {
+		return nil, err
 	}
 
 	if l.Node, err = node.NewService(ctx, node.ServiceConfig{

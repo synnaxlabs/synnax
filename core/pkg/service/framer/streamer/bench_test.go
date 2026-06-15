@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -43,6 +44,11 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	builder := mock.NewCluster()
 	dist := builder.Provision(ctx)
 
+	sigs, err := signals.New(signals.Config{Channel: dist.Channel, Framer: dist.Framer})
+	if err != nil {
+		b.Fatalf("failed to open signals provider: %v", err)
+	}
+
 	searchIdx, err := search.Open()
 	if err != nil {
 		b.Fatalf("failed to create search index: %v", err)
@@ -52,7 +58,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
+		Signals:  sigs,
 		Search:   searchIdx,
 	})
 	if err != nil {
@@ -62,7 +68,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
+		Signals:  sigs,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
 		Search:   searchIdx,
