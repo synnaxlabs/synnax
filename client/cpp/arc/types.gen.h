@@ -16,6 +16,7 @@
 #include <utility>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/task/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/types.gen.h"
@@ -73,6 +74,10 @@ struct Arc {
     std::optional<::arc::program::Program> program;
     /// @brief status is the current execution status of the module.
     std::optional<Status> status;
+    /// @brief task is the key of the task running the module, resolved on retrieve from
+    /// the
+    /// module's associated task. Nil when the module is not deployed.
+    std::optional<::synnax::task::Key> task;
 
     static Arc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

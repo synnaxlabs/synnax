@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
+	arcservice "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -60,11 +61,14 @@ func (createRequestTranslator) Forward(
 	_ context.Context,
 	msg arc.CreateRequest,
 ) (*CreateRequest, error) {
-	arcs, err := pb.ArcsToPB(msg.Arcs)
+	arcs := lo.Map(msg.Arcs, func(n arcservice.New, _ int) arcservice.Arc {
+		return arcservice.Arc{Key: n.Key, Name: n.Name, Mode: n.Mode, Graph: n.Graph, Text: n.Text}
+	})
+	pbs, err := pb.ArcsToPB(arcs)
 	if err != nil {
 		return nil, err
 	}
-	return &CreateRequest{Arcs: arcs}, nil
+	return &CreateRequest{Arcs: pbs}, nil
 }
 
 func (createRequestTranslator) Backward(
@@ -75,7 +79,10 @@ func (createRequestTranslator) Backward(
 	if err != nil {
 		return arc.CreateRequest{}, err
 	}
-	return arc.CreateRequest{Arcs: arcs}, nil
+	news := lo.Map(arcs, func(a arcservice.Arc, _ int) arcservice.New {
+		return arcservice.New{Key: a.Key, Name: a.Name, Mode: a.Mode, Graph: a.Graph, Text: a.Text}
+	})
+	return arc.CreateRequest{Arcs: news}, nil
 }
 
 func (createResponseTranslator) Forward(

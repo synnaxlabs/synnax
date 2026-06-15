@@ -17,30 +17,28 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create an Arc with generated key", func(ctx SpecContext) {
-			a := arc.Arc{Name: "test-arc"}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Name: "test-arc"}))
 			Expect(a.Key).ToNot(Equal(uuid.Nil))
 		})
 
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
 			key := uuid.New()
-			a := arc.Arc{Key: key, Name: "test-arc-with-key"}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Key: key, Name: "test-arc-with-key"}))
 			Expect(a.Key).To(Equal(key))
 		})
 
 		It("Should handle multiple arc creations", func(ctx SpecContext) {
-			a1 := arc.Arc{Name: "arc-1"}
-			a2 := arc.Arc{Name: "arc-2"}
-			Expect(svc.NewWriter(tx).Create(ctx, &a1)).To(Succeed())
-			Expect(svc.NewWriter(tx).Create(ctx, &a2)).To(Succeed())
+			a1 := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Name: "arc-1"}))
+			a2 := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Name: "arc-2"}))
 			Expect(a1.Key).ToNot(Equal(uuid.Nil))
 			Expect(a2.Key).ToNot(Equal(uuid.Nil))
 			Expect(a1.Key).ToNot(Equal(a2.Key))
@@ -49,12 +47,10 @@ var _ = Describe("Writer", func() {
 
 	Describe("CreateMany", func() {
 		It("Should create multiple Arcs", func(ctx SpecContext) {
-			arcs := []arc.Arc{
+			arcs := MustSucceed(svc.NewWriter(tx).CreateMany(ctx, []arc.New{
 				{Name: "arc-many-1"},
 				{Name: "arc-many-2"},
-			}
-			Expect(svc.NewWriter(tx).CreateMany(ctx, &arcs)).To(Succeed())
-
+			}))
 			var retrieved []arc.Arc
 			Expect(svc.NewRetrieve().Where(arc.MatchKeys(
 				arcs[0].Key,
@@ -67,15 +63,18 @@ var _ = Describe("Writer", func() {
 	Describe("Update", func() {
 		It("Should update an existing Arc", func(ctx SpecContext) {
 			key := uuid.New()
-			a := arc.Arc{
+			MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{
 				Key:   key,
 				Name:  "existing-arc",
 				Graph: graph.Graph{},
 				Text:  text.Text{},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			a.Name = "updated-arc"
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			}))
+			MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{
+				Key:   key,
+				Name:  "updated-arc",
+				Graph: graph.Graph{},
+				Text:  text.Text{},
+			}))
 			var retrieved arc.Arc
 			Expect(svc.NewRetrieve().Where(arc.MatchKeys(key)).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("updated-arc"))
@@ -84,23 +83,20 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", func() {
 		It("Should delete an Arc", func(ctx SpecContext) {
-			a := arc.Arc{
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{
 				Name:  "arc-to-delete",
 				Graph: graph.Graph{},
 				Text:  text.Text{},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			}))
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple Arcs", func(ctx SpecContext) {
-			a1 := arc.Arc{Name: "arc-to-delete-1"}
-			a2 := arc.Arc{Name: "arc-to-delete-2"}
 			w := svc.NewWriter(tx)
-			Expect(w.Create(ctx, &a1)).To(Succeed())
-			Expect(w.Create(ctx, &a2)).To(Succeed())
+			a1 := MustSucceed(w.Create(ctx, arc.New{Name: "arc-to-delete-1"}))
+			a2 := MustSucceed(w.Create(ctx, arc.New{Name: "arc-to-delete-2"}))
 			Expect(svc.NewWriter(tx).Delete(ctx, a1.Key, a2.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
 				Where(arc.MatchKeys(a1.Key, a2.Key)).
@@ -114,8 +110,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should delete child tasks when deleting an arc", func(ctx SpecContext) {
-			a := arc.Arc{Name: "arc-with-task"}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Name: "arc-with-task"}))
 
 			t := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
@@ -140,16 +135,14 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should handle arc deletion when arc has no child tasks", func(ctx SpecContext) {
-			a := arc.Arc{Name: "arc-without-tasks"}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Name: "arc-without-tasks"}))
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple child tasks when deleting an arc", func(ctx SpecContext) {
-			a := arc.Arc{Name: "arc-with-multiple-tasks"}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Name: "arc-with-multiple-tasks"}))
 
 			t1 := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
@@ -186,6 +179,108 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(t2.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("Task Association", func() {
+		It("Should create and associate a task on the provided rack", func(ctx SpecContext) {
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{
+				Name: "deployed-arc",
+				Rack: &testRack.Key,
+			}))
+			Expect(a.Task).ToNot(BeNil())
+			Expect(a.Task.Rack()).To(Equal(testRack.Key))
+
+			var t task.Task
+			Expect(taskSvc.NewRetrieve().
+				Where(task.MatchKeys(*a.Task)).
+				Entry(&t).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(t.Type).To(Equal(arc.TaskType))
+			Expect(t.Config["arc_key"]).To(Equal(a.Key.String()))
+		})
+
+		It("Should not create a task when no rack is provided", func(ctx SpecContext) {
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Name: "undeployed-arc"}))
+			Expect(a.Task).To(BeNil())
+		})
+
+		It("Should reuse the task when redeploying to the same rack", func(ctx SpecContext) {
+			w := svc.NewWriter(tx)
+			a := MustSucceed(w.Create(ctx, arc.New{Name: "redeploy-same", Rack: &testRack.Key}))
+			first := *a.Task
+
+			redeployed := MustSucceed(w.Create(ctx, arc.New{
+				Key:  a.Key,
+				Name: a.Name,
+				Rack: &testRack.Key,
+			}))
+			Expect(*redeployed.Task).To(Equal(first))
+		})
+
+		It("Should migrate the task when redeploying to a different rack", func(ctx SpecContext) {
+			otherRack := &rack.Rack{Name: "Other Rack"}
+			Expect(rackSvc.NewWriter(db).Create(ctx, otherRack)).To(Succeed())
+
+			w := svc.NewWriter(tx)
+			a := MustSucceed(w.Create(ctx, arc.New{Name: "migrate", Rack: &testRack.Key}))
+			original := *a.Task
+
+			migrated := MustSucceed(w.Create(ctx, arc.New{
+				Key:  a.Key,
+				Name: a.Name,
+				Rack: &otherRack.Key,
+			}))
+			Expect(*migrated.Task).ToNot(Equal(original))
+			Expect(migrated.Task.Rack()).To(Equal(otherRack.Key))
+			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(original)).Exec(ctx, tx)).
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("Retrieve Resolution", func() {
+		It("Should resolve the task key with IncludeTask", func(ctx SpecContext) {
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{
+				Name: "resolve-task",
+				Rack: &testRack.Key,
+			}))
+
+			var got arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(a.Key)).
+				IncludeTask(true).
+				Entry(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got.Task).ToNot(BeNil())
+			Expect(*got.Task).To(Equal(*a.Task))
+		})
+
+		It("Should leave the task nil for an undeployed arc", func(ctx SpecContext) {
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{Name: "resolve-none"}))
+
+			var got arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(a.Key)).
+				IncludeTask(true).
+				Entry(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got.Task).To(BeNil())
+		})
+
+		It("Should resolve the task status with IncludeStatus", func(ctx SpecContext) {
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{
+				Name: "resolve-status",
+				Rack: &testRack.Key,
+			}))
+
+			var got arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(a.Key)).
+				IncludeStatus(true).
+				Entry(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got.Task).ToNot(BeNil())
+			Expect(got.Status).ToNot(BeNil())
 		})
 	})
 })

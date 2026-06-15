@@ -50,4 +50,7 @@ message Arc {
   optional .arc.program.pb.Program program = 6;
   // status is the current execution status of the module.
   optional .x.status.pb.Status status = 7;
+  // task is the key of the task running the module, resolved on retrieve from the
+  // module's associated task. Nil when the module is not deployed.
+  optional uint64 task = 8;
 }

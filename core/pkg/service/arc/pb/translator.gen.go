@@ -18,6 +18,7 @@ import (
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/status"
 	statuspb "github.com/synnaxlabs/x/status/pb"
@@ -105,6 +106,10 @@ func ArcToPB(r arc.Arc) (*Arc, error) {
 			return nil, err
 		}
 	}
+	if r.Task != nil {
+		v := uint64(*r.Task)
+		pb.Task = &v
+	}
 	return pb, nil
 }
 
@@ -146,6 +151,10 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 			return arc.Arc{}, err
 		}
 		r.Status = (*arc.Status)(&val)
+	}
+	if pb.Task != nil {
+		v := task.Key(*pb.Task)
+		r.Task = &v
 	}
 	return r, nil
 }

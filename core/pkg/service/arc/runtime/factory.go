@@ -28,7 +28,7 @@ import (
 )
 
 // TaskType is the type identifier for Arc tasks.
-const TaskType = "arc"
+const TaskType = arc.TaskType
 
 // TaskConfig is the configuration for an Arc taskImpl.
 type TaskConfig struct {

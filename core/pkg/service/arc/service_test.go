@@ -28,7 +28,7 @@ import (
 
 var _ = Describe("CompileProgram", func() {
 	It("Should retrieve and compile an Arc with a valid graph", func(ctx SpecContext) {
-		a := arc.Arc{
+		n := arc.New{
 			Name: "test-arc",
 			Graph: graph.Graph{
 				Functions: []ir.Function{
@@ -46,7 +46,7 @@ var _ = Describe("CompileProgram", func() {
 				},
 			},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+		a := MustSucceed(svc.NewWriter(tx).Create(ctx, n))
 		Expect(tx.Commit(ctx)).To(Succeed())
 
 		result := MustSucceed(svc.CompileProgram(ctx, a.Key))
@@ -61,7 +61,7 @@ var _ = Describe("CompileProgram", func() {
 	})
 
 	It("Should return error when graph compilation fails", func(ctx SpecContext) {
-		a := arc.Arc{
+		n := arc.New{
 			Name: "invalid-arc",
 			Graph: graph.Graph{
 				Functions: []ir.Function{
@@ -83,7 +83,7 @@ var _ = Describe("CompileProgram", func() {
 				},
 			},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+		a := MustSucceed(svc.NewWriter(tx).Create(ctx, n))
 		Expect(tx.Commit(ctx)).To(Succeed())
 
 		Expect(svc.CompileProgram(ctx, a.Key)).Error().

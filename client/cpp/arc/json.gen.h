@@ -14,6 +14,7 @@
 #include <string>
 
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/status/json.gen.h"
 
@@ -44,6 +45,7 @@ inline Arc Arc::parse(x::json::Parser parser) {
         .text = parser.field<::arc::text::Text>("text"),
         .program = parser.field<std::optional<::arc::program::Program>>("program"),
         .status = parser.field<std::optional<Status>>("status"),
+        .task = parser.field<std::optional<::synnax::task::Key>>("task"),
     };
 }
 
@@ -56,6 +58,7 @@ inline x::json::json Arc::to_json() const {
     j["text"] = this->text.to_json();
     if (this->program.has_value()) j["program"] = this->program->to_json();
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    j["task"] = this->task;
     return j;
 }
 

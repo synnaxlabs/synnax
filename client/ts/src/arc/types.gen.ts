@@ -16,6 +16,8 @@ import { graph } from "@/arc/graph";
 import { program } from "@/arc/program";
 import { text } from "@/arc/text";
 import { ontology } from "@/ontology";
+import { rack } from "@/rack";
+import { task } from "@/task";
 
 export const MODES = ["text", "graph"] as const;
 export const modeZ = z.enum(MODES);
@@ -52,6 +54,11 @@ export const newZ = z.object({
   graph: graph.graphZ,
   /** text is the text-based Arc source code. */
   text: text.textZ,
+  /**
+   * rack is an optional rack to deploy the module to. If set, a task is created
+   * for the module and associated with it on the core.
+   */
+  rack: rack.keyZ.optional(),
 });
 export interface New extends z.input<typeof newZ> {}
 
@@ -78,6 +85,11 @@ export const arcZ = z.object({
   program: program.programZ.optional(),
   /** status is the current execution status of the module. */
   status: statusZ.optional(),
+  /**
+   * task is the key of the task running the module, resolved on retrieve from
+   * the module's associated task. Nil when the module is not deployed.
+   */
+  task: task.keyZ.optional(),
 });
 export interface Arc extends z.infer<typeof arcZ> {}
 

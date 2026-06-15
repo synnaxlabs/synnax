@@ -55,9 +55,11 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
+		Arcs []arc.New `json:"arcs" msgpack:"arcs"`
+	}
+	CreateResponse struct {
 		Arcs []Arc `json:"arcs" msgpack:"arcs"`
 	}
-	CreateResponse = CreateRequest
 )
 
 func (s *Service) Create(
@@ -72,10 +74,11 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Arcs); err != nil {
+	arcs, err := s.internal.NewWriter(tx).CreateMany(ctx, req.Arcs)
+	if err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse(req), nil
+	return CreateResponse{Arcs: arcs}, nil
 }
 
 type DeleteRequest struct {
@@ -105,6 +108,7 @@ type (
 		Limit         int       `json:"limit" msgpack:"limit"`
 		Offset        int       `json:"offset" msgpack:"offset"`
 		IncludeStatus bool      `json:"include_status" msgpack:"include_status"`
+		IncludeTask   bool      `json:"include_task" msgpack:"include_task"`
 		Compile       bool      `json:"compile" msgpack:"compile"`
 	}
 	RetrieveResponse struct {
@@ -118,7 +122,10 @@ func (s *Service) Retrieve(
 ) (RetrieveResponse, error) {
 	var arcs []arc.Arc
 	var (
-		q         = s.internal.NewRetrieve().Entries(&arcs)
+		q = s.internal.NewRetrieve().
+			Entries(&arcs).
+			IncludeTask(req.IncludeTask).
+			IncludeStatus(req.IncludeStatus)
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
 		hasSearch = req.SearchTerm != ""

@@ -16,17 +16,17 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
 	Describe("Arc Retrieve", func() {
 		It("Should retrieve an Arc", func(ctx SpecContext) {
-			a := arc.Arc{
+			a := MustSucceed(svc.NewWriter(tx).Create(ctx, arc.New{
 				Name:  "test-retrieve",
 				Graph: graph.Graph{},
 				Text:  text.Text{},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			}))
 
 			var retrievedArc arc.Arc
 			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
@@ -35,16 +35,16 @@ var _ = Describe("Retrieve", func() {
 		})
 
 		It("Should retrieve multiple Arcs", func(ctx SpecContext) {
-			arcs := []arc.Arc{
+			news := []arc.New{
 				{Name: "arc-multi-1", Graph: graph.Graph{}, Text: text.Text{}},
 				{Name: "arc-multi-2", Graph: graph.Graph{}, Text: text.Text{}},
 				{Name: "arc-multi-3", Graph: graph.Graph{}, Text: text.Text{}},
 			}
 
-			keys := make([]uuid.UUID, 0, len(arcs))
-			for i := range arcs {
-				Expect(svc.NewWriter(tx).Create(ctx, &arcs[i])).To(Succeed())
-				keys = append(keys, arcs[i].Key)
+			keys := make([]uuid.UUID, 0, len(news))
+			for _, n := range news {
+				a := MustSucceed(svc.NewWriter(tx).Create(ctx, n))
+				keys = append(keys, a.Key)
 			}
 
 			var retrievedArcs []arc.Arc
@@ -54,12 +54,11 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should retrieve Arc after transaction commit", func(ctx SpecContext) {
 			localTx := db.OpenTx()
-			a := arc.Arc{
+			a := MustSucceed(svc.NewWriter(localTx).Create(ctx, arc.New{
 				Name:  "tx-test-arc",
 				Graph: graph.Graph{},
 				Text:  text.Text{},
-			}
-			Expect(svc.NewWriter(localTx).Create(ctx, &a)).To(Succeed())
+			}))
 			Expect(localTx.Commit(ctx)).To(Succeed())
 
 			newTx := db.OpenTx()
@@ -72,12 +71,11 @@ var _ = Describe("Retrieve", func() {
 
 		It("Should retrieve Arc without transaction", func(ctx SpecContext) {
 			localTx := db.OpenTx()
-			a := arc.Arc{
+			a := MustSucceed(svc.NewWriter(localTx).Create(ctx, arc.New{
 				Name:  "no-tx-arc",
 				Graph: graph.Graph{},
 				Text:  text.Text{},
-			}
-			Expect(svc.NewWriter(localTx).Create(ctx, &a)).To(Succeed())
+			}))
 			Expect(localTx.Commit(ctx)).To(Succeed())
 
 			var retrievedArc arc.Arc

@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/status"
 )
 
@@ -67,4 +69,26 @@ type Arc struct {
 	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
 	// Status is the current execution status of the module.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+	// Task is the key of the task running the module, resolved on retrieve from the
+	// module's associated task. Nil when the module is not deployed.
+	Task *task.Key `json:"task,omitempty" msgpack:"task,omitempty"`
+}
+
+// New contains parameters for creating a new Arc module.
+type New struct {
+	// Key is an optional key for the module. If not provided, one will be automatically
+	// assigned.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the module.
+	Name string `json:"name" msgpack:"name"`
+	// Mode specifies the representation mode for this module. Either "text" for text-based
+	// Arc code or "graph" for visual dataflow.
+	Mode Mode `json:"mode" msgpack:"mode"`
+	// Graph is the visual dataflow graph representation.
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
+	// Text is the text-based Arc source code.
+	Text text.Text `json:"text" msgpack:"text"`
+	// Rack is an optional rack to deploy the module to. If set, a task is created for the
+	// module and associated with it on the core.
+	Rack *rack.Key `json:"rack,omitempty" msgpack:"rack,omitempty"`
 }

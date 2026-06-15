@@ -9,6 +9,8 @@
 
 import "schemas/spatial"
 import "schemas/status"
+import "schemas/task"
+import "schemas/rack"
 import "schemas/arc/graph"
 import "schemas/arc/text"
 import "schemas/arc/ir"
@@ -76,6 +78,13 @@ Arc struct {
         @doc value  "is the current execution status of the module."
         @go marshal omit
     }
+    task    task.Key??        {
+        @doc value  """
+            is the key of the task running the module, resolved on retrieve from
+            the module's associated task. Nil when the module is not deployed.
+        """
+        @go marshal omit
+    }
 
     @doc value     """
         is an Arc module combining visual graph representation and text-based
@@ -85,7 +94,6 @@ Arc struct {
     @ontology type "arc"
     @go marshal
     @go migrate
-    @retrieve
     @search
 }
 
@@ -111,10 +119,15 @@ New struct {
     text  text.Text   {
         @doc value "is the text-based Arc source code."
     }
+    rack  rack.Key??  {
+        @doc value """
+            is an optional rack to deploy the module to. If set, a task is created
+            for the module and associated with it on the core.
+        """
+    }
 
     @doc value    "contains parameters for creating a new Arc module."
     @ts use_input
-    @go omit
     @pb omit
     @cpp omit
 }

@@ -28,6 +28,7 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
+  includeTask: z.boolean().optional(),
 });
 const createReqZ = z.object({ arcs: newZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -45,15 +46,25 @@ const keyRetrieveRequestZ = z
   .object({
     key: keyZ,
     includeStatus: z.boolean().optional(),
+    includeTask: z.boolean().optional(),
   })
-  .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus }));
+  .transform(({ key, includeStatus, includeTask }) => ({
+    keys: [key],
+    includeStatus,
+    includeTask,
+  }));
 
 const nameRetrieveRequestZ = z
   .object({
     name: z.string(),
     includeStatus: z.boolean().optional(),
+    includeTask: z.boolean().optional(),
   })
-  .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
+  .transform(({ name, includeStatus, includeTask }) => ({
+    names: [name],
+    includeStatus,
+    includeTask,
+  }));
 
 export const singleRetrieveArgsZ = z.union([keyRetrieveRequestZ, nameRetrieveRequestZ]);
 

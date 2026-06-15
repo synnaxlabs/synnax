@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, NotFoundError, ontology, type rack, task } from "@synnaxlabs/client";
-import { errors, primitive, status } from "@synnaxlabs/x";
+import { arc, NotFoundError, ontology, task } from "@synnaxlabs/client";
+import { errors, primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -51,6 +51,7 @@ export interface FluxSubStore extends Flux.Store {
 export type RetrieveQuery = {
   key: arc.Key;
   includeStatus?: boolean;
+  includeTask?: boolean;
 };
 
 const retrieveSingle = async ({
@@ -61,6 +62,7 @@ const retrieveSingle = async ({
   const a = await client.arcs.retrieve({
     ...query,
     includeStatus: query.includeStatus ?? true,
+    includeTask: query.includeTask ?? true,
   });
   store.arcs.set(query.key, a);
   return a;
@@ -143,28 +145,7 @@ export const useForm = Flux.createForm<
   },
 });
 
-export interface CreateParams extends arc.New {
-  rack?: rack.Key;
-}
-
-const TASK_TYPE = "arc";
-
-const taskStatusDataZ = z.null().optional();
-
-const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
-  status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
-    key: task.statusKey(taskKey),
-    name: "Configuring task",
-    variant: "loading",
-    message: "Configuring task...",
-    details: { task: taskKey, running: false, data: undefined },
-  });
-
-const TASK_SCHEMAS = {
-  type: z.literal(TASK_TYPE),
-  config: z.object({ arcKey: z.string() }),
-  statusData: taskStatusDataZ,
-} as const satisfies task.Schemas;
+export type CreateParams = arc.New;
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   CreateParams,
@@ -174,48 +155,9 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const { rack } = data;
-    let taskKey: task.Key | undefined;
-    // If the caller selected a rack to deploy the arc on, we need to create a task
-    // for it.
-    if (rack != null) {
-      taskKey = task.newKey(rack, 0);
-      if (data.key != null) {
-        const tsk = await retrieveTask({ client, store, query: { arcKey: data.key } });
-        if (tsk != null)
-          if (task.rackKey(tsk.key) != rack) {
-            // This means a previous task was created for a different rack, and we need
-            // to delete it.
-            rollbacks.push(store.tasks.delete(tsk.key));
-            rollbacks.push(
-              store.relationships.delete(
-                ontology.relationshipToString({
-                  from: arc.ontologyID(data.key),
-                  type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-                  to: task.ontologyID(tsk.key),
-                }),
-              ),
-            );
-            await client.tasks.delete([tsk.key]);
-          } else taskKey = tsk.key;
-      }
-    }
-    const prog = await client.arcs.create(data);
-    rollbacks.push(store.arcs.set(prog));
-    if (taskKey == null) return prog;
-    const { key, name } = prog;
-    const newTsk = await client.tasks.create(
-      {
-        key: taskKey,
-        name,
-        type: TASK_TYPE,
-        config: { arcKey: key },
-        status: configuringStatus(taskKey),
-      },
-      TASK_SCHEMAS,
-    );
-    await client.ontology.addChildren(arc.ontologyID(key), task.ontologyID(newTsk.key));
-    return prog;
+    const created = await client.arcs.create(data);
+    rollbacks.push(store.arcs.set(created));
+    return created;
   },
 });
 

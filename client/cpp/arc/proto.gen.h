@@ -99,6 +99,7 @@ inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() cons
         if (err) return {{}, err};
         *pb.mutable_status() = v;
     }
+    pb.set_task(static_cast<uint64_t>(this->task));
     return {pb, x::errors::NIL};
 }
 
@@ -136,6 +137,7 @@ Arc::from_proto(const ::service::arc::pb::Arc &pb) {
         if (err) return {{}, err};
         cpp.status = v;
     }
+    cpp.task = ::synnax::task::Key(pb.task());
     return {cpp, x::errors::NIL};
 }
 
