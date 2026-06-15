@@ -220,6 +220,24 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Name).To(Equal("n"))
 			})
 
+			It("Should drop a top-level key field from the encoded body", func() {
+				type keyed struct {
+					Key  string `json:"key"`
+					Name string `json:"name"`
+					Foo  int    `json:"foo"`
+				}
+				env := imex.Envelope{Version: 1, Type: "log"}
+				Expect(imex.Encode(
+					&env, keyed{Key: "should-be-dropped", Name: "n", Foo: 1},
+				)).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("key"))
+				Expect(round["name"]).To(Equal("n"))
+				Expect(round["foo"]).To(BeEquivalentTo(1))
+			})
+
 			It("Should fail when neither the envelope nor the data carries a type", func() {
 				Expect(imex.Encode(
 					&imex.Envelope{Version: 1}, wirePayload{Name: "n", Foo: 1},

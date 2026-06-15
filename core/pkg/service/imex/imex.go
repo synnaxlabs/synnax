@@ -202,11 +202,19 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 // Invariant: every imex-registered resource carries a non-empty top-level string `name`
 // field on the wire. Encode enforces this so that a resource without a name surfaces as
 // a programmer bug at exporter-test time rather than at runtime.
+//
+// A top-level `key` field is always dropped from the body: envelopes do not carry
+// resource-local identity today, and importers mint a fresh key on the way in.
 func Encode[T any](env *Envelope, data T) error {
 	body, err := structToMap(data)
 	if err != nil {
 		return errors.Wrap(err, "encode envelope")
 	}
+	// Keys are resource-local identity, not part of the portable envelope: an imported
+	// resource is minted a fresh key on the way in, so a stale key on the wire is at best
+	// noise and at worst a collision hazard. Strip it here. This may change if envelopes
+	// ever need to carry stable identity across clusters.
+	delete(body, "key")
 	typ := env.Type
 	if v, ok := body["type"]; ok {
 		s, ok := v.(string)

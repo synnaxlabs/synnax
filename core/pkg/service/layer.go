@@ -294,6 +294,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Log) {
 		return nil, err
 	}
+<<<<<<< Updated upstream
 	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
 		Instrumentation: cfg.Child("panel"),
 		DB:              cfg.Distribution.DB,
@@ -303,6 +304,9 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Panel) {
 		return nil, err
 	}
+=======
+	l.ImEx.RegisterImportExporter(l.Log)
+>>>>>>> Stashed changes
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		Instrumentation: cfg.Child("table"),
 		DB:              cfg.Distribution.DB,
