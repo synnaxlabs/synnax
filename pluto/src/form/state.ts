@@ -10,9 +10,13 @@
 import { deep, map, observe, type status, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+// FieldStatus is a form field validation status keyed by the field's resolved path.
+// The X status payload is keyless, so the form attaches its own key.
+export type FieldStatus = status.Crude & { key: string };
+
 export interface FieldState<V = unknown> {
   value: V;
-  status: status.Crude;
+  status: FieldStatus;
   touched: boolean;
   required: boolean;
 }
@@ -58,7 +62,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   values: z.infer<Z>;
   initialValues: z.infer<Z>;
 
-  private readonly statuses: Map<string, status.Crude>;
+  private readonly statuses: Map<string, FieldStatus>;
   private readonly touched: Set<string>;
   private readonly cachedRefs: Map<string, {}>;
 
@@ -107,7 +111,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     });
   }
 
-  setStatus(path: string, status: status.Crude) {
+  setStatus(path: string, status: FieldStatus) {
     this.statuses.set(path, status);
     this.updateCachedRefs(path);
   }
@@ -173,8 +177,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private errorsToStatuses(
     issues: z.core.$ZodIssue[],
     path: PropertyKey[],
-    accumulated: status.Crude[],
-  ): status.Crude[] {
+    accumulated: FieldStatus[],
+  ): FieldStatus[] {
     issues.forEach((issue) => {
       const issuePath = [...path, ...issue.path];
       const resolvedPath = deep.resolvePath(issuePath.join("."), this.values);
@@ -239,7 +243,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return this.touched.size > 0;
   }
 
-  getStatuses(): status.Crude[] {
+  getStatuses(): FieldStatus[] {
     return Array.from(this.statuses.values()).filter(
       (status) => status.variant !== "success",
     );
