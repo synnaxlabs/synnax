@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologycdc "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
+	ontologysignals "github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
@@ -72,10 +72,10 @@ func (s *changeService) RetrieveResource(
 
 var _ = Describe("Signals", Ordered, func() {
 	var (
-		builder   *mock.Cluster
-		dist      mock.Node
-		svc       *changeService
-		cdcCloser io.Closer
+		builder *mock.Cluster
+		dist    mock.Node
+		svc     *changeService
+		closer  io.Closer
 	)
 	BeforeAll(func(ctx SpecContext) {
 		builder = mock.NewCluster()
@@ -86,16 +86,16 @@ var _ = Describe("Signals", Ordered, func() {
 			Channel: dist.Channel,
 			Framer:  dist.Framer,
 		}))
-		cdcCloser = MustSucceed(ontologycdc.Publish(ctx, sigs, dist.Ontology))
+		closer = MustSucceed(ontologysignals.Publish(ctx, sigs, dist.Ontology))
 	})
 	AfterAll(func() {
-		Expect(cdcCloser.Close()).To(Succeed())
+		Expect(closer.Close()).To(Succeed())
 		Expect(builder.Close()).To(Succeed())
 	})
 	Describe("DecodeIDs", func() {
 		It("Should decode a series of IDs", func() {
-			encoded := ontologycdc.EncodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})
-			decoded := MustSucceed(ontologycdc.DecodeIDs(encoded))
+			encoded := ontologysignals.EncodeIDs([]ontology.ID{newChangeID("one"), newChangeID("two")})
+			decoded := MustSucceed(ontologysignals.DecodeIDs(encoded))
 			Expect(decoded).To(Equal([]ontology.ID{newChangeID("one"), newChangeID("two")}))
 		})
 	})
@@ -161,7 +161,7 @@ var _ = Describe("Signals", Ordered, func() {
 			})
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			ids := MustSucceed(ontologycdc.DecodeIDs(res.Frame.SeriesAt(0).Data))
+			ids := MustSucceed(ontologysignals.DecodeIDs(res.Frame.SeriesAt(0).Data))
 			// There's a condition here where we might receive the channel creation
 			// signal, so we just do a length assertion.
 			Expect(ids).ToNot(BeEmpty())
@@ -196,7 +196,7 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(w.DefineRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
-		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
+		relationships := MustSucceed(ontologysignals.DecodeRelationships(res.Frame.SeriesAt(0).Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
 		Expect(relationships).ToNot(BeEmpty())
@@ -236,7 +236,7 @@ var _ = Describe("Signals", Ordered, func() {
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		By("Decoding the relationships")
-		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.SeriesAt(0).Data))
+		relationships := MustSucceed(ontologysignals.DecodeRelationships(res.Frame.SeriesAt(0).Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
 		Expect(relationships).ToNot(BeEmpty())

@@ -94,7 +94,7 @@ func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) Gor
 }
 
 func (g GorpPublisherConfig[K, E]) Validate() error {
-	v := validate.New("cdc.gorp_publisher_config")
+	v := validate.New("signals.gorp_publisher_config")
 	setEnabled := !g.DisableSet && g.SetName != ""
 	deleteEnabled := !g.DisableDelete && g.DeleteName != ""
 	v.Ternary(

@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	channelcdc "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -33,9 +33,9 @@ type channelPayload struct {
 
 var _ = Describe("Signals", Ordered, func() {
 	var (
-		builder   *mock.Cluster
-		dist      mock.Node
-		cdcCloser io.Closer
+		builder *mock.Cluster
+		dist    mock.Node
+		closer  io.Closer
 	)
 	BeforeAll(func(ctx SpecContext) {
 		builder = mock.NewCluster()
@@ -44,10 +44,10 @@ var _ = Describe("Signals", Ordered, func() {
 			Channel: dist.Channel,
 			Framer:  dist.Framer,
 		}))
-		cdcCloser = MustSucceed(channelcdc.Publish(ctx, sigs, dist.Channel.Observe()))
+		closer = MustSucceed(channelsignals.Publish(ctx, sigs, dist.Channel.Observe()))
 	})
 	AfterAll(func() {
-		Expect(cdcCloser.Close()).To(Succeed())
+		Expect(closer.Close()).To(Succeed())
 		Expect(builder.Close()).To(Succeed())
 	})
 

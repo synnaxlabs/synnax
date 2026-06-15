@@ -31,9 +31,9 @@ type Service interface {
 	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
 	// does not exist, returns a query.ErrNotFound error.
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
-	// Observable is used by the ontology to subscribe to changes in the entities.
-	// This is used to propagate changes via the ResourceObserver for CDC signals.
-	// If the service's entities are static, use observe.Noop.
+	// Observable is used by the ontology to subscribe to changes in the entities. This
+	// is used to propagate changes via the ResourceObserver for signals. If the
+	// service's entities are static, use observe.Noop.
 	observe.Observable[iter.Seq[Change]]
 }
 

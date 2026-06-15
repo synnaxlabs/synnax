@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	groupcdc "github.com/synnaxlabs/synnax/pkg/service/group/signals"
+	groupsignals "github.com/synnaxlabs/synnax/pkg/service/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -32,9 +32,9 @@ import (
 
 var _ = Describe("Signals", Ordered, func() {
 	var (
-		builder   *mock.Cluster
-		dist      mock.Node
-		cdcCloser io.Closer
+		builder *mock.Cluster
+		dist    mock.Node
+		closer  io.Closer
 	)
 	BeforeAll(func(ctx SpecContext) {
 		builder = mock.NewCluster()
@@ -43,10 +43,10 @@ var _ = Describe("Signals", Ordered, func() {
 			Channel: dist.Channel,
 			Framer:  dist.Framer,
 		}))
-		cdcCloser = MustSucceed(groupcdc.Publish(ctx, sigs, dist.Group.Observe()))
+		closer = MustSucceed(groupsignals.Publish(ctx, sigs, dist.Group.Observe()))
 	})
 	AfterAll(func() {
-		Expect(cdcCloser.Close()).To(Succeed())
+		Expect(closer.Close()).To(Succeed())
 		Expect(builder.Close()).To(Succeed())
 	})
 

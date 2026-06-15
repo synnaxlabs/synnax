@@ -214,12 +214,12 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, groupSignalsCloser) {
 		return nil, err
 	}
-	ontologyCDCCloser, err := ontologysignals.Publish(
+	ontologySignalsCloser, err := ontologysignals.Publish(
 		ctx,
 		l.Signals,
 		cfg.Distribution.Ontology,
 	)
-	if !ok(err, ontologyCDCCloser) {
+	if !ok(err, ontologySignalsCloser) {
 		return nil, err
 	}
 
