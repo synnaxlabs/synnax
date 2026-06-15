@@ -22,6 +22,7 @@ func UserToPB(r user.User) (*User, error) {
 		Username:  r.Username,
 		FirstName: r.FirstName,
 		LastName:  r.LastName,
+		Avatar:    r.Avatar,
 		RootUser:  r.RootUser,
 		Key:       r.Key.String(),
 	}
@@ -43,6 +44,7 @@ func UserFromPB(pb *User) (user.User, error) {
 	r.Username = pb.Username
 	r.FirstName = pb.FirstName
 	r.LastName = pb.LastName
+	r.Avatar = pb.Avatar
 	r.RootUser = pb.RootUser
 	return r, nil
 }

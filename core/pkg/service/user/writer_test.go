@@ -113,6 +113,25 @@ var _ = Describe("Writer", func() {
 			Expect(u.LastName).To(Equal("Surname"))
 		})
 	})
+	Describe("ChangeAvatar", func() {
+		It("Should set the avatar of a user", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))
+			Expect(w.ChangeAvatar(ctx, created.Key, "data:image/webp;base64,AAAA")).To(Succeed())
+			var u user.User
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).Exec(ctx, tx)).To(Succeed())
+			Expect(u.Avatar).To(Equal("data:image/webp;base64,AAAA"))
+		})
+		It("Should clear the avatar when given an empty string", func(ctx SpecContext) {
+			created := MustSucceed(w.Create(ctx, user.User{
+				Username: uuid.NewString(),
+				Avatar:   "data:image/webp;base64,AAAA",
+			}))
+			Expect(w.ChangeAvatar(ctx, created.Key, "")).To(Succeed())
+			var u user.User
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(created.Key)).Entry(&u).Exec(ctx, tx)).To(Succeed())
+			Expect(u.Avatar).To(Equal(""))
+		})
+	})
 	Describe("Delete", func() {
 		It("Should delete a single user", func(ctx SpecContext) {
 			created := MustSucceed(w.Create(ctx, user.User{Username: uuid.NewString()}))

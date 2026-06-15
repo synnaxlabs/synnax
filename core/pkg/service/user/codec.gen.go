@@ -20,6 +20,7 @@ func (u User) EncodeOrc(w *orc.Writer) error {
 	w.String(u.Username)
 	w.String(u.FirstName)
 	w.String(u.LastName)
+	w.String(u.Avatar)
 	w.Bool(u.RootUser)
 	return nil
 }
@@ -36,6 +37,9 @@ func (u *User) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if u.LastName, err = r.String(); err != nil {
+		return err
+	}
+	if u.Avatar, err = r.String(); err != nil {
 		return err
 	}
 	if u.RootUser, err = r.Bool(); err != nil {

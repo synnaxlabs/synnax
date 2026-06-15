@@ -32,6 +32,10 @@ User struct {
     last_name  string {
         @doc value "is the user's last name."
     }
+    avatar     string {
+        @doc value           "is a base64 data URI of the user's profile picture. When empty, a deterministic avatar is generated from the username."
+        @validate max_length 65536
+    }
     root_user  bool = false {
         @doc value """
             is true if this is a root/admin user with full system access. Root
@@ -60,6 +64,7 @@ New struct extends User {
     }
     first_name?
     last_name?
+    avatar?
 
     @doc value    "contains parameters for creating a new user."
     @ts use_input

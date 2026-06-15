@@ -95,6 +95,27 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
+export interface ChangeAvatarParams extends Pick<user.User, "key" | "avatar"> {}
+
+export const { useUpdate: useChangeAvatar } = Flux.createUpdate<
+  ChangeAvatarParams,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  verbs: Flux.UPDATE_VERBS,
+  update: async ({ client, data, rollbacks, store }) => {
+    const { key, avatar } = data;
+    rollbacks.push(
+      store.users.set(
+        key,
+        state.skipUndefined((u) => ({ ...u, avatar })),
+      ),
+    );
+    await client.users.changeAvatar(key, avatar);
+    return data;
+  },
+});
+
 export type UseRetrieveGroupArgs = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
@@ -149,7 +170,12 @@ export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSub
   },
   update: async ({ client, value, rollbacks, store }) => {
     const v = value();
-    const newUser: user.New & user.User = { key: uuid.create(), rootUser: false, ...v };
+    const newUser: user.New & user.User = {
+      key: uuid.create(),
+      rootUser: false,
+      avatar: "",
+      ...v,
+    };
     rollbacks.push(store.users.set(newUser.key, newUser));
     const createdUser = await client.users.create(newUser);
     if (v.role == null) return;

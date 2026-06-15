@@ -26,7 +26,10 @@ message User {
   string first_name = 3;
   // last_name is the user's last name.
   string last_name = 4;
+  // avatar is a base64 data URI of the user's profile picture. When empty, a
+  // deterministic avatar is generated from the username.
+  string avatar = 5;
   // root_user is true if this is a root/admin user with full system access. Root users
   // cannot be deleted.
-  bool root_user = 5;
+  bool root_user = 6;
 }

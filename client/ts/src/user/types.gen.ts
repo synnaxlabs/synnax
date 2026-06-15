@@ -29,6 +29,8 @@ export const userZ = z.object({
   firstName: z.string(),
   /** lastName is the user's last name. */
   lastName: z.string(),
+  /** avatar is a base64 data URI of the user's profile picture. When empty, a deterministic avatar is generated from the username. */
+  avatar: z.string().max(65536),
   /**
    * rootUser is true if this is a root/admin user with full system access. Root
    * users cannot be deleted.
@@ -39,7 +41,7 @@ export interface User extends z.infer<typeof userZ> {}
 
 export const newZ = userZ
   .omit({ rootUser: true })
-  .partial({ key: true, firstName: true, lastName: true })
+  .partial({ key: true, firstName: true, lastName: true, avatar: true })
   .extend({
     password: z.string().min(1),
   });

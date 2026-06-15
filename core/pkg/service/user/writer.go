@@ -97,6 +97,14 @@ func (w Writer) ChangeName(ctx context.Context, key Key, first, last string) err
 		}).Exec(ctx, w.tx)
 }
 
+// ChangeAvatar sets the avatar of the user with the given key. avatar is a base64 data
+// URI; passing an empty string clears it, falling the user back to a generated avatar.
+func (w Writer) ChangeAvatar(ctx context.Context, key Key, avatar string) error {
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).
+		Change(func(_ gorp.Context, u User) User { u.Avatar = avatar; return u }).
+		Exec(ctx, w.tx)
+}
+
 func (w Writer) setRootUser(ctx context.Context, key Key, root bool) error {
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, User](key)).

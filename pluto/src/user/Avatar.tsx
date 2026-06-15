@@ -40,10 +40,12 @@ export const avatar = (username: string): string => {
 
 export interface AvatarProps extends Flex.BoxProps {
   username: string;
+  src?: string;
 }
 
 export const Avatar = ({
   username,
+  src,
   className,
   square,
   style,
@@ -51,8 +53,16 @@ export const Avatar = ({
   ...rest
 }: AvatarProps) => {
   const oStyle = useMemo(
-    () => ({ background: avatar(username), ...style }),
-    [username, style],
+    () =>
+      src != null && src !== ""
+        ? {
+            backgroundImage: `url(${src})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            ...style,
+          }
+        : { background: avatar(username), ...style },
+    [username, src, style],
   );
   return (
     <Button.Button

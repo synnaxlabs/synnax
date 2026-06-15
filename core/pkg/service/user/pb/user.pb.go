@@ -44,9 +44,12 @@ type User struct {
 	FirstName string `protobuf:"bytes,3,opt,name=first_name,json=firstName,proto3" json:"first_name,omitempty"`
 	// last_name is the user's last name.
 	LastName string `protobuf:"bytes,4,opt,name=last_name,json=lastName,proto3" json:"last_name,omitempty"`
+	// avatar is a base64 data URI of the user's profile picture. When empty, a
+	// deterministic avatar is generated from the username.
+	Avatar string `protobuf:"bytes,5,opt,name=avatar,proto3" json:"avatar,omitempty"`
 	// root_user is true if this is a root/admin user with full system access. Root users
 	// cannot be deleted.
-	RootUser      bool `protobuf:"varint,5,opt,name=root_user,json=rootUser,proto3" json:"root_user,omitempty"`
+	RootUser      bool `protobuf:"varint,6,opt,name=root_user,json=rootUser,proto3" json:"root_user,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -109,6 +112,13 @@ func (x *User) GetLastName() string {
 	return ""
 }
 
+func (x *User) GetAvatar() string {
+	if x != nil {
+		return x.Avatar
+	}
+	return ""
+}
+
 func (x *User) GetRootUser() bool {
 	if x != nil {
 		return x.RootUser
@@ -120,14 +130,15 @@ var File_core_pkg_service_user_pb_user_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_user_pb_user_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/user/pb/user.proto\x12\x0fservice.user.pb\"\x8d\x01\n" +
+	"#core/pkg/service/user/pb/user.proto\x12\x0fservice.user.pb\"\xa5\x01\n" +
 	"\x04User\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1d\n" +
 	"\n" +
 	"first_name\x18\x03 \x01(\tR\tfirstName\x12\x1b\n" +
-	"\tlast_name\x18\x04 \x01(\tR\blastName\x12\x1b\n" +
-	"\troot_user\x18\x05 \x01(\bR\brootUserB\xb0\x01\n" +
+	"\tlast_name\x18\x04 \x01(\tR\blastName\x12\x16\n" +
+	"\x06avatar\x18\x05 \x01(\tR\x06avatar\x12\x1b\n" +
+	"\troot_user\x18\x06 \x01(\bR\brootUserB\xb0\x01\n" +
 	"\x13com.service.user.pbB\tUserProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/user/pb\xa2\x02\x03SUP\xaa\x02\x0fService.User.Pb\xca\x02\x0fService\\User\\Pb\xe2\x02\x1bService\\User\\Pb\\GPBMetadata\xea\x02\x11Service::User::Pbb\x06proto3"
 
 var (

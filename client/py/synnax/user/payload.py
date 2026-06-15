@@ -20,6 +20,7 @@ class New(BaseModel):
     password: str
     first_name: str = ""
     last_name: str = ""
+    avatar: str = ""
     key: UUID | None = None
 
 
@@ -28,6 +29,7 @@ class User(BaseModel):
     username: str
     first_name: str
     last_name: str
+    avatar: str = ""
 
     @property
     def ontology_id(self) -> ontology.ID:

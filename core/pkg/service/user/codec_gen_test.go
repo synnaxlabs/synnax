@@ -40,13 +40,15 @@ var _ = Describe("Codec", func() {
 				Username:  "test_2",
 				FirstName: "test_3",
 				LastName:  "test_4",
-				RootUser:  true,
+				Avatar:    "test_5",
+				RootUser:  false,
 			}),
 			Entry("zero values", user.User{
 				Key:       uuid.Nil,
 				Username:  "",
 				FirstName: "",
 				LastName:  "",
+				Avatar:    "",
 				RootUser:  false,
 			}),
 		)
@@ -59,7 +61,8 @@ func BenchmarkEncodeDecodeUser(b *testing.B) {
 		Username:  "test_2",
 		FirstName: "test_3",
 		LastName:  "test_4",
-		RootUser:  true,
+		Avatar:    "test_5",
+		RootUser:  false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -83,7 +86,8 @@ func FuzzDecodeUser(f *testing.F) {
 			Username:  "test_2",
 			FirstName: "test_3",
 			LastName:  "test_4",
-			RootUser:  true,
+			Avatar:    "test_5",
+			RootUser:  false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -97,6 +101,7 @@ func FuzzDecodeUser(f *testing.F) {
 			Username:  "",
 			FirstName: "",
 			LastName:  "",
+			Avatar:    "",
 			RootUser:  false,
 		}
 		w := orc.NewWriter(0)

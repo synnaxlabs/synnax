@@ -54,6 +54,7 @@ type NewUser struct {
 	svcauth.Credentials
 	FirstName string   `json:"first_name" msgpack:"first_name"`
 	LastName  string   `json:"last_name"  msgpack:"last_name"`
+	Avatar    string   `json:"avatar"     msgpack:"avatar"`
 	Key       user.Key `json:"key"        msgpack:"key"`
 }
 
@@ -91,6 +92,7 @@ func (s *Service) Create(
 			Username:  nu.Username,
 			FirstName: nu.FirstName,
 			LastName:  nu.LastName,
+			Avatar:    nu.Avatar,
 			Key:       nu.Key,
 		})
 		if err != nil {
@@ -163,6 +165,29 @@ func (s *Service) Rename(
 	}
 	return types.Nil{}, s.internal.NewWriter(tx).
 		ChangeName(ctx, req.Key, req.FirstName, req.LastName)
+}
+
+type ChangeAvatarRequest struct {
+	Avatar string   `json:"avatar" msgpack:"avatar"`
+	Key    user.Key `json:"key" msgpack:"key"`
+}
+
+// ChangeAvatar sets the avatar for the user with the provided key. An empty avatar
+// clears it, falling the user back to a generated avatar.
+func (s *Service) ChangeAvatar(
+	ctx context.Context,
+	tx gorp.Tx,
+	req ChangeAvatarRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{user.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).
+		ChangeAvatar(ctx, req.Key, req.Avatar)
 }
 
 type (

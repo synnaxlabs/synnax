@@ -51,6 +51,11 @@ class _ChangeNameRequest(BaseModel):
     last_name: str
 
 
+class _ChangeAvatarRequest(BaseModel):
+    key: UUID
+    avatar: str
+
+
 class Client:
     client: UnaryClient
 
@@ -65,6 +70,7 @@ class Client:
         password: str,
         first_name: str = "",
         last_name: str = "",
+        avatar: str = "",
         key: UUID | None = None,
     ) -> User: ...
 
@@ -82,6 +88,7 @@ class Client:
         password: str | None = None,
         first_name: str | None = None,
         last_name: str | None = None,
+        avatar: str | None = None,
         key: UUID | None = None,
         user: New | None = None,
         users: list[New] | None = None,
@@ -91,11 +98,14 @@ class Client:
                 first_name = ""
             if last_name is None:
                 last_name = ""
+            if avatar is None:
+                avatar = ""
             user = New(
                 username=username,
                 password=password,
                 first_name=first_name,
                 last_name=last_name,
+                avatar=avatar,
                 key=key,
             )
         single = user is not None
@@ -123,6 +133,13 @@ class Client:
         self.client.send(
             "/user/change_name",
             _ChangeNameRequest(key=key, first_name=first_name, last_name=last_name),
+            Empty,
+        )
+
+    def change_avatar(self, key: UUID, avatar: str) -> None:
+        self.client.send(
+            "/user/change-avatar",
+            _ChangeAvatarRequest(key=key, avatar=avatar),
             Empty,
         )
 

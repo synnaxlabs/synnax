@@ -78,6 +78,7 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	// USER
 	t.UserRename = noop.UnaryServer[user.RenameRequest, types.Nil]{}
 	t.UserChangeUsername = noop.UnaryServer[user.ChangeUsernameRequest, types.Nil]{}
+	t.UserChangeAvatar = noop.UnaryServer[user.ChangeAvatarRequest, types.Nil]{}
 	t.UserCreate = noop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, types.Nil]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}

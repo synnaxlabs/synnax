@@ -56,6 +56,7 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		// USER
 		UserRename:         http.NewUnaryServer[user.RenameRequest, types.Nil](router, "/api/v1/user/rename"),
 		UserChangeUsername: http.NewUnaryServer[user.ChangeUsernameRequest, types.Nil](router, "/api/v1/user/change-username"),
+		UserChangeAvatar:   http.NewUnaryServer[user.ChangeAvatarRequest, types.Nil](router, "/api/v1/user/change-avatar"),
 		UserCreate:         http.NewUnaryServer[user.CreateRequest, user.CreateResponse](router, "/api/v1/user/create"),
 		UserDelete:         http.NewUnaryServer[user.DeleteRequest, types.Nil](router, "/api/v1/user/delete"),
 		UserRetrieve:       http.NewUnaryServer[user.RetrieveRequest, user.RetrieveResponse](router, "/api/v1/user/retrieve"),

@@ -30,6 +30,7 @@ class User(BaseModel):
         username: Is the unique login name for the user.
         first_name: Is the user's first name.
         last_name: Is the user's last name.
+        avatar: Is a base64 data URI of the user's profile picture. When empty, a deterministic avatar is generated from the username.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
     """
@@ -38,6 +39,7 @@ class User(BaseModel):
     username: str
     first_name: str
     last_name: str
+    avatar: str = Field(max_length=65536)
     root_user: bool = Field(default=False)
 
     def __hash__(self) -> int:

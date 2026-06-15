@@ -29,6 +29,9 @@ type User struct {
 	FirstName string `json:"first_name" msgpack:"first_name"`
 	// LastName is the user's last name.
 	LastName string `json:"last_name" msgpack:"last_name"`
+	// Avatar is a base64 data URI of the user's profile picture. When empty, a
+	// deterministic avatar is generated from the username.
+	Avatar string `json:"avatar" msgpack:"avatar"`
 	// RootUser is true if this is a root/admin user with full system access. Root users
 	// cannot be deleted.
 	RootUser bool `json:"root_user" msgpack:"root_user"`

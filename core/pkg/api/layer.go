@@ -62,6 +62,7 @@ type Transport struct {
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, types.Nil]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, types.Nil]
+	UserChangeAvatar   freighter.UnaryServer[user.ChangeAvatarRequest, types.Nil]
 	UserCreate         freighter.UnaryServer[user.CreateRequest, user.CreateResponse]
 	UserDelete         freighter.UnaryServer[user.DeleteRequest, types.Nil]
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
@@ -247,6 +248,7 @@ func (l *Layer) BindTo(t Transport) {
 		// USER
 		t.UserRename,
 		t.UserChangeUsername,
+		t.UserChangeAvatar,
 		t.UserCreate,
 		t.UserDelete,
 		t.UserRetrieve,
@@ -404,6 +406,9 @@ func (l *Layer) BindTo(t Transport) {
 	t.UserRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Rename))
 	t.UserChangeUsername.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeUsername),
+	)
+	t.UserChangeAvatar.BindHandler(
+		fgorp.CreateWriteUnaryHandler(db, l.User.ChangeAvatar),
 	)
 	t.UserCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Create))
 	t.UserDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.User.Delete))

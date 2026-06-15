@@ -65,6 +65,8 @@ const renameReqZ = z.object({
   lastName: z.string().optional(),
 });
 const renameResZ = z.object({});
+const changeAvatarReqZ = z.object({ key: keyZ, avatar: z.string().max(65536) });
+const changeAvatarResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
@@ -133,6 +135,15 @@ export class Client {
       { key, firstName, lastName },
       renameReqZ,
       renameResZ,
+    );
+  }
+
+  async changeAvatar(key: Key, avatar: string): Promise<void> {
+    await this.client.send(
+      "/user/change-avatar",
+      { key, avatar },
+      changeAvatarReqZ,
+      changeAvatarResZ,
     );
   }
 

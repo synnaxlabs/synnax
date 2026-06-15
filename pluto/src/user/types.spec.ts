@@ -24,6 +24,7 @@ const USER: user.User = {
   username: "synnax",
   firstName: "Test",
   lastName: "User",
+  avatar: "",
   rootUser: false,
 };
 
