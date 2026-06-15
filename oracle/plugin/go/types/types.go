@@ -322,8 +322,24 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		return sd
 	}
 
+	genMethods := !sd.IsGeneric
 	for _, field := range resolution.UnifiedFields(entry, data.table) {
 		sd.Fields = append(sd.Fields, processField(field, data))
+		if !genMethods {
+			continue
+		}
+		if fill, ok := goDefaultFill(field, data); ok {
+			sd.DefaultFills = append(sd.DefaultFills, fill)
+		}
+		if chk, ok := goEnumCheck(field, data); ok {
+			sd.EnumChecks = append(sd.EnumChecks, chk)
+		}
+	}
+	if len(sd.EnumChecks) > 0 {
+		data.imports.AddExternal(validateImportPath)
+	}
+	if len(sd.Name) > 0 {
+		sd.Receiver = strings.ToLower(sd.Name[:1])
 	}
 
 	sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
@@ -462,10 +478,13 @@ type structData struct {
 	Name         string
 	Doc          string
 	AliasOf      string
+	Receiver     string
 	Fields       []fieldData
 	TypeParams   []typeParamData
 	ExtendsTypes []string
 	ExtraFields  []string
+	DefaultFills []defaultFillData
+	EnumChecks   []enumCheckData
 	IsGeneric    bool
 	IsAlias      bool
 	HasExtends   bool
@@ -632,6 +651,28 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- end}}
 }
 {{end -}}
+{{- $s := .}}
+{{- if .DefaultFills}}
+
+func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
+{{- range $s.DefaultFills}}
+	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
+		{{$s.Receiver}}.{{.GoName}} = {{.Expr}}
+	}
+{{- end}}
+	return {{$s.Receiver}}
+}
+{{- end}}
+{{- if .EnumChecks}}
+
+func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
+	v := validate.New("{{$s.Name}}")
+{{- range $s.EnumChecks}}
+	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.GoName}}: %v", {{$s.Receiver}}.{{.GoName}})
+{{- end}}
+	return v.Error()
+}
+{{- end}}
 {{end -}}
 {{- range .Unions}}
 {{- $u := .}}
