@@ -2387,6 +2387,62 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("telem numeric defaults", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/telem", `
+					@ts output "x/ts/src/telem"
+
+					TimeSpan int64 {
+						@ts omit
+					}
+
+					Rate float64 {
+						@ts omit
+					}
+				`)
+			})
+
+			It("Should construct telem instances for numeric defaults", func(ctx SpecContext) {
+				source := `
+					import "schemas/telem"
+
+					@ts output "out"
+
+					Config struct {
+						sample_rate telem.Rate = 10
+						stream_rate telem.Rate = 2.5
+						duration    telem.TimeSpan = 0
+						window      telem.TimeSpan = 100
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`sampleRate: telem.rateZ.default(new Rate(10))`,
+						`streamRate: telem.rateZ.default(new Rate(2.5))`,
+						`duration: telem.timeSpanZ.default(TimeSpan.ZERO)`,
+						`window: telem.timeSpanZ.default(new TimeSpan(100))`,
+					)
+			})
+
+			It("Should emit a plain number default when a telem field is overridden to number", func(ctx SpecContext) {
+				source := `
+					import "schemas/telem"
+
+					@ts output "out"
+
+					Config struct {
+						sample_rate telem.Rate = 10 {
+							@ts type "number"
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`sampleRate: z.number().default(10)`)
+			})
+		})
+
 		Context("enum variant defaults", func() {
 			It("Should generate default for same-namespace enum variant", func(ctx SpecContext) {
 				source := `
@@ -2761,8 +2817,8 @@ var _ = Describe("TS Union Generation", func() {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
 		content := MustContentOf(resp, "types.gen.ts")
 		// The variant composes the base and payload schemas and adds only the
-		// discriminator; the shared fields live on baseAiChanZ / voltageFieldsZ.
-		Expect(content).To(ContainSubstring("export const aiVoltageChannelZ = baseAiChanZ.extend(voltageFieldsZ.shape).extend({\n  type: z.literal(\"ai_voltage\"),\n});"))
+		// discriminator; the shared fields live on baseAIChanZ / voltageFieldsZ.
+		Expect(content).To(ContainSubstring("export const aiVoltageChannelZ = baseAIChanZ.extend(voltageFieldsZ.shape).extend({\n  type: z.literal(\"ai_voltage\"),\n});"))
 		Expect(content).To(ContainSubstring(`port: z.int32(),`))
 		Expect(content).To(ContainSubstring(`minVal: z.number(),`))
 	})

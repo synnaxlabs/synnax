@@ -255,6 +255,8 @@ class ProjectClient:
             name: Name of the project to wait for removal
             timeout: Maximum time in milliseconds to wait
         """
+        if self.on_splash():
+            return
         self.layout.show_resource_toolbar("project")
         project_item = self.layout.page.locator(
             f"div[id^='{self.ITEM_PREFIX}']"
@@ -736,6 +738,11 @@ class ProjectClient:
         Returns:
             True if project was created, False if it already exists
         """
+        if self.on_splash():
+            self._create_from_splash(name)
+            self._wait_for_app()
+            return True
+
         if self.exists(name):
             return False
 
@@ -771,6 +778,11 @@ class ProjectClient:
         Args:
             name: Name of the project to select
         """
+        if self.on_splash():
+            if self._select_from_splash(name):
+                self._wait_for_app()
+            return
+
         selector = (
             self.layout.page.locator("button.pluto-dialog__trigger")
             .filter(has=self.layout.page.locator(".pluto-icon--project"))
@@ -806,6 +818,14 @@ class ProjectClient:
         Args:
             name: Name of the project to delete
         """
+        if self.on_splash():
+            # The resources toolbar only exists inside the app. Select the
+            # project to delete so it becomes active and the app loads; the
+            # delete then drops back to the Splash screen.
+            if not self._select_from_splash(name):
+                return
+            self._wait_for_app()
+
         self.layout.show_resource_toolbar("project")
 
         project = self.get_item(name)
@@ -818,20 +838,75 @@ class ProjectClient:
         self.wait_for_project_removed(name)
         self.layout.close_left_toolbar()
 
-    def ensure_selected(self, name: str) -> None:
-        """Create a project if it doesn't exist and select it.
+    def select_bootstrap(self, name: str) -> None:
+        """Select the per-test project ``name`` from the Splash screen after login.
+
+        The project is provisioned server-side before the browser reaches the
+        Splash screen, so this waits for it to appear in the Splash list,
+        selects it, and returns once the main app palette is visible.
 
         Args:
-            name: Name of the project to ensure is selected
+            name: Name of the project to select
         """
-        selector = self.layout.page.locator("button.pluto-dialog__trigger").filter(
-            has=self.layout.page.locator(".pluto-icon--project")
+        self.on_splash()
+        item = (
+            self.layout.page.locator(".console-project-splash__list")
+            .get_by_text(name, exact=True)
+            .first
         )
-        if name in selector.inner_text(timeout=5000):
-            return
+        item.wait_for(state="visible", timeout=10000)
+        item.click(timeout=5000)
+        self._wait_for_app()
 
-        self.create(name)
-        self.select(name)
+    def on_splash(self) -> bool:
+        """Report whether the project Splash screen is showing.
+
+        Deleting or clearing the active project drops the console to the Splash
+        screen (an active project is required to use the app), so any helper
+        that mutates project state may be entered from either screen. Waits for
+        whichever of the Splash screen or the main app palette mounts first,
+        then reports which one is visible.
+        """
+        self.layout.page.wait_for_selector(
+            ".console-project-splash, .console-palette button",
+            state="visible",
+            timeout=15000,
+        )
+        return self.layout.page.locator(".console-project-splash").is_visible()
+
+    def _wait_for_app(self) -> None:
+        """Wait for the main app palette, the signal that a project is active."""
+        self.layout.page.wait_for_selector(
+            ".console-palette button", state="visible", timeout=15000
+        )
+
+    def _select_from_splash(self, name: str) -> bool:
+        """Select ``name`` from the Splash project list.
+
+        Returns False if the list is absent (no projects exist) or ``name`` is
+        not in it, leaving the caller to create the project instead.
+        """
+        list_container = self.layout.page.locator(".console-project-splash__list")
+        try:
+            list_container.wait_for(state="visible", timeout=2000)
+        except PlaywrightTimeoutError:
+            return False
+        item = list_container.get_by_text(name, exact=True)
+        if item.count() == 0:
+            return False
+        item.first.click(timeout=5000)
+        return True
+
+    def _create_from_splash(self, name: str) -> None:
+        """Create ``name`` via the Splash New Project form."""
+        name_input = self.layout.page.locator(
+            ".console-project-splash__form input[placeholder='Project name']"
+        )
+        name_input.wait_for(state="visible", timeout=5000)
+        name_input.fill(name)
+        self.layout.page.get_by_role("button", name="Create Project", exact=True).click(
+            timeout=5000
+        )
 
     def open_plot(self, name: str) -> Plot:
         """Open a plot by double-clicking it in the project resources toolbar.

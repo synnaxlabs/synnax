@@ -403,6 +403,48 @@ var _ = Describe("Table", func() {
 			Expect(sorted[0].Name).To(Equal("Parent"))
 			Expect(sorted[1].Name).To(Equal("Child"))
 		})
+
+		It("places a mixin extended by an inline union variant before the union", func() {
+			mixin := resolution.Type{
+				Name: "Mixin", QualifiedName: "ns.Mixin", Namespace: "ns",
+				Form: resolution.StructForm{
+					Fields: []resolution.Field{{Name: "shared", Type: resolution.TypeRef{Name: "string"}}},
+				},
+			}
+			payload := resolution.Type{
+				Name: "UAVariantPayload", QualifiedName: "ns.UAVariantPayload", Namespace: "ns",
+				Synthetic: true,
+				Form: resolution.StructForm{
+					Extends: []resolution.TypeRef{{Name: "ns.Mixin"}},
+					Fields:  []resolution.Field{{Name: "extra", Type: resolution.TypeRef{Name: "int32"}}},
+				},
+			}
+			union := resolution.Type{
+				Name: "U", QualifiedName: "ns.U", Namespace: "ns",
+				Form: resolution.UnionForm{
+					Discriminator: "type",
+					Variants: []resolution.UnionVariant{
+						{Name: "a", Type: resolution.TypeRef{Name: "ns.UAVariantPayload"}, Inline: true},
+					},
+				},
+			}
+			Expect(table.Add(mixin)).To(Succeed())
+			Expect(table.Add(payload)).To(Succeed())
+			Expect(table.Add(union)).To(Succeed())
+
+			types := []resolution.Type{table.MustGet("ns.U"), table.MustGet("ns.Mixin")}
+			sorted := table.TopologicalSort(types)
+			var mixinIdx, unionIdx int
+			for i, t := range sorted {
+				switch t.Name {
+				case "Mixin":
+					mixinIdx = i
+				case "U":
+					unionIdx = i
+				}
+			}
+			Expect(mixinIdx).To(BeNumerically("<", unionIdx))
+		})
 	})
 })
 

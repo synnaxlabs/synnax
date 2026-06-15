@@ -627,6 +627,16 @@ func getPyName(typ resolution.Type) string {
 func buildExtendsExpr(extendsRef resolution.TypeRef, parent resolution.Type, table *resolution.Table, data *templateData) string {
 	baseName := getPyName(parent)
 
+	// A base class defined in another schema module must be imported and
+	// referenced through its module alias (e.g. task_.BaseReadConfig).
+	if parent.Namespace != data.Namespace {
+		outputPath := output.GetPath(parent, "py")
+		if outputPath == "" {
+			outputPath = parent.Namespace
+		}
+		baseName = addCrossNamespaceImport(toPythonModulePath(outputPath), baseName, data)
+	}
+
 	// Check if parent is generic
 	parentForm, ok := parent.Form.(resolution.StructForm)
 	if !ok || !parentForm.IsGeneric() {
