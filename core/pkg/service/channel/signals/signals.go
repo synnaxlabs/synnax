@@ -24,7 +24,7 @@ import (
 
 func Publish(
 	ctx context.Context,
-	prov *signals.Provider,
+	provider *signals.Provider,
 	obs observe.Observable[gorp.TxReader[channel.Key, channel.Channel]],
 ) (io.Closer, error) {
 	cfg := signals.GorpPublisherConfig[channel.Key, channel.Channel]{
@@ -42,5 +42,5 @@ func Publish(
 			return telem.MarshalVariableSample(v), nil
 		},
 	}
-	return signals.PublishFromGorp(ctx, prov, cfg)
+	return signals.PublishFromGorp(ctx, provider, cfg)
 }

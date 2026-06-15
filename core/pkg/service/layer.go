@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	groupsignals "github.com/synnaxlabs/synnax/pkg/service/group/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -206,10 +205,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, channelSignalsCloser) {
 		return nil, err
 	}
-	groupSignalsCloser, err := groupsignals.Publish(
+	groupSignalsCloser, err := signals.PublishFromGorp(
 		ctx,
 		l.Signals,
-		cfg.Distribution.Group.Observe(),
+		signals.GorpPublisherConfigUUID(cfg.Distribution.Group.Observe()),
 	)
 	if !ok(err, groupSignalsCloser) {
 		return nil, err

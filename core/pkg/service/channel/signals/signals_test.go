@@ -28,10 +28,10 @@ type channelPayload struct {
 	Name string `json:"name"`
 }
 
-func openStreamer(
-	ctx context.Context,
-	name string,
-) (confluence.Inlet[framer.StreamerRequest], confluence.Outlet[framer.StreamerResponse], io.Closer) {
+func openStreamer(ctx context.Context, name string) (
+	confluence.Inlet[framer.StreamerRequest],
+	confluence.Outlet[framer.StreamerResponse], io.Closer,
+) {
 	var sigCh channel.Channel
 	Expect(dist.Channel.NewRetrieve().
 		Where(channel.MatchNames(name)).
@@ -44,8 +44,8 @@ func openStreamer(
 	requests, responses := confluence.Attach(streamer, 2)
 	sCtx, cancel := signal.Isolated()
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	// A slight delay guarantees the streamer has started up and is subscribed
-	// before the change that should propagate to it is made.
+	// A slight delay guarantees the streamer has started up and is subscribed before
+	// the change that should propagate to it is made.
 	time.Sleep(5 * time.Millisecond)
 	return requests, responses, signal.NewHardShutdown(sCtx, cancel)
 }
@@ -53,11 +53,15 @@ func openStreamer(
 var _ = Describe("Signals", func() {
 	It("Should propagate a channel creation to the set channel", func(ctx SpecContext) {
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_set")
-		ch := channel.Channel{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}
+		ch := channel.Channel{
+			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
+		}
 		Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
-		payloads := MustSucceed(telem.UnmarshalJSONSeries[channelPayload](res.Frame.SeriesAt(0)))
+		payloads := MustSucceed(telem.UnmarshalJSONSeries[channelPayload](
+			res.Frame.SeriesAt(0),
+		))
 		names := make([]string, len(payloads))
 		for i, p := range payloads {
 			names[i] = p.Name
@@ -69,7 +73,9 @@ var _ = Describe("Signals", func() {
 	})
 
 	It("Should propagate a channel deletion to the delete channel", func(ctx SpecContext) {
-		ch := channel.Channel{Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true}
+		ch := channel.Channel{
+			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
+		}
 		Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
 		Expect(dist.Channel.NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
