@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/state"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/x/config"
@@ -30,15 +30,16 @@ import (
 type Config struct {
 	// ChannelService builds the symbol resolver used to analyze the expression and
 	// looks up channel metadata for the compiled state config.
+	//
+	// [REQUIRED]
 	ChannelService *channel.Service
 	// Channel is the calculated channel whose expression will be compiled.
+	//
+	// [REQUIRED]
 	Channel channel.Channel
 }
 
-var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
-)
+var _ config.Config[Config] = Config{}
 
 func (c Config) Override(other Config) Config {
 	c.Channel = other.Channel
@@ -83,19 +84,19 @@ func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 // Module is the compiled output for a single calculated channel, ready for
 // execution by the framer's calculator runtime.
 type Module struct {
-	// StateConfig describes the channels read and written by this calculation.
-	StateConfig state.Config
+	// Dependencies describes the channels read and written by this calculation.
+	Dependencies runtime.Dependencies
 	// Program is the compiled Arc program containing WASM bytecode.
 	arc.Program
 	// Channel is the calculated channel this module was compiled for.
 	Channel channel.Channel
 }
 
-// Compile builds a full execution Module for the given calculated channel. The
-// module includes WASM bytecode, an execution graph with operation nodes, and a
-// state config mapping channel keys to read/write slots.
+// Compile builds a full execution Module for the given calculated channel. The module
+// includes WASM bytecode, an execution graph with operation nodes, and the channel
+// dependencies the calculation reads from and writes to.
 func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(Config{}, cfgs...)
 	if err != nil {
 		return Module{}, err
 	}
@@ -199,9 +200,9 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 	if err != nil {
 		return Module{}, err
 	}
-	stateCfg, err := state.New(ctx, cfg.ChannelService, program)
+	deps, err := runtime.NewDependencies(ctx, cfg.ChannelService, program)
 	if err != nil {
 		return Module{}, err
 	}
-	return Module{Channel: cfg.Channel, StateConfig: stateCfg, Program: program}, nil
+	return Module{Channel: cfg.Channel, Dependencies: deps, Program: program}, nil
 }

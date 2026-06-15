@@ -46,6 +46,8 @@ View struct {
     @ontology type "view"
     @retrieve
     @search
+    @go marshal
+    @go migrate
 }
 
 New struct extends View {

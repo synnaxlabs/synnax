@@ -43,8 +43,8 @@ var _ = Describe("Compile", func() {
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
-		Expect(mod.StateConfig.Writes.Slice()).To(ContainElement(calc.Key()))
+		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
+		Expect(mod.Dependencies.Writes.Slice()).To(ContainElement(calc.Key()))
 	})
 
 	It("Should compile expression with operations", func(ctx SpecContext) {
@@ -63,7 +63,7 @@ var _ = Describe("Compile", func() {
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
+		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
 	})
 
 	It("Should compile with multiple dependencies", func(ctx SpecContext) {
@@ -83,8 +83,8 @@ var _ = Describe("Compile", func() {
 			ChannelService: channel.Wrap(dist.Channel),
 			Channel:        calc,
 		}))
-		Expect(mod.StateConfig.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
-		Expect(mod.StateConfig.Writes.Slice()).To(ContainElement(calc.Key()))
+		Expect(mod.Dependencies.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
+		Expect(mod.Dependencies.Writes.Slice()).To(ContainElement(calc.Key()))
 	})
 
 	It("Should compile expression with derivative operation", func(ctx SpecContext) {
@@ -103,7 +103,7 @@ var _ = Describe("Compile", func() {
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
+		Expect(mod.Dependencies.Reads.Slice()).To(ContainElement(base.Key()))
 	})
 
 	It("Should fail with invalid expression", func(ctx SpecContext) {

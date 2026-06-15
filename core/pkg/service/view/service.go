@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -93,7 +94,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
-		DB:              s.cfg.DB,
+		DB: s.cfg.DB,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[Key, View]("msgpack_to_orc"),
+		},
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
