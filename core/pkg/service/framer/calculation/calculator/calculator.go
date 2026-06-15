@@ -28,7 +28,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/x/config"
@@ -53,7 +53,7 @@ type Calculator struct {
 	state     calcState
 	scheduler *scheduler.Scheduler
 	cfg       Config
-	arcState  arc.State
+	deps      runtime.Dependencies
 	start     telem.TimeStamp
 	closer    io.MultiCloser
 }
@@ -89,7 +89,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 	}
 
 	var cs calcState
-	cs.channel = stlchannels.NewProgramState(cfg.Module.State.ChannelDigests)
+	cs.channel = stlchannels.NewProgramState(cfg.Module.Dependencies.ChannelDigests)
 	cs.series = series.NewProgramState()
 	cs.strings = stlstrings.NewProgramState()
 
@@ -165,7 +165,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		})
 	}
 
-	cs.nodes = node.New(cfg.Module.State.IR)
+	cs.nodes = node.New(cfg.Module.IR)
 	nodes := make(map[string]node.Node)
 	for _, irNode := range cfg.Module.Nodes {
 		n, nodeErr := f.Create(ctx, node.Config{
@@ -184,7 +184,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		cfg:       cfg,
 		scheduler: sched,
 		state:     cs,
-		arcState:  cfg.Module.State,
+		deps:      cfg.Module.Dependencies,
 		closer:    closers,
 		start:     telem.Now(),
 	}
@@ -192,9 +192,9 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 	return c, nil
 }
 
-func (c *Calculator) WriteTo() channel.Keys { return c.arcState.Writes.Slice() }
+func (c *Calculator) WriteTo() channel.Keys { return c.deps.Writes.Slice() }
 
-func (c *Calculator) ReadFrom() channel.Keys { return c.arcState.Reads.Slice() }
+func (c *Calculator) ReadFrom() channel.Keys { return c.deps.Reads.Slice() }
 
 func (c *Calculator) Channel() channel.Channel { return c.cfg.Module.Channel }
 
