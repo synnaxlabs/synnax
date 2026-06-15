@@ -36,7 +36,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
-	arcstate "github.com/synnaxlabs/synnax/pkg/service/arc/state"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -92,14 +91,14 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		return nil
 	}
 	drt := dataRuntime{}
-	stateCfg, err := arcstate.New(ctx, t.factoryCfg.Channel, *t.prog.Program)
+	deps, err := NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
 		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
 
-	drt.state.nodes = node.New(stateCfg.IR)
-	drt.state.channel = channels.NewProgramState(stateCfg.ChannelDigests)
+	drt.state.nodes = node.New(t.prog.Program.IR)
+	drt.state.channel = channels.NewProgramState(deps.ChannelDigests)
 	drt.state.series = series.NewProgramState()
 	drt.state.strings = strings.NewProgramState()
 	drt.state.authority = &stlcontrol.ProgramState{}
@@ -223,7 +222,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	}))
 
 	drt.startTime = telem.Now()
-	drt.writeKeys = stateCfg.Writes.Slice()
+	drt.writeKeys = deps.Writes.Slice()
 
 	pipeline := plumber.New()
 
@@ -236,11 +235,11 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
 		streamerCloseSignal io.Closer
 	)
-	if len(stateCfg.Reads) > 0 {
+	if len(deps.Reads) > 0 {
 		var streamer framer.Streamer
 		streamer, err = t.factoryCfg.Framer.NewStreamer(
 			ctx,
-			framer.StreamerConfig{Keys: stateCfg.Reads.Slice()},
+			framer.StreamerConfig{Keys: deps.Reads.Slice()},
 		)
 		if err != nil {
 			t.setStatus(ctx, xstatus.VariantError, false, err.Error())
@@ -256,10 +255,10 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerResponses.Close)
 	}
 
-	if len(stateCfg.Writes) > 0 {
+	if len(deps.Writes) > 0 {
 		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
-		writeKeys := stateCfg.Writes.Slice()
+		writeKeys := deps.Writes.Slice()
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,

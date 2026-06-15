@@ -261,7 +261,7 @@ func (g *Graph) updateSingle(ctx context.Context, ch channel.Channel, info *chan
 		g.logCompileError(ctx, err, ch)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
-	dependencies := mod.StateConfig.Reads.Slice()
+	dependencies := mod.Dependencies.Reads.Slice()
 
 	// Process new dependencies
 	var newCalcDeps []channel.Key
@@ -462,7 +462,7 @@ func (g *Graph) recalculateGroupBaseDeps(ctx context.Context, groupID int) error
 		}
 
 		// Get all dependencies for this member
-		deps := info.module.StateConfig.Reads.Slice()
+		deps := info.module.Dependencies.Reads.Slice()
 		if len(deps) == 0 {
 			continue
 		}
@@ -508,7 +508,7 @@ func (g *Graph) addInternal(ctx context.Context, ch channel.Channel, explicit bo
 		g.logCompileError(ctx, err, ch)
 		return errors.Wrapf(err, "failed to compile calculated channel %s", ch)
 	}
-	dependencies := mod.StateConfig.Reads.Slice()
+	dependencies := mod.Dependencies.Reads.Slice()
 
 	var calcDeps []channel.Key
 	var depChannels []channel.Channel
@@ -584,7 +584,7 @@ func (g *Graph) fetchChannels(ctx context.Context, keys []channel.Key) ([]channe
 
 // resolveBaseDependencies recursively resolves all dependencies to find the concrete
 // (non-calculated) base channels that this channel ultimately depends on.
-// depChannels should be the already-fetched channels for mod.StateConfig.Reads.
+// depChannels should be the already-fetched channels for mod.Dependencies.Reads.
 func (g *Graph) resolveBaseDependencies(
 	ctx context.Context,
 	depChannels []channel.Channel,
@@ -602,7 +602,7 @@ func (g *Graph) resolveBaseDependencies(
 				return nil, err
 			}
 			// Recursively resolve - fetch the dependency's dependencies
-			depDeps := info.module.StateConfig.Reads.Slice()
+			depDeps := info.module.Dependencies.Reads.Slice()
 			var depDepChannels []channel.Channel
 			if len(depDeps) > 0 {
 				depDepChannels, err = g.fetchChannels(ctx, depDeps)
@@ -745,7 +745,7 @@ func (g *Graph) CalculateFlat() []compiler.Module {
 	graph := make(map[channel.Key][]channel.Key)
 	for key, info := range g.channels {
 		var deps []channel.Key
-		for depKey := range info.module.StateConfig.Reads {
+		for depKey := range info.module.Dependencies.Reads {
 			if allChannels.Contains(depKey) {
 				deps = append(deps, depKey)
 			}
@@ -822,7 +822,7 @@ func (g *Graph) topologicalSortGroup(groupKey int, modules []compiler.Module) ([
 	graph := make(map[channel.Key][]channel.Key)
 	for _, mod := range modules {
 		var deps []channel.Key
-		for depKey := range mod.StateConfig.Reads {
+		for depKey := range mod.Dependencies.Reads {
 			if channelsInGroup.Contains(depKey) {
 				deps = append(deps, depKey)
 			}
@@ -953,7 +953,7 @@ func (g *Graph) formatDependencyTree(ctx context.Context, key channel.Key) strin
 	}
 
 	// Resolve and add base dependencies
-	deps := info.module.StateConfig.Reads.Slice()
+	deps := info.module.Dependencies.Reads.Slice()
 	if len(deps) > 0 {
 		depChannels, err := g.fetchChannels(ctx, deps)
 		if err == nil {
