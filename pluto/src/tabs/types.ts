@@ -41,12 +41,23 @@ export type RenderProp = BaseRenderProp<Tab>;
 /**
  * Props passed to a tab name renderer. The default renderer shows static text or
  * a Text.Editable depending on whether {@link onRename} and {@link editable} are
- * set; consumers may override this via the `Name` prop on Tabs / Mosaic.
+ * set; consumers may override this via the `tabName` prop on Tabs / Mosaic.
  */
 export interface NameProps {
   tabKey: string;
   name: string;
   level: text.Level;
+  selected: boolean;
+  icon?: Icon.ReactElement | string | unknown;
+  unsavedChanges?: boolean;
+  loading?: boolean;
   onRename?: (key: string, name: string) => void;
   editable?: boolean;
 }
+
+/**
+ * NameRenderProp renders a tab's name in the selector in place of the default
+ * renderer. Elements it returns should keep a stable component type across
+ * renders so React updates name nodes in place instead of remounting them.
+ */
+export type NameRenderProp = BaseRenderProp<NameProps>;

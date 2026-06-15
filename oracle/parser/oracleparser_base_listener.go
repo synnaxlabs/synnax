@@ -280,3 +280,39 @@ func (s *BaseOracleParserListener) EnterTypeDefBody(ctx *TypeDefBodyContext) {}
 
 // ExitTypeDefBody is called when production typeDefBody is exited.
 func (s *BaseOracleParserListener) ExitTypeDefBody(ctx *TypeDefBodyContext) {}
+
+// EnterUnionDef is called when production unionDef is entered.
+func (s *BaseOracleParserListener) EnterUnionDef(ctx *UnionDefContext) {}
+
+// ExitUnionDef is called when production unionDef is exited.
+func (s *BaseOracleParserListener) ExitUnionDef(ctx *UnionDefContext) {}
+
+// EnterUnionBody is called when production unionBody is entered.
+func (s *BaseOracleParserListener) EnterUnionBody(ctx *UnionBodyContext) {}
+
+// ExitUnionBody is called when production unionBody is exited.
+func (s *BaseOracleParserListener) ExitUnionBody(ctx *UnionBodyContext) {}
+
+// EnterNamedVariant is called when production NamedVariant is entered.
+func (s *BaseOracleParserListener) EnterNamedVariant(ctx *NamedVariantContext) {}
+
+// ExitNamedVariant is called when production NamedVariant is exited.
+func (s *BaseOracleParserListener) ExitNamedVariant(ctx *NamedVariantContext) {}
+
+// EnterInlineVariant is called when production InlineVariant is entered.
+func (s *BaseOracleParserListener) EnterInlineVariant(ctx *InlineVariantContext) {}
+
+// ExitInlineVariant is called when production InlineVariant is exited.
+func (s *BaseOracleParserListener) ExitInlineVariant(ctx *InlineVariantContext) {}
+
+// EnterVariantName is called when production variantName is entered.
+func (s *BaseOracleParserListener) EnterVariantName(ctx *VariantNameContext) {}
+
+// ExitVariantName is called when production variantName is exited.
+func (s *BaseOracleParserListener) ExitVariantName(ctx *VariantNameContext) {}
+
+// EnterUnionVariantBody is called when production unionVariantBody is entered.
+func (s *BaseOracleParserListener) EnterUnionVariantBody(ctx *UnionVariantBodyContext) {}
+
+// ExitUnionVariantBody is called when production unionVariantBody is exited.
+func (s *BaseOracleParserListener) ExitUnionVariantBody(ctx *UnionVariantBodyContext) {}

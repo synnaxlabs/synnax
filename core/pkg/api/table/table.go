@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -43,8 +43,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Tables    []table.Table `json:"tables" msgpack:"tables"`
-		Workspace workspace.Key `json:"workspace" msgpack:"workspace"`
+		Tables  []table.Table `json:"tables" msgpack:"tables"`
+		Project project.Key   `json:"project" msgpack:"project"`
 	}
 	CreateResponse struct {
 		Tables []table.Table `json:"tables" msgpack:"tables"`
@@ -63,7 +63,7 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Workspace, &req.Tables); err != nil {
+	if err := s.internal.NewWriter(tx).CreateMany(ctx, req.Project, &req.Tables); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Tables: req.Tables}, nil

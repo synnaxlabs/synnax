@@ -36,13 +36,13 @@ export const parseImport = (
 
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, workspaceKey },
+  { layout, placeLayout, store, client, projectKey },
 ) => {
   if (!Access.updateGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import logs");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, layout?.name);
-  const created = await client.logs.create(workspaceKey, newPayload);
+  const created = await client.logs.create(projectKey, newPayload);
   store.logs.set(created.key, created);
   placeLayout(
     create({ ...layout, key: created.key, name: created.name, type: LAYOUT_TYPE }),

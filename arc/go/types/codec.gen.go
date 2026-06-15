@@ -157,6 +157,10 @@ func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
 }
 
 func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -212,6 +216,10 @@ func (p Param) EncodeOrc(w *orc.Writer) error {
 }
 
 func (p *Param) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	var err error
 	if p.Name, err = r.String(); err != nil {
 		return err
@@ -285,6 +293,10 @@ func (t Type) EncodeOrc(w *orc.Writer) error {
 }
 
 func (t *Type) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	var err error
 	{
 		present, err := r.Bool()

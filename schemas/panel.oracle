@@ -1,0 +1,274 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/spatial"
+import "schemas/ontology"
+
+@ts output "client/ts/src/panel"
+@go output "core/pkg/service/panel"
+@pb
+
+TabBase struct {
+    key uuid {
+        @doc value """
+            is the stable unique identifier of this tab within the panel. It is
+            independent of the tab's content, so a tab's content may be swapped
+            without changing the tab's identity or position.
+        """
+    }
+
+    @doc value "carries the identity shared by every tab variant."
+}
+
+Tab union on variant extends TabBase {
+    resource {
+        resource ontology.ID {
+            @doc value """
+                is the visualization resource displayed by this tab, set via
+                SetTabResource.
+            """
+        }
+
+        @doc value "is a tab displaying a backing core document."
+    }
+    view {
+        type string  {
+            @doc value """
+                is the Console-owned view type identifier (e.g., 'docs',
+                'about') used to select a renderer.
+            """
+        }
+        name string? {
+            @doc value """
+                is the human-readable tab name for the view. A view has no
+                backing resource to derive a name from, so it carries its own.
+                May be renamed via SetTabView; when empty the Console falls
+                back to a type-derived default.
+            """
+        }
+        args record? {
+            @doc value        """
+                is an opaque, Console-owned configuration payload for the
+                view. Core never interprets it; it round-trips as-is.
+            """
+            @ts preserve_case
+        }
+
+        @doc value """
+            is a tab displaying an inline, self-describing view. Unlike a
+            resource, a view has no backing core document: it carries its own
+            type and opaque args. Used for app-views and tools (docs,
+            explorers, about, the visualization picker).
+        """
+    }
+    empty {
+        @doc value """
+            is a tab with no content yet. An empty tab renders the
+            visualization selector at render time; SetTabResource or
+            SetTabView fills it in place.
+        """
+    }
+
+    @doc value """
+        is a single tab in a leaf. Tab content is a discriminated union:
+        a resource (a backing core document, e.g. a line plot), a view
+        (an inline, self-describing app-view, e.g. docs), or empty (the
+        visualization selector). Display attributes (name, icon,
+        closability) are resolved at render time from the content. The
+        same content may be referenced by multiple tabs in the same or
+        other panels.
+    """
+}
+
+Leaf struct {
+    tabs Tab[] {
+        @doc value "is the ordered list of tabs in this leaf."
+    }
+
+    @doc value "is a leaf node in the panel tree displaying a tab strip."
+}
+
+Split struct {
+    direction spatial.Direction {
+        @doc value "is the axis along which this node is split."
+    }
+    size      spatial.Decimal   {
+        @doc value """
+            is the fraction in [0, 1] of the parent area allocated to first.
+            The remainder is allocated to last.
+        """
+    }
+    first     Node              {
+        @doc value "is the first child (left for x, top for y)."
+    }
+    last      Node              {
+        @doc value "is the second child (right for x, bottom for y)."
+    }
+
+    @doc value "is an interior split node dividing its area between two children."
+}
+
+Node union on variant {
+    leaf  Leaf
+    split Split
+
+    @doc value """
+        is a node in the panel tree: either a leaf displaying a tab strip
+        or an interior split. Nodes are identified by path-derived numeric
+        keys during traversal (1 = root, 2k = first child, 2k+1 = last child).
+    """
+}
+
+Key = uuid {
+    @doc value "is a unique identifier for a panel, represented as a UUID."
+}
+
+Panel struct {
+    key    Key           {
+        @doc value "is the unique identifier for this panel."
+        @key
+    }
+    name   string        {
+        @doc value         "is a human-readable name for the panel."
+        @validate required
+    }
+    root   Node          {
+        @doc value "is the root of the panel tree."
+    }
+    parent ontology.ID?? {
+        @doc value  """
+            is an optional parent resource for the panel in the ontology.
+            When absent on create, the panel is parented to the creating
+            user as a draft. Parenthood lives in the ontology graph, so the
+            field is not persisted on the panel record and is absent on
+            retrieve.
+        """
+        @go marshal omit
+    }
+
+    action Rename {
+        name string
+
+        @doc value """
+            renames the panel. When the panel is owned by a user (draft),
+            the writer promotes it to project ownership in the same
+            transaction.
+        """
+    }
+
+    action InsertTab {
+        tab         Tab
+        target_leaf int32
+        index       int32??
+        location    spatial.Location??
+
+        @doc value """
+            inserts a tab into the leaf with the given path-derived key at
+            the given index. Appends when index is absent. When location is
+            an edge, the target leaf is first split at that location and the
+            tab is inserted into the new empty leaf; a center location places
+            the tab directly in the target leaf, equivalent to absent.
+        """
+    }
+
+    action RemoveTab {
+        key uuid
+
+        @doc value """
+            removes the tab with the given key. If the containing leaf
+            becomes empty and has a sibling, the reducer collapses the
+            parent split.
+        """
+    }
+
+    action MoveTab {
+        key         uuid
+        target_leaf int32
+        index       int32??
+        location    spatial.Location??
+
+        @doc value """
+            moves a tab to a position within the panel. When location is an
+            edge, the target leaf is first split at that location and the
+            tab moves into the new empty leaf; moving a leaf's only tab to
+            an edge of its own leaf is a no-op. A center location places the
+            tab directly in the target leaf, equivalent to absent.
+            Cross-panel moves are RemoveTab on the source plus InsertTab on
+            the destination (two dispatches; not atomic).
+        """
+    }
+
+    action SplitLeaf {
+        leaf     int32
+        location spatial.Location
+        size     spatial.Decimal??
+
+        @doc value """
+            splits the given leaf into a parent split with two children:
+            the original leaf and a new empty leaf. location determines on
+            which side ("left", "right", "top", "bottom") the new empty leaf
+            sits. size is the initial ratio in [0, 1] for the original leaf;
+            defaults to 0.5 when absent.
+        """
+    }
+
+    action ResizeSplit {
+        split int32
+        size  spatial.Decimal
+
+        @doc value "adjusts the size ratio of a split node. size in [0, 1]."
+    }
+
+    action SetTabResource {
+        key      uuid
+        resource ontology.ID
+
+        @doc value """
+            sets the visualization resource displayed by the tab with the
+            given key, swapping it in place without changing the tab's
+            identity or position. Clears any view set on the tab. Used to
+            fill a freshly inserted empty tab once the user picks a
+            visualization.
+        """
+    }
+
+    action SetTabView {
+        key  uuid
+        type string
+        name string?
+        args record?
+
+        @doc value """
+            sets the inline view displayed by the tab with the given key,
+            swapping it in place without changing the tab's identity or
+            position. Clears any resource set on the tab.
+        """
+    }
+
+    @doc value     """
+        is a tab in a project owning a tree of visualization tabs. A panel
+        is owned by a project (project panel) or by a user (draft);
+        renaming a draft promotes it to project ownership.
+    """
+    @ontology type "panel"
+    @retrieve
+    @search
+    @go marshal
+    @go migrate
+}
+
+New struct extends Panel {
+    key  = create
+    root = { variant = "leaf", tabs = [] }
+
+    @doc value    "contains parameters for creating a new panel."
+    @ts use_input
+    @go omit
+    @pb omit
+}

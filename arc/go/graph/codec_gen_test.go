@@ -44,61 +44,82 @@ var _ = Describe("Codec", func() {
 					{
 						Key:  "test_7",
 						Body: ir.Body{Raw: "test_9"},
-						Inputs: []types.Param{
+						Config: []types.Param{
 							{
 								Name: "test_11",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
 										Inputs:  []types.Param{{}},
 										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
-									Name:          "test_16",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Name:          "test_17",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_21": "value_21"},
+								Value: map[string]interface{}{"key_22": "value_22"},
 							},
 						},
-						Outputs: []types.Param{
+						Inputs: []types.Param{
 							{
-								Name: "test_23",
+								Name: "test_24",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
 										Inputs:  []types.Param{{}},
 										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
-									Name:          "test_28",
-									Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-									Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-									Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+									Name:          "test_30",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_33": "value_33"},
+								Value: map[string]interface{}{"key_35": "value_35"},
+							},
+						},
+						Outputs: []types.Param{
+							{
+								Name: "test_37",
+								Type: types.Type{
+									FunctionProperties: types.FunctionProperties{
+										Inputs:  []types.Param{{}},
+										Outputs: []types.Param{{}},
+										Config:  []types.Param{{}},
+									},
+									Kind:          types.Kind(0),
+									Name:          "test_43",
+									Elem:          new(types.Type{}),
+									Unit:          new(types.Unit{}),
+									Constraint:    new(types.Type{}),
+									ChanDirection: types.ChanDirection(0),
+								},
+								Value: map[string]interface{}{"key_48": "value_48"},
 							},
 						},
 						Channels: types.Channels{
-							Read:  map[uint32]string{36: "test_35"},
-							Write: map[uint32]string{37: "test_36"},
+							Read:  map[uint32]string{51: "test_50"},
+							Write: map[uint32]string{52: "test_51"},
 						},
 					},
 				},
 				Edges: []ir.Edge{
 					{
-						Source: ir.Handle{Node: "test_39", Param: "test_40"},
-						Target: ir.Handle{Node: "test_42", Param: "test_43"},
+						Source: ir.Handle{Node: "test_54", Param: "test_55"},
+						Target: ir.Handle{Node: "test_57", Param: "test_58"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
 				Nodes: []graph.Node{
 					{
-						Key:      "test_46",
-						Type:     "test_47",
-						Config:   msgpack.EncodedJSON{"key_48": "value_48"},
-						Position: spatial.XY{X: 50.5, Y: 51.5},
+						Key:      "test_61",
+						Type:     "test_62",
+						Config:   msgpack.EncodedJSON{"key_63": "value_63"},
+						Position: spatial.XY{X: 65.5, Y: 66.5},
 					},
 				},
 			}),
@@ -165,61 +186,82 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 			{
 				Key:  "test_7",
 				Body: ir.Body{Raw: "test_9"},
-				Inputs: []types.Param{
+				Config: []types.Param{
 					{
 						Name: "test_11",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
 								Inputs:  []types.Param{{}},
 								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
 							},
 							Kind:          types.Kind(0),
-							Name:          "test_16",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Name:          "test_17",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_21": "value_21"},
+						Value: map[string]interface{}{"key_22": "value_22"},
 					},
 				},
-				Outputs: []types.Param{
+				Inputs: []types.Param{
 					{
-						Name: "test_23",
+						Name: "test_24",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
 								Inputs:  []types.Param{{}},
 								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
 							},
 							Kind:          types.Kind(0),
-							Name:          "test_28",
-							Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-							Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-							Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+							Name:          "test_30",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_33": "value_33"},
+						Value: map[string]interface{}{"key_35": "value_35"},
+					},
+				},
+				Outputs: []types.Param{
+					{
+						Name: "test_37",
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
+								Config:  []types.Param{{}},
+							},
+							Kind:          types.Kind(0),
+							Name:          "test_43",
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
+						},
+						Value: map[string]interface{}{"key_48": "value_48"},
 					},
 				},
 				Channels: types.Channels{
-					Read:  map[uint32]string{36: "test_35"},
-					Write: map[uint32]string{37: "test_36"},
+					Read:  map[uint32]string{51: "test_50"},
+					Write: map[uint32]string{52: "test_51"},
 				},
 			},
 		},
 		Edges: []ir.Edge{
 			{
-				Source: ir.Handle{Node: "test_39", Param: "test_40"},
-				Target: ir.Handle{Node: "test_42", Param: "test_43"},
+				Source: ir.Handle{Node: "test_54", Param: "test_55"},
+				Target: ir.Handle{Node: "test_57", Param: "test_58"},
 				Kind:   ir.EdgeKind(0),
 			},
 		},
 		Nodes: []graph.Node{
 			{
-				Key:      "test_46",
-				Type:     "test_47",
-				Config:   msgpack.EncodedJSON{"key_48": "value_48"},
-				Position: spatial.XY{X: 50.5, Y: 51.5},
+				Key:      "test_61",
+				Type:     "test_62",
+				Config:   msgpack.EncodedJSON{"key_63": "value_63"},
+				Position: spatial.XY{X: 65.5, Y: 66.5},
 			},
 		},
 	}
@@ -285,61 +327,82 @@ func FuzzDecodeGraph(f *testing.F) {
 				{
 					Key:  "test_7",
 					Body: ir.Body{Raw: "test_9"},
-					Inputs: []types.Param{
+					Config: []types.Param{
 						{
 							Name: "test_11",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
 									Inputs:  []types.Param{{}},
 									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
-								Name:          "test_16",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Name:          "test_17",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_21": "value_21"},
+							Value: map[string]interface{}{"key_22": "value_22"},
 						},
 					},
-					Outputs: []types.Param{
+					Inputs: []types.Param{
 						{
-							Name: "test_23",
+							Name: "test_24",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
 									Inputs:  []types.Param{{}},
 									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
-								Name:          "test_28",
-								Elem:          func() *types.Type { v := types.Type{}; return &v }(),
-								Unit:          func() *types.Unit { v := types.Unit{}; return &v }(),
-								Constraint:    func() *types.Type { v := types.Type{}; return &v }(),
+								Name:          "test_30",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_33": "value_33"},
+							Value: map[string]interface{}{"key_35": "value_35"},
+						},
+					},
+					Outputs: []types.Param{
+						{
+							Name: "test_37",
+							Type: types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
+									Config:  []types.Param{{}},
+								},
+								Kind:          types.Kind(0),
+								Name:          "test_43",
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
+							},
+							Value: map[string]interface{}{"key_48": "value_48"},
 						},
 					},
 					Channels: types.Channels{
-						Read:  map[uint32]string{36: "test_35"},
-						Write: map[uint32]string{37: "test_36"},
+						Read:  map[uint32]string{51: "test_50"},
+						Write: map[uint32]string{52: "test_51"},
 					},
 				},
 			},
 			Edges: []ir.Edge{
 				{
-					Source: ir.Handle{Node: "test_39", Param: "test_40"},
-					Target: ir.Handle{Node: "test_42", Param: "test_43"},
+					Source: ir.Handle{Node: "test_54", Param: "test_55"},
+					Target: ir.Handle{Node: "test_57", Param: "test_58"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
 			Nodes: []graph.Node{
 				{
-					Key:      "test_46",
-					Type:     "test_47",
-					Config:   msgpack.EncodedJSON{"key_48": "value_48"},
-					Position: spatial.XY{X: 50.5, Y: 51.5},
+					Key:      "test_61",
+					Type:     "test_62",
+					Config:   msgpack.EncodedJSON{"key_63": "value_63"},
+					Position: spatial.XY{X: 65.5, Y: 66.5},
 				},
 			},
 		}

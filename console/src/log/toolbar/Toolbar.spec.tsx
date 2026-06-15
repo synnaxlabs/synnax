@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -50,16 +48,6 @@ describe("log/toolbar/Toolbar", () => {
     it("renders null when the log does not exist in state", () => {
       const { container } = renderWithConsole(<Toolbar layoutKey="no-log" />, {
         preloadedState: { [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE },
-      });
-      expect(container.firstChild).toBeNull();
-    });
-
-    it("renders null when an upload is pending", () => {
-      const key = uuid.create();
-      const { container } = renderWithConsole(<Toolbar layoutKey={key} />, {
-        preloadedState: preloadedState(key, "Pending", {
-          pendingUpload: log.newZ.omit({ name: true }).parse({ key }),
-        }),
       });
       expect(container.firstChild).toBeNull();
     });

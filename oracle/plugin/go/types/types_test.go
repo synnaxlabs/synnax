@@ -10,6 +10,9 @@
 package types_test
 
 import (
+	gojson "encoding/json"
+	"go/parser"
+	"go/token"
 	"strings"
 	"testing"
 
@@ -19,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	gotesterrors "github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -435,6 +439,35 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`VariantWarning Variant = "warning"`))
 				Expect(content).To(ContainSubstring(`VariantError Variant = "error"`))
 				Expect(content).To(ContainSubstring(`Variant Variant`))
+			})
+
+			It("Should declare acronym-named enums under their declared name", func(ctx SpecContext) {
+				source := `
+				@go output "core/ni"
+
+				RTDType enum {
+					pt_3750 = "Pt3750"
+					pt_3851 = "Pt3851"
+				}
+
+				Channel struct {
+					rtd_type RTDType
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp := MustSucceed(goPlugin.Generate(req))
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type RTDType string`))
+				Expect(content).To(ContainSubstring(`RTDTypePt3750 RTDType = "Pt3750"`))
+				Expect(content).To(ContainSubstring(`RtdType RTDType`))
+				Expect(content).ToNot(ContainSubstring(`RtdTypePt3750`))
 			})
 
 			It("Should generate int enum type and iota constants", func(ctx SpecContext) {
@@ -1823,5 +1856,375 @@ var _ = Describe("Go Types Plugin", func() {
 					ToContain("~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64")
 			})
 		})
+	})
+})
+
+var _ = Describe("Go Union Generation", func() {
+	var (
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a discriminator type with one constant per variant", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`type ScaleType string`,
+				`ScaleTypeLinear ScaleType = "linear"`,
+				`ScaleTypeNone ScaleType = "none"`,
+			)
+	})
+
+	It("Should generate a sealed interface with variant structs", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`type ScaleVariant interface {`,
+				`isScaleVariant()`,
+				`type ScaleLinear struct {`,
+				`LinearScale`,
+				`func (ScaleLinear) isScaleVariant() {}`,
+				`type ScaleNone struct {`,
+				`func (ScaleNone) isScaleVariant() {}`,
+				`type Scale struct {`,
+				`Variant ScaleVariant`,
+			)
+	})
+
+	It("Should generate internally-tagged JSON marshaling on the wrapper", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`func (u Scale) MarshalJSON() ([]byte, error) {`,
+				`case ScaleLinear:`,
+				`t = ScaleTypeLinear`,
+				`fields["type"] = tag`,
+				`func (u *Scale) UnmarshalJSON(data []byte) error {`,
+				`Type ScaleType `+"`"+`json:"type"`+"`",
+				`case ScaleTypeLinear:`,
+				`var v ScaleLinear`,
+				`u.Variant = v`,
+			)
+	})
+
+	It("Should embed the shared base and the payload in every variant struct", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`type AIChannelVariant interface {`,
+				`type AIVoltageChannel struct {`,
+				`BaseAIChan`,
+				`VoltageFields`,
+				`func (AIVoltageChannel) isAIChannelVariant() {}`,
+				`type AIChannel struct {`,
+				`Variant AIChannelVariant`,
+			)
+	})
+
+	It("Should resolve a union-typed struct field to the union wrapper", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(`CustomScale Scale ` + "`" + `json:"custom_scale" msgpack:"custom_scale"` + "`")
+	})
+
+	It("Should preserve acronym union names verbatim", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`type AIChannel struct {`,
+				`Variant AIChannelVariant`,
+				`isAIChannelVariant()`,
+				`type AIChannelType string`,
+			)
+	})
+
+	It("Should generate Go that parses as valid source", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+			VoltageFields struct {
+				minVal float64
+				customScale Scale
+			}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		content := ""
+		for _, f := range resp.Files {
+			if strings.HasSuffix(f.Path, "types.gen.go") {
+				content = string(f.Content)
+			}
+		}
+		Expect(content).ToNot(BeEmpty())
+		MustSucceed(parser.ParseFile(token.NewFileSet(), "types.gen.go", content, parser.AllErrors))
+	})
+})
+
+var _ = Describe("Go Union Field & Variant Coverage", func() {
+	var (
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	source := `
+		@go output "out"
+
+		LinearScale struct { slope float64 }
+		NoneScale struct {}
+
+		Scale union on type {
+			linear LinearScale {
+				@doc value "a linear scale."
+			}
+			none NoneScale
+		}
+
+		Channel struct {
+			scales Scale[]
+		}
+	`
+
+	It("Should render a per-variant doc comment on the variant struct", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain("// ScaleLinear a linear scale.", "type ScaleLinear struct {")
+	})
+
+	It("Should resolve an array-of-union field to a slice of the interface", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain("Scales []Scale `" + `json:"scales" msgpack:"scales"` + "`")
+	})
+})
+
+// The types below mirror the exact shape the generator emits for a union with
+// `extends` and a nested union, locking the internally-tagged codec behavior
+// (the riskiest generated logic) with a real round trip.
+
+type rtScaleType string
+
+const rtScaleTypeLinear rtScaleType = "linear"
+
+type rtScaleVariant interface{ isRtScaleVariant() }
+
+type rtLinearScale struct {
+	Slope float64 `json:"slope"`
+}
+
+type rtScaleLinear struct{ rtLinearScale }
+
+func (rtScaleLinear) isRtScaleVariant() {}
+
+type rtScale struct{ Variant rtScaleVariant }
+
+func (u rtScale) MarshalJSON() ([]byte, error) {
+	var t rtScaleType
+	switch u.Variant.(type) {
+	case rtScaleLinear:
+		t = rtScaleTypeLinear
+	default:
+		return nil, gotesterrors.Newf("rtScale: unknown variant %T", u.Variant)
+	}
+	raw, err := gojson.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]gojson.RawMessage{}
+	if err := gojson.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := gojson.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["type"] = tag
+	return gojson.Marshal(fields)
+}
+
+func (u *rtScale) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type rtScaleType `json:"type"`
+	}
+	if err := gojson.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case rtScaleTypeLinear:
+		var v rtScaleLinear
+		if err := gojson.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
+	}
+	return nil
+}
+
+type rtBase struct {
+	Port int32 `json:"port"`
+}
+
+type rtChanType string
+
+const rtChanTypeV rtChanType = "v"
+
+type rtChanVariant interface{ isRtChanVariant() }
+
+type rtVoltage struct {
+	MinVal float64 `json:"min_val"`
+	Scale  rtScale `json:"custom_scale"`
+}
+
+type rtChanV struct {
+	rtBase
+	rtVoltage
+}
+
+func (rtChanV) isRtChanVariant() {}
+
+type rtChan struct{ Variant rtChanVariant }
+
+func (u rtChan) MarshalJSON() ([]byte, error) {
+	raw, err := gojson.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]gojson.RawMessage{}
+	if err := gojson.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, _ := gojson.Marshal(rtChanTypeV)
+	fields["type"] = tag
+	return gojson.Marshal(fields)
+}
+
+func (u *rtChan) UnmarshalJSON(data []byte) error {
+	var v rtChanV
+	if err := gojson.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	u.Variant = v
+	return nil
+}
+
+var _ = Describe("Union codec round trip", func() {
+	It("Should round-trip an internally-tagged union with a nested union", func() {
+		in := rtChan{Variant: rtChanV{
+			rtBase: rtBase{Port: 7},
+			rtVoltage: rtVoltage{
+				MinVal: -10,
+				Scale:  rtScale{Variant: rtScaleLinear{rtLinearScale{Slope: 1.5}}},
+			},
+		}}
+		data := MustSucceed(gojson.Marshal(in))
+		var m map[string]any
+		Expect(gojson.Unmarshal(data, &m)).To(Succeed())
+		Expect(m).To(SatisfyAll(
+			HaveKeyWithValue("type", "v"),
+			HaveKey("port"),
+			HaveKey("min_val"),
+			HaveKeyWithValue("custom_scale", HaveKeyWithValue("type", "linear")),
+		))
+		var out rtChan
+		Expect(gojson.Unmarshal(data, &out)).To(Succeed())
+		got := out.Variant.(rtChanV)
+		Expect(got.Port).To(Equal(int32(7)))
+		Expect(got.MinVal).To(Equal(-10.0))
+		Expect(got.Scale.Variant.(rtScaleLinear).Slope).To(Equal(1.5))
 	})
 })

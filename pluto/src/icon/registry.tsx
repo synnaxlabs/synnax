@@ -30,6 +30,7 @@ import {
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
+  BsWindowStack,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -278,6 +279,7 @@ export const Acquire = wrapSVGIcon(FaStream, "acquire");
 export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
 export const Visualize = wrapSVGIcon(MdAreaChart, "visualize");
+export const Panel = wrapSVGIcon(BsWindowStack, "panel");
 export const LinePlot = wrapSVGIcon(MdAreaChart, "line-plot");
 export const Expand = wrapSVGIcon(BiExpandAlt, "expand");
 export const Collapse = wrapSVGIcon(BiCollapseAlt, "collapse");
@@ -305,7 +307,7 @@ export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");
 export const Resources = wrapSVGIcon(AiFillFolder, "resources");
 export const Group = wrapSVGIcon(AiFillFolder, "group");
-export const Workspace = wrapSVGIcon(MdWorkspacesFilled, "workspace");
+export const Project = wrapSVGIcon(MdWorkspacesFilled, "project");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Python = wrapSVGIcon(SiPython, "python");
 export const TypeScript = wrapSVGIcon(SiTypescript, "typescript");
@@ -547,6 +549,7 @@ const icons = {
   Analyze,
   Concepts,
   Visualize,
+  Panel,
   LinePlot,
   Expand,
   Collapse,
@@ -565,7 +568,7 @@ const icons = {
   Channel,
   Resources,
   Group,
-  Workspace,
+  Project,
   Box,
   Python,
   TypeScript,

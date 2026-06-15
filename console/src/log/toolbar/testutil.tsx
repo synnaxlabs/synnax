@@ -27,9 +27,9 @@ export const client = createTestClient();
 // allow more than the 1s waitFor default.
 export const TIMEOUT = { timeout: 5000 };
 
-let workspaceKey: string | undefined;
-const workspace = async (): Promise<string> =>
-  (workspaceKey ??= (await client.workspaces.create({ name: id.create(), layout: {} }))
+let projectKey: string | undefined;
+const project = async (): Promise<string> =>
+  (projectKey ??= (await client.projects.create({ name: id.create(), layout: {} }))
     .key);
 
 // loadLog primes key's flux cache through the production retrieve path. The single-hook
@@ -63,7 +63,7 @@ export const renderLog = async (
   Component: ComponentType<{ layoutKey: string }>,
   { log: logOverrides, preloadedState }: RenderLogOptions = {},
 ) => {
-  const created = await client.logs.create(await workspace(), {
+  const created = await client.logs.create(await project(), {
     name: "Test Log",
     ...logOverrides,
   });

@@ -32,7 +32,7 @@ var _ = Describe("Writer", func() {
 				"b": {Key: "b", Variant: "text", Props: msgpack.EncodedJSON{"value": "B"}},
 			},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 		return s
 	}
 
@@ -52,11 +52,11 @@ var _ = Describe("Writer", func() {
 					"a": {Key: "a", Variant: "text", Props: msgpack.EncodedJSON{"value": "hello"}},
 				},
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &t)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should create a Table without a workspace", func(ctx SpecContext) {
+		It("Should create a Table without a project", func(ctx SpecContext) {
 			t := table.Table{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &t)).To(Succeed())
 			Expect(t.Key).ToNot(Equal(uuid.Nil))
@@ -69,7 +69,7 @@ var _ = Describe("Writer", func() {
 				{Name: "table-1"},
 				{Name: "table-2"},
 			}
-			Expect(svc.NewWriter(tx).CreateMany(ctx, ws.Key, &tables)).To(Succeed())
+			Expect(svc.NewWriter(tx).CreateMany(ctx, proj.Key, &tables)).To(Succeed())
 
 			var retrieved []table.Table
 			Expect(svc.NewRetrieve().Where(table.MatchKeys(
@@ -83,7 +83,7 @@ var _ = Describe("Writer", func() {
 	Describe("Dispatch", func() {
 		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "dk-1", []table.Action{
 				table.NewRenameAction(table.RenamePayload{Name: "test2"}),
 			})).To(Succeed())
