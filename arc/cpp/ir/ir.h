@@ -20,6 +20,18 @@ inline const std::string default_input_param = "input";
 inline const std::string lhs_input_param = "a";
 inline const std::string rhs_input_param = "b";
 
+/// @brief returns the position of the input param named name, or NOT_FOUND if the
+/// node has no such param. Called at construction so an unknown name fails at load.
+[[nodiscard]] inline std::pair<size_t, x::errors::Error>
+resolve_input(const Node &node, const std::string &name) {
+    for (size_t i = 0; i < node.inputs.size(); ++i)
+        if (node.inputs[i].name == name) return {i, x::errors::NIL};
+    return {
+        0,
+        x::errors::Error(x::errors::NOT_FOUND, "node has no input named " + name)
+    };
+}
+
 inline bool operator==(const Handle &lhs, const Handle &rhs) {
     return lhs.node == rhs.node && lhs.param == rhs.param;
 }

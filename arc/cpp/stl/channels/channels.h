@@ -184,7 +184,7 @@ public:
                 std::make_unique<On>(std::move(cfg.state), channel_key),
                 x::errors::NIL
             };
-        auto [input_idx, in_err] = cfg.state.resolve_input(ir::default_input_param);
+        auto [input_idx, in_err] = ir::resolve_input(cfg.node, ir::default_input_param);
         if (in_err) return {nullptr, in_err};
         return {
             std::make_unique<Write>(std::move(cfg.state), channel_key, input_idx),
