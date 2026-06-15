@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/value/value.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { type dimensions, type text } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -20,11 +21,12 @@ import {
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/value/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
-interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
+interface RenderProps extends PropsWithChildren<
+  Omit<schematic.NodeConfigValue, "label" | "variant">
+> {
   className?: string;
   dimensions?: dimensions.Dimensions;
   unitsLevel?: text.Level;

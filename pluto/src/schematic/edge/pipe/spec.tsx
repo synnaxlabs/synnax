@@ -10,8 +10,7 @@
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { NAME, VARIANT } from "@/schematic/edge/pipe/config";
 
-export const spec = Segmented.createSpec(VARIANT, NAME, ({ points, color }) => (
+export const spec = Segmented.createSpec("pipe", "Pipe", ({ points, color }) => (
   <Base.Base path={Path.rounded(points)} color={color} />
 ));

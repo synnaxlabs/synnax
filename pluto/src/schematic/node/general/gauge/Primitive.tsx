@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { type Config } from "@/schematic/node/general/gauge/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<schematic.NodeConfigGauge, "variant"> {
   className?: string;
 }
 

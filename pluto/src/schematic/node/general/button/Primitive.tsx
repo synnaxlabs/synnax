@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/button/button.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { type color } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -21,10 +22,9 @@ import { Button as Base } from "@/button";
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/button/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
-interface ButtonProps extends Omit<Config, "variant" | "color"> {
+interface ButtonProps extends Omit<schematic.NodeConfigButton, "variant" | "color"> {
   color?: color.Crude;
   className?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;

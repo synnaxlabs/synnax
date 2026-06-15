@@ -10,10 +10,13 @@
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { NAME, VARIANT } from "@/schematic/edge/electric/config";
 
 const STYLE = { strokeDasharray: "12,4" };
 
-export const spec = Segmented.createSpec(VARIANT, NAME, ({ points, color }) => (
-  <Base.Base path={Path.rounded(points)} color={color} style={STYLE} />
-));
+export const spec = Segmented.createSpec(
+  "electric",
+  "Electric Signal",
+  ({ points, color }) => (
+    <Base.Base path={Path.rounded(points)} color={color} style={STYLE} />
+  ),
+);

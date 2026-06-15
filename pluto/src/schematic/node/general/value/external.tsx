@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/value/config";
 import { ValueForm } from "@/schematic/node/general/value/Form";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
@@ -20,10 +20,8 @@ import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
-export * from "@/schematic/node/general/value/config";
-
-export const defaultConfig = (t: Theming.Theme): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigValue => ({
+  variant: "value",
   orientation: "left",
   color: color.ZERO,
   units: "psi",
@@ -37,14 +35,14 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 const PREVIEW_DIMENSIONS = { width: 60, height: 25 };
 
-const Preview = ({ color }: Config): ReactElement => (
+const Preview = ({ color }: schematic.NodeConfigValue): ReactElement => (
   <Value color={color} dimensions={PREVIEW_DIMENSIONS} units="psi">
     <Text.Text>50.00</Text.Text>
   </Value>
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"value", schematic.NodeConfigValue> = {
+  key: "value",
   name: "Value",
   Form: ValueForm,
   Node: Symbol,

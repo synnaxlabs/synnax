@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/setpoint/setpoint.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { type CSSProperties, type ReactElement, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
@@ -16,9 +17,9 @@ import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/setpoint/config";
 
-interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number> {
+interface RenderProps
+  extends Omit<schematic.NodeConfigSetpoint, "variant">, BaseInput.Control<number> {
   className?: string;
   style?: CSSProperties;
 }

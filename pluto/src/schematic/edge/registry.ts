@@ -9,7 +9,6 @@
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
 
-import { type Config } from "@/schematic/edge/config";
 import { Data } from "@/schematic/edge/data";
 import { Electric } from "@/schematic/edge/electric";
 import { Hydraulic } from "@/schematic/edge/hydraulic";
@@ -31,6 +30,9 @@ export const REGISTRY = {
 
 export const variantZ = schematic.edgeConfigTypeZ;
 export type Variant = schematic.EdgeConfigType;
+
+export const configZ = schematic.edgeConfigZ;
+export type Config = schematic.EdgeConfig;
 
 export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];

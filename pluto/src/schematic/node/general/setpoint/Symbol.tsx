@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement, useMemo } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import * as CommonTelem from "@/schematic/node/common/telem";
-import { type Config } from "@/schematic/node/general/setpoint/config";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
@@ -33,7 +33,7 @@ export const Symbol = ({
     size,
     disabled,
   },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.NodeConfigSetpoint>): ReactElement => {
   const source = useMemo(() => CommonTelem.numberSource(stateChannel), [stateChannel]);
   const sink = useMemo(() => CommonTelem.numberSink(commandChannel), [commandChannel]);
   const { value, set } = BaseSetpoint.use({ aetherKey: nodeKey, source, sink });

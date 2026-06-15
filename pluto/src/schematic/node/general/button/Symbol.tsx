@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement, useMemo } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import * as CommonTelem from "@/schematic/node/common/telem";
-import { type Config } from "@/schematic/node/general/button/config";
 import { Button } from "@/schematic/node/general/button/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Button as BaseButton } from "@/vis/button";
@@ -22,7 +22,7 @@ export const Symbol = ({
   selected,
   onConfigChange,
   config: { label, orientation = "left", commandChannel, control, mode, ...rest },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.NodeConfigButton>): ReactElement => {
   const sink = useMemo(() => CommonTelem.booleanSink(commandChannel), [commandChannel]);
   const { onMouseDown, onMouseUp } = BaseButton.use({ aetherKey: nodeKey, sink, mode });
   return (

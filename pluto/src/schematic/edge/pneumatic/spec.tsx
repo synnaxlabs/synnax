@@ -14,7 +14,6 @@ import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { NAME, VARIANT } from "@/schematic/edge/pneumatic/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 
 const SYMBOL_INTERVAL = 40;
@@ -56,8 +55,8 @@ const PneumaticSymbol = ({ position, direction }: SymbolProps): ReactElement => 
 };
 
 export const spec = Segmented.createSpec(
-  VARIANT,
-  NAME,
+  "pneumatic",
+  "Pneumatic",
   ({ points, color: colorVal }) => (
     <g
       className={CSS.B("symbol-colored")}

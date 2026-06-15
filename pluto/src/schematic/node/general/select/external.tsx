@@ -7,21 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/select/config";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { Select } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export * from "@/schematic/node/general/select/config";
-
-export const defaultConfig = (t: Theming.Theme): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigSelect => ({
+  variant: "select",
   orientation: "left",
   color: t.colors.gray.l11,
   size: "small",
@@ -31,7 +29,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   control: { show: true },
 });
 
-const Preview = ({ color }: Config): ReactElement => (
+const Preview = ({ color }: schematic.NodeConfigSelect): ReactElement => (
   <Select
     onChange={() => {}}
     options={[]}
@@ -41,8 +39,8 @@ const Preview = ({ color }: Config): ReactElement => (
   />
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"select", schematic.NodeConfigSelect> = {
+  key: "select",
   name: "Select",
   Form: SelectForm,
   Node: Symbol,

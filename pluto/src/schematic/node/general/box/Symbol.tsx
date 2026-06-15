@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/box/config";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Tank as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
@@ -28,7 +28,7 @@ export const Symbol = ({
     dimensions,
     strokeWidth,
   },
-}: NodeProps<Config>): ReactElement => (
+}: NodeProps<schematic.NodeConfigBox>): ReactElement => (
   <Grid.Grid
     allowCenter
     allowRotate={false}

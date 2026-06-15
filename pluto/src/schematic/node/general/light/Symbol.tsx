@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement, useMemo } from "react";
 
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import * as CommonTelem from "@/schematic/node/common/telem";
-import { type Config } from "@/schematic/node/general/light/config";
 import { Light, WIDTH_PER_SCALE } from "@/schematic/node/general/light/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
@@ -22,7 +22,7 @@ export const Symbol = ({
   onConfigChange,
   selected,
   config: { label, channel, threshold, orientation = "left", ...rest },
-}: NodeProps<Config>): ReactElement => {
+}: NodeProps<schematic.NodeConfigLight>): ReactElement => {
   const source = useMemo(
     () => CommonTelem.booleanSource(channel, threshold),
     [channel, threshold],

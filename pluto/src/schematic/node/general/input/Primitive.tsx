@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/input/input.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
@@ -16,9 +17,8 @@ import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/input/config";
 
-interface PrimitiveProps extends Omit<Config, "variant"> {
+interface PrimitiveProps extends Omit<schematic.NodeConfigInput, "variant"> {
   initialValue?: string;
   className?: string;
   onSend?: (value: string) => void;

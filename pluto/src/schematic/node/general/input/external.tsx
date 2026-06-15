@@ -7,21 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
-import { type Config, VARIANT } from "@/schematic/node/general/input/config";
 import { InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export * from "@/schematic/node/general/input/config";
-
-export const defaultConfig = (t: Theming.Theme): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigInput => ({
+  variant: "input",
   orientation: "left",
   color: t.colors.gray.l11,
   size: "small",
@@ -29,7 +27,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   control: { show: true },
 });
 
-const Preview = ({ color }: Config): ReactElement => (
+const Preview = ({ color }: schematic.NodeConfigInput): ReactElement => (
   <Input
     initialValue="send message"
     color={color}
@@ -38,8 +36,8 @@ const Preview = ({ color }: Config): ReactElement => (
   />
 );
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"input", schematic.NodeConfigInput> = {
+  key: "input",
   name: "Input",
   Form: InputForm,
   Node: Symbol,

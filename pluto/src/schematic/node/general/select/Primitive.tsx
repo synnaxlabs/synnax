@@ -9,6 +9,7 @@
 
 import "@/schematic/node/general/select/select.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { Button as BaseButton } from "@/button";
@@ -16,10 +17,9 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/select/config";
 import { Select as BaseSelect } from "@/select";
 
-interface RenderProps extends Omit<Config, "sink" | "variant"> {
+interface RenderProps extends Omit<schematic.NodeConfigSelect, "sink" | "variant"> {
   className?: string;
   value?: string;
   onChange: (key: string | null) => void;
