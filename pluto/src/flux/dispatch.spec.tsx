@@ -520,10 +520,9 @@ describe("Flux.createDispatch", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.setConfig({ key: "n1", config: { label: "x" } }),
+          actions: schematic.rename({ name: "renamed" }),
         });
       });
-      // Two distinct entries: one undo leaves canUndo true, a second clears it.
       act(() => result.current.undo.undo());
       await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
       expect(result.current.undo.canUndo).toBe(true);

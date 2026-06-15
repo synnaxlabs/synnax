@@ -36,9 +36,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
+	arcstate "github.com/synnaxlabs/synnax/pkg/service/arc/state"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -92,7 +92,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		return nil
 	}
 	drt := dataRuntime{}
-	stateCfg, err := calculation.NewStateConfig(ctx, t.factoryCfg.Channel, *t.prog.Program)
+	stateCfg, err := arcstate.New(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
 		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err

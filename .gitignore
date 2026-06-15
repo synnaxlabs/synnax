@@ -255,6 +255,13 @@ synnax-data/**
 # |||| EMBEDDED DRIVER ||||
 assets
 
+# |||| LABVIEW ||||
+client/lv/**/builds/
+*.lvlibp
+*.aliases
+*.lvlps
+*.UserState/
+
 # |||| GENERATED CERTIFICATES ||||
 client/py/examples/opcua/certificates/
 
