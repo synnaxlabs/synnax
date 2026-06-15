@@ -286,7 +286,7 @@ std::pair<size_t, x::errors::Error> Node::resolve_input(const std::string &name)
     if (it == this->input_index.end())
         return {
             0,
-            x::errors::Error(x::errors::VALIDATION, "node has no input named " + name)
+            x::errors::Error(x::errors::NOT_FOUND, "node has no input named " + name)
         };
     return {it->second, x::errors::NIL};
 }

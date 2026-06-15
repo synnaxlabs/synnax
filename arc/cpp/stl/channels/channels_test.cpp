@@ -1078,7 +1078,7 @@ TEST(ChannelWriteConstructionTest, ErrorsWhenInputMissing) {
     channels::Module module(nullptr, nullptr);
     ASSERT_OCCURRED_AS_P(
         module.create(runtime::node::Config(ir, ir.nodes[0], std::move(state_node))),
-        x::errors::VALIDATION
+        x::errors::NOT_FOUND
     );
 }
 
