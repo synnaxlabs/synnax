@@ -62,7 +62,7 @@ func Publish(
 					Variant: ch.Variant,
 				})
 			}
-			return out, true
+			return out, len(out) > 0
 		},
 	}
 	resourceCloser, err := prov.PublishFromObservable(
