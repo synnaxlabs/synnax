@@ -94,7 +94,15 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	if !ok {
 		return enumCheckData{}, false
 	}
-	if _, ok := resolved.Form.(resolution.EnumForm); !ok {
+	form, ok := resolved.Form.(resolution.EnumForm)
+	if !ok {
+		return enumCheckData{}, false
+	}
+	// Int enums do not generate an IsValid method (they rely on stringer, and their
+	// zero value is a valid first member), so emitting a membership check would
+	// reference a method that does not exist. Only string enums, whose zero value
+	// (the empty string) is never a valid member, carry a check.
+	if form.IsIntEnum {
 		return enumCheckData{}, false
 	}
 	return enumCheckData{GoName: naming.GetFieldName(field), FieldName: naming.GetFieldName(field)}, true
