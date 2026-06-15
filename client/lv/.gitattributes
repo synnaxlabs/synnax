@@ -1,0 +1,11 @@
+# LabVIEW binary formats are stored via Git LFS: they cannot be delta-compressed or
+# meaningfully diffed/merged, so committing them as plain blobs bloats history on every
+# re-save. The XML-based .lvproj/.lvlib/.lvclass project files stay as normal text so
+# they remain diffable.
+*.vi filter=lfs diff=lfs merge=lfs -text
+*.vit filter=lfs diff=lfs merge=lfs -text
+*.ctl filter=lfs diff=lfs merge=lfs -text
+*.ctt filter=lfs diff=lfs merge=lfs -text
+*.mnu filter=lfs diff=lfs merge=lfs -text
+*.llb filter=lfs diff=lfs merge=lfs -text
+*.lvlibp filter=lfs diff=lfs merge=lfs -text

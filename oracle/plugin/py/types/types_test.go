@@ -288,6 +288,43 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
 		})
 
+		It("Should emit a string-enum field default as the literal value, not member access", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Units enum {
+					volts = "Volts"
+					amps  = "Amps"
+				}
+
+				Channel struct {
+					units Units = UnitsVolts
+				}
+			`
+			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`units: Units = Field(default="Volts")`))
+			Expect(content).ToNot(ContainSubstring(`default=Units.volts`))
+		})
+
+		It("Should emit an int-enum field default as Enum member access", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Mode enum {
+					off  = 0
+					on   = 1
+				}
+
+				Channel struct {
+					mode Mode = ModeOn
+				}
+			`
+			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`default=Mode.on`))
+		})
+
 		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
 			source := `
 				@py output "out"
@@ -618,6 +655,29 @@ var _ = Describe("Python Types Plugin", func() {
 			// Child should inherit from Parent
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
 			Expect(content).To(ContainSubstring(`email: str`))
+		})
+
+		It("Should import and qualify a base class defined in another schema module", func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+				@py output "client/py/synnax/common"
+
+				BaseConfig struct {
+					enabled bool = false
+				}
+			`)
+			source := `
+				import "schemas/common"
+
+				@py output "client/py/synnax/ni"
+
+				ReadConfig struct extends common.BaseConfig {
+					rate int32 = 10
+				}
+			`
+			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`from synnax import common`))
+			Expect(content).To(ContainSubstring(`class ReadConfig(common.BaseConfig):`))
 		})
 
 		It("Should inline parent fields when child makes required fields optional", func(ctx SpecContext) {
@@ -1552,5 +1612,190 @@ ChannelStatus = status.Status<nil>
 					ToContain(`concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)`)
 			})
 		})
+	})
+})
+
+var _ = Describe("Python Union Generation", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a Pydantic discriminated union", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				`from typing import Annotated, Union, Literal`,
+				`from pydantic import BaseModel, Field`,
+				`class ScaleLinear(LinearScale):`,
+				`type: Literal["linear"]`,
+				`class ScaleNone(NoneScale):`,
+				`type: Literal["none"]`,
+				`Scale = Annotated[`,
+				`Union[ScaleLinear, ScaleNone],`,
+				`Field(discriminator="type"),`,
+			)
+	})
+
+	It("Should declare inline variant fields directly on the variant model", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			TabBase struct { key string }
+			Labeled struct { label string }
+
+			Tab union on variant extends TabBase {
+				view extends Labeled {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		content := ExpectContent(resp, "types_gen.py")
+		content.ToContain(
+			`class TabView(TabBase, Labeled):`,
+			`variant: Literal["view"]`,
+			`type: str`,
+			`class TabEmpty(TabBase):`,
+			`variant: Literal["empty"]`,
+		)
+		content.ToNotContain("TabViewPayload")
+	})
+
+	It("Should inherit the union base and the payload in every variant, not flatten", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		// The variant inherits BaseAIChan + VoltageFields and declares only the
+		// discriminator, so the shared fields are not duplicated into it.
+		Expect(content).To(ContainSubstring("class AIVoltageChannel(BaseAIChan, VoltageFields):\n    type: Literal[\"ai_voltage\"]\n"))
+		Expect(content).To(ContainSubstring(`enabled: bool`))
+		Expect(content).To(ContainSubstring(`minVal: float`))
+	})
+
+	It("Should resolve a union-typed field to the union alias", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(`customScale: Scale`)
+	})
+
+	It("Should emit pass for an empty variant struct", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			NoneScale struct {}
+			LinearScale struct { slope float64 }
+
+			Scale union on type {
+				none NoneScale
+				linear LinearScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain("class NoneScale(BaseModel):", "    pass")
+	})
+})
+
+var _ = Describe("Python Union Field & Variant Coverage", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	source := `
+		@py output "out"
+
+		LinearScale struct {
+			slope float64 {
+				@doc value "the slope multiplier."
+			}
+		}
+		NoneScale struct {}
+
+		Scale union on type {
+			linear LinearScale {
+				@doc value "a linear scale."
+			}
+			none NoneScale
+
+			@doc value "determines how raw values are transformed."
+		}
+
+		Channel struct {
+			scales Scale[]
+		}
+	`
+
+	It("Should render the union doc as a comment above the Annotated alias", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"# Determines how raw values are transformed.\nScale = Annotated[",
+		)
+	})
+
+	It("Should keep field docs on the payload class and only a summary on the variant", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		// Field docs live on the payload class (its Attributes), documented once.
+		Expect(content).To(ContainSubstring("class LinearScale(BaseModel):"))
+		Expect(content).To(ContainSubstring("slope: The slope multiplier."))
+		// The variant inherits the payload and carries only its own summary,
+		// so the field docs are not duplicated onto it.
+		Expect(content).To(ContainSubstring("class ScaleLinear(LinearScale):\n    \"\"\"A linear scale.\n    \"\"\"\n    type: Literal[\"linear\"]\n"))
+	})
+
+	It("Should resolve an array-of-union field to a list of the alias", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("scales: list[Scale]")
 	})
 })

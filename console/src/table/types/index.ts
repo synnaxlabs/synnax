@@ -18,7 +18,6 @@ export type State = v1.State;
 export type SliceState = v1.SliceState;
 export const ZERO_STATE = v1.ZERO_STATE;
 export const ZERO_SLICE_STATE = v1.ZERO_SLICE_STATE;
-export type PendingUpload = v1.PendingUpload;
 
 export type AnyState = v0.State | v1.State;
 export type AnySliceState = v0.SliceState | v1.SliceState;

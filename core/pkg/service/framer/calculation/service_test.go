@@ -18,19 +18,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -41,7 +37,6 @@ import (
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c         *calculation.Service
-		arcSvc    *arc.Service
 		dist      mock.Node
 		statusSvc *status.Service
 	)
@@ -119,37 +114,12 @@ var _ = Describe("Calculation", Ordered, func() {
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-		rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           dist.DB,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       statusSvc,
-			Search:       dist.Search,
-		}))
-		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Rack:     rackService,
-			Status:   statusSvc,
-			Search:   dist.Search,
-		}))
-		arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			Channel:  dist.Channel,
-			Ontology: dist.Ontology,
-			DB:       dist.DB,
-			Signals:  dist.Signals,
-			Task:     taskSvc,
-			Search:   dist.Search,
-		}))
-		channelSvc := svcchannel.Wrap(dist.Channel)
+		channelSvc := channel.Wrap(dist.Channel)
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
 			Framer:            dist.Framer,
 			Channel:           channelSvc,
 			ChannelObservable: dist.Channel.Observe(),
-			Arc:               arcSvc,
 			Status:            statusSvc,
 		}))
 	})
@@ -601,10 +571,10 @@ var _ = Describe("Calculation", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
-				g.Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).Should(Receive(&res))
 				g.Expect(res.Frame.KeysSlice()).To(Equal([]channel.Key{calcCh.Key()}))
 				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](3, 6))
-			}).Should(Succeed())
+			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
 		})

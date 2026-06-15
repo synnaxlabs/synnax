@@ -16,13 +16,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -30,7 +27,7 @@ var (
 	builder    *mock.Cluster
 	dist       mock.Node
 	framerSvc  *framer.Service
-	channelSvc *servicechannel.Service
+	channelSvc *channel.Service
 )
 
 func TestMetrics(t *testing.T) {
@@ -59,40 +56,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Signals:  dist.Signals,
 		Search:   searchIdx,
 	}))
-	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		HostProvider: mock.StaticHostKeyProvider(1),
-		Status:       statusSvc,
-		Search:       searchIdx,
-	}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		Search:   searchIdx,
-	}))
-	arcSvc := MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Task:     taskSvc,
-		Search:   searchIdx,
-	}))
-	channelSvc = MustOpen(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
-		Arc:          arcSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: channelSvc,
-		Arc:     arcSvc,
 		Status:  statusSvc,
 		DB:      dist.DB,
 	}))

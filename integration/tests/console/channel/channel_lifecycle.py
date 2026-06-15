@@ -182,7 +182,7 @@ class ChannelLifecycle(ConsoleCase):
         """Test opening a channel plot by double-clicking."""
         self.log("Testing open channel plot by double-click")
 
-        plot = self.console.workspace.open_plot_from_click(
+        plot = self.console.project.open_plot_from_click(
             self.shared_data, self.console.channels
         )
         self._cleanup_pages.append(plot.page_name)
@@ -323,7 +323,7 @@ class ChannelLifecycle(ConsoleCase):
         """Test opening a channel plot by searching its name in the command palette."""
         self.log("Testing open channel plot by name via command palette")
 
-        plot = self.console.workspace.open_from_search(Plot, self.shared_data)
+        plot = self.console.project.open_from_search(Plot, self.shared_data)
         self._cleanup_pages.append(plot.page_name)
         plot.close()
 
@@ -347,7 +347,7 @@ class ChannelLifecycle(ConsoleCase):
         """Test plotting a nested calculated channel (calc channel referencing another calc channel)."""
         self.log("Testing plot nested calculated channel")
 
-        plot = self.console.workspace.create_plot(f"Nested Calc Plot {self.suffix}")
+        plot = self.console.project.create_plot(f"Nested Calc Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", [SRC_CH, self.calc_x2, self.calc_x6])
         csv_content = plot.download_csv()

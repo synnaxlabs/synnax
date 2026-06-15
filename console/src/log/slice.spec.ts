@@ -14,7 +14,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   actions,
-  type PendingUpload,
   reducer,
   SLICE_NAME,
   type SliceState,
@@ -23,7 +22,7 @@ import {
 } from "@/log/slice";
 import { stateZ } from "@/log/types";
 
-const PENDING: PendingUpload = log.newZ.omit({ name: true }).parse({
+const PENDING = log.newZ.omit({ name: true }).parse({
   channels: [log.channelEntryZ.parse({ channel: 42, color: color.ZERO })],
 });
 
@@ -76,22 +75,6 @@ describe("Log Slice", () => {
 
     it("should be a no-op when the log does not exist", () => {
       store.dispatch(actions.setActiveToolbarTab({ key: "absent", tab: "properties" }));
-      expect(store.getState()[SLICE_NAME].logs.absent).toBeUndefined();
-    });
-  });
-
-  describe("clearPendingUpload", () => {
-    it("should clear a pending upload", () => {
-      const store = storeWith({
-        ...ZERO_SLICE_STATE,
-        logs: { "log-1": { ...ZERO_STATE, key: "log-1", pendingUpload: PENDING } },
-      });
-      store.dispatch(actions.clearPendingUpload({ key: "log-1" }));
-      expect(store.getState()[SLICE_NAME].logs["log-1"].pendingUpload).toBeUndefined();
-    });
-
-    it("should be a no-op when the log does not exist", () => {
-      store.dispatch(actions.clearPendingUpload({ key: "absent" }));
       expect(store.getState()[SLICE_NAME].logs.absent).toBeUndefined();
     });
   });

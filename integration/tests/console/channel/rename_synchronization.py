@@ -58,17 +58,17 @@ class RenameSynchronization(ConsoleCase):
         )
 
         self.log("Setting up Line Plot with channel")
-        plot = console.workspace.create_plot(f"Sync Test Plot {self.suffix}")
+        plot = console.project.create_plot(f"Sync Test Plot {self.suffix}")
         self._cleanup_pages.append(plot.page_name)
         plot.add_channels("Y1", [self.data_name])
 
         self.log("Setting up Log with channel")
-        log_page = console.workspace.create_log(f"Sync Test Log {self.suffix}")
+        log_page = console.project.create_log(f"Sync Test Log {self.suffix}")
         self._cleanup_pages.append(log_page.page_name)
         log_page.set_channel(self.data_name)
 
         self.log("Setting up Schematic with channel")
-        schematic = console.workspace.create_schematic(
+        schematic = console.project.create_schematic(
             f"Sync Test Schematic {self.suffix}"
         )
         self._cleanup_pages.append(schematic.page_name)
@@ -76,7 +76,7 @@ class RenameSynchronization(ConsoleCase):
         schematic.create_symbol(value_symbol)
 
         self.log("Setting up Table with channel")
-        table = console.workspace.create_table(f"Sync Test Table {self.suffix}")
+        table = console.project.create_table(f"Sync Test Table {self.suffix}")
         self._cleanup_pages.append(table.page_name)
         table.set_cell_channel(self.data_name)
 

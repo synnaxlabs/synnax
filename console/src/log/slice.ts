@@ -15,7 +15,6 @@ export type State = latest.State;
 export type SliceState = latest.SliceState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
-export type PendingUpload = latest.PendingUpload;
 export const ZERO_TOOLBAR_STATE = latest.ZERO_TOOLBAR_STATE;
 export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
@@ -37,10 +36,6 @@ export interface SetActiveToolbarTabPayload {
   tab: ToolbarTab;
 }
 
-export interface ClearPendingUploadPayload {
-  key: string;
-}
-
 export interface RemovePayload {
   keys: string[];
 }
@@ -60,25 +55,13 @@ export const { actions, reducer } = createSlice({
       const log = state.logs[payload.key];
       if (log != null) log.toolbar.activeTab = payload.tab;
     },
-    clearPendingUpload: (
-      state,
-      { payload }: PayloadAction<ClearPendingUploadPayload>,
-    ) => {
-      const log = state.logs[payload.key];
-      if (log != null) log.pendingUpload = undefined;
-    },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.logs[key]);
     },
   },
 });
 
-export const {
-  create: internalCreate,
-  setActiveToolbarTab,
-  clearPendingUpload,
-  remove,
-} = actions;
+export const { create: internalCreate, setActiveToolbarTab, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 

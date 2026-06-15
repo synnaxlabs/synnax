@@ -10,18 +10,18 @@
 import { LinePlot } from "@synnaxlabs/pluto";
 
 import { create } from "@/lineplot/layout";
+import { Project } from "@/project";
 import { Range } from "@/range";
-import { Workspace } from "@/workspace";
 
-export const useCreate = Workspace.createUseCreate({
+export const useCreate = Project.createUseCreate({
   useCreate: LinePlot.useCreate,
-  toCreateParams: ({ overrides, workspace, store }) => {
+  toCreateParams: ({ overrides, project, store }) => {
     const activeRange = Range.selectActiveKey(store.getState()) ?? Range.RECENT_KEY;
     return {
       name: "Line Plot",
       ranges: { x1: [activeRange] },
       ...overrides,
-      workspace,
+      project,
     };
   },
   createSessionState: create,

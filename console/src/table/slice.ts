@@ -16,7 +16,6 @@ export const stateZ = latest.stateZ;
 export const ZERO_STATE: State = latest.ZERO_STATE;
 export type SliceState = latest.SliceState;
 export const ZERO_SLICE_STATE: SliceState = latest.ZERO_SLICE_STATE;
-export type PendingUpload = latest.PendingUpload;
 export const anyStateZ = latest.anyStateZ;
 export const migrateSlice = latest.migrateSlice;
 
@@ -66,10 +65,6 @@ export interface SetSelectedCellsPayload {
 export interface SetHideIndicatorsPayload {
   key: string;
   hideIndicators?: boolean;
-}
-
-export interface ClearPendingUploadPayload {
-  key: string;
 }
 
 export const { actions, reducer } = createSlice({
@@ -129,14 +124,6 @@ export const { actions, reducer } = createSlice({
       if (t == null) return;
       t.hideIndicators = payload.hideIndicators ?? !t.hideIndicators;
     },
-    clearPendingUpload: (
-      state,
-      { payload }: PayloadAction<ClearPendingUploadPayload>,
-    ) => {
-      const t = state.tables[payload.key];
-      if (t == null) return;
-      t.pendingUpload = undefined;
-    },
   },
 });
 
@@ -147,7 +134,6 @@ export const {
   setSelectedCells,
   setEditable,
   setHideIndicators,
-  clearPendingUpload,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

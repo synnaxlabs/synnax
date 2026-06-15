@@ -76,12 +76,6 @@ describe("Schematic Slice", () => {
     expect(s.legend.position).toBeDefined();
   });
 
-  it("should clear pendingUpload", () => {
-    store.dispatch(actions.clearPendingUpload({ key: layoutKey }));
-    const s = store.getState()[SLICE_NAME].schematics[layoutKey];
-    expect(s.pendingUpload).toBeUndefined();
-  });
-
   it("should remove a schematic", () => {
     store.dispatch(actions.remove({ keys: [layoutKey] }));
     expect(store.getState()[SLICE_NAME].schematics[layoutKey]).toBeUndefined();

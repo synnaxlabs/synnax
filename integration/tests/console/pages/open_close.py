@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from console.case import ConsoleCase
-from console.workspace import PageType
+from console.project import PageType
 from x import random_name
 
 
@@ -31,7 +31,7 @@ class OpenClose(ConsoleCase):
         console = self.console
         suffix = random_name()
 
-        WORKSPACE_PAGES: list[tuple[PageType, str]] = [
+        PROJECT_PAGES: list[tuple[PageType, str]] = [
             ("Schematic", f"Sch_{suffix}"),
             ("Line Plot", f"LinePlt_{suffix}"),
             ("Log", f"LogPg_{suffix}"),
@@ -50,22 +50,22 @@ class OpenClose(ConsoleCase):
         ]
 
         self.log("(1/2) Create pages by cmd palette")
-        all_pages = WORKSPACE_PAGES + TASK_PAGES
+        all_pages = PROJECT_PAGES + TASK_PAGES
 
         for page_type, page_name in all_pages:
-            console.workspace.create_page_by_command_palette(page_type, page_name)
+            console.project.create_page_by_command_palette(page_type, page_name)
             if page_type in ("Schematic", "Line Plot", "Log", "Table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
-            console.workspace.close_page(page_name)
+            console.project.close_page(page_name)
 
         self.log("(2/2) Create pages by (+) button")
         for page_type, page_name in all_pages:
-            console.workspace.create_page_by_new_page_button(page_type, page_name)
+            console.project.create_page_by_new_page_button(page_type, page_name)
             if page_type in ("Schematic", "Line Plot", "Log", "Table"):
                 self._page_names.append(page_name)
         for _, page_name in all_pages:
-            console.workspace.close_page(page_name)
+            console.project.close_page(page_name)
 
         # Should see "New Component" if all pages closed successfully
         pass_condition = self.page.get_by_text("New Component").count() > 0
@@ -73,7 +73,7 @@ class OpenClose(ConsoleCase):
             "Some pages were not closed - 'New Component' screen not visible"
         )
 
-        console.workspace.delete_pages(self._page_names)
+        console.project.delete_pages(self._page_names)
         self._pages_deleted = True
 
     def teardown(self) -> None:

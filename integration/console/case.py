@@ -10,6 +10,7 @@
 import os
 import random
 from typing import cast
+from uuid import uuid4
 
 from playwright.sync_api import (
     Browser,
@@ -101,16 +102,24 @@ class ConsoleCase(TestCase):
 
         self.console = Console(self.page, self.client)
 
-        # Initialized signal (Not "Get Started" page)
-        self.page.wait_for_selector(
-            ".console-palette button", state="visible", timeout=10000
-        )
-
-        # Default workspace for all tests
-        self.console.workspace.ensure_selected("TestSpace")
+        # Each test runs in its own project so tests never inherit one another's
+        # open tabs (a project's layout persists server-side). The project is
+        # provisioned through the client rather than the UI: create/delete are
+        # then fast and independent of the browser's auth state (user tests log
+        # out or drop permissions, which would hang a UI-driven teardown). An
+        # empty layout backfills to the console's zero layout when selected.
+        #
+        # The name is a random token, not the test name: the active project is
+        # shown in the nav selector, so a name containing a UI word (e.g. a
+        # "...role..." test) would be matched by page-wide text locators like
+        # click_btn("Role"). The test name is logged for correlation.
+        project_name = f"TestSpace-{uuid4().hex[:10]}"
+        self.log(f"Test project: {project_name}")
+        self._project = self.client.projects.create(name=project_name)
+        self.console.access.bootstrap_project = project_name
+        self.console.project.select_bootstrap(self._project.name)
 
         # Prevent state pollution
-        # Selecting workspace restores tabs
         self.console.close_all_tabs()
         self.console.notifications.close_connection()
         self._cleanup_pages: list[str] = []
@@ -124,9 +133,19 @@ class ConsoleCase(TestCase):
         # so teardown still closes the browser instead of raising.
         if getattr(self, "_cleanup_pages", None):
             try:
-                self.console.workspace.delete_pages(self._cleanup_pages)
+                self.console.project.delete_pages(self._cleanup_pages)
             except PlaywrightTimeoutError:
                 pass
+        # Delete the per-test project through the client. Server-side delete is
+        # fast and works regardless of the browser's auth state, which a
+        # UI-driven delete does not (e.g. after a test logs out). setup() may
+        # fail before _project is assigned.
+        project = getattr(self, "_project", None)
+        if project is not None:
+            try:
+                self.client.projects.delete(project.key)
+            except Exception as e:
+                self.log(f"Failed to delete project {project.name}: {e}")
         self.context.close()
         self.browser.close()
         self.playwright.stop()

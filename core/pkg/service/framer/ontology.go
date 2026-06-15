@@ -11,8 +11,8 @@ package framer
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 )
 
 // OntologyID returns a unique identifier for a Channel for use within a resource

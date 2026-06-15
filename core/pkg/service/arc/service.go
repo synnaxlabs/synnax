@@ -18,13 +18,12 @@ import (
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
 	arcsymbol "github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -102,8 +101,8 @@ type Service struct {
 
 // NewChannelResolver returns the dynamic resolver that the analyzer consults for
 // cluster channels not statically known to the program.
-func (s *Service) NewChannelResolver(tx gorp.Tx) *symbol.ChannelResolver {
-	return symbol.NewChannelResolver(s.cfg.Channel, tx)
+func (s *Service) NewChannelResolver(tx gorp.Tx) arc.SymbolResolver {
+	return s.cfg.Channel.NewArcSymbolResolver(tx)
 }
 
 // NewSymbolResolver is the dynamic resolver attached to a program root's
@@ -123,14 +122,25 @@ func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
 	syms := make([]*arcsymbol.Symbol, 0, len(stlSyms)+len(statusSyms))
 	syms = append(syms, stlSyms...)
 	syms = append(syms, statusSyms...)
-	return arcsymbol.NewRoot(s.NewChannelResolver(tx), syms)
+	return arcsymbol.NewRoot(s.NewSymbolResolver(tx), syms)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
 		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
-		OnRename:        channelRename(s.cfg.Channel),
+		OnRename: func(
+			ctx context.Context,
+			sym *arcsymbol.Symbol,
+			oldName,
+			newName string,
+		) error {
+			if sym.Kind != arcsymbol.KindChannel {
+				return nil
+			}
+			return s.cfg.Channel.NewWriter(nil).
+				Rename(ctx, channel.Key(sym.ID), newName, false)
+		},
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
 			Translate: func(

@@ -19,7 +19,7 @@ export interface CreateEnsureStateParams {
 /**
  * Creates a hook that guarantees a per-layout entry exists in a visualization's Redux
  * slice before its renderer reads from it. The layout creator initializes this entry
- * when a visualization is placed directly, but layouts restored from a workspace bypass
+ * when a visualization is placed directly, but layouts restored from a project bypass
  * the creator, so the renderer must initialize it on mount. The hook returns whether the
  * entry
  * currently exists; callers should withhold rendering the visualization until it does.
