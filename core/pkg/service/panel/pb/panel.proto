@@ -27,6 +27,22 @@ message TabBase {
   string key = 1;
 }
 
+// View is an inline, self-describing view: a Console-owned type plus an opaque
+// configuration payload, with no backing core document. Used for app-views and tools
+// (docs, explorers, about, the visualization picker).
+message View {
+  // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
+  // a renderer.
+  string type = 1;
+  // name is the human-readable tab name for the view. A view has no backing resource to
+  // derive a name from, so it carries its own. May be renamed via SetTabView; when empty
+  // the Console falls back to a type-derived default.
+  string name = 2;
+  // args is an opaque, Console-owned configuration payload for the view. Core never
+  // interprets it; it round-trips as-is.
+  google.protobuf.Struct args = 3;
+}
+
 // Leaf is a leaf node in the panel tree displaying a tab strip.
 message Leaf {
   // tabs is the ordered list of tabs in this leaf.
@@ -66,18 +82,6 @@ message TabResourcePayload {
   // resource is the visualization resource displayed by this tab, set via SetTabResource.
   .distribution.ontology.pb.ID resource = 1;
 }
-message TabViewPayload {
-  // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-  // a renderer.
-  string type = 1;
-  // name is the human-readable tab name for the view. A view has no backing resource to
-  // derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-  // the Console falls back to a type-derived default.
-  string name = 2;
-  // args is an opaque, Console-owned configuration payload for the view. Core never
-  // interprets it; it round-trips as-is.
-  google.protobuf.Struct args = 3;
-}
 message TabEmptyPayload {}
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
@@ -89,7 +93,7 @@ message Tab {
   TabBase tab_base = 1;
   oneof variant {
     TabResourcePayload resource = 2;
-    TabViewPayload view = 3;
+    View view = 3;
     TabEmptyPayload empty = 4;
   }
 }

@@ -25,6 +25,33 @@ export const tabBaseZ = z.object({
 });
 export interface TabBase extends z.infer<typeof tabBaseZ> {}
 
+/**
+ * View is an inline, self-describing view: a Console-owned type plus an
+ * opaque configuration payload, with no backing core document. Used
+ * for app-views and tools (docs, explorers, about, the visualization
+ * picker).
+ */
+export const viewZ = z.object({
+  /**
+   * type is the Console-owned view type identifier (e.g., 'docs',
+   * 'about') used to select a renderer.
+   */
+  type: z.string(),
+  /**
+   * name is the human-readable tab name for the view. A view has no
+   * backing resource to derive a name from, so it carries its own.
+   * May be renamed via SetTabView; when empty the Console falls
+   * back to a type-derived default.
+   */
+  name: z.string().optional(),
+  /**
+   * args is an opaque, Console-owned configuration payload for the
+   * view. Core never interprets it; it round-trips as-is.
+   */
+  args: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
+});
+export interface View extends z.infer<typeof viewZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -45,25 +72,8 @@ export interface TabResource extends z.infer<typeof tabResourceZ> {}
  * type and opaque args. Used for app-views and tools (docs,
  * explorers, about, the visualization picker).
  */
-export const tabViewZ = tabBaseZ.extend({
+export const tabViewZ = tabBaseZ.extend(viewZ.shape).extend({
   variant: z.literal("view"),
-  /**
-   * type is the Console-owned view type identifier (e.g., 'docs',
-   * 'about') used to select a renderer.
-   */
-  type: z.string(),
-  /**
-   * name is the human-readable tab name for the view. A view has no
-   * backing resource to derive a name from, so it carries its own.
-   * May be renamed via SetTabView; when empty the Console falls
-   * back to a type-derived default.
-   */
-  name: z.string().optional(),
-  /**
-   * args is an opaque, Console-owned configuration payload for the
-   * view. Core never interprets it; it round-trips as-is.
-   */
-  args: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
 });
 export interface TabView extends z.infer<typeof tabViewZ> {}
 
