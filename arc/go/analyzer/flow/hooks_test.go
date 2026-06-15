@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -34,7 +35,7 @@ var _ = Describe("AnalyzeArguments hook (flow form)", func() {
 			Kind: symbol.KindFunction,
 			Exec: symbol.ExecBoth,
 			Type: types.Function(types.FunctionProperties{Inputs: params}),
-			AnalyzeArguments: func(_ any, args []symbol.Argument) {
+			AnalyzeArguments: func(_ *diagnostics.Diagnostics, args []symbol.Argument) {
 				called++
 				gotArgs = args
 			},

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -36,7 +37,7 @@ var _ = Describe("AnalyzeArguments hook (call form)", func() {
 				Inputs:  types.Params{{Name: "a", Type: types.I32()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 			}),
-			AnalyzeArguments: func(_ any, args []symbol.Argument) {
+			AnalyzeArguments: func(_ *diagnostics.Diagnostics, args []symbol.Argument) {
 				called++
 				gotArgs = args
 			},
