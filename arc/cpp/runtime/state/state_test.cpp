@@ -883,7 +883,7 @@ TEST(StateTest, ResetClearsBufferedAuthorityChanges) {
 }
 
 /// @brief resolve_input maps an input name to its declaration-order index and
-/// returns VALIDATION for an unknown name (so a stdlib wiring typo fails at
+/// returns NOT_FOUND for an unknown name (so a stdlib input-name typo fails at
 /// node construction, not mid-execution).
 TEST(StateTest, ResolveInput_ByNameAndMissing) {
     arc::types::Param a;
@@ -902,22 +902,14 @@ TEST(StateTest, ResolveInput_ByNameAndMissing) {
     consumer.inputs.push_back(a);
     consumer.inputs.push_back(b);
 
-    arc::ir::Function fn;
-    fn.key = "test";
-
-    arc::ir::IR ir;
-    ir.nodes.push_back(consumer);
-    ir.functions.push_back(fn);
-
-    Config cfg{.ir = ir, .channels = {}};
-    State s(cfg, arc::runtime::errors::noop_handler);
-    auto node = ASSERT_NIL_P(s.node("consumer"));
-
-    const auto idx_a = ASSERT_NIL_P(node.resolve_input("a"));
+    const auto idx_a = ASSERT_NIL_P(arc::ir::resolve_input(consumer, "a"));
     EXPECT_EQ(idx_a, 0u);
-    const auto idx_b = ASSERT_NIL_P(node.resolve_input("b"));
+    const auto idx_b = ASSERT_NIL_P(arc::ir::resolve_input(consumer, "b"));
     EXPECT_EQ(idx_b, 1u);
-    ASSERT_OCCURRED_AS_P(node.resolve_input("missing"), x::errors::VALIDATION);
+    ASSERT_OCCURRED_AS_P(
+        arc::ir::resolve_input(consumer, "missing"),
+        x::errors::NOT_FOUND
+    );
 }
 
 }
