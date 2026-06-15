@@ -27,7 +27,7 @@ type testUUIDEntry struct {
 
 func (t testUUIDEntry) GorpKey() uuid.UUID { return t.Key }
 
-func (t testUUIDEntry) SetOptions() []any { return nil }
+func (testUUIDEntry) SetOptions() []any { return nil }
 
 type testNumericEntry struct {
 	Value string `json:"value"`
@@ -36,7 +36,7 @@ type testNumericEntry struct {
 
 func (t testNumericEntry) GorpKey() uint32 { return t.Key }
 
-func (t testNumericEntry) SetOptions() []any { return nil }
+func (testNumericEntry) SetOptions() []any { return nil }
 
 type testStringEntry struct {
 	Key   string `json:"key"`
@@ -45,7 +45,7 @@ type testStringEntry struct {
 
 func (t testStringEntry) GorpKey() string { return t.Key }
 
-func (t testStringEntry) SetOptions() []any { return nil }
+func (testStringEntry) SetOptions() []any { return nil }
 
 var _ = Describe("GorpPublisherConfig", func() {
 	var (
@@ -84,7 +84,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 	Describe("GorpPublisherConfigUUID", func() {
 		It("Should create a config for UUID keyed entries", func() {
-			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg := signals.GorpPublisherConfigUUID(uuidTable.Observe())
 			Expect(cfg.Observable).ToNot(BeNil())
 			Expect(cfg.DeleteDataType).To(Equal(telem.UUIDT))
 			Expect(cfg.SetDataType).To(Equal(telem.JSONT))
@@ -93,14 +93,14 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 
 		It("Should correctly marshal UUID for delete", func() {
-			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg := signals.GorpPublisherConfigUUID(uuidTable.Observe())
 			uid := uuid.MustParse("12345678-1234-1234-1234-123456789012")
 			b := MustSucceed(cfg.MarshalDelete(uid))
 			Expect(b).To(Equal(uid[:]))
 		})
 
 		It("Should correctly marshal entry for set", func() {
-			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg := signals.GorpPublisherConfigUUID(uuidTable.Observe())
 			entry := testUUIDEntry{
 				Key:  uuid.MustParse("12345678-1234-1234-1234-123456789012"),
 				Name: "test-entry",
@@ -112,7 +112,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 	Describe("GorpPublisherConfigNumeric", func() {
 		It("Should create a config for numeric keyed entries with JSON set", func() {
-			cfg := signals.GorpPublisherConfigNumeric[uint32, testNumericEntry](numTable.Observe(), telem.Uint32T)
+			cfg := signals.GorpPublisherConfigNumeric(numTable.Observe(), telem.Uint32T)
 			Expect(cfg.Observable).ToNot(BeNil())
 			Expect(cfg.DeleteDataType).To(Equal(telem.Uint32T))
 			Expect(cfg.SetDataType).To(Equal(telem.JSONT))
@@ -121,13 +121,13 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 
 		It("Should correctly marshal numeric key for delete", func() {
-			cfg := signals.GorpPublisherConfigNumeric[uint32, testNumericEntry](numTable.Observe(), telem.Uint32T)
+			cfg := signals.GorpPublisherConfigNumeric(numTable.Observe(), telem.Uint32T)
 			b := MustSucceed(cfg.MarshalDelete(42))
 			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
 		})
 
 		It("Should correctly marshal entry for set as JSON", func() {
-			cfg := signals.GorpPublisherConfigNumeric[uint32, testNumericEntry](numTable.Observe(), telem.Uint32T)
+			cfg := signals.GorpPublisherConfigNumeric(numTable.Observe(), telem.Uint32T)
 			entry := testNumericEntry{Key: 123, Value: "test-value"}
 			b := MustSucceed(cfg.MarshalSet(entry))
 			Expect(string(b)).To(ContainSubstring(`"value":"test-value"`))
@@ -136,7 +136,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 	Describe("GorpPublisherConfigPureNumeric", func() {
 		It("Should create a config for numeric keyed entries with numeric set", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric[uint32, testNumericEntry](numTable.Observe(), telem.Uint32T)
+			cfg := signals.GorpPublisherConfigPureNumeric(numTable.Observe(), telem.Uint32T)
 			Expect(cfg.Observable).ToNot(BeNil())
 			Expect(cfg.DeleteDataType).To(Equal(telem.Uint32T))
 			Expect(cfg.SetDataType).To(Equal(telem.Uint32T))
@@ -145,13 +145,13 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 
 		It("Should correctly marshal numeric key for delete", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric[uint32, testNumericEntry](numTable.Observe(), telem.Uint32T)
+			cfg := signals.GorpPublisherConfigPureNumeric(numTable.Observe(), telem.Uint32T)
 			b := MustSucceed(cfg.MarshalDelete(42))
 			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
 		})
 
 		It("Should correctly marshal entry key for set", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric[uint32, testNumericEntry](numTable.Observe(), telem.Uint32T)
+			cfg := signals.GorpPublisherConfigPureNumeric(numTable.Observe(), telem.Uint32T)
 			entry := testNumericEntry{Key: 999, Value: "ignored"}
 			b := MustSucceed(cfg.MarshalSet(entry))
 			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
@@ -160,7 +160,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 	Describe("GorpPublisherConfigString", func() {
 		It("Should create a config for string keyed entries", func() {
-			cfg := signals.GorpPublisherConfigString[testStringEntry](stringTable.Observe())
+			cfg := signals.GorpPublisherConfigString(stringTable.Observe())
 			Expect(cfg.Observable).ToNot(BeNil())
 			Expect(cfg.DeleteDataType).To(Equal(telem.StringT))
 			Expect(cfg.SetDataType).To(Equal(telem.JSONT))
@@ -169,7 +169,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 
 		It("Should correctly marshal string key for delete with length prefix", func() {
-			cfg := signals.GorpPublisherConfigString[testStringEntry](stringTable.Observe())
+			cfg := signals.GorpPublisherConfigString(stringTable.Observe())
 			b := MustSucceed(cfg.MarshalDelete("my-key"))
 			s := telem.Series{DataType: telem.StringT, Data: b}
 			Expect(s.Len()).To(Equal(int64(1)))
@@ -177,7 +177,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 
 		It("Should correctly marshal entry for set as JSON", func() {
-			cfg := signals.GorpPublisherConfigString[testStringEntry](stringTable.Observe())
+			cfg := signals.GorpPublisherConfigString(stringTable.Observe())
 			entry := testStringEntry{Key: "entry-key", Value: 42}
 			b := MustSucceed(cfg.MarshalSet(entry))
 			Expect(string(b)).To(ContainSubstring(`"value":42`))
@@ -199,7 +199,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 
 		It("Should reject a config with both channels disabled by flag", func() {
-			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg := signals.GorpPublisherConfigUUID(uuidTable.Observe())
 			cfg.SetName = "test_set"
 			cfg.DeleteName = "test_delete"
 			cfg.DisableSet = true
@@ -208,14 +208,14 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 
 		It("Should pass validation with all required fields", func() {
-			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg := signals.GorpPublisherConfigUUID(uuidTable.Observe())
 			cfg.SetName = "test_set"
 			cfg.DeleteName = "test_delete"
 			Expect(cfg.Validate()).To(Succeed())
 		})
 
 		It("Should pass validation when only DisableSet is set, leaving the delete channel enabled", func() {
-			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg := signals.GorpPublisherConfigUUID(uuidTable.Observe())
 			cfg.SetName = "test_set"
 			cfg.DeleteName = "test_delete"
 			cfg.DisableSet = true
@@ -223,7 +223,7 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 
 		It("Should pass validation when only DisableDelete is set, leaving the set channel enabled", func() {
-			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg := signals.GorpPublisherConfigUUID(uuidTable.Observe())
 			cfg.SetName = "test_set"
 			cfg.DeleteName = "test_delete"
 			cfg.DisableDelete = true

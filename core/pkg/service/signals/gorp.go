@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -126,10 +126,12 @@ func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 	return telem.MarshalVariableSample(b), nil
 }
 
-// GorpPublisherConfigUUID is a helper function for creating a Signals pipeline that propagates
-// changes to UUID keyed gorp entries written to the provided DB. The returned
-// configuration should be passed to PublishFromGorp.
-func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](obs observe.Observable[gorp.TxReader[uuid.UUID, E]]) GorpPublisherConfig[uuid.UUID, E] {
+// GorpPublisherConfigUUID is a helper function for creating a Signals pipeline that
+// propagates changes to UUID keyed gorp entries written to the provided DB. The
+// returned configuration should be passed to PublishFromGorp.
+func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](
+	obs observe.Observable[gorp.TxReader[uuid.UUID, E]],
+) GorpPublisherConfig[uuid.UUID, E] {
 	return GorpPublisherConfig[uuid.UUID, E]{
 		Observable:     obs,
 		DeleteDataType: telem.UUIDT,
@@ -139,33 +141,37 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](obs observe.Observable[gor
 	}
 }
 
-func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](obs observe.Observable[gorp.TxReader[K, E]], dt telem.DataType) GorpPublisherConfig[K, E] {
+func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](
+	obs observe.Observable[gorp.TxReader[K, E]],
+	dt telem.DataType,
+) GorpPublisherConfig[K, E] {
 	return GorpPublisherConfig[K, E]{
 		Observable:     obs,
 		DeleteDataType: dt,
 		SetDataType:    dt,
-		MarshalDelete: func(k K) ([]byte, error) {
-			return xunsafe.CastToBytes(k), nil
-		},
+		MarshalDelete:  func(k K) ([]byte, error) { return unsafe.CastToBytes(k), nil },
 		MarshalSet: func(e E) ([]byte, error) {
-			return xunsafe.CastToBytes(e.GorpKey()), nil
+			return unsafe.CastToBytes(e.GorpKey()), nil
 		},
 	}
 }
 
-func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](obs observe.Observable[gorp.TxReader[K, E]], dt telem.DataType) GorpPublisherConfig[K, E] {
+func GorpPublisherConfigNumeric[K types.SizedNumeric, E gorp.Entry[K]](
+	obs observe.Observable[gorp.TxReader[K, E]],
+	dt telem.DataType,
+) GorpPublisherConfig[K, E] {
 	return GorpPublisherConfig[K, E]{
 		Observable:     obs,
 		DeleteDataType: dt,
 		SetDataType:    telem.JSONT,
-		MarshalDelete: func(k K) ([]byte, error) {
-			return xunsafe.CastToBytes(k), nil
-		},
-		MarshalSet: MarshalJSON[K, E],
+		MarshalDelete:  func(k K) ([]byte, error) { return unsafe.CastToBytes(k), nil },
+		MarshalSet:     MarshalJSON[K, E],
 	}
 }
 
-func GorpPublisherConfigString[E gorp.Entry[string]](obs observe.Observable[gorp.TxReader[string, E]]) GorpPublisherConfig[string, E] {
+func GorpPublisherConfigString[E gorp.Entry[string]](
+	obs observe.Observable[gorp.TxReader[string, E]],
+) GorpPublisherConfig[string, E] {
 	return GorpPublisherConfig[string, E]{
 		Observable:     obs,
 		DeleteDataType: telem.StringT,
@@ -193,7 +199,10 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	deleteEnabled := !cfg.DisableDelete && cfg.DeleteName != ""
 	obs := observe.Translator[gorp.TxReader[K, E], []change.Change[[]byte, struct{}]]{
 		Observable: cfg.Observable,
-		Translate: func(ctx context.Context, r gorp.TxReader[K, E]) ([]change.Change[[]byte, struct{}], bool) {
+		Translate: func(
+			_ context.Context,
+			r gorp.TxReader[K, E],
+		) ([]change.Change[[]byte, struct{}], bool) {
 			var out []change.Change[[]byte, struct{}]
 			for c := range r {
 				oc := change.Change[[]byte, struct{}]{Variant: c.Variant}
@@ -203,7 +212,11 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 					}
 					v, err := cfg.MarshalSet(c.Value)
 					if err != nil {
-						svc.L.Error("failed to marshal set", zap.Error(err), zap.String("channel", cfg.SetName))
+						svc.cfg.L.Error(
+							"failed to marshal set",
+							zap.Error(err),
+							zap.String("channel", cfg.SetName),
+						)
 					}
 					oc.Key = v
 				} else {
@@ -212,7 +225,11 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 					}
 					k, err := cfg.MarshalDelete(c.Key)
 					if err != nil {
-						svc.L.Error("failed to marshal delete", zap.Error(err), zap.String("channel", cfg.DeleteName))
+						svc.cfg.L.Error(
+							"failed to marshal delete",
+							zap.Error(err),
+							zap.String("channel", cfg.DeleteName),
+						)
 					}
 					oc.Key = k
 				}
@@ -226,10 +243,14 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 		Observable: obs,
 	}
 	if setEnabled {
-		obsCfg.SetChannel = channel.Channel{Name: cfg.SetName, DataType: cfg.SetDataType, Internal: true}
+		obsCfg.SetChannel = channel.Channel{
+			Name: cfg.SetName, DataType: cfg.SetDataType, Internal: true,
+		}
 	}
 	if deleteEnabled {
-		obsCfg.DeleteChannel = channel.Channel{Name: cfg.DeleteName, DataType: cfg.DeleteDataType, Internal: true}
+		obsCfg.DeleteChannel = channel.Channel{
+			Name: cfg.DeleteName, DataType: cfg.DeleteDataType, Internal: true,
+		}
 	}
 	return svc.PublishFromObservable(ctx, obsCfg)
 }

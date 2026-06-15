@@ -31,7 +31,7 @@ import (
 // Provider implements the core functionality for opening signal pipelines. It should be
 // passed around as an argument to any services that need to open signal pipelines. It
 // is stateless, and does not need to be closed.
-type Provider struct{ Config }
+type Provider struct{ cfg Config }
 
 // Config is the configuration for opening the core Signals Provider.
 type Config struct {
@@ -75,5 +75,5 @@ func New(cfgs ...Config) (*Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Provider{Config: cfg}, nil
+	return &Provider{cfg: cfg}, nil
 }

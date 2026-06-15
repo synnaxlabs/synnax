@@ -140,7 +140,7 @@ func (p *Provider) PublishFromObservable(
 	if deleteEnabled {
 		channels = append(channels, cfg.DeleteChannel)
 	}
-	if err = p.Channel.CreateMany(
+	if err = p.cfg.Channel.CreateMany(
 		ctx,
 		&channels,
 		channel.RetrieveIfNameExists(),
@@ -149,7 +149,7 @@ func (p *Provider) PublishFromObservable(
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
-	w, err := p.Framer.NewStreamWriter(ctx, framer.WriterConfig{
+	w, err := p.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:        keys,
 		Start:       telem.Now(),
 		Authorities: []control.Authority{255},
@@ -168,7 +168,7 @@ func (p *Provider) PublishFromObservable(
 	t := &confluence.ObservableTransformPublisher[
 		[]change.Change[[]byte, struct{}], framer.WriterRequest,
 	]{
-		Instrumentation: p.Instrumentation,
+		Instrumentation: p.cfg.Instrumentation,
 		Observable:      cfg.Observable,
 		Transform: func(
 			_ context.Context, changes []change.Change[[]byte, struct{}],
@@ -207,18 +207,18 @@ func (p *Provider) PublishFromObservable(
 				true, nil
 		},
 	}
-	pipeline := plumber.New()
-	plumber.SetSource(pipeline, "source", t)
-	plumber.SetSegment(pipeline, "writer", w)
+	pl := plumber.New()
+	plumber.SetSource(pl, "source", t)
+	plumber.SetSegment(pl, "writer", w)
 	responses := &confluence.UnarySink[framer.WriterResponse]{
 		Sink: func(_ context.Context, value framer.WriterResponse) error {
-			p.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
+			p.cfg.L.Error("unexpected writer response", zap.Int("seqNum", value.SeqNum))
 			return nil
 		},
 	}
-	plumber.SetSink(pipeline, "responses", responses)
-	plumber.MustConnect[framer.WriterRequest](pipeline, "source", "writer", 10)
-	plumber.MustConnect[framer.WriterResponse](pipeline, "writer", "responses", 10)
+	plumber.SetSink(pl, "responses", responses)
+	plumber.MustConnect[framer.WriterRequest](pl, "source", "writer", 10)
+	plumber.MustConnect[framer.WriterResponse](pl, "writer", "responses", 10)
 	name := cfg.Name
 	if name == "" {
 		if setEnabled {
@@ -227,8 +227,8 @@ func (p *Provider) PublishFromObservable(
 			name = cfg.DeleteChannel.Name
 		}
 	}
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(p.Child(name)))
-	pipeline.Flow(
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(p.cfg.Child(name)))
+	pl.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
