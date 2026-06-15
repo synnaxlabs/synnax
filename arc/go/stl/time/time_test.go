@@ -55,7 +55,7 @@ var _ = Describe("Time", func() {
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.I64()},
 					},
 				}},
@@ -68,7 +68,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -82,7 +82,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "time.interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -103,7 +103,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -132,7 +132,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -174,7 +174,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -216,7 +216,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
@@ -229,7 +229,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -256,7 +256,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -332,7 +332,7 @@ var _ = Describe("Time", func() {
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.I64()},
 					},
 				}},
@@ -345,7 +345,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -359,7 +359,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "time.wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -372,7 +372,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -400,7 +400,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -442,7 +442,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -496,7 +496,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -566,7 +566,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -610,7 +610,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -678,7 +678,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -744,7 +744,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -809,7 +809,7 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},
 				},
@@ -871,7 +871,7 @@ var _ = Describe("Time", func() {
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.I64()},
 					},
 				}},
@@ -884,7 +884,7 @@ var _ = Describe("Time", func() {
 			cfg1 := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 					},
 				},
@@ -897,7 +897,7 @@ var _ = Describe("Time", func() {
 			cfg2 := node.Config{
 				Node: ir.Node{
 					Type: "interval",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: 150 * telem.Millisecond},
 					},
 				},
@@ -984,7 +984,7 @@ var _ = Describe("Time", func() {
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "period", Type: types.I64()},
 					},
 				}},
@@ -998,7 +998,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1041,7 +1041,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1084,7 +1084,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1124,7 +1124,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1179,7 +1179,7 @@ var _ = Describe("Time", func() {
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.I64()},
 						},
 					}},
@@ -1192,7 +1192,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.TimeSpan(), Value: 100 * telem.Millisecond},
 						},
 					},
@@ -1253,7 +1253,7 @@ var _ = Describe("Time", func() {
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.I64()},
 						},
 					}},
@@ -1266,7 +1266,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1292,7 +1292,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "interval",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1342,7 +1342,7 @@ var _ = Describe("Time", func() {
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
 						},
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.I64()},
 						},
 					}},
@@ -1355,7 +1355,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1381,7 +1381,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},
@@ -1424,7 +1424,7 @@ var _ = Describe("Time", func() {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "wait",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 						},
 					},

@@ -751,7 +751,7 @@ var _ = Describe("Scope", func() {
 					Name: "set_authority",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.WriteChan(types.U8())},
 						},
 					}),
@@ -768,7 +768,7 @@ var _ = Describe("Scope", func() {
 					Name: "on",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.ReadChan(types.F64())},
 						},
 					}),
@@ -785,7 +785,7 @@ var _ = Describe("Scope", func() {
 					Name: "custom",
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.Chan(types.F64())},
 						},
 					}),

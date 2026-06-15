@@ -799,6 +799,44 @@ var _ = Describe("ProgramState", func() {
 			Expect(processor.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[float32](2.0)))
 		})
 
+		It("Should seed an unconnected TimeSpan literal input as a timestamp series", func(ctx SpecContext) {
+			g := graph.Graph{
+				Functions: []graph.Function{
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+					},
+					{
+						Key: "windowed",
+						Inputs: types.Params{
+							{Name: "data", Type: types.F32()},
+							{Name: "duration", Type: types.TimeSpan(), Value: telem.TimeSpan(5)},
+						},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "windowed", Type: "windowed"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "windowed", Param: "data"},
+					},
+				},
+			}
+			inter, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			s := node.New(inter)
+			source := s.Node("source")
+			windowed := s.Node("windowed")
+			*source.Output(0) = telem.NewSeriesV[float32](5.0)
+			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(windowed.RefreshInputs()).To(BeTrue())
+			Expect(windowed.Input(1)).To(telem.MatchSeries(telem.NewSeriesV[telem.TimeStamp](5)))
+		})
+
 		It("Should override default value when input is connected", func(ctx SpecContext) {
 			g := graph.Graph{
 				Functions: []graph.Function{

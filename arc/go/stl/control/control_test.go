@@ -62,7 +62,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -75,7 +75,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -89,7 +89,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "control.set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -109,7 +109,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -129,7 +129,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(150)},
 						{Name: "channel", Type: types.U8(), Value: uint32(0)},
 					},
@@ -169,7 +169,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -189,7 +189,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(150)},
 						{Name: "channel", Type: types.U8(), Value: uint32(0)},
 					},
@@ -208,7 +208,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -228,7 +228,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -266,7 +266,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -288,7 +288,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -322,7 +322,7 @@ var _ = Describe("Control", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "set_authority",
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "value", Type: types.U8(), Value: uint8(200)},
 						{Name: "channel", Type: types.U8(), Value: uint32(42)},
 					},
@@ -353,17 +353,14 @@ var _ = Describe("Control", func() {
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should have optional input", func(ctx SpecContext) {
+		It("Should declare unified inputs with an activation trigger", func(ctx SpecContext) {
 			sym := bare(ctx, "set_authority")
-			Expect(sym.Type.Inputs).To(HaveLen(1))
+			Expect(sym.Type.Inputs).To(HaveLen(3))
 			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
 			Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
-		})
-		It("Should have config params", func(ctx SpecContext) {
-			sym := bare(ctx, "set_authority")
-			Expect(sym.Type.Config).To(HaveLen(2))
-			Expect(sym.Type.Config[0].Name).To(Equal("value"))
-			Expect(sym.Type.Config[1].Name).To(Equal("channel"))
+			Expect(sym.Type.Inputs[1].Name).To(Equal("value"))
+			Expect(sym.Type.Inputs[2].Name).To(Equal("channel"))
+			Expect(sym.Trigger).To(Equal(symbol.TriggerInput(ir.DefaultOutputParam)))
 		})
 	})
 })

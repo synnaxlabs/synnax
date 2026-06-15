@@ -882,4 +882,34 @@ TEST(StateTest, ResetClearsBufferedAuthorityChanges) {
     EXPECT_TRUE(s.flush_authority_changes().empty());
 }
 
+/// @brief resolve_input maps an input name to its declaration-order index and
+/// returns NOT_FOUND for an unknown name (so a stdlib input-name typo fails at
+/// node construction, not mid-execution).
+TEST(StateTest, ResolveInput_ByNameAndMissing) {
+    arc::types::Param a;
+    a.name = "a";
+    a.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    a.value = 1.0f;
+
+    arc::types::Param b;
+    b.name = "b";
+    b.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    b.value = 2.0f;
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.push_back(a);
+    consumer.inputs.push_back(b);
+
+    const auto idx_a = ASSERT_NIL_P(arc::ir::resolve_input(consumer, "a"));
+    EXPECT_EQ(idx_a, 0u);
+    const auto idx_b = ASSERT_NIL_P(arc::ir::resolve_input(consumer, "b"));
+    EXPECT_EQ(idx_b, 1u);
+    ASSERT_OCCURRED_AS_P(
+        arc::ir::resolve_input(consumer, "missing"),
+        x::errors::NOT_FOUND
+    );
+}
+
 }

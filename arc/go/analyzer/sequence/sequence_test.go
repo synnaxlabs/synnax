@@ -26,7 +26,7 @@ var resolver = []symbol.Symbol{
 		Name: "interval",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
+			Inputs:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
 			Outputs: types.Params{{Name: "output", Type: types.U8()}},
 		}),
 	},
@@ -34,7 +34,7 @@ var resolver = []symbol.Symbol{
 		Name: "wait",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
+			Inputs:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
 			Outputs: types.Params{{Name: "output", Type: types.U8()}},
 		}),
 	},
@@ -42,14 +42,14 @@ var resolver = []symbol.Symbol{
 		Name: "log",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{{Name: "message", Type: types.String()}},
+			Inputs: types.Params{{Name: "message", Type: types.String()}},
 		}),
 	},
 	{
 		Name: "control",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{{Name: "target", Type: types.F64()}},
+			Inputs: types.Params{{Name: "target", Type: types.F64()}},
 		}),
 	},
 	{Name: "start_cmd", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},

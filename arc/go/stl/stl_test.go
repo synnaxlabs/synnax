@@ -45,6 +45,31 @@ func allSymbols() []*symbol.Symbol {
 	return out
 }
 
+// findSym resolves an stl symbol by qualified ("module.member") or bare
+// ("select") name, returning nil when absent.
+func findSym(qualified string) *symbol.Symbol {
+	name, member, hasMember := strings.Cut(qualified, ".")
+	if !hasMember {
+		for _, s := range stl.NewSymbols() {
+			if s.Name == name && s.Kind == symbol.KindFunction {
+				return s
+			}
+		}
+		return nil
+	}
+	for _, mod := range allModules() {
+		if mod.Name != name {
+			continue
+		}
+		for _, m := range mod.Children() {
+			if m.Name == member {
+				return m
+			}
+		}
+	}
+	return nil
+}
+
 var _ = Describe("STL Symbols", func() {
 	It("Should set KindFunction on every module member with a function type", func() {
 		var violations []string
@@ -137,4 +162,49 @@ var _ = Describe("STL Symbols", func() {
 			"User-callable single-output functions with non-default output name (will be rejected as non-callable):\n  "+
 				strings.Join(violations, "\n  "))
 	})
+
+	DescribeTable("Should declare the unified Inputs and Trigger",
+		func(qualified string, wantInputNames []string, wantTrigger symbol.TriggerBinding) {
+			sym := findSym(qualified)
+			Expect(sym).ToNot(BeNil(), "symbol %q not registered", qualified)
+			gotNames := make([]string, len(sym.Type.Inputs))
+			for i, p := range sym.Type.Inputs {
+				gotNames[i] = p.Name
+			}
+			Expect(gotNames).To(Equal(wantInputNames))
+			Expect(sym.Trigger).To(Equal(wantTrigger))
+		},
+		Entry("math.avg", "math.avg",
+			[]string{ir.DefaultInputParam, "duration", "count", "reset"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("math.min", "math.min",
+			[]string{ir.DefaultInputParam, "duration", "count", "reset"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("math.max", "math.max",
+			[]string{ir.DefaultInputParam, "duration", "count", "reset"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("math.derivative", "math.derivative",
+			[]string{ir.DefaultInputParam}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("math.pow", "math.pow",
+			[]string{"base", "exp"}, symbol.TriggerOnly),
+		Entry("op.ge", "ge",
+			[]string{ir.LHSInputParam, ir.RHSInputParam}, symbol.TriggerInput(ir.LHSInputParam)),
+		Entry("op.and", "and",
+			[]string{ir.LHSInputParam, ir.RHSInputParam}, symbol.TriggerInput(ir.LHSInputParam)),
+		Entry("op.not", "not",
+			[]string{ir.DefaultInputParam}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("on", "on",
+			[]string{"channel"}, symbol.TriggerOnly),
+		Entry("write", "write",
+			[]string{ir.DefaultInputParam, "channel"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("stable.for", "stable.for",
+			[]string{ir.DefaultInputParam, "duration"}, symbol.TriggerInput(ir.DefaultInputParam)),
+		Entry("select", "select",
+			[]string{ir.DefaultOutputParam}, symbol.TriggerInput(ir.DefaultOutputParam)),
+		Entry("time.interval", "time.interval",
+			[]string{"period"}, symbol.TriggerOnly),
+		Entry("time.wait", "time.wait",
+			[]string{"duration"}, symbol.TriggerOnly),
+		Entry("time.now", "time.now",
+			[]string{}, symbol.TriggerOnly),
+		Entry("constant", "constant",
+			[]string{"value"}, symbol.TriggerOnly),
+	)
 })
