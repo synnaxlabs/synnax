@@ -85,12 +85,20 @@ type Result struct {
 	Unresolved []string
 }
 
-// Analyze parses the channel's expression, infers its return type, and extracts
-// the set of channel dependencies. The analyzed channel is cached so that
-// subsequent calls can reference it by name or key.
-func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, error) {
+// Analyze parses the calculated channel's expression, infers its return type, and
+// extracts the set of channel dependencies. The analyzed channel is cached (by the
+// provided name and key) so that subsequent calls can reference it by name or key.
+// operations is the channel's aggregation operations, used to refine the inferred data
+// type (e.g. a trailing derivative operation yields Float64).
+func (a *Analyzer) Analyze(
+	ctx context.Context,
+	name string,
+	key channel.Key,
+	expression string,
+	derivative bool,
+) (Result, error) {
 	a.resolver.unresolved = make(set.Set[string])
-	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression))
+	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", expression))
 	if err != nil {
 		return Result{}, err
 	}
@@ -100,12 +108,12 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 		return Result{Unresolved: a.resolver.unresolved.Slice()}, aCtx.Diagnostics
 	}
 	s := &symbol.Symbol{
-		Name: ch.Name,
+		Name: name,
 		Kind: symbol.KindChannel,
 		Type: types.Chan(dataType),
 	}
-	if ch.Key() != 0 {
-		intKey := int(ch.Key())
+	if key != 0 {
+		intKey := int(key)
 		s.ID = intKey
 		a.resolver.temp.keys[intKey] = s
 	}
@@ -118,8 +126,7 @@ func (a *Analyzer) Analyze(ctx context.Context, ch channel.Channel) (Result, err
 		}
 	}
 	inferredDataType := types.ToTelem(dataType)
-	if len(ch.Operations) > 0 &&
-		ch.Operations[len(ch.Operations)-1].Type == channel.OperationTypeDerivative {
+	if derivative {
 		inferredDataType = telem.Float64T
 	}
 	return Result{

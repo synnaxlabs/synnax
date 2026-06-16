@@ -11,56 +11,57 @@ package channel
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	xservice "github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
-type (
-	Key          = channel.Key
-	Keys         = channel.Keys
-	LocalKey     = channel.LocalKey
-	Channel      = channel.Channel
-	Operation    = channel.Operation
-	CreateOption = channel.CreateOption
-)
+// IntOverflowChecker reports an error when the provided channel index would exceed the
+// permitted number of external channels.
+type IntOverflowChecker = func(types.Uint20) error
 
-var (
-	RetrieveIfNameExists                        = channel.RetrieveIfNameExists
-	OverwriteIfNameExistsAndDifferentProperties = channel.OverwriteIfNameExistsAndDifferentProperties
-	CreateWithoutGroupRelationship              = channel.CreateWithoutGroupRelationship
-	ParseKey                                    = channel.ParseKey
-	OntologyID                                  = channel.OntologyID
-	MatchKeys                                   = channel.MatchKeys
-	MatchNames                                  = channel.MatchNames
-	OntologyIDsFromChannels                     = channel.OntologyIDsFromChannels
-	KeysFromChannels                            = channel.KeysFromChannels
-	MatchLeaseholders                           = channel.MatchLeaseholders
-	MatchDataTypes                              = channel.MatchDataTypes
-	MatchVirtual                                = channel.MatchVirtual
-	MatchIsIndex                                = channel.MatchIsIndex
-	MatchInternal                               = channel.MatchInternal
-	MatchCalculated                             = channel.MatchCalculated
-	Not                                         = channel.Not
-	NewRandomName                               = channel.NewRandomName
-)
+// Allocator is the distribution-layer channel allocator the service drives to assign
+// local keys and create, rename, and delete storage channels across the cluster.
+type Allocator = *dischannel.Service
 
-// ServiceConfig configures a channel Service.
+// ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
-	// DB is the underlying database for transactional operations.
-	DB *gorp.DB
-	// Distribution is the distribution-layer channel service.
-	Distribution *channel.Service
-	// Status is used to publish error/clear statuses for calculated channels.
-	Status *status.Service
 	alamos.Instrumentation
+	// DB is the cluster-wide metadata database backing the channel table.
+	DB *gorp.DB
+	// Allocator is the distribution-layer channel allocator.
+	Allocator Allocator
+	// HostResolver provides this node's key for default leaseholder assignment.
+	HostResolver node.HostResolver
+	// Ontology integrates channels into the resource ontology.
+	Ontology *ontology.Ontology
+	// Group is the channel group resources are parented under.
+	Group *group.Service
+	// Search is the full-text search index channels are registered with.
+	Search *search.Index
+	// IntOverflowCheck enforces the cap on external (non-internal, non-virtual) channels.
+	IntOverflowCheck IntOverflowChecker
+	// Status publishes error/clear statuses for calculated channels.
+	Status *status.Service
+	// ValidateNames sets whether to validate channel names during creation and renaming.
+	ValidateNames *bool
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -68,45 +69,158 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
 	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "distribution", c.Distribution)
-	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "allocator", c.Allocator)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
+	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
+	validate.NotNil(v, "validate_names", c.ValidateNames)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Distribution = override.Nil(c.Distribution, other.Distribution)
+	c.Allocator = override.Nil(c.Allocator, other.Allocator)
+	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
+	c.Search = override.Nil(c.Search, other.Search)
+	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	return c
 }
 
-// Service is the top-level channel service. It wraps the distribution-layer channel
-// service and adds DataType inference for calculated channels on write. The calculated
-// channel dependency graph (type repair, status reporting) is a separate reactive
-// component opened independently of this Service.
+// DefaultServiceConfig is the default configuration for the channel service.
+var DefaultServiceConfig = ServiceConfig{ValidateNames: new(true)}
+
+// Service is the top-level channel service. It owns the channel metadata table,
+// retrieval, ontology and search integration, and the create/delete/rename
+// orchestration, driving the distribution-layer allocator for key assignment and
+// storage. It also infers DataTypes for calculated channels on write.
 type Service struct {
-	*channel.Service
-	cfg ServiceConfig
+	cfg    ServiceConfig
+	db     *gorp.DB
+	closer xio.MultiCloser
+	Writer
+	otg     *ontology.Ontology
+	group   group.Group
+	table   *gorp.Table[Key, Channel]
+	indexes indexes
+	// mu guards externalNonVirtualSet, which tracks the key set used by
+	// validateChannels to enforce the uint20 channel-index overflow limit.
+	mu struct {
+		externalNonVirtualSet *set.Integer[Key]
+		sync.RWMutex
+	}
 }
 
-// NewService opens a channel Service. The ctx is accepted for consistency with other
-// service constructors and may be used by future initialization work.
-func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+// NewService opens a channel service using the provided configuration(s).
+func NewService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{Service: cfg.Distribution, cfg: cfg}, nil
+	s = &Service{
+		cfg:     cfg,
+		db:      cfg.DB,
+		otg:     cfg.Ontology,
+		indexes: newIndexes(),
+	}
+	cleanup, ok := xservice.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Channel]("msgpack_to_orc")},
+		Indexes:         s.indexes.all(),
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
+		return nil, err
+	}
+	if cfg.Group != nil {
+		if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Channels", ontology.RootID); !ok(err, nil) {
+			return nil, err
+		}
+	}
+	// Seed the external/non-virtual key set by scanning the table once at startup. This
+	// is the only call site that unavoidably walks the table — there is no index for
+	// (Internal, Virtual) and the cost is bounded by how many channels the cluster has
+	// accumulated.
+	var externalNonVirtualChannels []Channel
+	if err = s.table.NewRetrieve().
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
+			return !c.Internal && !c.Virtual, nil
+		})).
+		Entries(&externalNonVirtualChannels).
+		Exec(ctx, cfg.DB); !ok(err, nil) {
+		return nil, err
+	}
+	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
+	s.Writer = s.NewWriter(nil)
+	if cfg.Ontology != nil {
+		cfg.Ontology.RegisterService(s)
+	}
+	cfg.Search.RegisterService(s)
+	return s, nil
 }
 
-// Wrap builds a Service from an existing distribution-layer channel service without a
-// full ServiceConfig. It provides the same write-time DataType inference for calculated
-// channels as a Service opened with NewService, but carries only the distribution
-// dependency (no Status service or instrumentation), so it suits tests and other
-// lightweight contexts. Use NewService when a complete configuration is available.
-func Wrap(dist *channel.Service) *Service {
-	return &Service{Service: dist, cfg: ServiceConfig{Distribution: dist}}
+func (s *Service) Group() group.Group { return s.group }
+
+// Observe returns an observable that notifies callers of changes to channel entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return s.table.Observe()
+}
+
+// newRetrieve returns a Retrieve without the channel-index overflow validator attached.
+// Internal callers (create / delete / rename paths) must use this instead of
+// NewRetrieve because they run inside the write window that validateChannels' RLock
+// would block on, and because they don't need the overflow check — they already enforce
+// it inline at commit time.
+func (s *Service) newRetrieve() Retrieve {
+	return Retrieve{
+		baseTX:  s.db,
+		gorp:    s.table.NewRetrieve(),
+		search:  s.cfg.Search,
+		indexes: s.indexes,
+	}
+}
+
+// NewRetrieve opens a retrieve query for external callers, with the channel index
+// overflow validator attached to enforce the uint20 cap on retrieved external
+// non-virtual channels.
+func (s *Service) NewRetrieve() Retrieve {
+	r := s.newRetrieve()
+	r.gorp = r.gorp.Validate(s.validateChannels)
+	return r
+}
+
+// CountExternalNonVirtual returns the number of external non-virtual channels in the
+// service.
+func (s *Service) CountExternalNonVirtual() uint32 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return uint32(s.mu.externalNonVirtualSet.Size())
+}
+
+func (s *Service) Close() error { return s.closer.Close() }
+
+// validateChannels runs after every Retrieve.Exec (when called via NewRetrieve) and
+// fails the query if any retrieved external non-virtual channel would push the uint20
+// channel index past the configured overflow limit.
+func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, ch := range channels {
+		key := ch.GorpKey()
+		if !s.mu.externalNonVirtualSet.Contains(key) {
+			continue
+		}
+		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
+		if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
@@ -114,57 +228,4 @@ func Wrap(dist *channel.Service) *Service {
 // channels. tx scopes channel lookups; nil consults the service DB directly.
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
-}
-
-// NewWriter returns a Writer that infers DataTypes for calculated channels before
-// delegating to the distribution-layer writer.
-func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
-	w.analyzer = analyzer.New(s.NewArcSymbolResolver(tx))
-	return w
-}
-
-// Create creates a single channel, inferring the DataType for calculated channels.
-func (s *Service) Create(ctx context.Context, ch *Channel, opts ...CreateOption) error {
-	return s.NewWriter(nil).Create(ctx, ch, opts...)
-}
-
-// CreateMany creates multiple channels, inferring DataTypes for calculated channels.
-func (s *Service) CreateMany(ctx context.Context, channels *[]Channel, opts ...CreateOption) error {
-	return s.NewWriter(nil).CreateMany(ctx, channels, opts...)
-}
-
-// Delete deletes a channel by key.
-func (s *Service) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	return s.NewWriter(nil).Delete(ctx, key, allowInternal)
-}
-
-// DeleteMany deletes multiple channels by key.
-func (s *Service) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
-	return s.NewWriter(nil).DeleteMany(ctx, keys, allowInternal)
-}
-
-// DeleteByName deletes a channel by name.
-func (s *Service) DeleteByName(ctx context.Context, name string, allowInternal bool) error {
-	return s.NewWriter(nil).DeleteByName(ctx, name, allowInternal)
-}
-
-// DeleteManyByNames deletes multiple channels by name.
-func (s *Service) DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error {
-	return s.NewWriter(nil).DeleteManyByNames(ctx, names, allowInternal)
-}
-
-// Rename renames a channel.
-func (s *Service) Rename(ctx context.Context, key Key, newName string, allowInternal bool) error {
-	return s.NewWriter(nil).Rename(ctx, key, newName, allowInternal)
-}
-
-// RenameMany renames multiple channels.
-func (s *Service) RenameMany(ctx context.Context, keys []Key, names []string, allowInternal bool) error {
-	return s.NewWriter(nil).RenameMany(ctx, keys, names, allowInternal)
-}
-
-// MapRename renames channels using an old-name to new-name mapping.
-func (s *Service) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
-	return s.NewWriter(nil).MapRename(ctx, names, allowInternal)
 }

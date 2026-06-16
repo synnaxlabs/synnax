@@ -11,6 +11,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -227,11 +228,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
-		Instrumentation: cfg.Child("channel"),
-		DB:              cfg.Distribution.DB,
-		Distribution:    cfg.Distribution.Channel,
-		Status:          l.Status,
+		Instrumentation:  cfg.Child("channel"),
+		DB:               cfg.Distribution.DB,
+		Allocator:        cfg.Distribution.Channel,
+		HostResolver:     cfg.Distribution.Cluster,
+		Ontology:         cfg.Distribution.Ontology,
+		Group:            cfg.Distribution.Group,
+		Search:           cfg.Distribution.Search,
+		IntOverflowCheck: cfg.Distribution.IntOverflowCheck,
+		ValidateNames:    cfg.Distribution.ValidateChannelNames,
+		Status:           l.Status,
 	}); !ok(err, nil) {
+		return nil, err
+	}
+	cfg.Distribution.ChannelRetriever.Bind(l.Channel)
+	if err = configureControlUpdates(ctx, cfg.Distribution, l.Channel); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Framer, err = framer.OpenService(
@@ -256,7 +267,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if closer, err := channelsignals.Publish(
 		ctx,
 		l.Signals,
-		cfg.Distribution.Channel.Observe(),
+		l.Channel.Observe(),
 	); !ok(err, closer) {
 		return nil, err
 	}
@@ -538,4 +549,22 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 	return l, nil
+}
+
+// configureControlUpdates creates this node's internal control channel and registers it
+// with the distribution framer for control-state propagation. It lives in the service
+// layer because the control channel is an internal (rich) channel owned by the
+// service-layer channel service.
+func configureControlUpdates(ctx context.Context, dist *distribution.Layer, ch *channel.Service) error {
+	controlCh := channel.Channel{
+		Name:        fmt.Sprintf("sy_node_%v_control", dist.Cluster.HostKey()),
+		Leaseholder: dist.Cluster.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+		Internal:    true,
+	}
+	if err := ch.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
+		return err
+	}
+	return dist.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)
 }

@@ -254,7 +254,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Instrumentation: cfg.Child("transport"),
 		API:             apiLayer,
 		Router:          r,
-		Channel:         distributionLayer.Channel,
+		Channel:         distributionLayer.ChannelRetriever,
 	}); !ok(err, nil) {
 		return err
 	}

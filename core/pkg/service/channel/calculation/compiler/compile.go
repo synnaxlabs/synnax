@@ -64,7 +64,7 @@ const (
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
 	resolver := cfg.ChannelService.NewArcSymbolResolver(nil)
 	ana := analyzer.New(resolver)
-	result, err := ana.Analyze(ctx, cfg.Channel)
+	result, err := ana.Analyze(ctx, cfg.Channel.Name, cfg.Channel.Key(), cfg.Channel.Expression, cfg.Channel.HasDerivativeOperation())
 	if err != nil {
 		return arc.Program{}, err
 	}

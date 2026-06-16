@@ -39,7 +39,7 @@ type LayerConfig struct {
 	Router *fhttp.Router
 	// Channel resolves channel keys to data types for the frame codec used by both the
 	// HTTP and gRPC framer endpoints.
-	Channel *channel.Service
+	Channel channel.Retriever
 }
 
 var _ config.Config[LayerConfig] = LayerConfig{}
