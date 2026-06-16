@@ -52,7 +52,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
 		Search:   searchIdx,
 	})
 	if err != nil {
@@ -62,7 +61,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
 		Search:   searchIdx,
