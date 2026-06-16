@@ -14,8 +14,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
-// Version is the imex schema version of log data at this state. The console stamped it on
-// the wire as the semver string "0.0.0", which legacy.MigrateData decodes onto this
+// Version is the imex schema version of log data at this state. The Console stamped it
+// on the wire as the semver string "0.0.0", which legacy.MigrateData decodes onto this
 // numeric version.
 const Version imex.Version = 0
 
