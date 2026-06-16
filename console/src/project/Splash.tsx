@@ -9,8 +9,7 @@
 
 import "@/project/Splash.css";
 
-import { status } from "@synnaxlabs/client";
-import { project, UnexpectedError } from "@synnaxlabs/client";
+import { project, status, UnexpectedError } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Access,

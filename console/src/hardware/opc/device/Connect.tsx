@@ -9,8 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { status } from "@synnaxlabs/client";
-import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Component,

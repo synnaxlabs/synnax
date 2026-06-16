@@ -9,8 +9,7 @@
 
 import "@/hardware/device/ontology.css";
 
-import { status } from "@synnaxlabs/client";
-import { device, type ontology } from "@synnaxlabs/client";
+import { device, type ontology, status } from "@synnaxlabs/client";
 import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 

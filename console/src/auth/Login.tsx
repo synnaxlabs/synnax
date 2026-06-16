@@ -9,8 +9,7 @@
 
 import "@/auth/Login.css";
 
-import { status } from "@synnaxlabs/client";
-import { Synnax as Client } from "@synnaxlabs/client";
+import { status, Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Button,

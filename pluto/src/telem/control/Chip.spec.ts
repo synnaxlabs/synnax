@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control } from "@synnaxlabs/client";
-import { type status } from "@synnaxlabs/client";
+import { control, type status } from "@synnaxlabs/client";
 import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";

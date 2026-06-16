@@ -9,8 +9,7 @@
 
 import "@/channel/Calculated.css";
 
-import { status } from "@synnaxlabs/client";
-import { channel, TimeSpan } from "@synnaxlabs/client";
+import { channel, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Channel,

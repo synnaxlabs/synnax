@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ValidationError } from "@synnaxlabs/client";
-import { type status } from "@synnaxlabs/client";
+import { type status, ValidationError } from "@synnaxlabs/client";
 import {
   type bounds,
   type color,

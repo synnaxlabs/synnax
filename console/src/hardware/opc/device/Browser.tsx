@@ -9,8 +9,7 @@
 
 import "@/hardware/opc/device/Browser.css";
 
-import { type rack } from "@synnaxlabs/client";
-import { type status } from "@synnaxlabs/client";
+import { type rack, type status } from "@synnaxlabs/client";
 import {
   Button,
   Component,

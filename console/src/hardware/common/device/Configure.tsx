@@ -9,8 +9,7 @@
 
 import "@/hardware/common/device/Configure.css";
 
-import { type device } from "@synnaxlabs/client";
-import { status } from "@synnaxlabs/client";
+import { type device, status } from "@synnaxlabs/client";
 import {
   Button,
   Device as Base,

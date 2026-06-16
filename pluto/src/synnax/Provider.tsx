@@ -9,11 +9,11 @@
 
 import {
   type connection,
+  type status,
   Synnax,
   type SynnaxParams,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { type status } from "@synnaxlabs/client";
 import { type breaker, caseconv, migrate } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import z from "zod";
