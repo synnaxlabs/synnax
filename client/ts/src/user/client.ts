@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -82,8 +82,7 @@ export class Client {
   async create(users: New[]): Promise<User[]>;
   async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
-      this.client,
+    const res = await this.client.send(
       "/user/create",
       { users: array.toArray(users) },
       createReqZ,
@@ -93,8 +92,7 @@ export class Client {
   }
 
   async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await sendRequired<typeof changeUsernameReqZ, typeof changeUsernameResZ>(
-      this.client,
+    await this.client.send(
       "/user/change-username",
       { key, username: newUsername },
       changeUsernameReqZ,
@@ -107,8 +105,7 @@ export class Client {
   async retrieve(args: RetrieveArgs): Promise<User[]>;
   async retrieve(args: RetrieveArgs): Promise<User | User[]> {
     const isSingle = "key" in args || "username" in args;
-    const res = await sendRequired<typeof retrieveArgsZ, typeof retrieveResZ>(
-      this.client,
+    const res = await this.client.send(
       "/user/retrieve",
       args,
       retrieveArgsZ,
@@ -131,8 +128,7 @@ export class Client {
   }
 
   async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
-    await sendRequired<typeof renameReqZ, typeof renameResZ>(
-      this.client,
+    await this.client.send(
       "/user/rename",
       { key, firstName, lastName },
       renameReqZ,
@@ -143,8 +139,7 @@ export class Client {
   async delete(key: Key): Promise<void>;
   async delete(keys: Key[]): Promise<void>;
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-      this.client,
+    await this.client.send(
       "/user/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

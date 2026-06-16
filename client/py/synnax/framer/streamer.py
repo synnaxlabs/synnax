@@ -99,9 +99,7 @@ class Streamer:
                 exclude_groups=self._exclude_groups,
             )
         )
-        _, exc = self._stream.receive()
-        if exc is not None:
-            raise exc
+        self._stream.receive()
 
     @overload
     def read(self, timeout: float | int | TimeSpan) -> Frame | None:
@@ -140,12 +138,8 @@ class Streamer:
         timeout.
         """
         try:
-            # mypy does not understand destructured union tuples, so we keep [pld, exc] as
-            # a single tuple.
             res = self._stream.receive(TimeSpan.to_seconds(timeout))
-            if res[1] is not None:
-                raise res[1]
-            return self._adapter.adapt(Frame(res[0].frame))
+            return self._adapter.adapt(Frame(res.frame))
         except TimeoutError:
             return None
 
@@ -174,23 +168,12 @@ class Streamer:
         representing the number of seconds, or a synnax TimeSpan object. If no timeout
         is provided, this method will block until the server acknowledges the closure.
         """
-        exc = self._stream.close_send()
-        if exc is not None:
-            raise exc
+        self._stream.close_send()
         while True:
-            r, exc = self._stream.receive(TimeSpan.to_seconds(timeout))
-            if r is not None:
-                continue
-            if exc is None:
-                raise UnexpectedError(
-                    f"""Unexpected missing close acknowledgement from server.
-                    Please report this issue to the Synnax team.
-                    Response: {r}
-                    """
-                )
-            elif not isinstance(exc, EOF):
-                raise exc
-            break
+            try:
+                self._stream.receive(TimeSpan.to_seconds(timeout))
+            except EOF:
+                break
 
     def __iter__(self) -> Streamer:
         """Returns an iterator object that can be used to iterate over the frames of
@@ -255,20 +238,14 @@ class AsyncStreamer:
                 exclude_groups=self._exclude_groups,
             )
         )
-        _, exc = await self._stream.receive()
-        if exc is not None:
-            raise exc
+        await self._stream.receive()
 
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
         reading the frame, an exception will be raised.
         """
-        # mypy does not understand destructured union tuples, so we keep [pld, exc] as
-        # a single tuple.
         res = await self._stream.receive()
-        if res[1] is not None:
-            raise res[1]
-        return self._adapter.adapt(Frame(res[0].frame))
+        return self._adapter.adapt(Frame(res.frame))
 
     async def close_loop(self) -> None:
         """Closes the sending end of the streamer, requiring the caller to process all
@@ -282,17 +259,15 @@ class AsyncStreamer:
         """Close the streamer and free all network resources, waiting for the server to
         acknowledge the close request.
         """
-        exc = await self._stream.close_send()
-        if exc is not None:
-            raise exc
-        _, exc = await self._stream.receive()
-        if exc is None:
-            raise UnexpectedError(
-                """Unexpected missing close acknowledgement from server.
-                Please report this issue to the Synnax team."""
-            )
-        elif not isinstance(exc, EOF):
-            raise exc
+        await self._stream.close_send()
+        try:
+            await self._stream.receive()
+        except EOF:
+            return
+        raise UnexpectedError(
+            "Unexpected missing close acknowledgement from server. "
+            "Please report this issue to the Synnax team."
+        )
 
     async def __aenter__(self) -> AsyncStreamer:
         """Returns the async streamer object when used as an async context manager."""

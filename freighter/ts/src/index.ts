@@ -11,6 +11,6 @@ export { EOF, StreamClosed, Unreachable } from "@/errors";
 export { HTTPClient } from "@/http";
 export { type Context, type Middleware, type Next } from "@/middleware";
 export { type Stream, type StreamClient } from "@/stream";
-export { sendRequired, type UnaryClient, unaryWithBreaker } from "@/unary";
+export { type UnaryClient, unaryWithBreaker } from "@/unary";
 export { WebSocketClient } from "@/websocket";
 export { type WebsocketMessage } from "@/websocket";

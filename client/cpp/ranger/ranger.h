@@ -20,8 +20,8 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/grpc/ranger/ranger.pb.h"
 #include "core/pkg/api/ranger/pb/ranger.pb.h"
+#include "core/pkg/transport/grpc/ranger/ranger.pb.h"
 
 namespace synnax::ranger {
 /// @brief type alias for the transport used to retrieve ranges.

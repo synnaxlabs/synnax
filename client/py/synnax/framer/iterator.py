@@ -19,7 +19,6 @@ from alamos import NOOP, Instrumentation
 from freighter import EOF, ExceptionPayload, Stream, WebsocketClient
 from freighter.transport import P
 from freighter.websocket import Message
-from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
 from synnax.framer.frame import Frame, FramePayload
@@ -218,23 +217,12 @@ class Iterator:
         should probably be placed in a 'finally' block. If the iterator is not closed, it may
         leak resources and threads.
         """
-        exc = self._stream.close_send()
-        if exc is not None:
-            raise exc
+        self._stream.close_send()
         while True:
-            r, exc = self._stream.receive()
-            if r is not None:
-                continue
-            if exc is None:
-                raise UnexpectedError(
-                    f"""Unexpected missing close acknowledgement from server.
-                    Please report this issue to the Synnax team.
-                    Response: {r}
-                    """
-                )
-            if not isinstance(exc, EOF):
-                raise exc
-            break
+            try:
+                self._stream.receive()
+            except EOF:
+                break
 
     def __iter__(self) -> Iterator:
         self.seek_first()
@@ -252,15 +240,10 @@ class Iterator:
         self.close()
 
     def _exec(self, **kwargs: object) -> bool:
-        exc = self._stream.send(_Request(**kwargs))
-        if exc is not None:
-            raise exc
+        self._stream.send(_Request(**kwargs))
         self.value = Frame()
         while True:
-            r, exc = self._stream.receive()
-            if exc is not None:
-                raise exc
-            assert r is not None
+            r = self._stream.receive()
             if r.variant == _ResponseVariant.ACK:
                 return r.ack
             fr = Frame(channels=r.frame.keys, series=r.frame.series)

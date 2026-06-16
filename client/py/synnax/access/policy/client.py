@@ -13,7 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.access.policy.payload import Policy
 from synnax.ontology.payload import ID
 from x.normalize import normalize
@@ -73,7 +73,7 @@ class Client:
     ) -> Policy | list[Policy]:
         is_single = not isinstance(policies, list)
         req = _CreateRequest(policies=normalize(policies))
-        res = send_required(self._client, "/access/policy/create", req, _CreateResponse)
+        res = self._client.send("/access/policy/create", req, _CreateResponse)
         return res.policies[0] if is_single else res.policies
 
     def retrieve(
@@ -82,8 +82,7 @@ class Client:
         subjects: list[ID] | None = None,
         internal: bool | None = None,
     ) -> list[Policy]:
-        res = send_required(
-            self._client,
+        res = self._client.send(
             "/access/policy/retrieve",
             _RetrieveRequest(keys=keys, subjects=subjects, internal=internal),
             _RetrieveResponse,
@@ -92,4 +91,4 @@ class Client:
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
-        send_required(self._client, "/access/policy/delete", req, Empty)
+        self._client.send("/access/policy/delete", req, Empty)

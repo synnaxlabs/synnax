@@ -17,7 +17,7 @@ from typing import IO, Any, Protocol
 import urllib3
 from pydantic import BaseModel
 from urllib3 import PoolManager
-from urllib3.exceptions import HTTPError, MaxRetryError
+from urllib3.exceptions import MaxRetryError
 from urllib3.response import BaseHTTPResponse
 
 from freighter.codec import Codec
@@ -96,9 +96,7 @@ class HTTPClient(MiddlewareCollector):
         self._pool = PoolManager(cert_reqs="CERT_NONE", **kwargs)
         urllib3.disable_warnings()
 
-    def send(
-        self, target: str, req: RQ, res_t: type[RS]
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """Implements the UnaryClient protocol — typed request, typed response."""
         return self._typed_response_request(
             target=target,
@@ -107,12 +105,7 @@ class HTTPClient(MiddlewareCollector):
             res_t=res_t,
         )
 
-    def upload(
-        self,
-        target: str,
-        req: FilePath,
-        res_t: type[RS],
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    def upload(self, target: str, req: FilePath, res_t: type[RS]) -> RS:
         """
         Streams the file at req to target and decodes the response into res_t. urllib3
         uses chunked transfer encoding so the body never has to fit in memory; the
@@ -121,24 +114,16 @@ class HTTPClient(MiddlewareCollector):
         """
         codec = self._codec_for_path(req)
         if isinstance(codec, Exception):
-            return None, codec
-        try:
-            with open(req, "rb") as f:
-                return self._typed_response_request(
-                    target=target,
-                    body=f,
-                    content_type=codec.content_type(),
-                    res_t=res_t,
-                )
-        except OSError as e:
-            return None, e
+            raise codec
+        with open(req, "rb") as f:
+            return self._typed_response_request(
+                target=target,
+                body=f,
+                content_type=codec.content_type(),
+                res_t=res_t,
+            )
 
-    def download(
-        self,
-        target: str,
-        req: BaseModel,
-        dest: FilePath,
-    ) -> Exception | None:
+    def download(self, target: str, req: BaseModel, dest: FilePath) -> None:
         """
         Sends req to target and streams the response body directly into dest, without
         buffering the full body in memory. The Accept header is derived from the dest
@@ -148,13 +133,13 @@ class HTTPClient(MiddlewareCollector):
         """
         dest_codec = self._codec_for_path(dest)
         if isinstance(dest_codec, Exception):
-            return dest_codec
+            raise dest_codec
         url = self._build_url(target)
         body = self._encoder.encode(req)
         content_type = self._encoder.content_type()
         accept_header = dest_codec.content_type()
 
-        def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
+        def finalizer(ctx: Context) -> Context:
             out_ctx = Context(url, self._endpoint.protocol, "client")
             headers = {
                 **self._headers(content_type, accept_header),
@@ -170,26 +155,20 @@ class HTTPClient(MiddlewareCollector):
                     preload_content=False,
                 )
             except MaxRetryError as e:
-                return out_ctx, Unreachable(url, e.url or "Unreachable")
-            except HTTPError as e:
-                return out_ctx, e
+                raise Unreachable(url, e.url or "Unreachable") from e
             try:
                 out_ctx.params = http_res.headers
                 if http_res.status < 200 or http_res.status >= 300:
-                    return out_ctx, self._decode_error(http_res, http_res.read())
-                try:
-                    with open(dest, "wb") as out:
-                        for chunk in http_res.stream():
-                            out.write(chunk)
-                except (HTTPError, OSError) as e:
-                    return out_ctx, e
-                return out_ctx, None
+                    raise self._decode_error(http_res, http_res.read())
+                with open(dest, "wb") as out:
+                    for chunk in http_res.stream():
+                        out.write(chunk)
+                return out_ctx
             finally:
                 http_res.release_conn()
 
         in_ctx = Context(url, self._endpoint.protocol, "client")
-        _, exc = self.exec(in_ctx, finalizer)
-        return exc
+        self.exec(in_ctx, finalizer)
 
     def _build_url(self, target: str) -> str:
         return self._endpoint.child(target).stringify()
@@ -215,12 +194,12 @@ class HTTPClient(MiddlewareCollector):
         body: bytes | IO[bytes] | Iterable[bytes] | None,
         content_type: str,
         res_t: type[RS],
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    ) -> RS:
         url = self._build_url(target)
         in_ctx = Context(url, self._endpoint.protocol, "client")
         res_container: list[RS | None] = [None]
 
-        def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
+        def finalizer(ctx: Context) -> Context:
             out_ctx = Context(url, self._endpoint.protocol, "client")
             headers = {
                 **self._headers(content_type, self._accept_header),
@@ -231,28 +210,22 @@ class HTTPClient(MiddlewareCollector):
                     method="POST", url=url, headers=headers, body=body
                 )
             except MaxRetryError as e:
-                return out_ctx, Unreachable(url, e.url or "Unreachable")
-            except HTTPError as e:
-                return out_ctx, e
+                raise Unreachable(url, e.url or "Unreachable") from e
             out_ctx.params = http_res.headers
             if not 200 <= http_res.status < 300:
-                return out_ctx, self._decode_error(http_res, http_res.data)
+                raise self._decode_error(http_res, http_res.data)
             if http_res.data is None or len(http_res.data) == 0:
-                return out_ctx, ValueError(
-                    f"expected a non-empty response body from {url!r}"
-                )
+                raise ValueError(f"expected a non-empty response body from {url!r}")
             decoder = self._resolve_decoder(http_res)
             if isinstance(decoder, Exception):
-                return out_ctx, decoder
+                raise decoder
             res_container[0] = decoder.decode(http_res.data, res_t)
-            return out_ctx, None
+            return out_ctx
 
-        _, exc = self.exec(in_ctx, finalizer)
-        if exc is not None:
-            return None, exc
+        self.exec(in_ctx, finalizer)
         res = res_container[0]
         assert res is not None
-        return res, None
+        return res
 
     def _resolve_decoder(self, http_res: BaseHTTPResponse) -> FileCodec | Exception:
         ct = http_res.headers.get(_CONTENT_TYPE_HEADER_KEY, "")

@@ -7,20 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, record } from "@synnaxlabs/x";
+import { type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { project } from "@/project";
+import { type Action, dispatchReqZ, rename as renameAction } from "@/table/actions.gen";
 import { type Key, keyZ, type New, newZ, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
 
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
+export const SET_CHANNEL_NAME = "sy_table_set";
 
-const setDataReqZ = z.object({
-  key: keyZ,
-  data: caseconv.preserveCase(record.unknownZ()),
-});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -35,7 +32,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ tables: array.nullishToEmpty(tableZ) });
 
-const createReqZ = z.object({ workspace: workspace.keyZ, tables: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, tables: newZ.array() });
 const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
@@ -47,17 +44,13 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: workspace.Key, table: New): Promise<Table>;
-  async create(workspace: workspace.Key, tables: New[]): Promise<Table[]>;
-  async create(
-    workspace: workspace.Key,
-    tables: New | New[],
-  ): Promise<Table | Table[]> {
+  async create(project: project.Key, table: New): Promise<Table>;
+  async create(project: project.Key, tables: New[]): Promise<Table[]>;
+  async create(project: project.Key, tables: New | New[]): Promise<Table | Table[]> {
     const isMany = Array.isArray(tables);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/table/create",
-      { workspace, tables: array.toArray(tables) },
+      { project, tables: array.toArray(tables) },
       createReqZ,
       createResZ,
     );
@@ -65,21 +58,14 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/table/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/table/set-data",
-      { key, data },
-      setDataReqZ,
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/table/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
       emptyResZ,
     );
   }
@@ -90,8 +76,7 @@ export class Client {
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Table | Table[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/table/retrieve",
       args,
       retrieveArgsZ,
@@ -102,8 +87,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/table/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

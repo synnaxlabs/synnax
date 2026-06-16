@@ -11,20 +11,17 @@ package arc
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
 	arcsymbol "github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -38,11 +35,12 @@ import (
 
 // ServiceConfig is the configuration for opening a Arc service.
 type ServiceConfig struct {
-	// DB is the database that the Arc service will store arcs in.
+	// DB is the database that the Arc service will store Arcs in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between arcs and other entities in
-	// the Synnax resource graph.
+	// Ontology is used to define relationships between Arcs and other entities in the
+	// Synnax resource graph.
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
@@ -50,34 +48,25 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Channel *channel.Service
-	// Task is used for deleting tasks associated with arcs when arcs are deleted.
+	// Task is used for deleting tasks associated with Arcs when Arcs are deleted.
 	//
 	// [REQUIRED]
 	Task *task.Service
-	// Signals is used for propagating changes to arcs through the cluster.
+	// Search is the search index for fuzzy searching Arcs.
 	//
-	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service
-	// is nil.
-	Signals *signals.Provider
-	// Search is the search index for fuzzy searching arcs.
 	// [REQUIRED]
 	Search *search.Index
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a Arc service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
@@ -102,41 +91,53 @@ type Service struct {
 	cfg    ServiceConfig
 }
 
-// NewChannelResolver returns the dynamic resolver that the analyzer
-// consults for cluster channels not statically known to the program.
-func (s *Service) NewChannelResolver(tx gorp.Tx) *symbol.ChannelResolver {
-	return symbol.NewChannelResolver(s.cfg.Channel, tx)
+// NewChannelResolver returns the dynamic resolver that the analyzer consults for
+// cluster channels not statically known to the program.
+func (s *Service) NewChannelResolver(tx gorp.Tx) arc.SymbolResolver {
+	return s.cfg.Channel.NewArcSymbolResolver(tx)
 }
 
 // NewSymbolResolver is the dynamic resolver attached to a program root's
-// GlobalResolver. It resolves cluster channels by name or numeric key.
-// Static prelude symbols (STL, status module) are attached to the
-// ambient by NewRoot rather than chained behind this resolver.
+// GlobalResolver. It resolves cluster channels by name or numeric key. Static prelude
+// symbols (STL, status module) are attached to the ambient by NewRoot rather than
+// chained behind this resolver.
 func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return s.NewChannelResolver(tx)
 }
 
-// NewRoot builds a program root populated with STL + status module +
-// the cluster channel resolver attached as the dynamic resolver. This
-// is the production analysis root: tx is consulted for channel lookups,
-// nil means "use the service DB directly."
+// NewRoot builds a program root populated with STL + status module + the cluster
+// channel resolver attached as the dynamic resolver. This is the production analysis
+// root: tx is consulted for channel lookups, nil means "use the service DB directly."
 func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
-	syms := make([]*arcsymbol.Symbol, 0, len(stl.Symbols)+len(arcstatus.Symbols))
-	syms = append(syms, stl.Symbols...)
-	syms = append(syms, arcstatus.Symbols...)
-	return arcsymbol.NewRoot(s.NewChannelResolver(tx), syms...)
+	stlSyms := stl.NewSymbols()
+	statusSyms := arcstatus.NewSymbols()
+	syms := make([]*arcsymbol.Symbol, 0, len(stlSyms)+len(statusSyms))
+	syms = append(syms, stlSyms...)
+	syms = append(syms, statusSyms...)
+	return arcsymbol.NewRoot(s.NewSymbolResolver(tx), syms)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
 		Instrumentation: s.cfg.Child("lsp"),
 		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
-		OnRename:        channelRename(s.cfg.Channel),
+		OnRename: func(
+			ctx context.Context,
+			sym *arcsymbol.Symbol,
+			oldName,
+			newName string,
+		) error {
+			if sym.Kind != arcsymbol.KindChannel {
+				return nil
+			}
+			return s.cfg.Channel.NewWriter(nil).
+				Rename(ctx, channel.Key(sym.ID), newName, false)
+		},
 		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
 			Observable: s.cfg.Channel.Observe(),
 			Translate: func(
-				ctx context.Context,
-				r gorp.TxReader[channel.Key, channel.Channel],
+				context.Context,
+				gorp.TxReader[channel.Key, channel.Channel],
 			) (struct{}, bool) {
 				return struct{}{}, true
 			},
@@ -146,8 +147,8 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-// CompileProgram retrieves an Arc program by key and compiles its Module.
-// The returned Arc has its Module field populated with the compiled module.
+// CompileProgram retrieves an Arc program by key and compiles its Module. The returned
+// Arc has its Module field populated with the compiled module.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	var entry Arc
 	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
@@ -155,7 +156,7 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 		return Arc{}, err
 	}
 	var prog arc.Program
-	if entry.Mode == "text" {
+	if entry.Mode == ModeText {
 		prog, err = arc.CompileText(ctx, entry.Text, s.NewRoot(nil))
 	} else {
 		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil))
@@ -171,23 +172,24 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 // configuration will be used as an override for the previous configuration in the list.
 // See the ConfigValues struct for information on which fields should be set.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Arc](ctx, gorp.TableConfig[Key, Arc]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, arcv54.Arc, Arc](
-					"v54_drop_program_status",
-					MigrateArc,
-				),
+				gorp.NewEntryMigration("v54_drop_program_status", MigrateArc),
 				"msgpack_to_orc",
+			),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration("v55_rename_set_status", RenameSetStatus),
+				"v54_drop_program_status",
 			),
 		},
 		Instrumentation: cfg.Instrumentation,
@@ -196,22 +198,17 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
-			ctx,
-			s.cfg.Signals,
-			signals.GorpPublisherConfigUUID[Arc](s.table.Observe()),
-		); !ok(err, sig) {
-			return nil, err
-		}
-	}
 	return s, nil
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting arcs in Synnax. If
+// Observe returns an observable that notifies callers of changes to Arc entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Arc]] {
+	return s.table.Observe()
+}
+
+// NewWriter opens a new writer for creating, updating, and deleting Arcs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer will
-// execute the operations directly on the underlying gorp.DB.
+// execute the operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:    gorp.OverrideTx(s.cfg.DB, tx),
@@ -221,7 +218,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-// NewRetrieve opens a new query builder for retrieving arcs from Synnax.
+// NewRetrieve opens a new query builder for retrieving Arcs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:   s.table.NewRetrieve(),

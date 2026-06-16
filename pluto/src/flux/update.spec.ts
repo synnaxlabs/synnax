@@ -119,23 +119,30 @@ describe("update", () => {
     });
 
     it("should return a loading result when the update function is being executed", async () => {
-      const update = async () => {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        return 0;
-      };
-      const { useUpdate } = Flux.createUpdate<number, {}>({
-        ...BASE_UPDATE_PARAMS,
-        update,
-      });
-      const { result } = renderHook(useUpdate, { wrapper });
-      act(() => {
-        result.current.update(12, { signal: controller.signal });
-      });
-      await waitFor(() => {
+      vi.useFakeTimers();
+      try {
+        let resolveUpdate!: () => void;
+        const update = async () => {
+          await new Promise<void>((resolve) => {
+            resolveUpdate = resolve;
+          });
+          return 0;
+        };
+        const { useUpdate } = Flux.createUpdate<number, {}>({
+          ...BASE_UPDATE_PARAMS,
+          update,
+        });
+        const { result } = renderHook(useUpdate, { wrapper });
+        act(() => {
+          result.current.update(12, { signal: controller.signal });
+        });
         expect(result.current.data).toEqual(undefined);
         expect(result.current.variant).toEqual("loading");
         expect(result.current.status.message).toEqual("Updating Resource");
-      });
+        act(() => resolveUpdate());
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

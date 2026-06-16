@@ -154,7 +154,6 @@ export const useLifecycle = <
   // Concurrent Mode may discard a render before commit, leaking the entry — harmless:
   // it reclaims with the Provider's Store on unmount.
   handleRef.current ??= ctx.store.register({
-    key,
     type,
     path,
     schema,
@@ -167,10 +166,10 @@ export const useLifecycle = <
 
   useLayoutEffect(
     () => () => {
-      ctx.store.unregister(key);
+      ctx.store.unregister(path);
       handleRef.current = null;
     },
-    [ctx.store, key],
+    [ctx.store, path],
   );
 
   const setState = useCallback(
@@ -180,13 +179,13 @@ export const useLifecycle = <
   );
 
   const subscribe = useCallback(
-    (listener: () => void) => ctx.store.subscribe(key, listener),
-    [ctx.store, key],
+    (listener: () => void) => ctx.store.subscribe(path, listener),
+    [ctx.store, path],
   );
 
   const getSnapshot = useCallback(
-    () => ctx.store.getSnapshot<StateSchema>(key),
-    [ctx.store, key],
+    () => ctx.store.getSnapshot<StateSchema>(path),
+    [ctx.store, path],
   );
 
   return useMemo(

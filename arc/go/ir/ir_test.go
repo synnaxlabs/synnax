@@ -56,7 +56,7 @@ var _ = Describe("IR", func() {
 		})
 
 		It("Should return false when Symbols is set", func() {
-			program := &ir.IR{Symbols: symbol.NewRoot(nil)}
+			program := &ir.IR{Symbols: symbol.NewRoot(nil, nil)}
 			Expect(program.IsZero()).To(BeFalse())
 		})
 	})
@@ -155,7 +155,7 @@ var _ = Describe("IR", func() {
 		})
 
 		It("Should exclude Symbols and TypeMap from JSON (json:\"-\" tag)", func() {
-			original := &ir.IR{Symbols: symbol.NewRoot(nil)}
+			original := &ir.IR{Symbols: symbol.NewRoot(nil, nil)}
 			data := MustSucceed(json.Marshal(original))
 			jsonStr := string(data)
 			Expect(jsonStr).ToNot(ContainSubstring("\"symbols\""))

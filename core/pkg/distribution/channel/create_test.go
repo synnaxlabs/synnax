@@ -121,7 +121,7 @@ var _ = Describe("Create", Ordered, func() {
 					g.Expect(channels).To(HaveLen(1))
 					g.Expect(channels[0].DataType).To(Equal(telem.JSONT))
 					g.Expect(channels[0].Virtual).To(BeTrue())
-				})
+				}).Should(Succeed())
 			})
 			It("Should create an index channel", func(ctx SpecContext) {
 				ch4 := &channel.Channel{
@@ -146,7 +146,7 @@ var _ = Describe("Create", Ordered, func() {
 			})
 			It("Should create the channel without error", func(ctx SpecContext) {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKeyFree))
-				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(5)))
+				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 				Expect(mockCluster.Nodes[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
 					Error().To(MatchError(query.ErrNotFound))
 			})
@@ -187,9 +187,9 @@ var _ = Describe("Create", Ordered, func() {
 			}
 			Expect(mockCluster.Nodes[1].Channel.CreateMany(ctx, &chs)).To(Succeed())
 			Expect(chs[0].Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
-			Expect(chs[0].Key().LocalKey()).To(Not(BeZero()))
+			Expect(chs[0].Key().LocalKey()).ToNot(BeZero())
 			Expect(chs[1].Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
-			Expect(chs[1].Key().LocalKey()).To(Not(BeZero()))
+			Expect(chs[1].Key().LocalKey()).ToNot(BeZero())
 			Expect(chs[0].Key()).ToNot(Equal(chs[1].Key()))
 		})
 		It("Should return an error if the names are duplicates", func(ctx SpecContext) {
@@ -220,7 +220,7 @@ var _ = Describe("Create", Ordered, func() {
 		It("Should create the channel without error", func(ctx SpecContext) {
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch, channel.RetrieveIfNameExists())).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
-			Expect(ch.Key().LocalKey()).To(Not(BeZero()))
+			Expect(ch.Key().LocalKey()).ToNot(BeZero())
 		})
 		It("Should not create the channel if it already exists by name", func(ctx SpecContext) {
 			Expect(mockCluster.Nodes[1].Channel.Create(ctx, &ch)).To(Succeed())

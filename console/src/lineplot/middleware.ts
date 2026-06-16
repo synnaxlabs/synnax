@@ -7,75 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
-
 import { Layout } from "@/layout";
-import { select, selectSliceState } from "@/lineplot/selectors";
-import {
-  actions,
-  type CreatePayload,
-  remove,
-  type RemovePayload,
-  setLine,
-  type SetLinePayload,
-  setRanges,
-  type SetRangesPayload,
-  setXChannel,
-  type SetXChannelPayload,
-  setYChannels,
-  type SetYChannelsPayload,
-  type StoreState,
-} from "@/lineplot/slice";
+import { selectSliceState } from "@/lineplot/selectors";
+import { remove, type RemovePayload, type StoreState } from "@/lineplot/slice";
 import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
-import { Range } from "@/range";
-
-export const assignColorsEffect: MiddlewareEffect<
-  Layout.StoreState & StoreState,
-  CreatePayload | SetRangesPayload | SetXChannelPayload | SetYChannelsPayload,
-  SetLinePayload
-> = ({ store, action }) => {
-  const s = store.getState();
-  const p = select(s, action.payload.key);
-  p.lines.forEach((l) => {
-    if (l.color === "") {
-      const theme = Layout.selectTheme(s);
-      const colors = theme?.colors.visualization.palettes.default ?? [];
-      store.dispatch(
-        setLine({
-          key: p.key,
-          line: {
-            key: l.key,
-            color: color.hex(colors[p.lines.indexOf(l) % colors.length]),
-          },
-        }),
-      );
-    }
-  });
-};
-
-const ROLLING_30S_RANGE_KEY = "recent";
-
-export const assignActiveRangeEffect: MiddlewareEffect<
-  Range.StoreState & StoreState,
-  CreatePayload | SetXChannelPayload | SetYChannelsPayload,
-  SetRangesPayload
-> = ({ store, action }) => {
-  const s = store.getState();
-  const p = select(s, action.payload.key);
-  const range = Range.selectActiveKey(s) ?? ROLLING_30S_RANGE_KEY;
-  if (!p.axes.hasHadChannelSet && p.ranges.x1.length === 0)
-    store.dispatch(
-      setRanges({
-        key: p.key,
-        axisKey: "x1",
-        ranges: [range],
-      }),
-    );
-};
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  Layout.RemovePayload | Layout.SetWorkspacePayload,
+  Layout.RemovePayload | Layout.SetProjectPayload,
   RemovePayload
 > = ({ action, store }) => {
   const state = store.getState();
@@ -89,19 +28,5 @@ export const deleteEffect: MiddlewareEffect<
 };
 
 export const MIDDLEWARE = [
-  effectMiddleware(
-    [
-      actions.create.type,
-      setXChannel.type,
-      setYChannels.type,
-      setRanges.type,
-      setYChannels.type,
-    ],
-    [assignColorsEffect],
-  ),
-  effectMiddleware(
-    [actions.create.type, setXChannel.type, setYChannels.type],
-    [assignActiveRangeEffect],
-  ),
-  effectMiddleware([Layout.remove.type, Layout.setWorkspace.type], [deleteEffect]),
+  effectMiddleware([Layout.remove.type, Layout.setProject.type], [deleteEffect]),
 ];

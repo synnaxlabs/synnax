@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, type dimensions } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
@@ -15,12 +15,10 @@ import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/cylinder/config";
-import { Theming } from "@/theming";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   scale?: number;
-  onResize?: (dimensions: dimensions.Dimensions) => void;
 }
 
 export const Cylinder = ({
@@ -33,7 +31,6 @@ export const Cylinder = ({
   scale,
 }: RenderProps): ReactElement => {
   const detailedRadius = Border.parseRadius(borderRadius);
-  const t = Theming.use();
   const refreshDeps = useMemo(
     () => [dimensions, borderRadius, detailedRadius, orientation],
     [
@@ -46,7 +43,6 @@ export const Cylinder = ({
       orientation,
     ],
   );
-  const boardColor = color.cssString(colorVal ?? t.colors.gray.l11);
   const bgColor =
     backgroundColor == null ? undefined : color.cssString(backgroundColor);
   const transform = `scale(${dimensions.width / 66},${dimensions.height / 180})`;
@@ -56,12 +52,16 @@ export const Cylinder = ({
       orientation={orientation}
       className={CSS(className, CSS.B("cylinder"))}
     >
-      <Primitive.SVG dimensions={dimensions} orientation={orientation} scale={scale}>
+      <Primitive.SVG
+        dimensions={dimensions}
+        orientation={orientation}
+        scale={scale}
+        color={colorVal}
+      >
         <path
           d="M23 33.6712C11.9844 36.0332 3 42.4382 3 52.8862V174.568C3 176.225 4.34315 177.568 6 177.568H60C61.6569 177.568 63 176.225 63 174.568V52.8862C63 36.3342 40.4511 29.9292 23 33.6712ZM23 33.6712V13.3181C23 0.318109 42.9975 0.318123 42.9975 13.3181V33.6712"
           vectorEffect="non-scaling-stroke"
           strokeWidth="2"
-          stroke={boardColor}
           transform={transform}
           fill={bgColor}
         />

@@ -12,7 +12,7 @@ from typing import Any, overload
 
 from pydantic import BaseModel
 
-from freighter import UnaryClient, send_required
+from freighter import UnaryClient
 from synnax.ranger.kv.payload import Pair
 from x.normalize import normalize
 
@@ -55,7 +55,7 @@ class Client:
 
     def get(self, keys: str | list[str]) -> dict[str, str] | str:
         req = _GetRequest(range=self._rng_key, keys=normalize(keys))
-        res = send_required(self._client, "/range/kv/get", req, _GetResponse)
+        res = self._client.send("/range/kv/get", req, _GetResponse)
         if isinstance(keys, str):
             return res.pairs[0].value
         return {pair.key: pair.value for pair in res.pairs}
@@ -74,11 +74,11 @@ class Client:
             for k, v in key.items():
                 pairs.append(Pair(range=self._rng_key, key=k, value=v))
         req = _SetRequest(range=self._rng_key, pairs=pairs)
-        send_required(self._client, "/range/kv/set", req, _EmptyResponse)
+        self._client.send("/range/kv/set", req, _EmptyResponse)
 
     def delete(self, keys: str | list[str]) -> None:
         req = _DeleteRequest(range=self._rng_key, keys=normalize(keys))
-        send_required(self._client, "/range/kv/delete", req, _EmptyResponse)
+        self._client.send("/range/kv/delete", req, _EmptyResponse)
 
     def __getitem__(self, key: str) -> str:
         return self.get(key)

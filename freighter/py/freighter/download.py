@@ -27,14 +27,14 @@ class DownloadClient(Transport, Protocol):
         target: str,
         req: RQ,
         dest: FilePath,
-    ) -> Exception | None:
+    ) -> None:
         """
-        Sends req to target and streams the response body into dest. Returns None on
-        success, or the encountered exception.
+        Sends req to target and streams the response body into dest.
 
         :param target: the target address of the server.
         :param req: the typed request payload.
         :param dest: file path to stream the response body into.
         :raises Unreachable: when the target cannot be reached.
+        :raises Exception: any error returned by the server.
         """
         ...

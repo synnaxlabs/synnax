@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -66,8 +66,7 @@ export class Client {
   async retrieve(args: RetrieveMultipleParams): Promise<Label[]>;
   async retrieve(args: RetrieveArgs): Promise<Label | Label[]> {
     const isSingle = "key" in args;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/label/retrieve",
       args,
       retrieveArgsZ,
@@ -78,8 +77,7 @@ export class Client {
   }
 
   async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
-    await sendRequired<typeof setReqZ, typeof emptyResZ>(
-      this.client,
+    await this.client.send(
       "/label/set",
       { id, labels, replace: opts.replace },
       setReqZ,
@@ -88,21 +86,14 @@ export class Client {
   }
 
   async remove(id: ontology.ID, labels: Key[]): Promise<void> {
-    await sendRequired<typeof removeReqZ, typeof emptyResZ>(
-      this.client,
-      "/label/remove",
-      { id, labels },
-      removeReqZ,
-      emptyResZ,
-    );
+    await this.client.send("/label/remove", { id, labels }, removeReqZ, emptyResZ);
   }
 
   async create(label: New): Promise<Label>;
   async create(labels: New[]): Promise<Label[]>;
   async create(labels: New | New[]): Promise<Label | Label[]> {
     const isMany = Array.isArray(labels);
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
-      this.client,
+    const res = await this.client.send(
       "/label/create",
       { labels: array.toArray(labels) },
       createReqZ,
@@ -112,8 +103,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired<typeof deleteReqZ, typeof emptyResZ>(
-      this.client,
+    await this.client.send(
       "/label/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

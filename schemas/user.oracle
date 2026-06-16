@@ -32,12 +32,11 @@ User struct {
     last_name  string {
         @doc value "is the user's last name."
     }
-    root_user  bool   {
-        @doc value        """
+    root_user  bool = false {
+        @doc value """
             is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
         """
-        @validate default false
         @filter
     }
 
@@ -54,22 +53,13 @@ User struct {
 
 New struct extends User {
     -root_user
-    key        Key?    {
-        @doc value """
-            is an optional key for the user. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    password   string  {
+    key?
+    password    string {
         @doc value           "is the password for the new user account."
         @validate min_length 1
     }
-    first_name string? {
-        @doc value "is an optional first name."
-    }
-    last_name  string? {
-        @doc value "is an optional last name."
-    }
+    first_name?
+    last_name?
 
     @doc value    "contains parameters for creating a new user."
     @ts use_input

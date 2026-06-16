@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  sendRequired,
   type Stream,
   type StreamClient,
   type UnaryClient,
@@ -77,8 +76,7 @@ export class Client {
   async create(arcs: New[]): Promise<Arc[]>;
   async create(arcs: New | New[]): Promise<Arc | Arc[]> {
     const isMany = Array.isArray(arcs);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/arc/create",
       { arcs: array.toArray(arcs) },
       createReqZ,
@@ -91,8 +89,7 @@ export class Client {
   async retrieve(args: RetrieveArgs): Promise<Arc[]>;
   async retrieve(args: RetrieveArgs): Promise<Arc | Arc[]> {
     const isSingle = "key" in args || "name" in args;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/arc/retrieve",
       args,
       retrieveArgsZ,
@@ -103,8 +100,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/arc/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

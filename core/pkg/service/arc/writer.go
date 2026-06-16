@@ -33,10 +33,7 @@ type Writer struct {
 
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
-func (w Writer) Create(
-	ctx context.Context,
-	a *Arc,
-) error {
+func (w Writer) Create(ctx context.Context, a *Arc) error {
 	var (
 		exists bool
 		err    error
@@ -61,12 +58,20 @@ func (w Writer) Create(
 	return nil
 }
 
-// Delete deletes the arcs with the given keys. If the arc has child tasks, those
-// tasks will also be deleted.
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...Key,
-) error {
+// CreateMany creates the given Arcs. If Arcs with the same key already exist, they will
+// be overwritten.
+func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
+	for i := range *arcs {
+		if err := w.Create(ctx, &(*arcs)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Delete deletes the Arcs with the given keys. If the Arc has child tasks, those tasks
+// will also be deleted.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	for _, key := range keys {
 		if err := w.deleteChildTasks(ctx, key); err != nil {
 			return err

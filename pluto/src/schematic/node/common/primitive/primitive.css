@@ -61,36 +61,36 @@
 .pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
-            fill: rgb(var(--pluto-symbol-color), 0.15) !important;
-            stroke: rgb(var(--pluto-symbol-color), 0.75) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 15%) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
         }
 
         &.pluto--enabled svg {
-            stroke: rgb(var(--pluto-symbol-color), 0.8) !important;
-            fill: rgb(var(--pluto-symbol-color), 0.85) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 80%) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 85%) !important;
         }
     }
 
     &:active {
         &:not(.pluto--enabled) svg {
-            fill: rgb(var(--pluto-symbol-color), 0.25) !important;
-            stroke: rgb(var(--pluto-symbol-color), 0.9) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
         }
 
         &.pluto--enabled svg {
-            stroke: rgb(var(--pluto-symbol-color), 0.7) !important;
-            fill: rgb(var(--pluto-symbol-color), 0.75) !important;
+            stroke: oklch(from var(--pluto-symbol-display) l c h / 70%) !important;
+            fill: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
         }
     }
 }
 
 .pluto--enabled svg {
-    stroke: rgb(var(--pluto-symbol-color)) !important;
-    fill: rgb(var(--pluto-symbol-color)) !important;
+    stroke: var(--pluto-symbol-display) !important;
+    fill: var(--pluto-symbol-display) !important;
 }
 
 .pluto--enabled svg .pluto--detail {
-    stroke: rgb(var(--pluto-symbol-color-contrast), 0.9) !important;
+    stroke: oklch(from var(--pluto-symbol-contrast) l c h / 90%) !important;
 }
 
 .pluto-symbol-primitive-toggle {
@@ -123,7 +123,7 @@
             height: 100%;
             width: 0%;
             z-index: 1;
-            background: rgba(var(--pluto-symbol-color), 0.2);
+            background: oklch(from var(--pluto-symbol-display) l c h / 20%);
             pointer-events: none;
         }
 

@@ -255,6 +255,13 @@ synnax-data/**
 # |||| EMBEDDED DRIVER ||||
 assets
 
+# |||| LABVIEW ||||
+client/lv/**/builds/
+*.lvlibp
+*.aliases
+*.lvlps
+*.UserState/
+
 # |||| GENERATED CERTIFICATES ||||
 client/py/examples/opcua/certificates/
 
@@ -271,7 +278,11 @@ core/synnax
 *.vsix
 .bazelrc.user
 
-.claude
+# Ignore .claude/ contents but keep skills/ tracked so the project's Claude Code
+# skills ship with the repo. Excluding directory contents rather than the
+# directory itself is what lets the negation below re-include the subtree.
+.claude/*
+!.claude/skills/
 
 # |||| ORACLE ||||
 .oracle/

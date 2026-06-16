@@ -11,7 +11,7 @@ from examples.simulators import PressSimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_BANG_BANG_SOURCE = """
 import control
@@ -94,7 +94,7 @@ bb_start_cmd => bang_bang_controller
 """
 
 
-class BangBangAuthority(ArcConsoleCase):
+class BangBangAuthority(ArcCase):
     """Test that a bang-bang controller with per-channel set_authority correctly
     releases and reclaims authority on both channels symmetrically.
 
@@ -129,10 +129,8 @@ class BangBangAuthority(ArcConsoleCase):
         finally:
             for w in (self._press_writer, self._vent_writer):
                 if w is not None:
-                    try:
+                    with self._try_to("close control writer"):
                         w.close()
-                    except Exception:
-                        pass
             self._press_writer = None
             self._vent_writer = None
 
@@ -207,10 +205,8 @@ class BangBangAuthority(ArcConsoleCase):
     def teardown(self) -> None:
         for w in (self._press_writer, self._vent_writer):
             if w is not None:
-                try:
+                with self._try_to("close control writer"):
                     w.close()
-                except Exception:
-                    pass
         self._press_writer = None
         self._vent_writer = None
         super().teardown()

@@ -9,38 +9,45 @@
 
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { type record, uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/schematic/layout";
 import { anyStateZ } from "@/schematic/slice";
 
-const parseImport = (
+export const parseImport = (
   data: unknown,
   fallbackName: string | undefined,
 ): schematic.New => {
-  const direct = schematic.schematicZ.safeParse(data);
-  if (direct.success) {
-    const { key: _key, ...rest } = direct.data;
-    return { ...rest, name: fallbackName ?? rest.name };
+  // Legacy console-state exports are tried first because their schemas are strict: they
+  // require a version literal plus the console-only editable / control / viewport /
+  // props fields, so a current typed export never matches and falls through to the
+  // direct branch. The typed schematicZ is the opposite — it strips unknown keys and
+  // defaults configs to {}, so trying it first silently accepts a legacy file, drops
+  // its props, and yields a schematic with no symbol configs (a blank import).
+  if (typeof data === "object" && data != null) {
+    const legacy = anyStateZ.safeParse({ ...data, remoteCreated: false });
+    if (legacy.success) {
+      if (legacy.data.pendingUpload == null)
+        throw new Error("Imported schematic has no graph data");
+      const { snapshot, nodes, edges, configs } = legacy.data.pendingUpload;
+      return { name: fallbackName ?? "Schematic", snapshot, nodes, edges, configs };
+    }
   }
-  const legacy = anyStateZ.parse({ ...(data as record.Unknown), remoteCreated: false });
-  if (legacy.pendingUpload == null)
-    throw new Error("Imported schematic has no graph data");
-  const { snapshot, nodes, edges, configs } = legacy.pendingUpload;
-  return { name: fallbackName ?? "Schematic", snapshot, nodes, edges, configs };
+  const { key: _key, ...rest } = schematic.schematicZ.parse(data);
+  return { ...rest, name: fallbackName ?? rest.name };
 };
 
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, workspaceKey },
+  { layout, placeLayout, store, client, projectKey },
 ) => {
   if (!Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import schematics");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, layout?.name);
-  const created = await client.schematics.create(workspaceKey ?? uuid.ZERO, newPayload);
+  const created = await client.schematics.create(projectKey, newPayload);
   const { key, name } = created;
   store.schematics.set(key, created);
   placeLayout(create({ ...layout, key, name, type: LAYOUT_TYPE }));
+  return schematic.ontologyID(key);
 };

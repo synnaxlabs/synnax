@@ -14,7 +14,7 @@ from typing import Protocol
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
-from freighter import UnaryClient, send_required
+from freighter import UnaryClient
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,
@@ -83,7 +83,7 @@ class ClusterRetriever:
         return channels[0]
 
     def _exec_retrieve(self, req: _Request) -> list[Payload]:
-        return send_required(self._client, "/channel/retrieve", req, _Response).channels
+        return self._client.send("/channel/retrieve", req, _Response).channels
 
 
 class CacheRetriever:

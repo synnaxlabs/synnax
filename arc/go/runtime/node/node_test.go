@@ -56,7 +56,7 @@ func newTestConfig(ctx context.Context, nodeType string) node.Config {
 		Nodes:     []graph.Node{{Key: "n1", Type: nodeType}},
 		Functions: []graph.Function{{Key: nodeType}},
 	}
-	analyzed, _ := graph.Analyze(ctx, g, symbol.NewRoot(nil))
+	analyzed, _ := graph.Analyze(ctx, g, symbol.NewRoot(nil, nil))
 	s := node.New(analyzed)
 	return node.Config{
 		Node:  ir.Node{Type: nodeType},

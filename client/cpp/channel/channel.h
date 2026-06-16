@@ -16,7 +16,7 @@
 #include "x/cpp/telem/telem.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
-#include "core/pkg/api/grpc/channel/channel.pb.h"
+#include "core/pkg/transport/grpc/channel/channel.pb.h"
 
 namespace synnax::channel {
 /// @brief freighter retrieve transport.

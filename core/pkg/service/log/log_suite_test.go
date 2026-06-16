@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,7 +28,7 @@ import (
 
 func TestLog(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Layer Log Suite")
+	RunSpecs(t, "Service Log Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -36,9 +36,9 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db      *gorp.DB
 	otg     *ontology.Ontology
-	imexSvc *imex.Service
-	ws      workspace.Workspace
+	proj    project.Project
 	svc     *log.Service
+	imexSvc *imex.Service
 	tx      gorp.Tx
 )
 
@@ -53,7 +53,7 @@ var (
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
-			workspaceSvc = MustOpen(workspace.OpenService(ctx, workspace.ServiceConfig{
+			projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
@@ -66,7 +66,7 @@ var (
 				Search:   searchIdx,
 			}))
 		)
-		imexSvc = MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
+		imexSvc = imex.NewService()
 		svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -76,8 +76,8 @@ var (
 		author := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 			Username: "test",
 		}))
-		ws.Author = author.Key
-		Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
+		proj.Author = author.Key
+		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

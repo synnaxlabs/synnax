@@ -11,6 +11,10 @@
 
 package spatial
 
+// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
+// such as a container's extent.
+type Decimal = float64
+
 // XLocation is a horizontal-axis location at the left or right edge.
 type XLocation string
 
@@ -18,6 +22,16 @@ const (
 	XLocationLeft  XLocation = "left"
 	XLocationRight XLocation = "right"
 )
+
+// IsValid reports whether x is one of the defined XLocation values.
+func (x XLocation) IsValid() bool {
+	switch x {
+	case XLocationLeft, XLocationRight:
+		return true
+	default:
+		return false
+	}
+}
 
 // YLocation is a vertical-axis location at the top or bottom edge.
 type YLocation string
@@ -27,6 +41,16 @@ const (
 	YLocationBottom YLocation = "bottom"
 )
 
+// IsValid reports whether y is one of the defined YLocation values.
+func (y YLocation) IsValid() bool {
+	switch y {
+	case YLocationTop, YLocationBottom:
+		return true
+	default:
+		return false
+	}
+}
+
 // StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
 // decimal fraction of the container.
 type StickyUnit string
@@ -35,6 +59,16 @@ const (
 	StickyUnitPx      StickyUnit = "px"
 	StickyUnitDecimal StickyUnit = "decimal"
 )
+
+// IsValid reports whether s is one of the defined StickyUnit values.
+func (s StickyUnit) IsValid() bool {
+	switch s {
+	case StickyUnitPx, StickyUnitDecimal:
+		return true
+	default:
+		return false
+	}
+}
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
@@ -47,6 +81,16 @@ const (
 	OuterLocationLeft   OuterLocation = "left"
 )
 
+// IsValid reports whether o is one of the defined OuterLocation values.
+func (o OuterLocation) IsValid() bool {
+	switch o {
+	case OuterLocationTop, OuterLocationRight, OuterLocationBottom, OuterLocationLeft:
+		return true
+	default:
+		return false
+	}
+}
+
 // Direction is a 2D axis direction.
 type Direction string
 
@@ -54,6 +98,16 @@ const (
 	DirectionX Direction = "x"
 	DirectionY Direction = "y"
 )
+
+// IsValid reports whether d is one of the defined Direction values.
+func (d Direction) IsValid() bool {
+	switch d {
+	case DirectionX, DirectionY:
+		return true
+	default:
+		return false
+	}
+}
 
 // AngularDirection is a rotational direction in 2D space.
 type AngularDirection string
@@ -63,12 +117,32 @@ const (
 	AngularDirectionCounterclockwise AngularDirection = "counterclockwise"
 )
 
+// IsValid reports whether a is one of the defined AngularDirection values.
+func (a AngularDirection) IsValid() bool {
+	switch a {
+	case AngularDirectionClockwise, AngularDirectionCounterclockwise:
+		return true
+	default:
+		return false
+	}
+}
+
 // CenterLocation is a location at the center of a container.
 type CenterLocation string
 
 const (
 	CenterLocationCenter CenterLocation = "center"
 )
+
+// IsValid reports whether c is one of the defined CenterLocation values.
+func (c CenterLocation) IsValid() bool {
+	switch c {
+	case CenterLocationCenter:
+		return true
+	default:
+		return false
+	}
+}
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
@@ -82,6 +156,16 @@ const (
 	LocationCenter Location = "center"
 )
 
+// IsValid reports whether l is one of the defined Location values.
+func (l Location) IsValid() bool {
+	switch l {
+	case LocationTop, LocationRight, LocationBottom, LocationLeft, LocationCenter:
+		return true
+	default:
+		return false
+	}
+}
+
 // Alignment is a positioning indicator for aligning content along an axis within a
 // container.
 type Alignment string
@@ -92,6 +176,16 @@ const (
 	AlignmentEnd    Alignment = "end"
 )
 
+// IsValid reports whether a is one of the defined Alignment values.
+func (a Alignment) IsValid() bool {
+	switch a {
+	case AlignmentStart, AlignmentCenter, AlignmentEnd:
+		return true
+	default:
+		return false
+	}
+}
+
 // Order is a positional ordering indicator for elements in a sequence.
 type Order string
 
@@ -99,6 +193,16 @@ const (
 	OrderFirst Order = "first"
 	OrderLast  Order = "last"
 )
+
+// IsValid reports whether o is one of the defined Order values.
+func (o Order) IsValid() bool {
+	switch o {
+	case OrderFirst, OrderLast:
+		return true
+	default:
+		return false
+	}
+}
 
 // Dimension is the name of a 2D size axis.
 type Dimension string
@@ -108,6 +212,16 @@ const (
 	DimensionHeight Dimension = "height"
 )
 
+// IsValid reports whether d is one of the defined Dimension values.
+func (d Dimension) IsValid() bool {
+	switch d {
+	case DimensionWidth, DimensionHeight:
+		return true
+	default:
+		return false
+	}
+}
+
 // SignedDimension is the name of a 2D signed size axis.
 type SignedDimension string
 
@@ -115,6 +229,16 @@ const (
 	SignedDimensionSignedWidth  SignedDimension = "signedWidth"
 	SignedDimensionSignedHeight SignedDimension = "signedHeight"
 )
+
+// IsValid reports whether s is one of the defined SignedDimension values.
+func (s SignedDimension) IsValid() bool {
+	switch s {
+	case SignedDimensionSignedWidth, SignedDimensionSignedHeight:
+		return true
+	default:
+		return false
+	}
+}
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.

@@ -9,7 +9,15 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { control, Schematic, Viewport } from "@synnaxlabs/pluto";
-import { color, control as xControl, migrate, record, sticky, xy } from "@synnaxlabs/x";
+import {
+  color,
+  control as xcontrol,
+  location,
+  migrate,
+  record,
+  sticky,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -26,7 +34,7 @@ export const viewportZ = z.object({
   zoom: z.number(),
   mode: Viewport.modeZ.default("select"),
 });
-export interface ViewportState extends z.infer<typeof viewportZ> {}
+export interface Viewport extends z.infer<typeof viewportZ> {}
 
 export const nodeZ = schematic.nodeZ;
 export type Node = schematic.Node;
@@ -47,18 +55,16 @@ export const legendStateZ = z.object({
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 
-export const pendingUploadZ = schematic.schematicZ
+const pendingUploadZ = schematic.schematicZ
   .omit({ configs: true, name: true })
-  .extend({
-    configs: z.record(z.string(), elementConfigZ),
-  });
-export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
+  .extend({ configs: z.record(z.string(), elementConfigZ) });
+interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = z.object({
   version: z.literal(VERSION),
   selected: z.array(z.string()).default([]),
   controlStatus: control.statusZ,
-  authority: xControl.authorityZ,
+  authority: xcontrol.authorityZ,
   legend: legendStateZ,
   toolbar: v0.toolbarStateZ,
   editable: z.boolean(),
@@ -78,10 +84,7 @@ export const ZERO_STATE: State = {
     position: { x: 50, y: 50, units: { x: "px", y: "px" } },
     colors: {},
   },
-  toolbar: {
-    activeTab: "symbols",
-    selectedSymbolGroup: "general",
-  },
+  toolbar: { activeTab: "symbols", selectedSymbolGroup: "general" },
   editable: false,
   fitViewOnResize: false,
   viewport: { position: xy.ZERO, zoom: 1, mode: "select" },
@@ -94,15 +97,52 @@ export const sliceStateZ = z.object({
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
-export const ZERO_SLICE_STATE: SliceState = {
-  version: VERSION,
-  schematics: {},
-};
+export const ZERO_SLICE_STATE: SliceState = { version: VERSION, schematics: {} };
 
 const migrateNode = (node: v0.Node): Node => {
   const next: Node = { key: node.key, position: node.position };
   if (node.zIndex != null) next.zIndex = node.zIndex;
   return next;
+};
+
+type Segment = Schematic.Edge.Segmented.Segment;
+
+const segmentOrientation = (seg: Segment): location.Outer =>
+  seg.direction === "x"
+    ? seg.length > 0
+      ? "right"
+      : "left"
+    : seg.length > 0
+      ? "bottom"
+      : "top";
+
+const STUMP_LENGTH = Schematic.Edge.Segmented.STUMP_LENGTH;
+
+// An edge whose stumps overlap has no middle to preserve: a single segment shorter than
+// two stumps, or a first/last segment shorter than one stump. Subtracting a full stump
+// from those would flip the segment and fold a spur, so they are cleared to auto-route
+// instead (which handles short, facing handles cleanly).
+const hasNoStrippableMiddle = (segments: Segment[]): boolean =>
+  segments.length === 1
+    ? Math.abs(segments[0].length) <= 2 * STUMP_LENGTH - 0.5
+    : Math.abs(segments[0].length) <= STUMP_LENGTH - 0.5 ||
+      Math.abs(segments[segments.length - 1].length) <= STUMP_LENGTH - 0.5;
+
+// Pre-0.56 edges stored the full path including both stumps; the current model stores
+// only the middle and re-derives stumps on render, so leaving them doubles the stumps
+// and folds a pigtail over the target. The stumps are the first and last segments.
+const stripLegacyStumps = (segments: Segment[]): Segment[] => {
+  if (segments.length === 0) return segments;
+  if (hasNoStrippableMiddle(segments)) return [];
+  const sourceOrientation = segmentOrientation(segments[0]);
+  const targetOrientation = location.swap(
+    segmentOrientation(segments[segments.length - 1]),
+  ) as location.Outer;
+  return Schematic.Edge.Segmented.extractMiddle(
+    segments,
+    sourceOrientation,
+    targetOrientation,
+  );
 };
 
 const migrateEdge = (edge: v0.Edge): [Edge, EdgeConfig] => {
@@ -120,7 +160,7 @@ const migrateEdge = (edge: v0.Edge): [Edge, EdgeConfig] => {
   if (!parseDataResult.success) return [next, edgeConfig];
   const data = parseDataResult.data;
   const segments = z.array(Schematic.Edge.Segmented.segmentZ).safeParse(data.segments);
-  if (segments.success) edgeConfig.segments = segments.data;
+  if (segments.success) edgeConfig.segments = stripLegacyStumps(segments.data);
   const parsedColor = color.colorZ.safeParse(data.color);
   if (parsedColor.success) edgeConfig.color = parsedColor.data;
   const parsedVariant = Schematic.Edge.variantZ.safeParse(data.variant);

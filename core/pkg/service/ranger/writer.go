@@ -103,11 +103,10 @@ func (w Writer) CreateWithParent(
 // CreateMany creates multiple ranges within the DB. If any of the ranges already exist,
 // they will be updated.
 func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
-	for i, r := range *ranges {
-		if err := w.Create(ctx, &r); err != nil {
+	for i := range *ranges {
+		if err := w.Create(ctx, &(*ranges)[i]); err != nil {
 			return err
 		}
-		(*ranges)[i] = r
 	}
 	return nil
 }
@@ -127,11 +126,10 @@ func (w Writer) CreateManyWithParent(
 	if ranges == nil {
 		return nil
 	}
-	for i, r := range *ranges {
-		if err := w.CreateWithParent(ctx, &r, parent); err != nil {
+	for i := range *ranges {
+		if err := w.CreateWithParent(ctx, &(*ranges)[i], parent); err != nil {
 			return err
 		}
-		(*ranges)[i] = r
 	}
 	return nil
 }

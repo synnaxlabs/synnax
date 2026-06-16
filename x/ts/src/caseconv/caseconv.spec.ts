@@ -80,11 +80,19 @@ describe("caseconv", () => {
         ["foo-bar", "foo-bar"],
         ["foo.bar", "foo.bar"],
         ["fooBarBaz.qux", "foo_bar_baz.qux"],
+        ["setXChannel", "set_x_channel"],
+        ["fooXBar", "foo_x_bar"],
+        ["fooXY", "foo_x_y"],
+        ["setXYChannel", "set_x_y_channel"],
       ];
       SPECS.forEach(([input, expected]) => {
         it(`should convert ${input} to ${expected}`, () => {
           expect(caseconv.camelToSnake(input)).toBe(expected);
         });
+      });
+      it("should invert snakeToCamel for single-letter segments", () => {
+        for (const snake of ["set_x_channel", "foo_x_y", "set_x_y_channel"])
+          expect(caseconv.camelToSnake(caseconv.snakeToCamel(snake))).toBe(snake);
       });
     });
     describe("objects", () => {
@@ -163,6 +171,125 @@ describe("caseconv", () => {
       it(`should convert ${input} to ${expected}`, () => {
         expect(caseconv.toProperNoun(input)).toBe(expected);
       });
+    });
+  });
+
+  describe("preserveKeys", () => {
+    const configZ = z.object({
+      variant: z.string(),
+      backgroundColor: z.string().optional(),
+      strokeWidth: z.number().optional(),
+    });
+
+    it("should keep record keys but convert value keys on snakeToCamel", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), configZ)),
+      });
+      const input = {
+        configs: {
+          node_a1: { variant: "box", background_color: "#fff", stroke_width: 2 },
+        },
+      };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1).toBeDefined();
+      expect(configs.node_a1.backgroundColor).toBe("#fff");
+      expect(configs.node_a1.strokeWidth).toBe(2);
+      expect(configs.node_a1.background_color).toBeUndefined();
+    });
+
+    it("should keep record keys but convert value keys on camelToSnake", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), configZ)),
+      });
+      const input = {
+        configs: {
+          nodeA1: { variant: "box", backgroundColor: "#fff", strokeWidth: 2 },
+        },
+      };
+      const result = caseconv.camelToSnake(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.nodeA1).toBeDefined();
+      const value = configs.nodeA1;
+      expect(value.background_color).toBe("#fff");
+      expect(value.stroke_width).toBe(2);
+      expect(value.backgroundColor).toBeUndefined();
+    });
+
+    it("should convert nested arrays inside record values", () => {
+      const valueZ = z.object({
+        segments: z.array(z.object({ direction: z.string() })),
+        textColor: z.string().optional(),
+      });
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), valueZ)),
+      });
+      const input = {
+        configs: {
+          edge_b2: { segments: [{ direction: "x" }], text_color: "#000" },
+        },
+      };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.edge_b2).toBeDefined();
+      expect(configs.edge_b2.textColor).toBe("#000");
+    });
+  });
+
+  describe("preserveKeys traversal", () => {
+    const configZ = z.object({ strokeWidth: z.number().optional() });
+
+    it("should resolve the value schema through optional wrappers", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), configZ).optional()),
+      });
+      const input = { configs: { node_a1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1.strokeWidth).toBe(2);
+    });
+
+    it("should resolve the value schema through pipes", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(
+          z.record(z.string(), configZ).transform((v) => v),
+        ),
+      });
+      const input = { configs: { node_a1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1.strokeWidth).toBe(2);
+    });
+
+    it("should resolve the value schema through unions, skipping non-records", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(
+          z.union([z.null(), z.record(z.string(), configZ)]),
+        ),
+      });
+      const input = { configs: { node_a1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1.strokeWidth).toBe(2);
+    });
+
+    it("should preserve keys with primitive record values", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.record(z.string(), z.number())),
+      });
+      const input = { configs: { node_a1: 5 } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      expect((result.configs as Record<string, number>).node_a1).toBe(5);
+    });
+
+    it("should preserve keys when no value schema is resolvable", () => {
+      const schema = z.object({
+        configs: caseconv.preserveKeys(z.unknown()),
+      });
+      const input = { configs: { node_a1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.node_a1).toBeDefined();
     });
   });
 

@@ -52,6 +52,16 @@ const (
 	TimestampFormatDateTime    TimestampFormat = "dateTime"
 )
 
+// IsValid reports whether t is one of the defined TimestampFormat values.
+func (t TimestampFormat) IsValid() bool {
+	switch t {
+	case TimestampFormatISO, TimestampFormatISODate, TimestampFormatTime, TimestampFormatPreciseTime, TimestampFormatDate, TimestampFormatPreciseDate, TimestampFormatDateTime:
+		return true
+	default:
+		return false
+	}
+}
+
 // TimeZone is the time zone used when rendering timestamps.
 type TimeZone string
 
@@ -59,6 +69,16 @@ const (
 	TimeZoneLocal TimeZone = "local"
 	TimeZoneUTC   TimeZone = "UTC"
 )
+
+// IsValid reports whether t is one of the defined TimeZone values.
+func (t TimeZone) IsValid() bool {
+	switch t {
+	case TimeZoneLocal, TimeZoneUTC:
+		return true
+	default:
+		return false
+	}
+}
 
 // TimeRange is a time interval defined by a start and end timestamp. The range is
 // start-inclusive and end-exclusive, following standard interval conventions for

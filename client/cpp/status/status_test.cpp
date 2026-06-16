@@ -307,4 +307,109 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
     EXPECT_EQ(retrieved.details.critical, false);
 }
 
+// Unique suffix per test to avoid cross-run contamination on a shared cluster.
+static std::string unique_name(const std::string &prefix) {
+    return prefix + std::to_string(
+                        static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds())
+                    );
+}
+
+/// @brief set_by_key_or_name upserts a fresh row by name.
+TEST(StatusTest, SetByKeyOrNameCreatesNewByName) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_create_");
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "hello", "info")
+    );
+    EXPECT_FALSE(res.key.empty());
+    EXPECT_FALSE(res.multiple_matches);
+
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
+    EXPECT_EQ(retrieved.name, name);
+    EXPECT_EQ(retrieved.message, "hello");
+    EXPECT_EQ(retrieved.variant, "info");
+}
+
+/// @brief set_by_key_or_name updates an existing row by name.
+TEST(StatusTest, SetByKeyOrNameUpdatesByName) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_update_name_");
+
+    const auto preset = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "initial", "info")
+    );
+
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "updated", "warning")
+    );
+    EXPECT_EQ(res.key, preset.key);
+    EXPECT_FALSE(res.multiple_matches);
+
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
+    EXPECT_EQ(retrieved.message, "updated");
+    EXPECT_EQ(retrieved.variant, "warning");
+}
+
+/// @brief set_by_key_or_name updates an existing row when passed a UUID.
+TEST(StatusTest, SetByKeyOrNameUpdatesByUUID) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_update_uuid_");
+
+    const auto preset = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "initial", "info")
+    );
+
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(preset.key, "via uuid", "error")
+    );
+    EXPECT_EQ(res.key, preset.key);
+    EXPECT_FALSE(res.multiple_matches);
+
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(res.key));
+    EXPECT_EQ(retrieved.message, "via uuid");
+    EXPECT_EQ(retrieved.variant, "error");
+}
+
+/// @brief set_by_key_or_name reports multipleMatches on by-name multi-match.
+TEST(StatusTest, SetByKeyOrNameMultiMatch) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_multi_");
+
+    // Use the lower-level set() API to create two distinct rows that share a name.
+    Status a, b;
+    a.key = "by_kon_multi_a_" +
+            std::to_string(
+                static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds())
+            );
+    a.name = name;
+    a.variant = "info";
+    a.message = "first";
+    a.time = x::telem::TimeStamp::now();
+    b.key = "by_kon_multi_b_" +
+            std::to_string(
+                static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds()) + 1
+            );
+    b.name = name;
+    b.variant = "info";
+    b.message = "second";
+    b.time = x::telem::TimeStamp::now();
+    ASSERT_NIL(client.statuses.set(a));
+    ASSERT_NIL(client.statuses.set(b));
+
+    const auto res = ASSERT_NIL_P(
+        client.statuses.set_by_key_or_name(name, "updated", "warning")
+    );
+    EXPECT_TRUE(res.multiple_matches);
+    EXPECT_TRUE(res.key == a.key || res.key == b.key);
+}
+
+/// @brief set_by_key_or_name returns an error when the variant is invalid.
+TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_iv_");
+    auto [res, err] = client.statuses.set_by_key_or_name(name, "x", "bogus");
+    EXPECT_FALSE(err.ok());
+    EXPECT_TRUE(res.key.empty());
+}
+
 }

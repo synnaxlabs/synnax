@@ -217,7 +217,7 @@ var _ = Describe("Codec", func() {
 			m := map[string]any{"key": "value"}
 			b := MustSucceed(vmsgpack.Marshal(m))
 			dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-			dec.SetMapDecoder(func(dec *vmsgpack.Decoder) (interface{}, error) {
+			dec.SetMapDecoder(func(dec *vmsgpack.Decoder) (any, error) {
 				return dec.DecodeUntypedMap()
 			})
 			var result msgpack.EncodedJSON
@@ -244,7 +244,7 @@ var _ = Describe("Codec", func() {
 			var result msgpack.EncodedJSON
 			Expect(vmsgpack.Unmarshal(b, &result)).To(Succeed())
 			Expect(result).ToNot(BeNil())
-			Expect(result).To(HaveLen(0))
+			Expect(result).To(BeEmpty())
 		})
 		It("Should decode an empty string struct field to an empty map", func() {
 			type OldConfig struct {
@@ -261,7 +261,7 @@ var _ = Describe("Codec", func() {
 			Expect(vmsgpack.Unmarshal(b, &result)).To(Succeed())
 			Expect(result.Name).To(Equal("test"))
 			Expect(result.Schema).ToNot(BeNil())
-			Expect(result.Schema).To(HaveLen(0))
+			Expect(result.Schema).To(BeEmpty())
 		})
 		It("Should return an error for an invalid JSON string", func() {
 			b := MustSucceed(vmsgpack.Marshal("not valid json"))
@@ -277,7 +277,7 @@ var _ = Describe("Codec", func() {
 			m := map[int]string{1: "a"}
 			b := MustSucceed(vmsgpack.Marshal(m))
 			dec := vmsgpack.NewDecoder(bytes.NewReader(b))
-			dec.SetMapDecoder(func(dec *vmsgpack.Decoder) (interface{}, error) {
+			dec.SetMapDecoder(func(dec *vmsgpack.Decoder) (any, error) {
 				return dec.DecodeUntypedMap()
 			})
 			var result msgpack.EncodedJSON

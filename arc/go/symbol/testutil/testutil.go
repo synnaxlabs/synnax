@@ -28,13 +28,14 @@ import (
 // internally) so tests can pass their per-test []symbol.Symbol resolver
 // slices directly without a conversion loop.
 func NewRoot(resolver symbol.Resolver, extras ...symbol.Symbol) *symbol.Symbol {
-	syms := make([]*symbol.Symbol, 0, len(stl.Symbols)+len(extras))
-	syms = append(syms, stl.Symbols...)
+	stlSyms := stl.NewSymbols()
+	syms := make([]*symbol.Symbol, 0, len(stlSyms)+len(extras))
+	syms = append(syms, stlSyms...)
 	for i := range extras {
 		s := extras[i]
 		syms = append(syms, &s)
 	}
-	return symbol.NewRoot(resolver, syms...)
+	return symbol.NewRoot(resolver, syms)
 }
 
 // NewGraphRoot is NewRoot plus symbol.AutoImportModules. Graph-mode tests

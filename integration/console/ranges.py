@@ -14,7 +14,7 @@ from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.tree import Tree
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 from x.color import Color
 
 
@@ -621,7 +621,7 @@ class RangesClient:
             download_button.click()
 
         download = download_info.value
-        save_path = get_results_path(f"{range_name}.csv")
+        save_path = resolve_results_path(f"{range_name}.csv")
         download.save_as(save_path)
         with open(save_path, "r") as f:
             return f.read()
@@ -1252,15 +1252,15 @@ class RangesClient:
     def snapshot_to_active_range(self, name: str, range_name: str) -> None:
         """Snapshot a page or task to the active range via context menu.
 
-        Searches the workspace tree first (for schematics, line plots, etc.),
+        Searches the project tree first (for schematics, line plots, etc.),
         then falls back to the task toolbar (for hardware tasks).
 
         Args:
             name: Name of the page or task to snapshot.
             range_name: Name of the active range (for menu text matching).
         """
-        self.layout.show_resource_toolbar("workspace")
-        self.tree.expand_root("workspace:")
+        self.layout.show_resource_toolbar("project")
+        self.tree.expand_root("project:")
         page_item = (
             self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
         )

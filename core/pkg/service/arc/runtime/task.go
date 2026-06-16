@@ -13,33 +13,33 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	stlchannels "github.com/synnaxlabs/arc/stl/channels"
+	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/stl/constant"
 	stlcontrol "github.com/synnaxlabs/arc/stl/control"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
-	stlmath "github.com/synnaxlabs/arc/stl/math"
-	stlop "github.com/synnaxlabs/arc/stl/op"
+	"github.com/synnaxlabs/arc/stl/math"
+	"github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stateful"
-	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/stl/wasm"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -48,7 +48,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
-	"github.com/synnaxlabs/x/status"
+	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
 	"go.uber.org/zap"
@@ -91,16 +91,16 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		return nil
 	}
 	drt := dataRuntime{}
-	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel.Service, *t.prog.Program)
+	deps, err := NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
 
-	drt.state.nodes = node.New(stateCfg.IR)
-	drt.state.channel = stlchannels.NewProgramState(stateCfg.ChannelDigests)
+	drt.state.nodes = node.New(t.prog.Program.IR)
+	drt.state.channel = channels.NewProgramState(deps.ChannelDigests)
 	drt.state.series = series.NewProgramState()
-	drt.state.strings = stlstrings.NewProgramState()
+	drt.state.strings = strings.NewProgramState()
 	drt.state.authority = &stlcontrol.ProgramState{}
 
 	var closers xio.MultiCloser
@@ -120,36 +120,46 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 
 	timeMod, err := time.NewHost(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
-	channelMod, err := stlchannels.NewHost(ctx, wasmRT, drt.state.channel, drt.state.strings)
+	channelMod, err := channels.NewHost(ctx, wasmRT, drt.state.channel, drt.state.strings)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
 	statefulMod, err := stateful.NewHost(ctx, wasmRT, drt.state.series, drt.state.strings)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
 	if _, err = series.NewHost(ctx, wasmRT, drt.state.series); err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
-	stringsMod, err := stlstrings.NewHost(ctx, wasmRT, drt.state.strings, nil)
+	stringsMod, err := strings.NewHost(ctx, wasmRT, drt.state.strings, nil)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
-	mathMod, err := stlmath.NewHost(ctx, wasmRT)
+	mathMod, err := math.NewHost(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		return err
+	}
+	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+		Status:   t.factoryCfg.Status,
+		Strings:  drt.state.strings,
+		Runtime:  wasmRT,
+		Reporter: t.reporter(),
+	})
+	if err != nil {
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
 
@@ -159,9 +169,9 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		timeMod,
 		selector.NewHost(),
 		constant.NewHost(),
-		stlop.NewHost(),
+		op.NewHost(),
 		stable.NewHost(),
-		arcstatus.NewModule(t.factoryCfg.Status),
+		statusMod,
 		stlcontrol.NewHost(drt.state.authority),
 		mathMod,
 	}
@@ -169,7 +179,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	if len(t.prog.Program.WASM) > 0 {
 		guest, guestErr := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
 		if guestErr != nil {
-			t.setStatus(ctx, status.VariantError, false, guestErr.Error())
+			t.setStatus(ctx, xstatus.VariantError, false, guestErr.Error())
 			return guestErr
 		}
 		stringsMod.SetMemory(guest.Memory())
@@ -193,7 +203,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
 		if nodeErr != nil {
-			t.setStatus(ctx, status.VariantError, false, nodeErr.Error())
+			t.setStatus(ctx, xstatus.VariantError, false, nodeErr.Error())
 			return nodeErr
 		}
 		nodes[irNode.Key] = n
@@ -212,28 +222,27 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	}))
 
 	drt.startTime = telem.Now()
-	drt.writeKeys = stateCfg.Writes.Slice()
+	drt.writeKeys = deps.Writes.Slice()
 
 	pipeline := plumber.New()
 
-	var runtime confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = &drt
-	if hasIntervals := timeMod.BaseInterval != telem.TimeSpan(math.MaxInt64); hasIntervals {
-		runtime = &tickerRuntime{dataRuntime: drt}
-	}
-	plumber.SetSegment(pipeline, runtimeAddr, runtime)
+	// The ticker's t=0 startup tick fires entry nodes; an input-driven program
+	// would otherwise not fire them until the first input is received.
+	ticker := &tickerRuntime{dataRuntime: drt}
+	plumber.SetSegment(pipeline, runtimeAddr, ticker)
 
 	var (
 		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
 		streamerCloseSignal io.Closer
 	)
-	if len(stateCfg.Reads) > 0 {
+	if len(deps.Reads) > 0 {
 		var streamer framer.Streamer
 		streamer, err = t.factoryCfg.Framer.NewStreamer(
 			ctx,
-			framer.StreamerConfig{Keys: stateCfg.Reads.Slice()},
+			framer.StreamerConfig{Keys: deps.Reads.Slice()},
 		)
 		if err != nil {
-			t.setStatus(ctx, status.VariantError, false, err.Error())
+			t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, streamerAddr, streamer)
@@ -242,14 +251,14 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
 	} else {
 		streamerResponses := confluence.NewStream[framer.StreamerResponse]()
-		runtime.InFrom(streamerResponses)
+		ticker.InFrom(streamerResponses)
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerResponses.Close)
 	}
 
-	if len(stateCfg.Writes) > 0 {
+	if len(deps.Writes) > 0 {
 		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
-		writeKeys := stateCfg.Writes.Slice()
+		writeKeys := deps.Writes.Slice()
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,
@@ -267,7 +276,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		var wrt framer.StreamWriter
 		wrt, err = t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
-			t.setStatus(ctx, status.VariantError, false, err.Error())
+			t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, writerAddr, wrt)
@@ -280,7 +289,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 						zap.Int("seqNum", res.SeqNum),
 						zap.Error(res.Err),
 					)
-					t.setStatus(ctx, status.VariantError, false, res.Err.Error())
+					t.setStatus(ctx, xstatus.VariantError, false, res.Err.Error())
 					return res.Err
 				} else if !res.Authorized {
 					t.factoryCfg.L.Warn("unauthorized writer response",
@@ -309,7 +318,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		confluence.RecoverWithErrOnPanic(),
 		confluence.CancelOnFail(),
 	)
-	t.setStatus(ctx, status.VariantSuccess, true, "Task started successfully")
+	t.setStatus(ctx, xstatus.VariantSuccess, true, "Task started successfully")
 	return nil
 }
 
@@ -323,14 +332,20 @@ func (t *taskImpl) Stop() error {
 	// https://linear.app/synnax/issue/SY-4002/refactor-usages-of-contextcontext
 	ctx := context.TODO()
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err
 	}
-	t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
+	t.setStatus(ctx, xstatus.VariantSuccess, false, "Task stopped successfully")
 	return nil
 }
 
-func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
+func (t *taskImpl) reporter() taskreporter.Reporter {
+	return func(ctx context.Context, variant xstatus.Variant, message string) {
+		t.setStatus(ctx, variant, t.isRunning(), fmt.Sprintf("[%s] %s", t.task.Name, message))
+	}
+}
+
+func (t *taskImpl) setStatus(ctx context.Context, variant xstatus.Variant, running bool, message string) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
 		Variant: variant,
@@ -338,7 +353,7 @@ func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, runnin
 		Time:    telem.Now(),
 		Details: task.StatusDetails{Task: t.task.Key, Running: running},
 	}
-	if err := svcstatus.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
+	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for taskImpl",
 			zap.Uint64("key", uint64(t.task.Key)),
@@ -355,22 +370,22 @@ func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err erro
 	}
 	stat := task.Status{
 		Key:         task.OntologyID(t.task.Key).String(),
-		Variant:     status.VariantWarning,
+		Variant:     xstatus.VariantWarning,
 		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
 		Description: err.Error(),
 		Time:        telem.Now(),
 		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
 	}
-	if setErr := svcstatus.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); setErr != nil {
+	if setErr := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
 }
 
 type state struct {
 	nodes     *node.ProgramState
-	channel   *stlchannels.ProgramState
+	channel   *channels.ProgramState
 	series    *series.ProgramState
-	strings   *stlstrings.ProgramState
+	strings   *strings.ProgramState
 	authority *stlcontrol.ProgramState
 }
 
@@ -378,7 +393,7 @@ type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
 	startTime telem.TimeStamp
 	scheduler *scheduler.Scheduler
-	writeKeys distchannel.Keys
+	writeKeys channel.Keys
 	state     state
 }
 
@@ -415,7 +430,7 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	cfg := writer.Config{}
 	for _, change := range changes {
 		if change.Channel != nil {
-			cfg.Keys = append(cfg.Keys, distchannel.Key(*change.Channel))
+			cfg.Keys = append(cfg.Keys, channel.Key(*change.Channel))
 			cfg.Authorities = append(cfg.Authorities, control.Authority(change.Authority))
 		} else {
 			cfg.Keys = append(cfg.Keys, d.writeKeys...)
@@ -426,16 +441,6 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	}
 	req := framer.WriterRequest{Command: writer.CommandSetAuthority, Config: cfg}
 	return signal.SendUnderContext(ctx, d.Out.Inlet(), req)
-}
-
-func (d *dataRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
-	o := confluence.NewOptions(opts)
-	if d.Out != nil {
-		o.AttachClosables(d.Out)
-	}
-	signal.GoRange(sCtx, d.In.Outlet(), func(ctx context.Context, res framer.StreamerResponse) error {
-		return d.next(ctx, res, node.ReasonChannelInput)
-	}, o.Signal...)
 }
 
 type tickerRuntime struct {
@@ -501,7 +506,7 @@ const DefaultAuthority = control.AuthorityAbsolute
 // returns the authorities array aligned with writeKeys.
 func buildAuthorities(
 	auth ir.Authorities,
-	writeKeys distchannel.Keys,
+	writeKeys channel.Keys,
 ) []control.Authority {
 	if auth.Default == nil && len(auth.Channels) == 0 {
 		return []control.Authority{DefaultAuthority}
@@ -516,7 +521,7 @@ func buildAuthorities(
 	}
 	for key, value := range auth.Channels {
 		for i, wk := range writeKeys {
-			if wk == distchannel.Key(key) {
+			if wk == channel.Key(key) {
 				authorities[i] = control.Authority(value)
 				break
 			}

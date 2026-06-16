@@ -68,13 +68,7 @@ class Client:
             return results
 
         req = _ResolveRequest(range=self._rng, aliases=to_fetch)
-        res, exc = self._client.send("/range/alias/resolve", req, _ResolveResponse)
-        if exc is not None:
-            raise exc
-        if res is None:
-            if is_single:
-                raise KeyError(f"Alias not found: {aliases}")
-            return results
+        res = self._client.send("/range/alias/resolve", req, _ResolveResponse)
 
         for alias, key in res.aliases.items():
             self._cache[alias] = key
@@ -85,6 +79,4 @@ class Client:
 
     def set(self, aliases: dict[channel.Key, str]) -> None:
         req = _SetRequest(range=self._rng, aliases=aliases)
-        res, exc = self._client.send("/range/alias/set", req, _EmptyResponse)
-        if exc is not None:
-            raise exc
+        self._client.send("/range/alias/set", req, _EmptyResponse)

@@ -109,9 +109,7 @@ TSRange struct extends Range {
 New struct extends TSRange {
     -parent
     -labels
-    key Key? {
-        @doc value "is an optional key for the range. If not provided, one will be automatically assigned."
-    }
+    key?
 
     @doc value "contains parameters for creating a new range."
     @ts {

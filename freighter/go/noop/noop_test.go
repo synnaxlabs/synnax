@@ -26,10 +26,6 @@ var _ = Describe("Noop", func() {
 			server = noop.UnaryServer[string, string]{}
 		})
 
-		It("should satisfy the freighter.UnaryServer interface", func() {
-			var _ freighter.UnaryServer[string, string] = &server
-		})
-
 		It("should accept middleware without panicking", func() {
 			Expect(func() {
 				server.Use(freighter.MiddlewareFunc(func(
@@ -53,7 +49,7 @@ var _ = Describe("Noop", func() {
 
 		It("should accept a handler without panicking", func() {
 			Expect(func() {
-				server.BindHandler(func(ctx context.Context, req string) (string, error) {
+				server.BindHandler(func(_ context.Context, req string) (string, error) {
 					return req, nil
 				})
 			}).ToNot(Panic())
@@ -71,10 +67,6 @@ var _ = Describe("Noop", func() {
 
 		BeforeEach(func() {
 			server = noop.StreamServer[string, string]{}
-		})
-
-		It("should satisfy the freighter.StreamServer interface", func() {
-			var _ freighter.StreamServer[string, string] = &server
 		})
 
 		It("should accept middleware without panicking", func() {
@@ -101,8 +93,8 @@ var _ = Describe("Noop", func() {
 		It("should accept a handler without panicking", func() {
 			Expect(func() {
 				server.BindHandler(func(
-					ctx context.Context,
-					stream freighter.ServerStream[string, string],
+					context.Context,
+					freighter.ServerStream[string, string],
 				) error {
 					return nil
 				})

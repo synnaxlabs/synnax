@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"context"
+	"slices"
 
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
@@ -55,13 +56,14 @@ func newRuntimeHarness(
 	channelSyms []symbol.Symbol,
 	channelDigests ...channels.Digest,
 ) *runtimeHarness {
-	ambient := make([]*symbol.Symbol, 0, len(stl.Symbols)+len(channelSyms))
-	ambient = append(ambient, stl.Symbols...)
+	stlSyms := stl.NewSymbols()
+	ambient := make([]*symbol.Symbol, 0, len(stlSyms)+len(channelSyms))
+	ambient = append(ambient, stlSyms...)
 	for i := range channelSyms {
 		s := channelSyms[i]
 		ambient = append(ambient, &s)
 	}
-	root := symbol.NewRoot(nil, ambient...)
+	root := symbol.NewRoot(nil, ambient)
 	prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: source}, root))
 
 	nodeState := node.New(prog.IR)
@@ -135,8 +137,8 @@ func newRuntimeHarness(
 }
 
 func (h *runtimeHarness) Close(ctx context.Context) {
-	for i := len(h.closers) - 1; i >= 0; i-- {
-		Expect(h.closers[i](ctx)).To(Succeed())
+	for _, v := range slices.Backward(h.closers) {
+		Expect(v(ctx)).To(Succeed())
 	}
 }
 

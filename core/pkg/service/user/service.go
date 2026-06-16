@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -35,7 +35,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology will be used to create relationships between users and other resources,
-	// such as workspaces, within the Synnax cluster.
+	// such as projects, within the Synnax cluster.
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology

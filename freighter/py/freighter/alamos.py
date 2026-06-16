@@ -20,14 +20,21 @@ def instrumentation_middleware(instrumentation: Instrumentation) -> Middleware:
     :param instrumentation: the instrumentation to use for logging and tracing.
     """
 
-    def _middleware(ctx: Context, next_: Next) -> tuple[Context, Exception | None]:
-        with instrumentation.T.debug(ctx.target) as span:
-            if ctx.role == "client":
-                instrumentation.T.propagate(ctx)
-            res, exc = next_(ctx)
-            span.record_exception(exc)
-        _log(ctx, instrumentation, exc)
-        return res, exc
+    def _middleware(ctx: Context, next_: Next) -> Context:
+        exc: Exception | None = None
+        try:
+            with instrumentation.T.debug(ctx.target) as span:
+                if ctx.role == "client":
+                    instrumentation.T.propagate(ctx)
+                try:
+                    return next_(ctx)
+                except Exception as e:
+                    exc = e
+                    raise
+                finally:
+                    span.record_exception(exc)
+        finally:
+            _log(ctx, instrumentation, exc)
 
     return _middleware
 
@@ -42,16 +49,21 @@ def async_instrumentation_middleware(
     :param instrumentation: the instrumentation to use for logging and tracing.
     """
 
-    async def _middleware(
-        context: Context, next_: AsyncNext
-    ) -> tuple[Context, Exception | None]:
+    async def _middleware(context: Context, next_: AsyncNext) -> Context:
         if context.role == "client":
             instrumentation.T.propagate(context)
-        with instrumentation.T.trace(context.target, "debug") as span:
-            res, exc = await next_(context)
-            span.record_exception(exc)
-        _log(context, instrumentation, exc)
-        return res, exc
+        exc: Exception | None = None
+        try:
+            with instrumentation.T.trace(context.target, "debug") as span:
+                try:
+                    return await next_(context)
+                except Exception as e:
+                    exc = e
+                    raise
+                finally:
+                    span.record_exception(exc)
+        finally:
+            _log(context, instrumentation, exc)
 
     return _middleware
 

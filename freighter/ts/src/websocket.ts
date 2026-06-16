@@ -56,34 +56,32 @@ class WebSocketStream<
     this.listenForMessages();
   }
 
-  async receiveOpenAck(): Promise<Error | null> {
+  async receiveOpenAck(): Promise<void> {
     const msg = await this.receiveMsg();
-    if (msg.type !== "open") {
-      if (msg.error == null) throw new Error("Message error must be defined");
-      return errors.decode(msg.error);
-    }
-    return null;
+    if (msg.type === "open") return;
+    if (msg.error == null) throw new Error("Message error must be defined");
+    const err = errors.decode(msg.error);
+    throw err ?? new Error(`Unexpected open-ack message type: ${msg.type}`);
   }
 
   /** Implements the Stream protocol */
-  send(req: z.input<RQ> | z.infer<RQ>): Error | null {
-    if (this.serverClosed != null) return new EOF();
+  send(req: z.input<RQ> | z.infer<RQ>): void {
+    if (this.serverClosed != null) throw new EOF();
     if (this.sendClosed) throw new StreamClosed();
     this.ws.send(this.codec.encode({ type: "data", payload: req }));
-    return null;
   }
 
   /** Implements the Stream protocol */
-  async receive(): Promise<[z.infer<RS>, null] | [null, Error]> {
-    if (this.serverClosed != null) return [null, this.serverClosed];
+  async receive(): Promise<z.infer<RS>> {
+    if (this.serverClosed != null) throw this.serverClosed;
     const msg = await this.receiveMsg();
     if (msg.type === "close") {
       if (msg.error == null) throw new Error("Message error must be defined");
       this.serverClosed = errors.decode(msg.error);
       if (this.serverClosed == null) throw new Error("Message error must be defined");
-      return [null, this.serverClosed];
+      throw this.serverClosed;
     }
-    return [this.resSchema.parse(msg.payload), null];
+    return this.resSchema.parse(msg.payload);
   }
 
   /** Implements the Stream protocol */
@@ -177,19 +175,16 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     resSchema: RS,
   ): Promise<Stream<RQ, RS>> {
     let stream: Stream<RQ, RS> | undefined;
-    const [, error] = await this.executeMiddleware(
+    await this.executeMiddleware(
       { target, protocol: "websocket", params: {}, role: "client" },
-      async (ctx: Context): Promise<[Context, Error | null]> => {
+      async (ctx: Context): Promise<Context> => {
         const ws = new WebSocket(this.buildURL(target, ctx));
         const outCtx: Context = { ...ctx, params: {} };
         ws.binaryType = WebSocketClient.MESSAGE_TYPE;
-        const streamOrErr = await this.wrapSocket(ws, reqSchema, resSchema);
-        if (streamOrErr instanceof Error) return [outCtx, streamOrErr];
-        stream = streamOrErr;
-        return [outCtx, null];
+        stream = await this.wrapSocket(ws, reqSchema, resSchema);
+        return outCtx;
       },
     );
-    if (error != null) throw error;
     return stream as Stream<RQ, RS>;
   }
 
@@ -208,21 +203,18 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     ws: WebSocket,
     reqSchema: RQ,
     resSchema: RS,
-  ): Promise<WebSocketStream<RQ, RS> | Error> {
-    return await new Promise((resolve) => {
+  ): Promise<WebSocketStream<RQ, RS>> {
+    return await new Promise((resolve, reject) => {
       ws.onopen = () => {
         const oWs = new WebSocketStream<RQ, RS>(ws, this.encoder, reqSchema, resSchema);
         oWs
           .receiveOpenAck()
-          .then((err) => {
-            if (err != null) resolve(err);
-            else resolve(oWs);
-          })
-          .catch((err: Error) => resolve(err));
+          .then(() => resolve(oWs))
+          .catch((err: unknown) => reject(errors.fromUnknown(err)));
       };
       ws.onerror = (ev: Event) => {
         const ev_ = ev as ErrorEvent;
-        resolve(new Error(ev_.message));
+        reject(new Error(ev_.message ?? "websocket error", { cause: ev_.error ?? ev }));
       };
     });
   }

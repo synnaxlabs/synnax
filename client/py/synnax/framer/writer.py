@@ -208,14 +208,8 @@ class Writer:
             auto_index_persist_interval=auto_index_persist_interval,
             auto_index=auto_index,
         )
-        exc = self._stream.send(
-            WriterRequest(command=WriterCommand.OPEN, config=config)
-        )
-        if exc is not None:
-            raise exc
-        _, exc = self._stream.receive()
-        if exc is not None:
-            raise exc
+        self._stream.send(WriterRequest(command=WriterCommand.OPEN, config=config))
+        self._stream.receive()
 
     @overload
     def write(
@@ -434,28 +428,32 @@ class Writer:
                 if isinstance(self._close_exc, WriterClosed):
                     return
                 raise self._close_exc
-            res, recv_exc = self._stream.receive()
-            if recv_exc is not None:
-                self._close_exc = (
-                    WriterClosed() if isinstance(recv_exc, EOF) else recv_exc
-                )
-            elif res is not None:
-                self._close_exc = decode_exception(res.err)
+            try:
+                res = self._stream.receive()
+            except EOF:
+                self._close_exc = WriterClosed()
+                continue
+            except Exception as recv_exc:
+                self._close_exc = recv_exc
+                continue
+            self._close_exc = decode_exception(res.err)
 
     def _exec(
         self, req: WriterRequest, timeout: int | None = None
     ) -> WriterResponse | None:
-        send_exc = self._stream.send(req)
-        if send_exc is not None:
+        try:
+            self._stream.send(req)
+        except Exception as send_exc:
             self._close(send_exc)
             return None
         while True:
-            res, recv_exc = self._stream.receive(timeout)
-            if recv_exc is not None:
+            try:
+                res = self._stream.receive(timeout)
+            except TimeoutError:
+                raise
+            except Exception as recv_exc:
                 self._close(recv_exc)
                 return None
-            if res is None:
-                continue
             decoded_exc = decode_exception(res.err)
             if decoded_exc is not None:
                 self._close(decoded_exc)

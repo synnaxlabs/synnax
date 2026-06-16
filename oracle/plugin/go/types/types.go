@@ -75,6 +75,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		MergeByName:     false,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
+		CollectUnions:   true,
 	}
 	return gen.Generate(req)
 }
@@ -83,7 +84,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type goFileGenerator struct{}
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := GenerateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table, ctx.RepoRoot)
+	content, err := GenerateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table, ctx.RepoRoot)
 	if err != nil {
 		return "", err
 	}
@@ -99,6 +100,7 @@ func GenerateGoFile(
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
+	unions []resolution.Type,
 	table *resolution.Table,
 	repoRoot string,
 	importOverrides ...map[string]string,
@@ -106,6 +108,8 @@ func GenerateGoFile(
 	namespace := ""
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
+	} else if len(unions) > 0 {
+		namespace = unions[0].Namespace
 	} else if len(typeDefs) > 0 {
 		namespace = typeDefs[0].Namespace
 	} else if len(enums) > 0 {
@@ -162,6 +166,13 @@ func GenerateGoFile(
 			continue
 		}
 		data.Structs = append(data.Structs, processStruct(entry, data))
+	}
+
+	for _, entry := range unions {
+		if omit.IsType(entry, "go") {
+			continue
+		}
+		data.Unions = append(data.Unions, processUnion(entry, data))
 	}
 
 	var buf bytes.Buffer
@@ -277,18 +288,12 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 	sd.IsGeneric = len(sd.TypeParams) > 0
 
 	if len(form.Extends) > 0 {
-		if len(form.OmittedFields) > 0 {
-			for _, field := range resolution.UnifiedFields(entry, data.table) {
-				sd.Fields = append(sd.Fields, processField(field, data))
-			}
-			sd.ExtraFields = domain.GetAllStringsFromType(entry, "go", "fields")
-			for _, imp := range domain.GetAllStringsFromType(entry, "go", "imports") {
-				data.imports.AddExternal(imp)
-			}
-			return sd
-		}
-
-		if resolver.HasFieldConflicts(form.Extends, data.table) {
+		// Flatten (rather than embed the parent) when fields are omitted, parents
+		// conflict, or a field removes an inherited domain — none can be expressed
+		// through Go struct embedding.
+		if len(form.OmittedFields) > 0 ||
+			resolver.HasFieldConflicts(form.Extends, data.table) ||
+			resolver.HasDomainOmissions(form) {
 			for _, field := range resolution.UnifiedFields(entry, data.table) {
 				sd.Fields = append(sd.Fields, processField(field, data))
 			}
@@ -439,6 +444,7 @@ type templateData struct {
 	Structs    []structData
 	Enums      []enumData
 	TypeDefs   []typeDefData
+	Unions     []unionData
 }
 
 // HasImports returns true if any imports are needed.
@@ -494,6 +500,10 @@ type enumData struct {
 	IsIntEnum   bool
 	StartsAtOne bool
 }
+
+// Receiver returns the single-letter, lowercased method receiver name for the enum type
+// (e.g. "n" for Notation).
+func (e enumData) Receiver() string { return strings.ToLower(e.Name[:1]) }
 
 type enumValueData struct {
 	Name     string
@@ -552,7 +562,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- if $enum.IsIntEnum}}
 type {{$enum.Name}} uint8
 
-//go:generate stringer -type={{$enum.Name}}
+{{"//"}}go:generate stringer -type={{$enum.Name}}
 
 const (
 {{- range $i, $v := $enum.Values}}
@@ -574,6 +584,18 @@ const (
 	{{$enum.Name}}{{.Name}} {{$enum.Name}} = "{{.Value}}"
 {{- end}}
 )
+{{- if $enum.Values}}
+
+// IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}} values.
+func ({{$enum.Receiver}} {{$enum.Name}}) IsValid() bool {
+	switch {{$enum.Receiver}} {
+	case {{range $i, $v := $enum.Values}}{{if $i}}, {{end}}{{$enum.Name}}{{$v.Name}}{{end}}:
+		return true
+	default:
+		return false
+	}
+}
+{{- end}}
 {{- end}}
 {{- end}}
 {{range .Structs}}
@@ -610,5 +632,98 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- end}}
 }
 {{end -}}
+{{end -}}
+{{- range .Unions}}
+{{- $u := .}}
+
+type {{.DiscType}} string
+
+const (
+{{- range .Variants}}
+	{{.ConstName}} {{$u.DiscType}} = "{{.Value}}"
+{{- end}}
+)
+
+type {{.InterfaceName}} interface {
+	{{.Marker}}()
+}
+{{range .Variants}}
+{{- if .Doc}}
+{{formatDoc .TypeName .Doc}}
+{{- end}}
+type {{.TypeName}} struct {
+{{- range .Embeds}}
+	{{.}}
+{{- end}}
+{{- range .Fields}}
+{{- if .Doc}}
+	{{formatDoc .GoName .Doc | printf "%s"}}
+{{- end}}
+	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.TagSuffix}}" msgpack:"{{.JSONName}}{{.TagSuffix}}"` + "`" + `
+{{- end}}
+}
+
+func ({{.TypeName}}) {{$u.Marker}}() {}
+{{end -}}
+{{if .Doc}}{{formatDoc .Name .Doc}}
+{{end -}}
+type {{.Name}} struct {
+	Variant {{.InterfaceName}}
+}
+
+func (u {{.Name}}) MarshalJSON() ([]byte, error) {
+	if u.Variant == nil {
+		return []byte("null"), nil
+	}
+	var t {{.DiscType}}
+	switch u.Variant.(type) {
+{{- range .Variants}}
+	case {{.TypeName}}:
+		t = {{.ConstName}}
+{{- end}}
+	default:
+		return nil, errors.Newf("{{.Name}}: nil or unknown variant %T", u.Variant)
+	}
+	raw, err := json.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := json.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["{{.DiscJSONName}}"] = tag
+	return json.Marshal(fields)
+}
+
+func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type {{.DiscType}} ` + "`" + `json:"{{.DiscJSONName}}"` + "`" + `
+	}
+	if err := json.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+{{- range .Variants}}
+	case {{.ConstName}}:
+		var v {{.TypeName}}
+		if err := json.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+{{- end}}
+	default:
+		return errors.Newf("{{.Name}}: unknown {{.DiscJSONName}} %q", disc.Type)
+	}
+	return nil
+}
 {{end -}}
 `))

@@ -58,9 +58,7 @@ class Retriever:
         return self._execute(_Request(search_term=term))
 
     def _execute(self, req: _Request) -> list[Payload]:
-        res, exc = self._client.send("/range/retrieve", req, _Response)
-        if exc is not None:
-            raise exc
-        if res is None or res.ranges is None:
+        res = self._client.send("/range/retrieve", req, _Response)
+        if res.ranges is None:
             return list()
         return res.ranges

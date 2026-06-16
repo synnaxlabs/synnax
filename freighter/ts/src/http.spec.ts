@@ -30,28 +30,19 @@ const messageZ = z.object({
 
 describe("http", () => {
   test("echo", async () => {
-    const [response, error] = await client.send<typeof messageZ>(
+    const response = await client.send(
       "/echo",
-      {
-        id: 1,
-        message: "hello",
-      },
+      { id: 1, message: "hello" },
       messageZ,
       messageZ,
     );
-    expect(error).toBeNull();
     expect(response).toEqual({ id: 2, message: "hello" });
   });
 
   test("not found", async () => {
-    const [response, error] = await client.send<typeof messageZ>(
-      "/not-found",
-      {},
-      messageZ,
-      messageZ,
+    await expect(client.send("/not-found", {}, messageZ, messageZ)).rejects.toThrow(
+      "Not Found",
     );
-    expect(error?.message).toEqual("Not Found");
-    expect(response).toBeNull();
   });
 
   test("middleware", async () => {
@@ -59,34 +50,17 @@ describe("http", () => {
       md.params.Test = "test";
       return await next(md);
     });
-    const [response, error] = await client.send<typeof messageZ>(
-      "/middlewareCheck",
-      {},
-      messageZ,
-      messageZ,
-    );
-    expect(error).toBeNull();
-    expect(response?.message).toEqual("");
+    const response = await client.send("/middlewareCheck", {}, messageZ, messageZ);
+    expect(response.message).toEqual("");
   });
 
   test("unreachable", async () => {
     const c = new HTTPClient(
-      new URL({
-        host: "127.0.0.1",
-        protocol: "http",
-        port: 9999,
-        pathPrefix: "unary",
-      }),
+      new URL({ host: "127.0.0.1", protocol: "http", port: 9999, pathPrefix: "unary" }),
       new binary.JSONCodec(),
     );
-    const [response, error] = await c.send<typeof messageZ>(
-      "/unreachable",
-      {},
-      messageZ,
-      messageZ,
-    );
-    expect(error).toBeInstanceOf(Unreachable);
-    expect(error?.message).toEqual("Unreachable");
-    expect(response).toBeNull();
+    const send = c.send("/unreachable", {}, messageZ, messageZ);
+    await expect(send).rejects.toThrow(Unreachable);
+    await expect(send).rejects.toThrow("Unreachable");
   });
 });

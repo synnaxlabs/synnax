@@ -19,7 +19,7 @@ from console.context_menu import ContextMenu
 from console.layout import LayoutClient
 from console.notifications import NotificationsClient
 from console.schematic.symbol_editor import SymbolEditor
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 
 
 class SymbolToolbar:
@@ -215,7 +215,7 @@ class SymbolToolbar:
             self.ctx_menu.click_option("Export")
 
         download = download_info.value
-        save_path = get_results_path(f"{name}_export.json")
+        save_path = resolve_results_path(f"{name}_export.json")
         download.save_as(save_path)
 
         with open(save_path, "r") as f:

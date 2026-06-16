@@ -248,13 +248,14 @@ export class Writer {
    * @param frame - The frame to write to the database. The frame must:
    *
    *    1. Have exactly one array for each key in the list of keys provided to the
-   *    writer's open method.
+   *       writer's open method.
    *    2. Have equal length arrays for each key.
    *    3. When writing to an index (i.e. TimeStamp) channel, the values must be
-   *    monotonically increasing.
+   *       monotonically increasing.
    *
-   * @returns false if the writer has accumulated an error. In this case, the caller
-   * should acknowledge the error by calling the error method or closing the writer.
+   * @throws if the writer has accumulated an error. Once write throws, all subsequent
+   * calls to write and commit will also throw, and the writer must be closed and
+   * re-opened to continue writing.
    */
   async write(
     channelsOrData:
@@ -266,7 +267,11 @@ export class Writer {
     if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
-    this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
+    try {
+      this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
+    } catch (err) {
+      if (!EOF.matches(err)) throw errors.fromUnknown(err);
+    }
   }
 
   async setAuthority(
@@ -286,9 +291,9 @@ export class Writer {
    * Commits the written frames to the database. Commit is synchronous, meaning that it
    * will not return until all frames have been committed to the database.
    *
-   * @returns false if the commit failed due to an error. In this case, the caller
-   * should acknowledge the error by calling the error method or closing the writer.
-   * After the caller acknowledges the error, they can attempt to commit again.
+   * @returns the timestamp of the last sample written to the writer.
+   * @throws if the commit fails or any previous writer method has thrown. Once commit
+   * throws, the writer must be closed and re-opened to continue use.
    */
   async commit(): Promise<TimeStamp> {
     if (this.closeErr != null) throw this.closeErr;
@@ -318,18 +323,33 @@ export class Writer {
         if (WriterClosedError.matches(this.closeErr)) return null;
         throw this.closeErr;
       }
-      const [res, err] = await this.stream.receive();
-      if (err != null) this.closeErr = EOF.matches(err) ? new WriterClosedError() : err;
-      else this.closeErr = errors.decode(res?.err);
+      try {
+        const res = await this.stream.receive();
+        this.closeErr = errors.decode(res?.err);
+      } catch (err) {
+        const e = errors.fromUnknown(err);
+        this.closeErr = EOF.matches(e) ? new WriterClosedError() : e;
+      }
     }
   }
 
   private async execute(req: WriteRequest): Promise<Response> {
-    const err = this.stream.send(req);
-    if (err != null) await this.closeInternal(err);
+    try {
+      this.stream.send(req);
+    } catch (err) {
+      // A send failure is always EOF or StreamClosed, never WriterClosedError, so
+      // closeInternal re-throws here and the receive loop below is reached only when
+      // the send succeeds.
+      await this.closeInternal(errors.fromUnknown(err));
+    }
     while (true) {
-      const [res, err] = await this.stream.receive();
-      if (err != null) await this.closeInternal(err);
+      let res: Response;
+      try {
+        res = await this.stream.receive();
+      } catch (err) {
+        await this.closeInternal(errors.fromUnknown(err));
+        continue;
+      }
       const resErr = errors.decode(res?.err);
       if (resErr != null) await this.closeInternal(resErr);
       if (res?.command == req.command) return res;

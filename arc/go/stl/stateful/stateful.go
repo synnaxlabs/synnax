@@ -81,7 +81,7 @@ func NewHost(
 	if rt == nil {
 		return h, nil
 	}
-	builder := rt.NewHostModuleBuilder(name)
+	builder := rt.NewHostModuleBuilder(Name)
 	bindScalarI32[uint8](builder, h, h.stateU8, "u8")
 	bindScalarI32[uint16](builder, h, h.stateU16, "u16")
 	bindScalarI32[uint32](builder, h, h.stateU32, "u32")
@@ -111,35 +111,37 @@ func NewHost(
 
 var numConstraint = types.NumericConstraint()
 
-const name = "state"
+// Name is the module name.
+const Name = "stateful"
 
-var module = symbol.NewModule(
-	name,
-	symbol.InternalHostFunc(
-		"load",
-		types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
-		types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
-	),
-	symbol.InternalHostFunc(
-		"store",
-		types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
-		nil,
-	),
-	symbol.InternalHostFunc(
-		"load_series",
-		types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
-		types.Params{{Name: "handle", Type: types.I32()}},
-	),
-	symbol.InternalHostFunc(
-		"store_series",
-		types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
-		nil,
-	),
-)
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the state module only (no bare globals).
-var Symbols = []*symbol.Symbol{module}
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the stateful module only (no bare globals).
+func NewSymbols() []*symbol.Symbol {
+	mod := &symbol.Symbol{Name: Name, Kind: symbol.KindModule, Internal: true}
+	mod.AddChild(
+		symbol.InternalHostFunc(
+			"load",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.Variable("T", &numConstraint)}},
+			types.Params{{Name: "value", Type: types.Variable("T", &numConstraint)}},
+		),
+		symbol.InternalHostFunc(
+			"store",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
+			nil,
+		),
+		symbol.InternalHostFunc(
+			"load_series",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "init", Type: types.I32()}},
+			types.Params{{Name: "handle", Type: types.I32()}},
+		),
+		symbol.InternalHostFunc(
+			"store_series",
+			types.Params{{Name: "id", Type: types.I32()}, {Name: "handle", Type: types.I32()}},
+			nil,
+		),
+	)
+	return []*symbol.Symbol{mod}
+}
 
 func (h *Host) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound

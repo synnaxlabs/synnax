@@ -10,13 +10,12 @@
 // Package actions emits a TypeScript discriminated-union action codec for any
 // oracle struct that declares one or more actions. Each action becomes a zod
 // payload schema, an Action union dispatches by literal type, and the plugin
-// emits Handlers / HandlerResult / ReduceAllResult types together with
-// createReducer / createReduceAll factories that bind a caller-provided
-// Handlers object via immer's produce. Each handler returns a HandlerResult
-// (inverse actions + touched targets) so the generated reduceAll can
-// accumulate undo data alongside the next state. The per-action handler
-// functions are hand-written and supplied by the caller; this plugin does not
-// generate them.
+// emits a Handlers interface plus a createReduceAll factory that binds a
+// caller-provided Handlers object. HandlerResult, ReduceAllResult, and the
+// outer reduceAll loop live in the shared @synnaxlabs/client actions package;
+// this plugin emits type aliases and a thin wrapper that delegate to them.
+// The per-action handler functions are hand-written and supplied by the
+// caller; this plugin does not generate them.
 package actions
 
 import (
@@ -115,9 +114,10 @@ func (p *Plugin) generateFile(
 
 	mgr.AddImport("zod", "z")
 	mgr.AddImport("immer", "Draft")
-	mgr.AddImport("immer", "produce")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
 	mgr.AddImport(sameDir+"/types.gen", typ.Name)
+	mgr.AddImport(sameDir+"/types.gen", "keyZ")
+	mgr.AddImport(paths.CalculateImport(outputPath, "client/ts/src/actions"), "actions")
 
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
@@ -181,11 +181,9 @@ export const {{ camelCase .Name }} = (payload: {{ .Name }}Payload): Action => ({
   {{ camelCase .Name }}: payload,
 });
 {{end}}
-export interface HandlerResult {
-  inverse: Action[];
-  /** Document keys this handler touched (or considered touching). */
-  targets: readonly string[];
-}
+export type HandlerResult = actions.HandlerResult<Action>;
+
+export type ReduceAllResult = actions.ReduceAllResult<{{ .TargetTypeName }}, Action>;
 
 export interface Handlers {
 {{- range .Actions}}
@@ -193,32 +191,17 @@ export interface Handlers {
 {{- end}}
 }
 
-export interface ReduceAllResult {
-  next: {{ .TargetTypeName }};
-  inverse: Action[];
-  targets: readonly string[];
-}
-
-export const createReduceAll = (handlers: Handlers) => {
-  const reduce = (state: Draft<{{ .TargetTypeName }}>, action: Action): HandlerResult => {
+export const createReduceAll = (handlers: Handlers) =>
+  actions.createReduceAll<{{ .TargetTypeName }}, Action>((state, action) => {
     switch (action.type) {
 {{- range .Actions}}
       case "{{ .TypeName }}":
         return handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
 {{- end}}
     }
-  };
-  return (state: {{ .TargetTypeName }}, actions: Action[]): ReduceAllResult => {
-    const inverse: Action[] = [];
-    const targetsSet = new Set<string>();
-    const next = produce(state, (draft) => {
-      for (const action of actions) {
-        const result = reduce(draft, action);
-        if (result.inverse.length > 0) inverse.unshift(...result.inverse);
-        for (const t of result.targets) targetsSet.add(t);
-      }
-    });
-    return { next, inverse, targets: Array.from(targetsSet) };
-  };
-};
+  });
+
+export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
+
+export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);
 `))

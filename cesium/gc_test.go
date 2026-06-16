@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"math"
 	"path"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +22,13 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// gcConvergeTimeout bounds how long a spec waits for background garbage
+// collection to converge on a final file size. The default Gomega timeout (1s)
+// is not enough on slow filesystems (Windows and macOS osFS in CI), where a
+// full-file GC rewrite can take much longer and may require more than one
+// compaction pass.
+const gcConvergeTimeout = 30 * time.Second
 
 var _ = Describe("Garbage collection", Ordered, func() {
 	for fsName, openFS := range FileSystems {
@@ -97,7 +105,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
-					}).Should(Equal(42 * uint32(telem.Int64T.Density())))
+					}).WithTimeout(gcConvergeTimeout).Should(Equal(42 * uint32(telem.Int64T.Density())))
 				})
 			})
 
@@ -160,7 +168,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
-					}).Should(Equal(54 * uint32(telem.Int64T.Density())))
+					}).WithTimeout(gcConvergeTimeout).Should(Equal(54 * uint32(telem.Int64T.Density())))
 
 					By("Asserting that the data is still correct", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic))
@@ -241,7 +249,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						i, err = fs.Stat(path.Join(channelKeyToPath(basic) + "/5.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
 						g.Expect(i.Size()).To(Equal(int64(40)))
-					}).Should(Succeed())
+					}).WithTimeout(gcConvergeTimeout).Should(Succeed())
 
 					By("Writing more data – they should go to the newly freed files, i.e. file 3 or file 4")
 					// This should go to file 10.

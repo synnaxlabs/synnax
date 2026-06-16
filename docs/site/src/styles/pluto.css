@@ -150,6 +150,11 @@
     }
 }
 
+/* Prevent type tokens like `i64 ns` from wrapping mid-token in reference tables. */
+article table code {
+    white-space: nowrap;
+}
+
 /* Note component - override base layer text colors */
 .pluto-note {
     &.pluto--info {

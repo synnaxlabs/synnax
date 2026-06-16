@@ -33,8 +33,8 @@ describe("auth", () => {
     );
     const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
     const mw = client.middleware();
-    const res = await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
-    expect(res).toEqual([DUMMY_CTX, null]);
+    const res = await mw(DUMMY_CTX, async () => DUMMY_CTX);
+    expect(res).toEqual(DUMMY_CTX);
   });
 
   test("invalid credentials", async () => {
@@ -49,8 +49,7 @@ describe("auth", () => {
       password: "wrong",
     });
     const mw = client.middleware();
-    const [, err] = await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
-    expect(err).toBeInstanceOf(AuthError);
+    await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(AuthError);
   });
 
   describe("token retry", () => {
@@ -68,16 +67,16 @@ describe("auth", () => {
         let isFirst = true;
         let tkOne: string | undefined;
         let tkTwo: string | undefined;
-        const [, err] = await mw(DUMMY_CTX, async () => {
+        const res = await mw(DUMMY_CTX, async () => {
           if (isFirst) {
             isFirst = false;
             tkOne = client.token;
-            return [DUMMY_CTX, new ErrorType()];
+            throw new ErrorType();
           }
           tkTwo = client.token;
-          return [DUMMY_CTX, null];
+          return DUMMY_CTX;
         });
-        expect(err).toBeNull();
+        expect(res).toEqual(DUMMY_CTX);
         expect(tkOne).toBeDefined();
         expect(tkTwo).toBeDefined();
       });
@@ -92,11 +91,11 @@ describe("auth", () => {
       );
       const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
       const mw = client.middleware();
-      const [, err] = await mw(DUMMY_CTX, async () => [
-        DUMMY_CTX,
-        new InvalidTokenError(),
-      ]);
-      expect(err).toBeInstanceOf(InvalidTokenError);
+      await expect(
+        mw(DUMMY_CTX, async () => {
+          throw new InvalidTokenError();
+        }),
+      ).rejects.toThrow(InvalidTokenError);
     });
   });
 });

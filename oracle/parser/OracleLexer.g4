@@ -19,6 +19,7 @@ IMPORT      : 'import' ;
 EXTENDS     : 'extends' ;
 MAP         : 'map' ;
 ACTION      : 'action' ;
+UNION       : 'union' ;
 
 // =============================================================================
 // Symbols

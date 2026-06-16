@@ -13,5 +13,6 @@ export * from "@/vis/diagram/Background";
 export * from "@/vis/diagram/Context";
 export * from "@/vis/diagram/controls";
 export * from "@/vis/diagram/Diagram";
+export * from "@/vis/diagram/menu";
 export * from "@/vis/diagram/useTriggers";
 export * from "@/vis/diagram/util";

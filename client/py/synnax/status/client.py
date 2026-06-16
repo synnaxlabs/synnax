@@ -12,7 +12,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.ontology import ID
 from synnax.status.types_gen import Status, Variant
 from x.normalize import normalize
@@ -129,11 +129,8 @@ class Client:
         single = not isinstance(status, list)
         statuses = [status] if single else status
 
-        res = send_required(
-            self.client,
-            _SET_ENDPOINT,
-            _SetRequest(statuses=statuses, parent=parent),
-            _SetResponse,
+        res = self.client.send(
+            _SET_ENDPOINT, _SetRequest(statuses=statuses, parent=parent), _SetResponse
         ).statuses
 
         if single:
@@ -215,8 +212,7 @@ class Client:
         if single and key is not None:
             keys = [key]
 
-        res = send_required(
-            self.client,
+        res = self.client.send(
             _RETRIEVE_ENDPOINT,
             _RetrieveRequest(
                 keys=keys,
@@ -257,12 +253,7 @@ class Client:
             Delete multiple statuses:
                 >>> client.statuses.delete(["status-1", "status-2", "status-3"])
         """
-        send_required(
-            self.client,
-            _DELETE_ENDPOINT,
-            _DeleteRequest(keys=normalize(keys)),
-            Empty,
-        )
+        self.client.send(_DELETE_ENDPOINT, _DeleteRequest(keys=normalize(keys)), Empty)
 
 
 ONTOLOGY_TYPE = ID(type="status")

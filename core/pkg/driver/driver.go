@@ -62,6 +62,17 @@ type Config struct {
 	// StopTimeout is the time to wait for the driver to exit gracefully
 	// after sending STOP before escalating to a forceful kill.
 	StopTimeout time.Duration `json:"stop_timeout"`
+	// RestartBaseInterval is the initial backoff before restarting the driver after an
+	// unexpected exit; it grows exponentially with each consecutive failure. Core-side
+	// supervision only, not forwarded to the driver.
+	RestartBaseInterval time.Duration `json:"-"`
+	// RestartMaxRetries caps consecutive restarts after unexpected exits before the
+	// supervisor gives up. The counter resets after a healthy run (see
+	// RestartHealthyUptime).
+	RestartMaxRetries int `json:"-"`
+	// RestartHealthyUptime is the minimum run time after which an exit is treated as a
+	// healthy run rather than a crash loop, resetting the restart counter.
+	RestartHealthyUptime time.Duration `json:"-"`
 	// TaskOpTimeout sets the duration before reporting stuck task operations.
 	TaskOpTimeout time.Duration `json:"task_op_timeout"`
 	// TaskPollInterval sets the interval between task timeout checks.
@@ -123,15 +134,18 @@ var (
 		"opc",
 	}
 	DefaultConfig = Config{
-		Integrations:        []string{},
-		Enabled:             new(true),
-		Debug:               new(false),
-		StartTimeout:        time.Second * 10,
-		StopTimeout:         10 * time.Second,
-		TaskOpTimeout:       time.Second * 60,
-		TaskPollInterval:    time.Second * 1,
-		TaskShutdownTimeout: time.Second * 30,
-		TaskWorkerCount:     4,
+		Integrations:         []string{},
+		Enabled:              new(true),
+		Debug:                new(false),
+		StartTimeout:         time.Second * 10,
+		StopTimeout:          10 * time.Second,
+		RestartBaseInterval:  2 * time.Second,
+		RestartMaxRetries:    100,
+		RestartHealthyUptime: time.Minute,
+		TaskOpTimeout:        time.Second * 60,
+		TaskPollInterval:     time.Second * 1,
+		TaskShutdownTimeout:  time.Second * 30,
+		TaskWorkerCount:      4,
 	}
 )
 
@@ -157,6 +171,9 @@ func (c Config) Override(other Config) Config {
 	c.TaskShutdownTimeout = override.Numeric(c.TaskShutdownTimeout, other.TaskShutdownTimeout)
 	c.TaskWorkerCount = override.Numeric(c.TaskWorkerCount, other.TaskWorkerCount)
 	c.StopTimeout = override.Numeric(c.StopTimeout, other.StopTimeout)
+	c.RestartBaseInterval = override.Numeric(c.RestartBaseInterval, other.RestartBaseInterval)
+	c.RestartMaxRetries = override.Numeric(c.RestartMaxRetries, other.RestartMaxRetries)
+	c.RestartHealthyUptime = override.Numeric(c.RestartHealthyUptime, other.RestartHealthyUptime)
 	return c
 }
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { log, ontology, type Synnax } from "@synnaxlabs/client";
-import { Access, Icon, Log as Base, Menu, Mosaic } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as PLog, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -24,7 +24,7 @@ import { createUseRename } from "@/ontology/createUseRename";
 
 const useDelete = createUseDelete({
   type: "Log",
-  query: Base.useDelete,
+  query: PLog.useDelete,
   convertKey: String,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
@@ -34,7 +34,7 @@ const useDelete = createUseDelete({
 });
 
 const useRename = createUseRename({
-  query: Base.useRename,
+  query: PLog.useRename,
   ontologyID: log.ontologyID,
   convertKey: String,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
@@ -95,8 +95,8 @@ const loadLog = async (
   { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const log = await client.logs.retrieve({ key });
-  placeLayout(Log.create({ ...(log.data as Log.State), key: log.key, name: log.name }));
+  const l = await client.logs.retrieve({ key });
+  placeLayout(Log.create({ key: l.key, name: l.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -105,7 +105,7 @@ const handleSelect: Ontology.HandleSelect = ({
   placeLayout,
   handleError,
 }) => {
-  loadLog(client, selection[0].id, placeLayout).catch((e) => {
+  loadLog(client, selection[0].id, placeLayout).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
       "log",
@@ -123,12 +123,11 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) =>
   handleError(async () => {
-    const log = await client.logs.retrieve({ key });
+    const l = await client.logs.retrieve({ key });
     placeLayout(
       Log.create({
-        name: log.name,
-        ...log.data,
-        key,
+        key: l.key,
+        name: l.name,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),

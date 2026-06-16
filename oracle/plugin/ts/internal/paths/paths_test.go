@@ -19,7 +19,7 @@ import (
 
 func TestPaths(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "TS Paths Suite")
+	RunSpecs(t, "Plugin TS Paths Suite")
 }
 
 var _ = Describe("FindPackage", func() {

@@ -9,17 +9,16 @@
 
 
 from freighter import URL, UnaryClient
-from freighter import send_required as fsend_required
 from freighter.exceptions import Unreachable
 from freighter.transport import RQ, RS
 
 
 def send_required(client: UnaryClient, target: str, req: RQ, res_t: type[RS]) -> RS:
     """Sends a request to a target and returns the response. Raises an exception if the
-    request returns an error.
+    request returns an error, remapping Unreachable to a friendlier cluster message.
     """
     try:
-        return fsend_required(client, target, req, res_t)
+        return client.send(target, req, res_t)
     except Unreachable as exc:
         url = URL.parse(exc.target)
         raise Unreachable(

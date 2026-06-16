@@ -52,7 +52,7 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Framer *framer.Service
-	// Status is used for Arc graph nodes (set_status) to update statuses.
+	// Status is used by the Arc status module.
 	//
 	// [REQUIRED]
 	Status *status.Service

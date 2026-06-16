@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -31,8 +31,7 @@ export class Client {
   async get(key: string): Promise<string>;
   async get(keys: string[]): Promise<Record<string, string>>;
   async get(keys: string | string[]): Promise<string | Record<string, string>> {
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/range/kv/get",
       { range: this.rangeKey, keys: array.toArray(keys) },
       getReqZ,
@@ -43,7 +42,7 @@ export class Client {
   }
 
   async list(): Promise<Record<string, string>> {
-    return this.get([]);
+    return await this.get([]);
   }
 
   async set(key: string, value: string): Promise<void>;
@@ -58,8 +57,7 @@ export class Client {
         value: v,
       }));
 
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/range/kv/set",
       { range: this.rangeKey, pairs },
       setReqZ,
@@ -68,8 +66,7 @@ export class Client {
   }
 
   async delete(key: string | string[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/range/kv/delete",
       { range: this.rangeKey, keys: array.toArray(key) },
       deleteReqZ,

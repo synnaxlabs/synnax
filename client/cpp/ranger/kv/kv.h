@@ -17,7 +17,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "core/pkg/api/grpc/ranger/kv/kv.pb.h"
+#include "core/pkg/transport/grpc/ranger/kv/kv.pb.h"
 
 namespace synnax::ranger::kv {
 /// @brief type alias for the transport used to get range-scoped key-values.

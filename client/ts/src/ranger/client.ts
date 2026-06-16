@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   color,
@@ -128,7 +128,7 @@ export class Range {
   }
 
   async retrieveParent(): Promise<Range | null> {
-    return this.rangeClient.retrieveParent(this.key);
+    return await this.rangeClient.retrieveParent(this.key);
   }
 
   async retrieveChildren(): Promise<Range[]> {
@@ -249,8 +249,7 @@ export class Client {
   async retrieve(params: RetrieveRequest): Promise<Range[]>;
   async retrieve(params: RetrieveArgs): Promise<Range | Range[]> {
     const isSingle = typeof params === "string";
-    const { ranges } = await sendRequired(
-      this.unaryClient,
+    const { ranges } = await this.unaryClient.send(
       "/range/retrieve",
       params,
       retrieveArgsZ,

@@ -157,15 +157,15 @@ export const validateFieldNotNull = (
 };
 
 export const errorsMiddleware: Middleware = async (ctx, next) => {
-  const [res, err] = await next(ctx);
-  if (err == null) return [res, err];
-  if (err instanceof Unreachable)
-    return [
-      res,
-      new Unreachable({
+  try {
+    return await next(ctx);
+  } catch (err) {
+    if (err instanceof Unreachable)
+      throw new Unreachable({
         message: `Cannot reach Core at ${err.url.host}:${err.url.port}`,
         url: err.url,
-      }),
-    ];
-  return [res, err];
+        cause: err.cause ?? err,
+      });
+    throw errors.fromUnknown(err);
+  }
 };

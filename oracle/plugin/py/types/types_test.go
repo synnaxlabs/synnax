@@ -19,11 +19,12 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/py/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Python Types Plugin Suite")
+	RunSpecs(t, "Plugin Py Types Suite")
 }
 
 var _ = Describe("PyFormatter", func() {
@@ -93,7 +94,7 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		It("Should pass check", func() {
-			Expect(typesPlugin.Check(&plugin.Request{})).To(BeNil())
+			Expect(typesPlugin.Check(&plugin.Request{})).To(Succeed())
 		})
 	})
 
@@ -127,6 +128,47 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
+		It("Should generate a typeless override identically to a full restatement", func(ctx SpecContext) {
+			gen := func(childBody string) string {
+				source := `
+					@py output "out"
+
+					Parent struct {
+						name  string
+						count int32 = 5
+						tag   string
+					}
+
+					Child struct extends Parent {
+						` + childBody + `
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+				return string(resp.Files[0].Content)
+			}
+			// A typeless override desugars to the equivalent full restatement, so
+			// the generated model is byte-identical.
+			Expect(gen("count = 10")).To(Equal(gen("count int32 = 10")))
+			Expect(gen("tag?")).To(Equal(gen("tag string?")))
+		})
+
+		It("Should flatten a model that removes an inherited domain", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Parent struct {
+					name string @validate { min_length 1 }
+				}
+
+				Child struct extends Parent {
+					name -@validate
+				}
+			`
+			resp := MustGenerate(ctx, source, "user", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").
+				ToContain(`class Child(BaseModel):`, `name: str`)
+		})
+
 		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@py output "out"
@@ -145,8 +187,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`labels: list[UUID]`))
@@ -176,8 +217,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from pydantic import BaseModel, Field`))
@@ -206,8 +246,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from enum import IntEnum`))
@@ -239,8 +278,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`from typing import Literal`))
@@ -248,6 +286,67 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`DATA_TYPE_FLOAT64: Literal["float64"] = "float64"`))
 			Expect(content).To(ContainSubstring(`DATA_TYPE_INT32: Literal["int32"] = "int32"`))
 			Expect(content).To(ContainSubstring(`DataType = Literal["float32", "float64", "int32"]`))
+		})
+
+		It("Should emit a string-enum field default as the literal value, not member access", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Units enum {
+					volts = "Volts"
+					amps  = "Amps"
+				}
+
+				Channel struct {
+					units Units = UnitsVolts
+				}
+			`
+			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`units: Units = Field(default="Volts")`))
+			Expect(content).ToNot(ContainSubstring(`default=Units.volts`))
+		})
+
+		It("Should emit an int-enum field default as Enum member access", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Mode enum {
+					off  = 0
+					on   = 1
+				}
+
+				Channel struct {
+					mode Mode = ModeOn
+				}
+			`
+			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`default=Mode.on`))
+		})
+
+		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				XAxisKey enum {
+					x1 = "x1"
+					x2 = "x2"
+				}
+
+				YAxisKey enum {
+					y1 = "y1"
+					y2 = "y2"
+				}
+
+				AxisKey enum extends XAxisKey, YAxisKey {}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			resp := MustSucceed(typesPlugin.Generate(&plugin.Request{Resolutions: table}))
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`AxisKey = Literal["x1", "x2", "y1", "y2"]`))
 		})
 
 		It("Should generate screaming snake case for multi-word enum names", func(ctx SpecContext) {
@@ -271,8 +370,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`OPERATION_TYPE_MIN: Literal["min"] = "min"`))
@@ -331,8 +429,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`class New(BaseModel):`))
@@ -360,8 +457,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Soft optional (?) becomes T | None = None in Python
@@ -386,8 +482,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Hard optional (??) also becomes T | None = None in Python (no pointer distinction)
@@ -412,8 +507,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Optional arrays in Python use None default (not default_factory)
@@ -427,8 +521,8 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "out"
 
 				Config struct {
-					enabled bool @validate default false
-					retries int32 @validate default 3
+					enabled bool = false
+					retries int32 = 3
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -438,12 +532,59 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`enabled: bool = Field(default=False)`))
 			Expect(content).To(ContainSubstring(`retries: int = Field(default=3, ge=-2147483648, le=2147483647)`))
+		})
+
+		It("Should emit array defaults via default_factory", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					empty float64[] = []
+					vals  float64[] = [1.5, 2.5]
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`empty: list[float] = Field(default_factory=list)`))
+			Expect(content).To(ContainSubstring(`vals: list[float] = Field(default_factory=lambda: [1.500000, 2.500000])`))
+		})
+
+		It("Should emit create defaults for string and uuid keys", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					str_key  string = create
+					uuid_key uuid   = create
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`str_key: str = Field(default_factory=lambda: str(uuid4()))`))
+			Expect(content).To(ContainSubstring(`uuid_key: UUID = Field(default_factory=uuid4)`))
+		})
+
+		It("Should emit struct defaults via default_factory", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Point struct {
+					x int32
+					y int32
+				}
+
+				Config struct {
+					p Point = { x = 1, y = 2 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`default_factory=lambda: Point(x=1, y=2)`))
 		})
 
 		It("Should wrap int defaults in distinct type constructor", func(ctx SpecContext) {
@@ -453,7 +594,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Duration int64
 
 				Config struct {
-					timeout Duration @validate default 0
+					timeout Duration = 0
 				}
 			`
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -475,7 +616,7 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "client/py/synnax/channel"
 
 				Operation struct {
-					duration telem.TimeSpan @validate default 0
+					duration telem.TimeSpan = 0
 				}
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
@@ -503,8 +644,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Parent should be a regular class
@@ -515,6 +655,29 @@ var _ = Describe("Python Types Plugin", func() {
 			// Child should inherit from Parent
 			Expect(content).To(ContainSubstring(`class Child(Parent):`))
 			Expect(content).To(ContainSubstring(`email: str`))
+		})
+
+		It("Should import and qualify a base class defined in another schema module", func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+				@py output "client/py/synnax/common"
+
+				BaseConfig struct {
+					enabled bool = false
+				}
+			`)
+			source := `
+				import "schemas/common"
+
+				@py output "client/py/synnax/ni"
+
+				ReadConfig struct extends common.BaseConfig {
+					rate int32 = 10
+				}
+			`
+			resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`from synnax import common`))
+			Expect(content).To(ContainSubstring(`class ReadConfig(common.BaseConfig):`))
 		})
 
 		It("Should inline parent fields when child makes required fields optional", func(ctx SpecContext) {
@@ -537,8 +700,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// Child should be standalone (no inheritance) since it overrides
@@ -621,8 +783,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// C should inherit from both A and B using Python multiple inheritance
@@ -655,8 +816,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// C should inherit from both A and B
@@ -693,8 +853,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			// C should inherit from all three parents
@@ -725,8 +884,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			zebraIdx := strings.Index(content, "class Zebra")
@@ -753,8 +911,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Resolutions: table,
 			}
 
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
 			zebraIdx := strings.Index(content, "zebra:")
@@ -903,6 +1060,55 @@ var _ = Describe("Python Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`class Child(Parent):`))
 				Expect(content).To(ContainSubstring(`e: str`))
+			})
+		})
+
+		Context("key hashing", func() {
+			It("Should generate __hash__ for a required @key field", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Key uint32
+
+					Channel struct {
+						key Key @key {
+							@doc value "is the unique identifier for the channel."
+						}
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Channel(BaseModel):`,
+						`def __hash__(self) -> int:`,
+						`return hash(self.key)`,
+					)
+			})
+
+			It("Should not generate __hash__ when an override makes the key optional", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Key uint32
+
+					Channel struct {
+						key Key @key {
+							@doc value "is the unique identifier for the channel."
+						}
+						name string
+					}
+
+					New struct extends Channel {
+						key?
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
+				content := string(resp.Files[0].Content)
+				newClass := content[strings.Index(content, "class New"):]
+				Expect(newClass).To(ContainSubstring(`key: Key | None`))
+				Expect(newClass).To(ContainSubstring(`key: Is the unique identifier for the channel.`))
+				Expect(newClass).NotTo(ContainSubstring(`def __hash__`))
 			})
 		})
 
@@ -1288,7 +1494,7 @@ ChannelStatus = status.Status<nil>
 					@py output "out"
 
 					Config struct {
-						mode string @validate default "normal"
+						mode string = "normal"
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -1375,7 +1581,7 @@ ChannelStatus = status.Status<nil>
 					}
 
 					Config struct {
-						mode Mode @validate default ModeAutomatic
+						mode Mode = ModeAutomatic
 					}
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
@@ -1398,7 +1604,7 @@ ChannelStatus = status.Status<nil>
 					@py output "client/py/synnax/channel"
 
 					Channel struct {
-						concurrency control.Concurrency @validate default control.ConcurrencyExclusive
+						concurrency control.Concurrency = control.ConcurrencyExclusive
 					}
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
@@ -1406,5 +1612,190 @@ ChannelStatus = status.Status<nil>
 					ToContain(`concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)`)
 			})
 		})
+	})
+})
+
+var _ = Describe("Python Union Generation", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a Pydantic discriminated union", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(
+				`from typing import Annotated, Union, Literal`,
+				`from pydantic import BaseModel, Field`,
+				`class ScaleLinear(LinearScale):`,
+				`type: Literal["linear"]`,
+				`class ScaleNone(NoneScale):`,
+				`type: Literal["none"]`,
+				`Scale = Annotated[`,
+				`Union[ScaleLinear, ScaleNone],`,
+				`Field(discriminator="type"),`,
+			)
+	})
+
+	It("Should declare inline variant fields directly on the variant model", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			TabBase struct { key string }
+			Labeled struct { label string }
+
+			Tab union on variant extends TabBase {
+				view extends Labeled {
+					type string
+				}
+				empty {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "panel", loader, typesPlugin)
+		content := ExpectContent(resp, "types_gen.py")
+		content.ToContain(
+			`class TabView(TabBase, Labeled):`,
+			`variant: Literal["view"]`,
+			`type: str`,
+			`class TabEmpty(TabBase):`,
+			`variant: Literal["empty"]`,
+		)
+		content.ToNotContain("TabViewPayload")
+	})
+
+	It("Should inherit the union base and the payload in every variant, not flatten", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		// The variant inherits BaseAIChan + VoltageFields and declares only the
+		// discriminator, so the shared fields are not duplicated into it.
+		Expect(content).To(ContainSubstring("class AIVoltageChannel(BaseAIChan, VoltageFields):\n    type: Literal[\"ai_voltage\"]\n"))
+		Expect(content).To(ContainSubstring(`enabled: bool`))
+		Expect(content).To(ContainSubstring(`minVal: float`))
+	})
+
+	It("Should resolve a union-typed field to the union alias", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain(`customScale: Scale`)
+	})
+
+	It("Should emit pass for an empty variant struct", func(ctx SpecContext) {
+		source := `
+			@py output "out"
+
+			NoneScale struct {}
+			LinearScale struct { slope float64 }
+
+			Scale union on type {
+				none NoneScale
+				linear LinearScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").
+			ToContain("class NoneScale(BaseModel):", "    pass")
+	})
+})
+
+var _ = Describe("Python Union Field & Variant Coverage", func() {
+	var (
+		loader      *MockFileLoader
+		typesPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		typesPlugin = types.New(types.DefaultOptions())
+	})
+
+	source := `
+		@py output "out"
+
+		LinearScale struct {
+			slope float64 {
+				@doc value "the slope multiplier."
+			}
+		}
+		NoneScale struct {}
+
+		Scale union on type {
+			linear LinearScale {
+				@doc value "a linear scale."
+			}
+			none NoneScale
+
+			@doc value "determines how raw values are transformed."
+		}
+
+		Channel struct {
+			scales Scale[]
+		}
+	`
+
+	It("Should render the union doc as a comment above the Annotated alias", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"# Determines how raw values are transformed.\nScale = Annotated[",
+		)
+	})
+
+	It("Should keep field docs on the payload class and only a summary on the variant", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		// Field docs live on the payload class (its Attributes), documented once.
+		Expect(content).To(ContainSubstring("class LinearScale(BaseModel):"))
+		Expect(content).To(ContainSubstring("slope: The slope multiplier."))
+		// The variant inherits the payload and carries only its own summary,
+		// so the field docs are not duplicated onto it.
+		Expect(content).To(ContainSubstring("class ScaleLinear(LinearScale):\n    \"\"\"A linear scale.\n    \"\"\"\n    type: Literal[\"linear\"]\n"))
+	})
+
+	It("Should resolve an array-of-union field to a list of the alias", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("scales: list[Scale]")
 	})
 })

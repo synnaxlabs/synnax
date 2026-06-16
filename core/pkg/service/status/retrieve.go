@@ -130,6 +130,15 @@ func MatchKeyPrefix[D any](prefix string) Filter[D] {
 	}
 }
 
+// MatchNames returns a filter for statuses whose name matches any of the provided values.
+func MatchNames[D any](names ...string) Filter[D] {
+	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+			return slices.Contains(names, s.Name), nil
+		})
+	}
+}
+
 // MatchVariants returns a filter for statuses with the given variants.
 func MatchVariants[D any](variants ...status.Variant) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {

@@ -68,23 +68,6 @@ I have verified that code examples for each of the following services run correc
 
 ## Console
 
-### Channels
-
-I can successfully:
-
-- **Create Channel Modal**
-- [ ] Open a channel plot from a link.
-- [ ] Set an alias for a channel and ensure the change synchronizes properly across:
-  - Log Visualization Toolbar
-  - Schematic Visualization Toolbar
-  - Table Visualization Toolbar
-  - Task Configuration Dialog
-- [ ] Remove an alias for a channel and ensure the change synchronizes properly across:
-  - Log Visualization Toolbar
-  - Schematic Visualization Toolbar
-  - Table Visualization Toolbar
-  - Task Configuration Dialog
-
 ### Core
 
 I can successfully:
@@ -105,8 +88,6 @@ I can successfully:
     - [ ] Copy a link to a core.
     - [ ] Hard reload the console.
 - **Search and Command Palette**
-  - [ ] Open the "Connect Core" modal.
-  - [ ] Open the "Add a Core" command (replaces "Connect a Core").
   - [ ] Use the "Log Out" command to log out of the active core.
 - [ ] Open a core from a link.
 - [ ] Receive meaningful feedback when a core connection fails.
@@ -143,6 +124,7 @@ I can successfully:
 - **Visualization**
   - [ ] Use the measuring tool on the line plot.
 - [ ] Open a line plot from its link.
+- [ ] Double-click a channel to open a plot
 
 ### Logs
 

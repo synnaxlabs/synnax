@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   ClockSkewCalculator,
   type CrudeTimeSpan,
+  errors,
   migrate,
   TimeSpan,
   TimeStamp,
@@ -117,8 +118,7 @@ export class Checker {
     this.checking = true;
     try {
       if (measureSkew) this.skewCalc.start();
-      const res = await sendRequired(
-        this.client,
+      const res = await this.client.send(
         "/connectivity/check",
         undefined,
         requestZ,
@@ -172,7 +172,7 @@ export class Checker {
       this._state.clientVersion = this.clientVersion;
     } catch (err) {
       this._state.status = "failed";
-      this._state.error = err as Error;
+      this._state.error = errors.fromUnknown(err);
       this._state.message = this.state.error?.message;
     } finally {
       this.checking = false;

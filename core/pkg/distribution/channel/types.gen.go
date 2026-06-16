@@ -44,6 +44,16 @@ const (
 	OperationTypeDerivative OperationType = "derivative"
 )
 
+// IsValid reports whether o is one of the defined OperationType values.
+func (o OperationType) IsValid() bool {
+	switch o {
+	case OperationTypeMin, OperationTypeMax, OperationTypeAvg, OperationTypeNone, OperationTypeDerivative:
+		return true
+	default:
+		return false
+	}
+}
+
 // Operation defines an aggregation operation applied to channel data. Operations
 // calculate min, max, or average values over a time duration or triggered by a reset
 // channel.

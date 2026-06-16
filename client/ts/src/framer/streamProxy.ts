@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream } from "@synnaxlabs/freighter";
+import { errors } from "@synnaxlabs/x";
 import { type z } from "zod";
+
+import { UnexpectedError } from "@/errors";
 
 export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
   readonly name: string;
@@ -20,9 +23,7 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
   }
 
   async receive(): Promise<z.infer<RS>> {
-    const [res, err] = await this.stream.receive();
-    if (err != null) throw err;
-    return res;
+    return await this.stream.receive();
   }
 
   received(): boolean {
@@ -32,16 +33,16 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
   async closeAndAck(): Promise<void> {
     this.stream.closeSend();
     while (true) {
-      const [res, err] = await this.stream.receive();
-      if (res != null)
-        console.warn(
-          `${this.name} received unexpected response on ${JSON.stringify(res)} closure.
-        Please report this error to the Synnax team.`,
-        );
-      if (err != null) {
+      let res: z.infer<RS>;
+      try {
+        res = await this.stream.receive();
+      } catch (err) {
         if (EOF.matches(err)) return;
-        throw err;
+        throw errors.fromUnknown(err);
       }
+      throw new UnexpectedError(
+        `${this.name} received unexpected response ${JSON.stringify(res)} on closure.`,
+      );
     }
   }
 
@@ -50,7 +51,6 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
   }
 
   send(req: z.input<RQ>): void {
-    const err = this.stream.send(req);
-    if (err != null) throw err;
+    this.stream.send(req);
   }
 }

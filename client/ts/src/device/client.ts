@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -124,8 +124,7 @@ export class Client {
   ): Promise<Device | Array<Device>> {
     const { schemas, ...rest } = args;
     const isSingle = typeof rest === "object" && "key" in rest;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/device/retrieve",
       rest,
       retrieveArgsZ,
@@ -166,8 +165,7 @@ export class Client {
     schemas?: DeviceSchemas,
   ): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/device/create",
       { devices: array.toArray(devices) },
       createReqZ(schemas),
@@ -177,8 +175,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/device/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,

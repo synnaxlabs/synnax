@@ -1,0 +1,173 @@
+{
+  "key": "00000000-0000-0000-0000-000000000001",
+  "name": "v2_typical.json",
+  "title": {
+    "level": "h4",
+    "visible": true
+  },
+  "legend": {
+    "visible": true,
+    "position": {
+      "x": 50,
+      "y": 50,
+      "root": {
+        "x": "left",
+        "y": "top"
+      },
+      "units": {
+        "x": "px",
+        "y": "px"
+      }
+    }
+  },
+  "channels": {
+    "x1": 1,
+    "x2": 0,
+    "y1": [10, 11],
+    "y2": [],
+    "y3": [],
+    "y4": []
+  },
+  "ranges": {
+    "x1": ["00000000-0000-0000-0000-00000000aaaa"],
+    "x2": []
+  },
+  "axes": {
+    "x1": {
+      "key": "x1",
+      "label": "time",
+      "label_direction": "x",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "auto_bounds": {
+        "lower": true,
+        "upper": true
+      },
+      "tick_spacing": 75,
+      "type": "time"
+    },
+    "x2": {
+      "key": "x2",
+      "label": "",
+      "label_direction": "x",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "auto_bounds": {
+        "lower": true,
+        "upper": true
+      },
+      "tick_spacing": 75,
+      "type": "time"
+    },
+    "y1": {
+      "key": "y1",
+      "label": "psi",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 100
+      },
+      "auto_bounds": {
+        "lower": false,
+        "upper": false
+      },
+      "tick_spacing": 60
+    },
+    "y2": {
+      "key": "y2",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "auto_bounds": {
+        "lower": true,
+        "upper": true
+      },
+      "tick_spacing": 75
+    },
+    "y3": {
+      "key": "y3",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "auto_bounds": {
+        "lower": true,
+        "upper": true
+      },
+      "tick_spacing": 75
+    },
+    "y4": {
+      "key": "y4",
+      "label": "",
+      "label_direction": "y",
+      "label_level": "small",
+      "bounds": {
+        "lower": 0,
+        "upper": 0
+      },
+      "auto_bounds": {
+        "lower": true,
+        "upper": true
+      },
+      "tick_spacing": 75
+    }
+  },
+  "lines": [
+    {
+      "key": "y1-r-10",
+      "color": {
+        "r": 255,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "stroke_width": 2,
+      "downsample": 1,
+      "downsample_mode": "decimate"
+    },
+    {
+      "key": "y1-r-11",
+      "label": "P11",
+      "color": {
+        "r": 0,
+        "g": 255,
+        "b": 0,
+        "a": 1
+      },
+      "stroke_width": 1,
+      "downsample": 2,
+      "downsample_mode": "average"
+    }
+  ],
+  "rules": [
+    {
+      "key": "r1",
+      "label": "max",
+      "color": {
+        "r": 0,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
+      "axis": "y1",
+      "line_width": 1,
+      "line_dash": 0,
+      "units": "psi",
+      "position": 90
+    }
+  ]
+}

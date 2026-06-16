@@ -19,7 +19,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.exceptions import ConfigurationError
@@ -416,7 +416,7 @@ class Client:
         return sugared[0] if is_single else sugared
 
     def _exec_create(self, req: _CreateRequest) -> list[Payload]:
-        res = send_required(self._client, "/task/create", req, _CreateResponse)
+        res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
     def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Payload:
@@ -469,7 +469,7 @@ class Client:
 
     def delete(self, keys: int | list[int]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
-        send_required(self._client, "/task/delete", req, Empty)
+        self._client.send("/task/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -500,8 +500,7 @@ class Client:
         types: list[str] | None = None,
     ) -> list[Task] | Task:
         is_single = check_for_none(names, keys, types)
-        res = send_required(
-            self._client,
+        res = self._client.send(
             "/task/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),
@@ -539,8 +538,7 @@ class Client:
                 self._default_rack = self._racks.retrieve_embedded_rack()
             rack = self._default_rack.key
 
-        res = send_required(
-            self._client,
+        res = self._client.send(
             _RETRIEVE_ENDPOINT,
             _RetrieveRequest(rack=rack, internal=False),
             _RetrieveResponse,
@@ -559,5 +557,5 @@ class Client:
         :return: The newly created task.
         """
         req = _CopyRequest(key=key, name=name, snapshot=False)
-        res = send_required(self._client, _COPY_ENDPOINT, req, _CopyResponse)
+        res = self._client.send(_COPY_ENDPOINT, req, _CopyResponse)
         return self.sugar([res.task])[0]

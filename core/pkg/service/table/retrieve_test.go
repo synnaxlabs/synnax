@@ -17,8 +17,15 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Table", func(ctx SpecContext) {
-		s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
-		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+		s := table.Table{
+			Name:    "test",
+			Rows:    []table.Row{{Size: 30, Cells: []string{"a"}}},
+			Columns: []table.Column{{Size: 80}},
+			Cells: map[string]table.Cell{
+				"a": {Key: "a", Variant: "text"},
+			},
+		}
+		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 		var res table.Table
 		Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 		Expect(res).To(Equal(s))

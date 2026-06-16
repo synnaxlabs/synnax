@@ -20,12 +20,7 @@ class UnaryClient(Transport, Protocol):
     two entities.
     """
 
-    def send(
-        self,
-        target: str,
-        req: RQ,
-        res_t: type[RS],
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """
         Sends a request to the target server and waits until a response is returned.
 
@@ -33,18 +28,11 @@ class UnaryClient(Transport, Protocol):
         :param req: the request to issue to the server
         :param res_t: the response type expected from the server. Implementations can
             use this to validate the response.
-        :return: any errors encountered
+        :return: the response returned by the server.
         :raises Unreachable: when the provided target cannot be reached
+        :raises Exception: any error returned by the server.
         """
         ...
-
-
-def send_required(client: UnaryClient, target: str, req: RQ, res_t: type[RS]) -> RS:
-    """Utility wrapper that throws an exception if the request returns an error."""
-    res = client.send(target, req, res_t)
-    if res[1] is not None:
-        raise res[1]
-    return res[0]
 
 
 class AsyncUnaryClient(AsyncTransport, Protocol):
@@ -53,12 +41,7 @@ class AsyncUnaryClient(AsyncTransport, Protocol):
     transport between two entities.
     """
 
-    async def send(
-        self,
-        target: str,
-        req: RQ,
-        res_t: type[RS],
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    async def send(self, target: str, req: RQ, res_t: type[RS]) -> RS:
         """
         Sends a request to the target server and waits until a response is returned.
 
@@ -66,7 +49,8 @@ class AsyncUnaryClient(AsyncTransport, Protocol):
         :param req: the request to issue to the server
         :param res_t: the response from the server. Implementations can use this to
             validate the response.
-        :return: any errors encountered
+        :return: the response returned by the server.
         :raises Unreachable: when the provided target cannot be reached
+        :raises Exception: any error returned by the server.
         """
         ...

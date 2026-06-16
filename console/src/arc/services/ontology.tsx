@@ -22,12 +22,12 @@ const handleSelect: Ontology.HandleSelect = ({
   placeLayout,
   handleError,
 }) => {
-  load(client, selection[0].id, placeLayout).catch((e) => {
+  load(client, selection[0].id, placeLayout).catch((e: unknown) => {
     const names = strings.naturalLanguageJoin(
       selection.map(({ name }) => name),
-      "arc",
+      "Arc",
     );
-    handleError(e, `Failed to load arc ${names}`);
+    handleError(e, `Failed to load ${names}`);
   });
 };
 
@@ -38,7 +38,7 @@ const load = async (client: Synnax, id: ontology.ID, placeLayout: Layout.Placer)
   placeLayout(
     Arc.Editor.create({
       name,
-      version: "1.0.0",
+      version: Arc.ZERO_STATE.version,
       key,
       type: "arc",
       remoteCreated: true,

@@ -15,20 +15,200 @@ Key = uuid {
     @doc value "is a unique identifier for a table, represented as a UUID."
 }
 
+Cell struct {
+    key     string {
+        @doc value "is the unique identifier for this cell within the table."
+    }
+    variant string {
+        @doc value """
+            is the cell variant identifier (e.g. "text", "value"). The variant
+            determines the shape of props and which Pluto cell component renders
+            the cell.
+        """
+    }
+    props   record {
+        @doc value        """
+            is the variant-specific cell configuration. The shape is determined
+            by the variant; the wire format intentionally stores it as an
+            opaque record so new variants can be added without a schema
+            migration.
+        """
+        @ts preserve_case
+    }
+
+    @doc value "is a single cell in a table, identified by key and variant."
+}
+
+CellTemplate struct extends Cell {
+    -key
+
+    @doc value """
+        is a variant + props pair describing what a cell should look like,
+        without identifying which cell. Used by actions that overwrite
+        existing cells in place (EraseCells), where the target cell's key
+        is provided separately.
+    """
+}
+
+Row struct {
+    size  float64  {
+        @doc value "is the height of the row in pixels."
+    }
+    cells string[] {
+        @doc value """
+            is the ordered list of cell keys in this row from left to right.
+            Each key points at an entry in the table's cells map.
+        """
+    }
+
+    @doc value "is a single row in a table, with height and ordered cell keys."
+}
+
+Column struct {
+    size float64 {
+        @doc value "is the width of the column in pixels."
+    }
+
+    @doc value "is a single column in a table, with width."
+}
+
 Table struct {
-    key  Key    {
+    key     Key               {
         @doc value "is the unique identifier for this table."
         @key
     }
-    name string {
+    name    string            {
         @doc value "is a human-readable name for the table."
     }
-    data record {
+    rows    Row[]             {
+        @doc value "are the table rows in display order, top to bottom."
+    }
+    columns Column[]          {
+        @doc value "are the table columns in display order, left to right."
+    }
+    cells   map<string, Cell> {
         @doc value        """
-            is the table configuration including column definitions, channel
-            references, and formatting options.
+            contains all cells in the table, keyed by cell key. Cell positions
+            are derived from rows[*].cells[*] references; cells not referenced
+            by any row are orphaned and will be pruned on the next structural
+            edit.
         """
         @ts preserve_case
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the table."
+    }
+
+    action AddRow {
+        index         uint32
+        size          float64
+        cells         Cell[]
+        cell_template Cell??
+
+        @doc value """
+            inserts a row at the given index. Three flows:
+
+            1. User gesture with cell_template against a non-empty table:
+               replicate the template once per existing column.
+            2. User gesture with cell_template against a fully-empty table:
+               seed a 1x1 grid (one template replica plus one default-sized
+               column).
+            3. Undo replay of RemoveRow (cell_template is null, cells is
+               non-empty): use cells as-is. If the original RemoveRow had
+               stripped the table down to no columns, the explicit cells
+               trigger the same column-bootstrap as flow 2.
+
+            Derived replica keys come from the template's key with the last
+            four hex digits replaced by the column index. Out-of-range
+            indices clamp to the end.
+        """
+    }
+
+    action RemoveRow {
+        index uint32
+
+        @doc value """
+            removes the row at the given index. All cells referenced by the
+            removed row are also dropped from the cells map. No-op if the
+            index is out of range.
+        """
+    }
+
+    action AddCol {
+        index         uint32
+        size          float64
+        cells         Cell[]
+        cell_template Cell??
+
+        @doc value """
+            inserts a column at the given index. Three flows:
+
+            1. User gesture with cell_template against a non-empty table:
+               replicate the template once per existing row.
+            2. User gesture with cell_template against a fully-empty table:
+               seed a 1x1 grid (one template replica plus one default-sized
+               row).
+            3. Undo replay of RemoveCol (cell_template is null, cells is
+               non-empty): use cells as-is. If the original RemoveCol had
+               stripped the table down to no rows, the explicit cells
+               trigger the same row-bootstrap as flow 2.
+
+            Derived replica keys come from the template's key with the last
+            four hex digits replaced by the row index. Cells whose row
+            index exceeds the row count are added to the cells map but not
+            referenced by any row. Out-of-range indices clamp to the end of
+            every row's cells list.
+        """
+    }
+
+    action RemoveCol {
+        index uint32
+
+        @doc value """
+            removes the column at the given index. All cells in that column
+            (across every row) are dropped from the cells map. No-op if the
+            index is out of range.
+        """
+    }
+
+    action ResizeRow {
+        index uint32
+        size  float64
+
+        @doc value "resizes the row at the given index. No-op if the index is out of range."
+    }
+
+    action ResizeCol {
+        index uint32
+        size  float64
+
+        @doc value "resizes the column at the given index. No-op if the index is out of range."
+    }
+
+    action SetCell {
+        cell Cell
+
+        @doc value """
+            replaces the cell at cell.key with the provided value. No-op if
+            no cell with that key exists in the table.
+        """
+    }
+
+    action EraseCells {
+        cells    string[]
+        template CellTemplate
+
+        @doc value """
+            erases the cells whose keys are in cells. Any row whose every
+            cell is in the selection is removed entirely; same for columns.
+            Cells that survive that row/column removal have their variant
+            and props replaced with the template's, keeping their original
+            keys. Cells in the selection whose keys are not in the table's
+            cells map are silently skipped.
+        """
     }
 
     @doc value     """
@@ -43,12 +223,10 @@ Table struct {
 }
 
 New struct extends Table {
-    key Key? {
-        @doc value """
-            is an optional key for the table. If not provided, one will be
-            automatically assigned.
-        """
-    }
+    key     = create
+    rows    = []
+    columns = []
+    cells   = {}
 
     @doc value    "contains parameters for creating a new table."
     @ts use_input

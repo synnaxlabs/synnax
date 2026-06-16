@@ -72,7 +72,7 @@ func analyzeAndExpectError(bCtx SpecContext, source string) string {
 	ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-	Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 1))
+	Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 	return (*ctx.Diagnostics)[0].Message
 }
 
@@ -218,5 +218,230 @@ var _ = Describe("Sequence Analyzer", func() {
 			`)
 			Expect(msg).To(Equal("undefined symbol: unknown_sequence"))
 		})
+	})
+
+	Describe("Top-Level Stages", func() {
+		DescribeTable("Valid Top-Level Stages",
+			analyzeAndExpectSuccess,
+			Entry("named top-level stage", `
+				stage main {
+					1 -> start_cmd
+				}
+			`),
+			Entry("anonymous top-level stage", `
+				stage {
+					1 -> start_cmd
+				}
+			`),
+			Entry("top-level stage with inline routing case body", `
+				stage main {
+					start_cmd -> select{} -> {
+						true: stage { 1 -> abort_btn },
+						false: stage { 1 -> abort_btn }
+					}
+				}
+			`),
+			Entry("top-level stage containing a nested sequence with inline routing", `
+				stage main {
+					sequence inner {
+						start_cmd -> select{} -> {
+							true: stage { 1 -> abort_btn }
+						}
+					}
+				}
+			`),
+			Entry("top-level stage with inline flow target", `
+				stage main {
+					start_cmd -> stage { 1 -> abort_btn }
+				}
+			`),
+			Entry("top-level stage containing a nested sequence with inline flow target", `
+				stage main {
+					sequence inner {
+						start_cmd -> stage { 1 -> abort_btn }
+					}
+				}
+			`),
+		)
+	})
+
+	Describe("Inline Routing Case Bodies", func() {
+		DescribeTable("Valid Inline Routing",
+			analyzeAndExpectSuccess,
+			Entry("inline stage in routing case body (stage context)", `
+				sequence main {
+					stage hold {
+						start_cmd -> select{} -> {
+							true: stage { 1 -> abort_btn }
+						}
+					}
+				}
+			`),
+			Entry("inline sequence in routing case body (stage context)", `
+				sequence main {
+					stage hold {
+						start_cmd -> select{} -> {
+							true: sequence {
+								1 -> abort_btn
+							}
+						}
+					}
+				}
+			`),
+			Entry("inline routing directly in sequence body", `
+				sequence main {
+					start_cmd -> select{} -> {
+						true: stage { 1 -> abort_btn }
+					}
+				}
+			`),
+			Entry("inline routing inside nested sequence", `
+				sequence main {
+					stage hold {
+						sequence inner {
+							start_cmd -> select{} -> {
+								true: stage { 1 -> abort_btn }
+							}
+						}
+					}
+				}
+			`),
+			Entry("empty inline stage body", `
+				sequence main {
+					stage hold {
+						start_cmd -> select{} -> {
+							true: stage { },
+							false: stage { 1 -> abort_btn }
+						}
+					}
+				}
+			`),
+			Entry("empty inline sequence body", `
+				sequence main {
+					stage hold {
+						start_cmd -> select{} -> {
+							true: sequence { },
+							false: stage { 1 -> abort_btn }
+						}
+					}
+				}
+			`),
+		)
+
+		DescribeTable("Should reject named inline routing case bodies",
+			func(bCtx SpecContext, source, expectedError string) {
+				msg := analyzeAndExpectError(bCtx, source)
+				Expect(msg).To(ContainSubstring(expectedError))
+			},
+			Entry("named inline stage", `
+				sequence main {
+					stage hold {
+						start_cmd -> select{} -> {
+							true: stage my_stage { 1 -> abort_btn }
+						}
+					}
+				}
+			`, `inline routing case body stages must be anonymous; remove name "my_stage"`),
+			Entry("named inline sequence", `
+				sequence main {
+					stage hold {
+						start_cmd -> select{} -> {
+							true: sequence my_seq { 1 -> abort_btn }
+						}
+					}
+				}
+			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
+		)
+	})
+
+	Describe("Inline Flow Target Bodies", func() {
+		DescribeTable("Valid Inline Flow Targets",
+			analyzeAndExpectSuccess,
+			Entry("inline stage as flow target (stage context)", `
+				sequence main {
+					stage hold {
+						start_cmd -> stage { 1 -> abort_btn }
+					}
+				}
+			`),
+			Entry("inline sequence as flow target (stage context)", `
+				sequence main {
+					stage hold {
+						start_cmd -> sequence {
+							1 -> abort_btn
+						}
+					}
+				}
+			`),
+			Entry("inline flow target directly in sequence body", `
+				sequence main {
+					start_cmd -> stage { 1 -> abort_btn }
+				}
+			`),
+			Entry("inline stage flow target at module scope", `
+				start_cmd -> stage { 1 -> abort_btn }
+			`),
+			Entry("inline sequence flow target at module scope", `
+				start_cmd -> sequence {
+					1 -> abort_btn
+				}
+			`),
+			Entry("module-scope inline stage with multiple parallel writes", `
+				start_cmd -> stage {
+					1 -> abort_btn
+					1 -> start_cmd
+				}
+			`),
+			Entry("module-scope inline sequence with multiple steps", `
+				start_cmd -> sequence {
+					1 -> abort_btn
+					1 -> start_cmd
+				}
+			`),
+			Entry("inline flow target inside nested sequence", `
+				sequence main {
+					stage hold {
+						sequence inner {
+							start_cmd -> stage { 1 -> abort_btn }
+						}
+					}
+				}
+			`),
+			Entry("empty inline stage flow target", `
+				sequence main {
+					stage hold {
+						start_cmd -> stage { }
+					}
+				}
+			`),
+			Entry("empty inline sequence flow target", `
+				sequence main {
+					stage hold {
+						start_cmd -> sequence { }
+					}
+				}
+			`),
+		)
+
+		DescribeTable("Should reject named inline flow targets",
+			func(bCtx SpecContext, source, expectedError string) {
+				msg := analyzeAndExpectError(bCtx, source)
+				Expect(msg).To(ContainSubstring(expectedError))
+			},
+			Entry("named inline stage", `
+				sequence main {
+					stage hold {
+						start_cmd -> stage my_stage { 1 -> abort_btn }
+					}
+				}
+			`, `inline routing case body stages must be anonymous; remove name "my_stage"`),
+			Entry("named inline sequence", `
+				sequence main {
+					stage hold {
+						start_cmd -> sequence my_seq { 1 -> abort_btn }
+					}
+				}
+			`, `inline routing case body sequences must be anonymous; remove name "my_seq"`),
+		)
 	})
 })

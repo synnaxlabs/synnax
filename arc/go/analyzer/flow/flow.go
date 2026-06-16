@@ -12,6 +12,9 @@
 package flow
 
 import (
+	"fmt"
+	"slices"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
@@ -24,13 +27,23 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
+// freshenKey derives a unique freshening prefix from a call site's AST node so
+// each invocation of a polymorphic function gets its own set of type variables.
+// Without this, two calls to math.avg with different concrete types would unify
+// against a single shared T and conflict.
+func freshenKey(node antlr.ParserRuleContext, name string) string {
+	tok := node.GetStart()
+	return fmt.Sprintf("%s_%d_%d", name, tok.GetLine(), tok.GetColumn())
+}
+
 func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	funcType, name := resolveFunc(ctx, ctx.AST)
 	if funcType == nil {
 		return
 	}
-	validateFuncConfig(ctx, name, funcType.Type, ctx.AST.ConfigValues(), ctx.AST)
-	for _, input := range funcType.Type.Inputs {
+	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
+	validateFuncConfig(ctx, name, freshType, ctx.AST.ConfigValues(), ctx.AST)
+	for _, input := range freshType.Inputs {
 		if input.Value == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"standalone function '%s' has required input '%s' with no source; "+
@@ -69,8 +82,9 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 		AnalyzeSingleExpression(context.Child(ctx, expr))
 		return
 	}
-	// NEXT is always valid - it will be resolved during sequence analysis.
-	// The grammar guarantees flowNode is one of: identifier | function | expression | NEXT
+	// NEXT and inline stage/sequence declarations are resolved during sequence
+	// analysis, not here. The grammar guarantees flowNode is one of:
+	// identifier | function | expression | stageDeclaration | sequenceDeclaration | NEXT.
 }
 
 func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser.IFlowNodeContext) {
@@ -79,20 +93,25 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		return
 	}
 
+	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
+
 	validateFuncConfig(
 		ctx,
 		name,
-		funcType.Type,
+		freshType,
 		ctx.AST.ConfigValues(),
 		ctx.AST,
 	)
+	if funcType.AnalyzeFlowConfig != nil {
+		funcType.AnalyzeFlowConfig(ctx.Diagnostics, ctx.AST.ConfigValues())
+	}
 	if prevNode == nil {
 		return
 	}
 
 	// Dual-shape ExecBoth (see symbol.ExecBoth): upstream is a trigger, not
 	// a typed input.
-	upstreamIsTrigger := funcType.Exec == symbol.ExecBoth && len(funcType.Type.Config) > 0
+	upstreamIsTrigger := funcType.Exec == symbol.ExecBoth && len(freshType.Config) > 0
 
 	if prevIDNode := prevNode.Identifier(); prevIDNode != nil {
 		idName := prevIDNode.IDENTIFIER().GetText()
@@ -106,8 +125,8 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			ctx.Diagnostics.Add(diagnostics.Errorf(prevIDNode, "%s is not a channel", idName))
 			return
 		}
-		if !upstreamIsTrigger && len(funcType.Type.Inputs) > 0 {
-			param := funcType.Type.Inputs[0]
+		if !upstreamIsTrigger && len(freshType.Inputs) > 0 {
+			param := freshType.Inputs[0]
 			if idSym.Type.Kind != types.KindChan {
 				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 					"%s is not a valid channel",
@@ -128,15 +147,15 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 					idName,
 					chanValueType,
 					name,
-					param,
+					funcType.Type.Inputs[0],
 				))
 				return
 			}
 		}
 	} else if prevExpr := prevNode.Expression(); prevExpr != nil {
 		exprType := atypes.InferFromExpression(context.Child(ctx, prevExpr)).Unwrap()
-		if !upstreamIsTrigger && len(funcType.Type.Inputs) > 0 {
-			param := funcType.Type.Inputs[0]
+		if !upstreamIsTrigger && len(freshType.Inputs) > 0 {
+			param := freshType.Inputs[0]
 			if err := atypes.Check(
 				ctx.Constraints,
 				exprType,
@@ -148,7 +167,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 					"expression type %s does not match func %s parameter type %s",
 					exprType,
 					name,
-					param.Type,
+					funcType.Type.Inputs[0].Type,
 				))
 				return
 			}
@@ -169,13 +188,14 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			}
 		}
 
-		if !upstreamIsTrigger && !hasRoutingTableBetween && len(funcType.Type.Inputs) > 1 {
+		if !upstreamIsTrigger && !hasRoutingTableBetween && len(freshType.Inputs) > 1 {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s has more than one parameter", name))
 			return
 		}
-		if !upstreamIsTrigger && !hasRoutingTableBetween && len(funcType.Type.Inputs) > 0 {
-			t := funcType.Type.Inputs[0].Type
-			prevOutputType := resolveFuncOutput(ctx, prevFuncType.Type, prevFuncName,
+		if !upstreamIsTrigger && !hasRoutingTableBetween && len(freshType.Inputs) > 0 {
+			t := freshType.Inputs[0].Type
+			prevFreshType := types.Freshen(prevFuncType.Type, freshenKey(prevFuncNode, prevFuncName))
+			prevOutputType := resolveFuncOutput(ctx, prevFreshType, prevFuncName,
 				"'"+name+"' expects an input parameter")
 			if !prevOutputType.IsValid() {
 				return
@@ -186,7 +206,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 					"return type %s of %s is not equal to argument type %s of %s",
 					prevOutputType,
 					prevFuncName,
-					t,
+					funcType.Type.Inputs[0].Type,
 					name,
 				))
 				return
@@ -421,8 +441,8 @@ func analyzeOutputRoutingTable(
 	nodesAfter []parser.IFlowNodeContext,
 ) {
 	var PrevFunc parser.IFunctionContext
-	for i := len(nodesBefore) - 1; i >= 0; i-- {
-		if fn := nodesBefore[i].Function(); fn != nil {
+	for _, n := range slices.Backward(nodesBefore) {
+		if fn := n.Function(); fn != nil {
 			PrevFunc = fn
 			break
 		}
@@ -641,7 +661,9 @@ func analyzeRoutingTargetWithParam(
 				}
 			}
 		} else {
-			if len(fnType.Type.Inputs) > 0 {
+			//  A select branch into such an ExecBoth node is a trigger, not a typed input.
+			upstreamIsTrigger := fnType.Exec == symbol.ExecBoth && len(fnType.Type.Config) > 0
+			if !upstreamIsTrigger && len(fnType.Type.Inputs) > 0 {
 				param := fnType.Type.Inputs[0]
 				if err := atypes.Check(ctx.Constraints, sourceType, param.Type, ctx.AST,
 					"routing table output to func parameter"); err != nil {

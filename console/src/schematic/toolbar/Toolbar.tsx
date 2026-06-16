@@ -29,11 +29,11 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
 import {
+  useSelectActiveToolbarTab,
   useSelectControlStatus,
   useSelectEditable,
-  useSelectPendingUpload,
+  useSelectExists,
   useSelectSelected,
-  useSelectToolbar,
 } from "@/schematic/selectors";
 import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { Control } from "@/schematic/toolbar/Control";
@@ -81,9 +81,8 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   PSchematic.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
-  const toolbar = useSelectToolbar(layoutKey);
-  const activeTab = toolbar?.activeTab;
-  const editMode = useSelectEditable(layoutKey) === true;
+  const activeTab = useSelectActiveToolbarTab(layoutKey);
+  const editMode = useSelectEditable(layoutKey);
   const handleExport = useExport();
   const selected = useSelectSelected(layoutKey);
   const singleSelectedConfig = PSchematic.useSelectElementConfig({
@@ -168,6 +167,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 };
 
 export const Toolbar = (props: ToolbarProps) => {
-  const pendingUpload = useSelectPendingUpload(props.layoutKey);
-  return pendingUpload == null ? <Internal {...props} /> : null;
+  const exists = useSelectExists(props.layoutKey);
+  if (!exists) return null;
+  return <Internal {...props} />;
 };

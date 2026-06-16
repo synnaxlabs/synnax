@@ -16,9 +16,10 @@ import {
   ontology,
   ranger,
 } from "@synnaxlabs/client";
-import { array, deep, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
+import { array, errors, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type channel as aetherChannel } from "@/channel/aether";
 import { Flux } from "@/flux";
 import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
@@ -26,44 +27,21 @@ import { type Ranger } from "@/ranger";
 import { state } from "@/state";
 import { Status } from "@/status";
 
-export const FLUX_STORE_KEY = "channels";
+export {
+  FLUX_STORE_CONFIG,
+  FLUX_STORE_KEY,
+  type FluxStore,
+} from "@/channel/aether/queries";
+
 const RESOURCE_NAME = "channel";
 const PLURAL_RESOURCE_NAME = "channels";
 
-export interface FluxStore extends Flux.UnaryStore<channel.Key, channel.Channel> {}
-
 interface FluxSubStore extends Status.FluxSubStore {
-  [FLUX_STORE_KEY]: FluxStore;
+  [aetherChannel.FLUX_STORE_KEY]: aetherChannel.FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }
-
-const SET_CHANNEL_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof channel.payloadZ
-> = {
-  channel: channel.SET_CHANNEL_NAME,
-  schema: channel.payloadZ,
-  onChange: async ({ store, changed, client }) =>
-    store.channels.set(client.channels.sugar(changed)),
-};
-
-const DELETE_CHANNEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof channel.keyZ> =
-  {
-    channel: channel.DELETE_CHANNEL_NAME,
-    schema: channel.keyZ,
-    onChange: ({ store, changed }) => store.channels.delete(changed),
-  };
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
-  channel.Key,
-  channel.Channel
-> = {
-  equal: (a, b) => deep.equal(a.payload, b.payload),
-  listeners: [SET_CHANNEL_LISTENER, DELETE_CHANNEL_LISTENER],
-};
 
 export const formSchema = channel.newZ
   .required({ expression: true })
@@ -144,7 +122,7 @@ const retrieveSingle = async ({
       });
       ch = client.channels.sugar({ ...ch.payload, status: st });
     } catch (e) {
-      if (!(e instanceof NotFoundError)) throw e;
+      if (!(e instanceof NotFoundError)) throw errors.fromUnknown(e);
     }
   if (rangeKey != null) {
     const aliasKey = ranger.alias.createKey({ range: rangeKey, channel: ch.key });

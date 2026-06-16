@@ -15,19 +15,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -47,46 +43,18 @@ var _ = Describe("Streamer", Ordered, func() {
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           dist.DB,
-			Ontology:     dist.Ontology,
-			Group:        dist.Group,
-			HostProvider: mock.StaticHostKeyProvider(1),
-			Status:       statusSvc,
-			Search:       searchIdx,
-		}))
-		taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Group:    dist.Group,
-			Rack:     rackService,
-			Status:   statusSvc,
-			Search:   searchIdx,
-		}))
-		arcSvc := MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-			Channel:  dist.Channel,
-			Ontology: dist.Ontology,
-			DB:       dist.DB,
-			Signals:  dist.Signals,
-			Task:     taskSvc,
-			Search:   searchIdx,
-		}))
-
-		channelSvc := svcchannel.Wrap(dist.Channel)
+		channelSvc := channel.Wrap(dist.Channel)
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			DB:                dist.DB,
-			Arc:               arcSvc,
 			Framer:            dist.Framer,
 			Channel:           channelSvc,
 			ChannelObservable: dist.Channel.Observe(),
@@ -118,7 +86,6 @@ var _ = Describe("Streamer", Ordered, func() {
 			defer cancel()
 			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			Eventually(outlet.Outlet()).Should(Receive())
-			time.Sleep(5 * time.Millisecond)
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
 			var res streamer.Response
@@ -471,7 +438,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
-			time.Sleep(50 * time.Millisecond)
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))
@@ -590,7 +556,6 @@ var _ = Describe("Streamer", Ordered, func() {
 
 			writtenFr := frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1, 2, 3))
 			MustSucceed(w.Write(writtenFr))
-			time.Sleep(50 * time.Millisecond)
 
 			var res streamer.Response
 			Eventually(outlet.Outlet(), 500*time.Millisecond).Should(Receive(&res))

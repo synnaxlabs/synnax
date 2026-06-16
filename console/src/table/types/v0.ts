@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TableCells, Theming } from "@synnaxlabs/pluto";
+import { Table, Theming } from "@synnaxlabs/pluto";
 import { id, type record, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-const VERSION = "0.0.0";
+export const VERSION = "0.0.0";
 
 const cellLayoutZ = z.object({ key: z.string() });
 
@@ -34,14 +34,14 @@ const cellStateZ = z.object({
 });
 
 export interface CellState<
-  V extends TableCells.Variant = TableCells.Variant,
+  V extends Table.Cell.Variant = Table.Cell.Variant,
   P extends object = record.Unknown,
 > extends z.infer<typeof cellStateZ> {
   variant: V;
   props: P;
 }
 
-export const ZERO_TEXT_CELL_PROPS = TableCells.CELLS.text.defaultProps(
+export const ZERO_TEXT_CELL_PROPS = Table.Cell.REGISTRY.text.defaultProps(
   Theming.themeZ.parse(Theming.SYNNAX_THEMES.synnaxDark),
 );
 

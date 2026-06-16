@@ -31,7 +31,7 @@ from freighter.transport import (
     Next,
     Transport,
 )
-from freighter.unary import AsyncUnaryClient, UnaryClient, send_required
+from freighter.unary import AsyncUnaryClient, UnaryClient
 from freighter.upload import UploadClient
 from freighter.url import URL
 from freighter.websocket import (
@@ -76,7 +76,6 @@ __all__ = [
     "MessagePackCodec",
     "Next",
     "register_exception",
-    "send_required",
     "Stream",
     "StreamClient",
     "StreamClosed",

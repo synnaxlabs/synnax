@@ -17,8 +17,16 @@ import { type record } from "@/record";
  */
 const PRESERVE_CASE_SYMBOL = "synnax.caseconv.preserveCase";
 
+/**
+ * Global symbol used to mark Zod record schemas whose keys are semantic values
+ * but whose values are ordinary typed payloads: the keys are left untouched
+ * while the values still undergo case conversion.
+ */
+const PRESERVE_KEYS_SYMBOL = "synnax.caseconv.preserveKeys";
+
 interface ZodDef extends z.core.$ZodTypeDef {
   innerType?: z.core.SomeType;
+  valueType?: z.core.SomeType;
   options?: readonly z.core.SomeType[];
   in?: z.core.SomeType;
   out?: z.core.SomeType;
@@ -32,6 +40,7 @@ interface ZodInternals extends z.core.$ZodTypeInternals {
 
 interface ZodSchema extends z.core.$ZodType {
   [PRESERVE_CASE_SYMBOL]?: boolean;
+  [PRESERVE_KEYS_SYMBOL]?: boolean;
   _zod: ZodInternals;
   shape?: Record<string, z.ZodType>;
   sourceType?: () => { shape?: Record<string, z.ZodType> } | undefined;
@@ -55,6 +64,44 @@ interface ZodSchema extends z.core.$ZodType {
 export const preserveCase = <T extends z.ZodType>(schema: T): T => {
   (schema as ZodSchema)[PRESERVE_CASE_SYMBOL] = true;
   return schema;
+};
+
+/**
+ * Marks a Zod record schema so case conversion leaves its keys untouched while
+ * still converting the keys of its values. Use this for maps whose keys are
+ * semantic identifiers (element keys, channel names) but whose values are
+ * ordinary typed payloads.
+ *
+ * @param schema - The Zod record schema to mark
+ * @returns The same schema with a preserve keys marker
+ */
+export const preserveKeys = <T extends z.ZodType>(schema: T): T => {
+  (schema as ZodSchema)[PRESERVE_KEYS_SYMBOL] = true;
+  return schema;
+};
+
+const hasPreserveKeysMarker = (schema: unknown): boolean =>
+  schema != null && typeof schema === "object" && PRESERVE_KEYS_SYMBOL in schema;
+
+/**
+ * Extracts the value schema from a Zod record schema, traversing wrappers
+ * (optional, nullable, default, pipe) and unions to find the inner record.
+ */
+const getRecordValueSchema = (
+  schema: z.ZodType | z.core.SomeType | undefined,
+): z.ZodType | undefined => {
+  if (schema == null) return undefined;
+  const def = (schema as ZodSchema)._zod?.def;
+  if (def == null) return undefined;
+  if (def.type === "record" && def.valueType != null) return def.valueType as z.ZodType;
+  if (def.innerType != null) return getRecordValueSchema(def.innerType);
+  if (def.in != null) return getRecordValueSchema(def.in);
+  if (Array.isArray(def.options))
+    for (const option of def.options) {
+      const result = getRecordValueSchema(option);
+      if (result != null) return result;
+    }
+  return undefined;
 };
 
 /**
@@ -182,6 +229,34 @@ const createConverter = (
 
     if (opt.schema != null && hasPreserveCaseMarker(opt.schema)) return obj;
 
+    if (opt.schema != null && hasPreserveKeysMarker(opt.schema)) {
+      const valueSchema = getRecordValueSchema(opt.schema);
+      const childOpt: Options = {
+        recursive: opt.recursive,
+        recursiveInArray: opt.recursiveInArray,
+        schema: valueSchema,
+      };
+      const res: record.Unknown = {};
+      const anyObj = obj as record.Unknown;
+      for (const key of Object.keys(anyObj)) {
+        let value = anyObj[key];
+        if (isValidObject(value)) {
+          if (!isPreservedType(value)) value = converter(value, childOpt);
+        } else if (Array.isArray(value)) {
+          const elemOpt: Options = {
+            recursive: opt.recursive,
+            recursiveInArray: opt.recursiveInArray,
+            schema: getArrayElementSchema(valueSchema),
+          };
+          value = (value as unknown[]).map((v) =>
+            isValidObject(v) && !isPreservedType(v) ? converter(v, elemOpt) : v,
+          );
+        }
+        res[key] = value;
+      }
+      return res as V;
+    }
+
     const recursive = opt.recursive ?? true;
     const recursiveInArray = opt.recursiveInArray ?? recursive;
     const schema = opt.schema;
@@ -244,13 +319,49 @@ const createConverter = (
  */
 export const snakeToCamel = createConverter(snakeToCamelStr);
 
-const camelToSnakeStr = (str: string): string =>
-  // Don't convert the first character and don't convert a character that is after a
-  // non-alphanumeric character
-  str.replace(
-    /([a-z0-9])([A-Z])/g,
-    (_, p1: string, p2: string) => `${p1}_${p2.toLowerCase()}`,
-  );
+const UPPER_A = "A".charCodeAt(0);
+const UPPER_Z = "Z".charCodeAt(0);
+const LOWER_A = "a".charCodeAt(0);
+const LOWER_Z = "z".charCodeAt(0);
+const DIGIT_0 = "0".charCodeAt(0);
+const DIGIT_9 = "9".charCodeAt(0);
+const UPPER_TO_LOWER = LOWER_A - UPPER_A;
+
+// camelToSnakeStr inverts snakeToCamel. The first word break is always a capital
+// following a lowercase or digit, so the prefix scan finds it without allocating
+// (an already-snake string is returned as-is). From there a capital breaks a word
+// if it follows a lowercase/digit or continues an uppercase run entered from one,
+// so fooXY (from foo_x_y) splits fully while a leading run like NS=1;ID=5 stays put.
+const camelToSnakeStr = (str: string): string => {
+  const n = str.length;
+  let i = 1;
+  for (; i < n; i++) {
+    const c = str.charCodeAt(i);
+    if (c < UPPER_A || c > UPPER_Z) continue;
+    const prev = str.charCodeAt(i - 1);
+    if ((prev >= LOWER_A && prev <= LOWER_Z) || (prev >= DIGIT_0 && prev <= DIGIT_9))
+      break;
+  }
+  if (i >= n) return str;
+  let res = str.slice(0, i);
+  // enteredFromLower stays true across an uppercase run begun after a lowercase or
+  // digit, so every capital in fooXY splits rather than just the first.
+  let enteredFromLower = true;
+  for (; i < n; i++) {
+    const c = str.charCodeAt(i);
+    if (c < UPPER_A || c > UPPER_Z) {
+      enteredFromLower = false;
+      res += str[i];
+      continue;
+    }
+    const prev = str.charCodeAt(i - 1);
+    if ((prev >= LOWER_A && prev <= LOWER_Z) || (prev >= DIGIT_0 && prev <= DIGIT_9))
+      enteredFromLower = true;
+    else if (prev < UPPER_A || prev > UPPER_Z) enteredFromLower = false;
+    res += enteredFromLower ? `_${String.fromCharCode(c + UPPER_TO_LOWER)}` : str[i];
+  }
+  return res;
+};
 
 /**
  * Converts a camelCase string to snake_case.

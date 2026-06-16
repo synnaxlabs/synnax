@@ -263,7 +263,12 @@ if $INSTALL_CLI; then
     mkdir -p "$INSTALL_DIR"
 
     BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
+    # -buildvcs=false: VCS stamping fails when Oracle is built from a Git worktree
+    # (where .git is a file, not a directory) because Go's repo-root detection walks
+    # past it and errors. BuildTime is injected via ldflags above, so the embedded Git
+    # revision is not needed.
     run "Compiling..." go build \
+        -buildvcs=false \
         -ldflags "-X 'github.com/synnaxlabs/oracle/cmd.BuildTime=$BUILD_TIME'" \
         -o "$INSTALL_DIR/oracle" .
 

@@ -10,6 +10,9 @@
 package types_test
 
 import (
+	gojson "encoding/json"
+	"go/parser"
+	"go/token"
 	"strings"
 	"testing"
 
@@ -19,11 +22,13 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
 	. "github.com/synnaxlabs/oracle/testutil"
+	gotesterrors "github.com/synnaxlabs/x/errors"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestGoTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go Types Plugin Suite")
+	RunSpecs(t, "Plugin Go Types Suite")
 }
 
 var _ = Describe("Go Types Plugin", func() {
@@ -99,8 +104,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring("Labels []uuid.UUID `json:\"labels\" msgpack:\"labels\"`"))
@@ -127,8 +131,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`CreatedAt int64`))
@@ -153,8 +156,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Screaming case fields should preserve their Go names
@@ -231,8 +233,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(BeEmpty())
 			})
 
@@ -259,8 +260,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Status should be skipped
@@ -286,8 +286,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(1))
 				Expect(resp.Files[0].Path).To(Equal("core/pkg/service/user/types.gen.go"))
 
@@ -316,8 +315,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := string(resp.Files[0].Content)
@@ -339,8 +337,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := string(resp.Files[0].Content)
@@ -364,8 +361,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).NotTo(ContainSubstring(`import (`))
@@ -399,8 +395,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(1))
 
 				content := string(resp.Files[0].Content)
@@ -436,8 +431,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Variant string`))
@@ -445,6 +439,35 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`VariantWarning Variant = "warning"`))
 				Expect(content).To(ContainSubstring(`VariantError Variant = "error"`))
 				Expect(content).To(ContainSubstring(`Variant Variant`))
+			})
+
+			It("Should declare acronym-named enums under their declared name", func(ctx SpecContext) {
+				source := `
+				@go output "core/ni"
+
+				RTDType enum {
+					pt_3750 = "Pt3750"
+					pt_3851 = "Pt3851"
+				}
+
+				Channel struct {
+					rtd_type RTDType
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp := MustSucceed(goPlugin.Generate(req))
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type RTDType string`))
+				Expect(content).To(ContainSubstring(`RTDTypePt3750 RTDType = "Pt3750"`))
+				Expect(content).To(ContainSubstring(`RtdType RTDType`))
+				Expect(content).ToNot(ContainSubstring(`RtdTypePt3750`))
 			})
 
 			It("Should generate int enum type and iota constants", func(ctx SpecContext) {
@@ -469,8 +492,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Priority uint8`))
@@ -498,12 +520,86 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`// Direction indicates a compass direction.`))
 				Expect(content).To(ContainSubstring(`type Direction string`))
+			})
+
+			It("Should generate an IsValid method for string enums", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+
+					Variant enum {
+						success = "success"
+						warning = "warning"
+						error = "error"
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`// IsValid reports whether v is one of the defined Variant values.`))
+				Expect(content).To(ContainSubstring(`func (v Variant) IsValid() bool {`))
+				Expect(content).To(ContainSubstring(`case VariantSuccess, VariantWarning, VariantError:`))
+				Expect(content).To(ContainSubstring(`return true`))
+				Expect(content).To(ContainSubstring(`return false`))
+			})
+
+			It("Should not generate an IsValid method for int enums", func(ctx SpecContext) {
+				source := `
+					@go output "core/priority"
+
+					Priority enum {
+						low = 0
+						medium = 1
+						high = 2
+					}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "priority", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp := MustSucceed(
+					goPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type Priority uint8`))
+				Expect(content).NotTo(ContainSubstring(`func (p Priority) IsValid()`))
+			})
+
+			It("Should generate an extending enum as a standalone union of its parents", func(ctx SpecContext) {
+				source := `
+					@go output "core/lineplot"
+
+					XAxisKey enum {
+						x1 = "x1"
+						x2 = "x2"
+					}
+
+					YAxisKey enum {
+						y1 = "y1"
+						y2 = "y2"
+					}
+
+					AxisKey enum extends XAxisKey, YAxisKey {}
+				`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				resp := MustSucceed(goPlugin.Generate(&plugin.Request{Resolutions: table}))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`type AxisKey string`))
+				Expect(content).To(ContainSubstring(`AxisKeyX1 AxisKey = "x1"`))
+				Expect(content).To(ContainSubstring(`AxisKeyY2 AxisKey = "y2"`))
+				Expect(content).To(ContainSubstring(`func (a AxisKey) IsValid() bool {`))
+				Expect(content).To(ContainSubstring(`type YAxisKey string`))
 			})
 
 		})
@@ -525,8 +621,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`Settings map[string]string`))
@@ -552,8 +647,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Box[T any] struct {`))
@@ -576,8 +670,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Container[D any] struct {`))
@@ -600,8 +693,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Container[K comparable] struct {`))
@@ -629,8 +721,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Original struct {`))
@@ -650,8 +741,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Stratum should be an alias to []string, not just string
@@ -674,8 +764,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`// Authority is a numeric value representing control authority.`))
@@ -697,8 +786,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`// Key is the unique identifier for the label.`))
@@ -730,8 +818,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`type Address struct {`))
@@ -767,8 +854,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 				Expect(resp.Files).To(HaveLen(2))
 
 				// Find the task file
@@ -815,8 +901,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				// Find the task file
 				var taskContent string
@@ -854,8 +939,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Parent struct should be normal
@@ -891,8 +975,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Child should have flattened fields (no embedding due to omission)
@@ -903,6 +986,51 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(content).To(ContainSubstring(`Email string`))
 				// Age should NOT be present (omitted)
 				Expect(content).NotTo(MatchRegexp(`Child struct \{[^}]*Age`))
+			})
+
+			It("Should generate a typeless override identically to a full restatement", func(ctx SpecContext) {
+				gen := func(childBody string) string {
+					source := `
+					@go output "core/user"
+
+					Parent struct {
+						name  string
+						count int32 = 5
+						tag   string
+					}
+
+					Child struct extends Parent {
+						` + childBody + `
+					}
+				`
+					resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+					return string(resp.Files[0].Content)
+				}
+				// A typeless override desugars to the equivalent full restatement,
+				// so the generated output is byte-identical.
+				Expect(gen("count = 10")).To(Equal(gen("count int32 = 10")))
+				Expect(gen("tag?")).To(Equal(gen("tag string?")))
+			})
+
+			It("Should flatten a struct that removes an inherited domain", func(ctx SpecContext) {
+				source := `
+				@go output "core/user"
+
+				Parent struct {
+					name string @validate required
+				}
+
+				Child struct extends Parent {
+					name -@validate
+				}
+			`
+				resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+
+				content := string(resp.Files[0].Content)
+				// A domain removal cannot embed, so Child flattens.
+				Expect(content).To(ContainSubstring(`type Child struct {`))
+				Expect(content).NotTo(ContainSubstring("\tParent\n"))
+				Expect(content).To(ContainSubstring(`Name string`))
 			})
 
 			It("Should generate cross-namespace struct embedding with import", func(ctx SpecContext) {
@@ -931,8 +1059,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				// Find the child file
 				var childContent string
@@ -973,8 +1100,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// RackStatus should embed Status with type argument
@@ -1003,8 +1129,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// RackStatus should be generic and embed Status with passed type param
@@ -1036,8 +1161,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// C should embed both A and B
@@ -1072,8 +1196,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// C should have flattened fields (no embedding due to conflict)
@@ -1111,8 +1234,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// C should have flattened fields (no embedding due to omission)
@@ -1152,8 +1274,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				zebraIdx := strings.Index(content, "type Zebra struct")
@@ -1180,8 +1301,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				zebraIdx := strings.Index(content, "Zebra string")
@@ -1211,8 +1331,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Required fields should not have omitempty
@@ -1239,8 +1358,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Arrays should not be pointers but should still have omitempty
@@ -1263,8 +1381,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Maps should not be pointers but should still have omitempty
@@ -1301,8 +1418,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`json:"wasm"`))
@@ -1337,8 +1453,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{Resolutions: table}
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`json:"x1"`))
@@ -1376,8 +1491,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Should use the alias name "Details", not expanded "StatusDetails"
@@ -1405,8 +1519,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// Should use the distinct type name "Key", not expanded "int"
@@ -1444,8 +1557,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				// Find the module file
 				var moduleContent string
@@ -1484,8 +1596,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
 				// The parent type should be named "IR" (from @go name), not "InternalIR"
@@ -1579,8 +1690,7 @@ var _ = Describe("Go Types Plugin", func() {
 					Resolutions: table,
 				}
 
-				resp, err := goPlugin.Generate(req)
-				Expect(err).To(BeNil())
+				resp := MustSucceed(goPlugin.Generate(req))
 
 				// Find the ir file
 				var irContent string
@@ -1746,5 +1856,375 @@ var _ = Describe("Go Types Plugin", func() {
 					ToContain("~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64")
 			})
 		})
+	})
+})
+
+var _ = Describe("Go Union Generation", func() {
+	var (
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	It("Should generate a discriminator type with one constant per variant", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`type ScaleType string`,
+				`ScaleTypeLinear ScaleType = "linear"`,
+				`ScaleTypeNone ScaleType = "none"`,
+			)
+	})
+
+	It("Should generate a sealed interface with variant structs", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`type ScaleVariant interface {`,
+				`isScaleVariant()`,
+				`type ScaleLinear struct {`,
+				`LinearScale`,
+				`func (ScaleLinear) isScaleVariant() {}`,
+				`type ScaleNone struct {`,
+				`func (ScaleNone) isScaleVariant() {}`,
+				`type Scale struct {`,
+				`Variant ScaleVariant`,
+			)
+	})
+
+	It("Should generate internally-tagged JSON marshaling on the wrapper", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`func (u Scale) MarshalJSON() ([]byte, error) {`,
+				`case ScaleLinear:`,
+				`t = ScaleTypeLinear`,
+				`fields["type"] = tag`,
+				`func (u *Scale) UnmarshalJSON(data []byte) error {`,
+				`Type ScaleType `+"`"+`json:"type"`+"`",
+				`case ScaleTypeLinear:`,
+				`var v ScaleLinear`,
+				`u.Variant = v`,
+			)
+	})
+
+	It("Should embed the shared base and the payload in every variant struct", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`type AIChannelVariant interface {`,
+				`type AIVoltageChannel struct {`,
+				`BaseAIChan`,
+				`VoltageFields`,
+				`func (AIVoltageChannel) isAIChannelVariant() {}`,
+				`type AIChannel struct {`,
+				`Variant AIChannelVariant`,
+			)
+	})
+
+	It("Should resolve a union-typed struct field to the union wrapper", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(`CustomScale Scale ` + "`" + `json:"custom_scale" msgpack:"custom_scale"` + "`")
+	})
+
+	It("Should preserve acronym union names verbatim", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain(
+				`type AIChannel struct {`,
+				`Variant AIChannelVariant`,
+				`isAIChannelVariant()`,
+				`type AIChannelType string`,
+			)
+	})
+
+	It("Should generate Go that parses as valid source", func(ctx SpecContext) {
+		source := `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+			VoltageFields struct {
+				minVal float64
+				customScale Scale
+			}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		content := ""
+		for _, f := range resp.Files {
+			if strings.HasSuffix(f.Path, "types.gen.go") {
+				content = string(f.Content)
+			}
+		}
+		Expect(content).ToNot(BeEmpty())
+		MustSucceed(parser.ParseFile(token.NewFileSet(), "types.gen.go", content, parser.AllErrors))
+	})
+})
+
+var _ = Describe("Go Union Field & Variant Coverage", func() {
+	var (
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	source := `
+		@go output "out"
+
+		LinearScale struct { slope float64 }
+		NoneScale struct {}
+
+		Scale union on type {
+			linear LinearScale {
+				@doc value "a linear scale."
+			}
+			none NoneScale
+		}
+
+		Channel struct {
+			scales Scale[]
+		}
+	`
+
+	It("Should render a per-variant doc comment on the variant struct", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain("// ScaleLinear a linear scale.", "type ScaleLinear struct {")
+	})
+
+	It("Should resolve an array-of-union field to a slice of the interface", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").
+			ToContain("Scales []Scale `" + `json:"scales" msgpack:"scales"` + "`")
+	})
+})
+
+// The types below mirror the exact shape the generator emits for a union with
+// `extends` and a nested union, locking the internally-tagged codec behavior
+// (the riskiest generated logic) with a real round trip.
+
+type rtScaleType string
+
+const rtScaleTypeLinear rtScaleType = "linear"
+
+type rtScaleVariant interface{ isRtScaleVariant() }
+
+type rtLinearScale struct {
+	Slope float64 `json:"slope"`
+}
+
+type rtScaleLinear struct{ rtLinearScale }
+
+func (rtScaleLinear) isRtScaleVariant() {}
+
+type rtScale struct{ Variant rtScaleVariant }
+
+func (u rtScale) MarshalJSON() ([]byte, error) {
+	var t rtScaleType
+	switch u.Variant.(type) {
+	case rtScaleLinear:
+		t = rtScaleTypeLinear
+	default:
+		return nil, gotesterrors.Newf("rtScale: unknown variant %T", u.Variant)
+	}
+	raw, err := gojson.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]gojson.RawMessage{}
+	if err := gojson.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, err := gojson.Marshal(t)
+	if err != nil {
+		return nil, err
+	}
+	fields["type"] = tag
+	return gojson.Marshal(fields)
+}
+
+func (u *rtScale) UnmarshalJSON(data []byte) error {
+	var disc struct {
+		Type rtScaleType `json:"type"`
+	}
+	if err := gojson.Unmarshal(data, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case rtScaleTypeLinear:
+		var v rtScaleLinear
+		if err := gojson.Unmarshal(data, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
+	}
+	return nil
+}
+
+type rtBase struct {
+	Port int32 `json:"port"`
+}
+
+type rtChanType string
+
+const rtChanTypeV rtChanType = "v"
+
+type rtChanVariant interface{ isRtChanVariant() }
+
+type rtVoltage struct {
+	MinVal float64 `json:"min_val"`
+	Scale  rtScale `json:"custom_scale"`
+}
+
+type rtChanV struct {
+	rtBase
+	rtVoltage
+}
+
+func (rtChanV) isRtChanVariant() {}
+
+type rtChan struct{ Variant rtChanVariant }
+
+func (u rtChan) MarshalJSON() ([]byte, error) {
+	raw, err := gojson.Marshal(u.Variant)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]gojson.RawMessage{}
+	if err := gojson.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	tag, _ := gojson.Marshal(rtChanTypeV)
+	fields["type"] = tag
+	return gojson.Marshal(fields)
+}
+
+func (u *rtChan) UnmarshalJSON(data []byte) error {
+	var v rtChanV
+	if err := gojson.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	u.Variant = v
+	return nil
+}
+
+var _ = Describe("Union codec round trip", func() {
+	It("Should round-trip an internally-tagged union with a nested union", func() {
+		in := rtChan{Variant: rtChanV{
+			rtBase: rtBase{Port: 7},
+			rtVoltage: rtVoltage{
+				MinVal: -10,
+				Scale:  rtScale{Variant: rtScaleLinear{rtLinearScale{Slope: 1.5}}},
+			},
+		}}
+		data := MustSucceed(gojson.Marshal(in))
+		var m map[string]any
+		Expect(gojson.Unmarshal(data, &m)).To(Succeed())
+		Expect(m).To(SatisfyAll(
+			HaveKeyWithValue("type", "v"),
+			HaveKey("port"),
+			HaveKey("min_val"),
+			HaveKeyWithValue("custom_scale", HaveKeyWithValue("type", "linear")),
+		))
+		var out rtChan
+		Expect(gojson.Unmarshal(data, &out)).To(Succeed())
+		got := out.Variant.(rtChanV)
+		Expect(got.Port).To(Equal(int32(7)))
+		Expect(got.MinVal).To(Equal(-10.0))
+		Expect(got.Scale.Variant.(rtScaleLinear).Slope).To(Equal(1.5))
 	})
 })

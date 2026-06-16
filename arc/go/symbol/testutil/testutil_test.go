@@ -168,10 +168,10 @@ var _ = Describe("NewRoot", func() {
 		Expect(root.Parent.FindChild("sensor")).ToNot(BeNil())
 	})
 
-	It("Should install the given resolver on the root", func() {
+	It("Should consult the given resolver on root.Resolve misses", func(bCtx SpecContext) {
 		r := StaticResolver{{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8())}}
 		root := NewRoot(r)
-		Expect(root.GlobalResolver).ToNot(BeNil())
+		Expect(MustSucceed(root.Resolve(bCtx, "ch")).Name).To(Equal("ch"))
 	})
 })
 

@@ -63,36 +63,38 @@ class AsyncTransport(Protocol):
         ...
 
 
-Next = Callable[[Context], tuple[Context, Exception | None]]
-"""Executes the next middleware in the chain"""
+Next = Callable[[Context], Context]
+"""Executes the next middleware in the chain, returning the response context. Raises if
+the request fails."""
 
-AsyncNext = Callable[[Context], Awaitable[tuple[Context, Exception | None]]]
-"""Executes the next middleware in the chain"""
+AsyncNext = Callable[[Context], Awaitable[Context]]
+"""Executes the next middleware in the chain, returning the response context. Raises if
+the request fails."""
 
-Middleware = Callable[[Context, Next], tuple[Context, Exception | None]]
+Middleware = Callable[[Context, Next], Context]
 """
 Middleware is a general middleware function that can be used to parse or attach metadata
-to a request or alter its behavior.
+to a request or alter its behavior. It returns the response context and raises if the
+request fails.
 """
 
-AsyncMiddleware = Callable[
-    [Context, AsyncNext], Awaitable[tuple[Context, Exception | None]]
-]
+AsyncMiddleware = Callable[[Context, AsyncNext], Awaitable[Context]]
 """
 AsyncMiddleware is a general middleware function that can be used to parse or attach
-metadata to a request or alter its behavior.
+metadata to a request or alter its behavior. It returns the response context and raises
+if the request fails.
 """
 
-Finalizer = Callable[[Context], tuple[Context, Exception | None]]
+Finalizer = Callable[[Context], Context]
 """
 Finalizer is a middleware that is executed as the last step in a chain. It is used to
-finalize the request and return the response.
+finalize the request and return the response context, raising if the request fails.
 """
 
-AsyncFinalizer = Callable[[Context], Awaitable[tuple[Context, Exception | None]]]
+AsyncFinalizer = Callable[[Context], Awaitable[Context]]
 """
 AsyncFinalizer is a middleware that is executed as the last step in a chain. It is used
-to finalize the request and return the response.
+to finalize the request and return the response context, raising if the request fails.
 """
 
 
@@ -108,21 +110,19 @@ class MiddlewareCollector:
         """Use implements the Transport protocol."""
         self._middleware.extend(args)
 
-    def exec(
-        self,
-        ctx: Context,
-        finalizer: Finalizer,
-    ) -> tuple[Context, Exception | None]:
+    def exec(self, ctx: Context, finalizer: Finalizer) -> Context:
         """
         Executes the middleware in order, passing metadata to each middleware until the
         end of the chain is reached. It then calls the finalizer with the metadata.
 
         :param ctx: the context to pass to the middleware.
         :param finalizer: the finalizer to call at the end of the chain.
+        :returns: the response context.
+        :raises Exception: if any middleware or the finalizer fails.
         """
         middleware = self._middleware.copy()
 
-        def _next(ctx_: Context) -> tuple[Context, Exception | None]:
+        def _next(ctx_: Context) -> Context:
             if len(middleware) == 0:
                 return finalizer(ctx_)
             return middleware.pop()(ctx_, _next)
@@ -142,21 +142,19 @@ class AsyncMiddlewareCollector:
         """Use implements the Transport protocol."""
         self._middleware.extend(args)
 
-    async def exec(
-        self,
-        md: Context,
-        finalizer: AsyncFinalizer,
-    ) -> tuple[Context, Exception | None]:
+    async def exec(self, md: Context, finalizer: AsyncFinalizer) -> Context:
         """
         Executes the middleware in order, passing metadata to each middleware until the
         end of the chain is reached. It then calls the finalizer with the metadata.
 
         :param md: the metadata to pass to the middleware
         :param finalizer: the finalizer to call at the end of the chain
+        :returns: the response context.
+        :raises Exception: if any middleware or the finalizer fails.
         """
         middleware = self._middleware.copy()
 
-        async def _next(_md: Context) -> tuple[Context, Exception | None]:
+        async def _next(_md: Context) -> Context:
             if len(middleware) == 0:
                 return await finalizer(_md)
             return await middleware.pop()(_md, _next)

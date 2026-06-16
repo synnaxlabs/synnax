@@ -49,6 +49,7 @@ from synnax.framer import (
     WriterMode,
 )
 from synnax.options import Options
+from synnax.project import Project
 from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
@@ -127,6 +128,7 @@ __all__ = [
     "DataType",
     "Density",
     "Device",
+    "Project",
     "View",
     "elapsed_seconds",
     "ExpiredToken",

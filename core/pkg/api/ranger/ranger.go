@@ -28,6 +28,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+type Key = ranger.Key
+
 func translateRangesToService(ranges []Range) []ranger.Range {
 	return lo.Map(ranges, func(r Range, _ int) ranger.Range { return r.Range })
 }
@@ -50,7 +52,6 @@ func rangeAccessOntologyIDs(ranges []Range) []ontology.ID {
 }
 
 type Service struct {
-	db       *gorp.DB
 	access   *rbac.Service
 	internal *ranger.Service
 	label    *label.Service
@@ -62,7 +63,6 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		db:       cfg.Distribution.DB,
 		access:   cfg.Service.RBAC,
 		internal: cfg.Service.Ranger,
 		label:    cfg.Service.Label,
@@ -81,34 +81,26 @@ type (
 
 func (s *Service) Create(
 	ctx context.Context,
+	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
 	ids := rangeAccessOntologyIDs(req.Ranges)
 	if !req.Parent.IsZero() {
 		ids = append(ids, req.Parent)
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: ids,
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	var res CreateResponse
-	if err := s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		svcRanges := translateRangesToService(req.Ranges)
-		if err := s.
-			internal.
-			NewWriter(tx).
-			CreateManyWithParent(ctx, &svcRanges, req.Parent); err != nil {
-			return err
-		}
-		res = CreateResponse{Ranges: translateRangesFromService(svcRanges)}
-		return nil
-	}); err != nil {
+	svcRanges := translateRangesToService(req.Ranges)
+	if err := s.internal.NewWriter(tx).
+		CreateManyWithParent(ctx, &svcRanges, req.Parent); err != nil {
 		return CreateResponse{}, err
 	}
-	return res, nil
+	return CreateResponse{Ranges: translateRangesFromService(svcRanges)}, nil
 }
 
 type (
@@ -166,12 +158,13 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	apiRanges := translateRangesFromService(svcRanges)
-	var err error
 	if req.IncludeLabels {
 		for i, rng := range apiRanges {
-			if rng.Labels, err = s.label.RetrieveFor(ctx, rng.OntologyID(), nil); err != nil {
+			labels, err := s.label.RetrieveFor(ctx, rng.OntologyID(), nil)
+			if err != nil {
 				return RetrieveResponse{}, err
 			}
+			rng.Labels = labels
 			apiRanges[i] = rng
 		}
 	}
@@ -185,14 +178,14 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			var parent ranger.Range
-			if err = s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
+			if err := s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			rng.Parent = &Range{Range: parent}
 			apiRanges[i] = rng
 		}
 	}
-	if err = s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: rangeAccessOntologyIDs(apiRanges),
@@ -209,18 +202,17 @@ type RenameRequest struct {
 
 func (s *Service) Rename(
 	ctx context.Context,
+	tx gorp.Tx,
 	req RenameRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
 		Objects: []ontology.ID{ranger.OntologyID(req.Key)},
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
-	})
+	return types.Nil{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 type DeleteRequest struct {
@@ -229,22 +221,21 @@ type DeleteRequest struct {
 
 func (s *Service) Delete(
 	ctx context.Context,
+	tx gorp.Tx,
 	req DeleteRequest,
 ) (types.Nil, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,
 		Objects: ranger.OntologyIDs(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	return types.Nil{}, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := s.internal.NewWriter(tx)
-		for _, key := range req.Keys {
-			if err := w.Delete(ctx, key); err != nil {
-				return err
-			}
+	w := s.internal.NewWriter(tx)
+	for _, key := range req.Keys {
+		if err := w.Delete(ctx, key); err != nil {
+			return types.Nil{}, err
 		}
-		return nil
-	})
+	}
+	return types.Nil{}, nil
 }

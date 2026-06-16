@@ -25,3 +25,13 @@ const (
 	LevelP     Level = "p"
 	LevelSmall Level = "small"
 )
+
+// IsValid reports whether l is one of the defined Level values.
+func (l Level) IsValid() bool {
+	switch l {
+	case LevelH1, LevelH2, LevelH3, LevelH4, LevelH5, LevelP, LevelSmall:
+		return true
+	default:
+		return false
+	}
+}

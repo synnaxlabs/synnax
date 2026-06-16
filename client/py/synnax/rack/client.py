@@ -12,7 +12,7 @@ from typing import overload
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Rack
 from x.normalize import check_for_none, override
@@ -82,14 +82,14 @@ class Client:
         else:
             is_single = False
         req = _CreateRequest(racks=racks)
-        res = send_required(self._client, "/rack/create", req, _CreateResponse)
+        res = self._client.send("/rack/create", req, _CreateResponse)
         if is_single:
             return res.racks[0]
         return res.racks
 
     def delete(self, keys: list[int]) -> None:
         req = _DeleteRequest(keys=keys)
-        send_required(self._client, "/rack/delete", req, Empty)
+        self._client.send("/rack/delete", req, Empty)
 
     @overload
     def retrieve(
@@ -127,8 +127,7 @@ class Client:
         embedded: bool | None = None,
     ) -> Rack | list[Rack]:
         is_single = check_for_none(keys, names)
-        res = send_required(
-            self._client,
+        res = self._client.send(
             "/rack/retrieve",
             _RetrieveRequest(
                 keys=override(key, keys),

@@ -100,8 +100,21 @@
 
 /* Individual hover rows */
 .monaco-editor .monaco-hover .hover-row {
+    /* Monaco's default rounds every row independently, which leaves visible
+       rounded notches between sections (e.g., diagnostic above hover docs).
+       The outer .monaco-hover provides the popup's rounded shape via
+       overflow:hidden; rows themselves should be square. */
+    border-radius: 0 !important;
     padding: 0 1.5rem 1.5rem !important;
     border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l4) !important;
+    /* A markdown row needs top padding when nothing above it provides one:
+       when it's the first row of the popup, and when it follows a marker
+       row (which butts its own box up against the row boundary). We
+       require .markdown-hover so that the status-bar row (View Problem /
+       Quick Fix actions) doesn't pick up the inset. */
+    &:first-child:has(.markdown-hover) {
+        padding-top: 1.5rem !important;
+    }
     &:last-child {
         border-bottom: none !important;
     }
@@ -136,17 +149,10 @@
         margin-right: 1rem !important;
     }
 
-    /* Error code (e.g., arc) - inline after message */
+    /* Diagnostic source chip (e.g., "arc-analyzer"). The source is
+       already implied by the editor and adds no signal for the reader. */
     & > span:nth-child(2) {
-        display: inline-block !important;
-        padding: 0.25rem 0.75rem !important;
-        border: var(--pluto-border);
-        font-size: var(--pluto-small-size) !important;
-        color: var(--pluto-gray-l10) !important;
-        background: var(--pluto-gray-l0) !important;
-        border-radius: var(--pluto-border-radius) !important;
-        white-space: nowrap !important;
-        vertical-align: middle !important;
+        display: none !important;
     }
 
     /* Related information container */
@@ -173,6 +179,29 @@
     }
 }
 
+/* Stacked diagnostics: a marker whose row immediately follows another
+   marker row is a middle/tail entry — square its top corners so the
+   boxes butt up cleanly instead of showing a rounded notch. */
+.monaco-editor
+    .monaco-hover
+    .hover-row:has(.marker.hover-contents)
+    + .hover-row
+    .marker.hover-contents {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+
+/* Markdown row following a marker row: the marker's box ends flush with
+   the row boundary, so the markdown heading needs its own top inset.
+   Scoped to .markdown-hover so the status-bar row (action buttons) below
+   a marker-only popup doesn't pick up an extra gap. */
+.monaco-editor
+    .monaco-hover
+    .hover-row:has(.marker.hover-contents)
+    + .hover-row:has(.markdown-hover) {
+    padding-top: 1.5rem !important;
+}
+
 /* Markdown hover content (type info, docs) */
 .monaco-editor .monaco-hover .markdown-hover {
     font-family: var(--pluto-font-family) !important;
@@ -197,6 +226,9 @@
     font-weight: 500 !important;
     color: var(--pluto-primary-z) !important;
     line-height: 1.3 !important;
+    display: inline-block !important;
+    margin: 0 0.75rem 0 0 !important;
+    vertical-align: baseline !important;
 }
 
 /* Subheadings (type labels like "Function", "Variable") */
@@ -209,6 +241,13 @@
     line-height: 1.3 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.05em !important;
+}
+
+/* When a kind label immediately follows the name, render the pair
+   side-by-side on a shared baseline instead of stacked. */
+.monaco-editor .monaco-hover h4 + h5 {
+    display: inline-block !important;
+    vertical-align: baseline !important;
 }
 
 /* Paragraphs */
@@ -257,8 +296,16 @@
     line-height: 1.5 !important;
 }
 
-/* Status bar at bottom */
+/* Status bar at bottom. Pinned with position: sticky so View Problem /
+   Quick Fix actions stay visible when the hover scrolls. The z-index lifts
+   it above Monaco's scrollbar (Monaco pins scrollbars around z-index 11)
+   so the slider terminates cleanly at the footer's top edge instead of
+   painting across the action buttons. */
 .monaco-editor .monaco-hover .hover-row.status-bar {
+    position: sticky !important;
+    bottom: 0;
+    z-index: 100;
+    background: var(--pluto-gray-l2);
     padding: 0 !important;
     border: var(--pluto-border-l5);
 }
@@ -296,7 +343,14 @@
     }
 }
 
-/* Scrollbar styling */
+/* Scrollbar styling. z-index forced below the sticky status-bar above
+   so the slider is clipped beneath the action buttons instead of painted
+   over them. The broader `.monaco-hover .scrollbar` selector catches the
+   scrollbar regardless of nesting depth in case Monaco moves it. */
+.monaco-editor .monaco-hover .scrollbar {
+    z-index: 0 !important;
+}
+
 .monaco-editor .monaco-hover .monaco-scrollable-element > .scrollbar {
     & > .slider {
         background: var(--pluto-gray-l5) !important;

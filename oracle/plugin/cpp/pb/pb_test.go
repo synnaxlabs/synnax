@@ -20,7 +20,7 @@ import (
 
 func TestCppPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "C++ PB Plugin Suite")
+	RunSpecs(t, "Plugin Cpp PB Suite")
 }
 
 var _ = Describe("C++ PB Plugin", func() {
@@ -699,7 +699,7 @@ var _ = Describe("C++ PB Plugin", func() {
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
 
 				// No proto.gen.h should be generated for array-only schemas
-				Expect(len(resp.Files)).To(Equal(0))
+				Expect(resp.Files).To(BeEmpty())
 			})
 
 			It("Should generate proto for structs but not array wrappers in same schema", func(ctx SpecContext) {

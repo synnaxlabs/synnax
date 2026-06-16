@@ -8,11 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render } from "@testing-library/react";
-import { type ComponentType, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Tabs } from "@/tabs";
-import { type NameProps } from "@/tabs/types";
 
 const StaticTabs = ({ tabs, ...rest }: Tabs.TabsProps): ReactElement => {
   const props = Tabs.useStatic({ tabs });
@@ -73,6 +72,18 @@ describe("Tabs", () => {
     fireEvent.dragEnd(getByText("Tab 1"));
     expect(handleDragEnd).toHaveBeenCalled();
   });
+  it("should make tabs draggable only when an onDragStart handler is provided", () => {
+    const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1" }];
+    const getTabButton = (container: HTMLElement): HTMLElement => {
+      const btn = container.querySelector<HTMLElement>(".pluto-tabs-selector__btn");
+      if (btn == null) throw new Error("tab button not found");
+      return btn;
+    };
+    const withHandler = render(<StaticTabs tabs={tabs} onDragStart={vi.fn()} />);
+    expect(getTabButton(withHandler.container).draggable).toBe(true);
+    const withoutHandler = render(<StaticTabs tabs={tabs} />);
+    expect(getTabButton(withoutHandler.container).draggable).toBe(false);
+  });
   it("should render a close button if an onClose prop is passed", () => {
     const onClose = vi.fn();
     const tabs = [
@@ -118,24 +129,24 @@ describe("Tabs", () => {
     });
   });
 
-  describe("custom Name component", () => {
-    it("should render a custom Name component when one is provided", () => {
-      const CustomName: ComponentType<NameProps> = ({ name, tabKey, editable }) => (
+  describe("custom tab name renderer", () => {
+    it("should render a custom tab name when a render prop is provided", () => {
+      const tabName: Tabs.NameRenderProp = ({ name, tabKey, editable }) => (
         <span>{`name=${name} key=${tabKey} editable=${editable ?? true}`}</span>
       );
       const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1", editable: false }];
-      const { getByText } = render(<StaticTabs tabs={tabs} Name={CustomName} />);
+      const { getByText } = render(<StaticTabs tabs={tabs} tabName={tabName} />);
       expect(getByText("name=Tab 1 key=tab1 editable=false")).toBeTruthy();
     });
 
-    it("should pass the Tabs onRename through to the custom Name component", () => {
+    it("should pass the Tabs onRename through to the custom tab name renderer", () => {
       const onRename = vi.fn();
-      const CustomName: ComponentType<NameProps> = ({ tabKey, onRename }) => (
+      const tabName: Tabs.NameRenderProp = ({ tabKey, onRename }) => (
         <button onClick={() => onRename?.(tabKey, "Renamed")}>rename-trigger</button>
       );
       const tabs: Tabs.Tab[] = [{ tabKey: "tab1", name: "Tab 1" }];
       const { getByText } = render(
-        <StaticTabs tabs={tabs} Name={CustomName} onRename={onRename} />,
+        <StaticTabs tabs={tabs} tabName={tabName} onRename={onRename} />,
       );
       fireEvent.click(getByText("rename-trigger"));
       expect(onRename).toHaveBeenCalledWith("tab1", "Renamed");

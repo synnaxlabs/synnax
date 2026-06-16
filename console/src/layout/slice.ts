@@ -9,6 +9,7 @@
 
 import {
   createSlice,
+  current,
   type Dispatch,
   type PayloadAction,
   type UnknownAction,
@@ -121,7 +122,7 @@ export interface SetNavDrawerPayload extends NavDrawerEntryState {
   windowKey: string;
 }
 
-export interface SetWorkspacePayload {
+export interface SetProjectPayload {
   keepNav?: boolean;
   slice: SliceState;
 }
@@ -496,31 +497,34 @@ export const { actions, reducer } = createSlice({
       drawerState.hover = false;
       drawerState.activeItem = null;
     },
-    setWorkspace: (
+    setProject: (
       state,
-      { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
+      { payload: { slice, keepNav = true } }: PayloadAction<SetProjectPayload>,
     ) => {
       // Mosaic.insertTab mutates tabs arrays in place; clone before
       // reconciling so the helper does not fight frozen nested objects
-      // carried over from the previous store snapshot.
+      // carried over from the previous store snapshot. Snapshot the draft
+      // with current() first, since structuredClone cannot clone Immer's
+      // draft Proxies.
+      const s = current(state);
       const next = deep.copy(
         migrateSlice({
           ...slice,
           layouts: {
-            ...layoutsToPreserve(state.layouts),
+            ...layoutsToPreserve(s.layouts),
             ...slice.layouts,
             main: MAIN_LAYOUT,
           },
-          hauling: state.hauling,
-          themes: state.themes,
-          activeTheme: state.activeTheme,
-          nav: keepNav ? state.nav : slice.nav,
+          hauling: s.hauling,
+          themes: s.themes,
+          activeTheme: s.activeTheme,
+          nav: keepNav ? s.nav : slice.nav,
         }),
       );
       reconcileMosaicLayouts(next);
       return next;
     },
-    clearWorkspace: (state) => ({
+    clearProject: (state) => ({
       ...ZERO_SLICE_STATE,
       layouts: {
         ...layoutsToPreserve(state.layouts),
@@ -596,9 +600,9 @@ export const {
   resizeNavDrawer,
   setNavDrawerVisible,
   setHauled,
-  setWorkspace,
+  setProject,
   setColorContext,
-  clearWorkspace,
+  clearProject,
   startNavHover,
   toggleNavHover,
   stopNavHover,

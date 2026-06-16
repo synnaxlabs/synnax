@@ -24,6 +24,7 @@ from synnax import (
     group,
     imex,
     ontology,
+    project,
     rack,
     ranger,
     signals,
@@ -76,6 +77,7 @@ class Synnax(framer.Client):
     groups: group.Client
     views: view.Client
     imex: imex.Client
+    projects: project.Client
 
     _transport: Transport
 
@@ -172,6 +174,7 @@ class Synnax(framer.Client):
             upload=self._transport.upload,
             download=self._transport.download,
         )
+        self.projects = project.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,

@@ -259,6 +259,37 @@ var _ = Describe("Document", func() {
 		})
 	})
 
+	Describe("GetQualifiedPrefixWordAtPosition", func() {
+		DescribeTable("Cursor on a dotted reference",
+			func(content string, character uint32, expected string) {
+				Expect(lsp.GetQualifiedPrefixWordAtPosition(
+					content,
+					protocol.Position{Line: 0, Character: character},
+				)).To(Equal(expected))
+			},
+			Entry("on the head segment of time.now",
+				"time.now()", uint32(2), "time"),
+			Entry("on the head segment's first character",
+				"time.now()", uint32(0), "time"),
+			Entry("on the tail segment of time.now",
+				"time.now()", uint32(5), "time.now"),
+			Entry("on the tail segment's last character",
+				"time.now()", uint32(7), "time.now"),
+			Entry("on the middle segment of a.b.c",
+				"a.b.c", uint32(2), "a.b"),
+			Entry("on the tail of a.b.c",
+				"a.b.c", uint32(4), "a.b.c"),
+			Entry("on a bare word",
+				"hello world", uint32(2), "hello"),
+			Entry("on a bare word with no qualifier",
+				"now()", uint32(1), "now"),
+			Entry("returns empty when past end of line",
+				"hi", uint32(10), ""),
+			Entry("on a word touching the start of the line",
+				"math.pow(2, 3)", uint32(0), "math"),
+		)
+	})
+
 	Describe("GetWordRangeAtPosition", func() {
 		It("Should return correct range for a word", func() {
 			r := lsp.GetWordRangeAtPosition("hello world", protocol.Position{Line: 0, Character: 7})

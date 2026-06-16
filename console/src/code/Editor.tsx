@@ -10,6 +10,10 @@
 import "@/code/Editor.css";
 
 import {
+  getService,
+  ILanguageFeaturesService,
+} from "@codingame/monaco-vscode-api/services";
+import {
   Flex,
   Icon,
   type Input,
@@ -17,7 +21,8 @@ import {
   Theming,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { type RefObject, useCallback, useEffect, useRef } from "react";
+import { debounce, TimeSpan } from "@synnaxlabs/x";
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 
 import { type Monaco, useMonaco } from "@/code/Provider";
 import { ContextMenu } from "@/components";
@@ -119,7 +124,42 @@ const useTheme = (language: string) => {
 interface UseReturn {
   containerRef: RefObject<HTMLDivElement | null>;
   editorRef: RefObject<Monaco.editor.IStandaloneCodeEditor | null>;
+  cursorRenameable: boolean;
 }
+
+// Query the registered rename providers for the model and ask each one
+// whether the symbol at position can be renamed (LSP prepareRename). Any
+// non-null, non-rejection result means the editor's rename action would
+// succeed at that position. Returns false if no provider opts in.
+const checkRenameAvailable = async (
+  monaco: typeof Monaco,
+  features: ILanguageFeaturesService,
+  model: Monaco.editor.ITextModel,
+  position: Monaco.Position,
+  signal: AbortSignal,
+): Promise<boolean> => {
+  const providers = features.renameProvider.ordered(model);
+  if (providers.length === 0) return false;
+  const tokenSource = new monaco.CancellationTokenSource();
+  signal.addEventListener("abort", () => tokenSource.cancel(), { once: true });
+  try {
+    for (const provider of providers) {
+      if (provider.resolveRenameLocation == null) return true;
+      const result = await provider.resolveRenameLocation(
+        model,
+        position,
+        tokenSource.token,
+      );
+      if (signal.aborted) return false;
+      if (result != null && result.rejectReason == null) return true;
+    }
+    return false;
+  } finally {
+    tokenSource.dispose();
+  }
+};
+
+const RENAME_CHECK_DEBOUNCE = TimeSpan.milliseconds(80);
 
 const use = ({
   value,
@@ -136,6 +176,7 @@ const use = ({
   openContextMenuRef.current = openContextMenu;
   const theme = useTheme(language);
   const monaco = useMonaco();
+  const [cursorRenameable, setCursorRenameable] = useState(false);
 
   const customURIRef = useRef<string | undefined>(undefined);
   if (customURIRef.current === undefined && isBlock) {
@@ -184,12 +225,57 @@ const use = ({
         target: container,
       }),
     );
+
+    // Resolve the language features service once per effect — it is stable
+    // across the editor's lifetime, so re-resolving on each cursor move is
+    // wasted work. checks scheduled before resolution buffer their request
+    // via the latest-args debounce and run once the service lands.
+    let features: ILanguageFeaturesService | null = null;
+    const featuresPromise = getService(ILanguageFeaturesService);
+    featuresPromise
+      .then((s) => (features = s))
+      .catch((err: unknown) => {
+        console.error("failed to resolve language features service", err);
+      });
+
+    let renameCheckAbort: AbortController | null = null;
+    const runRenameCheck = () => {
+      renameCheckAbort?.abort();
+      const ctrl = new AbortController();
+      renameCheckAbort = ctrl;
+      const m = editor.getModel();
+      const position = editor.getPosition();
+      if (m == null || position == null) {
+        setCursorRenameable(false);
+        return;
+      }
+      const exec = (svc: ILanguageFeaturesService) =>
+        checkRenameAvailable(monaco, svc, m, position, ctrl.signal)
+          .then((renameable) => {
+            if (!ctrl.signal.aborted) setCursorRenameable(renameable);
+          })
+          .catch(() => {
+            if (!ctrl.signal.aborted) setCursorRenameable(false);
+          });
+      if (features != null) void exec(features);
+      else
+        void featuresPromise.then((svc) => {
+          if (!ctrl.signal.aborted) void exec(svc);
+        });
+    };
+    const debouncedRenameCheck = debounce(runRenameCheck, RENAME_CHECK_DEBOUNCE);
+    const cursorDispose = editor.onDidChangeCursorPosition(debouncedRenameCheck);
+    runRenameCheck();
+
     const extensionDisposables = extensions?.map((ext) => ext(editor)) ?? [];
 
     return () => {
       contentDispose.dispose();
       triggerDispose.dispose();
       contextMenuDispose.dispose();
+      cursorDispose.dispose();
+      debouncedRenameCheck.cancel();
+      renameCheckAbort?.abort();
       extensionDisposables.forEach((d) => d.dispose());
       editor.dispose();
       model?.dispose();
@@ -201,7 +287,7 @@ const use = ({
     monaco.editor.setTheme(theme);
   }, [monaco, theme]);
 
-  return { containerRef, editorRef };
+  return { containerRef, editorRef, cursorRenameable };
 };
 export interface EditorProps
   extends Input.Control<string>, Omit<Flex.BoxProps, "value" | "onChange"> {
@@ -230,7 +316,7 @@ export const Editor = ({
   ...rest
 }: EditorProps) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
-  const { containerRef, editorRef } = use({
+  const { containerRef, editorRef, cursorRenameable } = use({
     value,
     onChange,
     language,
@@ -258,12 +344,6 @@ export const Editor = ({
       selection != null &&
       (selection.startLineNumber !== selection.endLineNumber ||
         selection.startColumn !== selection.endColumn);
-
-    const position = editor?.getPosition();
-    const model = editor?.getModel();
-    const wordAtCursor =
-      position != null && model != null ? model.getWordAtPosition(position) : null;
-    const canRename = wordAtCursor != null;
 
     return (
       <ContextMenu.Menu>
@@ -296,13 +376,16 @@ export const Editor = ({
           <Icon.Paste />
           Paste
         </Menu.Item>
-        <Menu.Divider />
-        <ContextMenu.RenameItem
-          trigger={RENAME_TRIGGER}
-          triggerIndicator
-          disabled={!canRename}
-          onClick={createMenuAction("rename")}
-        />
+        {cursorRenameable && (
+          <>
+            <Menu.Divider />
+            <ContextMenu.RenameItem
+              trigger={RENAME_TRIGGER}
+              triggerIndicator
+              onClick={createMenuAction("rename")}
+            />
+          </>
+        )}
         <Menu.Divider />
         <Menu.Item
           itemKey="format"
@@ -317,7 +400,7 @@ export const Editor = ({
         <ContextMenu.ReloadConsoleItem />
       </ContextMenu.Menu>
     );
-  }, [createMenuAction]);
+  }, [createMenuAction, cursorRenameable]);
 
   return (
     <Flex.Box y grow {...rest} className={CSS(className, CSS.B("editor"))}>

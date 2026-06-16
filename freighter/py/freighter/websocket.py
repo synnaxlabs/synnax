@@ -104,11 +104,11 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         self._server_closed = None
         self._res_msg_t = _new_res_msg_t(res_t)
 
-    async def receive(self) -> tuple[RS, None] | tuple[None, Exception]:
+    async def receive(self) -> RS:
         """Implements the AsyncStream protocol."""
         server_closed = self._server_closed
         if server_closed is not None:
-            return None, server_closed
+            raise server_closed
 
         data = await self._internal.recv()
         assert isinstance(data, bytes)
@@ -117,18 +117,17 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         if msg.type == "close":
             await self._close_server(msg.error)
             assert self._server_closed is not None
-            return None, self._server_closed
+            raise self._server_closed
 
         assert msg.payload is not None
-        return msg.payload, None
+        return msg.payload
 
-    async def send(self, payload: RQ) -> Exception | None:
+    async def send(self, payload: RQ) -> None:
         """Implements the AsyncStream protocol."""
-        # If the server closed with an error, we return freighter.EOF to the
-        # caller, and expect them to discover the close error by calling
-        # receive().
+        # If the server closed with an error, we raise freighter.EOF to the caller, and
+        # expect them to discover the close error by calling receive().
         if self._server_closed is not None:
-            return EOF()
+            raise EOF()
 
         if self._send_closed:
             raise StreamClosed
@@ -136,34 +135,34 @@ class AsyncWebsocketStream(AsyncStream[RQ, RS]):
         msg = Message[RQ](type="data", payload=payload, error=None)
         encoded = self._encoder.encode(msg)
 
-        # If the server closed with an error, we return freighter.EOF to the
-        # caller, and expect them to discover the close error by calling
-        # receive().
         try:
             await self._internal.send(encoded)
-        except ConnectionClosedOK:
-            return EOF()
-        return None
+        except ConnectionClosedOK as e:
+            raise EOF() from e
 
-    async def receive_open_ack(self) -> Exception | None:
+    async def receive_open_ack(self) -> None:
         msg = await self._internal.recv()
         assert isinstance(msg, bytes)
         decoded_msg = self._encoder.decode(msg, Message)
         if decoded_msg.type == "open":
-            return None
-        return decode_exception(decoded_msg.error)
+            return
+        exc = decode_exception(decoded_msg.error)
+        if exc is not None:
+            raise exc
+        raise RuntimeError(
+            f"expected 'open' ack from server, got message type {decoded_msg.type!r}"
+        )
 
-    async def close_send(self) -> Exception | None:
+    async def close_send(self) -> None:
         """Implements the AsyncStream protocol."""
         if self._send_closed or self._server_closed is not None:
-            return None
+            return
 
         msg = Message[RQ](type="close", payload=None, error=None)
         try:
             await self._internal.send(self._encoder.encode(msg))
         finally:
             self._send_closed = True
-        return None
 
     async def _close_server(self, exc_pld: ExceptionPayload | None) -> None:
         if self._server_closed is not None:
@@ -197,42 +196,45 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         self._server_closed = None
         self._res_msg_t = _new_res_msg_t(res_t)
 
-    def receive(
-        self, timeout: float | None = None
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    def receive(self, timeout: float | None = None) -> RS:
         server_closed = self._server_closed
         if server_closed is not None:
-            return None, server_closed
+            raise server_closed
 
         try:
             data = self._internal.recv(timeout)
         except ConnectionClosedOK as e:
-            return None, handle_close_err(e)
+            raise handle_close_err(e) from e
         assert isinstance(data, bytes)
         msg = self._encoder.decode(data, self._res_msg_t)
 
         if msg.type == "close":
             self._close_server(msg.error)
             assert self._server_closed is not None
-            return None, self._server_closed
+            raise self._server_closed
 
         assert msg.payload is not None
-        return msg.payload, None
+        return msg.payload
 
     def received(self) -> bool:
         return self._internal.recv_bufsize > 0
 
-    def receive_open_ack(self) -> Exception | None:
+    def receive_open_ack(self) -> None:
         msg = self._internal.recv()
         assert isinstance(msg, bytes)
         decoded_msg = self._encoder.decode(msg, self._res_msg_t)
         if decoded_msg.type == "open":
-            return None
-        return decode_exception(decoded_msg.error)
+            return
+        exc = decode_exception(decoded_msg.error)
+        if exc is not None:
+            raise exc
+        raise RuntimeError(
+            f"expected 'open' ack from server, got message type {decoded_msg.type!r}"
+        )
 
-    def send(self, payload: RQ) -> Exception | None:
+    def send(self, payload: RQ) -> None:
         if self._server_closed is not None:
-            return EOF()
+            raise EOF()
 
         if self._send_closed:
             raise StreamClosed
@@ -243,21 +245,19 @@ class SyncWebsocketStream(Stream[RQ, RS]):
         try:
             self._internal.send(encoded)
         except ConnectionClosedOK as e:
-            return handle_close_err(e)
-        return None
+            raise handle_close_err(e) from e
 
-    def close_send(self) -> Exception | None:
+    def close_send(self) -> None:
         if self._send_closed or self._server_closed is not None:
-            return None
+            return
 
         msg = Message[RQ](type="close", payload=None, error=None)
         try:
             self._internal.send(self._encoder.encode(msg))
         except ConnectionClosedOK as e:
-            return handle_close_err(e)
+            raise handle_close_err(e) from e
         finally:
             self._send_closed = True
-        return None
 
     def _close_server(self, exc_pld: ExceptionPayload | None) -> None:
         if self._server_closed is not None:
@@ -319,25 +319,20 @@ class AsyncWebsocketClient(_Base, AsyncMiddlewareCollector, AsyncStreamClient):
         """Implements the AsyncStreamClient protocol."""
         socket_container: list[AsyncWebsocketStream[RQ, RS] | None] = [None]
 
-        async def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
+        async def finalizer(ctx: Context) -> Context:
             out_ctx = Context(target, "websocket", "client")
-            try:
-                ws = await connect(
-                    self._endpoint.child(target).stringify(),
-                    additional_headers=self.additional_headers(ctx.params),
-                    max_size=self._max_message_size,
-                    **self._kwargs,
-                )
-                socket = AsyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
-                e = await socket.receive_open_ack()
-                socket_container[0] = socket
-                return out_ctx, e
-            except Exception as e:
-                return out_ctx, e
+            ws = await connect(
+                self._endpoint.child(target).stringify(),
+                additional_headers=self.additional_headers(ctx.params),
+                max_size=self._max_message_size,
+                **self._kwargs,
+            )
+            socket = AsyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
+            await socket.receive_open_ack()
+            socket_container[0] = socket
+            return out_ctx
 
-        _, exc = await self.exec(Context(target, "websocket", "client"), finalizer)
-        if exc is not None:
-            raise exc
+        await self.exec(Context(target, "websocket", "client"), finalizer)
 
         socket = socket_container[0]
         assert socket is not None
@@ -378,25 +373,20 @@ class WebsocketClient(_Base, MiddlewareCollector, StreamClient):
     ) -> SyncWebsocketStream[RQ, RS]:
         socket_container: list[SyncWebsocketStream[RQ, RS] | None] = [None]
 
-        def finalizer(ctx: Context) -> tuple[Context, Exception | None]:
+        def finalizer(ctx: Context) -> Context:
             out_ctx = Context(target, "websocket", "client")
-            try:
-                ws = sync_connect(
-                    self._endpoint.child(target).stringify(),
-                    additional_headers=self.additional_headers(ctx.params),
-                    max_size=self._max_message_size,
-                    **self._kwargs,
-                )
-                socket = SyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
-                e = socket.receive_open_ack()
-                socket_container[0] = socket
-                return out_ctx, e
-            except Exception as e:
-                return out_ctx, e
+            ws = sync_connect(
+                self._endpoint.child(target).stringify(),
+                additional_headers=self.additional_headers(ctx.params),
+                max_size=self._max_message_size,
+                **self._kwargs,
+            )
+            socket = SyncWebsocketStream[RQ, RS](self._encoder, ws, res_t)
+            socket.receive_open_ack()
+            socket_container[0] = socket
+            return out_ctx
 
-        _, exc = self.exec(Context(target, "websocket", "client"), finalizer)
-        if exc is not None:
-            raise exc
+        self.exec(Context(target, "websocket", "client"), finalizer)
         socket = socket_container[0]
         assert socket is not None
         return socket

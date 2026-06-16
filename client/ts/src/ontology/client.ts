@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -83,7 +83,7 @@ export class Client {
     options?: RetrieveOptions,
   ): Promise<Resource | Resource[]> {
     if (!Array.isArray(ids) && typeof ids === "object" && !("key" in ids))
-      return this.execRetrieve(ids);
+      return await this.execRetrieve(ids);
     const parsedIDs = parseIDs(ids);
     const resources = await this.execRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;
@@ -163,8 +163,7 @@ export class Client {
   }
 
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
-    const { resources } = await sendRequired(
-      this.client,
+    const { resources } = await this.client.send(
       "/ontology/retrieve",
       request,
       retrieveReqZ,

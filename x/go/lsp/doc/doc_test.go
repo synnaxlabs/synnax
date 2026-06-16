@@ -43,6 +43,60 @@ var _ = Describe("Doc", func() {
 			)
 			Expect(d.Render()).To(Equal("First\n\nSecond"))
 		})
+
+		It("Should skip a Paragraph with empty string in rendering", func() {
+			d := doc.New(
+				doc.Paragraph("First"),
+				doc.Paragraph(""),
+				doc.Paragraph("Second"),
+			)
+			Expect(d.Render()).To(Equal("First\n\nSecond"))
+		})
+
+		It("Should not escape markdown delimiters in block content", func() {
+			// Renderers emit content verbatim; callers are responsible
+			// for escaping if their content might be misread by a
+			// markdown renderer. This test documents that contract so
+			// it's not silently changed.
+			d := doc.New(
+				doc.InlineCode("foo`bar"),
+				doc.Bold("a*b"),
+				doc.Paragraph("# not a heading"),
+			)
+			Expect(d.Render()).To(Equal("`foo`bar`\n\n**a*b**\n\n# not a heading"))
+		})
+	})
+
+	Describe("Blocks", func() {
+		It("Should return the underlying block slice", func() {
+			p1 := doc.Paragraph("First")
+			p2 := doc.Paragraph("Second")
+			d := doc.New(p1, p2)
+			blocks := d.Blocks()
+			Expect(blocks).To(HaveLen(2))
+			Expect(blocks[0].Render()).To(Equal("First"))
+			Expect(blocks[1].Render()).To(Equal("Second"))
+		})
+
+		It("Should return an empty slice for a Doc with no blocks", func() {
+			Expect(doc.New().Blocks()).To(BeEmpty())
+		})
+
+		It("Should splice one Doc's blocks into another via Blocks()", func() {
+			// Mirrors the LSP hover use case: a symbol's Doc is spliced
+			// into a larger Doc after an auto-generated title and
+			// signature. Render must produce a single document with all
+			// blocks joined by the standard double-newline separator —
+			// no nested-Doc artifacts.
+			symbolDoc := doc.New(
+				doc.Paragraph("Adds two integers."),
+				doc.Detail("Returns", "i32", true),
+			)
+			combined := doc.New(doc.TitleWithKind("add", "func"))
+			combined.Add(symbolDoc.Blocks()...)
+			expected := "#### add\n##### func\n\nAdds two integers.\n\nReturns: `i32`"
+			Expect(combined.Render()).To(Equal(expected))
+		})
 	})
 
 	Describe("Add", func() {

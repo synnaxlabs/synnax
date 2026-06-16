@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { type ID, idZ } from "@/ontology/payload";
@@ -24,8 +24,7 @@ export class Writer {
   }
 
   async addChildren(id: ID, ...children: ID[]): Promise<void> {
-    await sendRequired<typeof addRemoveChildrenReqZ, typeof emptyResZ>(
-      this.client,
+    await this.client.send(
       "/ontology/add-children",
       { id, children },
       addRemoveChildrenReqZ,
@@ -34,8 +33,7 @@ export class Writer {
   }
 
   async removeChildren(id: ID, ...children: ID[]): Promise<void> {
-    await sendRequired<typeof addRemoveChildrenReqZ, typeof emptyResZ>(
-      this.client,
+    await this.client.send(
       "/ontology/remove-children",
       { id, children },
       addRemoveChildrenReqZ,
@@ -44,8 +42,7 @@ export class Writer {
   }
 
   async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
-    await sendRequired<typeof moveChildrenReqZ, typeof emptyResZ>(
-      this.client,
+    await this.client.send(
       "/ontology/move-children",
       { from, to, children },
       moveChildrenReqZ,

@@ -110,3 +110,8 @@
         pointer-events: auto;
     }
 }
+
+.pluto-resize-overlay {
+    position: fixed;
+    inset: 0;
+}

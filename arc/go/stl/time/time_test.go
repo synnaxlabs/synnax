@@ -910,7 +910,7 @@ var _ = Describe("Time", func() {
 	})
 	Describe("Symbols", func() {
 		var root *symbol.Symbol
-		BeforeEach(func() { root = symbol.NewRoot(nil, time.Symbols...) })
+		BeforeEach(func() { root = symbol.NewRoot(nil, time.NewSymbols()) })
 		bare := func(ctx context.Context, name string) *symbol.Symbol {
 			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
 		}

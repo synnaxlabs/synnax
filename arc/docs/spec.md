@@ -140,14 +140,15 @@ duration i64 ns := 1000000000
 Numeric literals can have unit suffixes (no whitespace between number and unit):
 
 ```
-TemporalUnit ::= 'ns' | 'us' | 'ms' | 's' | 'm' | 'h'
+TemporalUnit ::= 'ns' | 'us' | 'ms' | 's' | 'min' | 'h' | 'd'
 FrequencyUnit ::= 'hz' | 'khz' | 'mhz'
 ```
 
-Examples: `100ms`, `5s`, `1m` (minute), `10hz` (= 100ms period), `1khz` (= 1ms period)
+Examples: `100ms`, `5s`, `1min` (minute), `1d` (day), `10hz` (= 100ms period), `1khz` (=
+1ms period)
 
-**Note**: `m` in temporal context is minutes. Frequency units convert to timespan by
-inverting the period.
+**Note**: `min` is minutes; `m` alone is the meter (a length unit). Frequency units
+convert to timespan by inverting the period.
 
 ### Temporal Values
 

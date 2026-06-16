@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -41,7 +42,31 @@ const MinTolerance = 5 * telem.Millisecond
 const unsetBaseInterval = telem.TimeSpanMax
 
 var (
-	intervalSymbol = symbol.Symbol{
+	intervalDoc = doc.New(
+		doc.Paragraph("Fires repeatedly at a specified period."),
+		doc.Divider(),
+		doc.Code("arc", "time.interval{period=1s} -> tick"),
+	)
+	waitDoc = doc.New(
+		doc.Paragraph("Fires once after a specified duration."),
+		doc.Divider(),
+		doc.Code("arc", "time.wait{duration=500ms} -> done"),
+	)
+	nowDoc = doc.New(
+		doc.Paragraph("Returns the current timestamp."),
+		doc.Divider(),
+		doc.Code("arc", "t := time.now()"),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations."),
+	)
+)
+
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the time module plus the deprecated bare aliases (interval,
+// wait, now) whose Deprecated fields point at the canonical members.
+func NewSymbols() []*symbol.Symbol {
+	interval := &symbol.Symbol{
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -49,8 +74,9 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
+		Doc: intervalDoc,
 	}
-	waitSymbol = symbol.Symbol{
+	wait := &symbol.Symbol{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -58,35 +84,26 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
+		Doc: waitDoc,
 	}
-	nowSymbol = symbol.Symbol{
+	now := &symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecBoth,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
+		Doc: nowDoc,
 	}
-)
-
-// module is the time module, built once at package init. Its children are
-// the canonical time.<name> functions and serve as Deprecated targets for
-// the bare globals below.
-var module = symbol.NewModule(
-	name,
-	intervalSymbol,
-	waitSymbol,
-	nowSymbol,
-)
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the time module plus the deprecated bare aliases (interval,
-// wait, now) whose Deprecated fields point at the canonical members.
-var Symbols = []*symbol.Symbol{
-	module,
-	symbol.Deprecate(intervalSymbol, module.FindChild(intervalSymbolName)),
-	symbol.Deprecate(waitSymbol, module.FindChild(waitSymbolName)),
-	symbol.Deprecate(nowSymbol, module.FindChild(nowSymbolName)),
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(interval, wait, now)
+	intervalBare := *interval
+	intervalBare.Deprecated = interval
+	waitBare := *wait
+	waitBare.Deprecated = wait
+	nowBare := *now
+	nowBare.Deprecated = now
+	return []*symbol.Symbol{mod, &intervalBare, &waitBare, &nowBare}
 }
 
 // Host is the runtime host-side support for the time module: it registers

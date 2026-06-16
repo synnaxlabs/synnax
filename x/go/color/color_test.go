@@ -64,7 +64,7 @@ var _ = Describe("Color", func() {
 			c := color.Color{R: 255, G: 0, B: 0, A: 0.5}
 			hex := c.Hex()
 			Expect(hex).To(HavePrefix("#ff0000"))
-			Expect(len(hex)).To(Equal(9))
+			Expect(hex).To(HaveLen(9))
 		})
 	})
 
@@ -112,6 +112,16 @@ var _ = Describe("Color", func() {
 			var decoded color.Color
 			Expect(json.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded).To(Equal(original))
+		})
+		It("Should unmarshal an empty string as the zero color", func() {
+			c := color.Color{R: 1, G: 2, B: 3, A: 0.5}
+			Expect(json.Unmarshal([]byte(`""`), &c)).To(Succeed())
+			Expect(c).To(Equal(color.Color{}))
+		})
+		It("Should unmarshal a JSON null as the zero color", func() {
+			c := color.Color{R: 1, G: 2, B: 3, A: 0.5}
+			Expect(json.Unmarshal([]byte(`null`), &c)).To(Succeed())
+			Expect(c).To(Equal(color.Color{}))
 		})
 	})
 

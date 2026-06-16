@@ -42,9 +42,7 @@ class Table(ConsolePage):
             col: Column index (0-based)
         """
         self._get_cell(row, col).click()
-        self.layout.show_visualization_toolbar()
-        self.layout.click_btn("Variant")
-        self.layout.select_from_dropdown("Value")
+        self.set_toolbar_variant("Value")
         self.page.get_by_text("Telemetry").click()
         self.layout.click_btn("Input Channel")
         self.layout.select_from_dropdown(channel_name)
@@ -111,15 +109,15 @@ class Table(ConsolePage):
 
     def add_row(self) -> None:
         """Add a new row to the table by clicking the add-row button."""
-        add_row_btn = self.page.locator(".console-table__add-row").first
-        add_row_btn.wait_for(state="visible", timeout=5000)
-        add_row_btn.click()
+        control = self.page.locator(".pluto-table-frame__add-row").first
+        control.wait_for(state="visible", timeout=5000)
+        control.locator("button").last.click()
 
     def add_column(self) -> None:
         """Add a new column to the table by clicking the add-column button."""
-        add_col_btn = self.page.locator(".console-table__add-col").first
-        add_col_btn.wait_for(state="visible", timeout=5000)
-        add_col_btn.click()
+        control = self.page.locator(".pluto-table-frame__add-col").first
+        control.wait_for(state="visible", timeout=5000)
+        control.locator("button").last.click()
 
     def delete_row(self, row: int, col: int = 0) -> None:
         """Delete a row via context menu on a cell.
@@ -129,7 +127,7 @@ class Table(ConsolePage):
             col: Column index (0-based) of the cell to right-click
         """
         cell = self._get_cell(row, col)
-        self.ctx_menu.action(cell, "Delete row")
+        self.ctx_menu.action(cell, f"Delete row {row + 1}")
 
     def delete_column(self, col: int, row: int = 0) -> None:
         """Delete a column via context menu on a cell.
@@ -139,7 +137,8 @@ class Table(ConsolePage):
             row: Row index (0-based) of the cell to right-click
         """
         cell = self._get_cell(row, col)
-        self.ctx_menu.action(cell, "Delete column")
+        letter = chr(ord("A") + col)
+        self.ctx_menu.action(cell, f"Delete column {letter}")
 
     def set_redline(self, row: int, col: int, lower: float, upper: float) -> None:
         """Configure redline bounds on a value cell.
@@ -205,3 +204,175 @@ class Table(ConsolePage):
         data_row = self.page.locator(DATA_ROW_SELECTOR).first
         data_row.wait_for(state="visible", timeout=5000)
         return data_row.locator(".pluto-table__cell").count()
+
+    def select_cell(self, row: int, col: int) -> None:
+        """Single-click select a cell."""
+        self._get_cell(row, col).click()
+
+    def shift_select_cell(self, row: int, col: int) -> None:
+        """Shift-click to extend the selection through this cell."""
+        self._get_cell(row, col).click(modifiers=["Shift"])
+
+    def ctrl_select_cell(self, row: int, col: int) -> None:
+        """Ctrl/Cmd-click to toggle this cell in the selection."""
+        self._get_cell(row, col).click(modifiers=["ControlOrMeta"])
+
+    def select_row_via_header(self, row: int) -> None:
+        """Click the row indicator (left header) to select every cell in the row."""
+        self.page.locator(f'td[id="resizer-y-{row}"]').click()
+
+    def select_col_via_header(self, col: int) -> None:
+        """Click the column indicator (top header) to select every cell in the column."""
+        self.page.locator(f'td[id="resizer-x-{col}"]').click()
+
+    def add_row_above(self, row: int, col: int = 0) -> None:
+        """Insert a row above the row containing the cell at (row, col)."""
+        self.ctx_menu.action(self._get_cell(row, col), "Add row above")
+
+    def add_row_below(self, row: int, col: int = 0) -> None:
+        """Insert a row below the row containing the cell at (row, col)."""
+        self.ctx_menu.action(self._get_cell(row, col), "Add row below")
+
+    def add_col_left(self, col: int, row: int = 0) -> None:
+        """Insert a column to the left of the cell at (row, col)."""
+        self.ctx_menu.action(self._get_cell(row, col), "Add column left")
+
+    def add_col_right(self, col: int, row: int = 0) -> None:
+        """Insert a column to the right of the cell at (row, col)."""
+        self.ctx_menu.action(self._get_cell(row, col), "Add column right")
+
+    def set_cell_text(self, row: int, col: int, text: str) -> None:
+        """Replace the text content of a text-variant cell."""
+        cell = self._get_cell(row, col)
+        cell.dblclick()
+        self.page.keyboard.type(text)
+        self.page.keyboard.press("Enter")
+
+    def copy(self) -> None:
+        """Cmd/Ctrl + C — copy current selection to clipboard."""
+        self.layout.press_key("ControlOrMeta+c")
+
+    def paste(self) -> None:
+        """Cmd/Ctrl + V — paste clipboard at current selection anchor."""
+        self.layout.press_key("ControlOrMeta+v")
+
+    def delete_selected(self) -> None:
+        """Delete key — clear selected cells, removing fully-selected rows/cols."""
+        self.layout.press_key("Delete")
+
+    def undo(self) -> None:
+        """Cmd/Ctrl + Z — pop the last entry off the undo stack."""
+        self.layout.press_key("ControlOrMeta+z")
+
+    def redo(self) -> None:
+        """Cmd/Ctrl + Shift + Z — re-apply the most recently undone entry."""
+        self.layout.press_key("ControlOrMeta+Shift+z")
+
+    def toggle_editing(self) -> None:
+        """Toggle the editable state via the cell context menu."""
+        cell = self._get_cell(0, 0)
+        self.ctx_menu.open_on(cell)
+        label = (
+            "Disable editing"
+            if self.ctx_menu.has_option("Disable editing")
+            else "Enable editing"
+        )
+        self.ctx_menu.click_option(label)
+
+    def drag_col_resizer(self, col: int, dx: float) -> None:
+        """Drag the right edge of a column's resize handle by `dx` pixels.
+
+        Positive `dx` widens the column; negative narrows it.
+        """
+        handle = self.page.locator(f'td[id="resizer-x-{col}"] button')
+        box = handle.bounding_box()
+        if box is None:
+            raise ValueError(f"Could not locate resize handle for column {col}")
+        cx = box["x"] + box["width"] / 2
+        cy = box["y"] + box["height"] / 2
+        self.page.mouse.move(cx, cy)
+        self.page.mouse.down()
+        self.page.mouse.move(cx + dx, cy, steps=10)
+        self.page.mouse.up()
+
+    def drag_row_resizer(self, row: int, dy: float) -> None:
+        """Drag the bottom edge of a row's resize handle by `dy` pixels."""
+        handle = self.page.locator(f'td[id="resizer-y-{row}"] button')
+        box = handle.bounding_box()
+        if box is None:
+            raise ValueError(f"Could not locate resize handle for row {row}")
+        cx = box["x"] + box["width"] / 2
+        cy = box["y"] + box["height"] / 2
+        self.page.mouse.move(cx, cy)
+        self.page.mouse.down()
+        self.page.mouse.move(cx, cy + dy, steps=10)
+        self.page.mouse.up()
+
+    def get_column_width(self, col: int) -> float:
+        """Read the rendered pixel width of a column."""
+        indicator = self.page.locator(f'td[id="resizer-x-{col}"]')
+        return float(indicator.evaluate("el => el.offsetWidth"))
+
+    def get_row_height(self, row: int) -> float:
+        """Read the rendered pixel height of a row's indicator."""
+        indicator = self.page.locator(f'td[id="resizer-y-{row}"]')
+        return float(indicator.evaluate("el => el.offsetHeight"))
+
+    SIZE_LABELS = ("XL", "L", "M", "S", "XS")
+
+    def set_toolbar_variant(self, variant: str) -> None:
+        """Open the toolbar's Variant dropdown and pick the named option."""
+        self.layout.show_visualization_toolbar()
+        self.layout.click_btn("Variant")
+        self.layout.select_from_dropdown(variant)
+
+    def get_toolbar_variant(self) -> str:
+        """Read the toolbar's Variant dropdown value. Empty string when the
+        selected cells disagree on variant."""
+        self.layout.show_visualization_toolbar()
+        return self.layout.get_dropdown_value("Variant")
+
+    def set_toolbar_size(self, label: str) -> None:
+        """Click one of the toolbar's Size buttons (XL/L/M/S/XS)."""
+        self.layout.show_visualization_toolbar()
+        self.page.get_by_text(label, exact=True).first.click()
+
+    def get_toolbar_size(self) -> str | None:
+        """Return the selected Size button label, or None when no size is
+        active (multi-cell anchor has no level or selected cells disagree)."""
+        self.layout.show_visualization_toolbar()
+        try:
+            return self.layout.get_selected_button(list(self.SIZE_LABELS))
+        except RuntimeError:
+            return None
+
+    def get_toolbar_cell_count(self) -> int:
+        """Read the multi-cell selection count from the toolbar breadcrumb.
+
+        Returns the N from the "N cells" segment when 2+ cells are
+        selected, 1 when a single cell is selected (the segment shows a
+        position like "A1"), or 0 when no cell is selected.
+        """
+        self.layout.show_visualization_toolbar()
+        segments = self.page.locator(".pluto-breadcrumb__segment")
+        if segments.count() < 2:
+            return 0
+        text = segments.nth(1).inner_text().strip()
+        if text.endswith("cells"):
+            return int(text.split()[0])
+        return 1
+
+    def get_color_swatch_count(self) -> int:
+        """Count the swatches in the toolbar's "Selection colors" group.
+
+        Each distinct color across the selection contributes one swatch,
+        so this is the number of color groups the multi-cell form is
+        rendering. Returns 0 when the group is absent (single cell or
+        no cells with a color prop).
+        """
+        self.layout.show_visualization_toolbar()
+        label = self.page.get_by_text("Selection colors", exact=True).first
+        if label.count() == 0:
+            return 0
+        group = label.locator("..")
+        return group.locator(".pluto-color-swatch").count()

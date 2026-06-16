@@ -13,7 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient, send_required
+from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.view.types_gen import Key, View
 from x.normalize import normalize
@@ -94,18 +94,13 @@ class Client:
                 )
             ]
         req = _CreateRequest(views=normalize(views))
-        res = send_required(
-            self._client,
-            "/view/create",
-            req,
-            _CreateResponse,
-        )
+        res = self._client.send("/view/create", req, _CreateResponse)
         return res.views[0] if is_single else res.views
 
     def delete(self, keys: Key | list[Key]) -> None:
         if not isinstance(keys, list):
             keys = [keys]
-        send_required(self._client, "/view/delete", _DeleteRequest(keys=keys), Empty)
+        self._client.send("/view/delete", _DeleteRequest(keys=keys), Empty)
 
     @overload
     def retrieve(
@@ -138,8 +133,7 @@ class Client:
         is_single = key is not None
         if key is not None:
             keys = [key]
-        res = send_required(
-            self._client,
+        res = self._client.send(
             "/view/retrieve",
             _RetrieveRequest(
                 keys=keys,

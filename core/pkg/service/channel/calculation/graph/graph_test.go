@@ -18,8 +18,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -40,13 +40,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
 		Search:   dist.Search,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
 		Search:   dist.Search,
@@ -55,7 +53,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 func openGraph(ctx context.Context) *graph.Graph {
 	return MustOpen(graph.Open(ctx, graph.Config{
-		Channel: dist.Channel,
+		Channel: channel.Wrap(dist.Channel),
 		Status:  statusSvc,
 	}))
 }
@@ -86,16 +84,18 @@ func expectStatus(ctx context.Context, key channel.Key) status.Status[types.Nil]
 	return result
 }
 
-func expectNoStatus(ctx context.Context, key channel.Key) {
-	_, ok := fetchStatus(ctx, key)
-	Expect(ok).To(BeFalse(), "expected no status for channel %d", key)
-}
-
+// eventuallyExpectNoStatus asserts that the calculated channel identified by key
+// settles with no error status. The graph observes channel changes through an
+// asynchronous, buffered observable, so it may transiently publish a status for an
+// intermediate state — for example, an update event whose expression still references a
+// dependency that a later, not-yet-processed event removes — before it catches up and
+// clears it. The assertion therefore polls until the status has settled to absent
+// rather than reading it once; a status that never clears still fails the spec.
 func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 	Eventually(func() bool {
 		_, ok := fetchStatus(ctx, key)
-		return !ok
-	}, 2*time.Second, 10*time.Millisecond).Should(BeTrue(),
+		return ok
+	}, 2*time.Second, 10*time.Millisecond).Should(BeFalse(),
 		"expected status to be cleared for channel %d", key)
 }
 
@@ -127,7 +127,7 @@ var _ = Describe("Graph", func() {
 			}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			openGraph(ctx)
-			expectNoStatus(ctx, calc.Key())
+			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 
 		It("Should set error status for a syntax error in expression", func(ctx SpecContext) {
@@ -164,7 +164,7 @@ var _ = Describe("Graph", func() {
 			}
 			Expect(dist.Channel.Create(ctx, &calcBad)).To(Succeed())
 			openGraph(ctx)
-			expectNoStatus(ctx, calcOk.Key())
+			eventuallyExpectNoStatus(ctx, calcOk.Key())
 			expectStatus(ctx, calcBad.Key())
 		})
 
@@ -175,7 +175,7 @@ var _ = Describe("Graph", func() {
 			}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			openGraph(ctx)
-			expectNoStatus(ctx, calc.Key())
+			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 
 		Context("Dependency Topologies", func() {
@@ -198,9 +198,9 @@ var _ = Describe("Graph", func() {
 				}
 				Expect(dist.Channel.Create(ctx, &calcA)).To(Succeed())
 				openGraph(ctx)
-				expectNoStatus(ctx, calcA.Key())
-				expectNoStatus(ctx, calcB.Key())
-				expectNoStatus(ctx, calcC.Key())
+				eventuallyExpectNoStatus(ctx, calcA.Key())
+				eventuallyExpectNoStatus(ctx, calcB.Key())
+				eventuallyExpectNoStatus(ctx, calcC.Key())
 			})
 
 			It("Should hydrate a deep chain (4 levels)", func(ctx SpecContext) {
@@ -227,10 +227,10 @@ var _ = Describe("Graph", func() {
 				}
 				Expect(dist.Channel.Create(ctx, &c4)).To(Succeed())
 				openGraph(ctx)
-				expectNoStatus(ctx, c1.Key())
-				expectNoStatus(ctx, c2.Key())
-				expectNoStatus(ctx, c3.Key())
-				expectNoStatus(ctx, c4.Key())
+				eventuallyExpectNoStatus(ctx, c1.Key())
+				eventuallyExpectNoStatus(ctx, c2.Key())
+				eventuallyExpectNoStatus(ctx, c3.Key())
+				eventuallyExpectNoStatus(ctx, c4.Key())
 			})
 
 			It("Should hydrate a fan-out topology", func(ctx SpecContext) {
@@ -251,9 +251,9 @@ var _ = Describe("Graph", func() {
 				calcs := []channel.Channel{c1, c2, c3}
 				Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
 				openGraph(ctx)
-				expectNoStatus(ctx, calcs[0].Key())
-				expectNoStatus(ctx, calcs[1].Key())
-				expectNoStatus(ctx, calcs[2].Key())
+				eventuallyExpectNoStatus(ctx, calcs[0].Key())
+				eventuallyExpectNoStatus(ctx, calcs[1].Key())
+				eventuallyExpectNoStatus(ctx, calcs[2].Key())
 			})
 
 			It("Should hydrate a fan-in topology", func(ctx SpecContext) {
@@ -269,7 +269,7 @@ var _ = Describe("Graph", func() {
 				}
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 				openGraph(ctx)
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 			})
 		})
 
@@ -345,7 +345,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_create_base + 1",
 				}
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 			})
 
 			It("Should set error status for a new invalid calculated channel", func(ctx SpecContext) {
@@ -367,13 +367,13 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_chain_base + 1",
 				}
 				Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
-				expectNoStatus(ctx, calc1.Key())
+				eventuallyExpectNoStatus(ctx, calc1.Key())
 				calc2 := channel.Channel{
 					Name: "rc_chain_c2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return rc_chain_c1 * 2",
 				}
 				Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
-				expectNoStatus(ctx, calc2.Key())
+				eventuallyExpectNoStatus(ctx, calc2.Key())
 			})
 
 			It("Should process a batch CreateMany in a single handleChanges call", func(ctx SpecContext) {
@@ -386,9 +386,9 @@ var _ = Describe("Graph", func() {
 					{Name: "rc_batch_c3", DataType: telem.Int64T, Virtual: true, Expression: "return rc_batch_base - 1"},
 				}
 				Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
-				expectNoStatus(ctx, calcs[0].Key())
-				expectNoStatus(ctx, calcs[1].Key())
-				expectNoStatus(ctx, calcs[2].Key())
+				eventuallyExpectNoStatus(ctx, calcs[0].Key())
+				eventuallyExpectNoStatus(ctx, calcs[1].Key())
+				eventuallyExpectNoStatus(ctx, calcs[2].Key())
 			})
 		})
 
@@ -402,7 +402,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_del_base + 1",
 				}
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Deleting the base dependency")
 				Expect(dist.Channel.Delete(ctx, base.Key(), false)).To(Succeed())
@@ -423,8 +423,8 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_del_mid_c1 * 2",
 				}
 				Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
-				expectNoStatus(ctx, calc1.Key())
-				expectNoStatus(ctx, calc2.Key())
+				eventuallyExpectNoStatus(ctx, calc1.Key())
+				eventuallyExpectNoStatus(ctx, calc2.Key())
 
 				By("Deleting the intermediate calculated channel")
 				Expect(dist.Channel.Delete(ctx, calc1.Key(), false)).To(Succeed())
@@ -448,7 +448,7 @@ var _ = Describe("Graph", func() {
 
 				By("Deleting the leaf calc")
 				Expect(dist.Channel.Delete(ctx, calc2.Key(), false)).To(Succeed())
-				expectNoStatus(ctx, calc1.Key())
+				eventuallyExpectNoStatus(ctx, calc1.Key())
 			})
 
 			It("Should not cascade invalidity through reconcileQueued in a diamond", func(ctx SpecContext) {
@@ -470,7 +470,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_del_dia_b + rc_del_dia_c",
 				}
 				Expect(dist.Channel.Create(ctx, &calcA)).To(Succeed())
-				expectNoStatus(ctx, calcA.Key())
+				eventuallyExpectNoStatus(ctx, calcA.Key())
 
 				By("Deleting the shared base dependency")
 				Expect(dist.Channel.Delete(ctx, base.Key(), false)).To(Succeed())
@@ -481,7 +481,7 @@ var _ = Describe("Graph", func() {
 
 				By("Verifying calc_a does NOT get error status because " +
 					"reconcileQueued continues without enqueueing dependents on error")
-				expectNoStatus(ctx, calcA.Key())
+				eventuallyExpectNoStatus(ctx, calcA.Key())
 			})
 		})
 
@@ -497,16 +497,16 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_upd_b1 + 1",
 				}
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Updating expression to use a different base")
 				calc.Expression = "return rc_upd_b2 * 2"
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Verifying old base deletion does not affect calc")
 				Expect(dist.Channel.Delete(ctx, base1.Key(), false)).To(Succeed())
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Verifying new base deletion does affect calc")
 				Expect(dist.Channel.Delete(ctx, base2.Key(), false)).To(Succeed())
@@ -522,7 +522,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_upd_bad_base + 1",
 				}
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Updating to an invalid expression")
 				calc.Expression = "return rc_no_such_thing"
@@ -563,15 +563,15 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_cas_c1 * 2",
 				}
 				Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
-				expectNoStatus(ctx, calc1.Key())
-				expectNoStatus(ctx, calc2.Key())
+				eventuallyExpectNoStatus(ctx, calc1.Key())
+				eventuallyExpectNoStatus(ctx, calc2.Key())
 
 				By("Deleting the base. calc1 becomes invalid. " +
 					"calc2 should NOT get error because reconcileQueued " +
 					"does not enqueue dependents when a node errors")
 				Expect(dist.Channel.Delete(ctx, base.Key(), false)).To(Succeed())
 				expectStatus(ctx, calc1.Key())
-				expectNoStatus(ctx, calc2.Key())
+				eventuallyExpectNoStatus(ctx, calc2.Key())
 			})
 
 			It("Should cascade deletion through a long chain", func(ctx SpecContext) {
@@ -603,14 +603,14 @@ var _ = Describe("Graph", func() {
 				Expect(dist.Channel.Delete(ctx, c2.Key(), false)).To(Succeed())
 
 				By("c1 is upstream and unaffected")
-				expectNoStatus(ctx, c1.Key())
+				eventuallyExpectNoStatus(ctx, c1.Key())
 
 				By("c3 depends on c2 which is gone, so it gets error")
 				expectStatus(ctx, c3.Key())
 
 				By("c4 does not get error because reconcileQueued does not " +
 					"cascade invalidity from c3's failure")
-				expectNoStatus(ctx, c4.Key())
+				eventuallyExpectNoStatus(ctx, c4.Key())
 			})
 
 			It("Should re-inspect dependents when a calculated channel is updated", func(ctx SpecContext) {
@@ -627,14 +627,14 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_reins_c1 * 2",
 				}
 				Expect(dist.Channel.Create(ctx, &calc2)).To(Succeed())
-				expectNoStatus(ctx, calc1.Key())
-				expectNoStatus(ctx, calc2.Key())
+				eventuallyExpectNoStatus(ctx, calc1.Key())
+				eventuallyExpectNoStatus(ctx, calc2.Key())
 
 				By("Updating calc1 expression - calc2 should be re-inspected via BFS")
 				calc1.Expression = "return rc_reins_base + 100"
 				Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
-				expectNoStatus(ctx, calc1.Key())
-				expectNoStatus(ctx, calc2.Key())
+				eventuallyExpectNoStatus(ctx, calc1.Key())
+				eventuallyExpectNoStatus(ctx, calc2.Key())
 			})
 		})
 
@@ -650,13 +650,13 @@ var _ = Describe("Graph", func() {
 					Expression: "return rc_dtp_base * 2",
 				}
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Updating the calc expression to return a different type")
 				calc.Expression = "return i64(rc_dtp_base)"
 				calc.DataType = telem.Int64T
 				Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-				expectNoStatus(ctx, calc.Key())
+				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Verifying the DataType was persisted to the DB")
 				Eventually(func() telem.DataType {
@@ -780,7 +780,7 @@ var _ = Describe("Graph", func() {
 				By("Deleting base_a should only affect calc_a")
 				Expect(dist.Channel.Delete(ctx, baseA.Key(), false)).To(Succeed())
 				expectStatus(ctx, calcA.Key())
-				expectNoStatus(ctx, calcB.Key())
+				eventuallyExpectNoStatus(ctx, calcB.Key())
 			})
 		})
 	})
@@ -853,14 +853,14 @@ var _ = Describe("Graph", func() {
 			}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			openGraph(ctx)
-			expectNoStatus(ctx, calc.Key())
+			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 	})
 
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: dist.Channel,
+				Channel: channel.Wrap(dist.Channel),
 				Status:  statusSvc,
 			}))
 			Expect(g.Close()).To(Succeed())
@@ -868,7 +868,7 @@ var _ = Describe("Graph", func() {
 
 		It("Should disconnect observer on Close", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: dist.Channel,
+				Channel: channel.Wrap(dist.Channel),
 				Status:  statusSvc,
 			}))
 			base := channel.Channel{Name: "lc_disc_base", DataType: telem.Int64T, Virtual: true}
@@ -878,14 +878,14 @@ var _ = Describe("Graph", func() {
 				Expression: "return lc_disc_base + 1",
 			}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-			expectNoStatus(ctx, calc.Key())
+			eventuallyExpectNoStatus(ctx, calc.Key())
 
 			By("Closing the graph to disconnect the observer")
 			Expect(g.Close()).To(Succeed())
 
 			By("Deleting the base after close should not set error status")
 			Expect(dist.Channel.Delete(ctx, base.Key(), false)).To(Succeed())
-			expectNoStatus(ctx, calc.Key())
+			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 
 		It("Should fail to open with missing config", func(ctx SpecContext) {
@@ -899,13 +899,13 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should fail to open with nil Status", func(ctx SpecContext) {
-			_, err := graph.Open(ctx, graph.Config{Channel: dist.Channel})
+			_, err := graph.Open(ctx, graph.Config{Channel: channel.Wrap(dist.Channel)})
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("Should handle Close being called twice", func(ctx SpecContext) {
 			g := MustSucceed(graph.Open(ctx, graph.Config{
-				Channel: dist.Channel,
+				Channel: channel.Wrap(dist.Channel),
 				Status:  statusSvc,
 			}))
 			Expect(g.Close()).To(Succeed())
@@ -942,7 +942,7 @@ var _ = Describe("Graph", func() {
 			}
 			wg.Wait()
 			for i := range n {
-				expectNoStatus(ctx, calcs[i].Key())
+				eventuallyExpectNoStatus(ctx, calcs[i].Key())
 			}
 		})
 
@@ -955,7 +955,7 @@ var _ = Describe("Graph", func() {
 				Expression: "return cc_race_base + 1",
 			}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-			expectNoStatus(ctx, calc.Key())
+			eventuallyExpectNoStatus(ctx, calc.Key())
 
 			var wg sync.WaitGroup
 			wg.Add(2)
@@ -1032,9 +1032,9 @@ var _ = Describe("Graph", func() {
 			})
 
 			It("Should set up all levels as valid", func(ctx SpecContext) {
-				expectNoStatus(ctx, mid1.Key())
-				expectNoStatus(ctx, mid2.Key())
-				expectNoStatus(ctx, top.Key())
+				eventuallyExpectNoStatus(ctx, mid1.Key())
+				eventuallyExpectNoStatus(ctx, mid2.Key())
+				eventuallyExpectNoStatus(ctx, top.Key())
 			})
 
 			It("Should only affect mid1 when base2 is deleted", func(ctx SpecContext) {
@@ -1045,11 +1045,11 @@ var _ = Describe("Graph", func() {
 				expectStatus(ctx, mid1.Key())
 
 				By("mid2 only depends on base1 so it stays valid")
-				expectNoStatus(ctx, mid2.Key())
+				eventuallyExpectNoStatus(ctx, mid2.Key())
 
 				By("top is not re-inspected because reconcileQueued " +
 					"does not cascade invalidity from mid1")
-				expectNoStatus(ctx, top.Key())
+				eventuallyExpectNoStatus(ctx, top.Key())
 			})
 
 			It("Should break top when mid1 is deleted", func(ctx SpecContext) {
@@ -1090,13 +1090,13 @@ var _ = Describe("Graph", func() {
 				Expect(dist.Channel.Delete(ctx, c2.Key(), false)).To(Succeed())
 
 				By("c1 is upstream of deletion and unaffected")
-				expectNoStatus(ctx, c1.Key())
+				eventuallyExpectNoStatus(ctx, c1.Key())
 
 				By("c3 directly depended on c2 and gets error")
 				expectStatus(ctx, c3.Key())
 
 				By("c4 is not re-inspected because invalidity does not cascade from c3")
-				expectNoStatus(ctx, c4.Key())
+				eventuallyExpectNoStatus(ctx, c4.Key())
 			})
 		})
 	})

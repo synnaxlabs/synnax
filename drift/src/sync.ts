@@ -108,7 +108,7 @@ export const syncCurrent = async (
     changes.push([
       "title",
       { prev: prevWin.title, next: nextWin.title },
-      async () => runtime.setTitle(nextWin.title as string),
+      async () => await runtime.setTitle(nextWin.title as string),
     ]);
 
   const changeVisibility =
@@ -161,7 +161,7 @@ export const syncCurrent = async (
     changes.push([
       "center",
       { prev: prevWin.centerCount, next: nextWin.centerCount },
-      async () => runtime.center(),
+      async () => await runtime.center(),
     ]);
 
   if (nextWin.minimized != null && nextWin.minimized !== prevWin.minimized)

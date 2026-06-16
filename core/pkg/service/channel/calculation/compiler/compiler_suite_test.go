@@ -18,5 +18,5 @@ import (
 
 func TestCompiler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Compiler Suite")
+	RunSpecs(t, "Service Channel Calculation Compiler Suite")
 }

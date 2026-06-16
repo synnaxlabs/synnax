@@ -16,10 +16,10 @@ import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type State = latest.State;
+export interface Viewport extends latest.Viewport {}
 export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
-export type PendingUpload = latest.PendingUpload;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
@@ -35,10 +35,6 @@ export interface StoreState {
 export interface CreatePayload {
   key: string;
   editable?: boolean;
-  // Optional legacy state used by the import pipeline. When present, it is
-  // migrated forward via anyStateZ and the resulting pendingUpload is stored
-  // on the slice so useAutoUpload pushes the graph to the active workspace.
-  data?: unknown;
 }
 
 export interface SetSelectedPayload {
@@ -100,45 +96,17 @@ export interface RemovePayload {
   keys: string[];
 }
 
-export interface ClearPendingUploadPayload {
-  key: string;
-}
-
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       if (state.schematics[payload.key] != null) return;
-
-      let migrated: State | undefined;
-      if (payload.data != null) {
-        const adjusted =
-          typeof payload.data === "object" && payload.data !== null
-            ? { ...(payload.data as Record<string, unknown>), remoteCreated: false }
-            : payload.data;
-        const parsed = anyStateZ.safeParse(adjusted);
-        if (parsed.success) migrated = parsed.data;
-      }
       state.schematics[payload.key] = {
         ...ZERO_STATE,
         legend: { ...ZERO_STATE.legend },
         selected: [],
-        editable: payload.editable ?? migrated?.editable ?? ZERO_STATE.editable,
-        ...(migrated == null
-          ? {}
-          : {
-              authority: migrated.authority,
-              controlStatus: migrated.controlStatus,
-              legend: { ...migrated.legend },
-              toolbar: migrated.toolbar,
-              fitViewOnResize: migrated.fitViewOnResize,
-              viewport: migrated.viewport,
-              pendingUpload:
-                migrated.pendingUpload == null
-                  ? undefined
-                  : { ...migrated.pendingUpload, key: payload.key },
-            }),
+        editable: payload.editable ?? ZERO_STATE.editable,
       };
     },
     setSelected: (state, { payload }: PayloadAction<SetSelectedPayload>) => {
@@ -215,14 +183,6 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.schematics[key]);
     },
-    clearPendingUpload: (
-      state,
-      { payload }: PayloadAction<ClearPendingUploadPayload>,
-    ) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.pendingUpload = undefined;
-    },
   },
 });
 
@@ -240,7 +200,6 @@ export const {
   setViewport,
   setViewportMode,
   remove,
-  clearPendingUpload,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

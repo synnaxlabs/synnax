@@ -94,10 +94,9 @@ export const useMultiple = ({
     [minSize, setState, direction],
   );
 
-  useEffect(
-    () => onResize?.(state.sizeDistribution),
-    [state.sizeDistribution, onResize],
-  );
+  useEffect(() => {
+    onResize?.(state.sizeDistribution);
+  }, [state.sizeDistribution, onResize]);
 
   const handleDragHandle = useCallback(
     (e: ResizeStartEvent, dragging: number): void => {

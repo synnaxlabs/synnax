@@ -15,13 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -413,43 +413,67 @@ var _ = Describe("Metrics", func() {
 			Expect(svc.Close()).To(Succeed())
 		})
 		It("Should write metrics at configured interval", func(ctx SpecContext) {
-			var res framer.StreamerResponse
-			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Count()).To(Equal(5))
+			names := getNames(dist.Cluster.HostKey())
+			var channels []channel.Channel
+			Expect(dist.Channel.NewRetrieve().
+				Where(channel.MatchNames(names...)).
+				Entries(&channels).
+				Exec(ctx, nil),
+			).To(Succeed())
+			keyByName := make(map[string]channel.Key, len(channels))
+			for _, ch := range channels {
+				keyByName[ch.Name] = ch.Key()
+			}
 
-			timeSeries := res.Frame.SeriesAt(0)
+			// The raw metrics and the reactive total_size_gb calculation are
+			// separate writes the streamer may batch or reorder, so accumulate the
+			// first series seen per channel rather than asserting on frame shape.
+			collected := make(map[channel.Key]telem.Series, len(names))
+			series := func(name string) telem.Series { return collected[keyByName[name]] }
+			Eventually(func(g Gomega) {
+				var res framer.StreamerResponse
+				g.Eventually(responses.Outlet()).Should(Receive(&res))
+				for key, s := range res.Frame.Entries() {
+					if _, ok := collected[key]; !ok {
+						collected[key] = s
+					}
+				}
+				for _, name := range names {
+					g.Expect(collected).To(HaveKey(keyByName[name]))
+				}
+			}).Should(Succeed())
+
+			timeSeries := series(names[0])
 			Expect(timeSeries.DataType).To(Equal(telem.TimeStampT))
 			Expect(timeSeries.Len()).To(Equal(int64(1)))
 
-			cpuSeries := res.Frame.SeriesAt(1)
+			cpuSeries := series(names[1])
 			Expect(cpuSeries.DataType).To(Equal(telem.Float32T))
 			Expect(cpuSeries.Len()).To(Equal(int64(1)))
 			cpuVal := telem.ValueAt[float32](cpuSeries, 0)
 			Expect(cpuVal).To(BeNumerically(">=", 0))
 			Expect(cpuVal).To(BeNumerically("<=", 100))
 
-			memSeries := res.Frame.SeriesAt(2)
+			memSeries := series(names[2])
 			Expect(memSeries.DataType).To(Equal(telem.Float32T))
 			Expect(memSeries.Len()).To(Equal(int64(1)))
 			memVal := telem.ValueAt[float32](memSeries, 0)
 			Expect(memVal).To(BeNumerically(">=", 0))
 			Expect(memVal).To(BeNumerically("<=", 100))
 
-			tsSizeSeries := res.Frame.SeriesAt(3)
+			tsSizeSeries := series(names[4])
 			Expect(tsSizeSeries.DataType).To(Equal(telem.Float32T))
 			Expect(tsSizeSeries.Len()).To(Equal(int64(1)))
 			tsSize := telem.ValueAt[float32](tsSizeSeries, 0)
 			Expect(tsSize).To(BeNumerically(">", 0))
 
-			kvSizeSeries := res.Frame.SeriesAt(4)
+			kvSizeSeries := series(names[5])
 			Expect(kvSizeSeries.DataType).To(Equal(telem.Float32T))
 			Expect(kvSizeSeries.Len()).To(Equal(int64(1)))
 			kvSize := telem.ValueAt[float32](kvSizeSeries, 0)
 			Expect(kvSize).To(BeNumerically(">", 0))
 
-			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.Frame.Count()).To(Equal(1))
-			totalSizeSeries := res.Frame.SeriesAt(0)
+			totalSizeSeries := series(names[3])
 			Expect(totalSizeSeries.DataType).To(Equal(telem.Float32T))
 			Expect(totalSizeSeries.Len()).To(Equal(int64(1)))
 			totalSize := telem.ValueAt[float32](totalSizeSeries, 0)

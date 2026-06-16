@@ -22,5 +22,5 @@ var magic = [3]byte{0x4F, 0x52, 0x43}
 
 func TestOrc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Orc Suite")
+	RunSpecs(t, "Encoding Orc Suite")
 }

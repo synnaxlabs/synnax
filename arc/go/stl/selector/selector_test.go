@@ -360,7 +360,7 @@ var _ = Describe("Select", func() {
 	Describe("Symbols", func() {
 		It("Should expose bare select symbol", func() {
 			var sym *symbol.Symbol
-			for _, s := range selector.Symbols {
+			for _, s := range selector.NewSymbols() {
 				if s.Name == "select" {
 					sym = s
 					break
@@ -371,7 +371,7 @@ var _ = Describe("Select", func() {
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 		It("Should not expose qualified selector.select symbol", func() {
-			for _, s := range selector.Symbols {
+			for _, s := range selector.NewSymbols() {
 				Expect(s.Kind).ToNot(Equal(symbol.KindModule))
 			}
 		})

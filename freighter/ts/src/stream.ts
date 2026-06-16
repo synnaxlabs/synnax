@@ -16,15 +16,14 @@ import { type Transport } from "@/transport";
  */
 export interface StreamReceiver<RS extends z.ZodType> {
   /**
-   * Receives a response from the stream. It's not safe to call receive
-   * concurrently.
+   * Receives a response from the stream. It's not safe to call receive concurrently.
    *
-   *  @returns freighter.EOF: if the server closed the stream nominally.
-   *  @returns Error: if the server closed the stream abnormally,
-   *  returns the error the server returned.
-   *  @raises Error: if the transport fails.
+   *  @returns the next response from the stream.
+   *  @throws freighter.EOF: if the server closed the stream nominally.
+   *  @throws Error: if the server closed the stream abnormally, throws the error the
+   *  server returned, or a transport error if the transport itself failed.
    */
-  receive: () => Promise<[z.infer<RS>, null] | [null, Error]>;
+  receive: () => Promise<z.infer<RS>>;
 
   /**
    * @returns true if the stream has received a response
@@ -37,17 +36,16 @@ export interface StreamReceiver<RS extends z.ZodType> {
  */
 export interface StreamSender<RQ extends z.ZodType> {
   /**
-  * Sends a request to the stream. It is not safe to call send concurrently
-  * with closeSend or send.
+  * Sends a request to the stream. It is not safe to call send concurrently with
+  * closeSend or send.
 
   * @param req -  the request to send.
-  * @returns freighter.EOF: if the server closed the stream. The caller
-  * can discover the error returned by the server by calling receive().
-  * @returns undefined: if the message was sent successfully.
-  * @raises freighter.StreamClosed: if the client called close_send()
-  * @raises Error: if the transport fails.
+  * @throws freighter.EOF: if the server closed the stream. The caller can discover the
+  * error returned by the server by calling receive().
+  * @throws freighter.StreamClosed: if the client called closeSend().
+  * @throws Error: if the transport fails.
   */
-  send: (req: z.input<RQ> | z.infer<RQ>) => Error | null;
+  send: (req: z.input<RQ> | z.infer<RQ>) => void;
 }
 
 /**
@@ -56,13 +54,13 @@ export interface StreamSender<RQ extends z.ZodType> {
  */
 export interface StreamSenderCloser<RQ extends z.ZodType> extends StreamSender<RQ> {
   /**
-  * Lets the server know no more messages will be sent. If the client attempts
-  * to call send() after calling closeSend(), a freighter.StreamClosed
-  * exception will be raised. close_send is idempotent. If the server has
-  * already closed the stream, close_send will do nothing.
+  * Lets the server know no more messages will be sent. If the client attempts to call
+  * send() after calling closeSend(), a freighter.StreamClosed exception will be raised.
+  * close_send is idempotent. If the server has already closed the stream, close_send
+  * will do nothing.
 
-  * After calling close_send, the client is responsible for calling receive()
-  * to successfully receive the server's acknowledgement.
+  * After calling close_send, the client is responsible for calling receive() to
+  * successfully receive the server's acknowledgement.
    */
   closeSend: () => void;
 }
@@ -78,15 +76,15 @@ export interface Stream<RQ extends z.ZodType, RS extends z.ZodType = RQ>
  */
 export interface StreamClient extends Transport {
   /**
-   * Dials the target and returns a stream that can be used to issue requests
-   * and receive responses
+   * Dials the target and returns a stream that can be used to issue requests and
+   * receive responses
    *
-   * @param target - The target to dial. In some implementations, this may be
-   * an endpoint path, or in others, a complete hostname or URL.
-   * @param reqSchema - The schema for the request type. This is used to
-   * validate the request before sending it.
-   * @param resSchema - The schema for the response type. This is used to
-   * validate the response before returning it.
+   * @param target - The target to dial. In some implementations, this may be an
+   * endpoint path, or in others, a complete hostname or URL.
+   * @param reqSchema - The schema for the request type. This is used to validate the
+   * request before sending it.
+   * @param resSchema - The schema for the response type. This is used to validate the
+   * response before returning it.
    */
   stream: <RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,

@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arclsptestutil "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	lsptestutil "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/telem"

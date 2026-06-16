@@ -11,19 +11,16 @@ package schematic
 
 import (
 	"context"
-	"encoding/json"
 	stdio "io"
-	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	xchange "github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
@@ -31,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -89,19 +85,7 @@ type Service struct {
 	Symbol *symbol.Service
 	closer io.MultiCloser
 	table  *gorp.Table[Key, Schematic]
-	// actionObserver fans out ScopedActions emitted by Writer.Dispatch to any
-	// subscribers (notably the cluster signals translator). Nil when the
-	// service is opened without a Signals provider.
-	actionObserver observe.Observer[ScopedAction]
-	// seq is the monotonic sequence counter stamped onto each ScopedAction
-	// before broadcast. Clients dedupe echoes by comparing against the highest
-	// Seq they have applied for the same Key. The counter is in-memory and
-	// resets on process restart, which is acceptable because clients reload
-	// schematic state on reconnect and reset their per-key high-water marks
-	// alongside it. In multi-node deployments each node has its own counter,
-	// so cross-node ordering is best-effort: a cluster-coordinated primitive
-	// is left for the broader server-side undo work to address.
-	seq atomic.Uint64
+	state  *actions.State[Key, Action]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -112,7 +96,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, actionObserver: observe.New[ScopedAction]()}
+	s = &Service{ServiceConfig: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[Key, Schematic](ctx, gorp.TableConfig[Key, Schematic]{
@@ -144,27 +128,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		actions := observe.Translator[ScopedAction, []xchange.Change[[]byte, struct{}]]{
-			Observable: s.actionObserver,
-			Translate: func(_ context.Context, sa ScopedAction) ([]xchange.Change[[]byte, struct{}], bool) {
-				b, err := json.Marshal(sa)
-				if err != nil {
-					return nil, false
-				}
-				return []xchange.Change[[]byte, struct{}]{
-					{Variant: xchange.VariantSet, Key: telem.MarshalVariableSample(b)},
-				}, true
-			},
-		}
 		var sig stdio.Closer
-		if sig, err = cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
-			Name:       "schematic_actions",
-			Observable: actions,
-			SetChannel: channel.Channel{Name: "sy_schematic_set", DataType: telem.JSONT, Internal: true},
+		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
+			Provider: cfg.Signals,
+			State:    s.state,
+			Name:     "schematic",
 		}); !ok(err, sig) {
 			return nil, err
 		}
-		deleteCfg := signals.GorpPublisherConfigUUID[Schematic](s.table.Observe())
+		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
 		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
 			return nil, err
@@ -180,8 +152,10 @@ func (s *Service) Close() error { return s.closer.Close() }
 // OnAction subscribes the given handler to the action stream emitted by
 // Writer.Dispatch. The handler runs synchronously inside Dispatch after the
 // underlying transaction commits. The returned Disconnect removes the handler.
-func (s *Service) OnAction(handler func(context.Context, ScopedAction)) observe.Disconnect {
-	return s.actionObserver.OnChange(handler)
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnAction(handler)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
@@ -190,12 +164,11 @@ func (s *Service) OnAction(handler func(context.Context, ScopedAction)) observe.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:             tx,
-		otgWriter:      s.Ontology.NewWriter(tx),
-		otg:            s.Ontology,
-		table:          s.table,
-		actionObserver: s.actionObserver,
-		seq:            &s.seq,
+		tx:         tx,
+		otgWriter:  s.Ontology.NewWriter(tx),
+		otg:        s.Ontology,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

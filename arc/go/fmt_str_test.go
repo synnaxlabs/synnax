@@ -42,7 +42,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		)
 		defer h.Close(ctx)
 		h.Ingest(100, telem.NewSeriesV[uint8](1))
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 		}
@@ -71,7 +71,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 		)
 		defer h.Close(ctx)
 		ingest(h)
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 		}
@@ -159,7 +159,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -301,7 +301,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -374,7 +374,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -394,7 +394,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[float64](3.14159))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -417,7 +417,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			defer h.Close(ctx)
 			h.Ingest(102, telem.NewSeriesV[int32](7))
 			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -440,7 +440,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			defer h.Close(ctx)
 			h.Ingest(102, telem.NewSeriesV[int32](7))
 			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -460,7 +460,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -483,7 +483,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			defer h.Close(ctx)
 			h.Ingest(102, telem.NewSeriesV[int32](7))
 			h.Ingest(100, telem.NewSeriesV[float32](3.14))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -503,7 +503,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}
@@ -523,7 +523,7 @@ var _ = Describe("format-string end-to-end runtime", func() {
 			)
 			defer h.Close(ctx)
 			h.Ingest(100, telem.NewSeriesV[uint8](1))
-			for i := 0; i < 5; i++ {
+			for range 5 {
 				h.Tick(ctx, telem.Millisecond)
 				h.channelState.ClearReads()
 			}

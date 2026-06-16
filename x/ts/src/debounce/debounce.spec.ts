@@ -187,10 +187,100 @@ describe("debounce", () => {
     expect(fn).toHaveBeenNthCalledWith(2, 30);
   });
 
-  it("should not debounce the execution of the given function if the time is 0", () => {
+  it("should invoke the function synchronously when the wait period is 0", () => {
     const fn = vi.fn();
     const debounced = debounce(fn, TimeSpan.ZERO);
 
-    expect(debounced).toBe(fn);
+    debounced(10);
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenLastCalledWith(10);
+  });
+
+  describe("cancel", () => {
+    it("should drop a pending invocation", () => {
+      const fn = vi.fn();
+      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+
+      debounced(10);
+      debounced.cancel();
+
+      vi.advanceTimersByTime(200);
+
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    it("should be a no-op when no invocation is pending", () => {
+      const fn = vi.fn();
+      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+
+      expect(() => debounced.cancel()).not.toThrow();
+
+      debounced(10);
+      vi.advanceTimersByTime(100);
+
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenLastCalledWith(10);
+    });
+
+    it("should be a no-op for a zero-wait debounce", () => {
+      const fn = vi.fn();
+      const debounced = debounce(fn, TimeSpan.ZERO);
+
+      expect(() => debounced.cancel()).not.toThrow();
+
+      debounced(10);
+      expect(fn).toHaveBeenCalledTimes(1);
+    });
+
+    it("should allow scheduling a new invocation after cancellation", () => {
+      const fn = vi.fn();
+      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+
+      debounced(10);
+      debounced.cancel();
+      vi.advanceTimersByTime(100);
+      expect(fn).not.toHaveBeenCalled();
+
+      debounced(20);
+      vi.advanceTimersByTime(100);
+
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenLastCalledWith(20);
+    });
+  });
+
+  describe("flush", () => {
+    it("should invoke a pending call immediately with the latest arguments", () => {
+      const fn = vi.fn();
+      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+
+      debounced(10);
+      debounced(20);
+      debounced.flush();
+
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(fn).toHaveBeenLastCalledWith(20);
+    });
+
+    it("should be a no-op when no invocation is pending", () => {
+      const fn = vi.fn();
+      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+
+      debounced.flush();
+
+      expect(fn).not.toHaveBeenCalled();
+    });
+
+    it("should clear the pending timer so the function does not fire again later", () => {
+      const fn = vi.fn();
+      const debounced = debounce(fn, TimeSpan.milliseconds(100));
+
+      debounced(10);
+      debounced.flush();
+      vi.advanceTimersByTime(200);
+
+      expect(fn).toHaveBeenCalledTimes(1);
+    });
   });
 });

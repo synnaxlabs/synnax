@@ -32,7 +32,7 @@ func analyze(source string, extras ...[]symbol.Symbol) *diagnostics.Diagnostics 
 	if parseDiag != nil && !parseDiag.Ok() {
 		return parseDiag
 	}
-	root := symbol.NewRoot(nil, stl.Symbols...)
+	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for _, set := range extras {
 		for i := range set {
 			s := set[i]
@@ -151,7 +151,7 @@ trig -> t.now{} -> now_out
 			if parseDiag != nil {
 				Expect(parseDiag.Ok()).To(BeTrue())
 			}
-			root := symbol.NewRoot(nil, stl.Symbols...)
+			root := symbol.NewRoot(nil, stl.NewSymbols())
 			for i := range chans {
 				s := chans[i]
 				root.Parent.AddChild(&s)

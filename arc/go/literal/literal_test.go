@@ -198,6 +198,19 @@ var _ = Describe("Literal Parser", func() {
 				Expect(parsed.Type.Kind).To(Equal(types.KindI64))
 			})
 
+			DescribeTable("Time-unit literal boxing per target kind",
+				func(text string, target types.Type, expectedValue any, expectedKind types.Kind) {
+					parsed := MustSucceed(literal.Parse(getLiteral(text), target))
+					Expect(parsed.Value).To(Equal(expectedValue))
+					Expect(parsed.Type.Kind).To(Equal(expectedKind))
+				},
+				Entry("i64 boxes telem.TimeSpan", "5400s", types.I64(), telem.Second*5400, types.KindI64),
+				Entry("u64 boxes plain uint64", "5400s", types.U64(), uint64(5_400_000_000_000), types.KindU64),
+				Entry("i32 boxes plain int32", "1s", types.I32(), int32(1_000_000_000), types.KindI32),
+				Entry("zero at i64 boxes telem.TimeSpan(0)", "0s", types.I64(), telem.TimeSpan(0), types.KindI64),
+				Entry("ns at i64 boxes telem.TimeSpan", "54ns", types.I64(), telem.Nanosecond*54, types.KindI64),
+			)
+
 			It("Should convert to f64", func() {
 				lit := getLiteral("5km")
 				parsed := MustSucceed(literal.Parse(lit, types.F64()))

@@ -26,7 +26,7 @@ class UploadClient(Transport, Protocol):
         target: str,
         req: FilePath,
         res_t: type[RS],
-    ) -> tuple[RS, None] | tuple[None, Exception]:
+    ) -> RS:
         """
         Streams req to target and decodes the response into res_t. The transport infers
         any wire-format metadata from the path (e.g., from its extension).
@@ -34,6 +34,8 @@ class UploadClient(Transport, Protocol):
         :param target: the target address of the server.
         :param req: file path whose contents are streamed as the request body.
         :param res_t: the expected response payload type.
+        :return: the response returned by the server.
         :raises Unreachable: when the target cannot be reached.
+        :raises Exception: any error returned by the server.
         """
         ...

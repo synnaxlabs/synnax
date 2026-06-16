@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 type Service struct {
@@ -31,36 +32,38 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Service.ImEx, access: cfg.Service.RBAC}, nil
+	return &Service{
+		internal: cfg.Service.ImEx,
+		access:   cfg.Service.RBAC,
+	}, nil
 }
 
 type (
 	ImportRequest  = imex.Envelope
-	ImportResponse struct {
-		Key string `json:"key" msgpack:"key"`
-	}
+	ImportResponse = ontology.ID
 )
 
 func (s *Service) Import(
 	ctx context.Context,
+	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
 	resourceType, err := s.internal.ImporterType(req.Type)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	if err := s.access.Enforce(ctx, access.Request{
+	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	keys, err := s.internal.Import(ctx, []imex.Envelope{req})
+	id, err := s.internal.Import(ctx, tx, req)
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	return ImportResponse{Key: keys[0]}, nil
+	return id, nil
 }
 
 type (
@@ -72,16 +75,16 @@ func (s *Service) Export(
 	ctx context.Context,
 	req ExportRequest,
 ) (ExportResponse, error) {
-	if err := s.access.Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: []ontology.ID{req},
 	}); err != nil {
 		return ExportResponse{}, err
 	}
-	envs, err := s.internal.Export(ctx, []ontology.ID{req})
+	env, err := s.internal.Export(ctx, req)
 	if err != nil {
 		return ExportResponse{}, err
 	}
-	return envs[0], nil
+	return env, nil
 }

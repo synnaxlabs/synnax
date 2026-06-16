@@ -41,26 +41,20 @@ class TestConstructor:
 class TestSend:
     def test_echo(self, client: HTTPClient) -> None:
         """Should echo an incremented ID back to the caller."""
-        res, err = client.send("/echo", Message(id=1, message="hello"), Message)
-        assert err is None
-        assert res is not None
+        res = client.send("/echo", Message(id=1, message="hello"), Message)
         assert res.id == 2
         assert res.message == "hello"
 
     def test_middleware(self, client: HTTPClient) -> None:
         dct = {"called": False}
 
-        def mw(md: Context, next: Next) -> tuple[Context, Exception | None]:
+        def mw(md: Context, next: Next) -> Context:
             md.params["Test"] = "test"
             dct["called"] = True
             return next(md)
 
         client.use(mw)
-        res, err = client.send(
-            "/middlewareCheck", Message(id=1, message="hello"), Message
-        )
-        assert err is None
-        assert res is not None
+        res = client.send("/middlewareCheck", Message(id=1, message="hello"), Message)
         assert res.id == 2
         assert res.message == "hello"
         assert dct["called"]
@@ -73,8 +67,7 @@ class TestUpload:
     ) -> None:
         path = tmp_path / "in.json"
         path.write_bytes(JSONCodec().encode(Message(id=1, message="hello")))
-        res, err = client.upload("/echo", path, Message)
-        assert err is None and res is not None
+        res = client.upload("/echo", path, Message)
         assert res.message == "hello"
         assert res.id == 2
 
@@ -83,27 +76,24 @@ class TestUpload:
     ) -> None:
         path = tmp_path / "in.msgpack"
         path.write_bytes(MessagePackCodec().encode(Message(id=1, message="msg")))
-        res, err = client.upload("/echo", path, Message)
-        assert err is None and res is not None
+        res = client.upload("/echo", path, Message)
         assert res.message == "msg"
         assert res.id == 2
 
-    def test_unsupported_extension_returns_value_error(
+    def test_unsupported_extension_raises_value_error(
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
         """Should reject paths whose extension has no registered codec."""
         path = tmp_path / "in.unknownext"
         path.write_bytes(b"anything")
-        _, err = client.upload("/echo", path, Message)
-        assert isinstance(err, ValueError)
-        assert "unknownext" in str(err)
+        with pytest.raises(ValueError, match="unknownext"):
+            client.upload("/echo", path, Message)
 
     def test_large_json_file_streams(self, client: HTTPClient, tmp_path: Path) -> None:
         big = "a" * (1024 * 1024)
         path = tmp_path / "big.json"
         path.write_bytes(JSONCodec().encode(Message(id=1, message=big)))
-        res, err = client.upload("/echo", path, Message)
-        assert err is None and res is not None
+        res = client.upload("/echo", path, Message)
         assert res.message == big
 
 
@@ -113,8 +103,7 @@ class TestDownload:
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
         out = tmp_path / "out.json"
-        err = client.download("/echo", Message(id=1, message="hello"), out)
-        assert err is None
+        client.download("/echo", Message(id=1, message="hello"), out)
         parsed = Message.model_validate_json(out.read_bytes())
         assert parsed.message == "hello"
         assert parsed.id == 2
@@ -123,25 +112,22 @@ class TestDownload:
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
         out = tmp_path / "out.msgpack"
-        err = client.download("/echo", Message(id=1, message="hi"), out)
-        assert err is None
+        client.download("/echo", Message(id=1, message="hi"), out)
         parsed = MessagePackCodec().decode(out.read_bytes(), Message)
         assert parsed.message == "hi"
         assert parsed.id == 2
 
-    def test_unsupported_dest_extension_returns_value_error(
+    def test_unsupported_dest_extension_raises_value_error(
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
         """Should reject destinations whose extension has no registered codec."""
         out = tmp_path / "out.unknownext"
-        err = client.download("/echo", Message(id=1, message="x"), out)
-        assert isinstance(err, ValueError)
-        assert "unknownext" in str(err)
+        with pytest.raises(ValueError, match="unknownext"):
+            client.download("/echo", Message(id=1, message="x"), out)
 
     def test_large_response_streams(self, client: HTTPClient, tmp_path: Path) -> None:
         big = "a" * (1024 * 1024)
         out = tmp_path / "big.json"
-        err = client.download("/echo", Message(id=1, message=big), out)
-        assert err is None
+        client.download("/echo", Message(id=1, message=big), out)
         parsed = Message.model_validate_json(out.read_bytes())
         assert parsed.message == big

@@ -15,25 +15,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-// ScopedAction wraps an action sequence with the targeted schematic key, the
-// dispatch-batch identifier supplied by the originating client, and a
-// monotonic sequence number assigned by the node that handled the Dispatch.
-// Subscribers compare Seq against the last value they applied for the same
-// Key to decide whether the frame is fresh or a stale echo. DispatchKey is
-// carried verbatim so the originating client can match the echo against the
-// outstanding local replays it registered before sending, and skip a
-// redundant reduce when no foreign action interleaved. The sequence is
-// monotonic per originating node: in multi-node deployments two nodes may
-// emit overlapping Seq values for the same Key, so cross-node ordering is
-// best-effort until a cluster-wide ordering primitive lands as part of the
-// broader server-side undo work.
-type ScopedAction struct {
-	Key         Key      `json:"key" msgpack:"key"`
-	DispatchKey string   `json:"dispatch_key" msgpack:"dispatch_key"`
-	Seq         uint64   `json:"seq" msgpack:"seq"`
-	Actions     []Action `json:"actions" msgpack:"actions"`
-}
-
 // Handle replaces the schematic's name.
 func (p RenamePayload) Handle(state Schematic) (Schematic, error) {
 	state.Name = p.Name

@@ -52,12 +52,9 @@ class Client:
         :returns: the new resource's key as stamped by the Core.
         """
         if isinstance(source, Envelope):
-            res, err = self._unary.send(_IMPORT_PATH, source, _ImportResponse)
+            res = self._unary.send(_IMPORT_PATH, source, _ImportResponse)
         else:
-            res, err = self._upload.upload(_IMPORT_PATH, source, _ImportResponse)
-        if err is not None:
-            raise err
-        assert res is not None
+            res = self._upload.upload(_IMPORT_PATH, source, _ImportResponse)
         return res.key
 
     @overload
@@ -77,12 +74,6 @@ class Client:
         :returns: the parsed Envelope when ``dest`` is None; otherwise None.
         """
         if dest is None:
-            res, err = self._unary.send(_EXPORT_PATH, id, Envelope)
-            if err is not None:
-                raise err
-            assert res is not None
-            return res
-        err = self._download.download(_EXPORT_PATH, id, dest)
-        if err is not None:
-            raise err
+            return self._unary.send(_EXPORT_PATH, id, Envelope)
+        self._download.download(_EXPORT_PATH, id, dest)
         return None

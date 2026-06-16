@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@synnaxlabs/client";
 import { telem, Viewport } from "@synnaxlabs/pluto";
 import { bounds, box, dimensions, direction, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
-
-import { axisKeyZ } from "@/lineplot/axis";
 
 export const VERSION = "0.0.0";
 
@@ -40,7 +39,7 @@ export interface SelectionState extends z.infer<typeof selectionStateZ> {}
 export const ZERO_SELECTION_STATE: SelectionState = { box: box.ZERO };
 
 export const axisStateZ = z.object({
-  key: axisKeyZ,
+  key: lineplot.axisKeyZ,
   label: z.string(),
   labelDirection: direction.directionZ,
   bounds: bounds.boundsZ(),
@@ -110,7 +109,7 @@ export const ruleStateZ = z.object({
   key: z.string(),
   label: z.string(),
   color: z.string(),
-  axis: axisKeyZ,
+  axis: lineplot.axisKeyZ,
   lineWidth: z.number(),
   lineDash: z.number(),
   units: z.string(),

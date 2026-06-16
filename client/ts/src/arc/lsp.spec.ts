@@ -27,7 +27,7 @@ type JSONRPCResponse =
     };
 
 type LSPReceiver = {
-  receive: () => Promise<[{ content: string }, null] | [null, Error]>;
+  receive: () => Promise<{ content: string }>;
 };
 
 const MAX_DRAIN = 50;
@@ -38,9 +38,7 @@ const receiveResponse = async (
   expectedId: number,
 ): Promise<JSONRPCResponse> => {
   for (let i = 0; i < MAX_DRAIN; i++) {
-    const [res, err] = await stream.receive();
-    if (err != null) throw err;
-    if (res == null) throw new Error("Expected response");
+    const res = await stream.receive();
     const msg = JSON.parse(res.content);
     if (!("method" in msg) && "id" in msg && msg.id === expectedId)
       return msg as JSONRPCResponse;
@@ -56,9 +54,7 @@ const receiveNotification = async (
   expectedMethod: string,
 ): Promise<JSONRPCRequest> => {
   for (let i = 0; i < MAX_DRAIN; i++) {
-    const [res, err] = await stream.receive();
-    if (err != null) throw err;
-    if (res == null) throw new Error("Expected message");
+    const res = await stream.receive();
     const msg = JSON.parse(res.content);
     if ("method" in msg && msg.method === expectedMethod) return msg as JSONRPCRequest;
   }

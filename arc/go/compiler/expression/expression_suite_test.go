@@ -77,7 +77,7 @@ func autoImportSTL(bCtx context.Context, root *symbol.Symbol) {
 
 func compileWithAnalyzer(bCtx context.Context, exprSource string, channels []symbol.Symbol) ([]byte, types.Type) {
 	expr := MustSucceed(parser.ParseExpression(exprSource))
-	root := symbol.NewRoot(nil, stl.Symbols...)
+	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range channels {
 		s := channels[i]
 		root.Parent.AddChild(&s)
@@ -157,7 +157,7 @@ func expectSeriesLiteralWithHint(
 	expectedOpcodes ...any,
 ) {
 	parsedExpr := MustSucceed(parser.ParseExpression(expr))
-	root := symbol.NewRoot(nil, stl.Symbols...)
+	root := symbol.NewRoot(nil, stl.NewSymbols())
 	for i := range extras {
 		s := extras[i]
 		root.Parent.AddChild(&s)
@@ -187,5 +187,5 @@ func expectSeriesLiteralWithHint(
 
 func TestExpression(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Expression Compiler Suite")
+	RunSpecs(t, "Compiler Expression Suite")
 }

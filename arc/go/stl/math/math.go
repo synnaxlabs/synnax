@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/lsp/doc"
 	xmath "github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -52,8 +53,8 @@ type (
 	)
 )
 
-func createBaseSymbol(name string) symbol.Symbol {
-	return symbol.Symbol{
+func createBaseSymbol(name string, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -70,11 +71,54 @@ func createBaseSymbol(name string) symbol.Symbol {
 				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)},
 			},
 		}),
+		Doc: doc,
 	}
 }
 
 var (
-	powSymbol = symbol.Symbol{
+	avgDoc = doc.New(
+		doc.Paragraph("Computes a running average of input values."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.avg{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.avg{count=100} -> output\nsensor -> math.avg{duration=5s} -> output"),
+		doc.Divider(),
+		doc.Paragraph("An optional reset input clears the accumulated average:"),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset"),
+	)
+	minDoc = doc.New(
+		doc.Paragraph("Tracks the running minimum of input values."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.min{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.min{count=100} -> output\nsensor -> math.min{duration=5s} -> output"),
+	)
+	maxDoc = doc.New(
+		doc.Paragraph("Tracks the running maximum of input values."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.max{} -> output"),
+		doc.Divider(),
+		doc.Paragraph("Reset after a fixed number of samples or a time window:"),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.max{count=100} -> output\nsensor -> math.max{duration=5s} -> output"),
+	)
+	derivativeDoc = doc.New(
+		doc.Paragraph("Computes the rate of change (derivative) of input values. Output is always f64."),
+		doc.Divider(),
+		doc.Code("arc", "sensor -> math.derivative{} -> rate_output"),
+	)
+	moduleDoc = doc.New(
+		doc.Paragraph("Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers."),
+	)
+)
+
+func newPowSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
 		Name:     powSymbolName,
 		Kind:     symbol.KindFunction,
 		Exec:     symbol.ExecWASM,
@@ -84,10 +128,10 @@ var (
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
 		}),
 	}
-	avgSymbol        = createBaseSymbol(avgSymbolName)
-	minSymbol        = createBaseSymbol(minSymbolName)
-	maxSymbol        = createBaseSymbol(maxSymbolName)
-	derivativeSymbol = symbol.Symbol{
+}
+
+func newDerivativeSymbol() *symbol.Symbol {
+	return &symbol.Symbol{
 		Name: derivativeSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -99,33 +143,33 @@ var (
 				{Name: ir.DefaultOutputParam, Type: types.F64()},
 			},
 		}),
+		Doc: derivativeDoc,
 	}
-)
+}
 
 const name = "math"
 
-// module is the math module, built once at package init. Its children are
-// the canonical math.<name> functions and are the targets of the deprecated
-// bare globals' Deprecated field.
-var module = symbol.NewModule(
-	name,
-	powSymbol,
-	avgSymbol,
-	minSymbol,
-	maxSymbol,
-	derivativeSymbol,
-)
-
-// Symbols are the symbols this package contributes to a program's ambient
-// prelude: the math module itself and the deprecated bare aliases
-// (avg, min, max, derivative) whose Deprecated field points at the
-// canonical module member.
-var Symbols = []*symbol.Symbol{
-	module,
-	symbol.Deprecate(avgSymbol, module.FindChild(avgSymbolName)),
-	symbol.Deprecate(minSymbol, module.FindChild(minSymbolName)),
-	symbol.Deprecate(maxSymbol, module.FindChild(maxSymbolName)),
-	symbol.Deprecate(derivativeSymbol, module.FindChild(derivativeSymbolName)),
+// NewSymbols returns a fresh slice of ambient prelude symbols this package
+// contributes: the math module and the deprecated bare aliases (avg, min,
+// max, derivative) whose Deprecated field points at the canonical module
+// member. Every call allocates new Symbol values so analyses can mutate
+// them (e.g. apply type substitutions) without corrupting other analyses.
+func NewSymbols() []*symbol.Symbol {
+	avg := createBaseSymbol(avgSymbolName, avgDoc)
+	min := createBaseSymbol(minSymbolName, minDoc)
+	max := createBaseSymbol(maxSymbolName, maxDoc)
+	derivative := newDerivativeSymbol()
+	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
+	mod.AddChild(newPowSymbol(), avg, min, max, derivative)
+	avgBare := *avg
+	avgBare.Deprecated = avg
+	minBare := *min
+	minBare.Deprecated = min
+	maxBare := *max
+	maxBare.Deprecated = max
+	derivativeBare := *derivative
+	derivativeBare.Deprecated = derivative
+	return []*symbol.Symbol{mod, &avgBare, &minBare, &maxBare, &derivativeBare}
 }
 
 // Host is the runtime host-side support for math: it registers the WASM

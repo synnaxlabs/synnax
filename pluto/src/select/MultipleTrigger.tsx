@@ -19,7 +19,7 @@ import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { useContext, useItemState, useSelection } from "@/select/Frame";
+import { useContext, useItemState, useSelection } from "@/select/Provider";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 

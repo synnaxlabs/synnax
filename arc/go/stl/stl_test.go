@@ -23,7 +23,7 @@ import (
 
 func allModules() []*symbol.Symbol {
 	var mods []*symbol.Symbol
-	for _, s := range stl.Symbols {
+	for _, s := range stl.NewSymbols() {
 		if s.Kind == symbol.KindModule {
 			mods = append(mods, s)
 		}

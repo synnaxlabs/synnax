@@ -41,7 +41,7 @@ var (
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Driver Suite")
+	RunSpecs(t, "Service Driver Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -80,7 +80,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  dist.Channel,
+		Channel:  channel.Wrap(dist.Channel),
 		Search:   searchIdx,
 	}))
 })

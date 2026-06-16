@@ -338,7 +338,7 @@ var _ = Describe("Control", func() {
 
 	Describe("Symbols", func() {
 		var root *symbol.Symbol
-		BeforeEach(func() { root = symbol.NewRoot(nil, control.Symbols...) })
+		BeforeEach(func() { root = symbol.NewRoot(nil, control.NewSymbols()) })
 		bare := func(ctx context.Context, name string) *symbol.Symbol {
 			return MustSucceed(root.Resolve(ctx, name, symbol.IncludeInternal))
 		}

@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, actionZ, rename as renameAction } from "@/schematic/actions.gen";
+import { project } from "@/project";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+} from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -22,35 +27,9 @@ import {
   schematicZ,
 } from "@/schematic/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 
-const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
-export type SetDataBody = z.input<typeof setDataBodyZ>;
-const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
-const dispatchReqZ = z.object({
-  key: keyZ,
-  dispatch_key: z.string(),
-  actions: actionZ.array(),
-});
-
-// The server emits this frame as snake_case JSON, but the framer's JSON codec
-// runs snakeToCamel before handing the value to the schema, so this stays in
-// camelCase. seq is the server's monotonic high-water mark used by the store
-// to drop stale echoes; it defaults to 0 to keep frames from servers that
-// predate the field parseable. dispatchKey is the client-generated batch ID
-// the originator registered as outstanding before sending; the substrate
-// matches the echo against that set to recognize its own dispatches
-// race-safely.
-export const scopedActionZ = z.object({
-  key: keyZ,
-  dispatchKey: z.string(),
-  seq: z.number().int().nonnegative().default(0),
-  actions: actionZ.array(),
-});
-
-export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -73,7 +52,7 @@ export type CopyArgs = z.input<typeof copyReqZ>;
 const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
-  workspace: workspace.keyZ,
+  project: project.keyZ,
   schematics: newZ.array(),
 });
 const createResZ = z.object({ schematics: schematicZ.array() });
@@ -90,17 +69,16 @@ export class Client {
     this.symbols = new symbol.Client(client);
   }
 
-  async create(workspace: workspace.Key, schematic: New): Promise<Schematic>;
-  async create(workspace: workspace.Key, schematics: New[]): Promise<Schematic[]>;
+  async create(project: project.Key, schematic: New): Promise<Schematic>;
+  async create(project: project.Key, schematics: New[]): Promise<Schematic[]>;
   async create(
-    workspace: workspace.Key,
+    project: project.Key,
     schematics: New | New[],
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/schematic/create",
-      { workspace, schematics: array.toArray(schematics) },
+      { project, schematics: array.toArray(schematics) },
       createReqZ,
       createResZ,
     );
@@ -111,21 +89,10 @@ export class Client {
     await this.dispatch(key, "", [renameAction({ name })]);
   }
 
-  async setData(key: Key, data: SetDataBody): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/schematic/set-data",
-      { key, data },
-      setDataReqZ,
-      emptyResZ,
-    );
-  }
-
   async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/dispatch",
-      { key, dispatch_key: dispatchKey, actions },
+      { key, dispatchKey, actions },
       dispatchReqZ,
       emptyResZ,
     );
@@ -137,8 +104,7 @@ export class Client {
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
     const isSingle = singleRetrieveArgsZ.safeParse(args).success;
-    const res = await sendRequired(
-      this.client,
+    const res = await this.client.send(
       "/schematic/retrieve",
       args,
       retrieveArgsZ,
@@ -149,8 +115,7 @@ export class Client {
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
-    await sendRequired(
-      this.client,
+    await this.client.send(
       "/schematic/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
@@ -159,20 +124,7 @@ export class Client {
   }
 
   async copy(args: CopyArgs): Promise<Schematic> {
-    const res = await sendRequired(
-      this.client,
-      "/schematic/copy",
-      args,
-      copyReqZ,
-      copyResZ,
-    );
+    const res = await this.client.send("/schematic/copy", args, copyReqZ, copyResZ);
     return res.schematic;
   }
 }
-
-export const ZERO_NEW: New = {
-  name: "",
-  nodes: [],
-  edges: [],
-  configs: {},
-};
