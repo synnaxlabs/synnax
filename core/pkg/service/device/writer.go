@@ -62,15 +62,10 @@ func (w Writer) healStatus(
 	ctx context.Context,
 	stat *status.Status[StatusDetails],
 ) error {
-	// If the status already exists, do nothing.
-	exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
 		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
+		Exists(ctx, w.tx); err != nil || exists {
 		return err
-	}
-	if exists {
-		return nil
 	}
 	return w.status.Set(ctx, stat)
 }

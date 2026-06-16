@@ -59,21 +59,17 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 }
 
 // healStatus restores a rack's status row if it has gone missing (e.g. deleted
-// out-of-band) without clobbering a live one. Racks are re-created on every scan
-// cycle, so on a no-op update the default "unknown" status must not overwrite a status
-// the driver has already reported; it is only written when no row exists.
+// out-of-band) without clobbering a live one. Racks are re-created on every scan cycle,
+// so on a no-op update the default "unknown" status must not overwrite a status the
+// driver has already reported; it is only written when no row exists.
 func (w Writer) healStatus(
 	ctx context.Context,
 	stat *status.Status[StatusDetails],
 ) error {
-	exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
 		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
+		Exists(ctx, w.tx); err != nil || exists {
 		return err
-	}
-	if exists {
-		return nil
 	}
 	return w.status.Set(ctx, stat)
 }
