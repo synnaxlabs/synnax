@@ -52,9 +52,7 @@ export const payloadZ = z.object({
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
-export const newZ = payloadZ
-  .omit({ parent: true, labels: true })
-  .partial({ key: true });
+export const newZ = payloadZ.omit({ labels: true }).partial({ key: true });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("range");

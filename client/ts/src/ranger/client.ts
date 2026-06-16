@@ -25,8 +25,15 @@ import { type ontology } from "@/ontology";
 import { type Client as AliasClient } from "@/ranger/alias/client";
 import { type Client as KVClient } from "@/ranger/kv/client";
 import { type Name, type Params } from "@/ranger/payload";
-import { type Key, keyZ, ontologyID, type Payload, payloadZ } from "@/ranger/types.gen";
-import { type CreatePayload, type Writer } from "@/ranger/writer";
+import {
+  type Key,
+  keyZ,
+  type New,
+  ontologyID,
+  type Payload,
+  payloadZ,
+} from "@/ranger/types.gen";
+import { type Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
@@ -218,9 +225,9 @@ export class Client {
     this.createKVClient = createKVClient;
   }
 
-  async create(range: CreatePayload): Promise<Range>;
-  async create(ranges: CreatePayload[]): Promise<Range[]>;
-  async create(ranges: CreatePayload | CreatePayload[]): Promise<Range | Range[]> {
+  async create(range: New): Promise<Range>;
+  async create(ranges: New[]): Promise<Range[]>;
+  async create(ranges: New | New[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
     const res = this.sugarMany(await this.writer.create(array.toArray(ranges)));
     return single ? res[0] : res;

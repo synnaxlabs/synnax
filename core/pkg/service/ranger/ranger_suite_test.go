@@ -55,12 +55,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 })
 
 var _ = BeforeEach(func() {
-	tx = db.OpenTx()
+	tx = DeferClose(db.OpenTx())
 	w = svc.NewWriter(tx)
-})
-
-var _ = AfterEach(func() {
-	Expect(tx.Close()).To(Succeed())
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

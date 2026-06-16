@@ -78,7 +78,6 @@ Range struct {
 }
 
 New struct extends Range {
-    -parent
     -labels
     key?
 
