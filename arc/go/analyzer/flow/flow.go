@@ -13,6 +13,7 @@ package flow
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
@@ -81,8 +82,9 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 		AnalyzeSingleExpression(context.Child(ctx, expr))
 		return
 	}
-	// NEXT is always valid - it will be resolved during sequence analysis.
-	// The grammar guarantees flowNode is one of: identifier | function | expression | NEXT
+	// NEXT and inline stage/sequence declarations are resolved during sequence
+	// analysis, not here. The grammar guarantees flowNode is one of:
+	// identifier | function | expression | stageDeclaration | sequenceDeclaration | NEXT.
 }
 
 func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser.IFlowNodeContext) {
@@ -100,6 +102,9 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		ctx.AST.ConfigValues(),
 		ctx.AST,
 	)
+	if funcType.AnalyzeFlowConfig != nil {
+		funcType.AnalyzeFlowConfig(ctx.Diagnostics, ctx.AST.ConfigValues())
+	}
 	if prevNode == nil {
 		return
 	}
@@ -436,8 +441,8 @@ func analyzeOutputRoutingTable(
 	nodesAfter []parser.IFlowNodeContext,
 ) {
 	var PrevFunc parser.IFunctionContext
-	for i := len(nodesBefore) - 1; i >= 0; i-- {
-		if fn := nodesBefore[i].Function(); fn != nil {
+	for _, n := range slices.Backward(nodesBefore) {
+		if fn := n.Function(); fn != nil {
 			PrevFunc = fn
 			break
 		}

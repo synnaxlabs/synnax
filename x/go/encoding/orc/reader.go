@@ -36,6 +36,12 @@ var MaxStringLen uint32 = 128 << 20
 // a massive allocation or an effectively infinite loop. Defaults to 10 million.
 var MaxCollectionLen uint32 = 10_000_000
 
+// MaxDecodeDepth is the maximum nesting depth when decoding recursive types.
+// Generated codecs for recursive schemas guard DecodeOrc with
+// PushDepth(MaxDecodeDepth), so a crafted input cannot drive unbounded stack
+// growth. Defaults to 10,000.
+var MaxDecodeDepth = 10_000
+
 // Reader reads primitive data types using big-endian byte order. It supports two
 // modes: direct byte-slice mode (via ResetBytes) for zero-copy decoding from
 // in-memory data, and io.Reader mode (via Reset) for streaming. Direct mode

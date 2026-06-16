@@ -21,7 +21,7 @@ import (
 
 func TestGoPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go PB Plugin Suite")
+	RunSpecs(t, "Plugin Go PB Suite")
 }
 
 var _ = Describe("Go PB Plugin", func() {
@@ -50,6 +50,263 @@ var _ = Describe("Go PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		Context("union translation", func() {
+			It("Should generate oneof translators for a discriminated union", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+						props record
+					}
+
+					Source union on value_type {
+						boolean Spec
+						number Spec
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"func SourceToPB(r schematic.Source) (*Source, error)",
+						"if r.Variant == nil {",
+						"case schematic.SourceBoolean:",
+						"inner, err := SpecToPB(v.Spec)",
+						"pb.Variant = &Source_Boolean{Boolean: inner}",
+						`errors.Newf("Source: unknown variant %T", r.Variant)`,
+						"func SourceFromPB(pb *Source) (schematic.Source, error)",
+						"case *Source_Number:",
+						"r.Variant = schematic.SourceNumber{Spec: inner}",
+						"func SourcesToPB(rs []schematic.Source) ([]*Source, error)",
+					)
+			})
+
+			It("Should route union-typed fields through the union translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						source Source?
+						sources Source[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"sourceVal, err := SourceToPB(r.Source)",
+						"r.Source, err = SourceFromPB(pb.Source)",
+						"SourcesToPB(r.Sources)",
+						"SourcesFromPB(pb.Sources)",
+					)
+			})
+
+			It("Should camelize multi-word variant values in oneof wrapper names", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Body struct {
+						width float64
+					}
+
+					Shape union on variant {
+						isoCap Body
+						tJunction Body
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"case schematic.ShapeIsoCap:",
+						"pb.Variant = &Shape_IsoCap{IsoCap: inner}",
+						"case *Shape_TJunction:",
+						"r.Variant = schematic.ShapeTJunction{Body: inner}",
+					)
+			})
+
+			It("Should suffix oneof wrapper names that collide with protoc methods", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Sink union on value_type {
+						string Spec
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"pb.Variant = &Sink_String_{String_: inner}",
+						"case *Sink_String_:",
+					)
+			})
+
+			It("Should convert record array fields through shared helpers", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Config struct {
+						overrides record[]?
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"overridesVal, err := recordsToPB(r.Overrides)",
+						"r.Overrides = recordsFromPB(pb.Overrides)",
+						"func recordsToPB(rs []msgpack.EncodedJSON) ([]*structpb.Struct, error)",
+						"func recordsFromPB(pbs []*structpb.Struct) []msgpack.EncodedJSON",
+					)
+			})
+
+			It("Should convert union map values through union translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						sources map<string, Source>
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"SourceToPB(v)",
+						"SourceFromPB(v)",
+					)
+			})
+
+			It("Should deref hard-optional typedef fields for conversion", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Key uint32 {
+						@doc value "is a channel key."
+					}
+
+					Config struct {
+						state_channel Key??
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"v := uint32(*r.StateChannel)",
+						"pb.StateChannel = &v",
+					)
+			})
+
+			It("Should translate union extends bases through the bases' own translators", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Body struct {
+						width float64
+					}
+
+					Shape union on variant extends Base {
+						square Body
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"pb.Base, err = BaseToPB(v.Base)",
+						"m := schematic.ShapeSquare{Body: inner}",
+						"m.Base, err = BaseFromPB(pb.Base)",
+						"r.Variant = m",
+					)
+			})
+
+			It("Should translate inline variants against the variant member", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Base struct {
+						key string
+					}
+
+					Shape union on variant extends Base {
+						square {
+							width float64
+						}
+						empty {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func ShapeSquareToPB(r schematic.ShapeSquare) (*ShapeSquarePayload, error)",
+						"inner, err := ShapeSquareToPB(v)",
+						"m := inner",
+						"m.Base, err = BaseFromPB(pb.Base)",
+					)
+			})
+
+			It("Should translate inline variants inherited through union composition", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					NodeConfig union on variant {
+						box {
+							width float64
+						}
+					}
+
+					EdgeConfig union on variant {
+						pipe {
+							length float64
+						}
+					}
+
+					ElementConfig union on variant extends NodeConfig, EdgeConfig {}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+				ExpectContent(resp, "translator.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"func NodeConfigBoxToPB(r schematic.NodeConfigBox) (*NodeConfigBoxPayload, error)",
+						"func ElementConfigBoxToPB(r schematic.ElementConfigBox) (*NodeConfigBoxPayload, error)",
+						"func ElementConfigPipeToPB(r schematic.ElementConfigPipe) (*EdgeConfigPipePayload, error)",
+						"pb.Variant = &ElementConfig_Box{Box: inner}",
+					).
+					ToNotContain("NodeConfigBoxPayloadToPB")
+			})
+		})
+
 		Context("simple struct translation", func() {
 			It("Should generate ToPB and FromPB functions", func(ctx SpecContext) {
 				source := `
@@ -848,8 +1105,8 @@ var _ = Describe("Go PB Plugin", func() {
 					@go output "x/go/telem"
 					@pb
 
-					timestamp = uint64
-					timespan = int64
+					TimeStamp = uint64
+					TimeSpan = int64
 				`)
 			})
 
@@ -861,14 +1118,14 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						created_at telem.timestamp
+						created_at telem.TimeStamp
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("uint64(r.CreatedAt)").
-					ToContain("telem.Timestamp(pb.CreatedAt)")
+					ToContain("telem.TimeStamp(pb.CreatedAt)")
 			})
 
 			It("Should convert timespan typedef via int64", func(ctx SpecContext) {
@@ -879,14 +1136,14 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Test struct {
-						duration telem.timespan
+						duration telem.TimeSpan
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("int64(r.Duration)").
-					ToContain("telem.Timespan(pb.Duration)")
+					ToContain("telem.TimeSpan(pb.Duration)")
 			})
 		})
 
@@ -1557,6 +1814,53 @@ var _ = Describe("Go PB Plugin", func() {
 						"task.TaskID",
 					)
 			})
+
+			It("Should emit lo.Map casts for array of same-namespace distinct primitive", func(ctx SpecContext) {
+				source := `
+					@go output "core/task"
+					@pb
+
+					Priority uint16
+
+					Task struct {
+						priorities Priority[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"lo.Map(r.Priorities, func(v task.Priority, _ int) uint32 { return uint32(v) })",
+						"lo.Map(pb.Priorities, func(v uint32, _ int) task.Priority { return task.Priority(v) })",
+					)
+			})
+
+			It("Should emit lo.Map casts with package alias for array of cross-namespace distinct primitive", func(ctx SpecContext) {
+				loader.Add("schemas/channel", `
+					@go output "core/channel"
+					@pb
+
+					Key uint32
+				`)
+
+				source := `
+					import "schemas/channel"
+
+					@go output "core/series"
+					@pb
+
+					Series struct {
+						keys channel.Key[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "series", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"lo.Map(r.Keys, func(v channel.Key, _ int) uint32 { return uint32(v) })",
+						"lo.Map(pb.Keys, func(v uint32, _ int) channel.Key { return channel.Key(v) })",
+					)
+			})
 		})
 
 		Context("fixed-size uint8 array", func() {
@@ -1609,7 +1913,7 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain(
 						"ranger_pb.RangeToPB(ranger.Range(r))",
 						"ranger_pb.RangeFromPB",
-						"ts.TsRange(result)",
+						"ts.TSRange(result)",
 					)
 			})
 		})

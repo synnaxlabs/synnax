@@ -14,15 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	svcChannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should infer Int64 DataType from integer arithmetic", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: "return 1 + 1",
 				Virtual:    true,
@@ -32,13 +31,13 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should infer Float64 DataType from a channel reference expression", func(ctx SpecContext) {
-			base := svcChannel.Channel{
+			base := channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
 			Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: fmt.Sprintf("return %s * 2.0", base.Name),
 				Virtual:    true,
@@ -48,7 +47,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should infer Float64 DataType from float literal expression", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: "return 1.5 + 2.5",
 				Virtual:    true,
@@ -58,7 +57,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should overwrite caller-provided DataType with inferred type", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.StringT,
 				Expression: "return 1 + 1",
@@ -69,7 +68,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should return a parse error for an invalid expression", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Expression: "return invalid_syntax {{",
 				Virtual:    true,
@@ -80,7 +79,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should not modify DataType for non-calculated channels", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
@@ -92,7 +91,7 @@ var _ = Describe("Writer", func() {
 
 	Describe("CreateMany", func() {
 		It("Should infer types for calculated channels and pass through non-calculated", func(ctx SpecContext) {
-			nonCalc := svcChannel.Channel{
+			nonCalc := channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
@@ -100,7 +99,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.Create(ctx, &nonCalc)).To(Succeed())
 			Expect(nonCalc.DataType).To(Equal(telem.Float64T))
 
-			channels := []svcChannel.Channel{
+			channels := []channel.Channel{
 				{
 					Name:       channel.NewRandomName(),
 					Expression: "return 1 + 1",
@@ -118,13 +117,13 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should handle an empty slice without error", func(ctx SpecContext) {
-			channels := []svcChannel.Channel{}
+			channels := []channel.Channel{}
 			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
 		})
 
 		It("Should resolve cross-references within the same batch", func(ctx SpecContext) {
 			firstName := channel.NewRandomName()
-			channels := []svcChannel.Channel{
+			channels := []channel.Channel{
 				{
 					Name:       firstName,
 					Expression: "return 1 + 1",
@@ -146,7 +145,7 @@ var _ = Describe("Writer", func() {
 var _ = Describe("NewWriter", func() {
 	It("Should create a writer that infers types for calculated channels", func(ctx SpecContext) {
 		w := svc.NewWriter(nil)
-		ch := svcChannel.Channel{
+		ch := channel.Channel{
 			Name:       channel.NewRandomName(),
 			Expression: "return 1 + 1",
 			Virtual:    true,
@@ -166,13 +165,13 @@ var _ = Describe("Service Passthrough", func() {
 
 	Describe("NewRetrieve", func() {
 		It("Should retrieve a channel created through the service", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
 			Expect(svc.Create(ctx, &ch)).To(Succeed())
-			var retrieved svcChannel.Channel
+			var retrieved channel.Channel
 			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal(ch.Name))
 		})
@@ -194,7 +193,7 @@ var _ = Describe("Service Passthrough", func() {
 
 	Describe("Delete", func() {
 		It("Should delete a channel by key", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
@@ -206,19 +205,19 @@ var _ = Describe("Service Passthrough", func() {
 
 	Describe("DeleteMany", func() {
 		It("Should delete multiple channels by key", func(ctx SpecContext) {
-			channels := []svcChannel.Channel{
+			channels := []channel.Channel{
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 			}
 			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
-			keys := []svcChannel.Key{channels[0].Key(), channels[1].Key()}
+			keys := []channel.Key{channels[0].Key(), channels[1].Key()}
 			Expect(svc.DeleteMany(ctx, keys, false)).To(Succeed())
 		})
 	})
 
 	Describe("DeleteByName", func() {
 		It("Should delete a channel by name", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
@@ -230,7 +229,7 @@ var _ = Describe("Service Passthrough", func() {
 
 	Describe("DeleteManyByNames", func() {
 		It("Should delete multiple channels by name", func(ctx SpecContext) {
-			channels := []svcChannel.Channel{
+			channels := []channel.Channel{
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 			}
@@ -242,7 +241,7 @@ var _ = Describe("Service Passthrough", func() {
 
 	Describe("Rename", func() {
 		It("Should rename a channel", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
@@ -250,7 +249,7 @@ var _ = Describe("Service Passthrough", func() {
 			Expect(svc.Create(ctx, &ch)).To(Succeed())
 			newName := channel.NewRandomName()
 			Expect(svc.Rename(ctx, ch.Key(), newName, false)).To(Succeed())
-			var retrieved svcChannel.Channel
+			var retrieved channel.Channel
 			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal(newName))
 		})
@@ -258,15 +257,15 @@ var _ = Describe("Service Passthrough", func() {
 
 	Describe("RenameMany", func() {
 		It("Should rename multiple channels", func(ctx SpecContext) {
-			channels := []svcChannel.Channel{
+			channels := []channel.Channel{
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 				{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true},
 			}
 			Expect(svc.CreateMany(ctx, &channels)).To(Succeed())
 			newNames := []string{channel.NewRandomName(), channel.NewRandomName()}
-			keys := []svcChannel.Key{channels[0].Key(), channels[1].Key()}
+			keys := []channel.Key{channels[0].Key(), channels[1].Key()}
 			Expect(svc.RenameMany(ctx, keys, newNames, false)).To(Succeed())
-			var r0 svcChannel.Channel
+			var r0 channel.Channel
 			Expect(svc.NewRetrieve().Where(channel.MatchKeys(keys[0])).Entry(&r0).Exec(ctx, nil)).To(Succeed())
 			Expect(r0.Name).To(Equal(newNames[0]))
 		})
@@ -274,7 +273,7 @@ var _ = Describe("Service Passthrough", func() {
 
 	Describe("MapRename", func() {
 		It("Should rename channels via old-to-new name map", func(ctx SpecContext) {
-			ch := svcChannel.Channel{
+			ch := channel.Channel{
 				Name:     channel.NewRandomName(),
 				DataType: telem.Float64T,
 				Virtual:  true,
@@ -282,7 +281,7 @@ var _ = Describe("Service Passthrough", func() {
 			Expect(svc.Create(ctx, &ch)).To(Succeed())
 			newName := channel.NewRandomName()
 			Expect(svc.MapRename(ctx, map[string]string{ch.Name: newName}, false)).To(Succeed())
-			var retrieved svcChannel.Channel
+			var retrieved channel.Channel
 			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal(newName))
 		})

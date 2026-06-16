@@ -2,10 +2,10 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
-      "sequence_name": "workspace",
+      "sequence_name": "project",
       "tests": [
-        { "case": "console/workspace/workspace" },
-        { "case": "console/workspace/ontology" }
+        { "case": "console/project/project" },
+        { "case": "console/project/ontology" }
       ]
     },
     {

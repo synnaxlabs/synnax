@@ -11,11 +11,11 @@ from examples.simulators import PressSimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_INTERVAL_PRESS_SOURCE = """
 func open_press() {
-    if (press_pt > 30) {
+    if (press_pt > 15) {
         press_vlv_cmd = 0
         vent_vlv_cmd = 1
         str_chan = "venting"
@@ -30,12 +30,12 @@ interval{50ms} -> open_press{}
 """
 
 
-class IntervalPress(ArcConsoleCase):
+class IntervalPress(ArcCase):
     """Test Arc interval-triggered pressure control with hysteresis.
 
     This test demonstrates:
     1. Interval-based function execution (every 50ms)
-    2. Hysteresis control logic (press < 1, vent > 30)
+    2. Hysteresis control logic (press < 1, vent > 15)
     3. String channel status output
     4. Multiple pressure cycles (3 complete cycles)
 
@@ -66,13 +66,13 @@ class IntervalPress(ArcConsoleCase):
         self.log("Press valve opened - pressing mode active")
 
         self.log("Verifying str_chan = 'pressing'...")
-        self.wait_for_eq("str_chan", "pressing", is_virtual=True)
+        self.wait_for_eq("str_chan", "pressing")
         self.log("Status confirmed: pressing")
 
         # Verify 3 complete pressure cycles
         for cycle in range(1, 4):
-            self.log(f"[Cycle {cycle}] Waiting for pressure to exceed 27...")
-            self.wait_for_gt("press_pt", 27)
+            self.log(f"[Cycle {cycle}] Waiting for pressure to exceed 13...")
+            self.wait_for_gt("press_pt", 13)
             self.log(f"[Cycle {cycle}] Pressure exceeded threshold")
 
             self.log(f"[Cycle {cycle}] Verifying transition to venting...")

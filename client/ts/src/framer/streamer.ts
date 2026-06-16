@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-import { breaker, observe, Rate, TimeSpan } from "@synnaxlabs/x";
+import { breaker, errors, observe, Rate, TimeSpan } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -172,7 +172,7 @@ class BaseStreamer implements Streamer {
       return { done: false, value: frame };
     } catch (err) {
       if (EOF.matches(err)) return { done: true, value: undefined };
-      throw err;
+      throw errors.fromUnknown(err);
     }
   }
 
@@ -251,7 +251,7 @@ export class HardenedStreamer implements Streamer {
         return;
       } catch (e) {
         this.wrapped_ = null;
-        if (!(await this.breaker.wait())) throw e;
+        if (!(await this.breaker.wait())) throw errors.fromUnknown(e);
         console.error("failed to open streamer", e);
         continue;
       }
@@ -277,7 +277,7 @@ export class HardenedStreamer implements Streamer {
       return { done: false, value: await this.read() };
     } catch (e) {
       if (EOF.matches(e)) return { done: true, value: undefined };
-      throw e;
+      throw errors.fromUnknown(e);
     }
   }
 
@@ -287,7 +287,7 @@ export class HardenedStreamer implements Streamer {
       this.breaker.reset();
       return fr;
     } catch (e) {
-      if (EOF.matches(e)) throw e;
+      if (EOF.matches(e)) throw errors.fromUnknown(e);
       await this.runStreamer();
       return await this.read();
     }

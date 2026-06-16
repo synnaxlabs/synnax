@@ -17,9 +17,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -408,6 +408,41 @@ var _ = Describe("Driver", func() {
 			Eventually(func() bool { return execCalled.Load() }).Should(BeTrue())
 		})
 
+		It("should continue configuring new tasks after a configuration panic", func(ctx SpecContext) {
+			var (
+				knownKeys         sync.Map
+				configAttempts    atomic.Int32
+				healthyConfigured atomic.Bool
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					if _, ok := knownKeys.Load(t.Key); !ok {
+						return nil, driver.ErrTaskNotHandled
+					}
+					if configAttempts.Add(1) == 1 {
+						panic("boom during configure")
+					}
+					healthyConfigured.Store(true)
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+			openDriver(ctx, factory)
+
+			t1 := newTask(embeddedRackKey(ctx))
+			knownKeys.Store(t1.Key, true)
+			Expect(taskService.NewWriter(nil).Create(ctx, &t1)).To(Succeed())
+			Eventually(func() int32 { return configAttempts.Load() }).Should(Equal(int32(1)))
+
+			t2 := newTask(embeddedRackKey(ctx))
+			knownKeys.Store(t2.Key, true)
+			Expect(taskService.NewWriter(nil).Create(ctx, &t2)).To(Succeed())
+			Eventually(func() bool { return healthyConfigured.Load() }).Should(BeTrue())
+		})
+
 		It("should handle task stop error gracefully during reconfiguration", func(ctx SpecContext) {
 			var (
 				stopCalled  atomic.Bool
@@ -723,7 +758,7 @@ var _ = Describe("Driver", func() {
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
-			}, "100ms", "25ms").Should(Succeed())
+			}, time.Millisecond*100, time.Millisecond*25).Should(Succeed())
 		})
 	})
 
@@ -762,7 +797,7 @@ var _ = Describe("Driver", func() {
 			))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
-			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").
+			Consistently(func() bool { return execCalled.Load() }, time.Millisecond*200, time.Millisecond*50).
 				Should(BeFalse())
 		})
 
@@ -783,8 +818,8 @@ var _ = Describe("Driver", func() {
 					return &mockTask{
 						key: t.Key,
 						execFunc: func(_ context.Context, cmd task.Command) error {
-							execCalled.Store(true)
 							receivedCmd.Store(cmd)
+							execCalled.Store(true)
 							return nil
 						},
 					}, nil
@@ -805,7 +840,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return execCalled.Load() }, time.Second*2).Should(BeTrue())
 			stored := receivedCmd.Load().(task.Command)
 			Expect(stored.Type).To(Equal("start"))
 			Expect(stored.Key).To(Equal("cmd-1"))
@@ -839,7 +874,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").Should(BeFalse())
+			Consistently(func() bool { return execCalled.Load() }, time.Millisecond*200, time.Millisecond*50).Should(BeFalse())
 		})
 
 		It("should ignore commands for tasks on other racks", func(ctx SpecContext) {
@@ -873,7 +908,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Consistently(func() bool { return execCalled.Load() }, "200ms", "50ms").Should(BeFalse())
+			Consistently(func() bool { return execCalled.Load() }, time.Millisecond*200, time.Millisecond*50).Should(BeFalse())
 		})
 
 		It("should handle command execution errors gracefully", func(ctx SpecContext) {
@@ -912,7 +947,48 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return execCalled.Load() }, time.Second*2).Should(BeTrue())
+		})
+
+		It("should not crash the process when a task's Exec panics", func(ctx SpecContext) {
+			var (
+				panicExecCalled   atomic.Bool
+				healthyExecCalled atomic.Bool
+				configReady       = make(chan struct{})
+				readyOnce         sync.Once
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					readyOnce.Do(func() { close(configReady) })
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(_ context.Context, cmd task.Command) error {
+							if cmd.Type == "panic" {
+								panicExecCalled.Store(true)
+								panic("boom during exec")
+							}
+							healthyExecCalled.Store(true)
+							return nil
+						},
+					}, nil
+				},
+			}
+			openDriver(ctx, factory)
+			time.Sleep(50 * time.Millisecond)
+
+			t := newTask(embeddedRackKey(ctx))
+			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
+			Eventually(configReady).Should(BeClosed())
+
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "panic", Key: "cmd-panic"})
+			Eventually(func() bool { return panicExecCalled.Load() }, time.Second*2).Should(BeTrue())
+
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-healthy"})
+			Eventually(func() bool { return healthyExecCalled.Load() }, time.Second*2).Should(BeTrue())
 		})
 
 		It("should log warning for unsupported command without crashing", func(ctx SpecContext) {
@@ -951,7 +1027,7 @@ var _ = Describe("Driver", func() {
 			}
 			writeCommand(ctx, cmd)
 
-			Eventually(func() bool { return execCalled.Load() }, "2s").Should(BeTrue())
+			Eventually(func() bool { return execCalled.Load() }, time.Second*2).Should(BeTrue())
 		})
 	})
 
@@ -991,7 +1067,7 @@ var _ = Describe("Driver", func() {
 			t := newTask(embeddedRackKey(ctx))
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 
-			Eventually(configureStarted, "1s").Should(BeClosed())
+			Eventually(configureStarted, time.Second).Should(BeClosed())
 			// The goroutine should receive context cancellation after the timeout.
 			Eventually(func() bool { return timedOut.Load() }).Should(BeTrue())
 		})

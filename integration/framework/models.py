@@ -70,7 +70,14 @@ class Test:
     status: STATUS
     name: str | None = None
     error_message: str | None = None
+    error_traceback: str | None = None
     range: sy.Range | None = None
+    # Unix-timestamp seconds bounding the test's wall-clock execution. Populated
+    # by ExecutionClient; used by summary.json and by per-test server-log slicing.
+    started_at: float | None = None
+    ended_at: float | None = None
+    # Absolute path to this test's bundle subdirectory under the run dir.
+    bundle_dir: str | None = None
 
     def __str__(self) -> str:
         """Return display name for test result."""

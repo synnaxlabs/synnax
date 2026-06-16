@@ -116,13 +116,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'control.set_authority' function", func(ctx SpecContext) {
-			content := "control.set_authority{value=255}"
+			content := "import control\n\ntrig -> control.set_authority{value=255}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 12},
+					Position:     protocol.Position{Line: 2, Character: 20}, // control.set_a|uthority
 				},
 			}))
 
@@ -132,13 +132,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
-			content := "sensor -> math.avg{} -> output"
+			content := "import math\n\nsensor -> math.avg{} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 16},
+					Position:     protocol.Position{Line: 2, Character: 16},
 				},
 			}))
 
@@ -164,13 +164,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {
-			content := "sensor -> stable.for{duration=5s} -> output"
+			content := "import stable\n\nsensor -> stable.for{duration=5s} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 18},
+					Position:     protocol.Position{Line: 2, Character: 18},
 				},
 			}))
 
@@ -180,13 +180,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
-			content := "t := time.now()"
+			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 11}, // n|ow
+					Position:     protocol.Position{Line: 3, Character: 17}, // n|ow
 				},
 			}))
 
@@ -212,13 +212,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'time.interval' function", func(ctx SpecContext) {
-			content := "time.interval{period=100ms}"
+			content := "import time\n\ntime.interval{period=100ms} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 7}, // time.i|nterval
+					Position:     protocol.Position{Line: 2, Character: 7}, // time.i|nterval
 				},
 			}))
 
@@ -244,13 +244,13 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'time.wait' function", func(ctx SpecContext) {
-			content := "time.wait{duration=500ms}"
+			content := "import time\n\ntime.wait{duration=500ms} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 7}, // time.w|ait
+					Position:     protocol.Position{Line: 2, Character: 7}, // time.w|ait
 				},
 			}))
 
@@ -680,9 +680,9 @@ func add(a i32, b i32) i32 {
 			}))
 			server.SetClient(&MockClient{})
 
-			content := "func test() i64 {\n    return time.now()\n}"
+			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
 			OpenArcDocument(server, ctx, uri, content)
-			hover := Hover(server, ctx, uri, 1, 14)
+			hover := Hover(server, ctx, uri, 3, 14)
 			Expect(hover).ToNot(BeNil())
 			Expect(hover.Contents.Value).To(ContainSubstring("now"))
 		})
@@ -699,6 +699,23 @@ func add(a i32, b i32) i32 {
 			OpenArcDocument(server, ctx, uri, content)
 			hover := Hover(server, ctx, uri, 1, 10)
 			Expect(hover).To(BeNil())
+		})
+
+		It("Should not provide hover for a member of an unimported module", func(ctx SpecContext) {
+			// `time` is not imported, so `time.now` is an undefined reference
+			// to the analyzer. Hover must not render docs as if it were valid.
+			content := "func test() i64 {\n    return time.now()\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 1, 17) // n|ow
+			Expect(hover).To(BeNil())
+		})
+
+		It("Should provide hover for a member of an imported module", func(ctx SpecContext) {
+			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 3, 17) // n|ow
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### time.now"))
 		})
 	})
 
@@ -893,7 +910,7 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize member name as function in qualified calls", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "time.interval{period=100ms}")
+			OpenArcDocument(server, ctx, uri, "import time\n\ntime.interval{period=100ms} -> output")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			foundFunction := false

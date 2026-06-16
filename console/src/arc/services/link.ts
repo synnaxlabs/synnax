@@ -18,7 +18,7 @@ export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => 
   placeLayout(
     Arc.Editor.create({
       name,
-      version: "1.0.0",
+      version: Arc.ZERO_STATE.version,
       key,
       type: "arc",
       remoteCreated: true,

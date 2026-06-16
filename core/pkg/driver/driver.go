@@ -11,24 +11,23 @@ package driver
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
+	"github.com/synnaxlabs/synnax/pkg/driver/internal/restart"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -81,6 +80,17 @@ type Config struct {
 	// StopTimeout is the time to wait for the Driver to exit gracefully
 	// after sending STOP before escalating to a forceful kill.
 	StopTimeout time.Duration `json:"stop_timeout"`
+	// RestartBaseInterval is the initial backoff before restarting the driver after an
+	// unexpected exit; it grows exponentially with each consecutive failure. Core-side
+	// supervision only, not forwarded to the driver.
+	RestartBaseInterval time.Duration `json:"-"`
+	// RestartMaxRetries caps consecutive restarts after unexpected exits before the
+	// supervisor gives up. The counter resets after a healthy run (see
+	// RestartHealthyUptime).
+	RestartMaxRetries int `json:"-"`
+	// RestartHealthyUptime is the minimum run time after which an exit is treated as a
+	// healthy run rather than a crash loop, resetting the restart counter.
+	RestartHealthyUptime time.Duration `json:"-"`
 	// TaskOpTimeout sets the duration before reporting stuck task operations.
 	TaskOpTimeout time.Duration `json:"task_op_timeout"`
 	// TaskPollInterval sets the interval between task timeout checks.
@@ -142,15 +152,18 @@ var (
 		"opc",
 	}
 	DefaultConfig = Config{
-		Integrations:        []string{},
-		Enabled:             new(true),
-		Debug:               new(false),
-		StartTimeout:        time.Second * 10,
-		StopTimeout:         10 * time.Second,
-		TaskOpTimeout:       time.Second * 60,
-		TaskPollInterval:    time.Second * 1,
-		TaskShutdownTimeout: time.Second * 30,
-		TaskWorkerCount:     4,
+		Integrations:         []string{},
+		Enabled:              new(true),
+		Debug:                new(false),
+		StartTimeout:         time.Second * 10,
+		StopTimeout:          10 * time.Second,
+		RestartBaseInterval:  2 * time.Second,
+		RestartMaxRetries:    100,
+		RestartHealthyUptime: time.Minute,
+		TaskOpTimeout:        time.Second * 60,
+		TaskPollInterval:     time.Second * 1,
+		TaskShutdownTimeout:  time.Second * 30,
+		TaskWorkerCount:      4,
 	}
 )
 
@@ -176,6 +189,9 @@ func (c Config) Override(other Config) Config {
 	c.TaskShutdownTimeout = override.Numeric(c.TaskShutdownTimeout, other.TaskShutdownTimeout)
 	c.TaskWorkerCount = override.Numeric(c.TaskWorkerCount, other.TaskWorkerCount)
 	c.StopTimeout = override.Numeric(c.StopTimeout, other.StopTimeout)
+	c.RestartBaseInterval = override.Numeric(c.RestartBaseInterval, other.RestartBaseInterval)
+	c.RestartMaxRetries = override.Numeric(c.RestartMaxRetries, other.RestartMaxRetries)
+	c.RestartHealthyUptime = override.Numeric(c.RestartHealthyUptime, other.RestartHealthyUptime)
 	return c
 }
 
@@ -197,6 +213,33 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
+const (
+	startCmdName        = "start"
+	startStandaloneFlag = "--standalone"
+	blockSigStopFlag    = "--disable-sig-stop"
+	noColorFlag         = "--no-color"
+	configFlag          = "--config"
+	debugFlag           = "--debug"
+)
+
+// restartScale is the exponential growth factor applied to the restart backoff after
+// each consecutive unexpected driver exit.
+const restartScale = 1.1
+
+var errStartTimeout = errors.New(
+	`timed out waiting for embedded Driver to start. This occurs either because
+the Driver could not reach the Core or a task took an unusual amount of time to
+start. Check logs above categorized 'driver' for more information.
+`,
+)
+
+const (
+	configFileName     = "config.json"
+	extractedDriverDir = "driver"
+)
+
+var configCodec = json.Codec
+
 // Driver manages the lifecycle of an embedded C++ driver subprocess. The driver binary
 // is read from the configured filesystem (Config.FS), extracted to disk, and executed
 // as a child process that communicates with the Synnax cluster.
@@ -207,11 +250,11 @@ func (c Config) Validate() error {
 // "started successfully" or the StartTimeout expires. If startup fails, Open cleans up
 // the process and returns (nil, err).
 //
-// On shutdown, Close writes "STOP\n" to the subprocess's stdin, giving it a chance to
-// exit gracefully. If the process doesn't exit within StopTimeout, Close escalates to
-// Process.Kill. A secondary StopTimeout after the kill guarantees Close never blocks
-// indefinitely. Close is idempotent — concurrent and repeated calls return the result
-// of the first invocation.
+// On shutdown, Close cancels the supervisor context. The subprocess is launched via
+// exec.CommandContext, so the cancellation asks it to stop gracefully (a STOP write via
+// cmd.Cancel) and escalates to a kill after StopTimeout (cmd.WaitDelay); Close then waits
+// for the supervisor goroutines to exit. Close is idempotent — concurrent and repeated
+// calls return the result of the first invocation.
 //
 // When the binary is unavailable — either because the server was built without the
 // "driver" build tag or because Enabled was set to false — Open returns a Driver whose
@@ -219,20 +262,13 @@ func (c Config) Validate() error {
 type Driver struct {
 	// cfg holds the validated configuration for the driver.
 	cfg Config
-	// cmd is the running driver subprocess. Nil before Start or after a failed launch.
-	cmd *exec.Cmd
-	// stdInPipe is the write end of the subprocess's stdin, used to send the STOP
-	// command during shutdown.
-	stdInPipe io.WriteCloser
 	// started is closed once the subprocess prints "started successfully". Open blocks
 	// on this channel to know when startup is complete.
 	started chan struct{}
-	// shutdown wraps the signal context's cancel and wait, allowing Close to tear down
-	// the goroutines that manage the subprocess's I/O and lifetime. Nil when Open did
-	// not launch a subprocess.
+	// shutdown cancels the supervisor context and waits for its goroutines to exit.
+	// Canceling the context stops the running subprocess (see setupCmd), so Close needs
+	// nothing more than this. Nil when the driver is disabled.
 	shutdown io.Closer
-	// mu guards the cmd and stdInPipe fields during subprocess setup in start().
-	mu sync.Mutex
 	// closeOnce ensures close() executes exactly once, making Close idempotent.
 	closeOnce sync.Once
 	// closeErr stores the result of the single close() invocation for subsequent Close
@@ -274,100 +310,50 @@ func (d *Driver) enabled() bool { return *d.cfg.Enabled && d.cfg.FS != nil }
 func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-	d.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
-	bre, err := breaker.NewBreaker(sCtx, breaker.Config{
-		BaseInterval: 1 * time.Second,
-		Scale:        1.1,
-		MaxRetries:   100,
+	// HardShutdown cancels the context before waiting. Cancellation both stops the
+	// running subprocess (exec.CommandContext) and wakes the restart backoff
+	// (Policy.Decide); a graceful wait-then-cancel would instead deadlock against a
+	// supervisor parked in that backoff.
+	d.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	policy, err := restart.New(sCtx, restart.Config{
+		BaseInterval:  d.cfg.RestartBaseInterval,
+		Scale:         restartScale,
+		MaxRetries:    d.cfg.RestartMaxRetries,
+		HealthyUptime: d.cfg.RestartHealthyUptime,
 	})
 	if err != nil {
 		return err
 	}
-	var runProcess func() error
-	runProcess = func() error {
-		cfgFile, extractedBinary, err := d.setupCmd()
-		if cfgFile != "" {
-			defer func() {
-				if rmErr := os.Remove(cfgFile); rmErr != nil {
-					d.cfg.L.Error("failed to remove config file", zap.Error(rmErr))
-				}
-			}()
-		}
-		if extractedBinary != "" {
-			defer func() {
-				if rmErr := os.Remove(extractedBinary); rmErr != nil {
-					d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
-				}
-			}()
-		}
-		if err != nil {
-			return err
-		}
-		stdoutPipe, err := d.cmd.StdoutPipe()
-		if err != nil {
-			return err
-		}
-		stderrPipe, err := d.cmd.StderrPipe()
-		if err != nil {
-			return err
-		}
-		d.stdInPipe, err = d.cmd.StdinPipe()
-		if err != nil {
-			return err
-		}
-
-		if err := d.cmd.Start(); err != nil {
-			return err
-		}
-
-		internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
-		defer cancel()
-
+	sCtx.Go(func(ctx context.Context) error {
+		// startedOnce is shared across restarts so d.started is closed exactly once, by
+		// whichever run first reports a successful start. A per-run Once would let a
+		// restarted run close the already-closed channel and panic.
 		startedOnce := &sync.Once{}
-		internalSCtx.Go(func(context.Context) error {
-			log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
-			return nil
-		},
-			signal.WithKey("stdout_pipe"),
-			signal.RecoverWithErrOnPanic(),
-			signal.WithRetryOnPanic(),
-		)
-		internalSCtx.Go(func(context.Context) error {
-			log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
-			return nil
-		},
-			signal.WithKey("stderr_pipe"),
-			signal.RecoverWithErrOnPanic(),
-			signal.WithRetryOnPanic(),
-		)
-		internalSCtx.Go(func(context.Context) error {
-			return d.cmd.Wait()
-		},
-			signal.WithKey("wait"),
-			signal.RecoverWithErrOnPanic())
-		err = internalSCtx.Wait()
-		isSignal := false
-		if err != nil {
-			isSignal = strings.Contains(err.Error(), "signal") || strings.Contains(err.Error(), "exit status")
-			if !isSignal && bre.Wait() {
-				d.cfg.L.Warn("embedded driver process crashed", zap.Error(err))
-				return runProcess()
+		for {
+			action, err := d.runOnce(ctx, policy, startedOnce)
+			// A canceled context means Close initiated shutdown. Stop quietly regardless
+			// of the action, so a restart decision that raced the cancel never relaunches.
+			if ctx.Err() != nil {
+				return nil
+			}
+			switch action {
+			case restart.Restart:
+				continue
+			case restart.GiveUp:
+				d.cfg.L.Error(
+					"embedded driver exceeded restart limit; giving up",
+					zap.Error(err),
+				)
+				return err
+			default: // restart.Stop: a launch failure (an expected exit is caught above).
+				return err
 			}
 		}
-		if isSignal {
-			d.cfg.L.Warn("embedded driver process exited unexpectedly", zap.Error(err))
-			return nil
-		}
-		return err
-	}
-	sCtx.Go(func(context.Context) error { return runProcess() })
+	})
 	if _, err = signal.RecvUnderContext(ctx, d.started); err != nil {
 		closeErr := d.Close()
 		if errors.Is(err, context.DeadlineExceeded) {
-			return errors.Combine(
-				errors.New(
-					"timed out waiting for embedded Driver to start. This occurs either because the Driver could not reach the Core or a task took an unusual amount of time to start. Check logs above categorized 'driver' for more information",
-				), closeErr)
+			return errors.Combine(errStartTimeout, closeErr)
 		}
 		return errors.Combine(
 			errors.Wrap(err, "failed to start Embedded Driver"),
@@ -377,13 +363,86 @@ func (d *Driver) start(ctx context.Context) error {
 	return nil
 }
 
+// runOnce launches the driver subprocess, pipes its output, and blocks until it exits.
+// Its deferred temp-file and context cleanup run before it returns, so a supervisor that
+// calls runOnce in a loop neither accumulates cleanups nor grows its stack per restart.
+// It returns the restart Action for the exit and the exit (or launch) error.
+func (d *Driver) runOnce(
+	ctx context.Context,
+	policy *restart.Policy,
+	startedOnce *sync.Once,
+) (restart.Action, error) {
+	cmd, cfgFile, extractedBinary, err := d.setupCmd(ctx)
+	if cfgFile != "" {
+		defer func() {
+			if rmErr := os.Remove(cfgFile); rmErr != nil {
+				d.cfg.L.Error("failed to remove config file", zap.Error(rmErr))
+			}
+		}()
+	}
+	if extractedBinary != "" {
+		defer func() {
+			if rmErr := os.Remove(extractedBinary); rmErr != nil {
+				d.cfg.L.Error("failed to remove extracted binary", zap.Error(rmErr))
+			}
+		}()
+	}
+	if err != nil {
+		return restart.Stop, err
+	}
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return restart.Stop, err
+	}
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return restart.Stop, err
+	}
+	if err = cmd.Start(); err != nil {
+		return restart.Stop, err
+	}
+	startedAt := time.Now()
+
+	internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
+	defer cancel()
+
+	internalSCtx.Go(func(context.Context) error {
+		log.PipeToLogger(stdoutPipe, d.cfg.L, d.started, startedOnce)
+		return nil
+	},
+		signal.WithKey("stdout_pipe"),
+		signal.RecoverWithErrOnPanic(),
+		signal.WithRetryOnPanic(),
+	)
+	internalSCtx.Go(func(context.Context) error {
+		log.PipeToLogger(stderrPipe, d.cfg.L, d.started, startedOnce)
+		return nil
+	},
+		signal.WithKey("stderr_pipe"),
+		signal.RecoverWithErrOnPanic(),
+		signal.WithRetryOnPanic(),
+	)
+	internalSCtx.Go(func(context.Context) error {
+		return cmd.Wait()
+	},
+		signal.WithKey("wait"),
+		signal.RecoverWithErrOnPanic())
+	err = internalSCtx.Wait()
+	// A canceled context means Close stopped the process: the exit is expected, not a
+	// crash, so it must not count toward the restart policy.
+	expected := ctx.Err() != nil
+	if !expected {
+		d.cfg.L.Warn("embedded driver process exited unexpectedly", zap.Error(err))
+	}
+	return policy.Decide(expected, time.Since(startedAt)), err
+}
+
 const stopKeyword = "STOP\n"
 
-// Close stops the driver process and waits up to StopTimeout for it to exit. If the
-// process doesn't exit within the grace period, it escalates to Process.Kill. This
-// prevents Close from blocking indefinitely when the driver is hung (hardware deadlock,
-// stuck initialization, etc.). Close is idempotent — subsequent calls return the result
-// of the first.
+// Close stops the driver and waits for it to exit. It cancels the supervisor context,
+// which asks the subprocess to stop gracefully and escalates to a kill after StopTimeout
+// (see setupCmd), then waits for the supervisor goroutines to exit. Close is idempotent —
+// subsequent calls return the result of the first.
 func (d *Driver) Close() error {
 	d.closeOnce.Do(func() { d.closeErr = d.close() })
 	return d.closeErr
@@ -394,72 +453,57 @@ func (d *Driver) close() error {
 		return nil
 	}
 	d.cfg.L.Info("stopping embedded driver")
-	if d.cmd != nil && d.cmd.Process != nil {
-		// Best-effort: ask the process to exit gracefully. If the process already
-		// exited (e.g. crash or timeout cleanup race), the pipe is closed and the write
-		// fails harmlessly.
-		_, _ = d.stdInPipe.Write([]byte(stopKeyword))
-	}
-	done := make(chan error, 1)
-	go func() { done <- d.shutdown.Close() }()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(d.cfg.StopTimeout):
-		d.cfg.L.Warn("embedded driver did not stop within grace period, escalating to kill")
-		if d.cmd != nil && d.cmd.Process != nil {
-			if killErr := d.cmd.Process.Kill(); killErr != nil {
-				d.cfg.L.Error("failed to kill embedded driver process", zap.Error(killErr))
-			}
-		}
-		select {
-		case err := <-done:
-			return err
-		case <-time.After(d.cfg.StopTimeout):
-			return errors.New(
-				"embedded Driver shutdown timed out after being force killed. This may indicate a hardware deadlock or other issue preventing the Driver from exiting gracefully.",
-			)
-		}
-	}
+	return d.shutdown.Close()
 }
 
-// setupCmd prepares the driver subprocess command under d.mu, writing the config file,
-// extracting the binary (if needed), and constructing the exec.Cmd. It returns the
-// paths of any temp files created so the caller can defer their cleanup.
-func (d *Driver) setupCmd() (cfgFile, extractedBinary string, _ error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-	b, err := json.Marshal(d.cfg.format())
+// setupCmd writes the config file, extracts the binary, and constructs the subprocess
+// command bound to ctx. Canceling ctx asks the driver to stop gracefully (a STOP write
+// via cmd.Cancel) and escalates to a kill after StopTimeout (cmd.WaitDelay). It returns
+// the command and the paths of any temp files created so the caller can defer their
+// cleanup.
+func (d *Driver) setupCmd(
+	ctx context.Context,
+) (cmd *exec.Cmd, cfgFile, extractedBinary string, _ error) {
+	b, err := configCodec.Encode(ctx, d.cfg.format())
 	if err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
-	workDir := filepath.Join(d.cfg.ParentDirname, "driver")
+	workDir := filepath.Join(d.cfg.ParentDirname, extractedDriverDir)
 	if err = os.MkdirAll(workDir, xfs.UserRWX); err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
-	cfgFile = filepath.Join(workDir, "config.json")
+	cfgFile = filepath.Join(workDir, configFileName)
 	if err = os.WriteFile(cfgFile, b, xfs.UserRW); err != nil {
-		return "", "", err
+		return nil, "", "", err
 	}
 	data, err := fs.ReadFile(d.cfg.FS, driverName)
 	if err != nil {
-		return cfgFile, "", err
+		return nil, cfgFile, "", err
 	}
 	extractedBinary = filepath.Join(workDir, driverName)
 	if err = os.WriteFile(extractedBinary, data, xfs.UserRWX); err != nil {
-		return cfgFile, "", err
+		return nil, cfgFile, "", err
 	}
 	flags := []string{
-		"start",
-		"--standalone",
-		"--disable-sig-stop",
-		"--no-color",
+		startCmdName,
+		startStandaloneFlag,
+		blockSigStopFlag,
+		noColorFlag,
 	}
 	if *d.cfg.Debug {
-		flags = append(flags, "--debug")
+		flags = append(flags, debugFlag)
 	}
-	flags = append(flags, "--config", cfgFile)
-	d.cmd = exec.Command(extractedBinary, flags...)
-	configureSysProcAttr(d.cmd)
-	return cfgFile, extractedBinary, nil
+	flags = append(flags, configFlag, cfgFile)
+	cmd = exec.CommandContext(ctx, extractedBinary, flags...)
+	configureSysProcAttr(cmd)
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return nil, cfgFile, extractedBinary, err
+	}
+	// On ctx cancellation, ask the driver to stop gracefully via STOP instead of the
+	// default SIGKILL; WaitDelay then escalates to a kill if it does not exit in time and
+	// guarantees the stdin pipe is closed so cmd.Wait cannot block indefinitely.
+	cmd.Cancel = func() error { _, err := io.WriteString(stdin, stopKeyword); return err }
+	cmd.WaitDelay = d.cfg.StopTimeout
+	return cmd, cfgFile, extractedBinary, nil
 }

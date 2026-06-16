@@ -21,15 +21,13 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
-	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -37,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -60,13 +59,11 @@ var _ = Describe("Task", Ordered, func() {
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Search:   dist.Search,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
 			Search:   dist.Search,
@@ -75,7 +72,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-			Channel:    svcchannel.Wrap(dist.Channel),
+			Channel:    channel.Wrap(dist.Channel),
 			Framer:     dist.Framer,
 			Status:     statusSvc,
 			GetProgram: getModule,
@@ -84,7 +81,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
@@ -96,7 +93,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := symbol.NewChannelResolver(dist.Channel, nil)
+			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
@@ -210,7 +207,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return ErrTaskNotHandled for non-arc task types", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel: svcchannel.Wrap(dist.Channel),
+				Channel: channel.Wrap(dist.Channel),
 				Framer:  dist.Framer,
 				Status:  statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
@@ -235,7 +232,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    svcchannel.Wrap(dist.Channel),
+				Channel:    channel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -251,7 +248,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    svcchannel.Wrap(dist.Channel),
+				Channel:    channel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -267,7 +264,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    svcchannel.Wrap(dist.Channel),
+				Channel:    channel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -291,7 +288,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    svcchannel.Wrap(dist.Channel),
+				Channel:    channel.Wrap(dist.Channel),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -451,11 +448,11 @@ var _ = Describe("Task", Ordered, func() {
 					{Key: "ge", Type: "ge"},
 					{Key: "stable_for", Type: "stable_for", Config: map[string]any{"duration": 0}},
 					{Key: "select", Type: "select"},
-					{Key: "status_success", Type: "set_status", Config: map[string]any{
-						"status_key": "ox_alarm", "variant": "success", "name": "OX Alarm", "message": "OX Pressure Nominal",
+					{Key: "status_success", Type: "status.set", Config: map[string]any{
+						"key_or_name": "ox_alarm", "message": "OX Pressure Nominal", "variant": "success",
 					}},
-					{Key: "status_error", Type: "set_status", Config: map[string]any{
-						"status_key": "ox_alarm", "variant": "error", "name": "OX Alarm", "message": "OX Pressure Exceed",
+					{Key: "status_error", Type: "status.set", Config: map[string]any{
+						"key_or_name": "ox_alarm", "message": "OX Pressure Exceed", "variant": "error",
 					}},
 				},
 				Edges: []graph.Edge{
@@ -475,6 +472,7 @@ var _ = Describe("Task", Ordered, func() {
 						Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
 						Target: graph.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
+					// status_success/error fire on select outputs (edges below).
 					{
 						Source: graph.Handle{Node: "select", Param: "false"},
 						Target: graph.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
@@ -503,10 +501,13 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat status.Status[svcarc.StatusDetails]
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.MatchKeys[svcarc.StatusDetails]("ox_alarm")).Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+						return s.Name == "ox_alarm", nil
+					})).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
 			}).Should(Succeed())
 		})
+
 	})
 
 	Describe("Interval Timing", func() {
@@ -679,6 +680,132 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			time.Sleep(50 * time.Millisecond)
 			Expect(t.Stop()).To(Succeed())
+		})
+	})
+
+	Describe("Entry Node Startup", func() {
+		It("Should fire a constant entry node at startup with no reads or intervals", func(ctx SpecContext) {
+			outputCh := createVirtualCh(ctx, "startup_const", telem.Uint8T)
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				42 -> %s
+			`, outputCh.Name)}
+
+			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{outputCh.Key()}, 2)
+			defer closeStreamer()
+
+			t := newTask(ctx, newTextFactory(ctx, prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			var fr framer.StreamerResponse
+			Eventually(responses).Should(Receive(&fr))
+			Expect(telem.ValueAt[uint8](fr.Frame.Get(outputCh.Key()).Series[0], 0)).
+				To(Equal(uint8(42)))
+			Consistently(responses, 100*time.Millisecond).ShouldNot(Receive())
+		})
+
+		It("Should fire entry nodes at startup while a channel-read path waits for input", func(ctx SpecContext) {
+			triggerCh := createVirtualCh(ctx, "startup_trigger", telem.Uint8T)
+			constOut := createVirtualCh(ctx, "startup_const_out", telem.Uint8T)
+			exprOut := createVirtualCh(ctx, "startup_expr_out", telem.Uint8T)
+			triggerOut := createVirtualCh(ctx, "startup_trigger_out", telem.Uint8T)
+
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				func pass() {
+					%s = %s
+				}
+				42 -> %s
+				40 + 2 -> %s
+				%s -> pass{}
+			`, triggerOut.Name, triggerCh.Name, constOut.Name, exprOut.Name, triggerCh.Name)}
+
+			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{
+				constOut.Key(), exprOut.Key(), triggerOut.Key(),
+			}, 10)
+			defer closeStreamer()
+
+			t := newTask(ctx, newTextFactory(ctx, prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			var gotConst, gotExpr bool
+			for !gotConst || !gotExpr {
+				var fr framer.StreamerResponse
+				Eventually(responses).Should(Receive(&fr))
+				if s := fr.Frame.Get(constOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(42)))
+					gotConst = true
+				}
+				if s := fr.Frame.Get(exprOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(42)))
+					gotExpr = true
+				}
+				Expect(fr.Frame.Get(triggerOut.Key()).Len()).To(BeZero())
+			}
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{triggerCh.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(triggerCh.Key(), telem.NewSeriesV[uint8](7)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			var gotTrigger bool
+			for !gotTrigger {
+				var fr framer.StreamerResponse
+				Eventually(responses).Should(Receive(&fr))
+				if s := fr.Frame.Get(triggerOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(7)))
+					gotTrigger = true
+				}
+			}
+		})
+
+		It("Should fire constant and expression entry nodes once when paired with an interval", func(ctx SpecContext) {
+			constOut := createVirtualCh(ctx, "once_const_out", telem.Uint8T)
+			exprOut := createVirtualCh(ctx, "once_expr_out", telem.Uint8T)
+			tickOut := createVirtualCh(ctx, "once_tick", telem.Uint8T)
+
+			prog := arc.Text{Raw: fmt.Sprintf(`
+				func tick() {
+					%s = 1
+				}
+				42 -> %s
+				40 + 2 -> %s
+				interval{period=20ms} -> tick{}
+			`, tickOut.Name, constOut.Name, exprOut.Name)}
+
+			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{
+				constOut.Key(), exprOut.Key(), tickOut.Key(),
+			}, 20)
+			defer closeStreamer()
+
+			t := newTask(ctx, newTextFactory(ctx, prog))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			var (
+				fr         framer.StreamerResponse
+				constCount int
+				exprCount  int
+				tickCount  int
+			)
+			for tickCount < 3 {
+				Eventually(responses).Should(Receive(&fr))
+				if s := fr.Frame.Get(constOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(42)))
+					constCount++
+				}
+				if s := fr.Frame.Get(exprOut.Key()); s.Len() > 0 {
+					Expect(telem.ValueAt[uint8](s.Series[0], 0)).To(Equal(uint8(42)))
+					exprCount++
+				}
+				if fr.Frame.Get(tickOut.Key()).Len() > 0 {
+					tickCount++
+				}
+			}
+			Expect(constCount).To(Equal(1))
+			Expect(exprCount).To(Equal(1))
 		})
 	})
 

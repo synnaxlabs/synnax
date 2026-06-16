@@ -1,0 +1,87 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Statements"
+description:
+  "Arc statement reference for if/else, return, and for-loop forms inside function
+  bodies"
+prev: "Functions"
+prevURL: "/reference/control/arc/reference/functions"
+next: "Loops"
+nextURL: "/reference/control/arc/reference/loops"
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+## If Statements
+
+```arc
+if condition {
+// body
+}
+
+if condition {
+// body
+} else {
+// alternative
+}
+
+if condition1 {
+// body
+} else if condition2 {
+// alternative
+} else {
+// fallback
+}
+```
+
+Conditions evaluate as `u8`: `0` is false, non-zero is true.
+
+<Divider.Divider x />
+
+## Return Statements
+
+Functions with return types require explicit `return` statements.
+
+```arc
+func compute(x f64) f64 {
+    if x < 0 {
+        return 0.0 // early return
+    }
+    return x * 2.0 // required
+}
+```
+
+Functions without return types can use `return` for early exit:
+
+```arc
+func process() {
+    if skip {
+        return // early exit
+    }
+    // more work
+}
+```
+
+<Divider.Divider x />
+
+## For Loops
+
+Arc supports [`for` loops](/reference/control/arc/reference/loops) for iterating over
+series, counting through ranges, and repeating until a condition is met.
+
+```arc
+for x := data{
+// iterate over a series
+}
+
+for i := range(10) {
+// count from 0 to 9
+}
+
+for condition {
+// repeat while condition is non-zero
+}
+```

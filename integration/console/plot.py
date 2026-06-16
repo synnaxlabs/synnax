@@ -16,7 +16,7 @@ import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
 from console.page import ConsolePage
-from framework.utils import get_results_path
+from framework.run_dir import resolve_results_path
 
 Axis = Literal["Y1", "Y2", "X1"]
 
@@ -111,7 +111,7 @@ class Plot(ConsolePage):
             download_button.click()
 
         download = download_info.value
-        save_path = get_results_path(f"{self.page_name}.csv")
+        save_path = resolve_results_path(f"{self.page_name}.csv")
         download.save_as(save_path)
         with open(save_path, "r") as f:
             return f.read()
@@ -421,3 +421,20 @@ class Plot(ConsolePage):
         axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
         result = axis_section.get_by_text(channel_name).count() > 0
         return result
+
+    def focus(self) -> None:
+        """Bring focus onto the plot pane so keyboard triggers fire on it."""
+        if self.pane_locator is not None:
+            self.pane_locator.click()
+
+    def undo(self) -> None:
+        """Cmd/Ctrl + Z — pop the last entry off the undo stack."""
+        self.focus()
+        self.layout.press_key("ControlOrMeta+z")
+        self.page.wait_for_timeout(300)
+
+    def redo(self) -> None:
+        """Cmd/Ctrl + Shift + Z — re-apply the most recently undone entry."""
+        self.focus()
+        self.layout.press_key("ControlOrMeta+Shift+z")
+        self.page.wait_for_timeout(300)

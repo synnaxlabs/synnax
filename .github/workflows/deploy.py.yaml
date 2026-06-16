@@ -60,6 +60,9 @@ jobs:
               - *freighter
               - client/py/**
 
+      - name: Pin internal dependency constraints
+        run: ./scripts/pin_internal_deps.sh
+
       - name: Publish Alamos
         if: steps.filter.outputs.alamos == 'true'
         working-directory: alamos/py

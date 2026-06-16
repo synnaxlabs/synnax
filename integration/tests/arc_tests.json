@@ -67,11 +67,7 @@
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
-          "case": "arc/inline_stage_in_sequence",
-          "parameters": { "rack_key": [65537, 65538] }
-        },
-        {
-          "case": "arc/inline_sequence_in_stage",
+          "case": "arc/inline_bodies",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
@@ -88,8 +84,9 @@
       "sequence_name": "stl",
       "tests": [
         { "case": "arc/stl_math", "parameters": { "rack_key": [65537, 65538] } },
-        { "case": "arc/stl_time", "parameters": { "rack_key": [65537, 65538] } },
-        { "case": "arc/stl_string", "parameters": { "rack_key": [65537, 65538] } }
+        { "case": "arc/stl_status", "parameters": { "rack_key": [65537, 65538] } },
+        { "case": "arc/stl_string", "parameters": { "rack_key": [65537, 65538] } },
+        { "case": "arc/stl_time", "parameters": { "rack_key": [65537, 65538] } }
       ]
     }
   ]

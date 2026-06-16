@@ -1,0 +1,33 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Standard Library"
+description: "Overview of Arc's standard library modules: status, time, and control"
+prev: "Loops"
+prevURL: "/reference/control/arc/reference/loops"
+next: "control"
+nextURL: "/reference/control/arc/reference/standard-library/control"
+---
+
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+Arc's standard library groups reusable functionality into modules. Unlike built-in
+functions such as [`len`](/reference/control/arc/reference/functions#len), which are
+available in the global namespace, standard library functions live in modules and are
+accessed with a qualified name after importing the module:
+
+```arc
+import time
+
+time.interval{period=1s} -> tick
+```
+
+## Modules
+
+| Module                                                               | Description                                |
+| -------------------------------------------------------------------- | ------------------------------------------ |
+| [control](/reference/control/arc/reference/standard-library/control) | Runtime control over write authority       |
+| [math](/reference/control/arc/reference/standard-library/math)       | Running averages, min/max, and derivatives |
+| [status](/reference/control/arc/reference/standard-library/status)   | Publish status notifications to the Core   |
+| [time](/reference/control/arc/reference/standard-library/time)       | Timestamps, periodic firing, and delays    |

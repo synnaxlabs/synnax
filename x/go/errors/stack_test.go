@@ -34,7 +34,7 @@ var _ = Describe("Stack", func() {
 			err := errors.WithStack(errors.New("test error"))
 			stack := errors.GetStackTrace(err)
 			Expect(stack.Frames).To(HaveLen(4))
-			Expect(stack.String()).To(Not(BeEmpty()))
+			Expect(stack.String()).ToNot(BeEmpty())
 			Expect(stack.String()).To(ContainSubstring(".go"))
 		})
 	})
@@ -46,7 +46,7 @@ var _ = Describe("Stack", func() {
 			Expect(errors.Is(err, baseErr)).To(BeTrue())
 			stack := errors.GetStackTrace(err)
 			Expect(stack.Frames).To(HaveLen(4))
-			Expect(stack.String()).To(Not(BeEmpty()))
+			Expect(stack.String()).ToNot(BeEmpty())
 			Expect(stack.String()).To(ContainSubstring(".go"))
 			Expect(stack.String()).To(ContainSubstring("runNode"))
 		})
@@ -64,7 +64,7 @@ var _ = Describe("Stack", func() {
 			Expect(errors.Is(err, baseErr)).To(BeTrue())
 			stack := errors.GetStackTrace(err)
 			Expect(stack.Frames).To(HaveLen(3))
-			Expect(stack.String()).To(Not(BeEmpty()))
+			Expect(stack.String()).ToNot(BeEmpty())
 		})
 
 		It("Should handle different depths", func() {

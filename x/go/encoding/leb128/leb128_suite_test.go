@@ -18,5 +18,5 @@ import (
 
 func TestLEB128(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LEB128 Suite")
+	RunSpecs(t, "Encoding LEB128 Suite")
 }

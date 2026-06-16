@@ -26,6 +26,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
+	"github.com/synnaxlabs/synnax/pkg/api/panel"
+	"github.com/synnaxlabs/synnax/pkg/api/project"
 	"github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/alias"
@@ -36,7 +38,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	"github.com/synnaxlabs/synnax/pkg/api/workspace"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -104,18 +105,17 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		AliasList:     http.NewUnaryServer[alias.ListRequest, alias.ListResponse](router, "/api/v1/range/alias/list"),
 		AliasDelete:   http.NewUnaryServer[alias.DeleteRequest, types.Nil](router, "/api/v1/range/alias/delete"),
 
-		// WORKSPACE
-		WorkspaceCreate:    http.NewUnaryServer[workspace.CreateRequest, workspace.CreateResponse](router, "/api/v1/workspace/create"),
-		WorkspaceRetrieve:  http.NewUnaryServer[workspace.RetrieveRequest, workspace.RetrieveResponse](router, "/api/v1/workspace/retrieve"),
-		WorkspaceDelete:    http.NewUnaryServer[workspace.DeleteRequest, types.Nil](router, "/api/v1/workspace/delete"),
-		WorkspaceRename:    http.NewUnaryServer[workspace.RenameRequest, types.Nil](router, "/api/v1/workspace/rename"),
-		WorkspaceSetLayout: http.NewUnaryServer[workspace.SetLayoutRequest, types.Nil](router, "/api/v1/workspace/set-layout"),
+		// PROJECT
+		ProjectCreate:    http.NewUnaryServer[project.CreateRequest, project.CreateResponse](router, "/api/v1/project/create"),
+		ProjectRetrieve:  http.NewUnaryServer[project.RetrieveRequest, project.RetrieveResponse](router, "/api/v1/project/retrieve"),
+		ProjectDelete:    http.NewUnaryServer[project.DeleteRequest, types.Nil](router, "/api/v1/project/delete"),
+		ProjectRename:    http.NewUnaryServer[project.RenameRequest, types.Nil](router, "/api/v1/project/rename"),
+		ProjectSetLayout: http.NewUnaryServer[project.SetLayoutRequest, types.Nil](router, "/api/v1/project/set-layout"),
 
 		// SCHEMATIC
 		SchematicCreate:   http.NewUnaryServer[schematic.CreateRequest, schematic.CreateResponse](router, "/api/v1/schematic/create"),
 		SchematicRetrieve: http.NewUnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse](router, "/api/v1/schematic/retrieve"),
 		SchematicDelete:   http.NewUnaryServer[schematic.DeleteRequest, types.Nil](router, "/api/v1/schematic/delete"),
-		SchematicSetData:  http.NewUnaryServer[schematic.SetDataRequest, types.Nil](router, "/api/v1/schematic/set-data"),
 		SchematicDispatch: http.NewUnaryServer[schematic.DispatchRequest, types.Nil](router, "/api/v1/schematic/dispatch"),
 		SchematicCopy:     http.NewUnaryServer[schematic.CopyRequest, schematic.CopyResponse](router, "/api/v1/schematic/copy"),
 
@@ -130,22 +130,24 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		LinePlotCreate:   http.NewUnaryServer[lineplot.CreateRequest, lineplot.CreateResponse](router, "/api/v1/lineplot/create"),
 		LinePlotRetrieve: http.NewUnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse](router, "/api/v1/lineplot/retrieve"),
 		LinePlotDelete:   http.NewUnaryServer[lineplot.DeleteRequest, types.Nil](router, "/api/v1/lineplot/delete"),
-		LinePlotRename:   http.NewUnaryServer[lineplot.RenameRequest, types.Nil](router, "/api/v1/lineplot/rename"),
-		LinePlotSetData:  http.NewUnaryServer[lineplot.SetDataRequest, types.Nil](router, "/api/v1/lineplot/set-data"),
+		LinePlotDispatch: http.NewUnaryServer[lineplot.DispatchRequest, types.Nil](router, "/api/v1/lineplot/dispatch"),
+
+		// PANEL
+		PanelCreate:   http.NewUnaryServer[panel.CreateRequest, panel.CreateResponse](router, "/api/v1/panel/create"),
+		PanelRetrieve: http.NewUnaryServer[panel.RetrieveRequest, panel.RetrieveResponse](router, "/api/v1/panel/retrieve"),
+		PanelDelete:   http.NewUnaryServer[panel.DeleteRequest, types.Nil](router, "/api/v1/panel/delete"),
+		PanelDispatch: http.NewUnaryServer[panel.DispatchRequest, types.Nil](router, "/api/v1/panel/dispatch"),
 
 		// LOG
 		LogCreate:   http.NewUnaryServer[log.CreateRequest, log.CreateResponse](router, "/api/v1/log/create"),
 		LogRetrieve: http.NewUnaryServer[log.RetrieveRequest, log.RetrieveResponse](router, "/api/v1/log/retrieve"),
 		LogDelete:   http.NewUnaryServer[log.DeleteRequest, types.Nil](router, "/api/v1/log/delete"),
-		LogRename:   http.NewUnaryServer[log.RenameRequest, types.Nil](router, "/api/v1/log/rename"),
-		LogSetData:  http.NewUnaryServer[log.SetDataRequest, types.Nil](router, "/api/v1/log/set-data"),
+		LogDispatch: http.NewUnaryServer[log.DispatchRequest, types.Nil](router, "/api/v1/log/dispatch"),
 
 		// TABLE
 		TableCreate:   http.NewUnaryServer[table.CreateRequest, table.CreateResponse](router, "/api/v1/table/create"),
 		TableRetrieve: http.NewUnaryServer[table.RetrieveRequest, table.RetrieveResponse](router, "/api/v1/table/retrieve"),
 		TableDelete:   http.NewUnaryServer[table.DeleteRequest, types.Nil](router, "/api/v1/table/delete"),
-		TableRename:   http.NewUnaryServer[table.RenameRequest, types.Nil](router, "/api/v1/table/rename"),
-		TableSetData:  http.NewUnaryServer[table.SetDataRequest, types.Nil](router, "/api/v1/table/set-data"),
 		TableDispatch: http.NewUnaryServer[table.DispatchRequest, types.Nil](router, "/api/v1/table/dispatch"),
 
 		// LABEL
@@ -188,9 +190,10 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		ArcLSP:      http.NewStreamServer[arc.LSPMessage, arc.LSPMessage](router, "/api/v1/arc/lsp"),
 
 		// STATUS
-		StatusSet:      http.NewUnaryServer[status.SetRequest, status.SetResponse](router, "/api/v1/status/set"),
-		StatusRetrieve: http.NewUnaryServer[status.RetrieveRequest, status.RetrieveResponse](router, "/api/v1/status/retrieve"),
-		StatusDelete:   http.NewUnaryServer[status.DeleteRequest, types.Nil](router, "/api/v1/status/delete"),
+		StatusSet:            http.NewUnaryServer[status.SetRequest, status.SetResponse](router, "/api/v1/status/set"),
+		StatusRetrieve:       http.NewUnaryServer[status.RetrieveRequest, status.RetrieveResponse](router, "/api/v1/status/retrieve"),
+		StatusDelete:         http.NewUnaryServer[status.DeleteRequest, types.Nil](router, "/api/v1/status/delete"),
+		StatusSetByKeyOrName: http.NewUnaryServer[status.SetByKeyOrNameRequest, status.SetByKeyOrNameResponse](router, "/api/v1/status/set-by-key-or-name"),
 
 		// VIEW
 		ViewCreate:   http.NewUnaryServer[view.CreateRequest, view.CreateResponse](router, "/api/v1/view/create"),

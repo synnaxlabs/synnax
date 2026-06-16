@@ -39,6 +39,17 @@ Cell struct {
     @doc value "is a single cell in a table, identified by key and variant."
 }
 
+CellTemplate struct extends Cell {
+    -key
+
+    @doc value """
+        is a variant + props pair describing what a cell should look like,
+        without identifying which cell. Used by actions that overwrite
+        existing cells in place (EraseCells), where the target cell's key
+        is provided separately.
+    """
+}
+
 Row struct {
     size  float64  {
         @doc value "is the height of the row in pixels."
@@ -92,15 +103,27 @@ Table struct {
     }
 
     action AddRow {
-        index uint32
-        size  float64
-        cells Cell[]
+        index         uint32
+        size          float64
+        cells         Cell[]
+        cell_template Cell??
 
         @doc value """
-            inserts a row at the given index with the provided cell values.
-            cells carries one Cell per column in left-to-right order; each
-            cell is added to the table's cells map and its key is appended to
-            the new row's cells list. Out-of-range indices clamp to the end.
+            inserts a row at the given index. Three flows:
+
+            1. User gesture with cell_template against a non-empty table:
+               replicate the template once per existing column.
+            2. User gesture with cell_template against a fully-empty table:
+               seed a 1x1 grid (one template replica plus one default-sized
+               column).
+            3. Undo replay of RemoveRow (cell_template is null, cells is
+               non-empty): use cells as-is. If the original RemoveRow had
+               stripped the table down to no columns, the explicit cells
+               trigger the same column-bootstrap as flow 2.
+
+            Derived replica keys come from the template's key with the last
+            four hex digits replaced by the column index. Out-of-range
+            indices clamp to the end.
         """
     }
 
@@ -115,16 +138,29 @@ Table struct {
     }
 
     action AddCol {
-        index uint32
-        size  float64
-        cells Cell[]
+        index         uint32
+        size          float64
+        cells         Cell[]
+        cell_template Cell??
 
         @doc value """
-            inserts a column at the given index with the provided cell values.
-            cells carries one Cell per row in top-to-bottom order; each cell
-            is added to the table's cells map and its key is inserted into
-            the corresponding row's cells list at the column index.
-            Out-of-range indices clamp to the end.
+            inserts a column at the given index. Three flows:
+
+            1. User gesture with cell_template against a non-empty table:
+               replicate the template once per existing row.
+            2. User gesture with cell_template against a fully-empty table:
+               seed a 1x1 grid (one template replica plus one default-sized
+               row).
+            3. Undo replay of RemoveCol (cell_template is null, cells is
+               non-empty): use cells as-is. If the original RemoveCol had
+               stripped the table down to no rows, the explicit cells
+               trigger the same row-bootstrap as flow 2.
+
+            Derived replica keys come from the template's key with the last
+            four hex digits replaced by the row index. Cells whose row
+            index exceeds the row count are added to the cells map but not
+            referenced by any row. Out-of-range indices clamp to the end of
+            every row's cells list.
         """
     }
 
@@ -161,6 +197,20 @@ Table struct {
         """
     }
 
+    action EraseCells {
+        cells    string[]
+        template CellTemplate
+
+        @doc value """
+            erases the cells whose keys are in cells. Any row whose every
+            cell is in the selection is removed entirely; same for columns.
+            Cells that survive that row/column removal have their variant
+            and props replaced with the template's, keeping their original
+            keys. Cells in the selection whose keys are not in the table's
+            cells map are silently skipped.
+        """
+    }
+
     @doc value     """
         is a tabular data display component for viewing structured telemetry
         data. Tables support multiple columns, channel data sources, and
@@ -173,31 +223,10 @@ Table struct {
 }
 
 New struct extends Table {
-    key     Key?               {
-        @doc value """
-            is an optional key for the table. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    rows    Row[]?             {
-        @doc value """
-            are the table rows in display order, top to bottom. Defaults to an
-            empty list.
-        """
-    }
-    columns Column[]?          {
-        @doc value """
-            are the table columns in display order, left to right. Defaults to
-            an empty list.
-        """
-    }
-    cells   map<string, Cell>? {
-        @doc value        """
-            contains all cells in the table, keyed by cell key. Defaults to an
-            empty map.
-        """
-        @ts preserve_case
-    }
+    key     = create
+    rows    = []
+    columns = []
+    cells   = {}
 
     @doc value    "contains parameters for creating a new table."
     @ts use_input

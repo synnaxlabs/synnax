@@ -321,6 +321,68 @@ var _ = Describe("Device", func() {
 			Expect(d.Parent).ToNot(BeNil())
 			Expect(*d.Parent).To(Equal(rackSvc.EmbeddedKey.OntologyID()))
 		})
+		It("Should restore a missing status row when the device is re-configured", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "heal-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "heal-loc",
+				Name:     "Heal Device",
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+
+			Expect(status.NewWriter[device.StatusDetails](stat, tx).
+				Delete(ctx, device.OntologyID(d.Key).String())).To(Succeed())
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+
+			reconfigured := device.Device{
+				Key:      d.Key,
+				Rack:     d.Rack,
+				Location: d.Location,
+				Name:     d.Name,
+			}
+			Expect(w.Create(ctx, &reconfigured)).To(Succeed())
+
+			var healed device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Entry(&healed).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(healed.Details.Device).To(Equal(d.Key))
+		})
+
+		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
+			d := device.Device{
+				Key:      "live-status-device",
+				Rack:     rackSvc.EmbeddedKey,
+				Location: "live-loc",
+				Name:     "Live Device",
+				Status: &device.Status{
+					Variant: xstatus.VariantSuccess,
+					Message: "Device is connected",
+					Time:    telem.Now(),
+				},
+			}
+			Expect(w.Create(ctx, &d)).To(Succeed())
+
+			reconfigured := device.Device{
+				Key:      d.Key,
+				Rack:     d.Rack,
+				Location: d.Location,
+				Name:     d.Name,
+			}
+			Expect(w.Create(ctx, &reconfigured)).To(Succeed())
+
+			var preserved device.Status
+			Expect(status.NewRetrieve[device.StatusDetails](stat).
+				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Entry(&preserved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(preserved.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(preserved.Message).To(Equal("Device is connected"))
+		})
+
 		It("Should populate Status and Parent with explicit parent after Create", func(ctx SpecContext) {
 			chassis := device.Device{
 				Key:      "pop-chassis",
@@ -342,6 +404,32 @@ var _ = Describe("Device", func() {
 			Expect(module.Status).ToNot(BeNil())
 			Expect(module.Parent).ToNot(BeNil())
 			Expect(*module.Parent).To(Equal(chassisID))
+		})
+	})
+	Describe("CreateMany", func() {
+		It("Should create multiple devices", func(ctx SpecContext) {
+			devices := []device.Device{
+				{
+					Key:      "device-many-1",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "loc-1",
+					Name:     "Device 1",
+				},
+				{
+					Key:      "device-many-2",
+					Rack:     rackSvc.EmbeddedKey,
+					Location: "loc-2",
+					Name:     "Device 2",
+				},
+			}
+			Expect(w.CreateMany(ctx, &devices)).To(Succeed())
+
+			var retrieved []device.Device
+			Expect(svc.NewRetrieve().Where(device.MatchKeys(
+				devices[0].Key,
+				devices[1].Key,
+			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved).To(HaveLen(2))
 		})
 	})
 	Describe("Parent Ontology Relationship", func() {

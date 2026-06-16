@@ -23,7 +23,15 @@ if [ ! -d "$path" ]; then
     exit 1
 fi
 
-# Find all .cpp, .hpp, .h, and .cc files in the directory
+# Check if clang-format is installed
+if ! command -v clang-format &> /dev/null; then
+    echo "Error: clang-format is not installed."
+    exit 1
+fi
+
+# Find all .cpp, .hpp, .h, and .cc files in the directory. Excluded files are handled
+# by clang-format itself via the root .clang-format-ignore file, so we don't filter
+# them here.
 files=$(git -C "$path" ls-files -- "*.cpp" "*.hpp" "*.h" "*.cc" | grep -v "vendor/")
 
 # Exit successfully if no files were found
@@ -32,65 +40,17 @@ if [ -z "$files" ]; then
     exit 0
 fi
 
-# Check if clang-format is installed
-if ! command -v clang-format &> /dev/null; then
-    echo "Error: clang-format is not installed."
-    exit 1
-fi
+jobs=$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 4)
 
-# Use the root .clang-format-ignore file
-ignore_file="$(git -C "$path" rev-parse --show-toplevel)/.clang-format-ignore"
-
-# Create an array to store files to check
-declare -a files_to_check=()
-
-while IFS= read -r file; do
-    should_check=true
-
-    while IFS= read -r pattern || [ -n "$pattern" ]; do
-        # Skip empty lines and comments
-        [[ -z "$pattern" || "$pattern" =~ ^# ]] && continue
-
-        # Clean up pattern
-        pattern=$(echo "$pattern" | tr -d '[:space:]')
-        filename=$(basename "$file")
-
-        if [[ "$filename" == "$pattern" ]]; then
-            echo "Skipping $file (ignored by pattern $pattern)..."
-            should_check=false
-            break
-        fi
-    done < "$ignore_file"
-
-    if [ "$should_check" = true ]; then
-        files_to_check+=("$file")
-    fi
-done <<< "$files"
-
-# Check if any files need formatting
-needs_formatting=false
-for file in "${files_to_check[@]}"; do
-    # Prepend path to the file to get the correct absolute path
-    full_path="$path/$file"
-
-    # Format the file and capture the output
-    formatted_content=$(clang-format "$full_path")
-    original_content=$(cat "$full_path")
-
-    # Compare the original with the formatted content
-    if [ "$formatted_content" != "$original_content" ]; then
-        if [ "$needs_formatting" = false ]; then
-            echo "The following files need to be formatted:"
-            needs_formatting=true
-        fi
-        echo "$file"
-    fi
-done
-
-if [ "$needs_formatting" = true ]; then
-    echo "Run 'clang-format -i <file>' to format the files."
-    exit 1
-else
+# Run clang-format in parallel batches. --dry-run --Werror checks formatting in a single
+# pass (no separate diff) and exits non-zero on any violation, printing the offending
+# locations. xargs propagates that non-zero status.
+if echo "$files" \
+    | sed "s|^|$path/|" \
+    | xargs -P "$jobs" -n 32 clang-format --dry-run --Werror; then
     echo "All files are properly formatted."
     exit 0
 fi
+
+echo "Run 'scripts/clang_format.sh $path' to format the files."
+exit 1

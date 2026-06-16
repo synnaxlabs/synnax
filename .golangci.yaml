@@ -1,10 +1,17 @@
 version: "2"
 linters:
   enable:
+    - ginkgolinter
+    - modernize
     - revive
     - mustsucceedlint
     - setlint
   settings:
+    ginkgolinter:
+      forbid-focus-container: true
+      force-expect-to: true
+      validate-async-intervals: true
+      force-tonot: true
     govet:
       enable-all: true
       disable:

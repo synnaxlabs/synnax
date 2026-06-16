@@ -19,9 +19,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -51,7 +51,7 @@ var _ = Describe("PublishSignals", func() {
 		state = actions.NewState[uuid.UUID, testAction]()
 		serviceName = nextServiceName()
 		closer = MustSucceed(actions.PublishSignals(ctx, actions.SignalsConfig[uuid.UUID, testAction]{
-			Provider: dist.Signals,
+			Provider: sigs,
 			State:    state,
 			Name:     serviceName,
 		}))
@@ -88,7 +88,7 @@ var _ = Describe("PublishSignals", func() {
 		actionSeq := []testAction{{Type: "rename", Payload: "next-name"}}
 		state.Dispatcher().Notify(ctx, key, "dk-1", actionSeq)
 		var res framer.StreamerResponse
-		Eventually(responses.Outlet(), "5s").Should(Receive(&res))
+		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 		Expect(res.Frame.KeysSlice()).To(ConsistOf(setChannel.Key()))
 		samples := res.Frame.SeriesAt(0).Samples()
 		var decoded []actions.Scoped[uuid.UUID, testAction]
@@ -122,7 +122,7 @@ var _ = Describe("PublishSignals", func() {
 			default:
 			}
 			return seqs
-		}, "5s").Should(Equal([]uint64{1, 2, 3}))
+		}, time.Second*5).Should(Equal([]uint64{1, 2, 3}))
 	})
 })
 
@@ -131,7 +131,7 @@ var _ = Describe("SignalsConfig.Validate", func() {
 		func(mutate func(*actions.SignalsConfig[uuid.UUID, testAction]), wantField string) {
 			state := actions.NewState[uuid.UUID, testAction]()
 			cfg := actions.SignalsConfig[uuid.UUID, testAction]{
-				Provider: dist.Signals,
+				Provider: sigs,
 				State:    state,
 				Name:     "actions_validate",
 			}
@@ -151,7 +151,7 @@ var _ = Describe("SignalsConfig.Validate", func() {
 
 	It("Should accept a fully-populated config", func() {
 		Expect(actions.SignalsConfig[uuid.UUID, testAction]{
-			Provider: dist.Signals,
+			Provider: sigs,
 			State:    actions.NewState[uuid.UUID, testAction](),
 			Name:     "ok",
 		}.Validate()).To(Succeed())

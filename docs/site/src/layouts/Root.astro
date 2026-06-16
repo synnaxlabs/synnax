@@ -16,14 +16,15 @@ const canonicalUrl = new URL(
     Astro.url.pathname,
     Astro.site || "https://docs.synnaxlabs.com",
 ).href;
-const fullTitle = title ? `${title} | Synnax` : "Synnax";
+const cleanTitle = title?.replace(/`/g, "");
+const fullTitle = cleanTitle ? `${cleanTitle} | Synnax` : "Synnax";
 ---
 
 <html>
     <head>
         <PostHog />
         <SEO
-            title={title}
+            title={cleanTitle}
             titleTemplate="%s | Synnax"
             titleDefault="Synnax"
             description={description}
@@ -39,7 +40,7 @@ const fullTitle = title ? `${title} | Synnax` : "Synnax";
                     siteName: "Synnax",
                 },
                 image: {
-                    alt: title || "Synnax",
+                    alt: cleanTitle || "Synnax",
                 },
             }}
             twitter={{

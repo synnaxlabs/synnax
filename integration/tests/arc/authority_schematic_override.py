@@ -9,9 +9,10 @@
 
 from examples.simulators import PressSimDAQ
 
+from console.case import ConsoleCase
 from console.schematic import Valve
 from console.schematic.schematic import Schematic
-from tests.arc.arc_case import ArcConsoleCase
+from tests.arc.arc import ArcCase
 
 ARC_CONTINUOUS_PRESS_SOURCE = """
 authority 200
@@ -27,7 +28,7 @@ sequence main {
 """
 
 
-class AuthoritySchematicOverride(ArcConsoleCase):
+class AuthoritySchematicOverride(ArcCase, ConsoleCase):
     """Test that a schematic at authority 255 overrides an Arc program at
     authority 200, and Arc resumes when schematic releases control."""
 
@@ -49,7 +50,7 @@ class AuthoritySchematicOverride(ArcConsoleCase):
         self.wait_for_eq("press_vlv_state", 1)
 
         self.log("Creating schematic with valve")
-        schematic = self.console.workspace.create_schematic("authority_test_schematic")
+        schematic = self.console.project.create_schematic("authority_test_schematic")
         self._schematic = schematic
         schematic.move("left")
 

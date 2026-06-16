@@ -1,0 +1,43 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "`control`"
+description: "Arc standard library reference for the control module"
+prev: "Standard Library"
+prevURL: "/reference/control/arc/reference/standard-library"
+next: "math"
+nextURL: "/reference/control/arc/reference/standard-library/math"
+---
+
+import { Icon, Text } from "@synnaxlabs/pluto";
+import Details from "@/components/details/Details.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+The `control` module provides runtime control over write authority, letting a program
+promote or release writes that target shared channels.
+
+## `set_authority`
+
+Dynamically changes the control authority of write channels at runtime. Higher authority
+values take priority, and setting the authority to `0` releases control.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Details /> Parameters</Text.Text>
+
+| Parameter | Type   | Required | Description                                                                                         |
+| --------- | ------ | -------- | --------------------------------------------------------------------------------------------------- |
+| `value`   | `u8`   | Yes      | The authority level, `0`-`255`. Higher values take priority; `0` releases control.                  |
+| `channel` | `chan` | No       | The write channel to target. If omitted, the change applies to all of the program's write channels. |
+
+**Output** none: changes authority as a side effect and emits no value.
+
+</Details>
+
+```arc
+// `flow` only
+trigger -> control.set_authority{value=255}
+
+// Target a specific channel; value=0 releases control
+trigger -> control.set_authority{value=255, channel=valve_cmd}
+```

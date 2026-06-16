@@ -48,6 +48,22 @@ func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Stat
 	return provided
 }
 
+// healStatus restores a task's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Tasks are re-created on every scan cycle,
+// so on a no-op update the default "unknown" status must not overwrite a status the
+// driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *status.Status[StatusDetails],
+) error {
+	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+		Exists(ctx, w.tx); err != nil || exists {
+		return err
+	}
+	return w.status.Set(ctx, stat)
+}
+
 // Create creates or updates a task. If a status is provided on the task,
 // it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, t *Task) error {
@@ -72,7 +88,11 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	stat := resolveStatus(t, providedStatus)
-	if err := w.status.Set(ctx, stat); err != nil {
+	if providedStatus != nil {
+		if err := w.status.Set(ctx, stat); err != nil {
+			return err
+		}
+	} else if err := w.healStatus(ctx, stat); err != nil {
 		return err
 	}
 	// We don't create ontology resources for internal tasks.
@@ -93,6 +113,17 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		ontology.RelationshipTypeParentOf,
 		otgID,
 	)
+}
+
+// CreateMany creates the given tasks. If tasks with the same key already exist, they
+// will be overwritten.
+func (w Writer) CreateMany(ctx context.Context, tasks *[]Task) error {
+	for i := range *tasks {
+		if err := w.Create(ctx, &(*tasks)[i]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Delete deletes the task with the given key and its associated status.
@@ -127,7 +158,7 @@ func (w Writer) Copy(
 		res = t
 		return t
 	}).Exec(ctx, w.tx); err != nil {
-		return res, err
+		return Task{}, err
 	}
 	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
@@ -135,5 +166,5 @@ func (w Writer) Copy(
 	if err = w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
-	return res, err
+	return res, nil
 }

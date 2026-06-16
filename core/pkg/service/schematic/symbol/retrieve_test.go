@@ -42,9 +42,9 @@ var _ = Describe("Retrieve", func() {
 				"states": []string{"default", "active", "error"},
 			},
 		}
-		Expect(svc.NewWriter(tx).Create(ctx, &sym1, ws.OntologyID())).To(Succeed())
-		Expect(svc.NewWriter(tx).Create(ctx, &sym2, ws.OntologyID())).To(Succeed())
-		Expect(svc.NewWriter(tx).Create(ctx, &sym3, ws.OntologyID())).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym1, proj.OntologyID())).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym2, proj.OntologyID())).To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &sym3, proj.OntologyID())).To(Succeed())
 	})
 
 	Describe("WhereKeys", func() {
@@ -97,7 +97,7 @@ var _ = Describe("Retrieve", func() {
 				Name: "no-tx-symbol",
 				Data: map[string]any{"svg": "<svg>no-tx</svg>"},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &symNoTx, ws.OntologyID())).To(Succeed())
+			Expect(svc.NewWriter(nil).Create(ctx, &symNoTx, proj.OntologyID())).To(Succeed())
 
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
@@ -144,7 +144,7 @@ var _ = Describe("Retrieve", func() {
 				Name: "large-symbol",
 				Data: largeData,
 			}
-			Expect(svc.NewWriter(tx).Create(ctx, &largeSym, ws.OntologyID())).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &largeSym, proj.OntologyID())).To(Succeed())
 
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().

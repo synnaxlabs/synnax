@@ -2785,25 +2785,23 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text(
-        start_cmd_name +
+        "import status\n\n" + start_cmd_name +
         " => main\n"
         "sequence main {\n"
         "    stage on {\n"
         "        " +
         input_name +
-        " > 305 => set_status{\n"
-        "            status_key = \"tstill_status\",\n"
-        "            name = \"TStill Monitor\",\n"
-        "            variant = \"error\",\n"
-        "            message = \"TStill too warm\"\n"
+        " > 305 => status.set{\n"
+        "            key_or_name = \"tstill_status\",\n"
+        "            message = \"TStill too warm\",\n"
+        "            variant = \"error\"\n"
         "        }\n"
         "        " +
         input_name +
-        " < 305 => set_status{\n"
-        "            status_key = \"tstill_status\",\n"
-        "            name = \"TStill Monitor\",\n"
-        "            variant = \"success\",\n"
-        "            message = \"TStill nominal\"\n"
+        " < 305 => status.set{\n"
+        "            key_or_name = \"tstill_status\",\n"
+        "            message = \"TStill nominal\",\n"
+        "            variant = \"success\"\n"
         "        }\n"
         "    }\n"
         "}\n"

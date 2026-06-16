@@ -10,10 +10,10 @@
 import {
   NotFoundError,
   type ontology,
+  type project,
   schematic,
-  type workspace,
 } from "@synnaxlabs/client";
-import { array, type record, uuid, xy } from "@synnaxlabs/x";
+import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
@@ -167,6 +167,7 @@ export const useSelectConfigs = Flux.createSelector<
     }
     return result;
   },
+  equal: compare.mapsEqual,
 });
 
 export interface SelectNodesArgs {
@@ -186,6 +187,7 @@ export const useSelectNodes = Flux.createSelector<
     const keySet = new Set(keys);
     return s.nodes.filter((n) => keySet.has(n.key));
   },
+  equal: compare.arraysEqual,
 });
 
 export interface SelectFieldArgs {
@@ -234,27 +236,23 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
 });
 
 export interface UseCreateArgs extends schematic.New {
-  workspace?: workspace.Key;
-}
-
-export interface UseCreateResult extends schematic.Schematic {
-  workspace?: workspace.Key;
+  project?: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
   UseCreateArgs,
   FluxSubStore,
-  UseCreateResult
+  schematic.Schematic
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    data.key ??= uuid.create();
-    const { workspace, ...rest } = data;
-    rollbacks.push(store.schematics.set(data.key, data as schematic.Schematic));
-    const s = await client.schematics.create(workspace ?? uuid.ZERO, rest);
-    store.schematics.set(s);
-    return { ...s, workspace };
+    const optimistic = schematic.newZ.parse(data);
+    rollbacks.push(store.schematics.set(optimistic));
+    const project = data.project ?? uuid.ZERO;
+    const created = await client.schematics.create(project, optimistic);
+    store.schematics.set(created);
+    return created;
   },
 });
 

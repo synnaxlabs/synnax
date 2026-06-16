@@ -65,7 +65,7 @@ Run every time data arrives:
 // Scale sensor readings continuously
 tank_pressure -> scale{factor=2.0} -> pressure_scaled
 // Run a control loop every 50ms
-interval{period=50ms} -> controller{}
+time.interval{period=50ms} -> controller{}
 // Average two sensors
  (sensor_1 + sensor_2) / 2.0 -> average_display
 ```
@@ -92,9 +92,9 @@ Edges whose target is a stage or sequence name are **transitions**. See
 [Sequences and Stages](/reference/control/arc/concepts/sequences-and-stages#transitions)
 for how transitions combine with stage activation.
 
-Timing nodes (`interval` and `wait`) reset on stage re-entry. An `interval` fires
-immediately on the first tick after re-entry, and a `wait` restarts its countdown from
-zero.
+Timing nodes (`time.interval` and `time.wait`) reset on stage re-entry. A
+`time.interval` fires immediately on the first tick after re-entry, and a `time.wait`
+restarts its countdown from zero.
 
 <Note.Note variant="warning">
 A common mistake is using `->` when you meant `=>`. `->` fires on every data arrival

@@ -34,13 +34,21 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
+
+// CallHook runs after the generic func-form validation passes.
+type CallHook func(diags *diagnostics.Diagnostics, funcCall parser.IFunctionCallSuffixContext)
+
+// FlowConfigHook runs after the generic flow-form config validation passes.
+type FlowConfigHook func(diags *diagnostics.Diagnostics, config parser.IConfigValuesContext)
 
 // ExecContext indicates which execution context a symbol is valid in.
 type ExecContext int
@@ -171,6 +179,10 @@ type Symbol struct {
 	// Flow, or Both). A zero value is invalid and will cause resolution to
 	// fail, forcing every symbol to be explicitly tagged.
 	Exec ExecContext
+	// AnalyzeCall runs after generic func-form validation. Optional.
+	AnalyzeCall CallHook
+	// AnalyzeFlowConfig runs after generic flow-form config validation. Optional.
+	AnalyzeFlowConfig FlowConfigHook
 	// Deprecated points at the canonical replacement Symbol for a deprecated
 	// reference. Nil means not deprecated. When non-nil, analysis helpers
 	// emit a deprecation warning naming Deprecated.QualifiedName(), and the
@@ -441,6 +453,10 @@ type resolveOpts struct {
 	// KindModule filter. Used by the compiler to reach host-function
 	// shims and module members that user code is not allowed to see.
 	includeInternal bool
+	// suppressUsage stops Resolve from recording that a module alias was
+	// consulted. Read-only callers operating on an already-analyzed tree
+	// set this so the lookup leaves no trace; see WithoutUsageTracking.
+	suppressUsage bool
 }
 
 // IncludeInternal causes Resolve to walk past the user-visibility filters:
@@ -449,6 +465,14 @@ type resolveOpts struct {
 // Use this from the compiler when resolving host-function shims; do not
 // use it from analysis paths that surface symbols to user code.
 func IncludeInternal(o *resolveOpts) { o.includeInternal = true }
+
+// WithoutUsageTracking causes Resolve to leave the alias Used flag untouched.
+// Marking an alias Used is a write into the symbol tree, which is unsafe when
+// the tree is a shared, already-analyzed snapshot read concurrently by other
+// callers. Feature queries (hover, rename, definition, completion) run against
+// such snapshots and must pass this; the analysis pass that builds the tree and
+// reports unused imports must not, since it relies on the usage record.
+func WithoutUsageTracking(o *resolveOpts) { o.suppressUsage = true }
 
 // Resolve looks up a single name using lexical scoping rules: children →
 // global resolver → parent. The walk stops at a KindModule scope — inside
@@ -510,7 +534,7 @@ func (s *Symbol) resolve(
 	}
 	if child := s.findChild(matches); child != nil {
 		if opts.includeInternal || (!child.Internal && child.Kind != KindModule) {
-			if child.Kind == KindModuleAlias {
+			if child.Kind == KindModuleAlias && !opts.suppressUsage {
 				child.Used = true
 			}
 			return child, nil

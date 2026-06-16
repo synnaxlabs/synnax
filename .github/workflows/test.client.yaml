@@ -15,6 +15,7 @@ on:
       - alamos/ts/**
       - aspen/**
       - cesium/**
+      - client/clib/**
       - client/cpp/**
       - client/py/**
       - client/ts/**
@@ -58,6 +59,7 @@ on:
       - alamos/ts/**
       - aspen/**
       - cesium/**
+      - client/clib/**
       - client/cpp/**
       - client/py/**
       - client/ts/**
@@ -118,6 +120,7 @@ jobs:
               - .bazelrc
               - .clang-format
               - .clang-format-ignore
+              - client/clib/**
               - client/cpp/**
               - freighter/cpp/**
               - MODULE.bazel
@@ -194,9 +197,17 @@ jobs:
       - name: Check Formatting
         run: scripts/check_clang_format.sh client/cpp
 
+      - name: Check Formatting (clib)
+        run: scripts/check_clang_format.sh client/clib
+
       - name: Test (Ubuntu)
         run:
           bazel test --config=asan-leak --test_output=all //client/cpp/...
+          --nocache_test_results
+
+      - name: Test Clib (Ubuntu)
+        run:
+          bazel test --config=asan-leak --test_output=all //client/clib/...
           --nocache_test_results
 
   py:

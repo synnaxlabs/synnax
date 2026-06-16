@@ -18,5 +18,5 @@ import (
 
 func TestStable(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Stable Suite")
+	RunSpecs(t, "STL Stable Suite")
 }

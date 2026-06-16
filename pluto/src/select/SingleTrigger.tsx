@@ -15,8 +15,8 @@ import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
-import { useContext, useSelection } from "@/select/Frame";
 import { staticCanDrop } from "@/select/MultipleTrigger";
+import { useContext, useSelection } from "@/select/Provider";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;

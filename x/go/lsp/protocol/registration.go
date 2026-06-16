@@ -19,7 +19,7 @@ type Registration struct {
 	Method string `json:"method"`
 
 	// RegisterOptions options necessary for the registration.
-	RegisterOptions interface{} `json:"registerOptions,omitempty"`
+	RegisterOptions any `json:"registerOptions,omitempty"`
 }
 
 // RegistrationParams params of Register Capability.

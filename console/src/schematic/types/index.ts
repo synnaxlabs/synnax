@@ -45,10 +45,10 @@ export type EdgeProps = PSchematic.Edge.Config;
 export type Props = NodeProps | EdgeProps;
 export type State = v6.State;
 export type SliceState = v6.SliceState;
+export interface Viewport extends v6.Viewport {}
 export type ToolbarTab = v0.ToolbarTab;
 export type ToolbarState = v0.ToolbarState;
 export type LegendState = v6.LegendState;
-export type PendingUpload = v6.PendingUpload;
 export type AnyState =
   | v0.State
   | v1.State

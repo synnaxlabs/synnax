@@ -7,56 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot } from "@synnaxlabs/client";
 import {
   Button,
-  compareArrayDeps,
   Direction,
   Flex,
   Icon,
   Input,
+  LinePlot,
   Select,
   Tabs,
-  useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { type text } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
-import { useDispatch } from "react-redux";
+import { type ReactElement, useCallback, useMemo } from "react";
 
-import { type AxisKey } from "@/lineplot/axis";
-import { useSelect } from "@/lineplot/selectors";
-import { type AxisState, setAxis, shouldDisplayAxis } from "@/lineplot/slice";
+import { CSS } from "@/css";
 
 export interface AxesProps {
   layoutKey: string;
 }
 
 export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
-  const vis = useSelect(layoutKey);
+  const axisKeys = LinePlot.useSelectAxisKeys({ key: layoutKey });
 
-  const shouldShow = Object.values(vis.axes.axes)
-    .filter((a) => shouldDisplayAxis(a.key, vis))
-    .map((a) => a.key);
-
-  const tabs = useMemoCompare(
-    () =>
-      shouldShow.map((key) => ({
-        tabKey: key,
-        name: key.toUpperCase(),
-      })),
-    compareArrayDeps,
-    [shouldShow] as [string[]],
+  const tabs = useMemo(
+    () => axisKeys.map((key) => ({ tabKey: key, name: key.toUpperCase() })),
+    [axisKeys],
   );
 
-  const t = Tabs.useStatic({
-    tabs,
-  });
+  const t = Tabs.useStatic({ tabs });
 
   return (
     <Tabs.Tabs {...t} size="small">
       {(p) => (
         <LinePlotAxisControls
           key={p.tabKey}
-          axisKey={p.tabKey as AxisKey}
+          axisKey={p.tabKey as lineplot.AxisKey}
           layoutKey={layoutKey}
         />
       )}
@@ -65,11 +51,11 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
 };
 
 export interface LinePlotAxisControlsProps {
-  axisKey: AxisKey;
+  axisKey: lineplot.AxisKey;
   layoutKey: string;
 }
 
-export interface AutoBoundButtonProps extends Omit<Button.ButtonProps, "children"> {
+interface AutoBoundButtonProps extends Omit<Button.ButtonProps, "children"> {
   enabled: boolean;
 }
 
@@ -86,68 +72,72 @@ const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactEleme
   </Button.Button>
 );
 
+const AXES_BOUNDS_DRAG_SCALE = { x: 0.1, y: 0.1 };
+
 export const LinePlotAxisControls = ({
   axisKey,
   layoutKey,
 }: LinePlotAxisControlsProps): ReactElement => {
-  const dispatch = useDispatch();
-  const axis = useSelect(layoutKey).axes.axes[axisKey];
+  const { dispatch } = LinePlot.useDispatch();
+  const axis = LinePlot.useSelectAxis({ key: layoutKey, axisKey });
 
-  const handleChange = (axis: AxisState): void => {
-    dispatch(setAxis({ key: layoutKey, axisKey, axis }));
-  };
+  const apply = useCallback(
+    (action: lineplot.Action): void => {
+      dispatch({ key: layoutKey, actions: [action] });
+    },
+    [dispatch, layoutKey],
+  );
 
-  const handleLabelChange: Input.Control<string>["onChange"] = (value: string) => {
-    handleChange({ ...axis, label: value });
-  };
+  const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
+    apply(lineplot.setAxisLabel({ key: axisKey, label: value }));
 
-  const handleLowerBoundChange: Input.Control<number>["onChange"] = (value: number) => {
-    handleChange({
-      ...axis,
-      bounds: { ...axis.bounds, lower: value },
-      autoBounds: { ...axis.autoBounds, lower: false },
-    });
-  };
+  const handleLowerBoundChange: Input.Control<number>["onChange"] = (value) =>
+    apply(
+      lineplot.setAxisBounds({
+        key: axisKey,
+        bounds: { ...axis.bounds, lower: value },
+        autoBounds: { ...axis.autoBounds, lower: false },
+      }),
+    );
 
-  const handleLowerAutoBoundEnable = (): void => {
-    handleChange({
-      ...axis,
-      autoBounds: { ...axis.autoBounds, lower: true },
-    });
-  };
+  const handleLowerAutoBoundEnable = (): void =>
+    apply(
+      lineplot.setAxisBounds({
+        key: axisKey,
+        bounds: axis.bounds,
+        autoBounds: { ...axis.autoBounds, lower: true },
+      }),
+    );
 
-  const handleUpperBoundChange: Input.Control<number>["onChange"] = (value: number) => {
-    handleChange({
-      ...axis,
-      bounds: {
-        ...axis.bounds,
-        upper: value,
-      },
-      autoBounds: { ...axis.autoBounds, upper: false },
-    });
-  };
+  const handleUpperBoundChange: Input.Control<number>["onChange"] = (value) =>
+    apply(
+      lineplot.setAxisBounds({
+        key: axisKey,
+        bounds: { ...axis.bounds, upper: value },
+        autoBounds: { ...axis.autoBounds, upper: false },
+      }),
+    );
 
-  const handleUpperAutoBoundEnable = (): void => {
-    handleChange({
-      ...axis,
-      autoBounds: { ...axis.autoBounds, upper: true },
-    });
-  };
+  const handleUpperAutoBoundEnable = (): void =>
+    apply(
+      lineplot.setAxisBounds({
+        key: axisKey,
+        bounds: axis.bounds,
+        autoBounds: { ...axis.autoBounds, upper: true },
+      }),
+    );
 
-  const handleLabelDirectionChange: Input.Control<"x" | "y">["onChange"] = (value) => {
-    handleChange({ ...axis, labelDirection: value });
-  };
+  const handleLabelDirectionChange: Input.Control<"x" | "y">["onChange"] = (value) =>
+    apply(lineplot.setAxisLabelDirection({ key: axisKey, labelDirection: value }));
 
-  const handleTickSpacingChange: Input.Control<number>["onChange"] = (value) => {
-    handleChange({ ...axis, tickSpacing: value });
-  };
+  const handleTickSpacingChange: Input.Control<number>["onChange"] = (value) =>
+    apply(lineplot.setAxisTickSpacing({ key: axisKey, tickSpacing: value }));
 
-  const handleLabelLevelChange: Input.Control<text.Level>["onChange"] = (value) => {
-    handleChange({ ...axis, labelLevel: value });
-  };
+  const handleLabelLevelChange: Input.Control<text.Level>["onChange"] = (value) =>
+    apply(lineplot.setAxisLabelLevel({ key: axisKey, labelLevel: value }));
 
   return (
-    <Flex.Box y style={{ padding: "2rem" }} gap="small">
+    <Flex.Box y className={CSS.BE("line-plot", "toolbar", "axes")} gap="small">
       <Flex.Box x>
         <Input.Item label="Lower Bound" y grow>
           <Input.Numeric
@@ -195,7 +185,10 @@ export const LinePlotAxisControls = ({
           />
         </Input.Item>
         {axis.key.startsWith("y") && (
-          <Input.Item label="Label Direction" style={{ minWidth: 90 }}>
+          <Input.Item
+            label="Label Direction"
+            className={CSS.BE("line-plot", "toolbar", "axes-label-direction")}
+          >
             <Direction.Select
               value={axis.labelDirection}
               onChange={handleLabelDirectionChange}
@@ -211,9 +204,4 @@ export const LinePlotAxisControls = ({
       </Flex.Box>
     </Flex.Box>
   );
-};
-
-const AXES_BOUNDS_DRAG_SCALE = {
-  x: 0.1,
-  y: 0.1,
 };

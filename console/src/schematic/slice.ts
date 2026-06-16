@@ -16,10 +16,10 @@ import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
 export type State = latest.State;
+export interface Viewport extends latest.Viewport {}
 export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
-export type PendingUpload = latest.PendingUpload;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
@@ -94,10 +94,6 @@ export interface SetViewportModePayload {
 
 export interface RemovePayload {
   keys: string[];
-}
-
-export interface ClearPendingUploadPayload {
-  key: string;
 }
 
 export const { actions, reducer } = createSlice({
@@ -187,14 +183,6 @@ export const { actions, reducer } = createSlice({
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.schematics[key]);
     },
-    clearPendingUpload: (
-      state,
-      { payload }: PayloadAction<ClearPendingUploadPayload>,
-    ) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.pendingUpload = undefined;
-    },
   },
 });
 
@@ -212,7 +200,6 @@ export const {
   setViewport,
   setViewportMode,
   remove,
-  clearPendingUpload,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

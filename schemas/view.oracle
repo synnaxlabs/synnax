@@ -46,18 +46,12 @@ View struct {
     @ontology type "view"
     @retrieve
     @search
+    @go marshal
+    @go migrate
 }
 
 New struct extends View {
-    key   Key?   {
-        @doc value """
-            is an optional key for the view. If not provided, one will be
-            automatically assigned.
-        """
-    }
-    query record {
-        @doc value "contains view-specific configuration and query parameters."
-    }
+    key?
 
     @doc value    "contains parameters for creating a new view."
     @ts use_input

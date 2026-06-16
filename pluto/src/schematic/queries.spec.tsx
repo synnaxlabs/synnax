@@ -10,8 +10,8 @@
 import {
   createTestClient,
   NotFoundError,
+  type project,
   schematic,
-  type workspace,
 } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
@@ -25,9 +25,8 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-const createTestSchematic = async (wsKey: string): Promise<schematic.Schematic> =>
-  await client.schematics.create(wsKey, {
-    ...schematic.ZERO_NEW,
+const createTestSchematic = async (projectKey: string): Promise<schematic.Schematic> =>
+  await client.schematics.create(projectKey, {
     name: "test_schematic",
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },
@@ -70,17 +69,17 @@ const loadSchematic = async (
 
 describe("schematic queries", () => {
   let Wrapper: FC<PropsWithChildren>;
-  let ws: workspace.Workspace;
+  let proj: project.Project;
   beforeAll(async () => {
-    [Wrapper, ws] = await Promise.all([
+    [Wrapper, proj] = await Promise.all([
       createAsyncSynnaxWrapper({ client }),
-      client.workspaces.create({ name: `ws_${uuid.create()}`, layout: {} }),
+      client.projects.create({ name: `project_${uuid.create()}`, layout: {} }),
     ]);
   });
 
   describe("useRetrieveSuspended", () => {
     it("suspends until the schematic loads, then returns it", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
 
       const Display = (): ReactElement => {
         const s = Schematic.useRetrieveSuspended({ key: schem.key });
@@ -106,7 +105,7 @@ describe("schematic queries", () => {
 
   describe("useEnsureRetrieved", () => {
     it("populates the store so downstream selectors resolve", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
@@ -120,7 +119,7 @@ describe("schematic queries", () => {
   describe("selectors", () => {
     let schem: schematic.Schematic;
     beforeAll(async () => {
-      schem = await createTestSchematic(ws.key);
+      schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
     });
 
@@ -227,6 +226,78 @@ describe("schematic queries", () => {
       );
       expect(result.current.size).toBe(0);
     });
+
+    it("useSelectNodes keeps its reference when an unrelated node changes", async () => {
+      const isolated = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          nodes: Schematic.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.nodes;
+      expect(initial.map((n) => n.key)).toEqual(["n1"]);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNodePosition({ key: "n2", position: { x: 50, y: 50 } }),
+          ],
+        });
+      });
+      expect(result.current.nodes).toBe(initial);
+    });
+
+    it("useSelectNodes returns a new array when a requested node changes", async () => {
+      const isolated = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          nodes: Schematic.useSelectNodes({ key: isolated.key, keys: ["n1"] }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.nodes;
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [
+            schematic.setNodePosition({ key: "n1", position: { x: 99, y: 99 } }),
+          ],
+        });
+      });
+      await waitFor(() => {
+        expect(result.current.nodes).not.toBe(initial);
+        expect(result.current.nodes[0].position).toEqual({ x: 99, y: 99 });
+      });
+    });
+
+    it("useSelectConfigs keeps its reference when an unrelated change occurs", async () => {
+      const isolated = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, isolated.key);
+      const { result } = renderHook(
+        () => ({
+          configs: Schematic.useSelectConfigs({
+            key: isolated.key,
+            keys: ["n1", "n2"],
+          }),
+          dispatch: Schematic.useDispatch(),
+        }),
+        { wrapper: Wrapper },
+      );
+      const initial = result.current.configs;
+      expect(initial.size).toBe(2);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: isolated.key,
+          actions: [schematic.setNodePosition({ key: "n1", position: { x: 5, y: 5 } })],
+        });
+      });
+      expect(result.current.configs).toBe(initial);
+    });
   });
 
   describe("useCreate", () => {
@@ -243,10 +314,9 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.create.updateAsync({
-          ...schematic.ZERO_NEW,
           key,
           name: "created_schematic",
-          workspace: ws.key,
+          project: proj.key,
         });
       });
 
@@ -254,7 +324,7 @@ describe("schematic queries", () => {
         expect(result.current.create.variant).toBe("success");
       });
       expect(result.current.create.data?.name).toBe("created_schematic");
-      expect(result.current.create.data?.workspace).toBe(ws.key);
+      expect(result.current.create.data?.project).toBe(proj.key);
 
       const stored = result.current.store.schematics.get(key);
       expect(stored).toBeDefined();
@@ -267,7 +337,7 @@ describe("schematic queries", () => {
 
   describe("useRename", () => {
     it("renames a schematic on the server", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
 
       const { result } = renderHook(() => Schematic.useRename(), {
         wrapper: Wrapper,
@@ -291,7 +361,7 @@ describe("schematic queries", () => {
 
   describe("useDelete", () => {
     it("deletes a schematic from the server", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
 
       const { result } = renderHook(() => Schematic.useDelete(), {
         wrapper: Wrapper,
@@ -310,7 +380,7 @@ describe("schematic queries", () => {
 
   describe("useDispatch", () => {
     it("applies actions to the schematic and updates the store", async () => {
-      const schem = await createTestSchematic(ws.key);
+      const schem = await createTestSchematic(proj.key);
       await loadSchematic(Wrapper, schem.key);
 
       const { result: nodes } = renderHook(
@@ -369,7 +439,7 @@ describe("schematic queries", () => {
     let cleanup: () => void;
 
     beforeEach(async () => {
-      schem = await createTestSchematic(ws.key);
+      schem = await createTestSchematic(proj.key);
       const loadUtils = await loadSchematic(Wrapper, schem.key);
 
       const edge = renderHook(

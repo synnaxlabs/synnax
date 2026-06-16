@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, schematic } from "@synnaxlabs/client";
+import { createTestClient, type schematic } from "@synnaxlabs/client";
 import { uuid, xy } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
@@ -49,12 +49,11 @@ const MIME = "web application/synnax-schematic+json";
 const client = createTestClient();
 
 const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
-  const ws = await client.workspaces.create({
-    name: `ws_${uuid.create()}`,
+  const proj = await client.projects.create({
+    name: `project_${uuid.create()}`,
     layout: {},
   });
-  return await client.schematics.create(ws.key, {
-    ...schematic.ZERO_NEW,
+  return await client.schematics.create(proj.key, {
     name: `schem_${uuid.create()}`,
     nodes: [
       { key: "n1", position: { x: 0, y: 0 } },

@@ -17,10 +17,9 @@ import { Status } from "@/status";
 import { Text } from "@/text";
 
 export const config = z.object({
-  statusKey: z.string(),
+  key_or_name: z.string(),
   variant: status.variantZ,
   message: z.string(),
-  description: z.string().optional(),
 });
 
 export interface Config extends z.infer<typeof config> {}

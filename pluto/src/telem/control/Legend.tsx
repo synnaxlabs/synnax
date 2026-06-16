@@ -35,7 +35,10 @@ const parseSubjectName = (name: string): ParsedName => {
   return { primary: match[1], secondary: match[2] };
 };
 
-export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
+export interface LegendProps extends Omit<
+  Base.SimpleProps,
+  "data" | "onColorChange" | "onLabelChange" | "onVisibleChange"
+> {
   colors?: Record<string, color.Color>;
   onColorsChange?: (colors: Record<string, color.Color>) => void;
 }

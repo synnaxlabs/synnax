@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
 import {
   box,
   color,
@@ -14,8 +15,6 @@ import {
   notation,
   text,
   TimeStamp,
-  timestampFormatZ,
-  timeZoneZ,
   xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -32,51 +31,36 @@ import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
-export const timestampConfigZ = z.object({
-  format: timestampFormatZ.default("preciseDate"),
-  tz: timeZoneZ.default("local"),
-});
-export type TimestampConfig = z.infer<typeof timestampConfigZ>;
-
-export const channelConfigZ = z.object({
-  color: z.string().default(""),
-  notation: notation.notationZ.default("standard"),
-  precision: z.number().min(-1).max(17).default(-1),
-  alias: z.string().default(""),
-  timestamp: timestampConfigZ.default({ format: "preciseDate", tz: "local" }),
-});
-
-export const channelEntryZ = channelConfigZ.extend({
-  channel: z.number().or(z.string()),
-});
-
-export const logState = z.object({
-  region: box.box,
-  wheelPos: z.number(),
-  scrolling: z.boolean(),
-  empty: z.boolean(),
-  visible: z.boolean(),
-  showChannelNames: z.boolean().default(true),
-  showReceiptTimestamp: z.boolean().default(true),
-  timestampPrecision: z.number().min(0).max(3).default(0),
-  // channelNames: server-side display names (fetched fresh, never persisted)
-  // channelDataTypes: server-side data types (fetched fresh, never persisted)
-  // channels: user-defined config per channel (color, precision, alias; persisted)
-  channelNames: z.record(z.string(), z.string()).default({}),
-  channelDataTypes: z.record(z.string(), z.string()).default({}),
-  channels: z.array(channelEntryZ).default([]),
-  telem: logSourceSpecZ.default(noopLogSourceSpec),
-  font: text.levelZ.default("p"),
-  color: color.colorZ.default(color.ZERO),
-  overshoot: xy.xyZ.default({ x: 0, y: 0 }),
-  selectionStart: z.number().default(-1),
-  selectionEnd: z.number().default(-1),
-  visibleStart: z.number().default(0),
-  selectedText: z.string().default(""),
-  selectedLines: z.array(z.object({ text: z.string(), color: z.string() })).default([]),
-  computedLineHeight: z.number().default(0),
-  entryCount: z.number().default(0),
-});
+export const logStateZ = log.newZ
+  .pick({
+    channels: true,
+    timestampPrecision: true,
+    showChannelNames: true,
+    showReceiptTimestamp: true,
+  })
+  .extend({
+    region: box.box,
+    wheelPos: z.number(),
+    scrolling: z.boolean(),
+    empty: z.boolean(),
+    visible: z.boolean(),
+    // channelNames: server-side display names (fetched fresh, never persisted)
+    // channelDataTypes: server-side data types (fetched fresh, never persisted)
+    channelNames: z.record(z.string(), z.string()).default({}),
+    channelDataTypes: z.record(z.string(), z.string()).default({}),
+    telem: logSourceSpecZ.default(noopLogSourceSpec),
+    font: text.levelZ.default("p"),
+    color: color.colorZ.default(color.ZERO),
+    overshoot: xy.xyZ.default({ x: 0, y: 0 }),
+    selectionStart: z.number().default(-1),
+    selectionEnd: z.number().default(-1),
+    visibleStart: z.number().default(0),
+    selectedText: z.string().default(""),
+    selectedLines: z
+      .array(z.object({ text: z.string(), color: z.string() }))
+      .default([]),
+    computedLineHeight: z.number().default(0),
+  });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
 const CANVAS: render.Canvas2DVariant = "lower2d";
@@ -91,7 +75,7 @@ interface InternalState {
   render: render.Context;
   draw2d: Draw2D;
   telem: telem.MemoizedSource<LogEntry[], LogSource>;
-  configs: Record<string, z.infer<typeof channelConfigZ>>;
+  configs: Record<string, log.ChannelEntry>;
   textColor: color.Color;
   prefixColors: Record<string, color.Color>;
   defaultPrefixColor: color.Color;
@@ -131,9 +115,9 @@ const muteColor = (c: color.Crude, theme: theming.Theme): color.Color => {
   ]);
 };
 
-export class Log extends aether.Leaf<typeof logState, InternalState> {
+export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   static readonly TYPE = "log";
-  static readonly z = logState;
+  static readonly z = logStateZ;
   schema = Log.z;
   entries: LogEntry[] = [];
   scrollState: ScrollbackState = ZERO_SCROLLBACK;
@@ -174,8 +158,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const channelKeys = channelEntries
       .map((e) => e.channel)
       .filter((ch): ch is number => typeof ch === "number");
-    const configs: Record<string, z.infer<typeof channelConfigZ>> = {};
-    for (const entry of channelEntries) configs[String(entry.channel)] = entry;
+    const configs: Record<string, log.ChannelEntry> = {};
+    for (const entry of channelEntries) configs[entry.channel] = entry;
 
     // Rebuild color caches only when configs or base color changed.
     const colorChanged = !color.equals(this.state.color, this.prevState.color);
@@ -184,7 +168,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       i.prefixColors = {};
       i.valueColors = {};
       for (const [key, cfg] of Object.entries(configs))
-        if (cfg.color) {
+        if (!color.isZero(cfg.color)) {
           i.prefixColors[key] = muteColor(cfg.color, i.theme);
           i.valueColors[key] = color.construct(cfg.color);
         }
@@ -271,13 +255,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
 
   private checkEmpty(): void {
     const actuallyEmpty = this.entries.length === 0;
-    const countChanged = this.entries.length !== this.state.entryCount;
-    if (actuallyEmpty === this.state.empty && !countChanged) return;
-    this.setState((s) => ({
-      ...s,
-      empty: actuallyEmpty,
-      entryCount: this.entries.length,
-    }));
+    if (actuallyEmpty === this.state.empty) return;
+    this.setState((s) => ({ ...s, empty: actuallyEmpty }));
   }
 
   afterDelete(): void {
@@ -415,9 +394,9 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
   }
 
   // showChannelNames is read from state (O(1)) rather than derived by scanning all
-  // entries (O(n)). The render loop below is already O(n) over visible entries —
-  // adding a second O(n) scan here just to answer a yes/no question would double the
-  // per-frame work at up to 60fps.
+  // entries (O(n)). The render loop below is already O(n) over visible entries — adding
+  // a second O(n) scan here just to answer a yes/no question would double the per-frame
+  // work at up to 60fps.
   private formatEntry(entry: LogEntry): {
     prefix: string;
     value: string;

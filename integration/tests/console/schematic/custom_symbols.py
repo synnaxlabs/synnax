@@ -19,6 +19,7 @@ from framework.utils import get_fixture_path
 from x import random_name
 
 TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
+STYLED_SYMBOL_SVG = get_fixture_path("styled_symbol.svg")
 
 
 class CustomSymbols(ConsoleCase):
@@ -72,13 +73,15 @@ class CustomSymbols(ConsoleCase):
 
     def run(self) -> None:
         """Run all custom symbol tests."""
-        schematic = self.console.workspace.create_schematic(self.schematic_name)
+        schematic = self.console.project.create_schematic(self.schematic_name)
         toolbar = SymbolToolbar(self.console.layout)
         toolbar.show()
         self.console.notifications.close_all()
 
         self.test_create_symbol_group(toolbar)
         self.test_rename_symbol_group(toolbar)
+
+        self.test_styled_symbol_applies_to_preview(toolbar)
 
         self.test_create_symbol(schematic, toolbar)
         self.test_rename_symbol(toolbar)
@@ -110,6 +113,50 @@ class CustomSymbols(ConsoleCase):
             f"Group '{new_name}' should exist after rename"
         )
         self.test_group_name = new_name
+
+    def test_styled_symbol_applies_to_preview(self, toolbar: SymbolToolbar) -> None:
+        """Editing a styled symbol's colors and scale must update the live preview.
+
+        Regression for SY-4217. Real-world logo SVGs define colors via inline
+        style="fill:..." and <style> class rules, both of which outrank the
+        presentation attribute the renderer writes - so color edits used to compute
+        but never paint. Import now normalizes colors onto attributes (so overrides
+        win), strips <style> blocks (so they cannot leak), and excludes clip-path /
+        defs shapes from regions. This drives the editor exactly as a user would and
+        asserts on the rendered preview's computed colors.
+        """
+        self.log("Testing styled symbol normalization, recolor, and scale")
+        toolbar.select_group(self.test_group_name)
+        styled_name = f"Styled Symbol {self.suffix}"
+
+        editor = toolbar.create_symbol()
+        editor.upload_svg(STYLED_SYMBOL_SVG)
+
+        # Reading a preview shape waits for the preview to render before we inspect it.
+        # The rect's blue fill comes from an inline style; overriding it must paint.
+        assert editor.get_preview_fill("#body") != "rgb(255, 0, 0)"
+
+        # The clip-path shape must not surface as a phantom region: only the rect and
+        # the circle are painted.
+        assert editor.region_count() == 2, (
+            f"expected 2 regions (clip-path excluded), got {editor.region_count()}"
+        )
+
+        editor.set_region_fill_color("#FF0000", region_index=0)
+        editor.assert_preview_fill("#body", "rgb(255, 0, 0)")
+
+        # The circle's green fill comes from a <style> class rule; overriding it must
+        # paint once the block is stripped and the color flattened.
+        editor.set_region_fill_color("#FF00FF", region_index=1)
+        editor.assert_preview_fill("#badge", "rgb(255, 0, 255)")
+
+        # The default scale must resize the rendered preview (100 -> 50 at 50%).
+        editor.set_default_scale(50)
+        editor.assert_preview_width(50)
+
+        editor.set_name(styled_name)
+        editor.save()
+        toolbar.delete_symbol(styled_name)
 
     def test_create_symbol(self, schematic: Schematic, toolbar: SymbolToolbar) -> None:
         """Test creating a custom symbol with all properties set in the editor."""

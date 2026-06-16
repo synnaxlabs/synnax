@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "x/cpp/crash/crash.h"
+
 #include "driver/cmd/cmd.h"
 
 namespace driver::cmd {
@@ -35,6 +37,7 @@ void print_usage() {
 
 int exec(const int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
+    x::crash::install("synnax-driver");
     auto args = x::args::Parser(argc, argv);
     const bool disable_color = args.flag("--no-color");
     FLAGS_logtostderr = true;

@@ -8,9 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+} from "@/lineplot/actions.gen";
 import {
   type Key,
   keyZ,
@@ -19,15 +24,11 @@ import {
   type New,
   newZ,
 } from "@/lineplot/types.gen";
+import { project } from "@/project";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { workspace } from "@/workspace";
 
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
+export const SET_CHANNEL_NAME = "sy_lineplot_set";
 
-const setDataReqZ = z.object({
-  key: keyZ,
-  data: caseconv.preserveCase(record.unknownZ()),
-});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
@@ -42,7 +43,7 @@ export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ linePlots: array.nullishToEmpty(linePlotZ) });
 
-const createReqZ = z.object({ workspace: workspace.keyZ, linePlots: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, linePlots: newZ.array() });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
@@ -54,16 +55,16 @@ export class Client {
     this.client = client;
   }
 
-  async create(workspace: workspace.Key, linePlot: New): Promise<LinePlot>;
-  async create(workspace: workspace.Key, linePlots: New[]): Promise<LinePlot[]>;
+  async create(project: project.Key, linePlot: New): Promise<LinePlot>;
+  async create(project: project.Key, linePlots: New[]): Promise<LinePlot[]>;
   async create(
-    workspace: workspace.Key,
+    project: project.Key,
     linePlots: New | New[],
   ): Promise<LinePlot | LinePlot[]> {
     const isMany = Array.isArray(linePlots);
     const res = await this.client.send(
       "/lineplot/create",
-      { workspace, linePlots: array.toArray(linePlots) },
+      { project, linePlots: array.toArray(linePlots) },
       createReqZ,
       createResZ,
     );
@@ -71,11 +72,16 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await this.client.send("/lineplot/rename", { key, name }, renameReqZ, emptyResZ);
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
-    await this.client.send("/lineplot/set-data", { key, data }, setDataReqZ, emptyResZ);
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/lineplot/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
+      emptyResZ,
+    );
   }
 
   async retrieve(args: RetrieveSingleParams): Promise<LinePlot>;

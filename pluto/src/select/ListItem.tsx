@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 
 import { type Button } from "@/button";
 import { List } from "@/list";
-import { useItemState } from "@/select/Frame";
+import { useItemState } from "@/select/Provider";
 
 export type ListItemProps<
   K extends record.Key = record.Key,

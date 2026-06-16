@@ -13,14 +13,14 @@
     .react-flow__node.selected .pluto-symbol-primitive {
         /* make an inset box shadow to simulate a background */
         box-shadow: 0 0 0 1000px var(--pluto-primary-z-20) inset !important;
-
-        & .react-flow__resize-control {
-            display: block;
-        }
     }
 
     .react-flow__resize-control {
         display: none;
+    }
+
+    .react-flow__node.selected .react-flow__resize-control {
+        display: block;
     }
 
     .react-flow__handle {
@@ -29,6 +29,11 @@
         border-color: transparent !important;
         pointer-events: none !important;
         border-radius: 50%;
+        /* React Flow pins the opposite edge (bottom/right) for handles facing those
+           directions. Pluto positions every handle via top/left, so the extra pin
+           stretches the element across the node and throws off the edge anchor. */
+        right: auto !important;
+        bottom: auto !important;
     }
 
     .react-flow__background circle {

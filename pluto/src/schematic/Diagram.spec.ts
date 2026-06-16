@@ -46,6 +46,16 @@ describe("nodeChangesToActions", () => {
     ]);
   });
 
+  it("drops a dimensions change that originates from an active resize drag", () => {
+    const change: Base.NodeChange = {
+      type: "dimensions",
+      key: "n1",
+      dimensions: { width: 80, height: 40 },
+      resizing: true,
+    };
+    expect(nodeChangesToActions([change])).toEqual([]);
+  });
+
   it("translates a remove change to a removeNode action", () => {
     const change: Base.NodeChange = { type: "remove", key: "n1" };
     expect(nodeChangesToActions([change])).toEqual([
@@ -99,7 +109,7 @@ describe("edgeChangesToActions", () => {
     expect(out[1].type === "set_config" && out[1].setConfig.key).toBe("e1");
   });
 
-  it("seeds the new edge's config with the pipe variant's default", () => {
+  it("initializes the new edge's config with the pipe variant's default", () => {
     const edge = newEdge("e1");
     const [, setCfg] = edgeChangesToActions([{ type: "add", edge }]);
     const expected = Edge.REGISTRY.pipe.defaultConfig() as unknown as record.Unknown;

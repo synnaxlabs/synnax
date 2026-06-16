@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control, type Diagram } from "@synnaxlabs/pluto";
+import { type Control } from "@synnaxlabs/pluto";
 import { type control } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
 import {
   type LegendState,
-  type PendingUpload,
   SLICE_NAME,
   type SliceState,
   type State,
   type StoreState,
   type ToolbarTab,
+  type Viewport,
 } from "@/schematic/slice";
 import { type ToolbarState, ZERO_STATE } from "@/schematic/types";
 
@@ -30,8 +30,22 @@ export const selectSelected = (state: StoreState, key: string): string[] =>
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
 
+export const selectOptional = select as (
+  state: StoreState,
+  key: string,
+) => State | undefined;
+
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+export const useSelectOptional = (key: string): State | undefined =>
+  useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
+
+export const selectExists = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key) != null;
+
+export const useSelectExists = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectExists(state, key), [key]);
 
 export const useSelectSelected = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
@@ -61,7 +75,7 @@ export const useSelectToolbar = (key: string): ToolbarState =>
   useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
-  selectToolbar(state, key)?.selectedSymbolGroup;
+  selectToolbar(state, key).selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
@@ -90,16 +104,8 @@ export const selectFitViewOnResize = (state: StoreState, key: string): boolean =
 export const useSelectFitViewOnResize = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectFitViewOnResize(state, key), [key]);
 
-export const selectViewport = (state: StoreState, key: string): Diagram.Viewport =>
+export const selectViewport = (state: StoreState, key: string): Viewport =>
   select(state, key).viewport;
 
-export const useSelectViewport = (key: string): Diagram.Viewport =>
+export const useSelectViewport = (key: string): Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
-
-export const selectPendingUpload = (
-  state: StoreState,
-  key: string,
-): PendingUpload | undefined => select(state, key)?.pendingUpload;
-
-export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
-  useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);

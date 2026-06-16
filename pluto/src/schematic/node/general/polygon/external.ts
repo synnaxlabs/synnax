@@ -17,6 +17,7 @@ import {
   DEFAULT_POLYGON_SIDE_LENGTH,
   Polygon,
 } from "@/schematic/node/general/polygon/Primitive";
+import { Symbol } from "@/schematic/node/general/polygon/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
@@ -28,7 +29,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
   cornerRounding: 0,
   rotation: 0,
-  color: t.colors.gray.l11,
+  color: color.ZERO,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
   strokeWidth: 2,
   label: Label.defaultConfig("Polygon"),
@@ -38,7 +39,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: "Polygon",
   Form: CommonPolygonForm,
-  Node: Label.createLabeled<Config>(Polygon),
+  Node: Symbol,
   Preview: removeProps(Polygon, ["clickable"]),
   defaultConfig,
   zIndex: 2,

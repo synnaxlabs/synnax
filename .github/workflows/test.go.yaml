@@ -7,10 +7,24 @@ on:
         description: The directory containing the Go module to test
         required: true
         type: string
+      ginkgo_flags:
+        description:
+          Additional flags to pass to Ginkgo (e.g., -p, --randomize-all,
+          --fail-on-empty)
+        required: false
+        type: string
+        default: ""
       coverage_flag:
         description: The codecov flag for this module
         required: true
         type: string
+      install_antlr4:
+        description:
+          Whether to install antlr4 before running `go generate`. Required for modules
+          with `//go:generate antlr4 ...` directives (arc, oracle).
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -46,6 +60,20 @@ jobs:
         if: matrix.fmt
         run: scripts/check_gofmt.sh ${{ inputs.directory }}
 
+      - name: Install stringer
+        if: matrix.fmt
+        run: go install golang.org/x/tools/cmd/stringer@v0.45.0
+
+      - name: Install antlr4
+        if: matrix.fmt && inputs.install_antlr4
+        run: |
+          scripts/install_antlr4.sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify `go generate` is up to date
+        if: matrix.fmt
+        run: scripts/check_go_generate.sh ${{ inputs.directory }}
+
       - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -55,7 +83,8 @@ jobs:
         run: >-
           go run github.com/onsi/ginkgo/v2/ginkgo -r -p --randomize-all
           --randomize-suites --fail-on-pending --fail-on-empty --keep-going --cover
-          --coverprofile=cover.out --race --trace --github-output
+          --coverprofile=cover.out --race --trace --github-output ${{
+          inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
       - name: Upload coverage

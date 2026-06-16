@@ -7,10 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentType, type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { context } from "@/context";
-import { type NameProps, type RenderProp, type Spec, type Tab } from "@/tabs/types";
+import {
+  type NameRenderProp,
+  type RenderProp,
+  type Spec,
+  type Tab,
+} from "@/tabs/types";
 
 export interface ContextValue {
   /** The array of tabs to display. */
@@ -70,7 +75,7 @@ export interface ContextValue {
    * key, name, typography level, and the rename/edit affordances derived from this
    * context. When omitted, a default Text/Text.Editable renderer is used.
    */
-  Name?: ComponentType<NameProps>;
+  tabName?: NameRenderProp;
 }
 
 const [Context, useContext] = context.create<ContextValue>({

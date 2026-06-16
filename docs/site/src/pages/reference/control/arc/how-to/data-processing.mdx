@@ -238,10 +238,10 @@ func pressure_diff{inlet chan f64, outlet chan f64} () f64 {
 Inside the function, `inlet` and `outlet` read the latest value from those channels.
 
 But what triggers this function? It has no input parameter to receive flow data. Use
-`interval` to run it on a schedule:
+`time.interval` to run it on a schedule:
 
 ```arc
-interval{period=50ms} -> pressure_diff{inlet=inlet_pressure, outlet=outlet_pressure} -> delta_p
+time.interval{period=50ms} -> pressure_diff{inlet=inlet_pressure, outlet=outlet_pressure} -> delta_p
 ```
 
 Every 50ms, Arc runs `pressure_diff`, which reads both pressure channels and outputs the
@@ -249,7 +249,7 @@ difference.
 
 <Note.Note variant="info">
   Functions with only config parameters (no input parameters) need something to trigger
-  them. Use `interval` for periodic execution.
+  them. Use `time.interval` for periodic execution.
 </Note.Note>
 
 <Divider.Divider x />
@@ -269,7 +269,7 @@ Good when you want to process every sample from a sensor.
 **Interval-driven**: A timer triggers execution at a fixed rate.
 
 ```arc
-interval{period=100ms} -> read_sensors{} -> output
+time.interval{period=100ms} -> read_sensors{} -> output
 ```
 
 Good when:
@@ -355,7 +355,7 @@ func median3{a chan f64, b chan f64, c chan f64} () f64 {
     return vc
 }
 
-interval{period=50ms} -> median3{a=pressure_1, b=pressure_2, c=pressure_3} -> pressure_voted
+time.interval{period=50ms} -> median3{a=pressure_1, b=pressure_2, c=pressure_3} -> pressure_voted
 ```
 
 If one sensor fails and reads 0 while the others read 500, the median is 500. The faulty

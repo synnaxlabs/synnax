@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { primitive } from "@synnaxlabs/x";
+import { errors, primitive } from "@synnaxlabs/x";
 
 import { Common } from "@/hardware/common";
 import { Device } from "@/hardware/ethercat/device";
@@ -78,7 +78,7 @@ export const checkOrCreateIndex = async (
       await client.channels.retrieve(currentIndex);
     } catch (e) {
       if (NotFoundError.matches(e)) shouldCreate = true;
-      else throw e;
+      else throw errors.fromUnknown(e);
     }
 
   if (shouldCreate) {
@@ -113,7 +113,7 @@ export const findChannelsToCreate = async <C extends Channel>(
       await client.channels.retrieve(existing);
     } catch (e) {
       if (NotFoundError.matches(e)) toCreate.push(ch);
-      else throw e;
+      else throw errors.fromUnknown(e);
     }
   }
   return toCreate;

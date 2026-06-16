@@ -18,5 +18,5 @@ import (
 
 func TestScheduler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Scheduler Suite")
+	RunSpecs(t, "Runtime Scheduler Suite")
 }

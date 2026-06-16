@@ -84,4 +84,46 @@ TEST(State, ClearResetsCounter) {
     EXPECT_EQ(h, 1);
     EXPECT_EQ(st.get(h), "after clear");
 }
+
+// Empty-string handle contract: must match arc/go/stl/strings so WASM code
+// compiled on the Go runtime behaves identically when run via C++.
+TEST(State, CreateEmptyStringReturnsHandleZero) {
+    State st;
+    EXPECT_EQ(st.create(""), 0u);
+}
+
+TEST(State, CreateConfigEmptyStringReturnsHandleZero) {
+    State st;
+    EXPECT_EQ(st.create_config(""), 0u);
+}
+
+TEST(State, FromMemoryZeroLengthReturnsHandleZero) {
+    State st;
+    const uint8_t buf[1] = {0};
+    EXPECT_EQ(st.from_memory(buf, 0), 0u);
+}
+
+TEST(State, GetHandleZeroReturnsEmptyString) {
+    State st;
+    EXPECT_EQ(st.get(0), "");
+}
+
+TEST(State, ExistsHandleZeroReturnsTrue) {
+    State st;
+    EXPECT_TRUE(st.exists(0));
+}
+
+TEST(State, EmptyStringRoundTripsThroughHandleZero) {
+    State st;
+    const uint32_t h = st.create("");
+    EXPECT_EQ(h, 0u);
+    EXPECT_EQ(st.get(h), "");
+    EXPECT_TRUE(st.exists(h));
+}
+
+TEST(State, CreateEmptyDoesNotConsumeCounter) {
+    State st;
+    EXPECT_EQ(st.create(""), 0u);
+    EXPECT_EQ(st.create("x"), 1u);
+}
 }

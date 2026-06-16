@@ -31,9 +31,11 @@ var _ = Describe("storage", func() {
 		)
 		BeforeEach(func() {
 			tempDir = MustSucceed(os.MkdirTemp("", "synnax-test"))
+			// DeferCleanup runs after the layer's Close, whereas an AfterEach would
+			// fire while files are still open and fail RemoveAll on Windows.
+			DeferCleanup(func() { Expect(os.RemoveAll(tempDir)).To(Succeed()) })
 			cfg = storage.LayerConfig{Dirname: filepath.Join(tempDir, "storage")}
 		})
-		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {
 			It("Should return an error if the lock is already acquired", func(ctx SpecContext) {
 				MustOpen(storage.OpenLayer(ctx, cfg))

@@ -4,10 +4,10 @@ title: "Functions"
 description:
   "Arc function reference for declaration syntax, config parameters, inputs, outputs,
   and calling conventions"
-prev: "Operators"
-prevURL: "/reference/control/arc/reference/operators"
-next: "Loops"
-nextURL: "/reference/control/arc/reference/loops"
+prev: "Stages"
+prevURL: "/reference/control/arc/reference/stages"
+next: "Statements"
+nextURL: "/reference/control/arc/reference/statements"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -199,6 +199,11 @@ func compute(x f64)result f64 {
 
 ### Multiple Named Outputs
 
+A function may declare more than one named output. Each output is set in the body and
+routed to its own destination at the call site. Use
+[routing tables](/reference/control/arc/reference/flow#output-routing) to connect
+multiple outputs:
+
 ```arc
 func split(value f64) (high f64, low f64) {
     if value > 50.0 {
@@ -207,11 +212,7 @@ func split(value f64) (high f64, low f64) {
         low = value
     }
 }
-```
 
-Use routing tables to connect multiple outputs:
-
-```arc
 sensor -> split{} -> {
     high: alarm{},
     low: logger{}
@@ -264,10 +265,10 @@ Each function instantiation has its own state:
 
 ```arc
 // Two separate counters with independent state
-interval {
+time.interval {
     100ms
 } -> counter{} -> count1
-interval{200ms} -> counter{} -> count2
+time.interval{200ms} -> counter{} -> count2
 ```
 
 <Divider.Divider x />
@@ -304,14 +305,15 @@ func monitor() {
 
 ## Multi-Input Functions
 
-Use routing tables to map multiple sources to input parameters:
+Use [routing tables](/reference/control/arc/reference/flow#input-routing) to map
+multiple sources to input parameters:
 
 ```arc
 func average(a f64, b f64) f64 {
-    return(a + b) / 2.0
+    return (a + b) / 2.0
 }
 
- {
+{
     sensor1: a,
     sensor2: b
 } -> average{} -> avg_output
@@ -349,3 +351,23 @@ func factorial(n i64) i64 {
 <Note.Note variant="warning">
   Unbounded recursion causes a stack overflow at runtime.
 </Note.Note>
+
+<Divider.Divider x />
+
+### len
+
+Built-in function that does not require an `import` or module prefix. Returns the length
+of a series or string.
+
+```arc
+data := [1.0, 2.0, 3.0]
+length := len(data) // 3 (i64)
+
+msg := "hello"
+chars := len(msg) // 5 (i64)
+```
+
+| Parameter   | Type              | Description                 |
+| ----------- | ----------------- | --------------------------- |
+| input       | `series` or `str` | Value to measure            |
+| **Returns** | `i64`             | Number of elements or bytes |

@@ -76,12 +76,11 @@ Device struct<
         @validate required
         @filter
     }
-    configured bool          {
-        @doc value        """
+    configured bool = false {
+        @doc value """
             indicates whether the device has been successfully configured and is
             ready for use.
         """
-        @validate default false
     }
     properties Properties    {
         @doc value """
@@ -119,12 +118,7 @@ New struct<
     Make extends string = string,
     Model extends string = string
 > extends Device<Properties, Make, Model> {
-    key        Key?  {
-        @doc value """
-            is an optional key for the device. If not provided, one will be
-            automatically assigned.
-        """
-    }
+    key?
     configured bool? {
         @doc value "is an optional configuration status."
     }

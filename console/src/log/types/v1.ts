@@ -8,34 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { Log } from "@synnaxlabs/pluto";
-import { migrate } from "@synnaxlabs/x";
+import { migrate, notation, telem } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import type * as v0 from "@/log/types/v0";
 
 export const VERSION = "1.0.0";
 
-export const { channelConfigZ } = Log;
-export type ChannelConfig = z.infer<typeof Log.channelConfigZ>;
+export const timestampConfigZ = z.object({
+  format: telem.timestampFormatZ.default("preciseDate"),
+  tz: telem.timeZoneZ.default("local"),
+});
+export type TimestampConfig = z.infer<typeof timestampConfigZ>;
 
-export const ZERO_CHANNEL_CONFIG: ChannelConfig = {
-  color: "",
-  notation: "standard",
-  precision: -1,
-  alias: "",
-  timestamp: { format: "preciseDate", tz: "local" },
-};
-
-export const channelEntryZ = channelConfigZ.extend({
+export const channelEntryZ = z.object({
   channel: channel.keyZ,
+  color: z.string().default(""),
+  notation: notation.notationZ.default("standard"),
+  precision: z.number().min(-1).max(17).default(-1),
+  alias: z.string().default(""),
+  timestamp: timestampConfigZ.default({ format: "preciseDate", tz: "local" }),
 });
 export type ChannelEntry = z.infer<typeof channelEntryZ>;
-
-export const ZERO_CHANNEL_ENTRY: ChannelEntry = {
-  ...ZERO_CHANNEL_CONFIG,
-  channel: 0,
-};
 
 export const toolbarTabZ = z.enum(["channels", "properties"]);
 export type ToolbarTab = z.infer<typeof toolbarTabZ>;
@@ -90,10 +84,7 @@ export const stateMigration = migrate.createMigration<v0.State, State>({
     showChannelNames: true,
     showReceiptTimestamp: true,
     toolbar: ZERO_TOOLBAR_STATE,
-    channels: state.channels.map((key) => ({
-      channel: key,
-      ...ZERO_CHANNEL_CONFIG,
-    })),
+    channels: state.channels.map((key) => channelEntryZ.parse({ channel: key })),
   }),
 });
 

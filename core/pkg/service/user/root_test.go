@@ -131,8 +131,8 @@ func purgeUsersAndAuth(ctx context.Context) {
 		if err := gorp.WrapWriter[user.Key, user.User](tx).Delete(ctx, keys...); err != nil {
 			return err
 		}
-		if err := otg.NewWriter(tx).DeleteManyResources(
-			ctx, user.OntologyIDsFromKeys(keys),
+		if err := otg.NewWriter(tx).DeleteResource(
+			ctx, user.OntologyIDsFromKeys(keys)...,
 		); err != nil {
 			return err
 		}

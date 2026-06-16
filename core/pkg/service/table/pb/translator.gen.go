@@ -69,6 +69,56 @@ func CellsFromPB(pbs []*Cell) ([]table.Cell, error) {
 	return result, nil
 }
 
+// CellTemplateToPB converts CellTemplate to CellTemplate.
+func CellTemplateToPB(r table.CellTemplate) (*CellTemplate, error) {
+	propsVal, err := structpb.NewStruct(r.Props)
+	if err != nil {
+		return nil, err
+	}
+	pb := &CellTemplate{
+		Variant: r.Variant,
+		Props:   propsVal,
+	}
+	return pb, nil
+}
+
+// CellTemplateFromPB converts CellTemplate to CellTemplate.
+func CellTemplateFromPB(pb *CellTemplate) (table.CellTemplate, error) {
+	var r table.CellTemplate
+	if pb == nil {
+		return r, nil
+	}
+	r.Props = pb.Props.AsMap()
+	r.Variant = pb.Variant
+	return r, nil
+}
+
+// CellTemplatesToPB converts a slice of CellTemplate to CellTemplate.
+func CellTemplatesToPB(rs []table.CellTemplate) ([]*CellTemplate, error) {
+	result := make([]*CellTemplate, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CellTemplateToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CellTemplatesFromPB converts a slice of CellTemplate to CellTemplate.
+func CellTemplatesFromPB(pbs []*CellTemplate) ([]table.CellTemplate, error) {
+	result := make([]table.CellTemplate, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CellTemplateFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // RowToPB converts Row to Row.
 func RowToPB(r table.Row) (*Row, error) {
 	pb := &Row{

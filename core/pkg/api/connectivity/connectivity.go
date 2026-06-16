@@ -15,7 +15,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"

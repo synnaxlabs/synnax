@@ -84,6 +84,47 @@ var _ = Describe("Format", func() {
 		})
 	})
 
+	Describe("Partial Field Overrides", func() {
+		It("should preserve a standalone optionality marker on a typeless override", func() {
+			result := format("Child struct extends Parent {\n  key?\n  note??\n}\n")
+			Expect(result).To(ContainSubstring("key?"))
+			Expect(result).To(ContainSubstring("note??"))
+			Expect(result).NotTo(ContainSubstring("key ?"))
+		})
+
+		It("should preserve a typeless override that changes only the default", func() {
+			result := format("Child struct extends Parent {\n  count = 10\n}\n")
+			Expect(result).To(ContainSubstring("count = 10"))
+		})
+
+		It("should preserve a typeless override that adds a domain", func() {
+			result := format("Child struct extends Parent {\n  name @validate required\n}\n")
+			Expect(result).To(ContainSubstring("name @validate required"))
+		})
+
+		It("should preserve a domain removal inline and in a body", func() {
+			result := format("Child struct extends Parent {\n  name -@validate\n  key? {\n    -@doc\n  }\n}\n")
+			Expect(result).To(ContainSubstring("name -@validate"))
+			Expect(result).To(ContainSubstring("-@doc"))
+		})
+
+		It("should keep a typeless override with a brace body idempotent", func() {
+			source := "Child struct extends Parent {\n" +
+				"  key? {\n    @doc value \"an optional key\"\n  }\n" +
+				"  query {\n    @doc value \"inherits its type\"\n  }\n" +
+				"  snapshot?\n" +
+				"  expression? = \"\"\n" +
+				"}\n"
+			once := format(source)
+			twice := format(once)
+			Expect(twice).To(Equal(once))
+			Expect(once).To(ContainSubstring("key?"))
+			Expect(once).To(MatchRegexp(`query\s+\{`))
+			Expect(once).To(ContainSubstring("snapshot?\n"))
+			Expect(once).To(ContainSubstring("expression? = \"\""))
+		})
+	})
+
 	Describe("Enum Definitions", func() {
 		It("should format an empty enum", func() {
 			Expect(format("Status enum {}\n")).To(Equal("Status enum {}\n"))
@@ -99,6 +140,11 @@ var _ = Describe("Format", func() {
 			result := format("Status enum {\n  A = 1\n  LONG_NAME = 2\n}\n")
 			Expect(result).To(ContainSubstring("A         = 1"))
 			Expect(result).To(ContainSubstring("LONG_NAME = 2"))
+		})
+
+		It("should format an enum that extends others", func() {
+			result := format("AxisKey enum extends XAxisKey, YAxisKey {}\n")
+			Expect(result).To(ContainSubstring("AxisKey enum extends XAxisKey, YAxisKey {}"))
 		})
 
 		It("should format an enum with domains", func() {
@@ -318,13 +364,124 @@ var _ = Describe("Format", func() {
 		})
 
 		It("should format boolean expression values", func() {
-			result := format("User struct {\n  active bool @validate default true\n}\n")
-			Expect(result).To(ContainSubstring("default true"))
+			result := format("User struct {\n  active bool = true\n}\n")
+			Expect(result).To(ContainSubstring("= true"))
+		})
+
+		It("should format a field default before a brace body", func() {
+			result := format("Item struct {\n  count int32 = 7 {\n    @doc value \"is a counter.\"\n  }\n}\n")
+			Expect(result).To(ContainSubstring("count int32 = 7 {"))
+		})
+
+		It("should format an empty array default", func() {
+			result := format("Item struct {\n  vals float64[] = []\n}\n")
+			Expect(result).To(ContainSubstring("vals float64[] = []"))
+		})
+
+		It("should format a populated array default", func() {
+			result := format("Item struct {\n  vals float64[] = [1.5, 2.5]\n}\n")
+			Expect(result).To(ContainSubstring("vals float64[] = [1.5, 2.5]"))
+		})
+
+		It("should format an empty struct default", func() {
+			result := format("Point struct {\n  x int32\n}\nItem struct {\n  p Point = {}\n}\n")
+			Expect(result).To(ContainSubstring("p Point = {}"))
+		})
+
+		It("should format a populated struct default", func() {
+			result := format("Point struct {\n  x int32\n  y int32\n}\nItem struct {\n  p Point = { x = 1, y = 2 }\n}\n")
+			Expect(result).To(ContainSubstring("p Point = { x = 1, y = 2 }"))
+		})
+
+		It("should format a nested struct default", func() {
+			result := format("Inner struct {\n  tags string[]\n}\nMid struct {\n  inner Inner\n}\nItem struct {\n  m Mid = { inner = { tags = [\"a\"] } }\n}\n")
+			Expect(result).To(ContainSubstring("m Mid = { inner = { tags = [\"a\"] } }"))
+		})
+
+		It("should break a struct default across lines when it overflows the line", func() {
+			src := "Inner struct {\n  one int32\n  two int32\n  three int32\n}\n" +
+				"Outer struct {\n  a Inner\n  b Inner\n  c Inner\n}\n" +
+				"Item struct {\n  o Outer = { a = { one = 1, two = 2, three = 3 }, b = { one = 1, two = 2, three = 3 }, c = { one = 1, two = 2, three = 3 } }\n}\n"
+			result := format(src)
+			Expect(result).To(ContainSubstring("o Outer = {\n"))
+			Expect(result).To(ContainSubstring("        a = { one = 1, two = 2, three = 3 },\n"))
+			Expect(result).To(ContainSubstring("        c = { one = 1, two = 2, three = 3 }\n"))
+			Expect(result).To(ContainSubstring("    }\n"))
+			Expect(result).ToNot(ContainSubstring("three = 3 },\n    }"))
+			Expect(format(result)).To(Equal(result))
 		})
 
 		It("should format qualified ident expression values", func() {
 			result := format("User struct {\n  role string @relation target access.Role\n}\n")
 			Expect(result).To(ContainSubstring("target access.Role"))
+		})
+	})
+
+	Describe("Union Definitions", func() {
+		It("should format an empty union", func() {
+			Expect(format("Empty union on type {}\n")).To(Equal("Empty union on type {}\n"))
+		})
+
+		It("should format a simple union with variants", func() {
+			source := "A struct {}\nB struct {}\nFoo union on type {\n  a A\n  b B\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("Foo union on type {"))
+			Expect(result).To(ContainSubstring("a A"))
+			Expect(result).To(ContainSubstring("b B"))
+		})
+
+		It("should align variant names", func() {
+			source := "A struct {}\nLongName struct {}\nFoo union on type {\n  x A\n  veryLongVariant LongName\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("x               A"))
+			Expect(result).To(ContainSubstring("veryLongVariant LongName"))
+		})
+
+		It("should format a union with extends", func() {
+			source := "Base struct {\n  k string\n}\nA struct {}\nB struct {}\nFoo union on type extends Base {\n  a A\n  b B\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("Foo union on type extends Base {"))
+		})
+
+		It("should format a union with multiple bases", func() {
+			source := "X struct {\n  x string\n}\nY struct {\n  y string\n}\nA struct {}\nB struct {}\nFoo union on kind extends X, Y {\n  a A\n  b B\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("union on kind extends X, Y {"))
+		})
+
+		It("should format inline variant bodies with struct-body formatting", func() {
+			source := "Base struct {\n  k string\n}\nFoo union on type extends Base {\n  a {\n    width float64\n  }\n  b extends Base {\n    height float64\n  }\n  c {}\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("a {"))
+			Expect(result).To(ContainSubstring("width float64"))
+			Expect(result).To(ContainSubstring("b extends Base {"))
+			Expect(result).To(ContainSubstring("c {}"))
+		})
+
+		It("should be idempotent on inline variant bodies", func() {
+			source := "Foo union on type {\n  a {\n    width float64\n  }\n  b {}\n}\n"
+			once := format(source)
+			Expect(format(once)).To(Equal(once))
+		})
+
+		It("should format a union with per-variant domains", func() {
+			source := "A struct {}\nB struct {}\nFoo union on type {\n  a A {\n    @doc value \"variant a\"\n  }\n  b B\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("a A {"))
+			Expect(result).To(ContainSubstring("@doc value \"variant a\""))
+		})
+
+		It("should format a union with union-level domains", func() {
+			source := "A struct {}\nB struct {}\nFoo union on type {\n  a A\n  b B\n  @doc value \"the foo union\"\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("@doc value \"the foo union\""))
+		})
+
+		It("should be idempotent for unions and produce the canonical layout", func() {
+			source := "A struct {\n    x int32\n}\n\nB struct {\n    y string\n}\n\nBase struct {\n    k string\n}\n\nFoo union on type extends Base {\n    a A\n    b B\n}\n"
+			first := format(source)
+			Expect(first).To(Equal(source))
+			Expect(format(first)).To(Equal(first))
 		})
 	})
 
