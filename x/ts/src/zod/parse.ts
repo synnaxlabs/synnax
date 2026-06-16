@@ -420,19 +420,6 @@ export interface ParseErrorArgs {
 }
 
 /**
- * Structural shape returned by {@link ParseError.toStatus}. It mirrors the subset of
- * the status system's `Custom` contract that this error populates. It is declared
- * locally rather than imported from the status module so that this low-level parsing
- * code carries no dependency on the higher-level status layer; the status system reads
- * `toStatus` duck-typed via the `in` operator, so no nominal `implements` is required.
- */
-interface StatusSpec {
-  message?: string;
-  description?: string;
-  details?: Record<string, unknown>;
-}
-
-/**
  * An error thrown by `zod.parse` when a value fails to parse. It retains the original
  * input, a human-readable label, and optional context so that callers and the status
  * system can render a richer failure message than a raw `ZodError`.
@@ -460,7 +447,7 @@ export class ParseError extends errors.createTyped(PARSE_ERROR_TYPE) {
     this.context = context;
   }
 
-  toStatus(): StatusSpec {
+  toStatus() {
     const details: Record<string, unknown> = {
       input: fmt.value(this.input),
       issues: this.issues,

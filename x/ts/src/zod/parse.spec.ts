@@ -579,7 +579,7 @@ describe("zod.parse", () => {
     });
 
     it("should return the input, issues, and context in the details", () => {
-      const details = makeError().toStatus().details as Record<string, unknown>;
+      const details = makeError().toStatus().details;
       expect(details.input).toEqual({
         config: { port: "8080", host: "localhost" },
       });
@@ -590,13 +590,13 @@ describe("zod.parse", () => {
 
     it("should include the raw zod issues for programmatic inspection", () => {
       const err = makeError();
-      const details = err.toStatus().details as Record<string, unknown>;
+      const details = err.toStatus().details;
       expect(details.issues).toBe(err.issues);
     });
 
     it("should omit the context key when no context is provided", () => {
       const err = parseExpectingError(z.string(), 42);
-      const details = err.toStatus().details as Record<string, unknown>;
+      const details = err.toStatus().details;
       expect(details.input).toBe(42);
       expect(details.context).toBeUndefined();
       expect(Array.isArray(details.issues)).toBe(true);

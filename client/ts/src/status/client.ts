@@ -22,7 +22,7 @@ const setReqZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
 ) =>
   z.object({
     parent: ontology.idZ.optional(),
-    statuses: newZ({ details: detailsSchema }).omit({ labels: true }).array(),
+    statuses: newZ({ details: detailsSchema }).array(),
   });
 const setResZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
