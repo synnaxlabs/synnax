@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -55,7 +56,7 @@ var _ = Describe("Alias", Ordered, func() {
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              dist.DB,
 			Ontology:        dist.Ontology,
-			Channel:         dist.ChannelService(),
+			Channel:         channelmock.ChannelService(dist),
 			ParentRetriever: rangerSvc,
 			Search:          dist.Search,
 		}))
@@ -72,7 +73,7 @@ var _ = Describe("Alias", Ordered, func() {
 	createChannel := func(ctx context.Context) channel.Channel {
 		channelCount++
 		ch := channel.Channel{DataType: telem.Float32T, Name: fmt.Sprintf("test_%d", channelCount), Virtual: true}
-		Expect(dist.ChannelService().NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(channelmock.ChannelService(dist).NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
 

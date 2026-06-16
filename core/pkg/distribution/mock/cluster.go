@@ -11,7 +11,6 @@ package mock
 
 import (
 	"context"
-	"sync"
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -24,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
-	channelsvc "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
@@ -35,29 +33,15 @@ import (
 type Node struct {
 	*distribution.Layer
 	Storage *storage.Layer
-	// chSvc lazily holds a service-layer channel service wrapped over this node's
-	// distribution layer. It is a pointer so it is shared across copies of the (by-value)
-	// Node, and guarded by sync.Once so it is opened — and its retriever bound — at most
-	// once per node.
-	chSvc *lazyChannelService
-}
-
-type lazyChannelService struct {
-	once sync.Once
-	svc  *channelsvc.Service
-}
-
-// ChannelService returns the service-layer channel service for this node, opening it (and
-// binding it as the distribution layer's channel retriever) on first use. Tests that need
-// to create, retrieve, rename, or delete channels — or observe channel changes — use this
-// instead of the distribution-layer allocator exposed as Node.Channel.
-func (n Node) ChannelService() *channelsvc.Service {
-	n.chSvc.once.Do(func() { n.chSvc.svc = channelsvc.Wrap(n.Layer) })
-	return n.chSvc.svc
+	// channels is the cluster-shared in-memory channel metadata store, bound as this
+	// node's channel retriever. It lets distribution-layer tests create and resolve
+	// channels without depending on the service layer.
+	channels *ChannelStore
 }
 
 type Cluster struct {
 	storage     *mock.Cluster
+	channels    *ChannelStore
 	Nodes       map[node.Key]Node
 	writerNet   *tmock.FramerWriterNetwork
 	iterNet     *tmock.FramerIteratorNetwork
@@ -89,6 +73,7 @@ func NewCluster(cfgs ...distribution.LayerConfig) *Cluster {
 	return &Cluster{
 		cfg:         cfg,
 		storage:     mock.NewCluster(),
+		channels:    newChannelStore(),
 		writerNet:   tmock.NewWriterNetwork(),
 		iterNet:     tmock.NewIteratorNetwork(),
 		channelNet:  tmock.NewChannelNetwork(),
@@ -125,7 +110,8 @@ func (c *Cluster) Provision(
 			},
 		}, c.cfg}, cfgs...)...))
 	)
-	node := Node{Layer: distributionLayer, Storage: storageLayer, chSvc: &lazyChannelService{}}
+	node := Node{Layer: distributionLayer, Storage: storageLayer, channels: c.channels}
+	distributionLayer.ChannelRetriever.Bind(c.channels)
 	c.Nodes[distributionLayer.Cluster.HostKey()] = node
 	c.WaitForTopologyToStabilize()
 	return node
@@ -144,11 +130,6 @@ func (c *Cluster) WaitForTopologyToStabilize() {
 func (b *Cluster) Close() error {
 	var err error
 	for _, node := range b.Nodes {
-		// Close any lazily-wrapped channel service first (it reads through the
-		// distribution layer's DB and registers observers on its ontology).
-		if node.chSvc != nil && node.chSvc.svc != nil {
-			err = errors.Join(err, node.chSvc.svc.Close())
-		}
 		err = errors.Join(err, node.Close())
 	}
 	return errors.Join(err, b.storage.Close())

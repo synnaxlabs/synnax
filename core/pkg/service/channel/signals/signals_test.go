@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -33,7 +34,7 @@ func openStreamer(ctx context.Context, name string) (
 	confluence.Outlet[framer.StreamerResponse], io.Closer,
 ) {
 	var sigCh channel.Channel
-	Expect(dist.ChannelService().NewRetrieve().
+	Expect(channelmock.ChannelService(dist).NewRetrieve().
 		Where(channel.MatchNames(name)).
 		Entry(&sigCh).
 		Exec(ctx, nil),
@@ -56,7 +57,7 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(dist.ChannelService().Create(ctx, &ch)).To(Succeed())
+		Expect(channelmock.ChannelService(dist).Create(ctx, &ch)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		payloads := MustSucceed(telem.UnmarshalJSONSeries[channelPayload](
@@ -76,9 +77,9 @@ var _ = Describe("Signals", func() {
 		ch := channel.Channel{
 			Name: channel.NewRandomName(), DataType: telem.TimeStampT, IsIndex: true,
 		}
-		Expect(dist.ChannelService().Create(ctx, &ch)).To(Succeed())
+		Expect(channelmock.ChannelService(dist).Create(ctx, &ch)).To(Succeed())
 		requests, responses, closeStreamer := openStreamer(ctx, "sy_channel_delete")
-		Expect(dist.ChannelService().NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
+		Expect(channelmock.ChannelService(dist).NewWriter(nil).Delete(ctx, ch.Key(), false)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		keys := telem.UnmarshalSeries[uint32](res.Frame.SeriesAt(0))

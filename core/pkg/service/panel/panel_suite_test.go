@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
@@ -44,7 +45,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = dist.DB
 	otg = dist.Ontology
 	sigs := MustSucceed(signals.New(signals.Config{
-		Channel: dist.ChannelService(),
+		Channel: channelmock.ChannelService(dist),
 		Framer:  framer.Wrap(dist.Framer),
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{

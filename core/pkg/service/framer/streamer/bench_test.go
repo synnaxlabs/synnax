@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -69,12 +70,12 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
-	channelSvc := dist.ChannelService()
+	channelSvc := channelmock.ChannelService(dist)
 	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:                dist.DB,
 		Framer:            dist.Framer,
 		Channel:           channelSvc,
-		ChannelObservable: dist.ChannelService().Observe(),
+		ChannelObservable: channelmock.ChannelService(dist).Observe(),
 		Status:            statusSvc,
 	})
 	if err != nil {
@@ -110,7 +111,7 @@ func (e *benchStreamerEnv) createVirtualChannel(b *testing.B, name string) *chan
 		DataType: telem.Float32T,
 		Virtual:  true,
 	}
-	if err := e.dist.ChannelService().Create(e.ctx, ch); err != nil {
+	if err := channelmock.ChannelService(e.dist).Create(e.ctx, ch); err != nil {
 		b.Fatalf("failed to create channel: %v", err)
 	}
 	return ch
@@ -126,7 +127,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := e.dist.ChannelService().Create(e.ctx, indexCh); err != nil {
+	if err := channelmock.ChannelService(e.dist).Create(e.ctx, indexCh); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -136,7 +137,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.dist.ChannelService().Create(e.ctx, dataChannels[i]); err != nil {
+		if err := channelmock.ChannelService(e.dist).Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -149,7 +150,7 @@ func (e *benchStreamerEnv) createCalculation(b *testing.B, name, expression stri
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.dist.ChannelService().Create(e.ctx, calc); err != nil {
+	if err := channelmock.ChannelService(e.dist).Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc

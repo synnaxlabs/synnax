@@ -18,13 +18,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -113,7 +113,7 @@ var _ = Describe("Relay", func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
 			svc := builder.Nodes[1]
-			Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -152,7 +152,7 @@ var _ = Describe("Relay", func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
 			svc := builder.Nodes[1]
-			Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -194,7 +194,7 @@ var _ = Describe("Relay", func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
 			svc := builder.Nodes[1]
-			Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -239,7 +239,7 @@ var _ = Describe("Relay", func() {
 				ch.Virtual = true
 				channels[i] = ch
 			}
-			Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -279,7 +279,6 @@ var _ = Describe("Relay", func() {
 				Expect(builder.Close()).To(Succeed())
 			}()
 			svc := builder.Nodes[1]
-			svc.ChannelService() // bind the framer's channel retriever
 			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
@@ -301,7 +300,6 @@ var _ = Describe("Relay", func() {
 		BeforeAll(func(ctx SpecContext) {
 			builder = mock.ProvisionCluster(ctx, 1)
 			svc = builder.Nodes[1]
-			svc.ChannelService() // pre-wrap so observable goroutines predate the leak baseline
 		})
 		AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
 
@@ -316,7 +314,7 @@ var _ = Describe("Relay", func() {
 					Leaseholder: node.KeyFree,
 				}
 			}
-			Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+			Expect(svc.CreateChannels(ctx, &chs)).To(Succeed())
 			return chs
 		}
 
@@ -376,7 +374,7 @@ var _ = Describe("Relay", func() {
 			// write tap. This exercises the path where updateTaps does not
 			// create an applied channel and the demand returns immediately.
 			chs := newChannelSet()
-			Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+			Expect(svc.CreateChannels(ctx, &chs)).To(Succeed())
 			keys := channel.KeysFromChannels(chs)
 
 			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
@@ -524,7 +522,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	svc := builder.Nodes[1]
-	Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(svc.CreateChannels(ctx, &channels)).To(Succeed())
 	return scenario{
 		resCount: 1,
 		name:     "Gateway Only",
@@ -538,18 +536,15 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 4)
 	dist := builder.Nodes[1]
-	for _, n := range builder.Nodes {
-		n.ChannelService()
-	}
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
 	}
-	Expect(dist.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.ChannelService().NewRetrieve().Entries(&chs).Where(channel.MatchKeys(keys...)).Exec(ctx, nil)).To(Succeed())
+		g.Expect(dist.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
@@ -564,18 +559,15 @@ func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	clstr := mock.ProvisionCluster(ctx, 3)
 	gateway := clstr.Nodes[1]
-	for _, n := range clstr.Nodes {
-		n.ChannelService()
-	}
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
 	}
-	Expect(gateway.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(gateway.CreateChannels(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(gateway.ChannelService().NewRetrieve().Entries(&chs).Where(channel.MatchKeys(keys...)).Exec(ctx, nil)).To(Succeed())
+		g.Expect(gateway.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{
@@ -596,12 +588,11 @@ func freeScenario(ctx context.Context) scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(dist.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.CreateChannels(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.ChannelService().NewRetrieve().Entries(&chs).Where(channel.MatchKeys(keys...)).
-			Exec(ctx, nil)).To(Succeed())
+		g.Expect(dist.RetrieveChannelsInto(ctx, &chs, keys...)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
 	return scenario{

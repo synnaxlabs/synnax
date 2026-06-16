@@ -21,11 +21,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -331,35 +331,33 @@ var _ = Describe("Codec", func() {
 	Describe("Dynamic Codec", Ordered, func() {
 		ShouldNotLeakGoroutinesPerSpec()
 		var (
-			builder    *mock.Cluster
-			channelSvc *channel.Service
-			idxCh      channel.Channel
-			dataCh     channel.Channel
+			builder *mock.Cluster
+			dist    mock.Node
+			idxCh   channel.Channel
+			dataCh  channel.Channel
 		)
 		BeforeAll(func(ctx SpecContext) {
 			builder = mock.NewCluster()
-			dist := builder.Provision(context.Background())
-			channelSvc = dist.ChannelService()
-			w := channelSvc.NewWriter(nil)
+			dist = builder.Provision(context.Background())
 			idxCh = channel.Channel{
 				DataType: telem.TimeStampT,
 				Name:     "time",
 				IsIndex:  true,
 			}
-			Expect(w.Create(ctx, &idxCh)).To(Succeed())
+			Expect(dist.CreateChannel(ctx, &idxCh)).To(Succeed())
 			dataCh = channel.Channel{
 				Name:       "data",
 				DataType:   telem.Float32T,
 				LocalIndex: idxCh.Key().LocalKey(),
 			}
-			Expect(w.Create(ctx, &dataCh)).To(Succeed())
+			Expect(dist.CreateChannel(ctx, &dataCh)).To(Succeed())
 		})
 		AfterAll(func() {
 			Expect(builder.Close()).To(Succeed())
 		})
 
 		It("Should allow the caller to update the list of channels", func(ctx SpecContext) {
-			codec := codec.NewDynamic(channelSvc)
+			codec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
 			fr := frame.NewMulti(
 				channel.Keys{dataCh.Key(), idxCh.Key()},
@@ -375,19 +373,19 @@ var _ = Describe("Codec", func() {
 
 		Describe("Initialized", func() {
 			It("Should return false if update has not been called on the codec at least once", func() {
-				codec := codec.NewDynamic(channelSvc)
+				codec := codec.NewDynamic(dist.ChannelRetriever)
 				Expect(codec.Initialized()).To(BeFalse())
 			})
 
 			It("Should return true if update has been called on the codec at least once", func(ctx SpecContext) {
-				codec := codec.NewDynamic(channelSvc)
+				codec := codec.NewDynamic(dist.ChannelRetriever)
 				Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
 				Expect(codec.Initialized()).To(BeTrue())
 			})
 		})
 
 		It("Should not mutate the caller's keys slice when updating", func(ctx SpecContext) {
-			c := codec.NewDynamic(channelSvc)
+			c := codec.NewDynamic(dist.ChannelRetriever)
 			keys := []channel.Key{dataCh.Key(), idxCh.Key()}
 			original := make([]channel.Key, len(keys))
 			copy(original, keys)
@@ -404,8 +402,8 @@ var _ = Describe("Codec", func() {
 		})
 
 		It("Should use the correct encode/decode state even if the codecs are out of sync", func(ctx SpecContext) {
-			encoder := codec.NewDynamic(channelSvc)
-			decoder := codec.NewDynamic(channelSvc)
+			encoder := codec.NewDynamic(dist.ChannelRetriever)
+			decoder := codec.NewDynamic(dist.ChannelRetriever)
 			By("Correctly encoding and decoding when the two codecs are in sync")
 			Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 			Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
@@ -435,8 +433,8 @@ var _ = Describe("Codec", func() {
 		})
 
 		It("Should preserve alignment across rapid key churn (schematic pattern)", func(ctx SpecContext) {
-			enc := codec.NewDynamic(channelSvc)
-			dec := codec.NewDynamic(channelSvc)
+			enc := codec.NewDynamic(dist.ChannelRetriever)
+			dec := codec.NewDynamic(dist.ChannelRetriever)
 			only := channel.Keys{dataCh.Key()}
 			both := channel.Keys{dataCh.Key(), idxCh.Key()}
 			Expect(enc.Update(ctx, only)).To(Succeed())
@@ -461,7 +459,7 @@ var _ = Describe("Codec", func() {
 				case 3:
 					Expect(enc.Update(ctx, only)).To(Succeed())
 				}
-				s := telem.NewSeriesV[float32](float32(i))
+				s := telem.NewSeriesV(float32(i))
 				s.Alignment = cesium.LeadingAlignment(1, sample)
 				fr := frame.NewUnary(dataCh.Key(), s)
 				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
@@ -487,8 +485,8 @@ var _ = Describe("Codec", func() {
 		Describe("Delayed Frames", func() {
 			Context("Empty Result", func() {
 				It("Should work correctly when a 'delayed' frame is provided ot the codec", func(ctx SpecContext) {
-					encoder := codec.NewDynamic(channelSvc)
-					decoder := codec.NewDynamic(channelSvc)
+					encoder := codec.NewDynamic(dist.ChannelRetriever)
+					decoder := codec.NewDynamic(dist.ChannelRetriever)
 					By("Correctly encoding and decoding when the two codecs are in sync")
 					Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
 					Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
@@ -515,8 +513,8 @@ var _ = Describe("Codec", func() {
 
 			Context("Non-Empty Result", func() {
 				It("Should work correctly when a 'delayed' frame is provided ot the codec", func(ctx SpecContext) {
-					encoder := codec.NewDynamic(channelSvc)
-					decoder := codec.NewDynamic(channelSvc)
+					encoder := codec.NewDynamic(dist.ChannelRetriever)
+					decoder := codec.NewDynamic(dist.ChannelRetriever)
 					By("Correctly encoding and decoding when the two codecs are in sync")
 					keys := []channel.Key{idxCh.Key(), dataCh.Key()}
 					Expect(decoder.Update(ctx, keys)).To(Succeed())

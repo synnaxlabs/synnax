@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -72,7 +73,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	channelSvc = dist.ChannelService()
+	channelSvc = channelmock.ChannelService(dist)
 	framerSvc = dist.Framer
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
@@ -80,7 +81,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  dist.ChannelService(),
+		Channel:  channelmock.ChannelService(dist),
 		Search:   searchIdx,
 	}))
 })

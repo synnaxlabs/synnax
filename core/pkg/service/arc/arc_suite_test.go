@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -96,7 +97,7 @@ var (
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Channel:  dist.ChannelService(),
+			Channel:  channelmock.ChannelService(dist),
 			Task:     taskSvc,
 			Search:   searchIdx,
 		}))

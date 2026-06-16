@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 )
 
 var (
@@ -34,7 +35,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	mockCluster = mock.ProvisionCluster(ctx, 1)
 	node := mockCluster.Nodes[1]
 	dist = node.Layer
-	chSvc = node.ChannelService()
+	chSvc = channelmock.ChannelService(node)
 	DeferCleanup(func() {
 		Expect(dist.Close()).To(Succeed())
 		Expect(mockCluster.Close()).To(Succeed())

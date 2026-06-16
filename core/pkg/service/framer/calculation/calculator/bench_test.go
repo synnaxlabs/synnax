@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
@@ -48,7 +49,7 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.dist.ChannelService().CreateMany(e.ctx, &indexes); err != nil {
+		if err := channelmock.ChannelService(e.dist).CreateMany(e.ctx, &indexes); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -64,15 +65,15 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.dist.ChannelService().CreateMany(e.ctx, &bases); err != nil {
+		if err := channelmock.ChannelService(e.dist).CreateMany(e.ctx, &bases); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.dist.ChannelService().Create(e.ctx, calc); err != nil {
+	if err := channelmock.ChannelService(e.dist).Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		ChannelService: e.dist.ChannelService(),
+		ChannelService: channelmock.ChannelService(e.dist),
 		Channel:        *calc,
 	})
 	if err != nil {

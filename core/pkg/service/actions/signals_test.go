@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/confluence"
@@ -56,7 +57,7 @@ var _ = Describe("PublishSignals", func() {
 			Name:     serviceName,
 		}))
 		DeferCleanup(func() { Expect(closer.Close()).To(Succeed()) })
-		Expect(dist.ChannelService().NewRetrieve().
+		Expect(channelmock.ChannelService(dist).NewRetrieve().
 			Where(channel.MatchNames(fmt.Sprintf("sy_%s_set", serviceName))).
 			Entry(&setChannel).
 			Exec(ctx, nil),

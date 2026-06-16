@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
@@ -40,7 +41,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 	dist.Ontology.RegisterService(svc)
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
-		Channel: dist.ChannelService(),
+		Channel: channelmock.ChannelService(dist),
 		Framer:  framer.Wrap(dist.Framer),
 	}))
 	MustOpen(signals.Publish(ctx, sigs, dist.Ontology))

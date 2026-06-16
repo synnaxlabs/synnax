@@ -114,21 +114,25 @@ func (s *Service) Close() error { return s.closer.Close() }
 // by routing to each channel's leaseholder to draw from that node's key counter, and
 // creates the corresponding storage channels there. The returned channels carry their
 // assigned keys, in the same order as the input. Free-virtual channels draw their keys
-// from the bootstrapper.
+// from the bootstrapper. A channel with an unspecified (zero) leaseholder defaults to
+// the host node.
 func (s *Service) Allocate(ctx context.Context, channels []Channel) ([]Channel, error) {
 	out := make([]Channel, len(channels))
 	indicesByTarget := make(map[node.Key][]int)
 	freeIndices := make([]int, 0)
+	host := s.cfg.HostResolver.HostKey()
 	for i, ch := range channels {
 		out[i] = ch
-		lease := ch.Lease()
+		if out[i].Leaseholder == 0 {
+			out[i].Leaseholder = host
+		}
+		lease := out[i].Lease()
 		if lease.IsFree() {
 			freeIndices = append(freeIndices, i)
 		} else {
 			indicesByTarget[lease] = append(indicesByTarget[lease], i)
 		}
 	}
-	host := s.cfg.HostResolver.HostKey()
 	for target, indices := range indicesByTarget {
 		if target == host {
 			if err := s.allocateGateway(ctx, out, indices); err != nil {

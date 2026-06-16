@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelanalyzer "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
@@ -38,7 +39,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		calc *channel.Channel,
 	) *calculator.Calculator {
 		if indexes != nil {
-			Expect(dist.ChannelService().CreateMany(ctx, indexes)).To(Succeed())
+			Expect(channelmock.ChannelService(dist).CreateMany(ctx, indexes)).To(Succeed())
 		}
 		if bases != nil {
 			for i, channel := range *bases {
@@ -52,11 +53,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				channel.LocalIndex = (*indexes)[toGet].LocalKey
 				(*bases)[i] = channel
 			}
-			Expect(dist.ChannelService().CreateMany(ctx, bases)).To(Succeed())
+			Expect(channelmock.ChannelService(dist).CreateMany(ctx, bases)).To(Succeed())
 		}
-		Expect(dist.ChannelService().Create(ctx, calc)).To(Succeed())
+		Expect(channelmock.ChannelService(dist).Create(ctx, calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: dist.ChannelService(),
+			ChannelService: channelmock.ChannelService(dist),
 			Channel:        *calc,
 		}))
 		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
@@ -933,13 +934,13 @@ var _ = Describe("Calculator", Ordered, func() {
 			bases *[]channel.Channel,
 			calc *channel.Channel,
 		) *calculator.Calculator {
-			Expect(dist.ChannelService().CreateMany(ctx, bases)).To(Succeed())
-			res := MustSucceed(channelanalyzer.New(dist.ChannelService().NewArcSymbolResolver(nil)).
+			Expect(channelmock.ChannelService(dist).CreateMany(ctx, bases)).To(Succeed())
+			res := MustSucceed(channelanalyzer.New(channelmock.ChannelService(dist).NewArcSymbolResolver(nil)).
 				Analyze(ctx, calc.Name, calc.Key(), calc.Expression, calc.HasDerivativeOperation()))
 			calc.DataType = res.ChanDataType
-			Expect(dist.ChannelService().Create(ctx, calc)).To(Succeed())
+			Expect(channelmock.ChannelService(dist).Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: dist.ChannelService(),
+				ChannelService: channelmock.ChannelService(dist),
 				Channel:        *calc,
 			}))
 			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
@@ -1032,10 +1033,10 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 			}
-			Expect(dist.ChannelService().CreateMany(ctx, &base)).To(Succeed())
-			Expect(dist.ChannelService().Create(ctx, &calc)).To(Succeed())
+			Expect(channelmock.ChannelService(dist).CreateMany(ctx, &base)).To(Succeed())
+			Expect(channelmock.ChannelService(dist).Create(ctx, &calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: dist.ChannelService(),
+				ChannelService: channelmock.ChannelService(dist),
 				Channel:        calc,
 			}))
 			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
