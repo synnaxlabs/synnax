@@ -214,7 +214,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Type struct {
 						name string
-						unit Unit??
+						unit Unit?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -241,8 +241,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Node struct {
 						name string
-						left Node??
-						right Node??
+						left Node?
+						right Node?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -281,8 +281,8 @@ var _ = Describe("C++ PB Plugin", func() {
 					Type struct extends FunctionProperties {
 						kind string
 						name string
-						elem Type??
-						constraint Type??
+						elem Type?
+						constraint Type?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -453,7 +453,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Param struct {
 						name string
-						value any??
+						value any?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -809,7 +809,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data record??
+						data record?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -861,7 +861,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Task struct {
 						key uuid
-						parent uuid??
+						parent uuid?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -1135,7 +1135,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Status struct<Details> {
 						key     string
-						details Details??
+						details Details?
 					}
 				`
 				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)

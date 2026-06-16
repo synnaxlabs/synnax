@@ -1320,8 +1320,8 @@ var _ = Describe("Go Types Plugin", func() {
 				User struct {
 					key uuid
 					name string
-					nickname string??
-					age int32??
+					nickname string?
+					age int32?
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)

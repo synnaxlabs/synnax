@@ -118,7 +118,7 @@ var _ = Describe("Parser", func() {
 			Expect(fields[2].IDENT().GetText()).To(Equal("description"))
 			tr2 := asTypeRefNormal(fields[2].TypeRef())
 			Expect(tr2.TypeModifiers()).NotTo(BeNil())
-			Expect(tr2.TypeModifiers().AllQUESTION()).To(HaveLen(1))
+			Expect(tr2.TypeModifiers().QUESTION()).NotTo(BeNil())
 		})
 
 		It("Should parse array type fields", func() {
@@ -139,7 +139,7 @@ var _ = Describe("Parser", func() {
 			tr1 := asTypeRefNormal(fields[1].TypeRef())
 			Expect(tr1.ArrayModifier()).NotTo(BeNil())
 			Expect(tr1.TypeModifiers()).NotTo(BeNil())
-			Expect(tr1.TypeModifiers().AllQUESTION()).To(HaveLen(1))
+			Expect(tr1.TypeModifiers().QUESTION()).NotTo(BeNil())
 		})
 
 		It("Should parse qualified type references", func() {
@@ -189,7 +189,7 @@ var _ = Describe("Parser", func() {
 			tr1, ok := fields[1].TypeRef().(*parser.TypeRefMapContext)
 			Expect(ok).To(BeTrue())
 			Expect(tr1.TypeModifiers()).NotTo(BeNil())
-			Expect(tr1.TypeModifiers().AllQUESTION()).To(HaveLen(1))
+			Expect(tr1.TypeModifiers().QUESTION()).NotTo(BeNil())
 		})
 	})
 

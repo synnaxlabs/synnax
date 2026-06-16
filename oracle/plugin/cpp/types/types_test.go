@@ -231,7 +231,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Channel struct {
 						key uint32
-						status ChannelStatus??
+						status ChannelStatus?
 					}
 				`
 				resp := MustGenerate(ctx, channelSource, "channel", loader, cppPlugin)
@@ -275,7 +275,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Rack struct {
 					key uint32
-					parent uint32??
+					parent uint32?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
@@ -288,7 +288,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Only hard optionals (??) use std::optional in C++
+			// Only hard optionals (?) use std::optional in C++
 			Expect(content).To(ContainSubstring(`#include <optional>`))
 			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> parent;`))
 		})
@@ -348,7 +348,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Rack struct {
 					key uint32
-					tags string[]??
+					tags string[]?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
@@ -422,7 +422,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 
 				New struct extends Rack {
-					key uint32??
+					key uint32?
 					-task_counter
 				}
 			`
@@ -627,7 +627,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Status struct<D?> {
 					key uint32
-					details D??
+					details D?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
@@ -973,8 +973,8 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Node struct {
 					name string
-					left Node??
-					right Node??
+					left Node?
+					right Node?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
@@ -1000,10 +1000,10 @@ var _ = Describe("C++ Types Plugin", func() {
 				@cpp output "client/cpp/types"
 
 				A struct {
-					b B??
+					b B?
 				}
 				B struct {
-					a A??
+					a A?
 				}
 			`
 			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
@@ -1024,7 +1024,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Node struct {
 					children Node[]
-					parent Parent??
+					parent Parent?
 				}
 				Parent struct {
 					nodes Node[]
@@ -1041,10 +1041,10 @@ var _ = Describe("C++ Types Plugin", func() {
 				@cpp output "client/cpp/types"
 
 				A struct {
-					b BWrap??
+					b BWrap?
 				}
 				B struct {
-					a A??
+					a A?
 				}
 				BWrap B
 			`
@@ -1071,7 +1071,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Type struct {
 					name string
-					unit Unit??
+					unit Unit?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
@@ -1116,7 +1116,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Rack struct {
 					key uint32
-					status RackStatus??
+					status RackStatus?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, rackSource, "rack", loader)

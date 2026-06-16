@@ -132,8 +132,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Node struct {
 						name string
-						left Node??
-						right Node??
+						left Node?
+						right Node?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
@@ -153,8 +153,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Node struct {
 						name string
-						left Node??
-						right Node??
+						left Node?
+						right Node?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
@@ -172,10 +172,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 					@cpp output "client/cpp/types"
 
 					A struct {
-						b B??
+						b B?
 					}
 					B struct {
-						a A??
+						a A?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
@@ -194,10 +194,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 					@cpp output "client/cpp/types"
 
 					A struct {
-						b BWrap??
+						b BWrap?
 					}
 					B struct {
-						a A??
+						a A?
 					}
 					BWrap B
 				`
@@ -219,8 +219,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					Type struct {
 						kind string
 						name string
-						elem Type??
-						constraint Type??
+						elem Type?
+						constraint Type?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
@@ -245,7 +245,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Type struct {
 						name string
-						unit Unit??
+						unit Unit?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
@@ -268,7 +268,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					Type struct {
 						name string
-						unit Unit??
+						unit Unit?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
@@ -321,8 +321,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					Type struct extends FunctionProperties {
 						kind string
 						name string
-						elem Type??
-						constraint Type??
+						elem Type?
+						constraint Type?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
@@ -443,8 +443,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 					}
 
 					Transfer struct<R> {
-						from State<R>??
-						to   State<R>??
+						from State<R>?
+						to   State<R>?
 					}
 
 					Update struct<R> {

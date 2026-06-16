@@ -474,15 +474,15 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
 		})
 
-		It("Should handle hard optional types (??)", func(ctx SpecContext) {
+		It("Should handle hard optional types (?)", func(ctx SpecContext) {
 			source := `
 				@ts output "out"
 
 				Task struct {
 					key uuid
 					name string
-					status string??
-					description string??
+					status string?
+					description string?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -495,7 +495,7 @@ var _ = Describe("TS Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Hard optional (??) also uses .optional() in TypeScript (no distinction from ?)
+			// Hard optional (?) also uses .optional() in TypeScript (no distinction from ?)
 			Expect(content).To(ContainSubstring(`status: z.string().optional()`))
 			Expect(content).To(ContainSubstring(`description: z.string().optional()`))
 		})
@@ -601,7 +601,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 				Workspace struct {
 					key uuid
-					layout record??
+					layout record?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "workspace", loader)
@@ -2344,7 +2344,7 @@ var _ = Describe("TS Types Plugin", func() {
 					> {
 						name string
 						type Type
-						data Data??
+						data Data?
 
 						@ts {
 							concrete_types
@@ -2364,7 +2364,7 @@ var _ = Describe("TS Types Plugin", func() {
 
 					Wrapper struct<Data?> {
 						value string
-						data  Data??
+						data  Data?
 
 						@ts concrete_types
 					}
@@ -2378,7 +2378,7 @@ var _ = Describe("TS Types Plugin", func() {
 						name   string
 						type   Type
 						config Config
-						status Wrapper<StatusData>??
+						status Wrapper<StatusData>?
 
 						@ts {
 							concrete_types

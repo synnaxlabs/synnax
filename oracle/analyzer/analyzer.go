@@ -1458,7 +1458,7 @@ func modifiersFrom(mods parser.ITypeModifiersContext) (optional bool) {
 	if mods == nil {
 		return false
 	}
-	return len(mods.AllQUESTION()) >= 1
+	return mods.QUESTION() != nil
 }
 
 func extractTypeModifiersNormal(tr *parser.TypeRefNormalContext) (optional bool) {

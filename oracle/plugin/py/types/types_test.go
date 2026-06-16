@@ -464,15 +464,15 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`status: str | None = None`))
 		})
 
-		It("Should handle hard optional types (??)", func(ctx SpecContext) {
+		It("Should handle hard optional types (?)", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
 				Task struct {
 					key uuid
 					name string
-					status string??
-					description string??
+					status string?
+					description string?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -485,7 +485,7 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Hard optional (??) also becomes T | None = None in Python (no pointer distinction)
+			// Hard optional (?) also becomes T | None = None in Python (no pointer distinction)
 			Expect(content).To(ContainSubstring(`status: str | None = None`))
 			Expect(content).To(ContainSubstring(`description: str | None = None`))
 		})
@@ -1223,8 +1223,8 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 
 					Transfer struct<R> {
-						from_ State<R>??
-						to   State<R>??
+						from_ State<R>?
+						to   State<R>?
 					}
 
 					Update struct<R> {
@@ -1340,8 +1340,8 @@ var _ = Describe("Python Types Plugin", func() {
 					@py output "out"
 
 					Transfer struct {
-						from string??
-						to string??
+						from string?
+						to string?
 					}
 				`
 				resp := MustGenerate(ctx, source, "control", loader, typesPlugin)
@@ -1415,7 +1415,7 @@ var _ = Describe("Python Types Plugin", func() {
 Status struct<Details?> {
     variant string
     message string
-    details Details??
+    details Details?
 }
 `)
 
@@ -1476,7 +1476,7 @@ ChannelStatus = status.Status<nil>
 					}
 
 					APIRange struct extends Base {
-						parent APIRange??
+						parent APIRange?
 						@py name "Payload"
 					}
 				`

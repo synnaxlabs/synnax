@@ -102,7 +102,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Test struct {
 						name string
-						description string??
+						description string?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
@@ -118,7 +118,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Test struct {
 						name        string
-						description string??
+						description string?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
@@ -146,7 +146,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Axis struct {
 						label string
-						type  TickType??
+						type  TickType?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
@@ -175,7 +175,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Item struct {
 						name  string
-						level Level??
+						level Level?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
@@ -210,7 +210,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Test struct {
 						name   string
-						status MyStatus??
+						status MyStatus?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
@@ -349,7 +349,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Test struct {
 						name    string
-						wrapper MyWrapper??
+						wrapper MyWrapper?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
@@ -564,7 +564,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Test struct {
 						name  string
-						items Inner[]??
+						items Inner[]?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
@@ -639,7 +639,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Type struct {
 						name string
-						elem Type??
+						elem Type?
 					}
 
 					Container struct {

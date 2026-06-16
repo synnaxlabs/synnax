@@ -71,17 +71,17 @@ OptionalFields struct {
 }
 `
 
-// HardOptionalTemplate contains fields with hard optional modifier (??).
-// Hard optional uses pointer semantics (can distinguish nil from zero).
+// HardOptionalTemplate contains fields with the optional modifier (?), which
+// uses pointer semantics (can distinguish nil from zero).
 // Format: domain directive
 const HardOptionalTemplate = `
 %s
 
 NullableFields struct {
 	key uuid
-	name string??
-	age int32??
-	parent uuid??
+	name string?
+	age int32?
+	parent uuid?
 }
 `
 

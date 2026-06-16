@@ -258,10 +258,9 @@ typeArgs
     : LT typeRef (COMMA typeRef)* GT
     ;
 
-// Type modifiers: soft optional (?) or hard optional (??)
+// Type modifier: optional (?), nullable and round-tripping faithfully.
 typeModifiers
-    : QUESTION QUESTION   // ?? (hard optional - pointer in Go)
-    | QUESTION            // ? (soft optional - zero value in Go)
+    : QUESTION
     ;
 
 // Qualified identifier for type names

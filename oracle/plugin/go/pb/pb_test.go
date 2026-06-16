@@ -209,7 +209,7 @@ var _ = Describe("Go PB Plugin", func() {
 					}
 
 					Config struct {
-						state_channel Key??
+						state_channel Key?
 					}
 				`
 				resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
@@ -360,7 +360,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Authorities struct {
-						default uint8??
+						default uint8?
 					}
 				`
 				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
@@ -629,7 +629,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 					Test struct {
 						key uuid
-						name string??
+						name string?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -658,7 +658,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 					Axis struct {
 						key   string
-						type  TickType??
+						type  TickType?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -686,7 +686,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 					Item struct {
 						key   string
-						level Level??
+						level Level?
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
@@ -789,7 +789,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Authorities struct {
-						default uint8??
+						default uint8?
 					}
 
 					Function struct {
@@ -895,8 +895,8 @@ var _ = Describe("Go PB Plugin", func() {
 					}
 
 					Transfer struct<R extends comparable> {
-						from State<R>??
-						to   State<R>??
+						from State<R>?
+						to   State<R>?
 					}
 				`
 				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
@@ -1292,7 +1292,7 @@ var _ = Describe("Go PB Plugin", func() {
 					@pb
 
 					Authorities struct {
-						default  uint8??
+						default  uint8?
 						channels map<uint32, uint8>?
 					}
 				`
@@ -1533,7 +1533,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 				Test struct {
 					key uuid
-					info Info??
+					info Info?
 				}
 			`
 			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)

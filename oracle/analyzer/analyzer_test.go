@@ -1011,10 +1011,19 @@ var _ = Describe("Analyzer", func() {
 				"key Key", "key?", "key", "test.Key", true),
 			Entry("? makes a required array field optional",
 				"items string[]", "items?", "items", "Array", true),
-			Entry("?? is accepted as an alias for ?",
-				"note string", "note??", "note", "string", true),
 			Entry("restating the type makes an optional field required",
 				"name string?", "name string", "name", "string", false),
+		)
+
+		DescribeTable("Should reject the removed ?? optionality marker as a syntax error",
+			func(ctx SpecContext, source string) {
+				_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+			},
+			Entry("?? on a typed field",
+				"S struct {\n  note string??\n}\n"),
+			Entry("?? on a typeless override",
+				"Parent struct {\n  note string\n}\n\nChild struct extends Parent {\n  note??\n}\n"),
 		)
 
 		DescribeTable("Should reject partial-override syntax that cannot resolve",
