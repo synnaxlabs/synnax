@@ -327,7 +327,7 @@ public:
                     const auto &s = inputs[i].value.get<std::string>();
                     if (module.cfg.strings != nullptr)
                         this->args[i] = wasmtime::Val(
-                            static_cast<int32_t>(module.cfg.strings->create_config(s))
+                            static_cast<int32_t>(module.cfg.strings->create_literal(s))
                         );
                     continue;
                 }
