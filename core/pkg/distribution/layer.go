@@ -61,11 +61,6 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
-	// ValidateChannelNames disables channel name validation when true.
-	// This allows channels with special characters, spaces, etc.
-	//
-	// [OPTIONAL] - Defaults to true (validation enabled)
-	ValidateChannelNames *bool
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// AdvertiseAddress sets the network address that the distribution layer will publish
@@ -92,8 +87,7 @@ var (
 	// This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
 	DefaultLayerConfig = LayerConfig{
-		GorpCodec:            orc.NewCodec(msgpack.Codec),
-		ValidateChannelNames: new(true),
+		GorpCodec: orc.NewCodec(msgpack.Codec),
 	}
 )
 
@@ -108,7 +102,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.AspenTransport = override.Nil(c.AspenTransport, other.AspenTransport)
 	c.AspenOptions = override.Slice(c.AspenOptions, other.AspenOptions)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
-	c.ValidateChannelNames = override.Nil(c.ValidateChannelNames, other.ValidateChannelNames)
 	return c
 }
 
@@ -122,7 +115,6 @@ func (c LayerConfig) Validate() error {
 	validate.NotNil(v, "frame_transport", c.FrameTransport)
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
 	validate.NotNil(v, "codec", c.GorpCodec)
-	validate.NotNil(v, "disable_channel_name_validation", c.ValidateChannelNames)
 	return v.Error()
 }
 
@@ -147,8 +139,6 @@ type Layer struct {
 	// service layer once its channel service opens. The framer reads channels through
 	// it.
 	ChannelRetriever *channel.RetrieverHolder
-	// ValidateChannelNames reports whether channel name validation is enabled.
-	ValidateChannelNames *bool
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
@@ -236,7 +226,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	l.ValidateChannelNames = cfg.ValidateChannelNames
 	l.ChannelRetriever = channel.NewRetrieverHolder()
 
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{

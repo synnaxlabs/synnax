@@ -23,12 +23,19 @@ type WrapOption func(*wrapOptions)
 
 type wrapOptions struct {
 	intOverflowCheck IntOverflowChecker
+	validateNames    *bool
 }
 
 // WithIntOverflowCheck overrides the overflow checker Wrap installs on the channel
 // Service. When unset, Wrap defaults to the free-tier check (verification.FreeOverflowCheck).
 func WithIntOverflowCheck(check IntOverflowChecker) WrapOption {
 	return func(o *wrapOptions) { o.intOverflowCheck = check }
+}
+
+// WithValidateNames overrides whether the channel Service validates channel names. When
+// unset, Wrap defaults to enabling validation.
+func WithValidateNames(validate bool) WrapOption {
+	return func(o *wrapOptions) { o.validateNames = &validate }
 }
 
 // Wrap opens a channel Service on top of the provided distribution layer, binds it as the
@@ -40,7 +47,7 @@ func WithIntOverflowCheck(check IntOverflowChecker) WrapOption {
 // check defaults to the free tier unless overridden with WithIntOverflowCheck. Wrap
 // panics if the service cannot be opened or the control channel cannot be configured.
 func Wrap(dist *distribution.Layer, opts ...WrapOption) *Service {
-	o := wrapOptions{intOverflowCheck: verification.FreeOverflowCheck}
+	o := wrapOptions{intOverflowCheck: verification.FreeOverflowCheck, validateNames: new(true)}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -52,7 +59,7 @@ func Wrap(dist *distribution.Layer, opts ...WrapOption) *Service {
 		Group:            dist.Group,
 		Search:           dist.Search,
 		IntOverflowCheck: o.intOverflowCheck,
-		ValidateNames:    dist.ValidateChannelNames,
+		ValidateNames:    o.validateNames,
 	})
 	if err != nil {
 		panic(err)

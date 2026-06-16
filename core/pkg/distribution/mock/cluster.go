@@ -64,8 +64,8 @@ func ProvisionCluster(ctx context.Context, n int, cfgs ...distribution.LayerConf
 func NewCluster(cfgs ...distribution.LayerConfig) *Cluster {
 	// NOTE: We don't use config.New here because it returns a zero-value when
 	// validation fails (which it will since we don't have required fields).
-	// Instead, we manually merge the configs to preserve values like
-	// ValidateChannelNames.
+	// Instead, we manually merge the configs to preserve caller-provided optional
+	// values (e.g. AspenOptions, Instrumentation).
 	var cfg distribution.LayerConfig
 	for _, c := range cfgs {
 		cfg = cfg.Override(c)

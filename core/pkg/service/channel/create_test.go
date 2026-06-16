@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -581,10 +580,8 @@ var _ = Context("Name Validation Disabled", func() {
 	Describe("Channel Creation", Ordered, func() {
 		var mockCluster *mock.Cluster
 		BeforeAll(func(ctx SpecContext) {
-			mockCluster = mock.ProvisionCluster(context.Background(), 1, distribution.LayerConfig{
-				ValidateChannelNames: new(false),
-			})
-			channelmock.ChannelService(mockCluster.Nodes[1])
+			mockCluster = mock.ProvisionCluster(context.Background(), 1)
+			channelmock.ChannelService(mockCluster.Nodes[1], channel.WithValidateNames(false))
 		})
 		AfterAll(func() {
 			Expect(mockCluster.Close()).To(Succeed())

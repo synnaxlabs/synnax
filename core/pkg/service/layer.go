@@ -83,6 +83,11 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to "" (free tier)
 	Verifier string
+	// ValidateNames enables channel name validation during creation and renaming. When
+	// false, channels may have names with spaces, special characters, etc.
+	//
+	// [OPTIONAL] - Defaults to true (validation enabled)
+	ValidateNames *bool
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -105,6 +110,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	c.Verifier = override.String(c.Verifier, other.Verifier)
+	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	return c
 }
 
@@ -251,7 +257,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:            cfg.Distribution.Group,
 		Search:           cfg.Distribution.Search,
 		IntOverflowCheck: l.Verification.IsOverflowed,
-		ValidateNames:    cfg.Distribution.ValidateChannelNames,
+		ValidateNames:    cfg.ValidateNames,
 		Status:           l.Status,
 	}); !ok(err, nil) {
 		return nil, err

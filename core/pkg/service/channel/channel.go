@@ -37,9 +37,9 @@ var (
 	OntologyID          = dischannel.OntologyID
 	KeysFromOntologyIDs = dischannel.KeysFromOntologyIDs
 	KeysFromUint32      = dischannel.KeysFromUint32
-	ValidateName        = dischannel.ValidateName
-	NewRandomName       = dischannel.NewRandomName
-	ErrInvalidName      = dischannel.ErrInvalidName
+	// NewRandomName is a cross-layer test helper kept in the distribution layer so the
+	// distribution framer tests can use it without importing the service layer.
+	NewRandomName = dischannel.NewRandomName
 )
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).

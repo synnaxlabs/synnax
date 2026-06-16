@@ -63,7 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:            dist.Group,
 		Search:           dist.Search,
 		IntOverflowCheck: verification.FreeOverflowCheck,
-		ValidateNames:    dist.ValidateChannelNames,
+		ValidateNames:    new(true),
 		Status:           statusSvc,
 	}))
 	dist.ChannelRetriever.Bind(channelSvc)

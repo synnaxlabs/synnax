@@ -210,14 +210,13 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	)
 
 	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
-		Instrumentation:      cfg.Child("distribution"),
-		AdvertiseAddress:     cfg.listenAddress,
-		PeerAddresses:        cfg.peers,
-		AspenTransport:       aspenTransport,
-		FrameTransport:       frameTransport,
-		ChannelTransport:     channelTransport,
-		Storage:              storageLayer,
-		ValidateChannelNames: cfg.validateChannelNames,
+		Instrumentation:  cfg.Child("distribution"),
+		AdvertiseAddress: cfg.listenAddress,
+		PeerAddresses:    cfg.peers,
+		AspenTransport:   aspenTransport,
+		FrameTransport:   frameTransport,
+		ChannelTransport: channelTransport,
+		Storage:          storageLayer,
 	}); !ok(err, distributionLayer) {
 		return err
 	}
@@ -229,6 +228,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Storage:         storageLayer,
 		RootCredentials: cfg.rootCredentials,
 		Verifier:        cfg.verifier,
+		ValidateNames:   cfg.validateChannelNames,
 	}); !ok(err, serviceLayer) {
 		return err
 	}
