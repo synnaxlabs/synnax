@@ -16,7 +16,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,11 +44,15 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = DeferClose(builder.Provision(ctx))
 	db = dist.DB
 	otg = dist.Ontology
+	sigs := MustSucceed(signals.New(signals.Config{
+		Channel: channel.Wrap(dist.Channel),
+		Framer:  framer.Wrap(dist.Framer),
+	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Search:   dist.Search,
-		Signals:  dist.Signals,
+		Signals:  sigs,
 	}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       dist.DB,

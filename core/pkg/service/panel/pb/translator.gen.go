@@ -69,6 +69,58 @@ func TabBasesFromPB(pbs []*TabBase) ([]panel.TabBase, error) {
 	return result, nil
 }
 
+// ViewToPB converts View to View.
+func ViewToPB(r panel.View) (*View, error) {
+	argsVal, err := structpb.NewStruct(r.Args)
+	if err != nil {
+		return nil, err
+	}
+	pb := &View{
+		Type: r.Type,
+		Name: r.Name,
+		Args: argsVal,
+	}
+	return pb, nil
+}
+
+// ViewFromPB converts View to View.
+func ViewFromPB(pb *View) (panel.View, error) {
+	var r panel.View
+	if pb == nil {
+		return r, nil
+	}
+	r.Args = pb.Args.AsMap()
+	r.Type = pb.Type
+	r.Name = pb.Name
+	return r, nil
+}
+
+// ViewsToPB converts a slice of View to View.
+func ViewsToPB(rs []panel.View) ([]*View, error) {
+	result := make([]*View, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ViewToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ViewsFromPB converts a slice of View to View.
+func ViewsFromPB(pbs []*View) ([]panel.View, error) {
+	result := make([]panel.View, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ViewFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // LeafToPB converts Leaf to Leaf.
 func LeafToPB(r panel.Leaf) (*Leaf, error) {
 	tabsVal, err := TabsToPB(r.Tabs)
@@ -319,58 +371,6 @@ func TabResourcesFromPB(pbs []*TabResourcePayload) ([]panel.TabResource, error) 
 	return result, nil
 }
 
-// TabViewToPB converts TabView to TabViewPayload.
-func TabViewToPB(r panel.TabView) (*TabViewPayload, error) {
-	argsVal, err := structpb.NewStruct(r.Args)
-	if err != nil {
-		return nil, err
-	}
-	pb := &TabViewPayload{
-		Type: r.Type,
-		Name: r.Name,
-		Args: argsVal,
-	}
-	return pb, nil
-}
-
-// TabViewFromPB converts TabViewPayload to TabView.
-func TabViewFromPB(pb *TabViewPayload) (panel.TabView, error) {
-	var r panel.TabView
-	if pb == nil {
-		return r, nil
-	}
-	r.Args = pb.Args.AsMap()
-	r.Type = pb.Type
-	r.Name = pb.Name
-	return r, nil
-}
-
-// TabViewsToPB converts a slice of TabView to TabViewPayload.
-func TabViewsToPB(rs []panel.TabView) ([]*TabViewPayload, error) {
-	result := make([]*TabViewPayload, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = TabViewToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// TabViewsFromPB converts a slice of TabViewPayload to TabView.
-func TabViewsFromPB(pbs []*TabViewPayload) ([]panel.TabView, error) {
-	result := make([]panel.TabView, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = TabViewFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // TabEmptyToPB converts TabEmpty to TabEmptyPayload.
 func TabEmptyToPB(r panel.TabEmpty) (*TabEmptyPayload, error) {
 	pb := &TabEmptyPayload{}
@@ -430,7 +430,7 @@ func TabToPB(r panel.Tab) (*Tab, error) {
 		}
 		pb.Variant = &Tab_Resource{Resource: inner}
 	case panel.TabView:
-		inner, err := TabViewToPB(v)
+		inner, err := ViewToPB(v.View)
 		if err != nil {
 			return nil, err
 		}
@@ -474,11 +474,11 @@ func TabFromPB(pb *Tab) (panel.Tab, error) {
 		}
 		r.Variant = m
 	case *Tab_View:
-		inner, err := TabViewFromPB(v.View)
+		inner, err := ViewFromPB(v.View)
 		if err != nil {
 			return r, err
 		}
-		m := inner
+		m := panel.TabView{View: inner}
 		m.TabBase, err = TabBaseFromPB(pb.TabBase)
 		if err != nil {
 			return r, err

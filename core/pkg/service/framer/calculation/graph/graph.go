@@ -583,8 +583,8 @@ func (g *Graph) fetchChannels(ctx context.Context, keys []channel.Key) ([]channe
 }
 
 // resolveBaseDependencies recursively resolves all dependencies to find the concrete
-// (non-calculated) base channels that this channel ultimately depends on.
-// depChannels should be the already-fetched channels for mod.Dependencies.Reads.
+// (non-calculated) base channels that this channel ultimately depends on. depChannels
+// should be the already-fetched channels for mod.Dependencies.Reads.
 func (g *Graph) resolveBaseDependencies(
 	ctx context.Context,
 	depChannels []channel.Channel,
