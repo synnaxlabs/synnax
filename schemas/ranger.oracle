@@ -65,7 +65,7 @@ Range struct {
         periods.
     """
     @retrieve custom
-    @search type     "range"
+    @search
     @ontology type   "range"
     @pb
     @go marshal
