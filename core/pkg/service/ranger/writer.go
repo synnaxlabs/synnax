@@ -34,13 +34,14 @@ type Writer struct {
 
 // Create creates or updates the given range. If r.Parent is non-nil, the range is
 // parented to that range via the parent-of relationship; only r.Parent.Key is consulted
-// — the parent's other fields are ignored and the parent must already exist (it is not
-// validated or written). If r.Parent is nil on update, the existing parent relationship
-// is preserved; on create it is left undefined. If r.Labels is non-empty, a LabeledBy
-// relationship is defined from the range to each label; existing relationships are
-// preserved. If the range does not already have a key, a new key will be assigned. If
-// the range already exists and r.Parent is non-nil, the existing parent relationship
-// will be replaced.
+// on input — the parent's other fields are ignored and the parent must already exist
+// (it is not validated or written). On return, r.Parent is resolved to the parent's
+// stored fields (name, time range, color); the parent's own parent and labels are left
+// unset. If r.Parent is nil on update, the existing parent relationship is preserved;
+// on create it is left undefined. If r.Labels is non-empty, a LabeledBy relationship is
+// defined from the range to each label; existing relationships are preserved. If the
+// range does not already have a key, a new key will be assigned. If the range already
+// exists and r.Parent is non-nil, the existing parent relationship will be replaced.
 func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil {
 		r.Key = uuid.New()
@@ -74,34 +75,47 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		return nil
 	}
 	parent := r.Parent.OntologyID()
+	relAlreadyExists := false
 	if exists {
-		if relAlreadyExists, err := w.otgWriter.HasRelationship(
+		if relAlreadyExists, err = w.otgWriter.HasRelationship(
 			ctx,
 			parent,
 			ontology.RelationshipTypeParentOf,
 			otgID,
-		); relAlreadyExists || err != nil {
+		); err != nil {
 			return err
 		}
-		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+		if !relAlreadyExists {
+			if err = w.otgWriter.DeleteIncomingRelationshipsOfType(
+				ctx,
+				otgID,
+				ontology.RelationshipTypeParentOf,
+			); err != nil {
+				return err
+			}
+		}
+	}
+	if !relAlreadyExists {
+		if err = w.otgWriter.DefineRelationship(
 			ctx,
-			otgID,
+			parent,
 			ontology.RelationshipTypeParentOf,
+			otgID,
 		); err != nil {
 			return err
 		}
 	}
-	return w.otgWriter.DefineRelationship(
-		ctx,
-		parent,
-		ontology.RelationshipTypeParentOf,
-		otgID,
-	)
+	return w.table.
+		NewRetrieve().
+		Where(gorp.MatchKeys[Key, Range](r.Parent.Key)).
+		Entry(r.Parent).
+		Exec(ctx, w.tx)
 }
 
 // CreateMany creates multiple ranges within the DB. If any of the ranges already exist,
 // they will be updated. Each range's Parent field, if non-nil, is used to set its
-// parent relationship.
+// parent relationship and is resolved to the parent's stored fields and labels (see
+// Create).
 func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
 	for i := range *ranges {
 		if err := w.Create(ctx, &(*ranges)[i]); err != nil {
