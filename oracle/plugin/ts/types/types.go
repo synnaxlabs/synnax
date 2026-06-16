@@ -848,6 +848,10 @@ func isFieldUnchanged(parent, child resolution.Field) bool {
 	if hasPreserveKeys(parent) != hasPreserveKeys(child) {
 		return false
 	}
+	if domain.GetStringFromField(parent, "ts", "pick") !=
+		domain.GetStringFromField(child, "ts", "pick") {
+		return false
+	}
 	if !sameDefault(parent.Default, child.Default) {
 		return false
 	}
@@ -1314,6 +1318,14 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 				}
 			}
 		}
+	}
+	// `@ts pick <field>` narrows a struct-typed field to a subset of the referenced
+	// type's fields (e.g. a parent referenced by key alone), emitting a Zod .pick()
+	// and a TS Pick<> rather than a standalone reference type.
+	if pickField := domain.GetStringFromField(field, "ts", "pick"); pickField != "" {
+		camel := fieldCamel(pickField)
+		fd.ZodType = fmt.Sprintf("%s.pick({ %s: true })", fd.ZodType, camel)
+		fd.TSType = fmt.Sprintf("Pick<%s, %q>", fd.TSType, camel)
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	typeOverride := getFieldTypeOverride(field, "ts")

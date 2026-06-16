@@ -2121,6 +2121,32 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("struct field with @ts pick", func() {
+			It("Should narrow a struct-typed field to the picked fields", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Range struct {
+						key uuid {
+							@key
+						}
+						name   string
+						parent Range??
+					}
+
+					New struct extends Range {
+						parent Range?? {
+							@ts pick key
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(".omit({ parent: true })").
+					ToContain("parent: rangeZ.pick({ key: true }).optional()")
+			})
+		})
+
 		Context("struct with forward reference", func() {
 			It("Should handle struct referencing a later-declared struct", func(ctx SpecContext) {
 				source := `
