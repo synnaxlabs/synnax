@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"testing/fstest"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -137,6 +138,78 @@ var _ = Describe("Open", func() {
 			}))
 			Expect(d).ToNot(BeNil())
 			Expect(d.Close()).To(Succeed())
+		})
+
+		It("Should return a non-nil no-op driver when the binary is unavailable", func(ctx SpecContext) {
+			logger, buffer := newTestLogger()
+			d := MustSucceed(driver.Open(ctx, driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				Insecure:        new(true),
+				Address:         "localhost:9090",
+				ParentDirname:   GinkgoT().TempDir(),
+			}))
+			Expect(d.Close()).To(Succeed())
+			Expect(buffer.String()).To(ContainSubstring(
+				"Core built without embedded Driver",
+			))
+		})
+
+		It("Should return an error when the restart policy config is invalid", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			Expect(driver.Open(ctx, driver.Config{
+				Instrumentation:   alamos.New("test", alamos.WithLogger(logger)),
+				FS:                mockFS,
+				Insecure:          new(true),
+				Address:           "localhost:9090",
+				ParentDirname:     GinkgoT().TempDir(),
+				RestartMaxRetries: -1,
+			})).Error().To(MatchError(ContainSubstring("max_retries")))
+		})
+
+		It("Should wrap the startup error when the context is canceled", func(ctx SpecContext) {
+			canceledCtx, cancel := context.WithCancel(ctx)
+			cancel()
+			logger, _ := newTestLogger()
+			Expect(driver.Open(canceledCtx, driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				FS:              mockFS,
+				Insecure:        new(true),
+				Address:         "localhost:9090",
+				ParentDirname:   GinkgoT().TempDir(),
+				StartTimeout:    2 * time.Second,
+				StopTimeout:     500 * time.Millisecond,
+			})).Error().
+				To(MatchError(ContainSubstring("failed to start embedded Driver")))
+		})
+	})
+
+	Describe("startup failures", func() {
+		It("Should fail to start when the binary is missing from the filesystem", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			Expect(driver.Open(ctx, driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				FS:              fstest.MapFS{},
+				Insecure:        new(true),
+				Address:         "localhost:9090",
+				ParentDirname:   GinkgoT().TempDir(),
+				StartTimeout:    200 * time.Millisecond,
+				StopTimeout:     200 * time.Millisecond,
+			})).Error().To(MatchError(ContainSubstring("timed out")))
+		})
+
+		It("Should fail to start when the working directory cannot be created", func(ctx SpecContext) {
+			logger, _ := newTestLogger()
+			blocker := filepath.Join(GinkgoT().TempDir(), "blocker")
+			Expect(os.WriteFile(blocker, []byte("x"), 0o644)).To(Succeed())
+			Expect(driver.Open(ctx, driver.Config{
+				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+				FS:              mockFS,
+				Insecure:        new(true),
+				Address:         "localhost:9090",
+				ParentDirname:   filepath.Join(blocker, "sub"),
+				StartTimeout:    200 * time.Millisecond,
+				StopTimeout:     200 * time.Millisecond,
+			})).Error().To(MatchError(ContainSubstring("timed out")))
 		})
 	})
 
