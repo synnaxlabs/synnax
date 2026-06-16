@@ -29,28 +29,16 @@ import (
 // outside their closed sets flow through untouched for the latest-Log lift to default.
 func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 	var peek struct {
-		Version string `json:"version"`
+		Version imex.Version `json:"version"`
 	}
 	if blob != nil {
 		if err := blob.Unmarshal(&peek); err != nil {
 			return v1.Data{}, errors.Wrap(err, "peek log data version")
 		}
 	}
-	version, err := peekVersion(peek.Version)
-	if err != nil {
-		return v1.Data{}, err
-	}
-	return dispatch(blob, version)
-}
-
-// peekVersion maps the wire-format version the console stamped onto the numeric imex
-// schema version the per-format packages declare. An absent stamp predates the version
-// field and is the v0 schema.
-func peekVersion(stamped string) (imex.Version, error) {
-	if stamped == "" {
-		return v0.Version, nil
-	}
-	return imex.ParseVersion(stamped)
+	// A blob without a version field predates the version stamp; the zero Version is the
+	// v0 schema, so the missing field needs no special handling.
+	return dispatch(blob, peek.Version)
 }
 
 func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v1.Data, error) {

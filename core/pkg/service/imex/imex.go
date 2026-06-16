@@ -37,11 +37,33 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Version is the per-schema integer version stamped on every envelope. On the wire it
-// is decoded by Envelope.UnmarshalJSON (which accepts both numeric values and legacy
-// "N.0.0" semver strings via versionFromAny); standalone JSON unmarshal of a Version
-// only accepts the numeric form.
+// Version is the per-schema integer version stamped on every envelope. On the wire it is
+// the canonical numeric form, but it also decodes from the legacy "N.0.0" semver strings
+// older Console exports wrote — see UnmarshalJSON. This holds both for the envelope header
+// and for a standalone Version decoded out of a versioned payload.
 type Version uint64
+
+// UnmarshalJSON decodes a Version from either the canonical numeric JSON form or a legacy
+// "N.0.0" semver string written by older Console exports. Decoding the version directly
+// into a Version field — rather than a string that a caller must then parse — is why the
+// legacy migration packages can peek the stamped version straight into a Version.
+func (v *Version) UnmarshalJSON(b []byte) error {
+	var n uint64
+	if err := json.Unmarshal(b, &n); err == nil {
+		*v = Version(n)
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return errors.Newf("version must be a number or semver string, got %s", b)
+	}
+	parsed, err := legacyToNumeric(s)
+	if err != nil {
+		return err
+	}
+	*v = parsed
+	return nil
+}
 
 // NewErrUnsupportedVersion constructs a validation error for the named resource type,
 // indicating that the given version exceeds the highest version this Core supports. The
@@ -245,13 +267,6 @@ func Encode[T any](env *Envelope, data T) error {
 	env.body = body
 	return nil
 }
-
-// ParseVersion converts a wire-format version value into a Version, accepting the JSON
-// number form (json.Number) and legacy "N.0.0" semver strings — the same forms
-// Envelope.UnmarshalJSON decodes for the version header. It is exported so per-format
-// legacy migration packages can map the wire version stamped in a data blob onto the
-// numeric schema version they declare.
-func ParseVersion(v any) (Version, error) { return versionFromAny(v) }
 
 // versionFromAny converts a generic Go value (as produced by a UseNumber-mode decode
 // into map[string]any) to a Version. Accepts json.Number (the JSON number form,

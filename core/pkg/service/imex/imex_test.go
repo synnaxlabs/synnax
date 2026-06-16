@@ -672,24 +672,28 @@ var _ = Describe("ImEx", func() {
 		})
 	})
 
-	Describe("ParseVersion", func() {
-		DescribeTable("Should convert a wire-format version value to a Version",
-			func(value any, expected imex.Version) {
-				Expect(imex.ParseVersion(value)).To(Equal(expected))
+	Describe("Version", func() {
+		DescribeTable("Should decode the numeric and legacy semver forms",
+			func(raw string, expected imex.Version) {
+				var v imex.Version
+				Expect(json.Unmarshal([]byte(raw), &v)).To(Succeed())
+				Expect(v).To(Equal(expected))
 			},
-			Entry("legacy v0 semver", "0.0.0", imex.Version(0)),
-			Entry("legacy v1 semver", "1.0.0", imex.Version(1)),
-			Entry("legacy high major", "42.0.0", imex.Version(42)),
-			Entry("json number", json.Number("7"), imex.Version(7)),
+			Entry("numeric", "2", imex.Version(2)),
+			Entry("legacy v0 semver", `"0.0.0"`, imex.Version(0)),
+			Entry("legacy v1 semver", `"1.0.0"`, imex.Version(1)),
+			Entry("legacy high major", `"42.0.0"`, imex.Version(42)),
 		)
 
-		DescribeTable("Should reject an unparseable version value",
-			func(value any) {
-				Expect(imex.ParseVersion(value)).Error().To(MatchError(ContainSubstring("version")))
+		DescribeTable("Should reject an unparseable version",
+			func(raw string) {
+				var v imex.Version
+				Expect(json.Unmarshal([]byte(raw), &v)).
+					To(MatchError(ContainSubstring("version")))
 			},
-			Entry("non-zero minor/patch", "1.2.3"),
-			Entry("not a semver", "garbage"),
-			Entry("unsupported type", true),
+			Entry("non-zero minor/patch", `"1.2.3"`),
+			Entry("not a semver", `"garbage"`),
+			Entry("wrong type", "true"),
 		)
 	})
 })
