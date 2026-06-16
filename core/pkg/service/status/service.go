@@ -72,7 +72,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config
 func (c ServiceConfig) Validate() error {
-	v := validate.New("service")
+	v := validate.New("service.status")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
@@ -91,9 +91,9 @@ type Service struct {
 	group  group.Group
 }
 
-// OpenService opens a new Service with the provided configuration. If error is
-// nil, the service is ready for use and must be closed by calling Close to prevent
-// resource leaks.
+// OpenService opens a new Service with the provided configuration. If error is nil, the
+// service is ready for use and must be closed by calling Close to prevent resource
+// leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {

@@ -13,15 +13,14 @@ package arc
 
 import (
 	"context"
-
 	graphv54 "github.com/synnaxlabs/arc/graph/migrations/v54"
 	program "github.com/synnaxlabs/arc/program"
 	programv54 "github.com/synnaxlabs/arc/program/migrations/v54"
 	text "github.com/synnaxlabs/arc/text"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
+	label "github.com/synnaxlabs/synnax/pkg/service/label"
 	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	status "github.com/synnaxlabs/synnax/pkg/service/status"
 	color "github.com/synnaxlabs/x/color"
 	telem "github.com/synnaxlabs/x/telem"
 )
@@ -66,16 +65,16 @@ func AutoMigrateStatus(ctx context.Context, old arcv54.Status) (Status, error) {
 			return Status{}, err
 		}
 	}
-	var s Status
-	s.Key = old.Key
-	s.Name = old.Name
-	s.Variant = status.Variant(old.Variant)
-	s.Message = old.Message
-	s.Description = old.Description
-	s.Time = telem.TimeStamp(old.Time)
-	s.Details = StatusDetails(old.Details)
-	s.Labels = labels
-	return s, nil
+	return Status{
+		Key:         old.Key,
+		Name:        old.Name,
+		Variant:     status.Variant(old.Variant),
+		Message:     old.Message,
+		Description: old.Description,
+		Time:        telem.TimeStamp(old.Time),
+		Details:     StatusDetails(old.Details),
+		Labels:      labels,
+	}, nil
 }
 
 func AutoMigrateLabel(_ context.Context, old labelv54.Label) (label.Label, error) {

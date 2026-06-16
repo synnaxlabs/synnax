@@ -15,12 +15,11 @@ import (
 	. "github.com/onsi/gomega"
 	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	v54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 	colorv54 "github.com/synnaxlabs/x/color/migrations/v54"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
-
-	v54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 	"github.com/synnaxlabs/x/telem"
 	telemv54 "github.com/synnaxlabs/x/telem/migrations/v54"
 	. "github.com/synnaxlabs/x/testutil"

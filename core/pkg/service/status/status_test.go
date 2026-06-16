@@ -21,9 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-
 	"github.com/synnaxlabs/x/query"
-
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -528,13 +526,13 @@ var _ = Describe("Status", Ordered, func() {
 			writerB := status.NewWriter[TypeB](svc, tx)
 
 			Expect(writerA.Set(ctx, &status.Status[TypeA]{
-				Key: "generic-type-a", Name: "Type A",
-				Variant: "info", Details: TypeA{ValueA: 100}, Time: telem.Now(),
+				Key: "generic-type-a", Name: "Type A", Variant: "info",
+				Details: TypeA{ValueA: 100}, Time: telem.Now(),
 			})).To(Succeed())
 
 			Expect(writerB.Set(ctx, &status.Status[TypeB]{
-				Key: "generic-type-b", Name: "Type B",
-				Variant: "info", Details: TypeB{ValueB: "test"}, Time: telem.Now(),
+				Key: "generic-type-b", Name: "Type B", Variant: "info",
+				Details: TypeB{ValueB: "test"}, Time: telem.Now(),
 			})).To(Succeed())
 
 			// Retrieve both using any - demonstrates that gorp doesn't filter by
@@ -553,8 +551,8 @@ var _ = Describe("Status", Ordered, func() {
 			}
 			writerA := status.NewWriter[TypeA](svc, tx)
 			Expect(writerA.Set(ctx, &status.Status[TypeA]{
-				Key: "mismatch-test", Name: "Mismatch Test",
-				Variant: "info", Details: TypeA{FieldA: 42, FieldB: "hello"}, Time: telem.Now(),
+				Key: "mismatch-test", Name: "Mismatch Test", Variant: "info",
+				Details: TypeA{FieldA: 42, FieldB: "hello"}, Time: telem.Now(),
 			})).To(Succeed())
 
 			// Retrieve with a different type - MsgPack will decode what it can
@@ -579,8 +577,8 @@ var _ = Describe("Status", Ordered, func() {
 			type DetailsB string
 			writerB := status.NewWriter[DetailsB](svc, tx)
 			Expect(writerB.Set(ctx, &status.Status[DetailsB]{
-				Key: "details-b", Name: "Details B",
-				Variant: "info", Details: DetailsB("hello"), Time: telem.Now(),
+				Key: "details-b", Name: "Details B", Variant: "info",
+				Details: DetailsB("hello"), Time: telem.Now(),
 			})).To(Succeed())
 			var retrieved status.Status[DetailsA]
 			retrieveA := status.NewRetrieve[DetailsA](svc)

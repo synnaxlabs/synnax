@@ -11,8 +11,9 @@ package status
 
 import (
 	"fmt"
-	"github.com/synnaxlabs/x/gorp"
 	"strings"
+
+	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ gorp.Entry[string] = (*Status[any])(nil)
@@ -21,11 +22,11 @@ var _ gorp.Entry[string] = (*Status[any])(nil)
 func (s Status[D]) GorpKey() string { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s Status[D]) SetOptions() []any { return nil }
+func (Status[D]) SetOptions() []any { return nil }
 
-// CustomTypeName implements types.CustomTypeName to ensure that Status struct does
-// not conflict with any other types in gorp.
-func (s Status[D]) CustomTypeName() string { return "Status" }
+// CustomTypeName implements types.CustomTypeName to ensure that Status struct does not
+// conflict with any other types in Gorp.
+func (Status[D]) CustomTypeName() string { return "Status" }
 
 // String returns a formatted string representation of the Status.
 func (s Status[D]) String() string {

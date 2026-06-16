@@ -16,10 +16,10 @@ import (
 	ontology "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologyv54 "github.com/synnaxlabs/synnax/pkg/distribution/ontology/migrations/v54"
 	devicev54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
+	label "github.com/synnaxlabs/synnax/pkg/service/label"
 	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	status "github.com/synnaxlabs/synnax/pkg/service/status"
 	color "github.com/synnaxlabs/x/color"
 	telem "github.com/synnaxlabs/x/telem"
 )
@@ -67,16 +67,16 @@ func AutoMigrateStatus(ctx context.Context, old devicev54.Status) (Status, error
 			return Status{}, err
 		}
 	}
-	var s Status
-	s.Key = old.Key
-	s.Name = old.Name
-	s.Variant = status.Variant(old.Variant)
-	s.Message = old.Message
-	s.Description = old.Description
-	s.Time = telem.TimeStamp(old.Time)
-	s.Details = details
-	s.Labels = labels
-	return s, nil
+	return Status{
+		Key:         old.Key,
+		Name:        old.Name,
+		Variant:     status.Variant(old.Variant),
+		Message:     old.Message,
+		Description: old.Description,
+		Time:        telem.TimeStamp(old.Time),
+		Details:     details,
+		Labels:      labels,
+	}, nil
 }
 
 func AutoMigrateID(_ context.Context, old ontologyv54.ID) (ontology.ID, error) {
