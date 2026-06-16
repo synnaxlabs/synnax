@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package status_test
+package v54_test
 
 import (
 	"github.com/google/uuid"
@@ -43,7 +43,7 @@ var _ = Describe("v54 -> current Status migration", func() {
 				{Key: uuid.New(), Name: "primary", Color: colorv54.Color{B: 200, A: 1}},
 			},
 		}
-		MustSucceed(gorp.OpenTable[string, v54.Status[any]](
+		MustSucceed(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, v54.Status[any]]{DB: db},
 		))
 		Expect(gorp.NewCreate[string, v54.Status[any]]().
@@ -53,7 +53,7 @@ var _ = Describe("v54 -> current Status migration", func() {
 			DB:        db,
 			Namespace: "Status",
 			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[string, string, v54.Status[any], status.Status[any]](
+				gorp.NewEntryMigration(
 					"v54_drop_labels",
 					status.MigrateStatus[any],
 				),
