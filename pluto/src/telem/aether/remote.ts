@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError, status as xstatus } from "@synnaxlabs/client";
+import { channel, NotFoundError, status as cstatus } from "@synnaxlabs/client";
 import {
   bounds,
   DataType,
@@ -113,7 +113,7 @@ export class StreamChannelValue
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(xstatus.fromException(e, "failed to stream channel value"));
+      this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel value"));
     }
   }
 }
@@ -206,7 +206,7 @@ export class ChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(xstatus.fromException(e, "failed to read channel data"));
+      this.onStatusChange?.(cstatus.fromException(e, "failed to read channel data"));
     }
   }
 }
@@ -305,7 +305,7 @@ export class StreamChannelData
       this.notify();
     } catch (e) {
       this.valid = false;
-      this.onStatusChange?.(xstatus.fromException(e, "failed to stream channel data"));
+      this.onStatusChange?.(cstatus.fromException(e, "failed to stream channel data"));
     }
   }
 

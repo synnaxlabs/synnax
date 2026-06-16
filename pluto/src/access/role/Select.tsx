@@ -59,7 +59,13 @@ export const Select = ({
   filter,
   ...props
 }: SelectProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const {
+    data,
+    retrieve,
+    getItem,
+    subscribe,
+    stat: status,
+  } = useList({
     initialQuery,
     filter,
   });

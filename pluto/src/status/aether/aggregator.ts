@@ -26,7 +26,7 @@ const CONTEXT_KEY = "status.aggregator";
 
 interface ContextValue {
   add: Adder;
-  create: (spec: status.Crude & { key?: string }) => status.Status;
+  create: (spec: status.Crude) => status.Status;
 }
 
 export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
@@ -41,7 +41,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
     });
   }
 
-  private add(spec: status.Crude & { key?: string }): void {
+  private add(spec: status.Crude): void {
     this.setState((p) => ({
       ...p,
       statuses: [...p.statuses, status.create(spec)],

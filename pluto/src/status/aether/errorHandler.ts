@@ -12,9 +12,7 @@ import { type errors } from "@synnaxlabs/x";
 import type z from "zod";
 
 export interface Adder {
-  <Details extends z.ZodType = z.ZodNever>(
-    spec: status.Crude<Details> & { key?: string },
-  ): void;
+  <Details extends z.ZodType = z.ZodNever>(spec: status.Crude<Details>): void;
 }
 
 export interface ErrorHandler {

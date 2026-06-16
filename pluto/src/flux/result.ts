@@ -35,8 +35,7 @@ export const resultStatusDetails = <
 >(
   result: Result<Data, StatusDetails>,
 ): z.output<StatusDetails> => {
-  if ("details" in result.status)
-    return result.status.details as z.output<StatusDetails>;
+  if ("details" in result.stat) return result.stat.details as z.output<StatusDetails>;
   return undefined as z.output<StatusDetails>;
 };
 
@@ -48,7 +47,7 @@ export type ResultStatus<StatusDetails extends z.ZodType = z.ZodNever> =
 
 export interface ErrorResult {
   variant: "error";
-  status: status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
+  stat: status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
   data: undefined;
 }
 
@@ -168,7 +167,7 @@ export const successResult = (<
 
 export const errorResult = (op: string, error: unknown): ErrorResult => ({
   variant: "error",
-  status: status.fromException(error, `Failed to ${op}`),
+  stat: status.fromException(error, `Failed to ${op}`),
   data: undefined,
 });
 

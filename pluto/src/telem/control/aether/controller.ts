@@ -13,7 +13,7 @@ import {
   control,
   DisconnectedError,
   type framer,
-  type status as xstatus,
+  type status as cstatus,
   type Synnax,
   TimeStamp,
   ValidationError,
@@ -442,7 +442,7 @@ export class AuthoritySource
     this.valid = true;
   }
 
-  value(): xstatus.Status<typeof authoritySourceDetailsZ> {
+  value(): cstatus.Status<typeof authoritySourceDetailsZ> {
     this.maybeRevalidate();
 
     const time = TimeStamp.now();

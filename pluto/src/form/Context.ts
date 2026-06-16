@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { context } from "@/context";
-import { type FieldStatus, type State } from "@/form/state";
+import { type State } from "@/form/state";
 
 export interface RemoveFunc {
   (path: string): void;
@@ -49,7 +50,7 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   setStatus: typeof State.prototype.setStatus;
   clearStatuses: () => void;
   setCurrentStateAsInitialValues: () => void;
-  getStatuses: () => FieldStatus[];
+  getStatuses: () => status.Crude[];
 }
 
 const [Context, useCtx] = context.create<ContextValue | null>({

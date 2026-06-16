@@ -287,7 +287,7 @@ const useObservableBase = <
       } catch (error) {
         if (signal?.aborted) return;
         const res = errorResult(`retrieve ${name}`, error);
-        if (addStatusOnFailure) addStatus(res.status);
+        if (addStatusOnFailure) addStatus(res.stat);
         onChange(res, query);
       }
     },
@@ -450,7 +450,7 @@ const useSuspended = <
   );
 
   if (entry?.variant === "success") return entry.data;
-  if (entry?.variant === "error") throw status.toError(entry.status);
+  if (entry?.variant === "error") throw status.toError(entry.stat);
   if (entry?.variant === "loading" && entry.promise != null) return use(entry.promise);
 
   const promise = retrieve({
@@ -487,7 +487,7 @@ const useEnsure = <
 
   const entry = cache.get(memoQuery);
   if (entry?.variant === "success") return;
-  if (entry?.variant === "error") throw status.toError(entry.status);
+  if (entry?.variant === "error") throw status.toError(entry.stat);
   if (entry?.variant === "loading" && entry.promise != null) {
     use(entry.promise);
     return;

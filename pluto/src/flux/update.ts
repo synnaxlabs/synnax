@@ -266,10 +266,10 @@ const useObservable = <
 
         const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
           onChange((p) => {
-            const nextStatus = state.executeSetter(setter, p.status);
+            const nextStatus = state.executeSetter(setter, p.stat);
             return {
               ...p,
-              status: nextStatus,
+              stat: nextStatus,
               variant: nextStatus.variant,
             } as Result<Input | undefined, StatusDetails>;
           });
@@ -291,7 +291,7 @@ const useObservable = <
         if (signal?.aborted === true) return false;
 
         const result = errorResult(`${present} ${name}`, error);
-        const { status } = result;
+        const { stat: status } = result;
         onChange(result);
         addStatus(status);
         await afterFailure?.({ client, status, data });

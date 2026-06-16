@@ -62,7 +62,13 @@ export const SelectSingle = ({
   initialQuery,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const {
+    data,
+    retrieve,
+    getItem,
+    subscribe,
+    stat: status,
+  } = useList({
     filter,
     initialQuery,
   });

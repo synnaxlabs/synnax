@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status as xstatus } from "@synnaxlabs/client";
+import { type status as cstatus } from "@synnaxlabs/client";
 import { type CrudeTimeSpan, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -23,7 +23,7 @@ import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 
-const [Context, useContext] = context.create<xstatus.Status[]>({
+const [Context, useContext] = context.create<cstatus.Status[]>({
   defaultValue: [],
   displayName: "Status.Context",
 });
@@ -87,7 +87,7 @@ export const useAsyncErrorHandler = (): AsyncErrorHandler => {
 };
 
 export type NotificationSpec<Details extends z.ZodType = z.ZodNever> =
-  xstatus.Status<Details> & {
+  cstatus.Status<Details> & {
     count: number;
   };
 

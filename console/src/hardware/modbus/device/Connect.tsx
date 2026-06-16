@@ -9,12 +9,7 @@
 
 import "@/hardware/modbus/device/Connect.css";
 
-import {
-  type device,
-  type rack,
-  status as xstatus,
-  TimeSpan,
-} from "@synnaxlabs/client";
+import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -101,7 +96,7 @@ const beforeSave = async ({
   if (state.variant === "error") throw new Error(state.message);
   // Since we just scanned successfully, we create a default healthy status for the
   // device that can then be overwritten by the scanner if we lose connection.
-  const devStatus: device.Status = xstatus.create<typeof device.statusDetailsZ>({
+  const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
     message: "Server connected",
     variant: "success",
     details: {
@@ -114,7 +109,12 @@ const beforeSave = async ({
 };
 
 export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
-  const { form, save, status, variant } = useForm({
+  const {
+    form,
+    save,
+    status: stat,
+    variant,
+  } = useForm({
     query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
     initialValues: INITIAL_VALUES,
     beforeValidate,
@@ -158,12 +158,12 @@ export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
           {variant == "success" ? (
             <Triggers.SaveHelpText action="Connect" noBar />
           ) : (
-            <Status.Summary variant={variant} message={status.description} />
+            <Status.Summary variant={variant} message={stat.description} />
           )}
         </Nav.Bar.Start>
         <Nav.Bar.End>
           <Button.Button
-            status={xstatus.keepVariants(variant, "loading")}
+            status={status.keepVariants(variant, "loading")}
             onClick={() => save()}
             variant="filled"
           >

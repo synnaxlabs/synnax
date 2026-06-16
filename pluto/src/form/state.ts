@@ -11,17 +11,9 @@ import { type status } from "@synnaxlabs/client";
 import { deep, map, observe, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-// FieldStatus is a form field validation status keyed by the field's resolved path.
-// The status payload is keyless, so the form attaches its own key.
-export type FieldStatus = status.Crude & { key: string };
-
-// FieldStatusInput is what setStatus accepts: a keyless payload (the form attaches
-// key = path) or one that already carries an explicit key.
-export type FieldStatusInput = status.Crude & { key?: string };
-
 export interface FieldState<V = unknown> {
   value: V;
-  status: FieldStatus;
+  status: status.Crude;
   touched: boolean;
   required: boolean;
 }
@@ -67,7 +59,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   values: z.infer<Z>;
   initialValues: z.infer<Z>;
 
-  private readonly statuses: Map<string, FieldStatus>;
+  private readonly statuses: Map<string, status.Crude>;
   private readonly touched: Set<string>;
   private readonly cachedRefs: Map<string, {}>;
 
@@ -116,8 +108,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     });
   }
 
-  setStatus(path: string, status: FieldStatusInput) {
-    this.statuses.set(path, { ...status, key: status.key ?? path });
+  setStatus(path: string, status: status.Crude) {
+    this.statuses.set(path, status);
     this.updateCachedRefs(path);
   }
 
@@ -182,8 +174,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private errorsToStatuses(
     issues: z.core.$ZodIssue[],
     path: PropertyKey[],
-    accumulated: FieldStatus[],
-  ): FieldStatus[] {
+    accumulated: status.Crude[],
+  ): status.Crude[] {
     issues.forEach((issue) => {
       const issuePath = [...path, ...issue.path];
       const resolvedPath = deep.resolvePath(issuePath.join("."), this.values);
@@ -248,7 +240,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     return this.touched.size > 0;
   }
 
-  getStatuses(): FieldStatus[] {
+  getStatuses(): status.Crude[] {
     return Array.from(this.statuses.values()).filter(
       (status) => status.variant !== "success",
     );
