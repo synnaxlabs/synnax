@@ -22,47 +22,37 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type mockKeyService struct {
-	key *rsa.PrivateKey
-}
+type mockKeyService struct{ key *rsa.PrivateKey }
 
-func (m *mockKeyService) NodePrivate() crypto.PrivateKey {
-	return m.key
-}
+func (m *mockKeyService) NodePrivate() crypto.PrivateKey { return m.key }
 
 var _ = Describe("token", func() {
 	var (
-		svc *token.Service
-		cfg token.ServiceConfig
+		svc    *token.Service
+		cfg    token.ServiceConfig
+		issuer uuid.UUID
+		tk     string
 	)
 	JustBeforeEach(func() {
 		k := MustSucceed(rsa.GenerateKey(nil, 1024))
 		cfg.KeyProvider = &mockKeyService{key: k}
 		svc = MustSucceed(token.NewService(cfg))
+		issuer = uuid.New()
+		tk = MustSucceed(svc.New(issuer))
 	})
 	Describe("Nominal", func() {
 		BeforeEach(func() { cfg.Now = time.Now })
-		Describe("Token Generation", func() {
-			It("Should generate a token for the given issuer", func() {
-				issuer := uuid.New()
-				token := MustSucceed(svc.New(issuer))
-				Expect(token).ToNot(BeEmpty())
-			})
+		It("Should generate a token for the given issuer", func() {
+			Expect(tk).ToNot(BeEmpty())
 		})
-
-		Describe("Token Validation", func() {
-			It("Should validate a token", func() {
-				issuer := uuid.New()
-				token := MustSucceed(svc.New(issuer))
-				Expect(token).ToNot(BeEmpty())
-				issuer2 := MustSucceed(svc.Validate(token))
-				Expect(issuer).To(Equal(issuer2))
-			})
+		It("Should validate a token", func() {
+			Expect(svc.Validate(tk)).To(Equal(issuer))
 		})
 	})
 
-	Context("Token Expiration Inside Refresh Interval", func() {
+	Describe("Token Expiration", func() {
 		var now time.Time
+
 		BeforeEach(func() {
 			cfg.Expiration = time.Second * 10
 			cfg.RefreshThreshold = time.Second * 8
@@ -70,37 +60,20 @@ var _ = Describe("token", func() {
 		})
 
 		It("Should refresh the token if the user submits a validation request within the refresh threshold", func() {
-			now = time.Now()
-			issuer := uuid.New()
-			tk := MustSucceed(svc.New(issuer))
-
 			id, newToken := MustSucceed2(svc.ValidateMaybeRefresh(tk))
 			Expect(id).To(Equal(issuer))
 			Expect(newToken).To(BeEmpty())
-
 			now = now.Add(time.Second * 6)
-
 			id, newToken = MustSucceed2(svc.ValidateMaybeRefresh(tk))
 			Expect(id).To(Equal(issuer))
 			Expect(newToken).ToNot(BeEmpty())
 		})
-	})
-	Describe("Token Expiration Outside Refresh Interval", func() {
-		// Unfortunately there's not much we can do get rid of the long sleep here,
-		// as JWT has a method internally for checking expiration that we can't override
-		// with our custom Now() function.
-		BeforeEach(func() {
-			cfg.Expiration = time.Second * 1
-			cfg.RefreshThreshold = time.Second * 1
-			cfg.Now = time.Now
-		})
+
 		It("Should not refresh the token if the user does not submit a validation request within the refresh threshold", func() {
-			issuer := uuid.New()
-			tk := MustSucceed(svc.New(issuer))
 			id, newToken := MustSucceed2(svc.ValidateMaybeRefresh(tk))
 			Expect(id).To(Equal(issuer))
-			Expect(newToken).ToNot(BeEmpty())
-			time.Sleep(time.Second * 2)
+			Expect(newToken).To(BeEmpty())
+			now = now.Add(time.Second * 11)
 			Expect(svc.ValidateMaybeRefresh(tk)).Error().
 				To(MatchError(auth.ErrExpiredToken))
 		})
