@@ -182,6 +182,9 @@ var _ = Describe("ImEx", func() {
 			var res log.Log
 			Expect(svc.NewRetrieve().Where(log.MatchKeys(key)).Entry(&res).Exec(ctx, db)).
 				To(Succeed())
+			// Import mints a fresh key; every other field must round-trip intact.
+			Expect(res.Key).ToNot(Equal(original.Key))
+			original.Key = res.Key
 			Expect(res).To(Equal(original))
 		})
 	})

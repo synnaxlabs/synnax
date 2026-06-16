@@ -27,7 +27,7 @@ const Version imex.Version = 2
 var _ imex.ImportExporter = (*Service)(nil)
 
 // Export retrieves the log identified by id and serializes it as an imex.Envelope
-// stamped with ImExVersion. It returns query.ErrNotFound if no log exists for id.Key.
+// stamped with Version. It returns query.ErrNotFound if no log exists for id.Key.
 func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, error) {
 	key, err := uuid.Parse(id.Key)
 	if err != nil {
