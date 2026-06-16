@@ -2637,7 +2637,21 @@ export interface {{ .TSName }} {
   {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
 }
+export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
+{{- range .Fields }}
+{{- if .Doc }}
+  {{ formatDoc .TSName .Doc }}
 {{- end }}
+{{- if .IsSelfRef }}
+  get {{ .TSName }}() {
+    return {{ .ZodType }};
+  },
+{{- else }}
+  {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+{{- end }}
+});
+{{- else }}
 export const {{ camelCase .TSName }}Z = z.object({
 {{- range .Fields }}
 {{- if .Doc }}
@@ -2652,8 +2666,9 @@ export const {{ camelCase .TSName }}Z = z.object({
 {{- end }}
 {{- end }}
 });
-{{- if and (not .IsRecursive) $.GenerateTypes }}
+{{- if $.GenerateTypes }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

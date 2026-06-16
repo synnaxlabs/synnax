@@ -35,24 +35,36 @@ import (
 // ServiceConfig is the configuration for opening the ranger.Service.
 type ServiceConfig struct {
 	// DB is the underlying database that the service will use to store Ranges.
+	//
+	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology will be used to create relationships between ranges (parent-child) and
 	// with other resources within the Synnax cluster.
+	//
+	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create the top level "Ranges" group that will be the default
 	// parent of all ranges.
+	//
+	// [REQUIRED]
 	Group *group.Service
 	// Signals is used to publish signals on channels when ranges are created, updated,
 	// or deleted.
+	//
+	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
 	// Label is the label service used to attach, remove, and query labels related to
 	// changes.
+	//
+	// [REQUIRED]
 	Label *label.Service
 	// Search is the search index for fuzzy searching ranges.
 	//
 	// [REQUIRED]
 	Search *search.Index
 	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 

@@ -123,7 +123,7 @@ export interface Param {
   type: Type;
   value?: unknown;
 }
-export const paramZ = z.object({
+export const paramZ: z.ZodType<Param> = z.object({
   /** name is the parameter name. */
   name: z.string(),
   /** type is the parameter type. */
