@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/observe"
@@ -32,7 +32,7 @@ const (
 	publisherDeleteChannelName = "publisher_delete"
 )
 
-var _ = Describe("Publisher", Ordered, Serial, func() {
+var _ = Describe("Publisher", Serial, func() {
 	var (
 		obs           observe.Observer[[]change.Change[[]byte, struct{}]]
 		cfg           signals.ObservablePublisherConfig
@@ -49,7 +49,7 @@ var _ = Describe("Publisher", Ordered, Serial, func() {
 			DeleteChannel: channel.Channel{Name: publisherDeleteChannelName, DataType: telem.UUIDT},
 			Observable:    obs,
 		}
-		closer = MustSucceed(dist.Signals.PublishFromObservable(ctx, cfg))
+		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
 		Expect(dist.Channel.NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).

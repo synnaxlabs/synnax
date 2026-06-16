@@ -51,7 +51,7 @@ var _ = Describe("PublishSignals", func() {
 		state = actions.NewState[uuid.UUID, testAction]()
 		serviceName = nextServiceName()
 		closer = MustSucceed(actions.PublishSignals(ctx, actions.SignalsConfig[uuid.UUID, testAction]{
-			Provider: dist.Signals,
+			Provider: sigs,
 			State:    state,
 			Name:     serviceName,
 		}))
@@ -131,7 +131,7 @@ var _ = Describe("SignalsConfig.Validate", func() {
 		func(mutate func(*actions.SignalsConfig[uuid.UUID, testAction]), wantField string) {
 			state := actions.NewState[uuid.UUID, testAction]()
 			cfg := actions.SignalsConfig[uuid.UUID, testAction]{
-				Provider: dist.Signals,
+				Provider: sigs,
 				State:    state,
 				Name:     "actions_validate",
 			}
@@ -151,7 +151,7 @@ var _ = Describe("SignalsConfig.Validate", func() {
 
 	It("Should accept a fully-populated config", func() {
 		Expect(actions.SignalsConfig[uuid.UUID, testAction]{
-			Provider: dist.Signals,
+			Provider: sigs,
 			State:    actions.NewState[uuid.UUID, testAction](),
 			Name:     "ok",
 		}.Validate()).To(Succeed())
