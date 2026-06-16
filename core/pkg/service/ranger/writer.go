@@ -75,7 +75,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 		return nil
 	}
 	parent := r.Parent.OntologyID()
-	relAlreadyExists := false
+	var relAlreadyExists bool
 	if exists {
 		if relAlreadyExists, err = w.otgWriter.HasRelationship(
 			ctx,
