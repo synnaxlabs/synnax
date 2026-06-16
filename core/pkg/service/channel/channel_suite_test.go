@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
@@ -55,7 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:         dist.Ontology,
 		Group:            dist.Group,
 		Search:           dist.Search,
-		IntOverflowCheck: dist.IntOverflowCheck,
+		IntOverflowCheck: verification.FreeOverflowCheck,
 		ValidateNames:    dist.ValidateChannelNames,
 		Status:           statusSvc,
 	}))

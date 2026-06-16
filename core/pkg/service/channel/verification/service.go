@@ -151,6 +151,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close should be called when the service is no longer needed.
 func (s *Service) Close() error { return s.shutdown.Close() }
 
+// FreeOverflowCheck reports ErrFree when inUse exceeds the free-tier channel cap
+// (FreeCount). It is the stateless equivalent of an unlicensed Service's IsOverflowed,
+// suitable as a default overflow check when no verification Service is configured.
+func FreeOverflowCheck(inUse types.Uint20) error {
+	if inUse > FreeCount {
+		return ErrFree
+	}
+	return nil
+}
+
 // IsOverflowed tells if inUse causes the service to overflow.
 func (s *Service) IsOverflowed(inUse types.Uint20) error {
 	if s.numCh == 0 {

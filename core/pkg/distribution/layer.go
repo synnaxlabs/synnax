@@ -12,11 +12,9 @@ package distribution
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -32,7 +30,6 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -57,11 +54,6 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	AspenTransport aspen.Transport
-	// TestingIntOverflowCheck is used for overriding default verifier behavior
-	// for testing purposes only.
-	//
-	// [OPTIONAL] - Defaults to nil
-	TestingIntOverflowCheck func(types.Uint20) error
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// Storage is the storage layer that the distribution layer will use for persisting
@@ -76,10 +68,6 @@ type LayerConfig struct {
 	ValidateChannelNames *bool
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// Verifier is for verifying. Magic.
-	//
-	// [OPTIONAL] - Defaults to ""
-	Verifier string
 	// AdvertiseAddress sets the network address that the distribution layer will publish
 	// to other nodes in the cluster.
 	//
@@ -119,8 +107,6 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.FrameTransport = override.Nil(c.FrameTransport, other.FrameTransport)
 	c.AspenTransport = override.Nil(c.AspenTransport, other.AspenTransport)
 	c.AspenOptions = override.Slice(c.AspenOptions, other.AspenOptions)
-	c.Verifier = override.String(c.Verifier, other.Verifier)
-	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
 	c.ValidateChannelNames = override.Nil(c.ValidateChannelNames, other.ValidateChannelNames)
 	return c
@@ -161,9 +147,6 @@ type Layer struct {
 	// service layer once its channel service opens. The framer reads channels through
 	// it.
 	ChannelRetriever *channel.RetrieverHolder
-	// IntOverflowCheck is the resolved external-channel overflow checker, consumed by the
-	// service-layer channel service.
-	IntOverflowCheck func(types.Uint20) error
 	// ValidateChannelNames reports whether channel name validation is enabled.
 	ValidateChannelNames *bool
 	// Framer is for reading, writing, and streaming frames of telemetry across the
@@ -178,8 +161,6 @@ type Layer struct {
 	Search *search.Index
 	// Group is for grouping related resources in the cluster.
 	Group *group.Service
-	// Verification verifies that the universe remains as it is.
-	Verification *verification.Service
 	// closer is for properly shutting down the distribution layer.
 	closer xio.MultiCloser
 }
@@ -255,19 +236,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
-		Verifier:        cfg.Verifier,
-		DB:              l.DB.KV(),
-		Instrumentation: cfg.Instrumentation,
-	}); !ok(err, l.Verification) {
-		return nil, err
-	}
-
-	l.IntOverflowCheck = lo.Ternary(
-		cfg.TestingIntOverflowCheck != nil,
-		cfg.TestingIntOverflowCheck,
-		l.Verification.IsOverflowed,
-	)
 	l.ValidateChannelNames = cfg.ValidateChannelNames
 	l.ChannelRetriever = channel.NewRetrieverHolder()
 

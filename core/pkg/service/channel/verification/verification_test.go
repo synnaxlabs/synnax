@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"

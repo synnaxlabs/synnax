@@ -14,17 +14,36 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/x/telem"
 )
+
+// WrapOption configures the channel Service opened by Wrap.
+type WrapOption func(*wrapOptions)
+
+type wrapOptions struct {
+	intOverflowCheck IntOverflowChecker
+}
+
+// WithIntOverflowCheck overrides the overflow checker Wrap installs on the channel
+// Service. When unset, Wrap defaults to the free-tier check (verification.FreeOverflowCheck).
+func WithIntOverflowCheck(check IntOverflowChecker) WrapOption {
+	return func(o *wrapOptions) { o.intOverflowCheck = check }
+}
 
 // Wrap opens a channel Service on top of the provided distribution layer, binds it as the
 // layer's channel retriever (so the distribution framer can resolve channels), and
 // performs the same node-control-channel setup the service layer does in production. It
 // is a convenience for tests and other lightweight contexts that already have a fully
 // opened distribution layer; production code should use NewService with an explicit
-// ServiceConfig and perform control-channel setup in the service layer. Wrap panics if
-// the service cannot be opened or the control channel cannot be configured.
-func Wrap(dist *distribution.Layer) *Service {
+// ServiceConfig and perform control-channel setup in the service layer. The overflow
+// check defaults to the free tier unless overridden with WithIntOverflowCheck. Wrap
+// panics if the service cannot be opened or the control channel cannot be configured.
+func Wrap(dist *distribution.Layer, opts ...WrapOption) *Service {
+	o := wrapOptions{intOverflowCheck: verification.FreeOverflowCheck}
+	for _, opt := range opts {
+		opt(&o)
+	}
 	s, err := NewService(context.Background(), ServiceConfig{
 		DB:               dist.DB,
 		Allocator:        dist.Channel,
@@ -32,7 +51,7 @@ func Wrap(dist *distribution.Layer) *Service {
 		Ontology:         dist.Ontology,
 		Group:            dist.Group,
 		Search:           dist.Search,
-		IntOverflowCheck: dist.IntOverflowCheck,
+		IntOverflowCheck: o.intOverflowCheck,
 		ValidateNames:    dist.ValidateChannelNames,
 	})
 	if err != nil {

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -78,6 +79,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
+	// Verifier is the license key used to determine the cluster's channel-count limit.
+	//
+	// [OPTIONAL] - Defaults to "" (free tier)
+	Verifier string
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -99,6 +104,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Security = override.Nil(c.Security, other.Security)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
+	c.Verifier = override.String(c.Verifier, other.Verifier)
 	return c
 }
 
@@ -152,6 +158,8 @@ type Layer struct {
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel behavior.
 	Channel *channel.Service
+	// Verification enforces the cluster's licensed channel-count limit.
+	Verification *verification.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
@@ -227,6 +235,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Status) {
 		return nil, err
 	}
+	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
+		Instrumentation: cfg.Child("verification"),
+		DB:              cfg.Distribution.DB.KV(),
+		Verifier:        cfg.Verifier,
+	}); !ok(err, l.Verification) {
+		return nil, err
+	}
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation:  cfg.Child("channel"),
 		DB:               cfg.Distribution.DB,
@@ -235,7 +250,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:         cfg.Distribution.Ontology,
 		Group:            cfg.Distribution.Group,
 		Search:           cfg.Distribution.Search,
-		IntOverflowCheck: cfg.Distribution.IntOverflowCheck,
+		IntOverflowCheck: l.Verification.IsOverflowed,
 		ValidateNames:    cfg.Distribution.ValidateChannelNames,
 		Status:           l.Status,
 	}); !ok(err, nil) {

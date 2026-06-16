@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -61,7 +62,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:         dist.Ontology,
 		Group:            dist.Group,
 		Search:           dist.Search,
-		IntOverflowCheck: dist.IntOverflowCheck,
+		IntOverflowCheck: verification.FreeOverflowCheck,
 		ValidateNames:    dist.ValidateChannelNames,
 		Status:           statusSvc,
 	}))

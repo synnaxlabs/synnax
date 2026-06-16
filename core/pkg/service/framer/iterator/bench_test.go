@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/x/telem"
 )

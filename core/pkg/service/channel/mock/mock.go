@@ -28,13 +28,15 @@ var (
 // ChannelService returns the service-layer channel.Service for the given mock node,
 // opening it (via channel.Wrap, which also binds it as the node's channel retriever and
 // creates the node's control channel) on first use and caching it per node thereafter.
-func ChannelService(n distmock.Node) *channel.Service {
+// Any WrapOptions are applied only on the first call for a given node; later calls return
+// the cached service and ignore the options.
+func ChannelService(n distmock.Node, opts ...channel.WrapOption) *channel.Service {
 	mu.Lock()
 	defer mu.Unlock()
 	if s, ok := services[n.Layer]; ok {
 		return s
 	}
-	s := channel.Wrap(n.Layer)
+	s := channel.Wrap(n.Layer, opts...)
 	services[n.Layer] = s
 	return s
 }

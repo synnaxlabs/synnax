@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -45,9 +44,8 @@ var _ = Describe("Limit", Ordered, func() {
 	// shared vars that are used by It blocks, so the context must outlive BeforeEach.
 	BeforeEach(func() {
 		mockCluster = mock.NewCluster()
-		dist = mockCluster.Provision(context.Background(), distribution.LayerConfig{
-			TestingIntOverflowCheck: fixedOverflowChecker(limit),
-		})
+		dist = mockCluster.Provision(context.Background())
+		channelmock.ChannelService(dist, channel.WithIntOverflowCheck(fixedOverflowChecker(limit)))
 	})
 	AfterEach(func() {
 		Expect(mockCluster.Close()).To(Succeed())

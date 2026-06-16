@@ -216,7 +216,6 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		AspenTransport:       aspenTransport,
 		FrameTransport:       frameTransport,
 		ChannelTransport:     channelTransport,
-		Verifier:             cfg.verifier,
 		Storage:              storageLayer,
 		ValidateChannelNames: cfg.validateChannelNames,
 	}); !ok(err, distributionLayer) {
@@ -229,6 +228,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		Security:        securityProvider,
 		Storage:         storageLayer,
 		RootCredentials: cfg.rootCredentials,
+		Verifier:        cfg.verifier,
 	}); !ok(err, serviceLayer) {
 		return err
 	}
