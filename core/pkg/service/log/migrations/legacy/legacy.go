@@ -16,6 +16,7 @@
 package legacy
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -35,33 +36,47 @@ func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 			return v1.Data{}, errors.Wrap(err, "peek log data version")
 		}
 	}
-	return dispatch(blob, peek.Version)
+	version, err := peekVersion(peek.Version)
+	if err != nil {
+		return v1.Data{}, err
+	}
+	return dispatch(blob, version)
 }
 
-func dispatch(blob msgpack.EncodedJSON, version string) (v1.Data, error) {
+// peekVersion maps the wire-format version the console stamped onto the numeric imex
+// schema version the per-format packages declare. An absent stamp predates the version
+// field and is the v0 schema.
+func peekVersion(stamped string) (imex.Version, error) {
+	if stamped == "" {
+		return v0.ImExVersion, nil
+	}
+	return imex.ParseVersion(stamped)
+}
+
+func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v1.Data, error) {
 	switch version {
-	case v1.Version:
+	case v1.ImExVersion:
 		return decode[v1.Data](blob, version)
-	case v0.Version, "":
+	case v0.ImExVersion:
 		d, err := decode[v0.Data](blob, version)
 		if err != nil {
 			return v1.Data{}, err
 		}
 		return v1.Migrate(d), nil
 	default:
-		return v1.Data{}, errors.Newf("unknown log data version %q", version)
+		return v1.Data{}, errors.Newf("unknown log data version %d", version)
 	}
 }
 
 // decode unmarshals blob as T, treating a nil blob as a zero T so empty entries
 // round-trip without erroring.
-func decode[T any](blob msgpack.EncodedJSON, version string) (T, error) {
+func decode[T any](blob msgpack.EncodedJSON, version imex.Version) (T, error) {
 	var d T
 	if blob == nil {
 		return d, nil
 	}
 	if err := blob.Unmarshal(&d); err != nil {
-		return d, errors.Wrapf(err, "decode v%s log data", version)
+		return d, errors.Wrapf(err, "decode v%d log data", version)
 	}
 	return d, nil
 }

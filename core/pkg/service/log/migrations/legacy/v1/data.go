@@ -11,9 +11,15 @@ package v1
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 )
+
+// ImExVersion is the numeric imex schema version for log data at v1. It is the schema
+// version legacy.MigrateData dispatches on; Version is the equivalent wire-format semver
+// the console stamped, which MigrateData maps onto ImExVersion via imex.ParseVersion.
+const ImExVersion imex.Version = 1
 
 // Version is the semantic version string written by the console at this state version.
 const Version = "1.0.0"

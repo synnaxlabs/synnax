@@ -246,6 +246,13 @@ func Encode[T any](env *Envelope, data T) error {
 	return nil
 }
 
+// ParseVersion converts a wire-format version value into a Version, accepting the JSON
+// number form (json.Number) and legacy "N.0.0" semver strings — the same forms
+// Envelope.UnmarshalJSON decodes for the version header. It is exported so per-format
+// legacy migration packages can map the wire version stamped in a data blob onto the
+// numeric schema version they declare.
+func ParseVersion(v any) (Version, error) { return versionFromAny(v) }
+
 // versionFromAny converts a generic Go value (as produced by a UseNumber-mode decode
 // into map[string]any) to a Version. Accepts json.Number (the JSON number form,
 // preserving full integer precision) and legacy "N.0.0" semver strings.

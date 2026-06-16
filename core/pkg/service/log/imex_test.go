@@ -51,10 +51,10 @@ func loadEnvelope(path string) imex.Envelope {
 var _ = Describe("ImEx", func() {
 	// reg is the registry the suite passed to log.OpenService, so svc registered itself
 	// as the log importer/exporter on open — these specs exercise that wiring rather than
-	// registering by hand. It is bound in BeforeEach because imexReg is not set until the
+	// registering by hand. It is bound in BeforeEach because imexSvc is not set until the
 	// suite's BeforeSuite runs, after the spec tree is constructed.
 	var reg *imex.Service
-	BeforeEach(func() { reg = imexReg })
+	BeforeEach(func() { reg = imexSvc })
 
 	createLog := func(ctx SpecContext, l log.Log) log.Log {
 		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())

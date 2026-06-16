@@ -38,7 +38,7 @@ var (
 	otg     *ontology.Ontology
 	proj    project.Project
 	svc     *log.Service
-	imexReg *imex.Service
+	imexSvc *imex.Service
 	tx      gorp.Tx
 )
 
@@ -66,12 +66,12 @@ var (
 				Search:   searchIdx,
 			}))
 		)
-		imexReg = imex.NewService()
+		imexSvc = imex.NewService()
 		svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
-			ImEx:     imexReg,
+			ImEx:     imexSvc,
 		}))
 		author := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 			Username: "test",

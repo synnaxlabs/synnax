@@ -671,4 +671,25 @@ var _ = Describe("ImEx", func() {
 				))
 		})
 	})
+
+	Describe("ParseVersion", func() {
+		DescribeTable("Should convert a wire-format version value to a Version",
+			func(value any, expected imex.Version) {
+				Expect(imex.ParseVersion(value)).To(Equal(expected))
+			},
+			Entry("legacy v0 semver", "0.0.0", imex.Version(0)),
+			Entry("legacy v1 semver", "1.0.0", imex.Version(1)),
+			Entry("legacy high major", "42.0.0", imex.Version(42)),
+			Entry("json number", json.Number("7"), imex.Version(7)),
+		)
+
+		DescribeTable("Should reject an unparseable version value",
+			func(value any) {
+				Expect(imex.ParseVersion(value)).Error().To(MatchError(ContainSubstring("version")))
+			},
+			Entry("non-zero minor/patch", "1.2.3"),
+			Entry("not a semver", "garbage"),
+			Entry("unsupported type", true),
+		)
+	})
 })
