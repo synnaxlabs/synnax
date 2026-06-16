@@ -48,7 +48,6 @@ type nodeImpl struct {
 	outputValues  []result
 	memBase       uint32
 	params        []uint64
-	edgeFed       []bool
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
@@ -108,7 +107,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	maxLength := int64(0)
 	longestInputIdx := -1
 	for i := range n.ir.Inputs {
-		if !n.edgeFed[i] {
+		if n.ir.Inputs[i].Value != nil {
 			continue
 		}
 		dataLen := n.Input(i).Len()
@@ -148,7 +147,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	var alignmentSum telem.Alignment
 	var timeRange telem.TimeRange
 	for i := range n.ir.Inputs {
-		if !n.edgeFed[i] {
+		if n.ir.Inputs[i].Value != nil {
 			continue
 		}
 		input := n.Input(i)
@@ -175,7 +174,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
-			if !n.edgeFed[j] {
+			if n.ir.Inputs[j].Value != nil {
 				continue
 			}
 			inputLen := n.Input(j).Len()

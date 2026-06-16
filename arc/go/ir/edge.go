@@ -80,16 +80,6 @@ func (e Edges) FindByTarget(handle Handle) (Edge, bool) {
 	return e.find(targetEquals(handle))
 }
 
-// EdgeFedMask returns one flag per node input: true when an edge feeds it (edge-fed,
-// the edge wins over any default), false otherwise (literal-fed, the default holds).
-func (e Edges) EdgeFedMask(node Node) []bool {
-	mask := make([]bool, len(node.Inputs))
-	for i, param := range node.Inputs {
-		_, mask[i] = e.FindByTarget(Handle{Node: node.Key, Param: param.Name})
-	}
-	return mask
-}
-
 // GetInputs returns all edges targeting the given node.
 func (e Edges) GetInputs(nodeKey string) []Edge {
 	return e.filter(targetNodeEquals(nodeKey))

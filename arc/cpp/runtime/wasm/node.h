@@ -32,9 +32,6 @@ class Node : public node::Node {
     std::vector<int> offsets;
     std::vector<bool> string_inputs;
     std::vector<bool> string_outputs;
-    /// @brief one flag per input, true when edge-fed (streamed per sample).
-    /// Literal inputs are set once in the WASM Function and skipped here.
-    std::vector<bool> edge_fed;
     std::shared_ptr<stl::strings::State> str_state;
     bool initialized = false;
     bool is_entry_node = false;
@@ -65,7 +62,6 @@ public:
         this->string_outputs.resize(node.outputs.size());
         for (size_t i = 0; i < node.outputs.size(); i++)
             this->string_outputs[i] = node.outputs[i].type.kind == types::Kind::String;
-        this->edge_fed = func.input_edge_fed();
     }
 
     x::errors::Error next(node::Context &ctx) override {
@@ -79,7 +75,7 @@ public:
         int64_t max_length = 0;
         int64_t longest_input_idx = -1;
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
-            if (!this->edge_fed[i]) continue;
+            if (!this->ir.inputs[i].value.is_null()) continue;
             const auto inp = this->state.input(i);
             const auto data_len = static_cast<int64_t>(inp->size());
             if (data_len > max_length) {
@@ -118,7 +114,7 @@ public:
 
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
-                if (!this->edge_fed[j]) continue;
+                if (!this->ir.inputs[j].value.is_null()) continue;
                 const auto input_series = this->state.input(j);
                 const auto input_len = static_cast<int>(input_series->size());
                 const auto idx = i % input_len;

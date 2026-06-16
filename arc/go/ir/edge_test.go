@@ -15,7 +15,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -119,34 +118,6 @@ var _ = Describe("Edges", func() {
 			Expect(found).To(BeFalse())
 		})
 	})
-
-	DescribeTable("EdgeFedMask",
-		func(node ir.Node, es ir.Edges, want []bool) {
-			Expect(es.EdgeFedMask(node)).To(Equal(want))
-		},
-		Entry("edge-fed input, literal-fed default",
-			ir.Node{Key: "math", Inputs: types.Params{
-				{Name: "input"},
-				{Name: "scale", Value: 2},
-			}},
-			ir.Edges{{
-				Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: "math", Param: "input"},
-			}},
-			[]bool{true, false},
-		),
-		Entry("a param with a default is still edge-fed when an edge feeds it",
-			ir.Node{Key: "math", Inputs: types.Params{{Name: "reset", Value: 0}}},
-			ir.Edges{{
-				Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: "math", Param: "reset"},
-			}},
-			[]bool{true},
-		),
-		Entry("no inputs yields an empty mask",
-			ir.Node{Key: "x"}, ir.Edges{}, []bool{},
-		),
-	)
 
 	Describe("GetBySource", func() {
 		It("Should get edge by source handle", func() {

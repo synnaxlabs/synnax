@@ -263,15 +263,6 @@ std::pair<size_t, x::errors::Error> Node::resolve_input(const std::string &name)
     };
 }
 
-// edge_fed wins over any default: an input fed by an edge is streamed, regardless of
-// whether it also declares a default value.
-std::vector<bool> IR::edge_fed_mask(const Node &node) const {
-    std::vector<bool> mask(node.inputs.size());
-    for (size_t i = 0; i < node.inputs.size(); i++)
-        mask[i] = this->edge_to(Handle(node.key, node.inputs[i].name)).has_value();
-    return mask;
-}
-
 namespace {
 
 /// @brief reports whether a scope carries any non-zero state. Used to decide

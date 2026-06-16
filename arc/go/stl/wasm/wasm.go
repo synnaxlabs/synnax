@@ -41,12 +41,11 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	isEntryNode := cfg.Node.IsEntryNode(cfg.Program.Edges)
 
-	// Each input fills one WASM param slot. Edge-fed inputs are streamed per
-	// sample in Next; literal inputs get their constant value set once here.
-	edgeFed := cfg.Program.Edges.EdgeFedMask(cfg.Node)
+	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
+	// per sample in Next; literal inputs get their constant value set once here.
 	params := make([]uint64, len(irFn.Inputs))
 	for i, param := range cfg.Node.Inputs {
-		if edgeFed[i] || param.Value == nil {
+		if param.Value == nil {
 			continue
 		}
 		if s, ok := param.Value.(string); ok {
@@ -99,7 +98,6 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		outputValues:  make([]result, len(irFn.Outputs)),
 		memBase:       base,
 		params:        params,
-		edgeFed:       edgeFed,
 		offsets:       make([]int, len(irFn.Outputs)),
 		isEntryNode:   isEntryNode,
 		nodeKeySetter: w.NodeKeySetter,

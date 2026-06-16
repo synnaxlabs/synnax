@@ -297,8 +297,8 @@ public:
         Module &module;
         wasmtime::Func fn;
         types::Params outputs;
-        /// @brief one flag per input, true when edge-fed (streamed per sample).
-        std::vector<bool> edge_fed;
+        /// @brief one flag per input, true when streamed per sample (nil value).
+        std::vector<bool> streamed;
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
@@ -309,18 +309,18 @@ public:
             wasmtime::Func fn,
             const types::Params &outputs,
             const types::Params &inputs,
-            std::vector<bool> edge_fed,
             const uint32_t base
         ):
-            module(module),
-            fn(std::move(fn)),
-            outputs(outputs),
-            edge_fed(std::move(edge_fed)),
-            base(base) {
+            module(module), fn(std::move(fn)), outputs(outputs), base(base) {
             this->args.resize(inputs.size(), wasmtime::Val(0));
-            // Literal inputs are set once here; edge-fed inputs stream in call().
+            this->streamed.assign(inputs.size(), false);
+            // An input with a nil value is edge-fed and streams in call(); a literal
+            // input is set once here.
             for (size_t i = 0; i < inputs.size(); i++) {
-                if (this->edge_fed[i] || inputs[i].value.is_null()) continue;
+                if (inputs[i].value.is_null()) {
+                    this->streamed[i] = true;
+                    continue;
+                }
                 if (inputs[i].value.is_string()) {
                     // A literal string gets a stable handle, not cleared by flush().
                     // strings is null only in tests without host bindings.
@@ -351,7 +351,7 @@ public:
             output_vals.assign(this->outputs.size(), Result{});
 
             for (size_t i = 0; i < input_vals.size(); i++)
-                if (this->edge_fed[i]) this->args[i] = sample_to_wasm(input_vals[i]);
+                if (this->streamed[i]) this->args[i] = sample_to_wasm(input_vals[i]);
 
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
@@ -398,11 +398,6 @@ public:
 
             return x::errors::NIL;
         }
-
-        /// @brief one flag per input, true when edge-fed (streamed per sample).
-        [[nodiscard]] const std::vector<bool> &input_edge_fed() const {
-            return this->edge_fed;
-        }
     };
 
     [[nodiscard]] std::shared_ptr<stl::strings::State> strings() const {
@@ -415,22 +410,17 @@ public:
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
     }
 
-    /// @brief Wraps the WASM export `name` using its declared inputs, all edge-fed.
-    /// Use the three-arg overload for nodes with literal inputs.
+    /// @brief Wraps the WASM export `name` using its declared inputs.
     std::pair<Function, x::errors::Error> func(const std::string &name) {
-        return this->func(name, {}, {});
+        return this->func(name, {});
     }
 
-    /// @brief Wraps the WASM export `name` for a node's inputs. edge_fed is parallel
-    /// to node_inputs (true = edge-fed, false = literal) and required, derived
-    /// from the graph edges (see wasm::Factory::create); omitting it cannot compile.
-    std::pair<Function, x::errors::Error> func(
-        const std::string &name,
-        const types::Params &node_inputs,
-        const std::vector<bool> &edge_fed
-    ) {
+    /// @brief Wraps the WASM export `name` for a node's inputs. An input with a nil
+    /// value is edge-fed (streamed per sample); a non-nil value is a literal set once.
+    std::pair<Function, x::errors::Error>
+    func(const std::string &name, const types::Params &node_inputs) {
         const auto export_opt = this->instance.get(this->store, name);
-        const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
+        const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
         if (!export_opt) return {zero_func, x::errors::NOT_FOUND};
 
         const auto *func_ptr = std::get_if<wasmtime::Func>(&*export_opt);
@@ -461,26 +451,8 @@ public:
         }
 
         const auto &inputs_to_use = node_inputs.empty() ? func.inputs : node_inputs;
-        std::vector<bool> ef = edge_fed;
-        if (ef.empty())
-            ef.assign(inputs_to_use.size(), true);
-        else if (ef.size() != inputs_to_use.size())
-            return {
-                zero_func,
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    "edge_fed length must match inputs"
-                )
-            };
         return {
-            Function(
-                *this,
-                *func_ptr,
-                func.outputs,
-                inputs_to_use,
-                std::move(ef),
-                base
-            ),
+            Function(*this, *func_ptr, func.outputs, inputs_to_use, base),
             x::errors::NIL
         };
     }

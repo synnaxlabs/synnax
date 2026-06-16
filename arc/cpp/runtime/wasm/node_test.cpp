@@ -998,9 +998,7 @@ func add_config{x i32}(y i32) i32 {
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(
-        wasm_mod->func("add_config", func_node->inputs, mod.edge_fed_mask(*func_node))
-    );
+    auto func = ASSERT_NIL_P(wasm_mod->func("add_config", func_node->inputs));
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
@@ -1092,9 +1090,7 @@ func multi_config{a i32, b i32}(c i32) i32 {
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(
-        wasm_mod->func("multi_config", func_node->inputs, mod.edge_fed_mask(*func_node))
-    );
+    auto func = ASSERT_NIL_P(wasm_mod->func("multi_config", func_node->inputs));
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
@@ -1396,9 +1392,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
 
     // Set up the function node with config param.
     auto node_state = ASSERT_NIL_P(state->node(func_node->key));
-    auto func = ASSERT_NIL_P(
-        wasm_mod->func("read_chan", func_node->inputs, mod.edge_fed_mask(*func_node))
-    );
+    auto func = ASSERT_NIL_P(wasm_mod->func("read_chan", func_node->inputs));
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
@@ -2751,8 +2745,8 @@ func double(val f32) f32 {
     EXPECT_NE(err.message().find("unresolved type"), std::string::npos);
 }
 
-/// @brief Locks the Module::func slot-mapping contract: edge_fed marks each input
-/// edge-fed (streamed) or literal-fed (set once), and a literal ordered before an
+/// @brief Locks the Module::func slot-mapping contract: a nil-value input is edge-fed
+/// (streamed), a non-nil value is literal (set once), and a literal ordered before an
 /// edge-fed input must still be honored.
 TEST(NodeEdgeFedTest, EdgeFedHonorsLiteralInputBeforeEdgeFedInput) {
     const auto client = new_test_client();
@@ -2783,7 +2777,7 @@ func sum2(x i32, y i32) i32 {
     node_inputs.push_back(x);
     node_inputs.push_back(y);
 
-    auto func = ASSERT_NIL_P(wasm_mod->func("sum2", node_inputs, {false, true}));
+    auto func = ASSERT_NIL_P(wasm_mod->func("sum2", node_inputs));
     std::vector<x::telem::SampleValue> params{
         static_cast<int32_t>(0),
         static_cast<int32_t>(5)
@@ -2794,40 +2788,4 @@ func sum2(x i32, y i32) i32 {
     EXPECT_EQ(std::get<int32_t>(results[0].value), 15);
 }
 
-/// @brief A non-empty edge_fed whose length does not match node_inputs is a wiring
-/// bug; Module::func rejects it rather than silently treating every input as edge-fed.
-TEST(NodeEdgeFedTest, ErrorsOnEdgeFedSizeMismatch) {
-    const auto client = new_test_client();
-    const std::string func_def = R"(
-func sum2(x i32, y i32) i32 {
-    return x + y
-}
-)";
-    auto str_st = std::make_shared<stl::strings::State>();
-    auto series_st = std::make_shared<stl::series::State>();
-    auto var_st = std::make_shared<stl::stateful::Variables>();
-    auto channel_st = std::make_shared<stl::channels::State>();
-    auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
-
-    auto mod = compile_arc(client, func_def);
-    auto wasm_mod = ASSERT_NIL_P(
-        wasm::Module::open({.program = mod, .modules = stl_modules, .strings = str_st})
-    );
-
-    arc::types::Param x;
-    x.name = "x";
-    x.type = arc::types::Type{.kind = arc::types::Kind::I32};
-    arc::types::Param y;
-    y.name = "y";
-    y.type = arc::types::Type{.kind = arc::types::Kind::I32};
-    arc::types::Params node_inputs;
-    node_inputs.push_back(x);
-    node_inputs.push_back(y);
-
-    const std::vector<bool> wrong_size{true};
-    ASSERT_OCCURRED_AS_P(
-        wasm_mod->func("sum2", node_inputs, wrong_size),
-        x::errors::VALIDATION
-    );
-}
 }
