@@ -11,8 +11,8 @@ syntax = "proto3";
 
 package grpc.status;
 
-import "google/protobuf/empty.proto";
 import "core/pkg/service/status/pb/status.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/transport/grpc/status";
 
