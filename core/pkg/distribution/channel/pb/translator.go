@@ -14,6 +14,9 @@ import (
 
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	controlpb "github.com/synnaxlabs/x/control/pb"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type (
@@ -28,46 +31,89 @@ var (
 	_ grpc.Translator[channel.RenameRequest, *RenameRequest] = (*RenameMessageTranslator)(nil)
 )
 
-func translateOptionsForward(opts channel.CreateOptions) *CreateOptions {
-	return &CreateOptions{
-		RetrieveIfNameExists:  opts.RetrieveIfNameExists,
-		OverwriteIfNameExists: opts.OverwriteIfNameExistsAndDifferentProperties,
+// channelToPB converts a minimal distribution channel to its protobuf representation.
+// Only the storage and routing fields the distribution layer carries are mapped; the
+// rich metadata fields on the protobuf message (internal/operations/expression) are
+// owned by the service layer and left zero on the cluster-internal wire.
+func channelToPB(c channel.Channel) (*Channel, error) {
+	concurrency, err := controlpb.ConcurrencyToPB(c.Concurrency)
+	if err != nil {
+		return nil, err
 	}
+	return &Channel{
+		Name:        string(c.Name),
+		Leaseholder: uint32(c.Leaseholder),
+		DataType:    string(c.DataType),
+		IsIndex:     c.IsIndex,
+		LocalKey:    uint32(c.LocalKey),
+		LocalIndex:  uint32(c.LocalIndex),
+		Virtual:     c.Virtual,
+		Concurrency: concurrency,
+	}, nil
 }
 
-func translateOptionsBackward(opts *CreateOptions) channel.CreateOptions {
-	return channel.CreateOptions{
-		RetrieveIfNameExists:                        opts.RetrieveIfNameExists,
-		OverwriteIfNameExistsAndDifferentProperties: opts.OverwriteIfNameExists,
+func channelFromPB(pb *Channel) (channel.Channel, error) {
+	if pb == nil {
+		return channel.Channel{}, nil
 	}
+	concurrency, err := controlpb.ConcurrencyFromPB(pb.Concurrency)
+	if err != nil {
+		return channel.Channel{}, err
+	}
+	return channel.Channel{
+		Name:        channel.Name(pb.Name),
+		Leaseholder: node.Key(pb.Leaseholder),
+		DataType:    telem.DataType(pb.DataType),
+		IsIndex:     pb.IsIndex,
+		LocalKey:    channel.LocalKey(pb.LocalKey),
+		LocalIndex:  channel.LocalKey(pb.LocalIndex),
+		Virtual:     pb.Virtual,
+		Concurrency: concurrency,
+	}, nil
+}
+
+func channelsToPB(cs []channel.Channel) ([]*Channel, error) {
+	res := make([]*Channel, len(cs))
+	for i := range cs {
+		var err error
+		if res[i], err = channelToPB(cs[i]); err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func channelsFromPB(pbs []*Channel) ([]channel.Channel, error) {
+	res := make([]channel.Channel, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		if res[i], err = channelFromPB(pb); err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
 }
 
 func (c CreateMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
 ) (*CreateMessage, error) {
-	channels, err := ChannelsToPB(msg.Channels)
+	channels, err := channelsToPB(msg.Channels)
 	if err != nil {
 		return nil, err
 	}
-	return &CreateMessage{
-		Channels: channels,
-		Opts:     translateOptionsForward(msg.Opts),
-	}, nil
+	return &CreateMessage{Channels: channels}, nil
 }
 
 func (c CreateMessageTranslator) Backward(
 	_ context.Context,
 	msg *CreateMessage,
 ) (channel.CreateMessage, error) {
-	channels, err := ChannelsFromPB(msg.Channels)
+	channels, err := channelsFromPB(msg.Channels)
 	if err != nil {
 		return channel.CreateMessage{}, err
 	}
-	return channel.CreateMessage{
-		Channels: channels,
-		Opts:     translateOptionsBackward(msg.Opts),
-	}, nil
+	return channel.CreateMessage{Channels: channels}, nil
 }
 
 func (d DeleteRequestTranslator) Forward(

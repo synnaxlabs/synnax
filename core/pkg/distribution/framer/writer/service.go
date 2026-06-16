@@ -236,10 +236,10 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	TS *ts.DB
 	// Channel is used to resolve metadata and routing information for the provided
-	// keys.
+	// keys (late-bound retriever hole).
 	//
 	// [REQUIRED]
-	Channel *channel.Service
+	Channel channel.Retriever
 	alamos.Instrumentation
 }
 
@@ -446,12 +446,8 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 	if validate.NotEmptySlice(v, "keys", keys) {
 		return nil, v.Error()
 	}
-	var channels []channel.Channel
-	if err := s.cfg.Channel.
-		NewRetrieve().
-		Entries(&channels).
-		Where(channel.MatchKeys(keys...)).
-		Exec(ctx, nil); err != nil {
+	channels, err := s.cfg.Channel.RetrieveByKeys(ctx, keys...)
+	if err != nil {
 		return nil, err
 	}
 	if len(channels) != len(keys) {

@@ -98,7 +98,7 @@ type Codec struct {
 	reader *binary.Reader
 	// channels used in dynamic codecs to retrieve information about channels
 	// when Update is called.
-	channels *channel.Service
+	channels channel.Retriever
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
@@ -177,7 +177,7 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Opt
 // NewDynamic creates a new codec that can be dynamically updated by retrieving channels
 // from the provided channel store with default configuration (alignment compression enabled).
 // Codec.Update must be called before the first call to Codec.Encode and Codec.Decode.
-func NewDynamic(channels *channel.Service, opts ...Option) *Codec {
+func NewDynamic(channels channel.Retriever, opts ...Option) *Codec {
 	c := newCodec(opts...)
 	c.channels = channels
 	return c
@@ -198,10 +198,8 @@ func newCodec(opts ...Option) *Codec {
 
 // Update updates the codec to use the given keys in its state.
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
-	channels := make([]channel.Channel, 0, len(keys))
-	if err := c.channels.NewRetrieve().
-		Where(channel.MatchKeys(keys...)).
-		Entries(&channels).Exec(ctx, nil); err != nil {
+	channels, err := c.channels.RetrieveByKeys(ctx, keys...)
+	if err != nil {
 		return err
 	}
 	keyDataTypes := make(map[channel.Key]telem.DataType, len(channels))

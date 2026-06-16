@@ -11,7 +11,6 @@ package distribution
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -33,7 +32,7 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -62,7 +61,7 @@ type LayerConfig struct {
 	// for testing purposes only.
 	//
 	// [OPTIONAL] - Defaults to nil
-	TestingIntOverflowCheck channel.IntOverflowChecker
+	TestingIntOverflowCheck func(types.Uint20) error
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// Storage is the storage layer that the distribution layer will use for persisting
@@ -154,8 +153,19 @@ type Layer struct {
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses,
 	// states, etc.
 	Cluster node.Cluster
-	// Channel is for creating, deleting, and retrieving channels across the cluster.
+	// Channel is the distribution-layer channel allocator: it assigns local keys and
+	// creates, renames, and deletes storage channels across the cluster. Rich channel
+	// metadata and retrieval live in the service layer.
 	Channel *channel.Service
+	// ChannelRetriever is a late-bound hole for reading channel metadata, filled by the
+	// service layer once its channel service opens. The framer reads channels through
+	// it.
+	ChannelRetriever *channel.RetrieverHolder
+	// IntOverflowCheck is the resolved external-channel overflow checker, consumed by the
+	// service-layer channel service.
+	IntOverflowCheck func(types.Uint20) error
+	// ValidateChannelNames reports whether channel name validation is enabled.
+	ValidateChannelNames *bool
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
@@ -253,36 +263,31 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
+	l.IntOverflowCheck = lo.Ternary(
+		cfg.TestingIntOverflowCheck != nil,
+		cfg.TestingIntOverflowCheck,
+		l.Verification.IsOverflowed,
+	)
+	l.ValidateChannelNames = cfg.ValidateChannelNames
+	l.ChannelRetriever = channel.NewRetrieverHolder()
+
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		HostResolver:    l.Cluster,
 		ClusterDB:       l.DB,
 		TSChannel:       cfg.Storage.TS,
 		Transport:       cfg.ChannelTransport,
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-		Group:           l.Group,
-		IntOverflowCheck: lo.Ternary(
-			cfg.TestingIntOverflowCheck != nil,
-			cfg.TestingIntOverflowCheck,
-			l.Verification.IsOverflowed,
-		),
-		ValidateNames: cfg.ValidateChannelNames,
-	}); !ok(err, nil) {
+	}); !ok(err, l.Channel) {
 		return nil, err
 	}
 
 	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
-		Channel:         l.Channel,
+		Channel:         l.ChannelRetriever,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.FrameTransport,
 		HostResolver:    l.Cluster,
 	}); !ok(err, l.Framer) {
-		return nil, err
-	}
-
-	if err = l.configureControlUpdates(ctx); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -293,17 +298,3 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 // the caller must ensure that all routines interacting with the Layer have finished
 // before calling Close.
 func (l *Layer) Close() error { return l.closer.Close() }
-
-func (l *Layer) configureControlUpdates(ctx context.Context) error {
-	controlCh := channel.Channel{
-		Name:        fmt.Sprintf("sy_node_%v_control", l.Cluster.HostKey()),
-		Leaseholder: l.Cluster.HostKey(),
-		Virtual:     true,
-		DataType:    telem.StringT,
-		Internal:    true,
-	}
-	if err := l.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
-		return err
-	}
-	return l.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)
-}

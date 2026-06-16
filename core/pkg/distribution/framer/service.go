@@ -56,10 +56,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	HostResolver node.HostResolver
-	// Channel is used to retrieve channel information.
+	// Channel is used to retrieve channel information. It is a late-bound retriever hole
+	// implemented by the service layer's channel service.
 	//
 	// [REQUIRED]
-	Channel *channel.Service
+	Channel channel.Retriever
 	// TS is the underlying storage time-series database for reading and writing
 	// telemetry.
 	//

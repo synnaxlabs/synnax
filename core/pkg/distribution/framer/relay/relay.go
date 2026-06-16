@@ -59,10 +59,11 @@ type Config struct {
 	// engine's streaming mechanism.
 	// [REQUIRED]
 	TS *ts.DB
-	// Channel is used for retrieving channel information from the cluster.
+	// Channel is used for retrieving channel information from the cluster (late-bound
+	// retriever hole).
 	//
 	// [REQUIRED]
-	Channel *channel.Service
+	Channel channel.Retriever
 	// Instrumentation is used for logging, tracing, etc.
 	// [OPTIONAL]
 	alamos.Instrumentation

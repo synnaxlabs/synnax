@@ -59,10 +59,10 @@ type ServiceConfig struct {
 	// TS is the underlying storage layer time-series database for reading frames.
 	// [REQUIRED]
 	TS *ts.DB
-	// Channel retrieves channel information.
+	// Channel retrieves channel information (late-bound retriever hole).
 	//
 	// [REQUIRED}
-	Channel *channel.Service
+	Channel channel.Retriever
 	// Instrumentation is used for Logging, Tracing, and Metrics.
 	// [OPTIONAL]
 	alamos.Instrumentation
@@ -233,8 +233,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 			return errors.Wrapf(validate.ErrValidation, "cannot read from free channel %v", k)
 		}
 	}
-	q := s.cfg.Channel.NewRetrieve().Where(channel.MatchKeys(keys...))
-	exists, err := q.Exists(ctx, nil)
+	exists, err := s.cfg.Channel.ContainsKeys(ctx, keys...)
 	if err != nil {
 		return err
 	}

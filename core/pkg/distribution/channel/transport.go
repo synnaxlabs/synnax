@@ -33,9 +33,11 @@ type Transport interface {
 	RenameServer() RenameTransportServer
 }
 
+// CreateMessage is the cluster-internal allocation request/response. It carries the
+// channels to allocate local keys for and create storage for on the leaseholder, and
+// returns those channels with their assigned keys.
 type CreateMessage struct {
 	Channels []Channel
-	Opts     CreateOptions
 }
 
 type RenameRequest struct {
