@@ -37,16 +37,17 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Version is the per-schema integer version stamped on every envelope. On the wire it is
-// the canonical numeric form, but it also decodes from the legacy "N.0.0" semver strings
-// older Console exports wrote — see UnmarshalJSON. This holds both for the envelope header
-// and for a standalone Version decoded out of a versioned payload.
+// Version is the per-schema integer version stamped on every envelope. On the wire it
+// is the canonical numeric form, but it also decodes from the legacy "N.0.0" semver
+// strings older Console exports wrote — see UnmarshalJSON. This holds both for the
+// envelope header and for a standalone Version decoded out of a versioned payload.
 type Version uint64
 
-// UnmarshalJSON decodes a Version from either the canonical numeric JSON form or a legacy
-// "N.0.0" semver string written by older Console exports. Decoding the version directly
-// into a Version field — rather than a string that a caller must then parse — is why the
-// legacy migration packages can peek the stamped version straight into a Version.
+// UnmarshalJSON decodes a Version from either the canonical numeric JSON form or a
+// legacy "N.0.0" semver string written by older Console exports. Decoding the version
+// directly into a Version field — rather than a string that a caller must then parse —
+// is why the legacy migration packages can peek the stamped version straight into a
+// Version.
 func (v *Version) UnmarshalJSON(b []byte) error {
 	var n uint64
 	if err := json.Unmarshal(b, &n); err == nil {

@@ -38,9 +38,9 @@ func wireRoundTrip(env imex.Envelope) imex.Envelope {
 }
 
 // loadEnvelope reads a wire-format envelope fixture from migrations/testdata and
-// unmarshals it into an imex.Envelope, binding the codec that Decode needs. The fixtures
-// cover both legacy camelCase Console exports (v0, v1) and the current Core-typed
-// snake_case shape (v2) that Import dispatches on by version.
+// unmarshals it into an imex.Envelope, binding the codec that Decode needs. The
+// fixtures cover both legacy camelCase Console exports (v0, v1) and the current
+// Core-typed snake_case shape (v2) that Import dispatches on by version.
 func loadEnvelope(path string) imex.Envelope {
 	raw := MustSucceed(os.ReadFile(path))
 	var env imex.Envelope
@@ -49,13 +49,6 @@ func loadEnvelope(path string) imex.Envelope {
 }
 
 var _ = Describe("ImEx", func() {
-	// reg is the registry the suite passed to log.OpenService, so svc registered itself
-	// as the log importer/exporter on open — these specs exercise that wiring rather than
-	// registering by hand. It is bound in BeforeEach because imexSvc is not set until the
-	// suite's BeforeSuite runs, after the spec tree is constructed.
-	var reg *imex.Service
-	BeforeEach(func() { reg = imexSvc })
-
 	createLog := func(ctx SpecContext, l log.Log) log.Log {
 		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 		return l
@@ -71,8 +64,8 @@ var _ = Describe("ImEx", func() {
 				TimestampPrecision: 2,
 				ShowChannelNames:   true,
 			})
-			env := MustSucceed(reg.Export(ctx, log.OntologyID(l.Key)))
-			Expect(env.Version).To(Equal(log.ImExVersion))
+			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(l.Key)))
+			Expect(env.Version).To(Equal(log.Version))
 			Expect(env.Type).To(Equal("log"))
 			Expect(env.Name).To(Equal("exported"))
 
@@ -86,7 +79,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should return not found when the log does not exist", func(ctx SpecContext) {
 			id := ontology.ID{Type: ontology.ResourceTypeLog, Key: uuid.NewString()}
-			Expect(reg.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
+			Expect(imexSvc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -98,7 +91,7 @@ var _ = Describe("ImEx", func() {
 		)
 
 		importAndRetrieve := func(ctx SpecContext, path string) (ontology.ID, log.Log) {
-			id := MustSucceed(reg.Import(ctx, db, loadEnvelope(path)))
+			id := MustSucceed(imexSvc.Import(ctx, db, loadEnvelope(path)))
 			Expect(id.Type).To(Equal(ontology.ResourceTypeLog))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res log.Log
@@ -157,12 +150,12 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It("Should generate a fresh key, discarding the key on the wire", func(ctx SpecContext) {
-			id := MustSucceed(reg.Import(ctx, db, loadEnvelope(v2Fixture)))
+			id := MustSucceed(imexSvc.Import(ctx, db, loadEnvelope(v2Fixture)))
 			Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 		})
 
 		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
-			Expect(reg.Import(ctx, db,
+			Expect(imexSvc.Import(ctx, db,
 				loadEnvelope("migrations/testdata/import_bad_version.json"),
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("log version 99")),
@@ -182,20 +175,14 @@ var _ = Describe("ImEx", func() {
 				TimestampPrecision:   1,
 				ShowReceiptTimestamp: true,
 			})
-			env := MustSucceed(reg.Export(ctx, log.OntologyID(original.Key)))
-			id := MustSucceed(reg.Import(ctx, db, wireRoundTrip(env)))
+			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(original.Key)))
+			id := MustSucceed(imexSvc.Import(ctx, db, wireRoundTrip(env)))
 
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res log.Log
 			Expect(svc.NewRetrieve().Where(log.MatchKeys(key)).Entry(&res).Exec(ctx, db)).
 				To(Succeed())
-			Expect(res.Name).To(Equal("round-trip"))
-			Expect(res.TimestampPrecision).To(Equal(int32(1)))
-			Expect(res.ShowReceiptTimestamp).To(BeTrue())
-			Expect(res.Channels).To(HaveLen(2))
-			Expect(res.Channels[0].Alias).To(Equal("first"))
-			Expect(res.Channels[0].Precision).To(Equal(int32(4)))
-			Expect(res.Channels[1].Channel).To(Equal(channel.Key(2)))
+			Expect(res).To(Equal(original))
 		})
 	})
 })

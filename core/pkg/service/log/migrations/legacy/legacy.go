@@ -36,8 +36,6 @@ func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 			return v1.Data{}, errors.Wrap(err, "peek log data version")
 		}
 	}
-	// A blob without a version field predates the version stamp; the zero Version is the
-	// v0 schema, so the missing field needs no special handling.
 	return dispatch(blob, peek.Version)
 }
 
