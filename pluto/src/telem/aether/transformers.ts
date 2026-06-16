@@ -9,7 +9,16 @@
 
 import { UnexpectedError } from "@synnaxlabs/client";
 import { status } from "@synnaxlabs/client";
-import { bounds, color, id, type math, MultiSeries, notation, scale, Series } from "@synnaxlabs/x";
+import {
+  bounds,
+  color,
+  id,
+  type math,
+  MultiSeries,
+  notation,
+  scale,
+  Series,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";

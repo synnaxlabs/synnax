@@ -15,8 +15,8 @@
 #include "open62541/client_highlevel.h"
 #include "open62541/types.h"
 
-#include "x/cpp/json/json.h"
 #include "client/cpp/status/status.h"
+#include "x/cpp/json/json.h"
 
 #include "driver/opc/device/device.h"
 #include "driver/opc/scan_task.h"

@@ -9,8 +9,8 @@ cc_library(
         "//arc/cpp/runtime/node",
         "//arc/cpp/stl",
         "//client/cpp:synnax",
-        "//x/cpp/errors",
         "//client/cpp/status",
+        "//x/cpp/errors",
     ],
 )
 

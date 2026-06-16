@@ -14,13 +14,13 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/status",
         "//driver/bypass/pipeline",
         "//driver/errors",
         "//driver/pipeline",
         "//driver/task",
         "//driver/transform",
         "//x/cpp/loop",
-        "//client/cpp/status",
         "//x/cpp/thread",
     ],
 )

@@ -12,8 +12,8 @@
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
-#include "client/cpp/testutil/testutil.h"
 #include "client/cpp/status/status.h"
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/test/test.h"
 
 #include "driver/task/task.h"
@@ -332,7 +332,8 @@ TEST_F(TaskManagerTest, Configure) {
     };
     ASSERT_NIL(rack.tasks.create(task));
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.variant == synnax::status::VARIANT_SUCCESS && s.message == "configured";
+        return s.variant == synnax::status::VARIANT_SUCCESS &&
+               s.message == "configured";
     });
     ASSERT_EQ(s.details.task, task.key);
 }
@@ -448,7 +449,8 @@ TEST_F(TaskManagerTest, IgnoresSnapshot) {
         for (const auto &j: frame.series->at(0).json_values()) {
             auto parser = x::json::Parser(j);
             auto s = synnax::task::Status::parse(parser);
-            if (s.variant != synnax::status::VARIANT_WARNING && s.details.task == task.key)
+            if (s.variant != synnax::status::VARIANT_WARNING &&
+                s.details.task == task.key)
                 received = true;
         }
     });
@@ -1070,7 +1072,8 @@ TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
     };
     ASSERT_NIL(rack.tasks.create(task));
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.variant == synnax::status::VARIANT_SUCCESS && s.message == "configured";
+        return s.variant == synnax::status::VARIANT_SUCCESS &&
+               s.message == "configured";
     });
 
     auto states = factory_ptr->captured_ctx->control_states();

@@ -14,9 +14,9 @@
 #include <string>
 #include <utility>
 
+#include "client/cpp/status/status.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"
-#include "client/cpp/status/status.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/node/node.h"
@@ -62,7 +62,10 @@ inline std::string dispatch_set(
         return "";
     }
     if (res.multiple_matches)
-        report(synnax::status::VARIANT_WARNING, set_multi_match_msg(key_or_name, res.key));
+        report(
+            synnax::status::VARIANT_WARNING,
+            set_multi_match_msg(key_or_name, res.key)
+        );
     return res.key;
 }
 

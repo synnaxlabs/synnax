@@ -1371,7 +1371,10 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     task->start("start_after_cold_stop");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    auto *status = find_status_by_variant(ctx->statuses, synnax::status::VARIANT_SUCCESS);
+    auto *status = find_status_by_variant(
+        ctx->statuses,
+        synnax::status::VARIANT_SUCCESS
+    );
     ASSERT_NE(status, nullptr);
 
     task->stop("final_stop", true);

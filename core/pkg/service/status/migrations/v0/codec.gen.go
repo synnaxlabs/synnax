@@ -14,8 +14,8 @@ package v0
 import (
 	"encoding/json"
 
-	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/telem"
 )
 

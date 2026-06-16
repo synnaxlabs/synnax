@@ -9,10 +9,10 @@
 
 #pragma once
 
+#include "client/cpp/status/status.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/loop/loop.h"
-#include "client/cpp/status/status.h"
 
 #include "driver/common/factory.h"
 #include "driver/pipeline/acquisition.h"

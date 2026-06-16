@@ -19,7 +19,6 @@ import (
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
-
 )
 
 type Status = svcstatus.Status[types.Nil]

@@ -14,12 +14,12 @@ cc_library(
         "//client/cpp/errors",
         "//client/cpp/ontology",
         "//client/cpp/rack",
+        "//client/cpp/status",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/pb",
-        "//client/cpp/status",
     ],
 )
 
