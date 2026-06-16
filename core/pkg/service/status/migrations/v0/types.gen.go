@@ -12,7 +12,7 @@
 package v0
 
 import (
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v0"
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -48,5 +48,5 @@ type Status[Details any] struct {
 	// Details contains optional component-specific custom details for the status.
 	Details Details `json:"details" msgpack:"details"`
 	// Labels contains optional labels for categorization and filtering.
-	Labels []labelv0.Label `json:"labels" msgpack:"labels"`
+	Labels []labelv54.Label `json:"labels" msgpack:"labels"`
 }

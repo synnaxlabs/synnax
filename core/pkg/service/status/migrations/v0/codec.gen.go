@@ -14,7 +14,7 @@ package v0
 import (
 	"encoding/json"
 
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v0"
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -94,7 +94,7 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.Labels = make([]labelv0.Label, n)
+			s.Labels = make([]labelv54.Label, n)
 			for j := range s.Labels {
 				if err = s.Labels[j].DecodeOrc(r); err != nil {
 					return err
