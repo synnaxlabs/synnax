@@ -146,7 +146,6 @@ func (s *Service) Retrieve(
 			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
-		// TODO(SY-4247)
 		for i, stat := range statuses {
 			res.Tasks[i].Status = &stat
 		}

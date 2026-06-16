@@ -187,9 +187,7 @@ func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
 func (p SetTabViewPayload) Handle(state Panel) (Panel, error) {
 	if err := setTabContent(&state.Root, p.Key, TabView{
 		TabBase: TabBase{Key: p.Key},
-		Type:    p.Type,
-		Name:    p.Name,
-		Args:    p.Args,
+		View:    p.View,
 	}); err != nil {
 		return Panel{}, err
 	}
