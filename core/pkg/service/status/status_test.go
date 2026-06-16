@@ -605,3 +605,33 @@ var _ = Describe("Status", Ordered, func() {
 		})
 	})
 })
+
+var _ = Describe("Status.String", func() {
+	It("Should not render a Details line when Details is the zero value", func() {
+		s := status.Status[any]{Variant: status.VariantInfo, Message: "hello"}
+		Expect(s.String()).ToNot(ContainSubstring("Details"))
+	})
+
+	It("Should suppress a zero numeric Details value", func() {
+		s := status.Status[int]{Variant: status.VariantInfo, Message: "hello", Details: 0}
+		Expect(s.String()).ToNot(ContainSubstring("Details"))
+	})
+
+	It("Should render a Details line when Details is non-zero", func() {
+		s := status.Status[map[string]any]{
+			Variant: status.VariantInfo,
+			Message: "hello",
+			Details: map[string]any{"running": true},
+		}
+		Expect(s.String()).To(ContainSubstring("Details: map[running:true]"))
+	})
+
+	It("Should render a non-zero string Details that stringifies to \"0\"", func() {
+		s := status.Status[string]{
+			Variant: status.VariantInfo,
+			Message: "hello",
+			Details: "0",
+		}
+		Expect(s.String()).To(ContainSubstring("Details: 0"))
+	})
+})
