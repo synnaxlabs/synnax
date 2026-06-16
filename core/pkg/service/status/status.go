@@ -60,11 +60,13 @@ func (s Status[D]) String() string {
 		_, _ = fmt.Fprintf(&b, "\n  @ %s", s.Time)
 	}
 
-	if detailStr := fmt.Sprintf("%v", s.Details); detailStr != "" && detailStr != "<nil>" && detailStr != "0" {
-		var zero D
-		if fmt.Sprintf("%v", zero) != detailStr {
-			_, _ = fmt.Fprintf(&b, "\n  Details: %v", s.Details)
-		}
+	// Only render Details when it differs from D's zero value, so a status without
+	// details doesn't print an empty "Details:" line. Comparing against the type's
+	// actual zero value (rather than hardcoded "", "<nil>", "0") avoids suppressing a
+	// legitimate non-zero value that happens to stringify to one of those.
+	var zeroDetails D
+	if detailStr := fmt.Sprintf("%v", s.Details); detailStr != fmt.Sprintf("%v", zeroDetails) {
+		_, _ = fmt.Fprintf(&b, "\n  Details: %v", s.Details)
 	}
 
 	return b.String()
