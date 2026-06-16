@@ -114,8 +114,7 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 
 // CreateMany creates multiple ranges within the DB. If any of the ranges already exist,
 // they will be updated. Each range's Parent field, if non-nil, is used to set its
-// parent relationship and is resolved to the parent's stored fields and labels (see
-// Create).
+// parent relationship and is resolved to the parent's stored fields (see Create).
 func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
 	for i := range *ranges {
 		if err := w.Create(ctx, &(*ranges)[i]); err != nil {
