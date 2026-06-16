@@ -14,6 +14,7 @@ package channel
 import (
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -56,7 +57,7 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
-	Operations []distributionchannel.Operation `json:"operations" msgpack:"operations"`
+	Operations []servicechannel.Operation `json:"operations" msgpack:"operations"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
 	// channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`

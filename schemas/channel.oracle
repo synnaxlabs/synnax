@@ -56,7 +56,7 @@ OperationType enum {
     derivative = "derivative"
 
     @doc value "is the type of aggregation operation to apply to channel data over time."
-    @go output "core/pkg/distribution/channel"
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -79,7 +79,7 @@ Operation struct {
         calculate min, max, or average values over a time duration or triggered
         by a reset channel.
     """
-    @go output "core/pkg/distribution/channel"
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -147,7 +147,7 @@ Channel struct {
         distribution metadata. This type is used internally by the server;
         clients should use APIChannel instead.
     """
-    @go output    "core/pkg/distribution/channel"
+    @go output    "core/pkg/service/channel"
     @go marshal
     @go migrate
     @retrieve
