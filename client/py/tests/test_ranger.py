@@ -55,6 +55,30 @@ class TestRangeClient:
             assert rng.name.startswith("test")
             assert rng.key != ""
 
+    def test_create_reusing_resolved_parent(self, client: sy.Synnax):
+        """Should accept a created range's resolved parent (a Payload) as the parent
+        of another range. The server resolves parent into a Payload, and passing it
+        back through create previously raised AttributeError because Range called
+        to_payload() on it."""
+        parent = client.ranges.create(
+            name=f"parent-{uuid4()}",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        child = client.ranges.create(
+            name=f"child-{uuid4()}",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            parent=parent,
+        )
+        assert child.parent is not None
+        assert child.parent.key == parent.key
+        sibling = client.ranges.create(
+            name=f"sibling-{uuid4()}",
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            parent=child.parent,
+        )
+        assert sibling.parent is not None
+        assert sibling.parent.key == parent.key
+
     def test_retrieve_by_key(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should retrieve a range by key"""
         rng = client.ranges.retrieve(key=two_ranges[0].key)

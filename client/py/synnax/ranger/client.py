@@ -255,7 +255,7 @@ class Range(Payload):
         time_range: TimeRange,
         key: UUID = UUID(int=0),
         color: str = "",
-        parent: Range | None = None,
+        parent: Range | Payload | None = None,
         *,
         _frame_client: framer.Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
@@ -288,7 +288,12 @@ class Range(Payload):
         """
         parent_payload: Payload | None = None
         if parent is not None:
-            parent_payload = parent.to_payload()
+            # parent may be a full Range or an already-resolved Payload (e.g. the
+            # .parent of a created or retrieved range, which the server returns as a
+            # Payload). Only Range has to_payload(); a Payload is used as-is.
+            parent_payload = (
+                parent.to_payload() if isinstance(parent, Range) else parent
+            )
             if parent_payload.parent is not None:
                 parent_payload = parent_payload.model_copy(update={"parent": None})
         super().__init__(
@@ -547,7 +552,7 @@ class Client:
         time_range: TimeRange,
         color: str = "",
         retrieve_if_name_exists: bool = False,
-        parent: Range | None = None,
+        parent: Range | Payload | None = None,
         key: Key = UUID(int=0),
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
@@ -607,7 +612,7 @@ class Client:
         time_range: TimeRange | None = None,
         color: str = "",
         retrieve_if_name_exists: bool = False,
-        parent: Range | None = None,
+        parent: Range | Payload | None = None,
     ) -> Range | list[Range]:
         is_single = True
         if ranges is None:
