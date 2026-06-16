@@ -32,14 +32,9 @@ type (
 )
 
 var (
-	NewKey              = dischannel.NewKey
-	ParseKey            = dischannel.ParseKey
-	OntologyID          = dischannel.OntologyID
-	KeysFromOntologyIDs = dischannel.KeysFromOntologyIDs
-	KeysFromUint32      = dischannel.KeysFromUint32
-	// NewRandomName is a cross-layer test helper kept in the distribution layer so the
-	// distribution framer tests can use it without importing the service layer.
-	NewRandomName = dischannel.NewRandomName
+	NewKey         = dischannel.NewKey
+	ParseKey       = dischannel.ParseKey
+	KeysFromUint32 = dischannel.KeysFromUint32
 )
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).

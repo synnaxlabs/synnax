@@ -33,6 +33,16 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// nameCounter backs uniqueChannelName. The distribution layer does not enforce channel
+// name uniqueness (channels are keyed by Key), but distinct names keep test output
+// readable.
+var nameCounter int
+
+func uniqueChannelName() string {
+	nameCounter++
+	return fmt.Sprintf("test_ch_%09d", nameCounter)
+}
+
 var _ = Describe("Writer", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
@@ -82,13 +92,13 @@ var _ = Describe("Writer", func() {
 			builder := mock.ProvisionCluster(ctx, 1)
 			dist := builder.Nodes[1]
 			idxCh = channel.Channel{
-				Name:     channel.NewRandomName(),
+				Name:     uniqueChannelName(),
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
 			Expect(dist.CreateChannel(ctx, &idxCh)).To(Succeed())
 			strCh = channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       uniqueChannelName(),
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
@@ -124,7 +134,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
 			floatCh := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       uniqueChannelName(),
 				DataType:   telem.Float64T,
 				LocalIndex: idxCh.LocalKey,
 			}
@@ -246,13 +256,13 @@ var _ = Describe("Writer", func() {
 				builder := mock.ProvisionCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
-					Name:     channel.NewRandomName(),
+					Name:     uniqueChannelName(),
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				Expect(dist.CreateChannel(ctx, &idxCh)).To(Succeed())
 				jsonCh := channel.Channel{
-					Name:       channel.NewRandomName(),
+					Name:       uniqueChannelName(),
 					DataType:   telem.JSONT,
 					LocalIndex: idxCh.LocalKey,
 				}
@@ -287,13 +297,13 @@ var _ = Describe("Writer", func() {
 				builder := mock.ProvisionCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
-					Name:     channel.NewRandomName(),
+					Name:     uniqueChannelName(),
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				Expect(dist.CreateChannel(ctx, &idxCh)).To(Succeed())
 				strCh := channel.Channel{
-					Name:       channel.NewRandomName(),
+					Name:       uniqueChannelName(),
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
@@ -328,13 +338,13 @@ var _ = Describe("Writer", func() {
 				builder := mock.ProvisionCluster(ctx, 1)
 				dist := builder.Nodes[1]
 				idxCh := channel.Channel{
-					Name:     channel.NewRandomName(),
+					Name:     uniqueChannelName(),
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
 				Expect(dist.CreateChannel(ctx, &idxCh)).To(Succeed())
 				strCh := channel.Channel{
-					Name:       channel.NewRandomName(),
+					Name:       uniqueChannelName(),
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
@@ -480,14 +490,14 @@ var _ = Describe("Writer", func() {
 			peer := node.Key(2)
 
 			idx := channel.Channel{
-				Name:        channel.NewRandomName(),
+				Name:        uniqueChannelName(),
 				IsIndex:     true,
 				DataType:    telem.TimeStampT,
 				Leaseholder: peer,
 			}
 			Expect(gw.CreateChannel(ctx, &idx)).To(Succeed())
 			data := channel.Channel{
-				Name:        channel.NewRandomName(),
+				Name:        uniqueChannelName(),
 				DataType:    telem.Float64T,
 				LocalIndex:  idx.LocalKey,
 				Leaseholder: peer,

@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -101,22 +100,10 @@ func KeysFromChannels(channels []Channel) Keys {
 	return lo.Map(channels, func(ch Channel, _ int) Key { return ch.Key() })
 }
 
-// Names returns the names of the channels.
-func Names(channels []Channel) []string {
-	return lo.Map(channels, func(channel Channel, _ int) string { return channel.Name })
-}
-
 // KeysFromUint32 returns a slice of Keys from a slice of uint32. NOTE: This does not
 // copy the slice, it just reinterprets the memory.
 func KeysFromUint32(keys []uint32) Keys {
 	return unsafe.ReinterpretSlice[uint32, Key](keys)
-}
-
-// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
-	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		return ParseKey(id.Key)
-	})
 }
 
 // Storage returns the storage layer representation of the channel keys.
@@ -135,17 +122,6 @@ func (k Keys) Contains(key Key) bool { return slices.Contains(k, key) }
 
 // Unique removes duplicate keys from the slice and returns the result.
 func (k Keys) Unique() Keys { return lo.Uniq(k) }
-
-// OntologyIDs returns the ontology.ID for each key.
-func (k Keys) OntologyIDs() []ontology.ID {
-	return lo.Map(k, func(key Key, _ int) ontology.ID { return OntologyID(key) })
-}
-
-// OntologyID returns a unique identifier for a Channel for use within a resource
-// ontology.
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: k.String()}
-}
 
 // String implements stringer, returning a nicely formatted string representation of the
 // Channel.
@@ -173,9 +149,6 @@ func (c Channel) Lease() node.Key { return c.Leaseholder }
 // Free returns true if the channel is leased to a particular node i.e. it is not a
 // non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == node.KeyFree }
-
-// OntologyID returns the ontology.ID for the specified channel.
-func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
 
 // Storage returns the storage layer representation of the channel for creation in the
 // storage ts.DB.

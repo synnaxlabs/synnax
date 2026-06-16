@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/math"
 	. "github.com/synnaxlabs/x/testutil"
@@ -59,15 +58,6 @@ var _ = Describe("Channel Tests", func() {
 				Expect(k.Lease()).To(Equal(k.Leaseholder()))
 			})
 		})
-		Describe("OntologyID", func() {
-			It("Should return the ontology Name for the channel", func() {
-				ok := channel.OntologyID(channel.NewKey(node.Key(1), 2))
-				Expect(ok).To(Equal(ontology.ID{
-					Type: "channel",
-					Key:  channel.NewKey(node.Key(1), 2).String(),
-				}))
-			})
-		})
 		Describe("Free", func() {
 			It("Should return true if the channel is a free channel", func() {
 				k := channel.NewKey(node.KeyFree, 1)
@@ -98,26 +88,6 @@ var _ = Describe("Channel Tests", func() {
 				uint32s := []uint32{1, 2, 3}
 				keys := channel.KeysFromUint32(uint32s)
 				Expect(keys).To(Equal(channel.Keys{1, 2, 3}))
-			})
-		})
-		Describe("KeysFromOntologyIDs", func() {
-			It("Should should correctly parse a list of ontology IDs into a list of keys", func() {
-				ids := []ontology.ID{
-					{Type: "channel", Key: "1"},
-					{Type: "channel", Key: "2"},
-				}
-				keys := MustSucceed(channel.KeysFromOntologyIDs(ids))
-				Expect(keys).To(Equal(channel.Keys{1, 2}))
-			})
-			It("Should return an error if the key cannot be parsed", func() {
-				ids := []ontology.ID{
-					{Type: "channel", Key: "1"},
-					{Type: "channel", Key: "a"},
-				}
-				Expect(channel.KeysFromOntologyIDs(ids)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("a is not a valid channel key")),
-				))
 			})
 		})
 		Describe("UniqueLeaseholders", func() {

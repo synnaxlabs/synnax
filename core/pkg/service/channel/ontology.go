@@ -24,6 +24,12 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
+// OntologyID returns a unique identifier for a Channel for use within a resource
+// ontology.
+func OntologyID(k Key) ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: k.String()}
+}
+
 // OntologyID returns the ontology.ID for the channel.
 func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
 
@@ -31,6 +37,18 @@ func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
 func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 	return lo.Map(chs, func(item Channel, _ int) ontology.ID {
 		return OntologyID(item.Key())
+	})
+}
+
+// OntologyIDsFromKeys returns the ontology.ID for each key.
+func OntologyIDsFromKeys(keys Keys) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+}
+
+// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs.
+func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return ParseKey(id.Key)
 	})
 }
 

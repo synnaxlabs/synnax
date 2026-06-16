@@ -24,7 +24,41 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
+
+var _ = Describe("Ontology Helpers", func() {
+	Describe("OntologyID", func() {
+		It("Should return the ontology ID for the channel key", func() {
+			Expect(channel.OntologyID(channel.NewKey(1, 2))).To(Equal(ontology.ID{
+				Type: "channel",
+				Key:  channel.NewKey(1, 2).String(),
+			}))
+		})
+	})
+	Describe("KeysFromOntologyIDs", func() {
+		It("Should parse a list of ontology IDs into a list of keys", func() {
+			ids := []ontology.ID{{Type: "channel", Key: "1"}, {Type: "channel", Key: "2"}}
+			Expect(MustSucceed(channel.KeysFromOntologyIDs(ids))).To(Equal(channel.Keys{1, 2}))
+		})
+		It("Should return an error if a key cannot be parsed", func() {
+			ids := []ontology.ID{{Type: "channel", Key: "1"}, {Type: "channel", Key: "a"}}
+			Expect(channel.KeysFromOntologyIDs(ids)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("a is not a valid channel key")),
+			))
+		})
+	})
+	Describe("OntologyIDsFromKeys", func() {
+		It("Should return the ontology ID for each key", func() {
+			keys := channel.Keys{channel.NewKey(1, 2), channel.NewKey(3, 4)}
+			Expect(channel.OntologyIDsFromKeys(keys)).To(Equal([]ontology.ID{
+				channel.OntologyID(keys[0]),
+				channel.OntologyID(keys[1]),
+			}))
+		})
+	})
+})
 
 var _ = Describe("Ontology", Ordered, func() {
 	var mockCluster *mock.Cluster

@@ -10,6 +10,8 @@
 package channel
 
 import (
+	"fmt"
+	"math/rand"
 	"regexp"
 
 	"github.com/synnaxlabs/x/errors"
@@ -40,4 +42,12 @@ func ValidateName(name string) error {
 		)
 	}
 	return nil
+}
+
+// NewRandomName generates a random channel name that should be unique. It is a test
+// helper for generating distinct channel names; channel name uniqueness itself is
+// enforced by the service layer during creation.
+func NewRandomName() string {
+	randomSuffix := rand.Intn(999999999)
+	return fmt.Sprintf("test_ch_%09d", randomSuffix)
 }
