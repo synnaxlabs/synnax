@@ -142,10 +142,6 @@ func (s *Service) Retrieve(
 	}
 
 	if req.IncludeStatus {
-		keys := make([]rack.Key, len(resRacks))
-		for i := range resRacks {
-			keys[i] = resRacks[i].Key
-		}
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](s.status).
 			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
@@ -154,7 +150,7 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 		for i, stat := range statuses {
-			resRacks[i].Status = (*rack.Status)(&stat)
+			resRacks[i].Status = &stat
 		}
 	}
 

@@ -43,13 +43,11 @@ var _ = Describe("Streamer", Ordered, func() {
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       dist.DB,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Ontology: dist.Ontology,
 			Label:    labelSvc,
 			Search:   searchIdx,

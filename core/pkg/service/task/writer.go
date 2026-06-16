@@ -46,6 +46,22 @@ func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Stat
 	return provided
 }
 
+// healStatus restores a task's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Tasks are re-created on every scan cycle,
+// so on a no-op update the default "unknown" status must not overwrite a status the
+// driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *status.Status[StatusDetails],
+) error {
+	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+		Exists(ctx, w.tx); err != nil || exists {
+		return err
+	}
+	return w.status.Set(ctx, stat)
+}
+
 // Create creates or updates a task. If a status is provided on the task,
 // it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, t *Task) error {
@@ -70,7 +86,11 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	stat := resolveStatus(t, providedStatus)
-	if err := w.status.Set(ctx, stat); err != nil {
+	if providedStatus != nil {
+		if err := w.status.Set(ctx, stat); err != nil {
+			return err
+		}
+	} else if err := w.healStatus(ctx, stat); err != nil {
 		return err
 	}
 	// We don't create ontology resources for internal tasks.

@@ -11,21 +11,20 @@ package signals
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 
-	"encoding/json"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 func Publish(
 	ctx context.Context,
-	prov *signals.Provider,
+	provider *signals.Provider,
 	obs observe.Observable[gorp.TxReader[channel.Key, channel.Channel]],
 ) (io.Closer, error) {
 	cfg := signals.GorpPublisherConfig[channel.Key, channel.Channel]{
@@ -33,7 +32,7 @@ func Publish(
 		DeleteDataType: telem.Uint32T,
 		SetDataType:    telem.JSONT,
 		MarshalDelete: func(k channel.Key) ([]byte, error) {
-			return xunsafe.CastToBytes(k), nil
+			return unsafe.CastToBytes(k), nil
 		},
 		MarshalSet: func(c channel.Channel) ([]byte, error) {
 			v, err := json.Marshal(channel.ToPayload(c))
@@ -43,5 +42,5 @@ func Publish(
 			return telem.MarshalVariableSample(v), nil
 		},
 	}
-	return signals.PublishFromGorp(ctx, prov, cfg)
+	return signals.PublishFromGorp(ctx, provider, cfg)
 }

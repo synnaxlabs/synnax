@@ -11,14 +11,12 @@ package status
 
 import (
 	"context"
-	"io"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -36,34 +34,37 @@ import (
 
 type ServiceConfig struct {
 	// DB is the underlying database that the service will use to store Statuses.
+	//
+	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology will be used to create relationships between statuses (parent-child) and
 	// with other resources within the Synnax cluster.
+	//
+	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create the top level "Statuses" group that will be the default
 	// parent of all statuses.
+	//
+	// [REQUIRED]
 	Group *group.Service
-	// Signals is used to publish signals when statuses are created, updated, or
-	// deleted.
-	Signals *signals.Provider
-	Label   *label.Service
+	// Label is used to create and manage labels for statuses.
+	//
+	// [REQUIRED]
+	Label *label.Service
 	// Search is the search index for fuzzy searching statuses.
+	//
 	// [REQUIRED]
 	Search *search.Index
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = (*ServiceConfig)(nil)
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = (*ServiceConfig)(nil)
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Search = override.Nil(c.Search, other.Search)
 	return c
@@ -94,7 +95,7 @@ type Service struct {
 // nil, the service is ready for use and must be closed by calling Close to prevent
 // resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -121,20 +122,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.Signals == nil {
-		return s, nil
-	}
-	signalsCfg := signals.GorpPublisherConfigString[Status[any]](s.table.Observe())
-	signalsCfg.SetName = "sy_status_set"
-	signalsCfg.DeleteName = "sy_status_delete"
-	var sig io.Closer
-	if sig, err = signals.PublishFromGorp(
-		ctx,
-		cfg.Signals,
-		signalsCfg,
-	); !ok(err, sig) {
-		return nil, err
-	}
 	return s, nil
 }
 
