@@ -667,6 +667,19 @@ func (p *Plugin) processFieldForTranslation(
 		}
 	}
 
+	// An optional list is a nullable wrapper message in proto (see pb/types). The
+	// forward converts the slice (to be wrapped in &Wrapper{Values: ...}); the
+	// backward reads from <pbField>.Values. A nil slice maps to a nil wrapper.
+	if isHardOptional && p.isArrayType(typeRef, data.table) && !p.isNestedArrayType(typeRef, data.table) {
+		f, b, e, be := p.generateArrayConversion(field, data, "r."+goName, "pb."+pbName+".Values")
+		fd.IsOptionalArrayWrapper = true
+		fd.WrapperName = p.getOptionalArrayWrapperName(typeRef, data.table)
+		fd.ForwardExpr = f
+		fd.BackwardExpr = b
+		fd.HasError = e
+		fd.HasBackwardError = be
+	}
+
 	return fd
 }
 
@@ -1042,6 +1055,22 @@ func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *re
 	}
 
 	return "ArrayWrapper"
+}
+
+// getOptionalArrayWrapperName returns the wrapper message name for an optional list.
+// It must match pb/types.getOptionalArrayWrapperName exactly ("<Elem>List").
+func (p *Plugin) getOptionalArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return "ListWrapper"
+	}
+	if resolved, ok := elemType.Resolve(table); ok {
+		return resolved.Name + "List"
+	}
+	if resolution.IsPrimitive(elemType.Name) {
+		return cases.Title(language.English).String(elemType.Name) + "List"
+	}
+	return "ListWrapper"
 }
 
 func (p *Plugin) isFixedSizeUint8Array(typeRef resolution.TypeRef, table *resolution.Table) bool {
@@ -2098,6 +2127,13 @@ type fieldTranslatorData struct {
 	HasError bool
 	// HasBackwardError is true if backward conversion returns (result, error).
 	HasBackwardError bool
+	// IsOptionalArrayWrapper is true for an optional list, represented in proto as a
+	// nullable wrapper message. ToPB wraps the converted slice (&Wrapper{Values: ...});
+	// FromPB unwraps Values. ForwardExpr/BackwardExpr hold the inner slice conversions
+	// (BackwardExpr already reads from <pbField>.Values).
+	IsOptionalArrayWrapper bool
+	// WrapperName is the proto wrapper message type for IsOptionalArrayWrapper fields.
+	WrapperName string
 }
 
 type mapValueConversionData struct {
