@@ -47,6 +47,7 @@ var _ = Describe("Label", Ordered, func() {
 			Group:    g,
 			Search:   searchIdx,
 		}))
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
@@ -125,6 +126,71 @@ var _ = Describe("Label", Ordered, func() {
 			labels := MustSucceed(svc.RetrieveFor(ctx, label.OntologyID(labeled.Key), tx))
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
+		})
+	})
+	Describe("MatchNames", func() {
+		It("Should retrieve a label by its name", func(ctx SpecContext) {
+			l := &label.Label{Name: "match-name-target", Color: color.MustFromHex("#000000")}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			var got label.Label
+			Expect(svc.NewRetrieve().
+				Where(label.MatchNames("match-name-target")).
+				Entry(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got.Key).To(Equal(l.Key))
+		})
+		It("Should retrieve labels matching any of the provided names", func(ctx SpecContext) {
+			ls := []label.Label{
+				{Name: "mn-a", Color: color.MustFromHex("#000000")},
+				{Name: "mn-b", Color: color.MustFromHex("#000000")},
+				{Name: "mn-c", Color: color.MustFromHex("#000000")},
+			}
+			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
+			var got []label.Label
+			Expect(svc.NewRetrieve().
+				Where(label.MatchNames("mn-a", "mn-b")).
+				Entries(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(HaveLen(2))
+		})
+	})
+	Describe("Limit and Offset", func() {
+		BeforeEach(func(ctx SpecContext) {
+			ls := []label.Label{
+				{Name: "page-a", Color: color.MustFromHex("#000000")},
+				{Name: "page-b", Color: color.MustFromHex("#000000")},
+				{Name: "page-c", Color: color.MustFromHex("#000000")},
+			}
+			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
+		})
+		It("Should limit the number of returned labels", func(ctx SpecContext) {
+			var got []label.Label
+			Expect(svc.NewRetrieve().Limit(2).Entries(&got).Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(HaveLen(2))
+		})
+		It("Should offset the returned labels", func(ctx SpecContext) {
+			var all []label.Label
+			Expect(svc.NewRetrieve().Entries(&all).Exec(ctx, tx)).To(Succeed())
+			Expect(len(all)).To(BeNumerically(">=", 3))
+			var got []label.Label
+			Expect(svc.NewRetrieve().Offset(1).Entries(&got).Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(HaveLen(len(all) - 1))
+		})
+	})
+	Describe("Search", func() {
+		It("Should fuzzy search labels by name", func(ctx SpecContext) {
+			l := &label.Label{Name: "Searchable Critical Label", Color: color.MustFromHex("#000000")}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			tx = db.OpenTx()
+			w = svc.NewWriter(tx)
+			var got []label.Label
+			Expect(svc.NewRetrieve().
+				Search("Searchable Critical").
+				Entries(&got).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(got).ToNot(BeEmpty())
+			Expect(got[0].Name).To(ContainSubstring("Searchable"))
 		})
 	})
 	Describe("RemoveLabel", func() {
