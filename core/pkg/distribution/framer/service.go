@@ -117,14 +117,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Iterator(),
-		Channel:         cfg.Channel,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
 	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
-		Channel:         cfg.Channel,
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Relay(),

@@ -344,7 +344,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	channels, err := s.validateChannelKeys(ctx, cfg.Keys)
+	channels, err := s.resolveChannelKeys(ctx, cfg.Keys)
 	if err != nil {
 		return nil, err
 	}
@@ -441,11 +441,10 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	return seg, nil
 }
 
-func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([]channel.Channel, error) {
-	v := validate.New("distribution.framer.writer")
-	if validate.NotEmptySlice(v, "keys", keys) {
-		return nil, v.Error()
-	}
+// resolveChannelKeys retrieves the channel metadata for the given keys, returning an
+// error if any key references a channel that does not exist. Non-emptiness of keys is
+// enforced by Config.Validate and, in the service layer, by the framer wrappers.
+func (s *Service) resolveChannelKeys(ctx context.Context, keys channel.Keys) ([]channel.Channel, error) {
 	channels, err := s.cfg.Channel.RetrieveByKeys(ctx, keys...)
 	if err != nil {
 		return nil, err

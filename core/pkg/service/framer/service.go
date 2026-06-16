@@ -22,9 +22,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -112,11 +114,37 @@ func (s *Service) NewStreamIterator(
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
+	if err := s.validateWriterKeys(ctx, cfg.Keys); err != nil {
+		return nil, err
+	}
 	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
 }
 
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	if err := s.validateWriterKeys(ctx, cfg.Keys); err != nil {
+		return nil, err
+	}
 	return s.cfg.Framer.OpenWriter(ctx, cfg)
+}
+
+// validateWriterKeys validates that the given keys are non-empty and reference
+// channels that exist in the cluster. When the Service was built via Wrap (and thus
+// has no Channel service), validation is skipped and left to the distribution writer.
+func (s *Service) validateWriterKeys(ctx context.Context, keys channel.Keys) error {
+	if s.cfg.Channel == nil {
+		return nil
+	}
+	if len(keys) == 0 {
+		return errors.Wrap(validate.ErrValidation, "keys must be non-empty")
+	}
+	exists, err := s.cfg.Channel.ContainsKeys(ctx, keys...)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", keys)
+	}
+	return nil
 }
 
 func (s *Service) DeleteTimeRange(

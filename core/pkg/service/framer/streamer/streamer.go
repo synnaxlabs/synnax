@@ -20,7 +20,9 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -128,6 +130,15 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
+	}
+	if len(cfg.Keys) > 0 {
+		exists, err := s.cfg.Channel.ContainsKeys(ctx, cfg.Keys...)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", cfg.Keys)
+		}
 	}
 	p := plumber.New()
 	dist, err := s.cfg.DistFramer.NewStreamer(ctx, cfg.distribution())

@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -59,10 +58,6 @@ type ServiceConfig struct {
 	// TS is the underlying storage layer time-series database for reading frames.
 	// [REQUIRED]
 	TS *ts.DB
-	// Channel retrieves channel information (late-bound retriever hole).
-	//
-	// [REQUIRED}
-	Channel channel.Retriever
 	// Instrumentation is used for Logging, Tracing, and Metrics.
 	// [OPTIONAL]
 	alamos.Instrumentation
@@ -79,7 +74,6 @@ var (
 // Override implements Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
-	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
@@ -90,7 +84,6 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.iterator")
 	validate.NotNil(v, "ts", cfg.TS)
-	validate.NotNil(v, "channel", cfg.Channel)
 	validate.NotNil(v, "aspen_transport", cfg.Transport)
 	validate.NotNil(v, "resolver", cfg.HostResolver)
 	return v.Error()
@@ -151,7 +144,7 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 // where requests are sent through an input stream, and responses are received through
 // an output stream.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
-	if err := s.validateChannelKeys(ctx, cfg.Keys); err != nil {
+	if err := s.validateChannelKeys(cfg.Keys); err != nil {
 		return nil, err
 	}
 	cfg.Keys = cfg.Keys.Unique()
@@ -223,7 +216,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	return seg, nil
 }
 
-func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) error {
+func (s *Service) validateChannelKeys(keys channel.Keys) error {
 	v := validate.New("distribution.framer.iterator")
 	if validate.NotEmptySlice(v, "keys", keys) {
 		return v.Error()
@@ -232,13 +225,6 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) er
 		if k.Free() {
 			return errors.Wrapf(validate.ErrValidation, "cannot read from free channel %v", k)
 		}
-	}
-	exists, err := s.cfg.Channel.ContainsKeys(ctx, keys...)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		return errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", keys)
 	}
 	return nil
 }

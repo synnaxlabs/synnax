@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
@@ -59,11 +58,6 @@ type Config struct {
 	// engine's streaming mechanism.
 	// [REQUIRED]
 	TS *ts.DB
-	// Channel is used for retrieving channel information from the cluster (late-bound
-	// retriever hole).
-	//
-	// [REQUIRED]
-	Channel channel.Retriever
 	// Instrumentation is used for logging, tracing, etc.
 	// [OPTIONAL]
 	alamos.Instrumentation
@@ -101,7 +95,6 @@ func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
-	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
 	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
 	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
@@ -115,7 +108,6 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "host_provider", c.HostResolver)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "free_writers", c.FreeWrites)
-	validate.NotNil(v, "channel", c.Channel)
 	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
 	validate.Positive(v, "response_buffer_size", c.ResponseBufferSize)
 	validate.Positive(v, "demand_buffer_size", c.DemandBufferSize)
