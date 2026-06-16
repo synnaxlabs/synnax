@@ -36,6 +36,7 @@ Range struct {
             is the temporal extent of the range, defining its start and end
             timestamps.
         """
+        @ts type   telem.TimeRangeBounded
     }
     color      color.Color?    {
         @doc value """
@@ -70,29 +71,13 @@ Range struct {
     @go marshal
     @go migrate
     @cpp name        "Range"
-    @ts name         "Base"
+    @ts name         "Payload"
     @py name         "Payload"
     @cpp methods     "ranger::kv::Client kv"
     @cpp includes    "client/cpp/ranger/kv/kv.h"
 }
 
-TSRange struct extends Range {
-    time_range telem.TimeRangeBounded {
-        @doc value "is the bounded temporal extent of the range."
-    }
-    parent     TSRange??              {
-        @doc value "is an optional parent range for hierarchical organization."
-    }
-
-    @doc value "is TypeScript-specific range representation with bounded time ranges."
-    @ts name   "Payload"
-    @py omit
-    @cpp omit
-    @go omit
-    @pb omit
-}
-
-New struct extends TSRange {
+New struct extends Range {
     -parent
     -labels
     key?

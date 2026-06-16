@@ -1254,9 +1254,28 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		IsSelfRef:      needsGetter,
 	}
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
-		fd.ZodType = primitiveToZod(typeOverride, data)
-		fd.TSType = primitiveToTS(typeOverride)
-		fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
+		// A `@ts type` override may name either a primitive (e.g. `string`) or
+		// another schema type (e.g. `telem.TimeRangeBounded`). When it resolves to
+		// a known non-primitive type, route it through the normal type-ref
+		// machinery so its schema reference and import are emitted correctly;
+		// otherwise treat it as a primitive. The override may be qualified
+		// (cross-namespace, e.g. telem.TimeRangeBounded) or unqualified (same
+		// namespace as the field): try the qualified name first, then resolve
+		// against the field's own namespace.
+		overrideType, overrideResolves := table.Get(typeOverride)
+		if !overrideResolves {
+			overrideType, overrideResolves = table.Lookup(parentType.Namespace, typeOverride)
+		}
+		if overrideResolves && !resolution.IsPrimitive(typeOverride) && typeOverride != "record" {
+			overrideRef := resolution.TypeRef{Name: overrideType.QualifiedName}
+			fd.ZodType = p.typeRefToZod(&overrideRef, table, data)
+			fd.TSType = p.typeRefToTS(&overrideRef, table, data, needsTypeImports)
+			fd.ZodSchemaType = p.typeRefToZodSchemaType(&overrideRef, table, data)
+		} else {
+			fd.ZodType = primitiveToZod(typeOverride, data)
+			fd.TSType = primitiveToTS(typeOverride)
+			fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
+		}
 		if validateDomain, ok := field.Domains["validate"]; ok || field.Default != nil {
 			result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data, typeOverride)
 			fd.ZodType = result.ZodType

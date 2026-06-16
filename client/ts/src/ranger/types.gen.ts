@@ -18,11 +18,11 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * Base is a user-defined region of time in the Synnax cluster. Ranges act as a
+ * Payload is a user-defined region of time in the Synnax cluster. Ranges act as a
  * method for labeling and categorizing telemetry data within specific time
  * periods.
  */
-export const baseZ = z.object({
+export const payloadZ = z.object({
   /** key is the unique identifier for this range. */
   key: keyZ,
   /** name is a human-readable name for the range. */
@@ -31,7 +31,7 @@ export const baseZ = z.object({
    * timeRange is the temporal extent of the range, defining its start and end
    * timestamps.
    */
-  timeRange: telem.timeRangeZ,
+  timeRange: telem.timeRangeBoundedZ,
   /**
    * color is an optional display color for visual identification of the range
    * in user interfaces.
@@ -46,14 +46,6 @@ export const baseZ = z.object({
    * parent is an optional parent range for hierarchical organization. Ranges
    * can be nested within other ranges.
    */
-  get parent(): z.ZodOptional<typeof baseZ> {
-    return baseZ.optional();
-  },
-});
-export interface Base extends z.infer<typeof baseZ> {}
-
-export const payloadZ = baseZ.omit({ timeRange: true, parent: true }).extend({
-  timeRange: telem.timeRangeBoundedZ,
   get parent(): z.ZodOptional<typeof payloadZ> {
     return payloadZ.optional();
   },

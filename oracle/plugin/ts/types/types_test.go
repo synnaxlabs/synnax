@@ -2093,6 +2093,32 @@ var _ = Describe("TS Types Plugin", func() {
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("keyZ")
 			})
+
+			It("Should use a non-primitive type override referencing another schema type", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Bounded struct {
+						start int64
+						end   int64
+					}
+
+					Span struct {
+						start int64
+					}
+
+					Range struct {
+						extent Span {
+							@ts type Bounded
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("extent: boundedZ").
+					ToNotContain("extent: spanZ").
+					ToNotContain("extent: z.unknown()")
+			})
 		})
 
 		Context("struct with forward reference", func() {
