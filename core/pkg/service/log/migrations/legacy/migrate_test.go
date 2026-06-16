@@ -14,8 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/notation"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,7 +27,7 @@ var _ = Describe("MigrateData", func() {
 
 	It("Should leave an enum outside the closed set unchanged for the lift to default", func() {
 		blob := msgpack.EncodedJSON{
-			"version":  v1.Version,
+			"version":  "1.0.0",
 			"channels": []any{map[string]any{"channel": 1, "notation": "garbage"}},
 		}
 		result := MustSucceed(legacy.MigrateData(blob))
@@ -38,7 +36,7 @@ var _ = Describe("MigrateData", func() {
 
 	It("Should not reject a zero channel key (the chain skips validation)", func() {
 		blob := msgpack.EncodedJSON{
-			"version":  v1.Version,
+			"version":  "1.0.0",
 			"channels": []any{map[string]any{"channel": 0}},
 		}
 		result := MustSucceed(legacy.MigrateData(blob))
@@ -48,7 +46,7 @@ var _ = Describe("MigrateData", func() {
 
 	It("Should lift a v0 payload forward to the latest", func() {
 		blob := msgpack.EncodedJSON{
-			"version":       v0.Version,
+			"version":       "0.0.0",
 			"channels":      []any{1, 2, 3},
 			"remoteCreated": true,
 		}

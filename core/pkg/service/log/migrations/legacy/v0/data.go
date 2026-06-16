@@ -14,13 +14,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 
-// ImExVersion is the numeric imex schema version for log data at v0. It is the schema
-// version legacy.MigrateData dispatches on; Version is the equivalent wire-format semver
-// the console stamped, which MigrateData maps onto ImExVersion via imex.ParseVersion.
-const ImExVersion imex.Version = 0
-
-// Version is the semantic version string written by the console at this state version.
-const Version = "0.0.0"
+// Version is the imex schema version of log data at this state version. The console
+// stamped it on the wire as the semver string "0.0.0", which legacy.MigrateData maps onto
+// this numeric version via imex.ParseVersion.
+const Version imex.Version = 0
 
 // Data is the frozen type for log data at version 0. Channels are stored as bare
 // channel keys. Key, Name, Type, and Version are envelope-level fields and are not part

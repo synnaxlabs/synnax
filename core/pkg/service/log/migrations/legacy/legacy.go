@@ -48,16 +48,16 @@ func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 // field and is the v0 schema.
 func peekVersion(stamped string) (imex.Version, error) {
 	if stamped == "" {
-		return v0.ImExVersion, nil
+		return v0.Version, nil
 	}
 	return imex.ParseVersion(stamped)
 }
 
 func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v1.Data, error) {
 	switch version {
-	case v1.ImExVersion:
+	case v1.Version:
 		return decode[v1.Data](blob, version)
-	case v0.ImExVersion:
+	case v0.Version:
 		d, err := decode[v0.Data](blob, version)
 		if err != nil {
 			return v1.Data{}, err
