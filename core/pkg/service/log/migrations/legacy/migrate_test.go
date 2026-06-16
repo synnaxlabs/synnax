@@ -25,6 +25,11 @@ var _ = Describe("MigrateData", func() {
 			Error().To(MatchError(ContainSubstring("unknown log data version")))
 	})
 
+	It("Should error on an explicit empty version string", func() {
+		Expect(legacy.MigrateData(msgpack.EncodedJSON{"version": ""})).
+			Error().To(MatchError(ContainSubstring("invalid version")))
+	})
+
 	It("Should leave an enum outside the closed set unchanged for the lift to default", func() {
 		blob := msgpack.EncodedJSON{
 			"version":  "1.0.0",

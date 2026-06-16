@@ -81,6 +81,11 @@ var _ = Describe("ImEx", func() {
 			id := ontology.ID{Type: ontology.ResourceTypeLog, Key: uuid.NewString()}
 			Expect(imexSvc.Export(ctx, id)).Error().To(MatchError(query.ErrNotFound))
 		})
+
+		It("Should return an error when the id key is not a valid UUID", func(ctx SpecContext) {
+			id := ontology.ID{Type: ontology.ResourceTypeLog, Key: "not-a-uuid"}
+			Expect(imexSvc.Export(ctx, id)).Error().To(MatchError(ContainSubstring("UUID")))
+		})
 	})
 
 	Describe("Import", func() {
@@ -161,6 +166,12 @@ var _ = Describe("ImEx", func() {
 				MatchError(ContainSubstring("log version 99")),
 				MatchError(ContainSubstring("newer than this Core supports")),
 			))
+		})
+
+		It("Should return an error when a current-version body cannot be decoded", func(ctx SpecContext) {
+			Expect(imexSvc.Import(ctx, db,
+				loadEnvelope("migrations/testdata/import_bad_v2.json"),
+			)).Error().To(MatchError(ContainSubstring("decode")))
 		})
 	})
 
