@@ -13,7 +13,7 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	colorv54 "github.com/synnaxlabs/x/color/migrations/v54"
+	colorv0 "github.com/synnaxlabs/x/color/migrations/v0"
 )
 
 // Key is a unique identifier for a label, represented as a UUID.
@@ -27,7 +27,7 @@ type Label struct {
 	// Name is a human-readable name for the label.
 	Name string `json:"name" msgpack:"name"`
 	// Color is the display color for visual identification of the label.
-	Color colorv54.Color `json:"color" msgpack:"color"`
+	Color colorv0.Color `json:"color" msgpack:"color"`
 }
 
 func (e Label) GorpKey() Key { return e.Key }
