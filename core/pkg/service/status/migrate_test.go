@@ -43,7 +43,7 @@ var _ = Describe("v54 -> current Status migration", func() {
 				{Key: uuid.New(), Name: "primary", Color: colorv54.Color{B: 200, A: 1}},
 			},
 		}
-		t := MustSucceed(gorp.OpenTable(
+		MustSucceed(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, v54.Status[any]]{DB: db},
 		))
 		Expect(gorp.NewCreate[string, v54.Status[any]]().
