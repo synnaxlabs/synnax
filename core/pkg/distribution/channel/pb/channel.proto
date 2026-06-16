@@ -16,6 +16,7 @@ syntax = "proto3";
 
 package distribution.channel.pb;
 
+import "google/protobuf/empty.proto";
 import "x/go/control/pb/control.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
@@ -45,4 +46,39 @@ message Channel {
   // concurrency sets the policy for concurrent writes to the channel's data. Only virtual
   // channels can have a policy of shared concurrency.
   .x.control.pb.Concurrency concurrency = 8;
+}
+
+// CreateMessage is the cluster-internal channel allocation request/response. It carries
+// the channels to allocate local keys and create storage for, and returns those channels
+// with their assigned keys.
+message CreateMessage {
+  repeated Channel channels = 1;
+}
+
+// DeleteRequest is the cluster-internal request to delete the storage for a set of
+// channel keys.
+message DeleteRequest {
+  repeated uint32 keys = 1;
+}
+
+// RenameRequest is the cluster-internal request to rename the storage for a set of
+// channel keys.
+message RenameRequest {
+  repeated uint32 keys = 1;
+  repeated string names = 2;
+}
+
+// CreateService allocates channels and creates their storage on the leaseholder.
+service CreateService {
+  rpc Exec(CreateMessage) returns (CreateMessage) {}
+}
+
+// DeleteService deletes channel storage on the leaseholder.
+service DeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+// RenameService renames channel storage on the leaseholder.
+service RenameService {
+  rpc Exec(RenameRequest) returns (google.protobuf.Empty) {}
 }

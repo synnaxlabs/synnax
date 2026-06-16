@@ -24,6 +24,7 @@ import (
 	pb "github.com/synnaxlabs/x/control/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -152,11 +153,158 @@ func (x *Channel) GetConcurrency() pb.Concurrency {
 	return pb.Concurrency(0)
 }
 
+// CreateMessage is the cluster-internal channel allocation request/response. It carries
+// the channels to allocate local keys and create storage for, and returns those channels
+// with their assigned keys.
+type CreateMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Channels      []*Channel             `protobuf:"bytes,1,rep,name=channels,proto3" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateMessage) Reset() {
+	*x = CreateMessage{}
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateMessage) ProtoMessage() {}
+
+func (x *CreateMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateMessage.ProtoReflect.Descriptor instead.
+func (*CreateMessage) Descriptor() ([]byte, []int) {
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CreateMessage) GetChannels() []*Channel {
+	if x != nil {
+		return x.Channels
+	}
+	return nil
+}
+
+// DeleteRequest is the cluster-internal request to delete the storage for a set of
+// channel keys.
+type DeleteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteRequest) Reset() {
+	*x = DeleteRequest{}
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteRequest) ProtoMessage() {}
+
+func (x *DeleteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteRequest.ProtoReflect.Descriptor instead.
+func (*DeleteRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *DeleteRequest) GetKeys() []uint32 {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+// RenameRequest is the cluster-internal request to rename the storage for a set of
+// channel keys.
+type RenameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenameRequest) Reset() {
+	*x = RenameRequest{}
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenameRequest) ProtoMessage() {}
+
+func (x *RenameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_distribution_channel_pb_channel_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenameRequest.ProtoReflect.Descriptor instead.
+func (*RenameRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *RenameRequest) GetKeys() []uint32 {
+	if x != nil {
+		return x.Keys
+	}
+	return nil
+}
+
+func (x *RenameRequest) GetNames() []string {
+	if x != nil {
+		return x.Names
+	}
+	return nil
+}
+
 var File_core_pkg_distribution_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_distribution_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/distribution/channel/pb/channel.proto\x12\x17distribution.channel.pb\x1a\x1dx/go/control/pb/control.proto\"\x8c\x02\n" +
+	".core/pkg/distribution/channel/pb/channel.proto\x12\x17distribution.channel.pb\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1dx/go/control/pb/control.proto\"\x8c\x02\n" +
 	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\rR\vleaseholder\x12\x1b\n" +
@@ -166,7 +314,20 @@ const file_core_pkg_distribution_channel_pb_channel_proto_rawDesc = "" +
 	"\vlocal_index\x18\x06 \x01(\rR\n" +
 	"localIndex\x12\x18\n" +
 	"\avirtual\x18\a \x01(\bR\avirtual\x12;\n" +
-	"\vconcurrency\x18\b \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrencyB\xe3\x01\n" +
+	"\vconcurrency\x18\b \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\"M\n" +
+	"\rCreateMessage\x12<\n" +
+	"\bchannels\x18\x01 \x03(\v2 .distribution.channel.pb.ChannelR\bchannels\"#\n" +
+	"\rDeleteRequest\x12\x12\n" +
+	"\x04keys\x18\x01 \x03(\rR\x04keys\"9\n" +
+	"\rRenameRequest\x12\x12\n" +
+	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names2i\n" +
+	"\rCreateService\x12X\n" +
+	"\x04Exec\x12&.distribution.channel.pb.CreateMessage\x1a&.distribution.channel.pb.CreateMessage\"\x002Y\n" +
+	"\rDeleteService\x12H\n" +
+	"\x04Exec\x12&.distribution.channel.pb.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002Y\n" +
+	"\rRenameService\x12H\n" +
+	"\x04Exec\x12&.distribution.channel.pb.RenameRequest\x1a\x16.google.protobuf.Empty\"\x00B\xe3\x01\n" +
 	"\x1bcom.distribution.channel.pbB\fChannelProtoP\x01Z8github.com/synnaxlabs/synnax/pkg/distribution/channel/pb\xa2\x02\x03DCP\xaa\x02\x17Distribution.Channel.Pb\xca\x02\x17Distribution\\Channel\\Pb\xe2\x02#Distribution\\Channel\\Pb\\GPBMetadata\xea\x02\x19Distribution::Channel::Pbb\x06proto3"
 
 var (
@@ -181,18 +342,29 @@ func file_core_pkg_distribution_channel_pb_channel_proto_rawDescGZIP() []byte {
 	return file_core_pkg_distribution_channel_pb_channel_proto_rawDescData
 }
 
-var file_core_pkg_distribution_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_distribution_channel_pb_channel_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_core_pkg_distribution_channel_pb_channel_proto_goTypes = []any{
-	(*Channel)(nil),     // 0: distribution.channel.pb.Channel
-	(pb.Concurrency)(0), // 1: x.control.pb.Concurrency
+	(*Channel)(nil),       // 0: distribution.channel.pb.Channel
+	(*CreateMessage)(nil), // 1: distribution.channel.pb.CreateMessage
+	(*DeleteRequest)(nil), // 2: distribution.channel.pb.DeleteRequest
+	(*RenameRequest)(nil), // 3: distribution.channel.pb.RenameRequest
+	(pb.Concurrency)(0),   // 4: x.control.pb.Concurrency
+	(*emptypb.Empty)(nil), // 5: google.protobuf.Empty
 }
 var file_core_pkg_distribution_channel_pb_channel_proto_depIdxs = []int32{
-	1, // 0: distribution.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	4, // 0: distribution.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
+	0, // 1: distribution.channel.pb.CreateMessage.channels:type_name -> distribution.channel.pb.Channel
+	1, // 2: distribution.channel.pb.CreateService.Exec:input_type -> distribution.channel.pb.CreateMessage
+	2, // 3: distribution.channel.pb.DeleteService.Exec:input_type -> distribution.channel.pb.DeleteRequest
+	3, // 4: distribution.channel.pb.RenameService.Exec:input_type -> distribution.channel.pb.RenameRequest
+	1, // 5: distribution.channel.pb.CreateService.Exec:output_type -> distribution.channel.pb.CreateMessage
+	5, // 6: distribution.channel.pb.DeleteService.Exec:output_type -> google.protobuf.Empty
+	5, // 7: distribution.channel.pb.RenameService.Exec:output_type -> google.protobuf.Empty
+	5, // [5:8] is the sub-list for method output_type
+	2, // [2:5] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_distribution_channel_pb_channel_proto_init() }
@@ -206,9 +378,9 @@ func file_core_pkg_distribution_channel_pb_channel_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc), len(file_core_pkg_distribution_channel_pb_channel_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   4,
 			NumExtensions: 0,
-			NumServices:   0,
+			NumServices:   3,
 		},
 		GoTypes:           file_core_pkg_distribution_channel_pb_channel_proto_goTypes,
 		DependencyIndexes: file_core_pkg_distribution_channel_pb_channel_proto_depIdxs,

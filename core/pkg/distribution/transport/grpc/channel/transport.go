@@ -94,11 +94,11 @@ func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
 }
 
 var (
-	_ channel.CreateTransportClient        = (*createClient)(nil)
-	_ channel.CreateTransportServer        = (*createServer)(nil)
-	_ channelpb.ChannelCreateServiceServer = (*createServer)(nil)
-	_ channel.Transport                    = (*Transport)(nil)
-	_ fgrpc.BindableTransport              = (*Transport)(nil)
+	_ channel.CreateTransportClient = (*createClient)(nil)
+	_ channel.CreateTransportServer = (*createServer)(nil)
+	_ channelpb.CreateServiceServer = (*createServer)(nil)
+	_ channel.Transport             = (*Transport)(nil)
+	_ fgrpc.BindableTransport       = (*Transport)(nil)
 )
 
 // New creates a new grpc Transport that opens connections from the given pool.
@@ -112,15 +112,15 @@ func New(pool *fgrpc.Pool) Transport {
 			conn grpc.ClientConnInterface,
 			req *channelpb.CreateMessage,
 		) (*channelpb.CreateMessage, error) {
-			return channelpb.NewChannelCreateServiceClient(conn).Exec(ctx, req)
+			return channelpb.NewCreateServiceClient(conn).Exec(ctx, req)
 		},
-		ServiceDesc: &channelpb.ChannelCreateService_ServiceDesc,
+		ServiceDesc: &channelpb.CreateService_ServiceDesc,
 	}
 	createServer := &createServer{
 		Internal:           true,
 		RequestTranslator:  channelpb.CreateMessageTranslator{},
 		ResponseTranslator: channelpb.CreateMessageTranslator{},
-		ServiceDesc:        &channelpb.ChannelCreateService_ServiceDesc,
+		ServiceDesc:        &channelpb.CreateService_ServiceDesc,
 	}
 	deleteClient := &deleteClient{
 		Pool:               pool,
@@ -131,14 +131,14 @@ func New(pool *fgrpc.Pool) Transport {
 			conn grpc.ClientConnInterface,
 			req *channelpb.DeleteRequest,
 		) (*emptypb.Empty, error) {
-			return channelpb.NewChannelDeleteServiceClient(conn).Exec(ctx, req)
+			return channelpb.NewDeleteServiceClient(conn).Exec(ctx, req)
 		},
-		ServiceDesc: &channelpb.ChannelDeleteService_ServiceDesc,
+		ServiceDesc: &channelpb.DeleteService_ServiceDesc,
 	}
 	deleteServer := &deleteServer{
 		RequestTranslator:  channelpb.DeleteRequestTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &channelpb.ChannelDeleteService_ServiceDesc,
+		ServiceDesc:        &channelpb.DeleteService_ServiceDesc,
 	}
 	renameClient := &renameClient{
 		Pool:               pool,
@@ -149,14 +149,14 @@ func New(pool *fgrpc.Pool) Transport {
 			conn grpc.ClientConnInterface,
 			req *channelpb.RenameRequest,
 		) (*emptypb.Empty, error) {
-			return channelpb.NewChannelRenameServiceClient(conn).Exec(ctx, req)
+			return channelpb.NewRenameServiceClient(conn).Exec(ctx, req)
 		},
-		ServiceDesc: &channelpb.ChannelRenameService_ServiceDesc,
+		ServiceDesc: &channelpb.RenameService_ServiceDesc,
 	}
 	renameServer := &renameServer{
 		RequestTranslator:  channelpb.RenameMessageTranslator{},
 		ResponseTranslator: fgrpc.EmptyTranslator{},
-		ServiceDesc:        &channelpb.ChannelRenameService_ServiceDesc,
+		ServiceDesc:        &channelpb.RenameService_ServiceDesc,
 	}
 	return Transport{
 		ReportProvider: fgrpc.Reporter,
