@@ -43,7 +43,6 @@ var _ = Describe("Alias", Ordered, func() {
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			Signals:  dist.Signals,
 			Search:   dist.Search,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
