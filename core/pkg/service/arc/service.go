@@ -24,7 +24,6 @@ import (
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -55,10 +54,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Task *task.Service
-	// Status is used for resolving the status of an Arc's deployed task on retrieve.
-	//
-	// [REQUIRED]
-	Status *status.Service
 	// Signals is used for propagating changes to Arcs through the cluster.
 	//
 	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service is
@@ -83,7 +78,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
-	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
 
@@ -94,7 +88,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "task", c.Task)
-	validate.NotNil(v, "status", c.Status)
 	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
@@ -244,6 +237,5 @@ func (s *Service) NewRetrieve() Retrieve {
 		gorp:   s.table.NewRetrieve(),
 		baseTX: s.cfg.DB,
 		search: s.cfg.Search,
-		svc:    s,
 	}
 }

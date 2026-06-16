@@ -119,6 +119,7 @@ func (retrieveRequestTranslator) Forward(
 		Limit:         int32(msg.Limit),
 		Offset:        int32(msg.Offset),
 		IncludeStatus: msg.IncludeStatus,
+		IncludeTask:   msg.IncludeTask,
 		Compile:       msg.Compile,
 	}, nil
 }
@@ -142,6 +143,7 @@ func (retrieveRequestTranslator) Backward(
 		Limit:         int(msg.Limit),
 		Offset:        int(msg.Offset),
 		IncludeStatus: msg.IncludeStatus,
+		IncludeTask:   msg.IncludeTask,
 		Compile:       msg.Compile,
 	}, nil
 }

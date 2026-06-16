@@ -129,6 +129,7 @@ type RetrieveRequest struct {
 	Offset        int32                  `protobuf:"varint,5,opt,name=offset,proto3" json:"offset,omitempty"`
 	IncludeStatus bool                   `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	Compile       bool                   `protobuf:"varint,7,opt,name=compile,proto3" json:"compile,omitempty"`
+	IncludeTask   bool                   `protobuf:"varint,8,opt,name=include_task,json=includeTask,proto3" json:"include_task,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -208,6 +209,13 @@ func (x *RetrieveRequest) GetIncludeStatus() bool {
 func (x *RetrieveRequest) GetCompile() bool {
 	if x != nil {
 		return x.Compile
+	}
+	return false
+}
+
+func (x *RetrieveRequest) GetIncludeTask() bool {
+	if x != nil {
+		return x.IncludeTask
 	}
 	return false
 }
@@ -308,7 +316,7 @@ const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
 	"\rCreateRequest\x12'\n" +
 	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"9\n" +
 	"\x0eCreateResponse\x12'\n" +
-	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"\xcb\x01\n" +
+	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"\xee\x01\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12\x1f\n" +
@@ -317,7 +325,8 @@ const file_core_pkg_transport_grpc_arc_arc_proto_rawDesc = "" +
 	"\x05limit\x18\x04 \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\x05 \x01(\x05R\x06offset\x12%\n" +
 	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatus\x12\x18\n" +
-	"\acompile\x18\a \x01(\bR\acompile\";\n" +
+	"\acompile\x18\a \x01(\bR\acompile\x12!\n" +
+	"\finclude_task\x18\b \x01(\bR\vincludeTask\";\n" +
 	"\x10RetrieveResponse\x12'\n" +
 	"\x04arcs\x18\x01 \x03(\v2\x13.service.arc.pb.ArcR\x04arcs\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +

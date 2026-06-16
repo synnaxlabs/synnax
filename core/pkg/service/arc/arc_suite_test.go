@@ -99,7 +99,6 @@ var (
 			Ontology: otg,
 			Channel:  channel.Wrap(dist.Channel),
 			Task:     taskSvc,
-			Status:   statSvc,
 			Search:   searchIdx,
 		}))
 	})

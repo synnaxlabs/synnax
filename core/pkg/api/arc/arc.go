@@ -24,8 +24,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type (
@@ -37,6 +40,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *arc.Service
 	status   *status.Service
+	ontology *ontology.Ontology
 	alamos.Instrumentation
 }
 
@@ -50,6 +54,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Service.Arc,
 		status:          cfg.Service.Status,
+		ontology:        cfg.Distribution.Ontology,
 	}, nil
 }
 
@@ -122,10 +127,7 @@ func (s *Service) Retrieve(
 ) (RetrieveResponse, error) {
 	var arcs []arc.Arc
 	var (
-		q = s.internal.NewRetrieve().
-			Entries(&arcs).
-			IncludeTask(req.IncludeTask).
-			IncludeStatus(req.IncludeStatus)
+		q         = s.internal.NewRetrieve().Entries(&arcs)
 		hasKeys   = len(req.Keys) > 0
 		hasNames  = len(req.Names) > 0
 		hasSearch = req.SearchTerm != ""
@@ -150,6 +152,44 @@ func (s *Service) Retrieve(
 	}
 
 	res := RetrieveResponse{Arcs: arcs}
+
+	if req.IncludeTask || req.IncludeStatus {
+		for i := range res.Arcs {
+			var children []ontology.Resource
+			if err := s.ontology.NewRetrieve().
+				WhereIDs(arc.OntologyID(res.Arcs[i].Key)).
+				TraverseTo(ontology.ChildrenTraverser).
+				WhereTypes(ontology.ResourceTypeTask).
+				Limit(1).
+				ExcludeFieldData(true).
+				Entries(&children).
+				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
+				return RetrieveResponse{}, err
+			}
+			if len(children) == 0 {
+				continue
+			}
+			keys, err := task.KeysFromOntologyIDs(ontology.ResourceIDs(children))
+			if err != nil {
+				return RetrieveResponse{}, err
+			}
+			res.Arcs[i].Task = &keys[0]
+			if !req.IncludeStatus {
+				continue
+			}
+			var st arc.Status
+			if err := status.NewRetrieve[arc.StatusDetails](s.status).
+				Where(status.MatchKeys[arc.StatusDetails](task.OntologyID(keys[0]).String())).
+				Entry(&st).
+				Exec(ctx, nil); err != nil {
+				if errors.Is(err, query.ErrNotFound) {
+					continue
+				}
+				return RetrieveResponse{}, err
+			}
+			res.Arcs[i].Status = &st
+		}
+	}
 
 	// Compile Arcs to modules if requested
 	if req.Compile {

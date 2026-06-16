@@ -1,0 +1,161 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package arc
+
+import (
+	"testing"
+
+	"github.com/google/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestAPIArc(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "API Arc Suite")
+}
+
+var (
+	db       *gorp.DB
+	otg      *ontology.Ontology
+	rbacSvc  *rbac.Service
+	arcSvc   *arc.Service
+	statSvc  *status.Service
+	taskSvc  *task.Service
+	rackSvc  *rack.Service
+	userSvc  *user.Service
+	apiSvc   *Service
+	author   user.User
+	testRack *rack.Rack
+	dist     mock.Node
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.Open())
+	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		DB:                  db,
+		Ontology:            otg,
+		Group:               groupSvc,
+		HostProvider:        mock.StaticHostKeyProvider(1),
+		Status:              statSvc,
+		HealthCheckInterval: 10 * telem.Millisecond,
+		Search:              searchIdx,
+	}))
+	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Rack:     rackSvc,
+		Status:   statSvc,
+		Search:   searchIdx,
+	}))
+	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Channel:  channel.Wrap(dist.Channel),
+		Task:     taskSvc,
+		Search:   searchIdx,
+	}))
+	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:              db,
+		Ontology:        otg,
+		Group:           groupSvc,
+		Search:          searchIdx,
+		Auth:            authSvc,
+		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
+	}))
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+		User:     userSvc,
+	}))
+	apiSvc = &Service{access: rbacSvc, internal: arcSvc, status: statSvc, ontology: otg}
+	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
+	testRack = &rack.Rack{Name: "Test Rack"}
+	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+})
+
+// authedCtx returns a freighter.Context derived from ctx with the given user
+// installed as the request subject, so auth.GetSubject succeeds inside the
+// api.Service methods.
+func authedCtx(ctx SpecContext, u user.User) freighter.Context {
+	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
+	fctx.Set("Subject", user.OntologyID(u.Key))
+	return fctx
+}
+
+// grant creates a policy permitting action on the given objects, binds it to a
+// fresh role, and assigns the role to subject. Writes commit directly to the
+// database (nil tx) so the api enforcer - which reads committed state - observes
+// them.
+func grant(
+	ctx SpecContext,
+	subject ontology.ID,
+	action access.Action,
+	objects ...ontology.ID,
+) {
+	roleWriter := rbacSvc.Role.NewWriter(nil, true)
+	policyWriter := rbacSvc.Policy.NewWriter(nil, true)
+	r := &role.Role{Name: string(action) + "-" + uuid.New().String(), Description: "test"}
+	Expect(roleWriter.Create(ctx, r)).To(Succeed())
+	p := &policy.Policy{
+		Name:    string(action) + "-policy-" + uuid.New().String(),
+		Objects: objects,
+		Actions: []access.Action{action},
+	}
+	Expect(policyWriter.Create(ctx, p)).To(Succeed())
+	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+	Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
+}

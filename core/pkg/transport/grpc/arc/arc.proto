@@ -44,6 +44,7 @@ message RetrieveRequest {
   int32 offset = 5;
   bool include_status = 6;
   bool compile = 7;
+  bool include_task = 8;
 }
 
 message RetrieveResponse {
