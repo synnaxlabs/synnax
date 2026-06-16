@@ -11,7 +11,7 @@ package log
 
 import (
 	"context"
-	stdio "io"
+	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/io"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -47,12 +47,16 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
-	// Signals is the optional cluster signals provider. When set, every
-	// successful Writer.Dispatch broadcasts a ScopedAction onto the sy_log_set
-	// channel, and deletes flow through sy_log_delete.
+	// Signals is the optional cluster signals provider. When set, every successful
+	// Writer.Dispatch broadcasts a ScopedAction onto the sy_log_set channel, and
+	// deletes flow through sy_log_delete.
+	//
+	// [OPTIONAL]
 	Signals *signals.Provider
-	// ImEx is the optional import/export registry. When set, the log service registers
-	// itself as the importer/exporter for log resources during OpenService.
+	// ImEx is the import/export registry that the log service registers itself with as
+	// the importer/exporter for log resources during OpenService.
+	//
+	// [REQUIRED]
 	ImEx *imex.Service
 }
 
@@ -75,13 +79,14 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "imex", c.ImEx)
 	return v.Error()
 }
 
 // Service is the primary service for retrieving and modifying logs from Synnax.
 type Service struct {
 	cfg    ServiceConfig
-	closer io.MultiCloser
+	closer xio.MultiCloser
 	table  *gorp.Table[Key, Log]
 	state  *actions.State[Key, Action]
 }
@@ -112,11 +117,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.ImEx != nil {
-		cfg.ImEx.RegisterImportExporter(s)
-	}
+	cfg.ImEx.RegisterImportExporter(s)
 	if cfg.Signals != nil {
-		var sig stdio.Closer
+		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
 			Provider: cfg.Signals,
 			State:    s.state,
@@ -126,7 +129,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 		deleteCfg.DisableSet = true
-		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
+		if sig, err = signals.PublishFromGorp(
+			ctx,
+			cfg.Signals,
+			deleteCfg,
+		); !ok(err, sig) {
 			return nil, err
 		}
 	}
@@ -137,8 +144,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) Close() error { return s.closer.Close() }
 
 // OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
-// underlying transaction commits. The returned Disconnect removes the handler.
+// Writer.Dispatch. The handler runs synchronously inside Dispatch after the underlying
+// transaction commits. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {

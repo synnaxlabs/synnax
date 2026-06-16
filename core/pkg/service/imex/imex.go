@@ -211,9 +211,9 @@ func Encode[T any](env *Envelope, data T) error {
 		return errors.Wrap(err, "encode envelope")
 	}
 	// Keys are resource-local identity, not part of the portable envelope: an imported
-	// resource is minted a fresh key on the way in, so a stale key on the wire is at best
-	// noise and at worst a collision hazard. Strip it here. This may change if envelopes
-	// ever need to carry stable identity across clusters.
+	// resource is minted a fresh key on the way in, so a stale key on the wire is at
+	// best noise and at worst a collision hazard. Strip it here. This may change if
+	// envelopes ever need to carry stable identity across clusters.
 	delete(body, "key")
 	typ := env.Type
 	if v, ok := body["type"]; ok {

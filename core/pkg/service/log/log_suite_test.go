@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -33,11 +34,12 @@ func TestLog(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db   *gorp.DB
-	otg  *ontology.Ontology
-	proj project.Project
-	svc  *log.Service
-	tx   gorp.Tx
+	db      *gorp.DB
+	otg     *ontology.Ontology
+	proj    project.Project
+	svc     *log.Service
+	imexReg *imex.Service
+	tx      gorp.Tx
 )
 
 var (
@@ -64,10 +66,12 @@ var (
 				Search:   searchIdx,
 			}))
 		)
+		imexReg = imex.NewService()
 		svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
+			ImEx:     imexReg,
 		}))
 		author := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 			Username: "test",

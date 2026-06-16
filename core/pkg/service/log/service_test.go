@@ -13,7 +13,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ServiceConfig", func() {
@@ -23,6 +25,7 @@ var _ = Describe("ServiceConfig", func() {
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
+				ImEx:     imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(Succeed())
 		})
@@ -31,6 +34,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				Ontology: otg,
 				Search:   &search.Index{},
+				ImEx:     imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("db")))
 		})
@@ -39,6 +43,7 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				DB:     db,
 				Search: &search.Index{},
+				ImEx:   imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("ontology")))
 		})
@@ -47,23 +52,35 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
+				ImEx:     imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("search")))
+		})
+
+		It("Should fail when ImEx is nil", func() {
+			cfg := log.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Search:   &search.Index{},
+			}
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("imex")))
 		})
 	})
 
 	Describe("Override", func() {
-		It("Should prefer the other config's DB, Ontology, and Search when set", func() {
+		It("Should prefer the other config's fields when set", func() {
 			initial := log.ServiceConfig{}
 			other := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
+				ImEx:     imex.NewService(),
 			}
 			merged := initial.Override(other)
 			Expect(merged.DB).To(BeIdenticalTo(other.DB))
 			Expect(merged.Ontology).To(BeIdenticalTo(other.Ontology))
 			Expect(merged.Search).To(BeIdenticalTo(other.Search))
+			Expect(merged.ImEx).To(BeIdenticalTo(other.ImEx))
 		})
 
 		It("Should preserve the receiver's fields when other's are nil", func() {
@@ -71,11 +88,13 @@ var _ = Describe("ServiceConfig", func() {
 				DB:       db,
 				Ontology: otg,
 				Search:   &search.Index{},
+				ImEx:     imex.NewService(),
 			}
 			merged := initial.Override(log.ServiceConfig{})
 			Expect(merged.DB).To(BeIdenticalTo(initial.DB))
 			Expect(merged.Ontology).To(BeIdenticalTo(initial.Ontology))
 			Expect(merged.Search).To(BeIdenticalTo(initial.Search))
+			Expect(merged.ImEx).To(BeIdenticalTo(initial.ImEx))
 		})
 	})
 })
@@ -85,5 +104,12 @@ var _ = Describe("OpenService", func() {
 		Expect(log.OpenService(ctx, log.ServiceConfig{DB: db})).Error().To(
 			MatchError(ContainSubstring("ontology")),
 		)
+	})
+
+	It("Should register itself with the configured ImEx registry on open", func(ctx SpecContext) {
+		l := log.Log{Name: "auto-registered"}
+		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+		env := MustSucceed(imexReg.Export(ctx, log.OntologyID(l.Key)))
+		Expect(env.Type).To(Equal("log"))
 	})
 })
