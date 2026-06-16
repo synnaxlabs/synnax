@@ -411,7 +411,7 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("Combinators", func() {
 			It("Should compose filters with And", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.And[any](
+				Expect(svc.NewRetrieve().Where(status.And(
 					status.MatchKeyPrefix[any]("retrieve-"),
 					status.MatchVariants[any](status.VariantInfo),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
@@ -423,7 +423,7 @@ var _ = Describe("Status", Ordered, func() {
 			})
 			It("Should compose filters with Or", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.Or[any](
+				Expect(svc.NewRetrieve().Where(status.Or(
 					status.MatchVariants[any](status.VariantError),
 					status.MatchVariants[any](status.VariantWarning),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
@@ -437,9 +437,9 @@ var _ = Describe("Status", Ordered, func() {
 			})
 			It("Should invert a filter with Not", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.And[any](
+				Expect(svc.NewRetrieve().Where(status.And(
 					status.MatchKeyPrefix[any]("retrieve-"),
-					status.Not[any](status.MatchVariants[any](status.VariantError)),
+					status.Not(status.MatchVariants[any](status.VariantError)),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				for _, s := range statuses {
 					Expect(s.Key).To(HavePrefix("retrieve-"))
