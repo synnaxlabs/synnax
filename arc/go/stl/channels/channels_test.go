@@ -237,8 +237,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: rtState.Node("test"),
 				}
-				_, err := factory.Create(ctx, cfg)
-				Expect(err).To(HaveOccurred())
+				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
 			})
 			It("Should return error for missing channel", func(ctx SpecContext) {
 				cfg := rnode.Config{
@@ -248,8 +247,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: rtState.Node("test"),
 				}
-				_, err := factory.Create(ctx, cfg)
-				Expect(err).To(HaveOccurred())
+				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
 			})
 		})
 	})

@@ -105,6 +105,16 @@ var _ = Describe("Control", func() {
 			}
 			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
+		It("Should error when an input value is invalid", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type:   "set_authority",
+					Inputs: types.Params{{Name: "value", Type: types.U8(), Value: []any{1}}},
+				},
+				State: s.Node("set_auth"),
+			}
+			Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+		})
 		It("Should parse channel config with specific channel", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{

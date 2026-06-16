@@ -453,4 +453,18 @@ var _ = Describe("Construction validation", func() {
 		Expect(stable.NewHost().Create(ctx, cfg)).Error().
 			To(MatchError(node.ErrInputNotFound))
 	})
+	It("Should error at construction when the duration input value is invalid", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "stable",
+			Type: "stable_for",
+			Inputs: types.Params{
+				{Name: "duration", Type: types.String(), Value: []any{1}},
+				{Name: ir.DefaultInputParam, Type: types.F32(), Value: float32(0)},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := node.New(prog)
+		cfg := node.Config{Node: prog.Nodes[0], State: s.Node("stable")}
+		Expect(stable.NewHost().Create(ctx, cfg)).Error().To(BeAValidationPathError())
+	})
 })

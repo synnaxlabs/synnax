@@ -213,11 +213,13 @@ func gcd(a, b int64) int64 {
 func parseTime(v any, name string) (telem.TimeSpan, error) {
 	span, ok := v.(telem.TimeSpan)
 	if !ok {
-		return 0, errors.Wrapf(
-			validate.ErrValidation,
-			"configuration parameter %s has invalid type, expected type telem.TimeSpan, received %s",
+		return 0, validate.PathedError(
+			errors.Wrapf(
+				validate.ErrInvalidType,
+				"expected type telem.TimeSpan, received %s",
+				reflect.TypeOf(v).Name(),
+			),
 			name,
-			reflect.TypeOf(v).Name(),
 		)
 	}
 	return span, nil

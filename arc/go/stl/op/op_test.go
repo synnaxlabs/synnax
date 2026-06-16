@@ -474,6 +474,8 @@ var _ = Describe("Construction validation", func() {
 				To(MatchError(node.ErrInputNotFound))
 		},
 		Entry("binary ge", "ge"),
+		Entry("logical and", "and"),
+		Entry("logical or", "or"),
 		Entry("unary not", "not"),
 	)
 })

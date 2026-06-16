@@ -834,4 +834,23 @@ var _ = Describe("Construction validation", func() {
 		Entry("max", "max"),
 		Entry("derivative", "derivative"),
 	)
+	It("Should error at construction when the window count value is invalid", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "math",
+			Type: "avg",
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.F64(), Value: 0.0},
+				{Name: "count", Type: types.String(), Value: []any{1}},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+		}}}
+		s := node.New(prog)
+		m := MustSucceed(stlmath.NewHost(ctx, nil))
+		cfg := node.Config{
+			Node:    prog.Nodes[0],
+			State:   s.Node("math"),
+			Program: program.Program{IR: prog},
+		}
+		Expect(m.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+	})
 })

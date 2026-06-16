@@ -392,6 +392,7 @@ var _ = Describe("SeriesFactory", func() {
 			Entry("int32 -> BytesT", int32(8), telem.BytesT, telem.NewSeriesV([]byte{8, 0, 0, 0})),
 			Entry("int64 -> BytesT", int64(9), telem.BytesT, telem.NewSeriesV([]byte{9, 0, 0, 0, 0, 0, 0, 0})),
 			Entry("timestamp -> BytesT", telem.TimeStamp(1), telem.BytesT, telem.NewSeriesV([]byte{1, 0, 0, 0, 0, 0, 0, 0})),
+			Entry("timespan -> BytesT", telem.TimeSpan(10), telem.BytesT, telem.NewSeriesV([]byte{10, 0, 0, 0, 0, 0, 0, 0})),
 			Entry("float32 -> BytesT", float32(1.5), telem.BytesT, telem.NewSeriesV(telem.ByteOrder.AppendUint32(nil, math.Float32bits(1.5)))),
 			Entry("float64 -> BytesT", 2.5, telem.BytesT, telem.NewSeriesV(telem.ByteOrder.AppendUint64(nil, math.Float64bits(2.5)))),
 			Entry("uuid -> BytesT", id, telem.BytesT, telem.NewSeriesV(id[:])),
