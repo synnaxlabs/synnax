@@ -223,7 +223,7 @@ TEST(IRTest, testEdgeFedMask) {
     node.inputs.push_back(input);
     node.inputs.push_back(scale);
 
-    ASSERT_EQ(edge_fed_mask(ir, node), std::vector<bool>({true, false}));
+    ASSERT_EQ(ir.edge_fed_mask(node), std::vector<bool>({true, false}));
 }
 
 /// @brief it should mark a param edge-fed even when it also carries a default
@@ -238,7 +238,7 @@ TEST(IRTest, testEdgeFedMaskDefaultedParamStillEdgeFed) {
     reset.value = 0;
     node.inputs.push_back(reset);
 
-    ASSERT_EQ(edge_fed_mask(ir, node), std::vector<bool>({true}));
+    ASSERT_EQ(ir.edge_fed_mask(node), std::vector<bool>({true}));
 }
 
 /// @brief it should return an empty mask for a node with no inputs
@@ -246,7 +246,7 @@ TEST(IRTest, testEdgeFedMaskNoInputs) {
     IR ir;
     Node node;
     node.key = "x";
-    ASSERT_TRUE(edge_fed_mask(ir, node).empty());
+    ASSERT_TRUE(ir.edge_fed_mask(node).empty());
 }
 
 /// @brief it should format a Handle as "node.param"

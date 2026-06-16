@@ -609,10 +609,7 @@ public:
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
 
         if (cfg.node.type == "derivative") {
-            auto [input_idx, err] = ir::resolve_input(
-                cfg.node,
-                ir::default_input_param
-            );
+            auto [input_idx, err] = cfg.node.resolve_input(ir::default_input_param);
             if (err) return {nullptr, err};
             const auto kind = cfg.node.inputs[input_idx].type.kind;
             return {
@@ -622,10 +619,7 @@ public:
         }
 
         if (cfg.node.type == "neg") {
-            auto [input_idx, err] = ir::resolve_input(
-                cfg.node,
-                ir::default_input_param
-            );
+            auto [input_idx, err] = cfg.node.resolve_input(ir::default_input_param);
             if (err) return {nullptr, err};
             const auto kind = cfg.node.inputs[input_idx].type.kind;
             return {
@@ -646,9 +640,9 @@ public:
             {"mod", ArithmeticBinary::Op::Mod},
         };
         if (auto it = arith_ops.find(cfg.node.type); it != arith_ops.end()) {
-            auto [lhs_idx, lhs_err] = ir::resolve_input(cfg.node, ir::lhs_input_param);
+            auto [lhs_idx, lhs_err] = cfg.node.resolve_input(ir::lhs_input_param);
             if (lhs_err) return {nullptr, lhs_err};
-            auto [rhs_idx, rhs_err] = ir::resolve_input(cfg.node, ir::rhs_input_param);
+            auto [rhs_idx, rhs_err] = cfg.node.resolve_input(ir::rhs_input_param);
             if (rhs_err) return {nullptr, rhs_err};
             const auto kind = cfg.node.inputs[lhs_idx].type.kind;
             return {
@@ -674,13 +668,13 @@ public:
         else
             op = Aggregator::Op::Max;
 
-        auto [input_idx, in_err] = ir::resolve_input(cfg.node, ir::default_input_param);
+        auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
         if (in_err) return {nullptr, in_err};
         const auto kind = cfg.node.inputs[input_idx].type.kind;
 
         std::optional<size_t> reset_idx;
         if (cfg.prog.edge_to(ir::Handle(cfg.node.key, RESET_INPUT_PARAM)).has_value()) {
-            auto [ri, r_err] = ir::resolve_input(cfg.node, RESET_INPUT_PARAM);
+            auto [ri, r_err] = cfg.node.resolve_input(RESET_INPUT_PARAM);
             if (r_err) return {nullptr, r_err};
             reset_idx = ri;
             cfg.state.init_input(

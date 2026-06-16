@@ -109,6 +109,8 @@ struct Node {
     using proto_type = ::arc::ir::pb::Node;
     [[nodiscard]] std::pair<::arc::ir::pb::Node, x::errors::Error> to_proto() const;
     static std::pair<Node, x::errors::Error> from_proto(const ::arc::ir::pb::Node &pb);
+    [[nodiscard]] std::pair<size_t, x::errors::Error>
+    resolve_input(const std::string &name) const;
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
     friend std::ostream &operator<<(std::ostream &os, const Node &n);
@@ -444,6 +446,7 @@ struct IR {
     [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
     edges_from(const std::string &node_key) const;
     [[nodiscard]] std::vector<Edge> edges_to(const std::string &node_key) const;
+    [[nodiscard]] std::vector<bool> edge_fed_mask(const Node &node) const;
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
     friend std::ostream &operator<<(std::ostream &os, const IR &ir);

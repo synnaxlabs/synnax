@@ -131,7 +131,7 @@ public:
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         auto [node_cfg, err] = StableForConfig::create(cfg.node.inputs);
         if (err) return {nullptr, err};
-        auto [input_idx, in_err] = ir::resolve_input(cfg.node, ir::default_input_param);
+        auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
         if (in_err) return {nullptr, in_err};
         return {
             std::make_unique<StableFor>(node_cfg, std::move(cfg.state), input_idx),

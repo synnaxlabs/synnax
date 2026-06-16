@@ -25,7 +25,7 @@ public:
 
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
-        const auto edge_fed = ir::edge_fed_mask(cfg.prog, cfg.node);
+        const auto edge_fed = cfg.prog.edge_fed_mask(cfg.node);
         auto [func, err] = this->mod->func(cfg.node.type, cfg.node.inputs, edge_fed);
         if (err) return {nullptr, err};
         return {

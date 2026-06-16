@@ -108,7 +108,7 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto [input_idx, err] = ir::resolve_input(cfg.node, ir::default_output_param);
+        auto [input_idx, err] = cfg.node.resolve_input(ir::default_output_param);
         if (err) return {nullptr, err};
         return {
             std::make_unique<Select>(std::move(cfg.state), input_idx),

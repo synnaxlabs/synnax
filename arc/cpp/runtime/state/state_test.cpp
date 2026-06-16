@@ -902,14 +902,11 @@ TEST(StateTest, ResolveInput_ByNameAndMissing) {
     consumer.inputs.push_back(a);
     consumer.inputs.push_back(b);
 
-    const auto idx_a = ASSERT_NIL_P(arc::ir::resolve_input(consumer, "a"));
+    const auto idx_a = ASSERT_NIL_P(consumer.resolve_input("a"));
     EXPECT_EQ(idx_a, 0u);
-    const auto idx_b = ASSERT_NIL_P(arc::ir::resolve_input(consumer, "b"));
+    const auto idx_b = ASSERT_NIL_P(consumer.resolve_input("b"));
     EXPECT_EQ(idx_b, 1u);
-    ASSERT_OCCURRED_AS_P(
-        arc::ir::resolve_input(consumer, "missing"),
-        x::errors::NOT_FOUND
-    );
+    ASSERT_OCCURRED_AS_P(consumer.resolve_input("missing"), x::errors::NOT_FOUND);
 }
 
 }

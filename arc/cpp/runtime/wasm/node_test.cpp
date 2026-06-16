@@ -998,11 +998,9 @@ func add_config{x i32}(y i32) i32 {
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(wasm_mod->func(
-        "add_config",
-        func_node->inputs,
-        arc::ir::edge_fed_mask(mod, *func_node)
-    ));
+    auto func = ASSERT_NIL_P(
+        wasm_mod->func("add_config", func_node->inputs, mod.edge_fed_mask(*func_node))
+    );
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
@@ -1094,11 +1092,9 @@ func multi_config{a i32, b i32}(c i32) i32 {
     );
 
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
-    auto func = ASSERT_NIL_P(wasm_mod->func(
-        "multi_config",
-        func_node->inputs,
-        arc::ir::edge_fed_mask(mod, *func_node)
-    ));
+    auto func = ASSERT_NIL_P(
+        wasm_mod->func("multi_config", func_node->inputs, mod.edge_fed_mask(*func_node))
+    );
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
@@ -1400,11 +1396,9 @@ func read_chan{ch chan f32}(trigger u8) f32 {
 
     // Set up the function node with config param.
     auto node_state = ASSERT_NIL_P(state->node(func_node->key));
-    auto func = ASSERT_NIL_P(wasm_mod->func(
-        "read_chan",
-        func_node->inputs,
-        arc::ir::edge_fed_mask(mod, *func_node)
-    ));
+    auto func = ASSERT_NIL_P(
+        wasm_mod->func("read_chan", func_node->inputs, mod.edge_fed_mask(*func_node))
+    );
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
 
