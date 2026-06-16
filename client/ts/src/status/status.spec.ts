@@ -444,3 +444,56 @@ describe("Status", () => {
     });
   });
 });
+
+describe("fromException", () => {
+  // A throwable implementing the duck-typed `toStatus` contract that fromException
+  // probes. This mirrors what zod's ParseError provides without depending on it — the
+  // ParseError -> toStatus() formatting is covered by zod's own parse.spec.ts; here we
+  // exercise how fromException consumes any such contributor.
+  class CustomError extends Error {
+    toStatus() {
+      return {
+        message: "Failed to parse task config",
+        description: "the formatted breakdown",
+        details: { taskKey: "tk-1" },
+      };
+    }
+  }
+
+  it("should derive variant, message, and details from a plain Error", () => {
+    const s = status.fromException(new Error("boom"));
+    expect(s.variant).toBe("error");
+    expect(s.message).toBe("boom");
+    const details = s.details as Record<string, unknown>;
+    expect(typeof details.stack).toBe("string");
+    expect(details.error).toBeInstanceOf(Error);
+  });
+
+  it("should set the status message from a custom toStatus()", () => {
+    expect(status.fromException(new CustomError("boom")).message).toBe(
+      "Failed to parse task config",
+    );
+  });
+
+  it("should set the status description from a custom toStatus()", () => {
+    expect(status.fromException(new CustomError("boom")).description).toBe(
+      "the formatted breakdown",
+    );
+  });
+
+  it("should merge custom toStatus() details with the stack and original error", () => {
+    const details = status.fromException(new CustomError("boom")).details as Record<
+      string,
+      unknown
+    >;
+    expect(details.taskKey).toBe("tk-1");
+    expect(typeof details.stack).toBe("string");
+    expect(details.error).toBeInstanceOf(Error);
+  });
+
+  it("should prefix a caller-provided message with the custom toStatus() message", () => {
+    expect(status.fromException(new CustomError("boom"), "Saving failed").message).toBe(
+      "Saving failed: Failed to parse task config",
+    );
+  });
+});

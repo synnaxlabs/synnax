@@ -12,27 +12,18 @@ package status
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	statusv54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // MigrateStatus migrates a persisted v54 status into the current server-side Status
-// entity. Both the v54 status and the current entity store the descriptive fields,
-// identity, and labels in a single flat struct, so migration is a field-by-field copy.
+// entity. Labels are intentionally dropped: they are no longer persisted on the status
+// and are instead resolved at read time from the label relationship. All other fields
+// are copied across unchanged.
 func MigrateStatus[Details any](
-	ctx context.Context,
+	_ context.Context,
 	old statusv54.Status[Details],
 ) (Status[Details], error) {
-	labels := make([]label.Label, len(old.Labels))
-	for i, v := range old.Labels {
-		var err error
-		if labels[i], err = migrateLabel(ctx, v); err != nil {
-			return Status[Details]{}, err
-		}
-	}
 	return Status[Details]{
 		Key:         old.Key,
 		Name:        old.Name,
@@ -41,14 +32,6 @@ func MigrateStatus[Details any](
 		Description: old.Description,
 		Time:        telem.TimeStamp(old.Time),
 		Details:     old.Details,
-		Labels:      labels,
-	}, nil
-}
-
-func migrateLabel(_ context.Context, old labelv54.Label) (label.Label, error) {
-	return label.Label{
-		Key:   label.Key(old.Key),
-		Name:  old.Name,
-		Color: color.Color(old.Color),
+		Labels:      nil,
 	}, nil
 }
