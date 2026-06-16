@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
-	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -110,7 +110,7 @@ func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // root: tx is consulted for channel lookups, nil means "use the service DB directly."
 func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
 	stlSyms := stl.NewSymbols()
-	statusSyms := arcstatus.NewSymbols()
+	statusSyms := status.NewSymbols()
 	syms := make([]*arcsymbol.Symbol, 0, len(stlSyms)+len(statusSyms))
 	syms = append(syms, stlSyms...)
 	syms = append(syms, statusSyms...)

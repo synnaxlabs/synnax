@@ -48,7 +48,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
-
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
 	"go.uber.org/zap"

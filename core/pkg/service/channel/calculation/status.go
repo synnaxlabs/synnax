@@ -13,13 +13,12 @@ import (
 	"go/types"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
-
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // Status is a calculated channel status entry.
-type Status = svcstatus.Status[types.Nil]
+type Status = status.Status[types.Nil]
 
 // StatusKey returns the status key for the given channel key.
 func StatusKey(key channel.Key) string {
@@ -29,7 +28,7 @@ func StatusKey(key channel.Key) string {
 // StatusFromError builds an error status for a calculated channel.
 func StatusFromError(key channel.Key, name string, msg string, err error) *Status {
 	s := &Status{Key: StatusKey(key), Name: name}
-	s.Variant = svcstatus.VariantError
+	s.Variant = status.VariantError
 	s.Message = msg
 	s.Description = err.Error()
 	s.Time = telem.Now()
