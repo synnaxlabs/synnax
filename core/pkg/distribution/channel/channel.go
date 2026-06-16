@@ -18,10 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Channel is the minimal, distribution-layer representation of a channel. It carries
@@ -58,17 +56,6 @@ func NewKey(nodeKey node.Key, localKey LocalKey) Key {
 	// Local key is the last 20 bits
 	k2 := uint32(localKey)
 	return Key(k1 | k2)
-}
-
-// ParseKey attempts to parse the string representation of a Key into a Key.
-func ParseKey(s string) (Key, error) {
-	k, err := strconv.Atoi(s)
-	if err != nil {
-		return Key(0), errors.Wrapf(
-			validate.ErrValidation, "%s is not a valid channel key", s,
-		)
-	}
-	return Key(k), nil
 }
 
 // Leaseholder returns the id of the node embedded in the key. This node is the

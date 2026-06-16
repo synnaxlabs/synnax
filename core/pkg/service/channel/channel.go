@@ -33,7 +33,6 @@ type (
 
 var (
 	NewKey         = dischannel.NewKey
-	ParseKey       = dischannel.ParseKey
 	KeysFromUint32 = dischannel.KeysFromUint32
 )
 

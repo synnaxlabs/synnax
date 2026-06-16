@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/math"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -38,18 +37,6 @@ var _ = Describe("Channel Tests", func() {
 				k := channel.NewKey(node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20))
 				Expect(k.Leaseholder()).To(Equal(node.Key(math.MaxUint12)))
 				Expect(k.LocalKey()).To(Equal(channel.LocalKey(math.MaxUint20)))
-			})
-		})
-		Describe("ParseKey", func() {
-			It("Should correctly parse a key from its string representation", func() {
-				k := MustSucceed(channel.ParseKey("123456"))
-				Expect(k).To(Equal(channel.Key(123456)))
-			})
-			It("Should return an error when the key is not a valid integer", func() {
-				Expect(channel.ParseKey("123456a")).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("123456a is not a valid channel key")),
-				))
 			})
 		})
 		Describe("Lease", func() {

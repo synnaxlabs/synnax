@@ -75,7 +75,7 @@ var _ channel.Retriever = (*ChannelStore)(nil)
 // storage on the leaseholder — and records its metadata in the cluster's shared channel
 // store so the framer can resolve it. The channel is updated in place with its key.
 func (n Node) CreateChannel(ctx context.Context, ch *channel.Channel) error {
-	out, err := n.Channel.Allocate(ctx, []channel.Channel{*ch})
+	out, err := n.Channel.Create(ctx, []channel.Channel{*ch})
 	if err != nil {
 		return err
 	}
@@ -87,7 +87,7 @@ func (n Node) CreateChannel(ctx context.Context, ch *channel.Channel) error {
 // CreateChannels allocates a batch of channels and records their metadata. The slice is
 // updated in place with the assigned keys.
 func (n Node) CreateChannels(ctx context.Context, channels *[]channel.Channel) error {
-	out, err := n.Channel.Allocate(ctx, *channels)
+	out, err := n.Channel.Create(ctx, *channels)
 	if err != nil {
 		return err
 	}

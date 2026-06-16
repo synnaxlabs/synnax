@@ -110,13 +110,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-// Allocate assigns local keys to the provided new channels (those with a zero LocalKey)
+// Create assigns local keys to the provided new channels (those with a zero LocalKey)
 // by routing to each channel's leaseholder to draw from that node's key counter, and
 // creates the corresponding storage channels there. The returned channels carry their
 // assigned keys, in the same order as the input. Free-virtual channels draw their keys
 // from the bootstrapper. A channel with an unspecified (zero) leaseholder defaults to
 // the host node.
-func (s *Service) Allocate(ctx context.Context, channels []Channel) ([]Channel, error) {
+func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, error) {
 	out := make([]Channel, len(channels))
 	indicesByTarget := make(map[node.Key][]int)
 	freeIndices := make([]int, 0)
@@ -156,9 +156,9 @@ func (s *Service) Allocate(ctx context.Context, channels []Channel) ([]Channel, 
 	return out, nil
 }
 
-// DeleteStorage deletes the storage channels for the provided keys, routing each key to
-// its leaseholder. It does not touch channel metadata.
-func (s *Service) DeleteStorage(ctx context.Context, keys Keys) error {
+// Delete deletes the storage channels for the provided keys, routing each key to its
+// leaseholder. It does not touch channel metadata.
+func (s *Service) Delete(ctx context.Context, keys Keys) error {
 	batch := s.keyRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
 		if err := s.deleteRemote(ctx, nodeKey, entries); err != nil {
@@ -173,9 +173,9 @@ func (s *Service) DeleteStorage(ctx context.Context, keys Keys) error {
 	return s.cfg.TSChannel.DeleteChannels(gateway.Storage())
 }
 
-// RenameStorage renames the storage channels for the provided keys, routing each key to
-// its leaseholder. Free-virtual channels have no persistent storage and are skipped.
-func (s *Service) RenameStorage(ctx context.Context, keys Keys, names []string) error {
+// Rename renames the storage channels for the provided keys, routing each key to its
+// leaseholder. Free-virtual channels have no persistent storage and are skipped.
+func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
 	batch := s.renameRouter.Batch(newRenameBatch(keys, names))
 	for nodeKey, entries := range batch.Peers {
 		keys, names := unzipRenameBatch(entries)

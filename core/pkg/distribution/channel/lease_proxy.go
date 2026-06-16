@@ -20,7 +20,7 @@ import (
 )
 
 func (s *Service) allocateHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
-	allocated, err := s.Allocate(ctx, msg.Channels)
+	allocated, err := s.Create(ctx, msg.Channels)
 	if err != nil {
 		return CreateMessage{}, err
 	}
