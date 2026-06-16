@@ -12,9 +12,13 @@ package log_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -111,5 +115,28 @@ var _ = Describe("OpenService", func() {
 		Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
 		env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(l.Key)))
 		Expect(env.Type).To(Equal("log"))
+	})
+
+	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
+		builder := DeferClose(mock.NewCluster())
+		dist := DeferClose(builder.Provision(ctx))
+		sigs := MustSucceed(signals.New(signals.Config{
+			Channel: channel.Wrap(dist.Channel),
+			Framer:  framer.Wrap(dist.Framer),
+		}))
+		MustOpen(log.OpenService(ctx, log.ServiceConfig{
+			DB:       dist.DB,
+			Ontology: dist.Ontology,
+			Search:   dist.Search,
+			ImEx:     imex.NewService(),
+			Signals:  sigs,
+		}))
+		for _, name := range []string{"sy_log_set", "sy_log_delete"} {
+			var ch channel.Channel
+			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames(name)).
+				Entry(&ch).Exec(ctx, nil)).To(Succeed())
+			Expect(ch.Virtual).To(BeTrue())
+			Expect(ch.Internal).To(BeTrue())
+		}
 	})
 })
