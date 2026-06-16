@@ -390,13 +390,19 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	if field.Optional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
+	// An optional slice or map stays a plain nilable container (not a pointer), so a
+	// nil slice ("not loaded") must serialize as null, not be omitted; otherwise it is
+	// indistinguishable from a present-but-empty slice. So these fields drop omitempty.
+	isOptionalContainer := field.Optional &&
+		(strings.HasPrefix(goType, "[]") || strings.HasPrefix(goType, "map["))
 	return fieldData{
-		GoName:         naming.GetFieldName(field),
-		GoType:         goType,
-		JSONName:       casing.FieldSnake(field.Name),
-		IsOptional:     field.Optional,
-		IsHardOptional: field.Optional,
-		Doc:            doc.Get(field.Domains),
+		GoName:              naming.GetFieldName(field),
+		GoType:              goType,
+		JSONName:            casing.FieldSnake(field.Name),
+		IsOptional:          field.Optional,
+		IsHardOptional:      field.Optional,
+		IsOptionalContainer: isOptionalContainer,
+		Doc:                 doc.Get(field.Domains),
 	}
 }
 
@@ -496,17 +502,20 @@ type typeParamData struct {
 }
 
 type fieldData struct {
-	GoName         string
-	GoType         string
-	JSONName       string
-	Doc            string
-	IsOptional     bool
-	IsHardOptional bool
+	GoName              string
+	GoType              string
+	JSONName            string
+	Doc                 string
+	IsOptional          bool
+	IsHardOptional      bool
+	IsOptionalContainer bool
 }
 
-// TagSuffix returns the JSON/msgpack tag suffix for the field.
+// TagSuffix returns the JSON/msgpack tag suffix for the field. Optional containers
+// (nilable slices/maps) deliberately omit `,omitempty` so a nil container serializes
+// as null (not loaded) distinctly from a present empty container.
 func (f fieldData) TagSuffix() string {
-	if f.IsHardOptional {
+	if f.IsHardOptional && !f.IsOptionalContainer {
 		return ",omitempty"
 	}
 	return ""
