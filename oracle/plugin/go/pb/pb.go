@@ -878,7 +878,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 
 	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
-	return fieldTranslatorData{
+	fd := fieldTranslatorData{
 		GoName:           goName,
 		PBName:           pbName,
 		ForwardExpr:      forwardExpr,
@@ -889,7 +889,21 @@ func (p *Plugin) processGenericFieldForTranslation(
 		IsOptionalEnum:   isHardOptional && isEnumType(typeRef, data.table),
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
-	}, false
+	}
+
+	// An optional list is a nullable wrapper message in proto (see pb/types),
+	// matching the non-generic path in processFieldForTranslation.
+	if isHardOptional && p.isArrayType(typeRef, data.table) && !p.isNestedArrayType(typeRef, data.table) {
+		f, b, e, be := p.generateArrayConversion(field, data, "r."+goName, "pb."+pbName+".Values")
+		fd.IsOptionalArrayWrapper = true
+		fd.WrapperName = p.getOptionalArrayWrapperName(typeRef, data.table)
+		fd.ForwardExpr = f
+		fd.BackwardExpr = b
+		fd.HasError = e
+		fd.HasBackwardError = be
+	}
+
+	return fd, false
 }
 
 func (p *Plugin) processDelegationTranslator(

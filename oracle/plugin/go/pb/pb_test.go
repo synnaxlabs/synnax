@@ -1542,6 +1542,51 @@ var _ = Describe("Go PB Plugin", func() {
 				ToContain("InfoToPB").
 				ToContain("InfoFromPB")
 		})
+
+		It("Should wrap an optional struct array in a nullable wrapper message", func(ctx SpecContext) {
+			source := `
+				@go output "core/test"
+				@pb
+
+				Info struct {
+					name string
+				}
+
+				Test struct {
+					key uuid
+					infos Info[]?
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+			ExpectContent(resp, "translator.gen.go").
+				ToContain("if r.Infos != nil").
+				ToContain("pb.Infos = &InfoList{Values:").
+				ToContain("if pb.Infos != nil").
+				ToContain("InfoListFromPB(pb.Infos.Values)")
+		})
+
+		It("Should wrap an optional array in a generic struct translator", func(ctx SpecContext) {
+			source := `
+				@go output "core/test"
+				@pb
+
+				Info struct {
+					name string
+				}
+
+				Test struct {
+					key uuid
+					details D
+					infos Info[]?
+				}
+			`
+			resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+			ExpectContent(resp, "translator.gen.go").
+				ToContain("pb.Infos = &InfoList{Values:").
+				ToContain("InfoListFromPB(pb.Infos.Values)")
+		})
 	})
 
 	Describe("Generate edge cases", func() {
