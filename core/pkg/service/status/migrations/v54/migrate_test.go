@@ -53,10 +53,7 @@ var _ = Describe("v54 -> current Status migration", func() {
 			DB:        db,
 			Namespace: "Status",
 			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration(
-					"v54_drop_labels",
-					status.MigrateStatus[any],
-				),
+				gorp.NewEntryMigration("v54_drop_labels", status.MigrateStatus[any]),
 			},
 		})).To(Succeed())
 
