@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	statusv54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -108,10 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
 			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[string, string, statusv54.Status[any], Status[any]](
-					"v54_drop_labels",
-					MigrateStatus[any],
-				),
+				gorp.NewEntryMigration("v54_drop_labels", MigrateStatus[any]),
 			},
 		},
 	); !ok(err, s.table) {

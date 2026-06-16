@@ -446,10 +446,6 @@ describe("Status", () => {
 });
 
 describe("fromException", () => {
-  // A throwable implementing the duck-typed `toStatus` contract that fromException
-  // probes. This mirrors what zod's ParseError provides without depending on it — the
-  // ParseError -> toStatus() formatting is covered by zod's own parse.spec.ts; here we
-  // exercise how fromException consumes any such contributor.
   class CustomError extends Error {
     toStatus() {
       return {
@@ -464,7 +460,7 @@ describe("fromException", () => {
     const s = status.fromException(new Error("boom"));
     expect(s.variant).toBe("error");
     expect(s.message).toBe("boom");
-    const details = s.details as Record<string, unknown>;
+    const details = s.details;
     expect(typeof details.stack).toBe("string");
     expect(details.error).toBeInstanceOf(Error);
   });
@@ -482,10 +478,7 @@ describe("fromException", () => {
   });
 
   it("should merge custom toStatus() details with the stack and original error", () => {
-    const details = status.fromException(new CustomError("boom")).details as Record<
-      string,
-      unknown
-    >;
+    const details = status.fromException(new CustomError("boom")).details;
     expect(details.taskKey).toBe("tk-1");
     expect(typeof details.stack).toBe("string");
     expect(details.error).toBeInstanceOf(Error);
