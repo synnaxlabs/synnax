@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -83,8 +82,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 			It("Should update an existing row whose Key matches the input", func(ctx SpecContext) {
 				key := uuid.NewString()
 				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: key, Name: "by_key_orig",
-					Variant: status.VariantInfo, Message: "old", Time: telem.Now(),
+					Key: key, Name: "by_key_orig", Variant: status.VariantInfo,
+					Message: "old", Time: telem.Now(),
 				})).To(Succeed())
 
 				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, key, "new", string(status.VariantWarning)))

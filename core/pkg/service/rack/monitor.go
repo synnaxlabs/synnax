@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
-
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -94,12 +93,15 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 			continue
 		}
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
-		stat := Status{Key: OntologyID(r.Key).String(), Name: r.Name}
-		stat.Variant = status.VariantWarning
-		stat.Time = state.lastUpdated
-		stat.Message = fmt.Sprintf("Synnax Driver on %s not running", r.Name)
-		stat.Description = fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive)
-		stat.Details = StatusDetails{Rack: r.Key}
+		stat := Status{
+			Key:         OntologyID(r.Key).String(),
+			Name:        r.Name,
+			Variant:     status.VariantWarning,
+			Time:        state.lastUpdated,
+			Message:     fmt.Sprintf("Synnax Driver on %s not running", r.Name),
+			Description: fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive),
+			Details:     StatusDetails{Rack: r.Key},
+		}
 		m.L.Warn(stat.Message, zap.Stringer("time_since_alive", timeSinceAlive))
 		statuses = append(statuses, stat)
 	}

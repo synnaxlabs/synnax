@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -33,12 +32,14 @@ type Writer struct {
 
 func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Status[StatusDetails] {
 	if provided == nil {
-		s := &status.Status[StatusDetails]{Key: OntologyID(t.Key).String(), Name: t.Name}
-		s.Time = telem.Now()
-		s.Message = fmt.Sprintf("%s status unknown", t.Name)
-		s.Variant = status.VariantWarning
-		s.Details = StatusDetails{Task: t.Key}
-		return s
+		return &status.Status[StatusDetails]{
+			Key:     OntologyID(t.Key).String(),
+			Time:    telem.Now(),
+			Name:    t.Name,
+			Message: fmt.Sprintf("%s status unknown", t.Name),
+			Variant: status.VariantWarning,
+			Details: StatusDetails{Task: t.Key},
+		}
 	}
 	provided.Key = OntologyID(t.Key).String()
 	provided.Details.Task = t.Key

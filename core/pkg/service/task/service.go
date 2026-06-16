@@ -211,13 +211,15 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	}
 	statuses := make([]Status, len(tasks))
 	for i, tsk := range tasks {
-		s := Status{Key: OntologyID(tsk.Key).String(), Name: tsk.Name}
-		s.Time = telem.Now()
-		s.Variant = rackStat.Variant
-		s.Message = rackStat.Message
-		s.Description = rackStat.Description
-		s.Details = StatusDetails{Task: tsk.Key, Running: false}
-		statuses[i] = s
+		statuses[i] = Status{
+			Key:         OntologyID(tsk.Key).String(),
+			Time:        telem.Now(),
+			Name:        tsk.Name,
+			Variant:     rackStat.Variant,
+			Message:     rackStat.Message,
+			Description: rackStat.Description,
+			Details:     StatusDetails{Task: tsk.Key, Running: false},
+		}
 	}
 	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).
 		SetMany(ctx, &statuses); err != nil {

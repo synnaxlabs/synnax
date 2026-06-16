@@ -33,7 +33,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -648,12 +647,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
+				Key:     rack.OntologyID(r.Key).String(),
+				Name:    r.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantSuccess,
 				Message: "Running",
 				Details: rack.StatusDetails{Rack: r.Key},
-				Key:     rack.OntologyID(r.Key).String(),
-				Name:    r.Name,
 			})).To(Succeed())
 
 			Consistently(func(g Gomega) {
@@ -718,12 +717,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Eventually(getCount).Should(Equal(1))
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
+				Key:     rack.OntologyID(r.Key).String(),
+				Name:    r.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantSuccess,
 				Message: "Running",
 				Details: rack.StatusDetails{Rack: r.Key},
-				Key:     rack.OntologyID(r.Key).String(),
-				Name:    r.Name,
 			})).To(Succeed())
 
 			countAfterRecovery := getCount()

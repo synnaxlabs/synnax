@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -103,11 +102,14 @@ func (f *factory) setConfigStatus(
 	variant status.Variant,
 	message string,
 ) {
-	stat := task.Status{Key: task.OntologyID(t.Key).String(), Name: t.Name}
-	stat.Variant = variant
-	stat.Message = message
-	stat.Time = telem.Now()
-	stat.Details = task.StatusDetails{Task: t.Key, Running: false}
+	stat := task.Status{
+		Key:     task.OntologyID(t.Key).String(),
+		Name:    t.Name,
+		Variant: variant,
+		Message: message,
+		Time:    telem.Now(),
+		Details: task.StatusDetails{Task: t.Key, Running: false},
+	}
 	if err := status.NewWriter[task.StatusDetails](f.cfg.Status, nil).
 		Set(ctx, &stat); err != nil {
 		f.cfg.L.Error(

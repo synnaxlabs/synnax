@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -131,12 +130,14 @@ func backfillStatuses(
 	for _, r := range racks {
 		key := OntologyID(r.Key).String()
 		if !existingKeys.Contains(key) {
-			s := status.Status[StatusDetails]{Key: key, Name: r.Name}
-			s.Time = telem.Now()
-			s.Variant = status.VariantWarning
-			s.Message = "Status unknown"
-			s.Details = StatusDetails{Rack: r.Key}
-			missingStatuses = append(missingStatuses, s)
+			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
+				Key:     key,
+				Name:    r.Name,
+				Time:    telem.Now(),
+				Variant: status.VariantWarning,
+				Message: "Status unknown",
+				Details: StatusDetails{Rack: r.Key},
+			})
 		}
 	}
 	if len(missingStatuses) == 0 {

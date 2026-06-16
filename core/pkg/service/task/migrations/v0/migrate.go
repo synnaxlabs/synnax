@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -72,12 +71,14 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			for _, t := range tasks {
 				key := OntologyID(t.Key).String()
 				if !existingKeys.Contains(key) {
-					s := Status{Key: key, Name: t.Name}
-					s.Time = telem.Now()
-					s.Variant = status.VariantWarning
-					s.Message = fmt.Sprintf("%s status unknown", t.Name)
-					s.Details = StatusDetails{Task: t.Key}
-					missingStatuses = append(missingStatuses, s)
+					missingStatuses = append(missingStatuses, Status{
+						Key:     key,
+						Name:    t.Name,
+						Time:    telem.Now(),
+						Variant: status.VariantWarning,
+						Message: fmt.Sprintf("%s status unknown", t.Name),
+						Details: StatusDetails{Task: t.Key},
+					})
 				}
 			}
 			if len(missingStatuses) == 0 {
