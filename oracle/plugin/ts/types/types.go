@@ -1258,14 +1258,13 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		IsSelfRef:      needsGetter,
 	}
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
-		// A `@ts type` override may name either a primitive (e.g. `string`) or
-		// another schema type (e.g. `telem.TimeRangeBounded`). When it resolves to
-		// a known non-primitive type, route it through the normal type-ref
-		// machinery so its schema reference and import are emitted correctly;
-		// otherwise treat it as a primitive. The override may be qualified
-		// (cross-namespace, e.g. telem.TimeRangeBounded) or unqualified (same
-		// namespace as the field): try the qualified name first, then resolve
-		// against the field's own namespace.
+		// A `@ts type` override may name either a primitive (e.g. `string`) or another
+		// schema type (e.g. `telem.TimeRangeBounded`). When it resolves to a known
+		// non-primitive type, route it through the normal type-ref machinery so its
+		// schema reference and import are emitted correctly; otherwise treat it as a
+		// primitive. The override may be qualified (cross-namespace, e.g.
+		// telem.TimeRangeBounded) or unqualified (same namespace as the field): try the
+		// qualified name first, then resolve against the field's own namespace.
 		overrideType, overrideResolves := table.Get(typeOverride)
 		if !overrideResolves {
 			overrideType, overrideResolves = table.Lookup(parentType.Namespace, typeOverride)
@@ -1320,8 +1319,8 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		}
 	}
 	// `@ts pick <field>` narrows a struct-typed field to a subset of the referenced
-	// type's fields (e.g. a parent referenced by key alone), emitting a Zod .pick()
-	// and a TS Pick<> rather than a standalone reference type.
+	// type's fields (e.g. a parent referenced by key alone), emitting a Zod .pick() and
+	// a TS Pick<> rather than a standalone reference type.
 	if pickField := domain.GetStringFromField(field, "ts", "pick"); pickField != "" {
 		camel := fieldCamel(pickField)
 		fd.ZodType = fmt.Sprintf("%s.pick({ %s: true })", fd.ZodType, camel)
