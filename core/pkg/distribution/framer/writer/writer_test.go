@@ -17,13 +17,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -86,13 +86,13 @@ var _ = Describe("Writer", func() {
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
-			Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, &idxCh)).To(Succeed())
 			strCh = channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
-			Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, &strCh)).To(Succeed())
 			s = DeferClose(scenario{
 				dist:   dist,
 				closer: builder,
@@ -128,7 +128,7 @@ var _ = Describe("Writer", func() {
 				DataType:   telem.Float64T,
 				LocalIndex: idxCh.LocalKey,
 			}
-			Expect(s.dist.Channel.Create(ctx, &floatCh)).To(Succeed())
+			Expect(s.dist.ChannelService().Create(ctx, &floatCh)).To(Succeed())
 			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
 			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
@@ -250,13 +250,13 @@ var _ = Describe("Writer", func() {
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				Expect(dist.ChannelService().Create(ctx, &idxCh)).To(Succeed())
 				jsonCh := channel.Channel{
 					Name:       channel.NewRandomName(),
 					DataType:   telem.JSONT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				Expect(dist.Channel.Create(ctx, &jsonCh)).To(Succeed())
+				Expect(dist.ChannelService().Create(ctx, &jsonCh)).To(Succeed())
 				s = DeferClose(scenario{
 					dist:   dist,
 					closer: builder,
@@ -291,13 +291,13 @@ var _ = Describe("Writer", func() {
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				Expect(dist.ChannelService().Create(ctx, &idxCh)).To(Succeed())
 				strCh := channel.Channel{
 					Name:       channel.NewRandomName(),
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+				Expect(dist.ChannelService().Create(ctx, &strCh)).To(Succeed())
 				s = DeferClose(scenario{
 					dist:   dist,
 					closer: builder,
@@ -332,13 +332,13 @@ var _ = Describe("Writer", func() {
 					IsIndex:  true,
 					DataType: telem.TimeStampT,
 				}
-				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				Expect(dist.ChannelService().Create(ctx, &idxCh)).To(Succeed())
 				strCh := channel.Channel{
 					Name:       channel.NewRandomName(),
 					DataType:   telem.StringT,
 					LocalIndex: idxCh.LocalKey,
 				}
-				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+				Expect(dist.ChannelService().Create(ctx, &strCh)).To(Succeed())
 				s = DeferClose(scenario{
 					dist:   dist,
 					closer: builder,
@@ -485,17 +485,17 @@ var _ = Describe("Writer", func() {
 				DataType:    telem.TimeStampT,
 				Leaseholder: peer,
 			}
-			Expect(gw.Channel.Create(ctx, &idx)).To(Succeed())
+			Expect(gw.ChannelService().Create(ctx, &idx)).To(Succeed())
 			data := channel.Channel{
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Float64T,
 				LocalIndex:  idx.LocalKey,
 				Leaseholder: peer,
 			}
-			Expect(gw.Channel.Create(ctx, &data)).To(Succeed())
+			Expect(gw.ChannelService().Create(ctx, &data)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var chs []channel.Channel
-				g.Expect(gw.Channel.NewRetrieve().
+				g.Expect(gw.ChannelService().NewRetrieve().
 					Entries(&chs).
 					Where(channel.MatchKeys(idx.Key(), data.Key())).
 					Exec(ctx, nil)).To(Succeed())
@@ -552,9 +552,9 @@ var _ = Describe("Writer", func() {
 					Virtual:     true,
 				}
 			)
-			Expect(s.dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+			Expect(s.dist.ChannelService().Create(ctx, &idxCh)).To(Succeed())
 			dataCh.LocalIndex = idxCh.LocalKey
-			Expect(s.dist.Channel.Create(ctx, &dataCh)).To(Succeed())
+			Expect(s.dist.ChannelService().Create(ctx, &dataCh)).To(Succeed())
 
 			keys := []channel.Key{idxCh.Key(), dataCh.Key()}
 			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
@@ -641,7 +641,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	return scenario{name: "Gateway Only", keys: keys, dist: dist, closer: builder}
 }
@@ -654,10 +654,10 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
 	}
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := dist.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
+		err := dist.ChannelService().NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -673,10 +673,10 @@ func mixedScenario(ctx context.Context) scenario {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
 	}
-	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
+		err := svc.ChannelService().NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -693,10 +693,10 @@ func freeWriterScenario(ctx context.Context) scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(svc.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		err := svc.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
+		err := svc.ChannelService().NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
 		g.Expect(err).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())

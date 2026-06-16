@@ -16,8 +16,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
@@ -50,12 +50,12 @@ var _ = Describe("Publisher", Serial, func() {
 			Observable:    obs,
 		}
 		closer = MustSucceed(sigs.PublishFromObservable(ctx, cfg))
-		Expect(dist.Channel.NewRetrieve().
+		Expect(dist.ChannelService().NewRetrieve().
 			Where(channel.MatchNames(publisherSetChannelName)).
 			Entry(&cfg.SetChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		Expect(dist.Channel.NewRetrieve().
+		Expect(dist.ChannelService().NewRetrieve().
 			Where(channel.MatchNames(publisherDeleteChannelName)).
 			Entry(&cfg.DeleteChannel).
 			Exec(ctx, nil),

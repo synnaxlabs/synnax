@@ -38,7 +38,7 @@ var _ = Describe("Calculator", Ordered, func() {
 		calc *channel.Channel,
 	) *calculator.Calculator {
 		if indexes != nil {
-			Expect(dist.Channel.CreateMany(ctx, indexes)).To(Succeed())
+			Expect(dist.ChannelService().CreateMany(ctx, indexes)).To(Succeed())
 		}
 		if bases != nil {
 			for i, channel := range *bases {
@@ -52,11 +52,11 @@ var _ = Describe("Calculator", Ordered, func() {
 				channel.LocalIndex = (*indexes)[toGet].LocalKey
 				(*bases)[i] = channel
 			}
-			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
+			Expect(dist.ChannelService().CreateMany(ctx, bases)).To(Succeed())
 		}
-		Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: dist.ChannelService(),
 			Channel:        *calc,
 		}))
 		return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
@@ -933,13 +933,13 @@ var _ = Describe("Calculator", Ordered, func() {
 			bases *[]channel.Channel,
 			calc *channel.Channel,
 		) *calculator.Calculator {
-			Expect(dist.Channel.CreateMany(ctx, bases)).To(Succeed())
-			res := MustSucceed(channelanalyzer.New(channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)).
-				Analyze(ctx, *calc))
+			Expect(dist.ChannelService().CreateMany(ctx, bases)).To(Succeed())
+			res := MustSucceed(channelanalyzer.New(dist.ChannelService().NewArcSymbolResolver(nil)).
+				Analyze(ctx, calc.Name, calc.Key(), calc.Expression, calc.HasDerivativeOperation()))
 			calc.DataType = res.ChanDataType
-			Expect(dist.Channel.Create(ctx, calc)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: channel.Wrap(dist.Channel),
+				ChannelService: dist.ChannelService(),
 				Channel:        *calc,
 			}))
 			return MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))
@@ -1032,10 +1032,10 @@ var _ = Describe("Calculator", Ordered, func() {
 				Virtual:    true,
 				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 			}
-			Expect(dist.Channel.CreateMany(ctx, &base)).To(Succeed())
-			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+			Expect(dist.ChannelService().CreateMany(ctx, &base)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, &calc)).To(Succeed())
 			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-				ChannelService: channel.Wrap(dist.Channel),
+				ChannelService: dist.ChannelService(),
 				Channel:        calc,
 			}))
 			c := MustSucceed(calculator.Open(ctx, calculator.Config{Module: mod}))

@@ -21,11 +21,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -339,8 +339,8 @@ var _ = Describe("Codec", func() {
 		BeforeAll(func(ctx SpecContext) {
 			builder = mock.NewCluster()
 			dist := builder.Provision(context.Background())
-			channelSvc = dist.Channel
-			w := dist.Channel.NewWriter(nil)
+			channelSvc = dist.ChannelService()
+			w := channelSvc.NewWriter(nil)
 			idxCh = channel.Channel{
 				DataType: telem.TimeStampT,
 				Name:     "time",

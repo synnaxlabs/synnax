@@ -14,9 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,12 +41,12 @@ var _ = Describe("Cluster", func() {
 				Leaseholder: 1,
 			}
 
-			Expect(coreOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(coreOne.ChannelService().NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 			Expect(ch.Key().Leaseholder()).To(Equal(node.Key(1)))
 
 			Eventually(func(g Gomega) {
 				var resCh channel.Channel
-				g.Expect(coreThree.Channel.NewRetrieve().
+				g.Expect(coreThree.ChannelService().NewRetrieve().
 					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())

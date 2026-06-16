@@ -69,12 +69,12 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
-	channelSvc := channel.Wrap(dist.Channel)
+	channelSvc := dist.ChannelService()
 	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
 		DB:                dist.DB,
 		Framer:            dist.Framer,
 		Channel:           channelSvc,
-		ChannelObservable: dist.Channel.Observe(),
+		ChannelObservable: dist.ChannelService().Observe(),
 		Status:            statusSvc,
 	})
 	if err != nil {
@@ -110,7 +110,7 @@ func (e *benchStreamerEnv) createVirtualChannel(b *testing.B, name string) *chan
 		DataType: telem.Float32T,
 		Virtual:  true,
 	}
-	if err := e.dist.Channel.Create(e.ctx, ch); err != nil {
+	if err := e.dist.ChannelService().Create(e.ctx, ch); err != nil {
 		b.Fatalf("failed to create channel: %v", err)
 	}
 	return ch
@@ -126,7 +126,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := e.dist.Channel.Create(e.ctx, indexCh); err != nil {
+	if err := e.dist.ChannelService().Create(e.ctx, indexCh); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -136,7 +136,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.dist.Channel.Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.dist.ChannelService().Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -149,7 +149,7 @@ func (e *benchStreamerEnv) createCalculation(b *testing.B, name, expression stri
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.dist.Channel.Create(e.ctx, calc); err != nil {
+	if err := e.dist.ChannelService().Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc

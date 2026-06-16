@@ -13,11 +13,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/http"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/telem"
@@ -87,9 +87,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -160,9 +160,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -177,7 +177,7 @@ var _ = Describe("FramerCodec", func() {
 		})
 
 		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 			msg := http.WSMessage[framer.StreamerRequest]{
 				Type:    "data",
@@ -197,9 +197,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 
@@ -319,9 +319,9 @@ var _ = Describe("FramerCodec", func() {
 					Virtual:  true,
 				},
 			}
-			Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			v := framer.Codec{
 				Codec:          cdec,
 				LowerPerfCodec: json.Codec,
@@ -502,9 +502,9 @@ var _ = Describe("FramerCodec", func() {
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
-			Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+			Expect(chSvc.CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			v := framer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
 
 			openReq := http.WSMessage[framer.IteratorRequest]{

@@ -16,9 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -60,7 +60,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, &ch)).To(Succeed())
 		}
 
 		// Try to create one more channel over the limit
@@ -70,7 +70,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+		Expect(dist.ChannelService().Create(ctx, &overLimitCh)).
 			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 	})
 
@@ -84,7 +84,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, &ch)).To(Succeed())
 			channels[i] = ch
 		}
 
@@ -95,11 +95,11 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+		Expect(dist.ChannelService().Create(ctx, &overLimitCh)).
 			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 		// Delete one channel
-		writer := dist.Channel.NewWriter(nil)
+		writer := dist.ChannelService().NewWriter(nil)
 		Expect(writer.Delete(ctx, channels[0].Key(), false)).To(Succeed())
 
 		// Now we should be able to create a new channel
@@ -109,7 +109,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "NewAfterDelete",
 			Leaseholder: 1,
 		}
-		Expect(dist.Channel.Create(ctx, &newCh)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, &newCh)).To(Succeed())
 
 		// Try to create one more channel (should fail again)
 		anotherCh := channel.Channel{
@@ -118,7 +118,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "AnotherOverLimit",
 			Leaseholder: 1,
 		}
-		Expect(dist.Channel.Create(ctx, &anotherCh)).
+		Expect(dist.ChannelService().Create(ctx, &anotherCh)).
 			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 	})
 
@@ -132,7 +132,7 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
 
@@ -143,12 +143,12 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "OverLimit",
 			Leaseholder: 1,
 		}
-		Expect(dist.Channel.Create(ctx, &overLimitCh)).
+		Expect(dist.ChannelService().Create(ctx, &overLimitCh)).
 			Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 
 		// Retrieve all channels - this should work fine even at the limit
 		var retrievedChannels []channel.Channel
-		retrieve := dist.Channel.NewRetrieve()
+		retrieve := dist.ChannelService().NewRetrieve()
 		Expect(retrieve.Entries(&retrievedChannels).Where(channel.MatchLeaseholders(1)).Exec(ctx, nil)).To(Succeed())
 		Expect(retrievedChannels).To(HaveLen(limit + internalChannelCount))
 
@@ -166,13 +166,13 @@ var _ = Describe("Limit", Ordered, func() {
 				Name:        fmt.Sprintf("LimitTest%d", i),
 				Leaseholder: 1,
 			}
-			Expect(dist.Channel.Create(ctx, &ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
 		writer := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 			Keys: []channel.Key{createdChannels[0].Key()},
 		}))
-		Expect(dist.Channel.Delete(ctx, createdChannels[0].Key(), false)).
+		Expect(dist.ChannelService().Delete(ctx, createdChannels[0].Key(), false)).
 			To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 		newCh := channel.Channel{
 			IsIndex:     true,
@@ -180,7 +180,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Name:        "NewAfterDelete",
 			Leaseholder: 1,
 		}
-		Expect(dist.Channel.Create(ctx, &newCh)).
+		Expect(dist.ChannelService().Create(ctx, &newCh)).
 			To(MatchError(ContainSubstring("channel limit exceeded")))
 		Expect(writer.Close()).To(Succeed())
 	})

@@ -16,11 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 )
 
 var (
 	mockCluster *mock.Cluster
 	dist        *distribution.Layer
+	chSvc       *channel.Service
 )
 
 func TestFramer(t *testing.T) {
@@ -30,7 +32,9 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	mockCluster = mock.ProvisionCluster(ctx, 1)
-	dist = mockCluster.Nodes[1].Layer
+	node := mockCluster.Nodes[1]
+	dist = node.Layer
+	chSvc = node.ChannelService()
 	DeferCleanup(func() {
 		Expect(dist.Close()).To(Succeed())
 		Expect(mockCluster.Close()).To(Succeed())

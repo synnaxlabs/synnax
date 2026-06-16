@@ -48,7 +48,7 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.dist.Channel.CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.dist.ChannelService().CreateMany(e.ctx, &indexes); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -64,15 +64,15 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.dist.Channel.CreateMany(e.ctx, &bases); err != nil {
+		if err := e.dist.ChannelService().CreateMany(e.ctx, &bases); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.dist.Channel.Create(e.ctx, calc); err != nil {
+	if err := e.dist.ChannelService().Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		ChannelService: channel.Wrap(e.dist.Channel),
+		ChannelService: e.dist.ChannelService(),
 		Channel:        *calc,
 	})
 	if err != nil {

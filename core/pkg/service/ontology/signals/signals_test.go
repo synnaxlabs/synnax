@@ -18,9 +18,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -121,7 +121,7 @@ var _ = Describe("Signals", func() {
 	Describe("Resource Changes", func() {
 		It("Should correctly propagate resource changes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.ChannelService().NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
@@ -160,7 +160,7 @@ var _ = Describe("Signals", func() {
 		})
 		It("Should correctly propagate resource deletes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+			Expect(dist.ChannelService().NewRetrieve().Where(channel.MatchNames("sy_ontology_resource_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 				Keys: channel.Keys{resCh.Key()},
 			}))
@@ -193,7 +193,7 @@ var _ = Describe("Signals", func() {
 	})
 	It("Should correctly propagate relationship set to the ontology", func(ctx SpecContext) {
 		var resCh channel.Channel
-		Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		Expect(dist.ChannelService().NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_set")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{resCh.Key()},
 		}))
@@ -228,7 +228,7 @@ var _ = Describe("Signals", func() {
 	It("Should correctly propagate a relationship delete to the ontology", func(ctx SpecContext) {
 		var resCh channel.Channel
 		By("Correctly creating the deletion channel.")
-		Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
+		Expect(dist.ChannelService().NewRetrieve().Where(channel.MatchNames("sy_ontology_relationship_delete")).Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		By("Opening a streamer on the deletion channel")
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{resCh.Key()},

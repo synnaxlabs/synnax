@@ -38,7 +38,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 
 	iteratorSvc, err := iterator.NewService(iterator.ServiceConfig{
 		DistFramer: dist.Framer,
-		Channel:    channel.Wrap(dist.Channel),
+		Channel:    dist.ChannelService(),
 	})
 	if err != nil {
 		b.Fatalf("failed to open iterator service: %v", err)
@@ -68,7 +68,7 @@ func (e *benchIterEnv) createChannels(
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := e.dist.Channel.Create(e.ctx, indexCh); err != nil {
+	if err := e.dist.ChannelService().Create(e.ctx, indexCh); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -78,7 +78,7 @@ func (e *benchIterEnv) createChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.dist.Channel.Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.dist.ChannelService().Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -136,7 +136,7 @@ func (e *benchIterEnv) createCalculation(
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.dist.Channel.Create(e.ctx, calc); err != nil {
+	if err := e.dist.ChannelService().Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc
@@ -320,7 +320,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			if err := env.dist.Channel.Create(env.ctx, indexCh); err != nil {
+			if err := env.dist.ChannelService().Create(env.ctx, indexCh); err != nil {
 				b.Fatalf("failed to create index channel: %v", err)
 			}
 			dataCh := &channel.Channel{
@@ -328,7 +328,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			if err := env.dist.Channel.Create(env.ctx, dataCh); err != nil {
+			if err := env.dist.ChannelService().Create(env.ctx, dataCh); err != nil {
 				b.Fatalf("failed to create data channel: %v", err)
 			}
 

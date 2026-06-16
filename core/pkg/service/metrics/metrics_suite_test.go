@@ -55,10 +55,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		DB:           dist.DB,
-		Distribution: dist.Channel,
-		Status:       statusSvc,
+		DB:               dist.DB,
+		Allocator:        dist.Channel,
+		HostResolver:     dist.Cluster,
+		Ontology:         dist.Ontology,
+		Group:            dist.Group,
+		Search:           dist.Search,
+		IntOverflowCheck: dist.IntOverflowCheck,
+		ValidateNames:    dist.ValidateChannelNames,
+		Status:           statusSvc,
 	}))
+	dist.ChannelRetriever.Bind(channelSvc)
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: channelSvc,

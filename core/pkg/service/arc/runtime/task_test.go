@@ -55,6 +55,7 @@ var _ = Describe("Task", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		distB := DeferClose(mock.NewCluster())
 		dist = DeferClose(distB.Provision(ctx))
+		dist.ChannelService() // pre-wrap so observable goroutines predate the leak baseline
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       dist.DB,
 			Ontology: dist.Ontology,
@@ -72,7 +73,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
 		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-			Channel:    channel.Wrap(dist.Channel),
+			Channel:    dist.ChannelService(),
 			Framer:     dist.Framer,
 			Status:     statusSvc,
 			GetProgram: getModule,
@@ -81,7 +82,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newGraphFactory := func(g graph.Graph) driver.Factory {
 		return newFactoryWith(func(ctx context.Context, key uuid.UUID) (svcarc.Arc, error) {
-			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
+			resolver := dist.ChannelService().NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileGraph(ctx, g, root)
 			if err != nil {
@@ -93,7 +94,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	newTextFactory := func(ctx context.Context, prof arc.Text) driver.Factory {
 		return newFactoryWith(func(_ context.Context, _ uuid.UUID) (svcarc.Arc, error) {
-			resolver := channel.Wrap(dist.Channel).NewArcSymbolResolver(nil)
+			resolver := dist.ChannelService().NewArcSymbolResolver(nil)
 			root := arc.NewRoot(resolver, arcstatus.NewSymbols()...)
 			module, err := arc.CompileText(ctx, prof, root)
 			if err != nil {
@@ -132,7 +133,7 @@ var _ = Describe("Task", Ordered, func() {
 			Virtual:  true,
 			DataType: dataType,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, ch)).To(Succeed())
 		return ch
 	}
 
@@ -207,7 +208,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return ErrTaskNotHandled for non-arc task types", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel: channel.Wrap(dist.Channel),
+				Channel: dist.ChannelService(),
 				Framer:  dist.Framer,
 				Status:  statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) {
@@ -225,14 +226,14 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should create Task for arc type", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "factory_test_ch", Virtual: true, DataType: telem.Float32T}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, ch)).To(Succeed())
 			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 			Expect(t).ToNot(BeNil())
 		})
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    channel.Wrap(dist.Channel),
+				Channel:    dist.ChannelService(),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -248,7 +249,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    channel.Wrap(dist.Channel),
+				Channel:    dist.ChannelService(),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -264,7 +265,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    channel.Wrap(dist.Channel),
+				Channel:    dist.ChannelService(),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
@@ -288,7 +289,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
 			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
-				Channel:    channel.Wrap(dist.Channel),
+				Channel:    dist.ChannelService(),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
 				GetProgram: moduleNotFoundGetter,
@@ -316,7 +317,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 4),
 				Name:   "test-config-success",
@@ -344,7 +345,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
 				Key:  task.NewKey(rack.NewKey(1, 1), 5),
 				Name: "test-auto-start",
@@ -379,7 +380,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, ch)).To(Succeed())
 			arcTask = newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 		})
 
@@ -439,7 +440,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Alarm Flow", func() {
 		It("Should update alarm statuses based on telemetry", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "ox_pt_1", Virtual: true, DataType: telem.Float32T}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, ch)).To(Succeed())
 
 			alarmGraph := graph.Graph{
 				Nodes: []graph.Node{
@@ -517,13 +518,13 @@ var _ = Describe("Task", Ordered, func() {
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
-			Expect(dist.Channel.Create(ctx, indexCh)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "interval_data_" + uuid.NewString()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
-			Expect(dist.Channel.Create(ctx, dataCh)).To(Succeed())
+			Expect(dist.ChannelService().Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`

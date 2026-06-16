@@ -72,7 +72,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	channelSvc = channel.Wrap(dist.Channel)
+	channelSvc = dist.ChannelService()
 	framerSvc = dist.Framer
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
@@ -80,7 +80,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
-		Channel:  channel.Wrap(dist.Channel),
+		Channel:  dist.ChannelService(),
 		Search:   searchIdx,
 	}))
 })

@@ -30,16 +30,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 var _ = Describe("Compile", func() {
 	It("Should compile simple expression", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
-		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc",
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: "return base * 2",
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: dist.ChannelService(),
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -49,7 +49,7 @@ var _ = Describe("Compile", func() {
 
 	It("Should compile expression with operations", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base2", DataType: telem.Int64T, Virtual: true}
-		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc2",
 			DataType:   telem.Int64T,
@@ -57,9 +57,9 @@ var _ = Describe("Compile", func() {
 			Expression: "return base2 + 1",
 			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: dist.ChannelService(),
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -71,16 +71,16 @@ var _ = Describe("Compile", func() {
 			{Name: "base3", DataType: telem.Int64T, Virtual: true},
 			{Name: "base4", DataType: telem.Int64T, Virtual: true},
 		}
-		Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+		Expect(dist.ChannelService().CreateMany(ctx, &channels)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc3",
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: "return base3 + base4",
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: dist.ChannelService(),
 			Channel:        calc,
 		}))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
@@ -89,7 +89,7 @@ var _ = Describe("Compile", func() {
 
 	It("Should compile expression with derivative operation", func(ctx SpecContext) {
 		base := channel.Channel{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true}
-		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       channel.NewRandomName(),
 			DataType:   telem.Float64T,
@@ -97,9 +97,9 @@ var _ = Describe("Compile", func() {
 			Expression: fmt.Sprintf("return %s", base.Name),
 			Operations: []channel.Operation{{Type: "derivative"}},
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(dist.ChannelService().Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: dist.ChannelService(),
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -113,9 +113,11 @@ var _ = Describe("Compile", func() {
 			Virtual:    true,
 			Expression: "return invalid_syntax {{",
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		// Bypass analysis on create so the invalid expression reaches the compiler,
+		// which is the component under test here.
+		Expect(dist.ChannelService().NewWriterNoAnalysis(nil).Create(ctx, &calc)).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: dist.ChannelService(),
 			Channel:        calc,
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})

@@ -15,11 +15,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,7 +33,7 @@ func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channe
 			Virtual:  true,
 		}
 	}
-	Expect(dist.Channel.CreateMany(ctx, &chs)).To(Succeed())
+	Expect(chSvc.CreateMany(ctx, &chs)).To(Succeed())
 	return channel.KeysFromChannels(chs)
 }
 
@@ -41,7 +41,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 	Describe("Frame Writer Translators", func() {
 		It("Should round-trip a write request via the codec buffer", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			t := frameWriterRequestTranslator{codec: cdec}
@@ -60,7 +60,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 		It("Should fall back to the protobuf frame when the codec is not initialized", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 
 			t := frameWriterRequestTranslator{codec: cdec}
 			req := framer.WriterRequest{
@@ -86,7 +86,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 		It("Should not encode an empty frame into the buffer", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			t := frameWriterRequestTranslator{codec: cdec}
@@ -111,7 +111,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 	Describe("Frame Streamer Translators", func() {
 		It("Should update the codec on a request with keys", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int64T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			rt := frameStreamerRequestTranslator{codec: cdec}
 			pbReq := MustSucceed(rt.Forward(ctx, framer.StreamerRequest{Keys: keys}))
 			Expect(pbReq.Keys).To(Equal(keys.Uint32()))
@@ -120,7 +120,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 		})
 
 		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			rt := frameStreamerRequestTranslator{codec: cdec}
 			pbReq := MustSucceed(rt.Forward(ctx, framer.StreamerRequest{}))
 			MustSucceed(rt.Backward(ctx, pbReq))
@@ -129,7 +129,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 		It("Should preserve the existing codec state when a later request has no keys", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int64T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			rt := frameStreamerRequestTranslator{codec: cdec}
@@ -154,7 +154,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 		It("Should encode a streamer response into the buffer when the codec is initialized", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int64T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			st := frameStreamerResponseTranslator{codec: cdec}
@@ -174,7 +174,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 	Describe("Frame Iterator Request Translator", func() {
 		It("Should round-trip an open request and update the codec", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			t := frameIteratorRequestTranslator{codec: cdec}
 			req := framer.IteratorRequest{
 				Command:   iterator.CommandSeekFirst,
@@ -192,7 +192,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 		})
 
 		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			t := frameIteratorRequestTranslator{codec: cdec}
 			pb := MustSucceed(t.Forward(ctx, framer.IteratorRequest{
 				Command: iterator.CommandNext,
@@ -208,7 +208,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 	Describe("Frame Iterator Response Translator", func() {
 		It("Should encode a data variant frame to the buffer when the codec is initialized", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			t := frameIteratorResponseTranslator{codec: cdec}
@@ -228,7 +228,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 		})
 
 		It("Should fall back to the protobuf frame for an ack variant", func(ctx SpecContext) {
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, channel.Keys{})).To(Succeed())
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
@@ -248,7 +248,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 		It("Should fall back to the protobuf frame for an empty data response", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			t := frameIteratorResponseTranslator{codec: cdec}
@@ -266,7 +266,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 
 		It("Should fall back to the protobuf frame when the codec is not initialized", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			t := frameIteratorResponseTranslator{codec: cdec}
 			res := framer.IteratorResponse{
 				Variant: iterator.ResponseVariantData,
@@ -336,7 +336,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 	Describe("Frame Streamer Response Translator", func() {
 		It("Should round-trip a streamer response via the buffer", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int64T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			Expect(cdec.Update(ctx, keys)).To(Succeed())
 
 			t := frameStreamerResponseTranslator{codec: cdec}
@@ -372,7 +372,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 	Describe("Frame Writer Request Translator", func() {
 		It("Should call Update on the Backward translation of an open command", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)
-			cdec := codec.NewDynamic(dist.Channel)
+			cdec := codec.NewDynamic(dist.ChannelRetriever)
 			t := frameWriterRequestTranslator{codec: cdec}
 			pb := &WriterRequest{
 				Command: int32(writer.CommandOpen),

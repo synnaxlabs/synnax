@@ -16,12 +16,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -208,7 +208,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	builder := mock.ProvisionCluster(ctx, 1)
 	dist := builder.Nodes[1]
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
@@ -227,11 +227,11 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 2)
 	}
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.Channel.NewRetrieve().
+		g.Expect(dist.ChannelService().NewRetrieve().
 			Entries(&chs).
 			Where(channel.MatchKeys(keys...)).
 			Exec(ctx, nil)).To(Succeed())
@@ -254,11 +254,11 @@ func mixedScenario(ctx context.Context) scenario {
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 1)
 	}
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	Expect(dist.ChannelService().NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	Eventually(func(g Gomega) {
 		var chs []channel.Channel
-		g.Expect(dist.Channel.NewRetrieve().
+		g.Expect(dist.ChannelService().NewRetrieve().
 			Entries(&chs).
 			Where(channel.MatchKeys(keys...)).
 			Exec(ctx, nil)).To(Succeed())

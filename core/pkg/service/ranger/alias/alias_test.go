@@ -55,7 +55,7 @@ var _ = Describe("Alias", Ordered, func() {
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              dist.DB,
 			Ontology:        dist.Ontology,
-			Channel:         channel.Wrap(dist.Channel),
+			Channel:         dist.ChannelService(),
 			ParentRetriever: rangerSvc,
 			Search:          dist.Search,
 		}))
@@ -72,7 +72,7 @@ var _ = Describe("Alias", Ordered, func() {
 	createChannel := func(ctx context.Context) channel.Channel {
 		channelCount++
 		ch := channel.Channel{DataType: telem.Float32T, Name: fmt.Sprintf("test_%d", channelCount), Virtual: true}
-		Expect(dist.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(dist.ChannelService().NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 		return ch
 	}
 
