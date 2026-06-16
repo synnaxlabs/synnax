@@ -548,12 +548,10 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should use the provided status when creating a rack", func(ctx SpecContext) {
 			providedStatus := &rack.Status{
-				Status: status.Status[rack.StatusDetails]{
-					Variant:     status.VariantSuccess,
-					Time:        telem.Now(),
-					Message:     "Custom status message",
-					Description: "Custom description",
-				},
+				Variant:     status.VariantSuccess,
+				Time:        telem.Now(),
+				Message:     "Custom status message",
+				Description: "Custom description",
 			}
 			r := rack.Rack{Name: "rack with custom status", Status: providedStatus}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
@@ -573,10 +571,8 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
 			providedStatus := &rack.Status{
-				Status: status.Status[rack.StatusDetails]{
-					Message: "Status with no variant",
-					Time:    telem.Now(),
-				},
+				Message: "Status with no variant",
+				Time:    telem.Now(),
 			}
 			r := rack.Rack{Name: "rack with invalid status", Status: providedStatus}
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).Error().To(MatchError(ContainSubstring("variant")))
@@ -607,7 +603,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := rack.Rack{
 				Name: "live status rack",
 				Status: &rack.Status{
-					Variant: xstatus.VariantSuccess,
+					Variant: status.VariantSuccess,
 					Message: "Rack is connected",
 					Time:    telem.Now(),
 				},
@@ -622,7 +618,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(preserved.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
 			Expect(preserved.Message).To(Equal("Rack is connected"))
 		})
 
@@ -652,14 +648,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
-				Status: status.Status[rack.StatusDetails]{
-					Time:    telem.Now(),
-					Variant: status.VariantSuccess,
-					Message: "Running",
-					Details: rack.StatusDetails{Rack: r.Key},
-				},
-				Key:  rack.OntologyID(r.Key).String(),
-				Name: r.Name,
+				Time:    telem.Now(),
+				Variant: status.VariantSuccess,
+				Message: "Running",
+				Details: rack.StatusDetails{Rack: r.Key},
+				Key:     rack.OntologyID(r.Key).String(),
+				Name:    r.Name,
 			})).To(Succeed())
 
 			Consistently(func(g Gomega) {
@@ -724,14 +718,12 @@ var _ = Describe("Rack", Ordered, func() {
 			Eventually(getCount).Should(Equal(1))
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
-				Status: status.Status[rack.StatusDetails]{
-					Time:    telem.Now(),
-					Variant: status.VariantSuccess,
-					Message: "Running",
-					Details: rack.StatusDetails{Rack: r.Key},
-				},
-				Key:  rack.OntologyID(r.Key).String(),
-				Name: r.Name,
+				Time:    telem.Now(),
+				Variant: status.VariantSuccess,
+				Message: "Running",
+				Details: rack.StatusDetails{Rack: r.Key},
+				Key:     rack.OntologyID(r.Key).String(),
+				Name:    r.Name,
 			})).To(Succeed())
 
 			countAfterRecovery := getCount()

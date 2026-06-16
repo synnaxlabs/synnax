@@ -20,9 +20,8 @@ import (
 )
 
 // MigrateStatus migrates a persisted v54 status into the current server-side Status
-// entity. The v54 status stored its descriptive fields and identity in a single flat
-// struct; the current entity splits the descriptive payload into the embedded
-// Status while keeping key, name, and labels on the entity itself.
+// entity. Both the v54 status and the current entity store the descriptive fields,
+// identity, and labels in a single flat struct, so migration is a field-by-field copy.
 func MigrateStatus[Details any](
 	ctx context.Context,
 	old statusv54.Status[Details],
@@ -35,16 +34,14 @@ func MigrateStatus[Details any](
 		}
 	}
 	return Status[Details]{
-		Status: Status[Details]{
-			Variant:     Variant(old.Variant),
-			Message:     old.Message,
-			Description: old.Description,
-			Time:        telem.TimeStamp(old.Time),
-			Details:     old.Details,
-		},
-		Key:    old.Key,
-		Name:   old.Name,
-		Labels: labels,
+		Key:         old.Key,
+		Name:        old.Name,
+		Variant:     Variant(old.Variant),
+		Message:     old.Message,
+		Description: old.Description,
+		Time:        telem.TimeStamp(old.Time),
+		Details:     old.Details,
+		Labels:      labels,
 	}, nil
 }
 

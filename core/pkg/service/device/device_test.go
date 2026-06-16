@@ -262,12 +262,10 @@ var _ = Describe("Device", func() {
 
 		It("Should use the provided status when creating a device", func(ctx SpecContext) {
 			providedStatus := &device.Status{
-				Status: status.Status[device.StatusDetails]{
-					Variant:     status.VariantSuccess,
-					Time:        telem.Now(),
-					Message:     "Device is connected",
-					Description: "Custom device description",
-				},
+				Variant:     status.VariantSuccess,
+				Time:        telem.Now(),
+				Message:     "Device is connected",
+				Description: "Custom device description",
 			}
 			d := device.Device{
 				Key:      "device-with-status",
@@ -297,10 +295,8 @@ var _ = Describe("Device", func() {
 
 		It("Should return a validation error if provided status has empty variant", func(ctx SpecContext) {
 			providedStatus := &device.Status{
-				Status: status.Status[device.StatusDetails]{
-					Message: "Status with no variant",
-					Time:    telem.Now(),
-				},
+				Message: "Status with no variant",
+				Time:    telem.Now(),
 			}
 			d := device.Device{
 				Key:      "device-invalid-status",
@@ -363,7 +359,7 @@ var _ = Describe("Device", func() {
 				Location: "live-loc",
 				Name:     "Live Device",
 				Status: &device.Status{
-					Variant: xstatus.VariantSuccess,
+					Variant: status.VariantSuccess,
 					Message: "Device is connected",
 					Time:    telem.Now(),
 				},
@@ -383,7 +379,7 @@ var _ = Describe("Device", func() {
 				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(preserved.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
 			Expect(preserved.Message).To(Equal("Device is connected"))
 		})
 

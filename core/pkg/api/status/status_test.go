@@ -57,8 +57,8 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 		It("Should update an existing row when the input matches its Key", func(ctx SpecContext) {
 			key := uuid.NewString()
 			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Status: status.Status[any]{Variant: status.VariantInfo, Message: "orig", Time: telem.Now()},
-				Key:    key, Name: "api_uuid",
+				Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
+				Key: key, Name: "api_uuid",
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionUpdate},
@@ -76,12 +76,12 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 		It("Should report multipleMatches when the name resolves to multiple rows", func(ctx SpecContext) {
 			name := "api_multi_" + uuid.New().String()
 			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Status: status.Status[any]{Variant: status.VariantInfo, Message: "a", Time: telem.Now()},
-				Key:    uuid.NewString(), Name: name,
+				Variant: status.VariantInfo, Message: "a", Time: telem.Now(),
+				Key: uuid.NewString(), Name: name,
 			})).To(Succeed())
 			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Status: status.Status[any]{Variant: status.VariantInfo, Message: "b", Time: telem.Now()},
-				Key:    uuid.NewString(), Name: name,
+				Variant: status.VariantInfo, Message: "b", Time: telem.Now(),
+				Key: uuid.NewString(), Name: name,
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionUpdate},

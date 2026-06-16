@@ -133,9 +133,9 @@ var _ = Describe("AlertTask", func() {
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
 		w := status.NewWriter[any](statusSvc, tx)
 		Expect(w.Set(ctx, &status.Status[any]{
-			Status: status.Status[any]{Variant: variant, Message: message, Time: telem.Now(), Details: details},
-			Key:    key,
-			Name:   "Test Source",
+			Variant: variant, Message: message, Time: telem.Now(), Details: details,
+			Key:  key,
+			Name: "Test Source",
 		})).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 	}
@@ -359,15 +359,13 @@ var _ = Describe("AlertTask", func() {
 				defer func() { Expect(tx.Close()).To(Succeed()) }()
 				w := status.NewWriter[any](statusSvc, tx)
 				Expect(w.Set(ctx, &status.Status[any]{
-					Status: status.Status[any]{
-						Variant:     status.VariantWarning,
-						Message:     "High temperature",
-						Description: "Exceeded 80C threshold",
-						Time:        telem.Now(),
-						Details:     map[string]any{"temp": 85.2},
-					},
-					Key:  "payload-test",
-					Name: "Temperature Sensor",
+					Variant:     status.VariantWarning,
+					Message:     "High temperature",
+					Description: "Exceeded 80C threshold",
+					Time:        telem.Now(),
+					Details:     map[string]any{"temp": 85.2},
+					Key:         "payload-test",
+					Name:        "Temperature Sensor",
 				})).To(Succeed())
 				Expect(tx.Commit(ctx)).To(Succeed())
 

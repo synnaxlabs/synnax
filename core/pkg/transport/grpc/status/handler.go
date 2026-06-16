@@ -20,9 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	xpb "github.com/synnaxlabs/x/pb"
+	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -129,7 +129,7 @@ func (retrieveRequestTranslator) Forward(
 	hasLabels := lo.Map(msg.HasLabels, func(k label.Key, _ int) string {
 		return k.String()
 	})
-	variants := lo.Map(msg.Variants, func(v status.Variant, _ int) string {
+	variants := lo.Map(msg.Variants, func(v svcstatus.Variant, _ int) string {
 		return string(v)
 	})
 	return &RetrieveRequest{
@@ -153,8 +153,8 @@ func (retrieveRequestTranslator) Backward(
 	if err != nil {
 		return status.RetrieveRequest{}, err
 	}
-	variants := lo.Map(msg.Variants, func(v string, _ int) status.Variant {
-		return status.Variant(v)
+	variants := lo.Map(msg.Variants, func(v string, _ int) svcstatus.Variant {
+		return svcstatus.Variant(v)
 	})
 	return status.RetrieveRequest{
 		Keys:          msg.Keys,
@@ -221,7 +221,7 @@ func (setByKeyOrNameRequestTranslator) Backward(
 	return status.SetByKeyOrNameRequest{
 		KeyOrName: msg.KeyOrName,
 		Message:   msg.Message,
-		Variant:   status.Variant(msg.Variant),
+		Variant:   svcstatus.Variant(msg.Variant),
 	}, nil
 }
 
