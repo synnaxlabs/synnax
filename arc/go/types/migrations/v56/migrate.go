@@ -15,7 +15,6 @@ import (
 	"context"
 
 	types "github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/set"
 )
 
 func MigrateFunctionProperties(ctx context.Context, old FunctionProperties) (types.FunctionProperties, error) {
@@ -25,55 +24,4 @@ func MigrateFunctionProperties(ctx context.Context, old FunctionProperties) (typ
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil
-}
-
-// MergeConfigFirst folds config into inputs, config params first, then any input
-// whose name a config param does not already provide (the legacy ExecBoth mirror).
-func MergeConfigFirst(config, inputs Params) Params {
-	if len(config) == 0 {
-		return MergeParamTypes(inputs)
-	}
-	seen := set.New[string]()
-	merged := make(Params, 0, len(config)+len(inputs))
-	for _, c := range config {
-		merged = append(merged, c)
-		seen.Add(c.Name)
-	}
-	for _, in := range inputs {
-		if !seen.Contains(in.Name) {
-			merged = append(merged, in)
-		}
-	}
-	return MergeParamTypes(merged)
-}
-
-// MergeParamTypes folds config into inputs for each param's type, covering
-// function-typed params whose signatures carry their own config.
-func MergeParamTypes(ps Params) Params {
-	if len(ps) == 0 {
-		return ps
-	}
-	out := make(Params, len(ps))
-	for i, p := range ps {
-		p.Type = mergeTypeConfig(p.Type)
-		out[i] = p
-	}
-	return out
-}
-
-func mergeTypeConfig(t Type) Type {
-	if len(t.Config) > 0 || len(t.Inputs) > 0 {
-		t.Inputs = MergeConfigFirst(t.Config, t.Inputs)
-		t.Config = nil
-	}
-	t.Outputs = MergeParamTypes(t.Outputs)
-	if t.Elem != nil {
-		v := mergeTypeConfig(*t.Elem)
-		t.Elem = &v
-	}
-	if t.Constraint != nil {
-		v := mergeTypeConfig(*t.Constraint)
-		t.Constraint = &v
-	}
-	return t
 }

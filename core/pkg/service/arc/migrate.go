@@ -16,16 +16,9 @@ package arc
 import (
 	"context"
 
-	irv56 "github.com/synnaxlabs/arc/ir/migrations/v56"
 	v56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 )
 
 func MigrateArc(ctx context.Context, old v56.Arc) (Arc, error) {
-	for i := range old.Graph.Functions {
-		old.Graph.Functions[i] = irv56.MergeFunctionConfig(old.Graph.Functions[i])
-	}
-	if old.Program != nil {
-		old.Program.IR = irv56.MergeIRConfig(old.Program.IR)
-	}
 	return AutoMigrateArc(ctx, old)
 }

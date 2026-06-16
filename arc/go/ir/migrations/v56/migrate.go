@@ -15,7 +15,6 @@ import (
 	"context"
 
 	ir "github.com/synnaxlabs/arc/ir"
-	typesv56 "github.com/synnaxlabs/arc/types/migrations/v56"
 )
 
 func MigrateFunction(ctx context.Context, old Function) (ir.Function, error) {
@@ -34,31 +33,4 @@ func MigrateNode(ctx context.Context, old Node) (ir.Node, error) {
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil
-}
-
-// MergeFunctionConfig folds f's config into its inputs (config-first, deduped).
-func MergeFunctionConfig(f Function) Function {
-	f.Inputs = typesv56.MergeConfigFirst(f.Config, f.Inputs)
-	f.Config = nil
-	f.Outputs = typesv56.MergeParamTypes(f.Outputs)
-	return f
-}
-
-// MergeNodeConfig folds n's config into its inputs (config-first, deduped).
-func MergeNodeConfig(n Node) Node {
-	n.Inputs = typesv56.MergeConfigFirst(n.Config, n.Inputs)
-	n.Config = nil
-	n.Outputs = typesv56.MergeParamTypes(n.Outputs)
-	return n
-}
-
-// MergeIRConfig folds config into inputs for every function and node in in.
-func MergeIRConfig(in IR) IR {
-	for i := range in.Functions {
-		in.Functions[i] = MergeFunctionConfig(in.Functions[i])
-	}
-	for i := range in.Nodes {
-		in.Nodes[i] = MergeNodeConfig(in.Nodes[i])
-	}
-	return in
 }
