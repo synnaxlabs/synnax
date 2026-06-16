@@ -220,7 +220,7 @@ func (c Config) Validate() error {
 }
 
 // restartScale is the exponential growth factor applied to the restart backoff after
-// each consecutive unexpected driver exit.
+// each consecutive unexpected Driver exit.
 const restartScale = 1.1
 
 // Driver manages the lifecycle of an embedded C++ Driver subprocess. The Driver binary
@@ -424,7 +424,7 @@ func (d *Driver) runOnce(
 	// crash, so it must not count toward the restart policy.
 	expected := ctx.Err() != nil
 	if !expected {
-		d.cfg.L.Warn("embedded driver process exited unexpectedly", zap.Error(err))
+		d.cfg.L.Warn("embedded Driver process exited unexpectedly", zap.Error(err))
 	}
 	return policy.Decide(expected, time.Since(startedAt)), err
 }
@@ -485,7 +485,7 @@ func (d *Driver) setupCmd(
 	if err != nil {
 		return nil, cfgFile, extractedBinary, err
 	}
-	// On ctx cancellation, ask the driver to stop gracefully via STOP instead of the
+	// On ctx cancellation, ask the Driver to stop gracefully via STOP instead of the
 	// default SIGKILL; WaitDelay then escalates to a kill if it does not exit in time
 	// and guarantees the stdin pipe is closed so cmd.Wait cannot block indefinitely.
 	cmd.Cancel = func() error { _, err := io.WriteString(stdin, "STOP\n"); return err }
