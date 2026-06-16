@@ -12,8 +12,12 @@ import { deep, map, observe, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 // FieldStatus is a form field validation status keyed by the field's resolved path.
-// The X status payload is keyless, so the form attaches its own key.
+// The status payload is keyless, so the form attaches its own key.
 export type FieldStatus = status.Crude & { key: string };
+
+// FieldStatusInput is what setStatus accepts: a keyless payload (the form attaches
+// key = path) or one that already carries an explicit key.
+export type FieldStatusInput = status.Crude & { key?: string };
 
 export interface FieldState<V = unknown> {
   value: V;
@@ -112,8 +116,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     });
   }
 
-  setStatus(path: string, status: FieldStatus) {
-    this.statuses.set(path, status);
+  setStatus(path: string, status: FieldStatusInput) {
+    this.statuses.set(path, { ...status, key: status.key ?? path });
     this.updateCachedRefs(path);
   }
 

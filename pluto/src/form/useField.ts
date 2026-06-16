@@ -17,6 +17,7 @@ import {
   type DefaultGetOptions,
   type ExtensionGetOptions,
   type FieldState,
+  type FieldStatus,
   type GetOptions,
   type OptionalGetOptions,
   type RequiredGetOptions,
@@ -39,7 +40,7 @@ export type UseFieldOptions<
 export interface UseFieldReturn<I, O = I> extends FieldState<I> {
   onChange: (value: O) => void;
   setStatus: (status: status.Crude) => void;
-  status: status.Crude;
+  status: FieldStatus;
   variant?: "preview";
 }
 
