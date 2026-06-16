@@ -12,7 +12,7 @@
 package v54
 
 import (
-	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
+	statusv54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 )
 
 // Key is a composite identifier for a rack. The high 16 bits contain the core node key,

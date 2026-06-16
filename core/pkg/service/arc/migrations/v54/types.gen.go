@@ -16,7 +16,7 @@ import (
 	graphv54 "github.com/synnaxlabs/arc/graph/migrations/v54"
 	programv54 "github.com/synnaxlabs/arc/program/migrations/v54"
 	textv54 "github.com/synnaxlabs/arc/text/migrations/v54"
-	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
+	statusv54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 )
 
 // Key is a unique identifier for an Arc module.

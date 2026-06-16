@@ -20,7 +20,7 @@ import (
 	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
 	"github.com/synnaxlabs/x/migrate"
 
-	v54 "github.com/synnaxlabs/x/status/migrations/v54"
+	v54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 	"github.com/synnaxlabs/x/telem"
 	telemv54 "github.com/synnaxlabs/x/telem/migrations/v54"
 	. "github.com/synnaxlabs/x/testutil"
