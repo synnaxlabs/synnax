@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
-
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"

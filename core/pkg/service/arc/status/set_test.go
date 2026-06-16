@@ -295,8 +295,7 @@ var _ = Describe("setNode.Next", func() {
 		name := "next_single_" + uuid.NewString()
 		existingKey := uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
-			Key: existingKey, Name: name,
+			Key: existingKey, Name: name, Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
 		})).To(Succeed())
 
 		n, _ := build(ctx, name, "updated", "warning")
@@ -311,8 +310,7 @@ var _ = Describe("setNode.Next", func() {
 	It("Should update an existing row by UUID key", func(ctx SpecContext) {
 		key := uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
-			Key: key, Name: "by_uuid",
+			Key: key, Name: "by_uuid", Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
 		})).To(Succeed())
 
 		n, state := build(ctx, key, "via uuid", "error")
@@ -368,12 +366,10 @@ var _ = Describe("setNode.Next", func() {
 		name := "next_multi_" + uuid.NewString()
 		k1, k2 := uuid.NewString(), uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Variant: status.VariantInfo, Message: "first", Time: telem.Now(),
-			Key: k1, Name: name,
+			Key: k1, Name: name, Variant: status.VariantInfo, Message: "first", Time: telem.Now(),
 		})).To(Succeed())
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Variant: status.VariantInfo, Message: "second", Time: telem.Now(),
-			Key: k2, Name: name,
+			Key: k2, Name: name, Variant: status.VariantInfo, Message: "second", Time: telem.Now(),
 		})).To(Succeed())
 
 		n, state := build(ctx, name, "now updated", "warning")

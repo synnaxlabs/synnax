@@ -13,6 +13,7 @@ package arc
 
 import (
 	"context"
+
 	graphv54 "github.com/synnaxlabs/arc/graph/migrations/v54"
 	program "github.com/synnaxlabs/arc/program"
 	programv54 "github.com/synnaxlabs/arc/program/migrations/v54"

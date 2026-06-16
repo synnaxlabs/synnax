@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/signal"
-
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -112,12 +111,14 @@ func (d *Driver) startHeartbeat() {
 		sCtx,
 		d.cfg.HeartbeatInterval,
 		func(ctx context.Context, _ time.Time) error {
-			st := &rack.Status{Key: rack.StatusKey(d.rack.Key), Name: d.rack.Name}
-			st.Time = telem.Now()
-			st.Variant = status.VariantSuccess
-			st.Message = "Driver is running"
-			st.Details = rack.StatusDetails{Rack: d.rack.Key}
-			if err := statusWriter.Set(ctx, st); err != nil {
+			if err := statusWriter.Set(ctx, &rack.Status{
+				Key:     rack.StatusKey(d.rack.Key),
+				Name:    d.rack.Name,
+				Time:    telem.Now(),
+				Variant: status.VariantSuccess,
+				Message: "Driver is running",
+				Details: rack.StatusDetails{Rack: d.rack.Key},
+			}); err != nil {
 				d.cfg.L.Error("failed to update rack status", zap.Error(err))
 			}
 			return nil

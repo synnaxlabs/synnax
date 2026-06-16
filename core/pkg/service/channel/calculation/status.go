@@ -27,10 +27,12 @@ func StatusKey(key channel.Key) string {
 
 // StatusFromError builds an error status for a calculated channel.
 func StatusFromError(key channel.Key, name string, msg string, err error) *Status {
-	s := &Status{Key: StatusKey(key), Name: name}
-	s.Variant = status.VariantError
-	s.Message = msg
-	s.Description = err.Error()
-	s.Time = telem.Now()
-	return s
+	return &Status{
+		Key:         StatusKey(key),
+		Name:        name,
+		Variant:     status.VariantError,
+		Message:     msg,
+		Description: err.Error(),
+		Time:        telem.Now(),
+	}
 }

@@ -23,7 +23,6 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-
 	"github.com/synnaxlabs/x/validate"
 )
 

@@ -345,11 +345,13 @@ func (t *taskImpl) reporter() taskreporter.Reporter {
 }
 
 func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
-	stat := task.Status{Key: task.OntologyID(t.task.Key).String()}
-	stat.Variant = variant
-	stat.Message = message
-	stat.Time = telem.Now()
-	stat.Details = task.StatusDetails{Task: t.task.Key, Running: running}
+	stat := task.Status{
+		Key:     task.OntologyID(t.task.Key).String(),
+		Variant: variant,
+		Message: message,
+		Time:    telem.Now(),
+		Details: task.StatusDetails{Task: t.task.Key, Running: running},
+	}
 	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for taskImpl",
@@ -365,12 +367,14 @@ func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err erro
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
-	stat := task.Status{Key: task.OntologyID(t.task.Key).String()}
-	stat.Variant = status.VariantWarning
-	stat.Message = fmt.Sprintf("Runtime error in %s", nodeType)
-	stat.Description = err.Error()
-	stat.Time = telem.Now()
-	stat.Details = task.StatusDetails{Task: t.task.Key, Running: true}
+	stat := task.Status{
+		Key:         task.OntologyID(t.task.Key).String(),
+		Variant:     status.VariantWarning,
+		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
+		Description: err.Error(),
+		Time:        telem.Now(),
+		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
+	}
 	if setErr := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}

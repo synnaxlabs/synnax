@@ -55,11 +55,12 @@ func (g Group) Next(
 	for _, c := range g {
 		output, changedLocal, err = c.Next(ctx, output, output)
 		if err != nil {
-			cs := Status{Key: c.Channel().Key().String()}
-			cs.Variant = status.VariantError
-			cs.Message = fmt.Sprintf("calculation for %s failed", c.Channel())
-			cs.Description = err.Error()
-			statuses = append(statuses, cs)
+			statuses = append(statuses, Status{
+				Key:         c.Channel().Key().String(),
+				Variant:     status.VariantError,
+				Message:     fmt.Sprintf("calculation for %s failed", c.Channel()),
+				Description: err.Error(),
+			})
 			continue
 		}
 		if changedLocal {
