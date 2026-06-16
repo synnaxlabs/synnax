@@ -14,10 +14,10 @@ package task
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	taskv54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
 	color "github.com/synnaxlabs/x/color"
-	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
 	telem "github.com/synnaxlabs/x/telem"
 )
 

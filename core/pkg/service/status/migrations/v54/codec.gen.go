@@ -14,8 +14,8 @@ package v54
 import (
 	"encoding/json"
 
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	"github.com/synnaxlabs/x/encoding/orc"
-	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
 	telemv54 "github.com/synnaxlabs/x/telem/migrations/v54"
 )
 

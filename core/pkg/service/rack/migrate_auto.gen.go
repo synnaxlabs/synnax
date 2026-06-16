@@ -14,10 +14,10 @@ package rack
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	rackv54 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	color "github.com/synnaxlabs/x/color"
-	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
 	telem "github.com/synnaxlabs/x/telem"
 )
 

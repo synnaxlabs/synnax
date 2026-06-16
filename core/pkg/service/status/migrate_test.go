@@ -13,11 +13,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	colorv54 "github.com/synnaxlabs/x/color/migrations/v54"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
 	"github.com/synnaxlabs/x/migrate"
 
 	v54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"

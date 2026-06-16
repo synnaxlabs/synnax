@@ -12,7 +12,7 @@
 package v54
 
 import (
-	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	telemv54 "github.com/synnaxlabs/x/telem/migrations/v54"
 )
 

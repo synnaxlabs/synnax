@@ -17,10 +17,10 @@ import (
 	ontologyv54 "github.com/synnaxlabs/synnax/pkg/distribution/ontology/migrations/v54"
 	devicev54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	color "github.com/synnaxlabs/x/color"
-	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
 	telem "github.com/synnaxlabs/x/telem"
 )
 
