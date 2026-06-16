@@ -15,9 +15,9 @@ import { LAYOUT_TYPE } from "@/schematic/layout";
 import { useCreate } from "@/schematic/useCreate";
 import { Selector } from "@/selector";
 
-export const Selectable: Selector.Selectable = ({ onResolved }) => {
+export const Selectable: Selector.Selectable = ({ tabKey }) => {
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
-  const create = useCreate({ onResolved });
+  const create = useCreate({ tabKey });
   const handleClick = useCallback(() => create(), [create]);
   if (!hasCreatePermission) return null;
   return (

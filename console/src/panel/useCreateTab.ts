@@ -10,19 +10,19 @@
 import { panel, project } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Flux, Panel as Base, type Pluto } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { selectActivePanelKey, selectActiveTabKey } from "@/layout/selectors";
-import { setActivePanel, setActiveTab } from "@/layout/slice";
+import { setActivePanel, setFocusedTab } from "@/layout/slice";
+import { selectorTab } from "@/panel/selectorTab";
 import { Project } from "@/project";
 import { type RootState } from "@/store";
 
-// useCreateEmptyTab returns a callback that inserts a contentless tab (which
-// renders the component selector) into the active panel's active leaf and
-// selects it. Returns false when there is no active panel to insert into, so
-// callers can fall through to creating a panel first.
+// useCreateEmptyTab returns a callback that inserts a selector tab (the component
+// picker) into the active panel's active leaf and selects it. Returns false when
+// there is no active panel to insert into, so callers can fall through to creating
+// a panel first.
 export const useCreateEmptyTab = (): (() => boolean) => {
   const store = useStore<RootState>();
   const reduxDispatch = useDispatch();
@@ -40,9 +40,9 @@ export const useCreateEmptyTab = (): (() => boolean) => {
       (activeTab != null ? panel.tabLeafPath(cached.root, activeTab) : null) ??
       panel.firstLeafPath(cached.root) ??
       panel.ROOT_PATH;
-    const tab: panel.Tab = { key: uuid.create(), variant: "empty" };
+    const tab = selectorTab();
     dispatch({ key: panelKey, actions: [panel.insertTab({ tab, targetLeaf })] });
-    reduxDispatch(setActiveTab({ windowKey, key: tab.key }));
+    reduxDispatch(setFocusedTab({ windowKey, key: tab.key }));
     return true;
   }, [store, fluxStore, dispatch, reduxDispatch, windowKey]);
 };
@@ -62,12 +62,12 @@ export const useCreatePanel = (): (() => void) => {
       ({ data }: Flux.AfterSuccessParams<panel.Panel>) => {
         if (windowKey == null) return;
         reduxDispatch(setActivePanel({ windowKey, key: data.key }));
-        const tab: panel.Tab = { key: uuid.create(), variant: "empty" };
+        const tab = selectorTab();
         dispatch({
           key: data.key,
           actions: [panel.insertTab({ tab, targetLeaf: panel.ROOT_PATH })],
         });
-        reduxDispatch(setActiveTab({ windowKey, key: tab.key }));
+        reduxDispatch(setFocusedTab({ windowKey, key: tab.key }));
       },
       [reduxDispatch, dispatch, windowKey],
     ),

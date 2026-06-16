@@ -58,7 +58,6 @@ export interface MosaicProps
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
   onFileDrop?: (key: number, loc: location.Location, event: DragEvent) => void;
   children: Tabs.RenderProp;
-  activeTab?: string;
 }
 
 /***
@@ -84,7 +83,6 @@ export const Mosaic = memo(
     onCreate,
     onFileDrop,
     children,
-    activeTab,
     emptyContent,
     onSelect,
     onClose,
@@ -106,7 +104,6 @@ export const Mosaic = memo(
       contextMenu,
       onSelect,
       onRename,
-      activeTab,
       addTooltip,
       tabName,
     };
@@ -231,7 +228,6 @@ const TabLeaf = memo(
     root: node,
     onDrop,
     onCreate,
-    activeTab,
     children,
     className,
     onFileDrop,
@@ -267,8 +263,8 @@ const TabLeaf = memo(
         }
         const created = filterTabCreateHaulItems(items);
         if (created.length > 0) {
-          const tabKey = created.map(({ key }) => key);
-          onCreate?.(key, loc, tabKey);
+          const tabKeys = created.map(({ key }) => key);
+          onCreate?.(key, loc, tabKeys);
         }
         return dropped;
       },
@@ -319,7 +315,6 @@ const TabLeaf = memo(
         className={CSS(className, isEmpty && dragMask != null && CSS.M("drag-over"))}
         onDragLeave={handleDragLeave}
         selected={node.selected}
-        selectedAltColor={activeTab === node.selected}
         onDragStart={handleDragStart}
         onCreate={onCreate ? handleTabCreate : undefined}
         addTooltip={addTooltip}

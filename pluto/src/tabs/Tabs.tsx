@@ -173,7 +173,6 @@ export const Tabs = ({
   children,
   onSelect,
   selected,
-  selectedAltColor,
   closable,
   tabs,
   onClose,
@@ -227,7 +226,6 @@ export const Tabs = ({
       <Selector
         size={size}
         direction={direction.swap(dir)}
-        altColor={selectedAltColor}
         contextMenu={contextMenu}
         addTooltip={addTooltip}
         actions={actions}

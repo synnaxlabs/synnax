@@ -13,7 +13,7 @@ import { panel } from "@/panel";
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
-  tabs: tabKeys.map((key) => ({ variant: "empty", key })),
+  tabs: tabKeys.map((key) => ({ key, type: "selector", args: {} })),
 });
 
 const split = (
@@ -121,7 +121,7 @@ describe("reduceAll", () => {
     it("should split the target leaf and insert into the new sibling when location is present", () => {
       const { next } = panel.reduceAll(state(leaf("a")), [
         panel.insertTab({
-          tab: { variant: "empty", key: "b" },
+          tab: { key: "b", type: "selector", args: {} },
           targetLeaf: panel.ROOT_PATH,
           location: "bottom",
         }),
@@ -135,7 +135,7 @@ describe("reduceAll", () => {
     it("should insert directly into the target leaf for a center location", () => {
       const { next } = panel.reduceAll(state(leaf("a")), [
         panel.insertTab({
-          tab: { variant: "empty", key: "b" },
+          tab: { key: "b", type: "selector", args: {} },
           targetLeaf: panel.ROOT_PATH,
           location: "center",
         }),
@@ -147,7 +147,7 @@ describe("reduceAll", () => {
     it("should degrade an edge insert into an empty leaf to a direct insert", () => {
       const { next } = panel.reduceAll(state(leaf()), [
         panel.insertTab({
-          tab: { variant: "empty", key: "a" },
+          tab: { key: "a", type: "selector", args: {} },
           targetLeaf: panel.ROOT_PATH,
           location: "right",
         }),
@@ -168,31 +168,17 @@ describe("reduceAll", () => {
     });
   });
 
-  describe("setTabResource", () => {
-    it("should swap the tab variant in place without changing its position", () => {
-      const resource = { type: "lineplot", key: "lp-1" } as const;
+  describe("setTabContent", () => {
+    it("should swap the tab's type and args in place without changing its position", () => {
+      const args = { resourceKey: "lp-1" };
       const { next } = panel.reduceAll(state(leaf("a", "b")), [
-        panel.setTabResource({ key: "a", resource }),
+        panel.setTabContent({ key: "a", type: "lineplot", args }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual(["a", "b"]);
       const tab = panel.findTab(next.root, "a");
-      expect(tab?.variant).toEqual("resource");
-      if (tab?.variant === "resource") expect(tab.resource).toEqual(resource);
-    });
-  });
-
-  describe("setTabView", () => {
-    it("should swap the tab variant in place without changing its position", () => {
-      const { next } = panel.reduceAll(state(leaf("a")), [
-        panel.setTabView({ key: "a", view: { type: "docs", args: {} } }),
-      ]);
-      const tab = panel.findTab(next.root, "a");
-      expect(tab?.variant).toEqual("view");
-      if (tab?.variant === "view") {
-        expect(tab.type).toEqual("docs");
-        expect(tab.args).toEqual({});
-      }
+      expect(tab?.type).toEqual("lineplot");
+      expect(tab?.args).toEqual(args);
     });
   });
 });

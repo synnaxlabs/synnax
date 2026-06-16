@@ -11,12 +11,12 @@ import { type PayloadAction } from "@reduxjs/toolkit";
 import { ontology, panel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Flux, Panel, type Pluto, Status } from "@synnaxlabs/pluto";
-import { id, uuid } from "@synnaxlabs/x";
+import { id, type record, uuid } from "@synnaxlabs/x";
 import { type Dispatch, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { selectActivePanelKey, selectActiveTabKey } from "@/layout/selectors";
-import { place, setActiveTab, type State } from "@/layout/slice";
+import { place, setFocusedTab, type State } from "@/layout/slice";
 import { type RootAction, type RootState, type RootStore } from "@/store";
 
 export interface CreatorProps {
@@ -56,15 +56,13 @@ const tabFor = (layout: State): panel.Tab => {
   if (resourceType.success)
     return {
       key: uuid.create(),
-      variant: "resource",
-      resource: { type: resourceType.data, key: layout.key },
+      type: resourceType.data,
+      args: { resourceKey: layout.key },
     };
   return {
     key: uuid.create(),
-    variant: "view",
     type: layout.type,
-    name: layout.name,
-    args: layout.args as panel.View["args"],
+    args: { ...(layout.args as record.Unknown), name: layout.name },
   };
 };
 
@@ -115,7 +113,7 @@ export const usePlacer = <A = unknown>(): Placer<A> => {
           key: panelKey,
           actions: [panel.insertTab({ tab, targetLeaf })],
         });
-        dispatch(setActiveTab({ windowKey, key: tab.key }));
+        dispatch(setFocusedTab({ windowKey, key: tab.key }));
         return { windowKey, key };
       }
       dispatch(place(full));

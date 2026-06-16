@@ -53,7 +53,7 @@ var _ = Describe("Writer", func() {
 			res := retrieve(ctx, p.Key)
 			leaf := MustBeOk(asLeaf(res.Root))
 			Expect(leaf.Tabs).To(HaveLen(1))
-			Expect(leaf.Tabs[0].Key()).To(Equal(key))
+			Expect(leaf.Tabs[0].Key).To(Equal(key))
 		})
 
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
@@ -224,7 +224,7 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			leaf := MustBeOk(asLeaf(retrieve(ctx, key).Root))
 			Expect(leaf.Tabs).To(HaveLen(1))
-			Expect(leaf.Tabs[0].Key()).To(Equal(tabKey))
+			Expect(leaf.Tabs[0].Key).To(Equal(tabKey))
 		})
 
 		It("Should apply a multi-action batch atomically", func(ctx SpecContext) {

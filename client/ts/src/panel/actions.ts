@@ -214,18 +214,8 @@ const handlers: Handlers = {
     return { inverse: [], targets: [String(payload.split)] };
   },
 
-  setTabResource: (state, payload) => {
-    const next: Tab = {
-      variant: "resource",
-      key: payload.key,
-      resource: payload.resource,
-    };
-    if (!replaceTab(state.root, payload.key, next)) return NO_OP;
-    return { inverse: [], targets: [payload.key] };
-  },
-
-  setTabView: (state, payload) => {
-    const next: Tab = { variant: "view", key: payload.key, ...payload.view };
+  setTabContent: (state, payload) => {
+    const next: Tab = { key: payload.key, type: payload.type, args: payload.args };
     if (!replaceTab(state.root, payload.key, next)) return NO_OP;
     return { inverse: [], targets: [payload.key] };
   },

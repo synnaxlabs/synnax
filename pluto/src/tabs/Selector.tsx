@@ -28,14 +28,6 @@ import { type NameProps, type NameRenderProp, type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
 
-/**
- * The visual variant of the tab selector.
- *
- * - `default`: flat strip with a bottom border and a primary-colored underline on the
- *   selected tab.
- * - `pill`: separated rounded buttons; the selected tab has a filled background and
- *   no underline. Inspired by Linear's nav style.
- */
 export type SelectorVariant = "default" | "pill";
 
 export interface SelectorProps extends Omit<
@@ -43,7 +35,6 @@ export interface SelectorProps extends Omit<
   "children" | "contextMenu" | "onDrop"
 > {
   size?: Size;
-  altColor?: boolean;
   contextMenu?: Menu.ContextMenuProps["menu"];
   onDrop?: (e: React.DragEvent<HTMLElement>) => void;
   addTooltip?: string;
@@ -55,7 +46,6 @@ const CLS = "tabs-selector";
 
 export const Selector = ({
   className,
-  altColor = false,
   size = "medium",
   direction = "x",
   contextMenu,
@@ -116,7 +106,6 @@ export const Selector = ({
             <SelectorButton
               key={tab.tabKey}
               selected={selected}
-              altColor={altColor}
               onSelect={onSelect}
               onClose={onClose}
               onDragStart={onDragStart}
@@ -208,7 +197,6 @@ const StartIcon = ({ loading, icon, level = "p" }: StartIconProps) => {
 
 const SelectorButton = ({
   selected,
-  altColor = false,
   onSelect,
   onClose,
   tabKey,
@@ -289,7 +277,6 @@ const SelectorButton = ({
         TABS_SELECTOR_BUTTON_CLASS,
         isSelected && Menu.CONTEXT_SELECTED,
         CSS.selected(isSelected),
-        CSS.altColor(altColor),
         closable && onClose != null && CSS.M("closable"),
         CSS.editable(editable && onRename != null),
         dragOverPosition != null && CSS.M("drag-over"),
@@ -331,7 +318,6 @@ const SelectorButton = ({
 
 export interface SelectorButtonProps extends Spec {
   selected?: string;
-  altColor?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLElement>, tab: Spec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLElement>, tab: Spec) => void;
   onDrop?: (e: React.DragEvent<HTMLElement>) => void;

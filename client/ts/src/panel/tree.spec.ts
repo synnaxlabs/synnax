@@ -13,7 +13,7 @@ import { panel } from "@/panel";
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
-  tabs: tabKeys.map((key) => ({ variant: "empty", key })),
+  tabs: tabKeys.map((key) => ({ key, type: "selector", args: {} })),
 });
 
 // root splits into [a, b] | [c]; the left side splits again into [a] / [b].

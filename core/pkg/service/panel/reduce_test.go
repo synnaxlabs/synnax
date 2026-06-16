@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -76,34 +76,17 @@ var _ = Describe("Reduce", func() {
 		Expect(split.Size).To(Equal(0.7))
 	})
 
-	It("Should route a SetTabResource action", func() {
+	It("Should route a SetTabContent action", func() {
 		k := uuid.New()
-		res := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: uuid.New().String()}
+		args := msgpack.EncodedJSON{"resourceKey": uuid.New().String()}
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k))},
-			panel.NewSetTabResourceAction(panel.SetTabResourcePayload{Key: k, Resource: res}),
+			panel.NewSetTabContentAction(
+				panel.SetTabContentPayload{Key: k, Type: "schematic", Args: args},
+			),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabResource{
-			TabBase:  panel.TabBase{Key: k},
-			Resource: res,
-		}))
-	})
-
-	It("Should route a SetTabView action", func() {
-		k := uuid.New()
-		next := MustSucceed(panel.Reduce(
-			panel.Panel{Root: leafNode(tab(k))},
-			panel.NewSetTabViewAction(panel.SetTabViewPayload{
-				Key:  k,
-				View: panel.View{Type: "docs"},
-			}),
-		))
-		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
-			TabBase: panel.TabBase{Key: k},
-			View:    panel.View{Type: "docs"},
-		}))
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: k, Type: "schematic", Args: args}))
 	})
 
 	It("Should apply a multi-action sequence in order", func() {
@@ -133,7 +116,6 @@ var _ = Describe("Reduce", func() {
 		Entry("MoveTab", panel.ActionTypeMoveTab),
 		Entry("SplitLeaf", panel.ActionTypeSplitLeaf),
 		Entry("ResizeSplit", panel.ActionTypeResizeSplit),
-		Entry("SetTabResource", panel.ActionTypeSetTabResource),
-		Entry("SetTabView", panel.ActionTypeSetTabView),
+		Entry("SetTabContent", panel.ActionTypeSetTabContent),
 	)
 })

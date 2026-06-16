@@ -95,12 +95,9 @@ var _ = Describe("Project layout to panel migration", func() {
 		}
 		switch v := n.Variant.(type) {
 		case panel.NodeLeaf:
-			for i, t := range v.Tabs {
-				rt, ok := t.Variant.(panel.TabResource)
-				Expect(ok).To(BeTrue())
-				Expect(rt.Key).ToNot(Equal(uuid.Nil))
-				rt.Key = uuid.Nil
-				v.Tabs[i] = panel.Tab{Variant: rt}
+			for i := range v.Tabs {
+				Expect(v.Tabs[i].Key).ToNot(Equal(uuid.Nil))
+				v.Tabs[i].Key = uuid.Nil
 			}
 			n.Variant = v
 		case panel.NodeSplit:
@@ -122,9 +119,10 @@ var _ = Describe("Project layout to panel migration", func() {
 			Exists(ctx, db))
 	}
 	resourceTab := func(t ontology.ResourceType, key string) panel.Tab {
-		return panel.Tab{Variant: panel.TabResource{
-			Resource: ontology.ID{Type: t, Key: key},
-		}}
+		return panel.Tab{
+			Type: string(t),
+			Args: msgpack.EncodedJSON{"resourceKey": key},
+		}
 	}
 	leaf := func(tabs ...panel.Tab) *panel.Node {
 		return &panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: tabs}}}

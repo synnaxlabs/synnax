@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -22,18 +22,16 @@ import (
 // tab constructs a resource Tab with a fixed UUID and a placeholder resource. Tests
 // use the UUID directly to assert on tab identity.
 func tab(key uuid.UUID) panel.Tab {
-	return panel.Tab{Variant: panel.TabResource{
-		TabBase:  panel.TabBase{Key: key},
-		Resource: ontology.ID{Type: ontology.ResourceTypeLineplot, Key: key.String()},
-	}}
+	return panel.Tab{
+		Key:  key,
+		Type: "lineplot",
+		Args: msgpack.EncodedJSON{"resourceKey": key.String()},
+	}
 }
 
 // viewTab constructs a view Tab with a fixed UUID and an inline view of the given type.
 func viewTab(key uuid.UUID, viewType string) panel.Tab {
-	return panel.Tab{Variant: panel.TabView{
-		TabBase: panel.TabBase{Key: key},
-		View:    panel.View{Type: viewType},
-	}}
+	return panel.Tab{Key: key, Type: viewType, Args: msgpack.EncodedJSON{}}
 }
 
 // leafNode wraps a tab list as a leaf node.
@@ -74,7 +72,7 @@ func tabKeys(n panel.Node) []uuid.UUID {
 	}
 	keys := make([]uuid.UUID, len(leaf.Tabs))
 	for i, t := range leaf.Tabs {
-		keys[i] = t.Key()
+		keys[i] = t.Key
 	}
 	return keys
 }
@@ -459,66 +457,30 @@ var _ = Describe("Actions", func() {
 		)
 	})
 
-	Describe("SetTabResource", func() {
-		It("Should set the resource in place without changing identity", func() {
+	Describe("SetTabContent", func() {
+		It("Should replace the type and args in place without changing identity", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
-			res := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: tab2.String()}
-			next := MustSucceed(panel.SetTabResourcePayload{Key: tab1, Resource: res}.Handle(p))
+			args := msgpack.EncodedJSON{"resourceKey": tab2.String()}
+			next := MustSucceed(
+				panel.SetTabContentPayload{Key: tab1, Type: "schematic", Args: args}.Handle(p),
+			)
 			leaf := MustBeOk(asLeaf(next.Root))
-			Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabResource{
-				TabBase:  panel.TabBase{Key: tab1},
-				Resource: res,
-			}))
+			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: tab1, Type: "schematic", Args: args}))
 		})
 
-		It("Should replace a view set on the tab", func() {
+		It("Should swap a view tab's content to a resource", func() {
 			p := panel.Panel{Root: leafNode(viewTab(tab1, "docs"))}
-			res := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: tab2.String()}
-			next := MustSucceed(panel.SetTabResourcePayload{Key: tab1, Resource: res}.Handle(p))
+			args := msgpack.EncodedJSON{"resourceKey": tab2.String()}
+			next := MustSucceed(
+				panel.SetTabContentPayload{Key: tab1, Type: "schematic", Args: args}.Handle(p),
+			)
 			leaf := MustBeOk(asLeaf(next.Root))
-			Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabResource{
-				TabBase:  panel.TabBase{Key: tab1},
-				Resource: res,
-			}))
+			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: tab1, Type: "schematic", Args: args}))
 		})
 
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
-			Expect(panel.SetTabResourcePayload{Key: uuid.New()}.Handle(p)).Error().
-				To(MatchError(ContainSubstring("tab not found in tree")))
-		})
-	})
-
-	Describe("SetTabView", func() {
-		It("Should set the view in place without changing identity", func() {
-			p := panel.Panel{Root: leafNode(tab(tab1))}
-			next := MustSucceed(panel.SetTabViewPayload{
-				Key:  tab1,
-				View: panel.View{Type: "docs"},
-			}.Handle(p))
-			leaf := MustBeOk(asLeaf(next.Root))
-			Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
-				TabBase: panel.TabBase{Key: tab1},
-				View:    panel.View{Type: "docs"},
-			}))
-		})
-
-		It("Should replace a resource set on the tab", func() {
-			p := panel.Panel{Root: leafNode(tab(tab1))}
-			next := MustSucceed(panel.SetTabViewPayload{
-				Key:  tab1,
-				View: panel.View{Type: "docs"},
-			}.Handle(p))
-			leaf := MustBeOk(asLeaf(next.Root))
-			Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
-				TabBase: panel.TabBase{Key: tab1},
-				View:    panel.View{Type: "docs"},
-			}))
-		})
-
-		It("Should return ErrTabNotFound when no tab matches the key", func() {
-			p := panel.Panel{Root: leafNode(tab(tab1))}
-			Expect(panel.SetTabViewPayload{Key: uuid.New()}.Handle(p)).Error().
+			Expect(panel.SetTabContentPayload{Key: uuid.New()}.Handle(p)).Error().
 				To(MatchError(ContainSubstring("tab not found in tree")))
 		})
 	})

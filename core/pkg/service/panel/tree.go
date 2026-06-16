@@ -58,11 +58,10 @@ func validateNode(n Node, seen set.Set[uuid.UUID]) error {
 	switch v := n.Variant.(type) {
 	case NodeLeaf:
 		for _, t := range v.Tabs {
-			key := t.Key()
-			if seen.Contains(key) {
+			if seen.Contains(t.Key) {
 				return errors.Wrap(validate.ErrValidation, "duplicate tab key in panel tree")
 			}
-			seen.Add(key)
+			seen.Add(t.Key)
 		}
 		return nil
 	case NodeSplit:
@@ -75,21 +74,6 @@ func validateNode(n Node, seen set.Set[uuid.UUID]) error {
 		return validateNode(v.Last, seen)
 	default:
 		return errors.Wrap(validate.ErrValidation, "node has no variant")
-	}
-}
-
-// Key returns the stable identifier of the tab regardless of its content variant.
-// Returns uuid.Nil for a Tab with no variant set.
-func (t Tab) Key() uuid.UUID {
-	switch v := t.Variant.(type) {
-	case TabResource:
-		return v.Key
-	case TabView:
-		return v.Key
-	case TabEmpty:
-		return v.Key
-	default:
-		return uuid.Nil
 	}
 }
 
@@ -205,7 +189,7 @@ func findTabAt(n Node, path int32, tabKey uuid.UUID) (int32, int, bool) {
 	switch v := n.Variant.(type) {
 	case NodeLeaf:
 		for i, t := range v.Tabs {
-			if t.Key() == tabKey {
+			if t.Key == tabKey {
 				return path, i, true
 			}
 		}

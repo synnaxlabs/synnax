@@ -16,7 +16,7 @@ import {
 } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Color, type Haul, type Icon } from "@synnaxlabs/pluto";
+import { type Color, type Haul, type Icon, type Tabs } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
@@ -360,30 +360,30 @@ export const { actions, reducer } = createSlice({
       const wp = (state.windowPanels[payload.windowKey] ??= {
         active: null,
         activeTab: null,
-        tabHistory: [],
+        selected: [],
       });
       wp.active = payload.key;
       // Tab focus is scoped to the active panel; reset on switch so the next
       // panel's adapter falls back to its most recent (or first) tab.
       wp.activeTab = null;
     },
-    setActiveTab: (
+    setFocusedTab: (
       state,
       { payload }: PayloadAction<{ windowKey: string; key: string | null }>,
     ) => {
       const wp = (state.windowPanels[payload.windowKey] ??= {
         active: null,
         activeTab: null,
-        tabHistory: [],
+        selected: [],
       });
       wp.activeTab = payload.key;
       if (payload.key == null) return;
       // Persisted states from before tabHistory existed skip the schema's default
       // (the migrator only parses on version changes), so tolerate its absence.
-      wp.tabHistory ??= [];
-      wp.tabHistory = [
+      wp.selected ??= [];
+      wp.selected = [
         payload.key,
-        ...wp.tabHistory.filter((k) => k !== payload.key),
+        ...wp.selected.filter((k) => k !== payload.key),
       ].slice(0, TAB_HISTORY_CAP);
     },
     // setTabUnsavedChanges records, per panel tab key, whether a view tab's form has
@@ -427,7 +427,7 @@ export const {
   setUnsavedChanges,
   hideAllNavDrawers,
   setActivePanel,
-  setActiveTab,
+  setFocusedTab,
   setTabUnsavedChanges,
 } = actions;
 
@@ -437,33 +437,8 @@ export const setArgs = <T>(pld: SetArgsPayload<T>): PayloadAction<SetArgsPayload
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
-/**
- * The props passed to a LayoutRenderer. Note that these props are minimal and only focus
- * on providing information that either allows the renderer to perform more data selections
- * from other locations in state OR allows the renderer to perform actions that may have
- * polymorphic behavior depending the layout location (i.e. closing a layout might remove
- * it from the mosaic or close the window, depending on the location).
- *
- * The goal here is to separate the rendering logic for a particular layout from its location
- * allowing us to mix and move layouts around the UI with ease.
- */
 export interface RendererProps {
-  /** The unique key of the layout. */
   layoutKey: string;
-  visible: boolean;
-  focused: boolean;
-  /**
-   * active is true when this layout is the one the user is currently working in —
-   * the selected, non-blurred tab of the active panel (or the visible window/modal).
-   * Renderers gate keyboard shortcuts on it so input goes to a single layout.
-   */
-  active: boolean;
-  /**
-   * onClose should be called when the layout is ready to be closed. This function is
-   * polymorphic and may have different behavior depending on the location of the layout.
-   * For example, if the layout is in a window, onClose will close the window. If the
-   * layout is in the mosaic, onClose will remove the layout from the mosaic.
-   */
   onClose: () => void;
 }
 
@@ -472,27 +447,9 @@ export interface OnCloseProps {
   layoutKey: string;
 }
 
-/** The result returned by a layout's {@link UseName}. */
-export interface NameHookResult {
-  retrieve: () => void;
-  /**
-   * Called when the user renames the layout from the UI (e.g., editing the tab
-   * in the mosaic). When undefined, the renderer falls back to dispatching
-   * {@link rename} against the layout slice.
-   */
-  onRename: (name: string) => void;
-}
+export interface UseNameReturn extends Pick<Tabs.NameProps, "name" | "onRename"> {}
 
-/**
- * A hook bound to a layout {@link Renderer} that owns the name read/write path
- * for layouts/resources of its type. The hook invokes `onChange` whenever its
- * source-of-truth name updates (e.g. a Flux subscription) and persists
- * user-initiated renames via {@link NameHookResult.onRename}.
- */
-export type UseName = (
-  layoutKey: string,
-  onChange: (name: string) => void,
-) => NameHookResult;
+export type UseName = (layoutKey: string) => UseNameReturn;
 
 /**
  * A React component that renders a layout for a given type. All layouts in state are
@@ -502,16 +459,12 @@ export type UseName = (
  * layouts of their type.
  */
 export type Renderer = ComponentType<RendererProps> & {
-  useName?: UseName;
-  icon?: Icon.ReactElement;
+  useName: UseName;
+  icon: Icon.ReactElement;
 };
 
 export interface ContextMenuProps {
-  // layoutKey is the content's key: the backing resource's key for a resource
-  // tab, the tab key for a view tab.
   layoutKey: string;
-  // tabKey is the hosting panel tab's key.
-  tabKey: string;
 }
 
 export type ContextMenuRenderer = ComponentType<ContextMenuProps>;

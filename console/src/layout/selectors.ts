@@ -115,24 +115,6 @@ export interface UseSelectFocusedReturn {
   focused: string | null;
 }
 
-// selectFocused is the window's fullscreen-focused panel tab (Ctrl+L), or null
-// when no tab is focused. Focus is per-window session state in state.focused.
-export const selectFocused = (
-  state: StoreState & Drift.StoreState,
-  windowKey?: string,
-): UseSelectFocusedReturn => {
-  const win = selectWindow(state, windowKey);
-  if (win == null) return { windowKey: null, focused: null };
-  const slice = selectSliceState(state);
-  return {
-    windowKey: win.key,
-    focused: slice.focused[win.key] ?? null,
-  };
-};
-
-export const useSelectFocused = (): UseSelectFocusedReturn =>
-  useMemoSelect(selectFocused, []);
-
 /**
  * Selects the active theme key from the store.
  *
@@ -287,10 +269,10 @@ export const selectActiveTabHistory = (
   windowKey?: string,
 ): string[] => {
   const wp = selectWindowPanels(state, windowKey);
-  return wp?.tabHistory ?? EMPTY_HISTORY;
+  return wp?.selected ?? EMPTY_HISTORY;
 };
 
-export const useSelectActiveTabHistory = (): string[] =>
+export const useSelectSelectedTabs = (): string[] =>
   useMemoSelect(selectActiveTabHistory, []);
 
 export const selectActiveTabKey = (
@@ -301,7 +283,7 @@ export const selectActiveTabKey = (
   return wp?.activeTab ?? null;
 };
 
-export const useSelectActiveTabKey = (): string | null =>
+export const useSelectFocusedKey = (): string | null =>
   useMemoSelect(selectActiveTabKey, []);
 
 export const selectTabUnsavedChanges = (state: StoreState): Record<string, boolean> =>

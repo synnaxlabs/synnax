@@ -15,9 +15,9 @@ import { LAYOUT_TYPE } from "@/log/layout";
 import { useCreate } from "@/log/useCreate";
 import { Selector } from "@/selector";
 
-export const Selectable: Selector.Selectable = ({ onResolved }) => {
+export const Selectable: Selector.Selectable = ({ tabKey }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
-  const create = useCreate({ onResolved });
+  const create = useCreate({ tabKey });
   const handleClick = useCallback(() => create(), [create]);
   if (!hasCreatePermission) return null;
   return (

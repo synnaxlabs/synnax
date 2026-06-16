@@ -13,20 +13,19 @@ package panel
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
 
 const (
-	ActionTypeRename         = "rename"
-	ActionTypeInsertTab      = "insert_tab"
-	ActionTypeRemoveTab      = "remove_tab"
-	ActionTypeMoveTab        = "move_tab"
-	ActionTypeSplitLeaf      = "split_leaf"
-	ActionTypeResizeSplit    = "resize_split"
-	ActionTypeSetTabResource = "set_tab_resource"
-	ActionTypeSetTabView     = "set_tab_view"
+	ActionTypeRename        = "rename"
+	ActionTypeInsertTab     = "insert_tab"
+	ActionTypeRemoveTab     = "remove_tab"
+	ActionTypeMoveTab       = "move_tab"
+	ActionTypeSplitLeaf     = "split_leaf"
+	ActionTypeResizeSplit   = "resize_split"
+	ActionTypeSetTabContent = "set_tab_content"
 )
 
 // RenamePayload renames the panel. When the panel is owned by a user (draft), the
@@ -81,35 +80,26 @@ type ResizeSplitPayload struct {
 	Size  spatial.Decimal `json:"size" msgpack:"size"`
 }
 
-// SetTabResourcePayload sets the visualization resource displayed by the tab with the
-// given key, swapping it in place without changing the tab's identity or position.
-// Clears any view set on the tab. Used to fill a freshly inserted empty tab once the
-// user picks a visualization.
-type SetTabResourcePayload struct {
-	Key      uuid.UUID   `json:"key" msgpack:"key"`
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
-}
-
-// SetTabViewPayload sets the inline view displayed by the tab with the given key,
-// swapping it in place without changing the tab's identity or position. Clears any
-// resource set on the tab.
-type SetTabViewPayload struct {
-	Key  uuid.UUID `json:"key" msgpack:"key"`
-	View View      `json:"view" msgpack:"view"`
+// SetTabContentPayload replaces the type and args of the tab with the given key,
+// swapping its content in place without changing the tab's identity or position. Used
+// by the selector to replace itself once the user picks a component.
+type SetTabContentPayload struct {
+	Key  uuid.UUID           `json:"key" msgpack:"key"`
+	Type string              `json:"type" msgpack:"type"`
+	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
 // Action is a discriminated union for all Panel mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type           string                 `json:"type" msgpack:"type"`
-	Rename         *RenamePayload         `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	InsertTab      *InsertTabPayload      `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
-	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
-	MoveTab        *MoveTabPayload        `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
-	SplitLeaf      *SplitLeafPayload      `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
-	ResizeSplit    *ResizeSplitPayload    `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
-	SetTabResource *SetTabResourcePayload `json:"set_tab_resource,omitempty" msgpack:"set_tab_resource,omitempty"`
-	SetTabView     *SetTabViewPayload     `json:"set_tab_view,omitempty" msgpack:"set_tab_view,omitempty"`
+	Type          string                `json:"type" msgpack:"type"`
+	Rename        *RenamePayload        `json:"rename,omitempty" msgpack:"rename,omitempty"`
+	InsertTab     *InsertTabPayload     `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
+	RemoveTab     *RemoveTabPayload     `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
+	MoveTab       *MoveTabPayload       `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
+	SplitLeaf     *SplitLeafPayload     `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
+	ResizeSplit   *ResizeSplitPayload   `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
+	SetTabContent *SetTabContentPayload `json:"set_tab_content,omitempty" msgpack:"set_tab_content,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -151,16 +141,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeSplit.Handle(state)
-		case ActionTypeSetTabResource:
-			if a.SetTabResource == nil {
+		case ActionTypeSetTabContent:
+			if a.SetTabContent == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetTabResource.Handle(state)
-		case ActionTypeSetTabView:
-			if a.SetTabView == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetTabView.Handle(state)
+			state, err = a.SetTabContent.Handle(state)
 		default:
 			continue
 		}
@@ -201,12 +186,7 @@ func NewResizeSplitAction(p ResizeSplitPayload) Action {
 	return Action{Type: ActionTypeResizeSplit, ResizeSplit: &p}
 }
 
-// NewSetTabResourceAction wraps a SetTabResourcePayload in an Action envelope.
-func NewSetTabResourceAction(p SetTabResourcePayload) Action {
-	return Action{Type: ActionTypeSetTabResource, SetTabResource: &p}
-}
-
-// NewSetTabViewAction wraps a SetTabViewPayload in an Action envelope.
-func NewSetTabViewAction(p SetTabViewPayload) Action {
-	return Action{Type: ActionTypeSetTabView, SetTabView: &p}
+// NewSetTabContentAction wraps a SetTabContentPayload in an Action envelope.
+func NewSetTabContentAction(p SetTabContentPayload) Action {
+	return Action{Type: ActionTypeSetTabContent, SetTabContent: &p}
 }

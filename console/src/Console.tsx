@@ -47,6 +47,7 @@ import { Log } from "@/log";
 import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
+import { Panel } from "@/panel";
 import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
@@ -60,6 +61,17 @@ import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
+
+// SELECTABLES is the app-wide "create a component" registry, served to the
+// component selector and the create affordances through Selector.Provider.
+const SELECTABLES: Selector.Selectable[] = [
+  ...LinePlot.SELECTABLES,
+  ...Schematic.SELECTABLES,
+  ...Log.SELECTABLES,
+  ...Table.SELECTABLES,
+  ...Hardware.SELECTABLES,
+  ...Arc.SELECTABLES,
+];
 
 const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Channel.LAYOUTS,
@@ -82,6 +94,10 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
   ...Arc.LAYOUTS,
   ...Status.LAYOUTS,
   ...Access.LAYOUTS,
+  [Panel.SELECTOR_VIEW_TYPE]: Selector.createSelector(
+    SELECTABLES,
+    "Select a Component Type",
+  ),
 };
 
 // CONTEXT_MENU_RENDERERS lets a content type replace its panel tab's context
@@ -89,17 +105,6 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
 // type currently registers one; the legacy schematic/lineplot entries were
 // trivial wrappers around the shared default items.
 const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {};
-
-// SELECTABLES is the app-wide "create a component" registry, served to the panel
-// empty-tab selector and the create affordances through Selector.Provider.
-const SELECTABLES: Selector.Selectable[] = [
-  ...LinePlot.SELECTABLES,
-  ...Schematic.SELECTABLES,
-  ...Log.SELECTABLES,
-  ...Table.SELECTABLES,
-  ...Hardware.SELECTABLES,
-  ...Arc.SELECTABLES,
-];
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],

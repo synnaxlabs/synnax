@@ -10,7 +10,7 @@
 import { type ontology, panel } from "@synnaxlabs/client";
 import { Panel, type Pluto } from "@synnaxlabs/pluto";
 
-import { useSelectActivePanelKey, useSelectActiveTabKey } from "@/layout/selectors";
+import { useSelectActivePanelKey, useSelectFocusedKey } from "@/layout/selectors";
 
 // activeTab resolves the tab the user is currently working in: the explicitly
 // selected tab when one is set, otherwise the panel's first tab (mirroring the
@@ -23,6 +23,15 @@ const activeTab = (
   return tab ?? panel.firstTab(root);
 };
 
+// resourceID resolves a tab's backing ontology resource, or null when the tab is an
+// inline view. A core-backed tab carries its resource key in args; its ontology type
+// is the tab's renderer type.
+const resourceID = (tab: panel.Tab | null): ontology.ID | null => {
+  const resourceKey = (tab?.args as { resourceKey?: string } | undefined)?.resourceKey;
+  if (tab == null || resourceKey == null) return null;
+  return { type: tab.type as ontology.ResourceType, key: resourceKey };
+};
+
 // useActiveResource resolves the ontology resource displayed by the active tab of
 // the active panel, or null when there is no active panel, no tabs, or the active
 // tab is an inline view rather than a resource. This bridges the session-level
@@ -31,11 +40,11 @@ const activeTab = (
 // old active-mosaic-tab selectors.
 export const useActiveResource = (): ontology.ID | null => {
   const panelKey = useSelectActivePanelKey();
-  const selectedTab = useSelectActiveTabKey();
+  const selectedTab = useSelectFocusedKey();
   const { data } = Panel.useRetrieve({ key: panelKey ?? "" });
   if (panelKey == null || data == null) return null;
   const tab = activeTab(data.root, selectedTab);
-  return tab?.variant === "resource" ? tab.resource : null;
+  return resourceID(tab);
 };
 
 // getActiveResource is the imperative form of useActiveResource for callers outside
@@ -52,5 +61,5 @@ export const getActiveResource = (
   const p = fluxStore.panels.get(panelKey);
   if (p == null) return null;
   const tab = activeTab(p.root, selectedTab);
-  return tab?.variant === "resource" ? tab.resource : null;
+  return resourceID(tab);
 };

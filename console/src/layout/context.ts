@@ -25,12 +25,10 @@ export const useRenderer = (type: string): Renderer => {
   return r;
 };
 
-// useRenderers returns the full renderer registry. Useful for resolving display
-// attributes (e.g. a type's icon) for many types at once without one hook per type.
 export const useRenderers = (): Renderers => useRendererContext();
 
-export const useNameHook = (type: string): UseName | undefined =>
-  useRendererContext()[type]?.useName;
+export const useNameHook = (type: string): UseName =>
+  useRendererContext()[type].useName;
 
 export interface ContextMenus extends Record<string, ContextMenuRenderer> {}
 

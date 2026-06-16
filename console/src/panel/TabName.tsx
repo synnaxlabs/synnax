@@ -8,57 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement } from "react";
 
 import { useNameHook } from "@/layout/context";
-import { type UseName } from "@/layout/slice";
 
-export interface TabNameProps extends Tabs.NameProps {
-  // type selects the per-type name hook (Renderer.useName). When no hook is
-  // registered for the type, the tab shows its static name with no rename.
+export interface TabNameProps extends Omit<Tabs.NameProps, "name" | "onRename"> {
   type: string;
-  // nameKey is the key the name is resolved and renamed by — typically the backing
-  // resource's key, which may differ from the tab's identity (tabKey).
-  nameKey: string;
 }
 
-interface ResolvedTabNameProps extends Omit<TabNameProps, "type"> {
-  useName: UseName;
-}
-
-const ResolvedTabName = ({
-  useName,
-  nameKey,
-  tabKey,
-  name: initialName,
-  onRename: externalRename,
-  ...rest
-}: ResolvedTabNameProps): ReactElement => {
-  const [name, setName] = useState(initialName);
-  const handleResolved = useCallback((next: string) => setName(next), []);
-  const { onRename, retrieve } = useName(nameKey, handleResolved);
-  useEffect(() => {
-    retrieve();
-  }, [retrieve]);
-  const handleRename = useCallback(
-    (_: string, next: string) => {
-      handleResolved(next);
-      externalRename?.(tabKey, next);
-      onRename(next);
-    },
-    [handleResolved, externalRename, tabKey, onRename],
-  );
-  return (
-    <Tabs.DefaultName tabKey={tabKey} name={name} onRename={handleRename} {...rest} />
-  );
-};
-
-// TabName renders a tab's display name for a layout/resource of the given type,
-// resolving the name through that type's registered name hook and keeping it in
-// sync. Rename writes back through the same hook. When the type has no name hook,
-// the tab falls back to its static name with no rename affordance.
-export const TabName = ({ type, ...props }: TabNameProps): ReactElement => {
-  const useName = useNameHook(type);
-  if (useName == null) return <Tabs.DefaultName {...props} />;
-  return <ResolvedTabName key={type} useName={useName} {...props} />;
+export const TabName = (props: TabNameProps): ReactElement => {
+  const { tabKey, type } = props;
+  const nameProps = useNameHook(type)(tabKey);
+  return <Tabs.DefaultName {...nameProps} {...props} />;
 };

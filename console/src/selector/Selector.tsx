@@ -9,21 +9,22 @@
 
 import "@/selector/Selector.css";
 
-import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
+import { Eraser, Flex, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
+import { type Layout } from "@/layout";
 
-export type ResolvedContent = Layout.ResolvedContent;
+// SELECTOR_VIEW_TYPE is the view type of the component selector. A selector tab is
+// just a view tab the host seeds into otherwise-empty leaves; picking an item
+// replaces that tab in place.
+export const SELECTOR_VIEW_TYPE = "selector";
 
 export interface SelectableProps {
-  onPlace: Layout.Placer;
-  handleError: Status.ErrorHandler;
-  // onResolved, when provided, switches selectables from placing a layout to resolving
-  // their content (resource or view) back to the caller. The panel mosaic uses this to
-  // fill a null-content tab in place.
-  onResolved?: (content: ResolvedContent) => void;
+  // tabKey is the panel tab the selectable replaces when picked. Absent outside a
+  // panel (e.g. a toolbar create button), in which case the selectable places a
+  // layout instead.
+  tabKey?: string;
 }
 
 export interface Selectable extends FC<SelectableProps> {
@@ -34,63 +35,51 @@ export interface Selectable extends FC<SelectableProps> {
 export interface SelectorProps {
   text: string;
   selectables: Selectable[];
-  onResolved?: (content: ResolvedContent) => void;
+  tabKey?: string;
 }
 
 export const Selector = ({
   selectables,
   text,
-  onResolved,
-}: SelectorProps): ReactElement => {
-  const place = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
-  return (
-    <Eraser.Eraser>
+  tabKey,
+}: SelectorProps): ReactElement => (
+  <Eraser.Eraser>
+    <Flex.Box
+      className={CSS.BE("layout-selector", "frame")}
+      gap="large"
+      align="center"
+      grow
+      full
+    >
+      <Text.Text level="h4" color={10} weight={400}>
+        {text}
+      </Text.Text>
       <Flex.Box
-        className={CSS.BE("layout-selector", "frame")}
-        gap="large"
-        align="center"
-        grow
-        full
+        x
+        wrap
+        full="x"
+        justify="center"
+        gap={2.5}
+        className={CSS.BE("layout-selector", "items")}
       >
-        <Text.Text level="h4" color={10} weight={400}>
-          {text}
-        </Text.Text>
-        <Flex.Box
-          x
-          wrap
-          full="x"
-          justify="center"
-          gap={2.5}
-          className={CSS.BE("layout-selector", "items")}
-        >
-          {selectables.map((Selectable) => (
-            <Selectable
-              key={Selectable.type}
-              onPlace={place}
-              handleError={handleError}
-              onResolved={onResolved}
-            />
-          ))}
-        </Flex.Box>
+        {selectables.map((Selectable) => (
+          <Selectable key={Selectable.type} tabKey={tabKey} />
+        ))}
       </Flex.Box>
-    </Eraser.Eraser>
-  );
-};
+    </Flex.Box>
+  </Eraser.Eraser>
+);
 
-// createSelector builds a layout renderer for a scoped picker view (e.g. the task-type
-// selector). Inside a panel view tab the picker resolves the chosen content into its
-// own tab through the RendererView; elsewhere it falls back to placing layouts.
+// createSelector builds a view renderer for a scoped picker (e.g. the component
+// selector or the task-type selector). It renders the selectables for the tab it
+// is mounted in; picking one replaces that tab with the chosen content.
 export const createSelector = (
   selectables: Selectable[],
   text: string,
 ): Layout.Renderer => {
-  const C: Layout.Renderer = () => {
-    const view = Layout.useRendererView();
-    return (
-      <Selector selectables={selectables} text={text} onResolved={view?.resolve} />
-    );
-  };
+  const C: Layout.Renderer = ({ layoutKey }) => (
+    <Selector selectables={selectables} text={text} tabKey={layoutKey} />
+  );
   C.displayName = "LayoutSelector";
   return C;
 };

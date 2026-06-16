@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
-import { Access, Arc, Icon } from "@synnaxlabs/pluto";
+import { arc, panel } from "@synnaxlabs/client";
+import { Access, Arc, Icon, Panel as Base, Status } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -80,20 +80,30 @@ export const create =
     };
   };
 
-export const Selectable: Selector.Selectable = ({
-  onPlace,
-  onResolved,
-  handleError,
-}) => {
+export const Selectable: Selector.Selectable = ({ tabKey }) => {
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const createArcModal = useCreateModal();
   const dispatch = useDispatch();
+  const place = Layout.usePlacer();
+  const handleError = Status.useErrorHandler();
+  const panelKey = Layout.useSelectActivePanelKey();
+  const { dispatch: panelDispatch } = Base.useDispatch();
   const { update } = Arc.useCreate({
     afterSuccess: useCallback(
       async ({ data: { key } }) => {
-        onResolved?.({ resource: arc.ontologyID(key) });
+        if (tabKey == null || panelKey == null) return;
+        panelDispatch({
+          key: panelKey,
+          actions: [
+            panel.setTabContent({
+              key: tabKey,
+              type: arc.ontologyID(key).type,
+              args: { resourceKey: key },
+            }),
+          ],
+        });
       },
-      [onResolved],
+      [tabKey, panelKey, panelDispatch],
     ),
   });
 
@@ -105,7 +115,7 @@ export const Selectable: Selector.Selectable = ({
       // In a panel, create the arc on the server (so the tab references a real
       // resource) and seed the local editor's working copy, then fill the tab;
       // otherwise open it as a mosaic tab as before.
-      if (onResolved != null) {
+      if (tabKey != null && panelKey != null) {
         const zero = deep.copy(ZERO_STATE);
         dispatch(internalCreate({ ...zero, key, mode: result.mode }));
         update({
@@ -115,9 +125,9 @@ export const Selectable: Selector.Selectable = ({
           graph: translateGraphToServer(zero.graph),
           text: zero.text,
         });
-      } else onPlace(create({ key, name: result.name, mode: result.mode }));
+      } else place(create({ key, name: result.name, mode: result.mode }));
     }, "Failed to create Arc program");
-  }, [onResolved, onPlace, dispatch, createArcModal, handleError, update]);
+  }, [tabKey, panelKey, place, dispatch, createArcModal, handleError, update]);
 
   if (!hasCreatePermission) return null;
 

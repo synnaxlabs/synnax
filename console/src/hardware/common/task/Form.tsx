@@ -9,7 +9,7 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
+import { type device, panel, type rack, type Synnax, task } from "@synnaxlabs/client";
 import {
   Device,
   Flex,
@@ -17,6 +17,7 @@ import {
   Form as PForm,
   Icon,
   Input,
+  Panel as Base,
   Task,
 } from "@synnaxlabs/pluto";
 import { primitive, TimeStamp } from "@synnaxlabs/x";
@@ -51,8 +52,8 @@ export interface Layout extends Layout.BaseState<FormLayoutArgs> {}
 
 // LAYOUT is the base for each task type's layout. Tasks render only as panel view tabs,
 // so placing one routes into the active panel (location "mosaic") as a view, never a
-// window. The form reads its args/name from the tab's RendererView and writes back
-// through the panel document.
+// window. The form reads its args/name from its tab and writes back through the panel
+// document.
 export const LAYOUT: Omit<Layout, "type"> = {
   name: "Configure",
   icon: "Task",
@@ -126,16 +127,18 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   showControls = true,
 }: WrapFormArgs<S>): Layout.Renderer => {
   const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const view = Layout.useRendererView();
-    if (view == null)
+    const panelKey = Layout.useSelectActivePanelKey();
+    if (panelKey == null)
       throw new Error("a task form must be rendered inside a panel view tab");
+    const { dispatch: panelDispatch } = Base.useDispatch();
+    const tab = Base.useSelectTab({ key: panelKey, tabKey: layoutKey });
     const dispatch = useDispatch();
-    const { deviceKey, taskKey, rackKey, config }: FormLayoutArgs = view.args;
+    const { deviceKey, taskKey, rackKey, config } = (tab.args ?? {}) as FormLayoutArgs;
     const setUnsavedChanges = useCallback(
       (unsavedChanges: boolean) => {
-        dispatch(Layout.setTabUnsavedChanges({ key: view.key, unsavedChanges }));
+        dispatch(Layout.setTabUnsavedChanges({ key: layoutKey, unsavedChanges }));
       },
-      [dispatch, view.key],
+      [dispatch, layoutKey],
     );
     // Clear the tab's dirty state when the form unmounts (the tab is closed), so a
     // closed task view doesn't leave a stale unsaved marker behind.
@@ -183,7 +186,16 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       afterSave: ({ client, ...form }) => {
         const { key, name } = form.value();
         if (key == null) return;
-        view.update({ name, args: { ...view.args, taskKey: key } });
+        panelDispatch({
+          key: panelKey,
+          actions: [
+            panel.setTabContent({
+              key: layoutKey,
+              type: tab.type,
+              args: { ...tab.args, name, taskKey: key },
+            }),
+          ],
+        });
       },
     });
     Device.useRetrieveEffect({

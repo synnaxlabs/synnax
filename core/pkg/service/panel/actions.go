@@ -10,7 +10,6 @@
 package panel
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -88,7 +87,7 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 		if err != nil {
 			return Panel{}, err
 		}
-		if len(current.Tabs) == 1 && current.Tabs[0].Key() == p.Key {
+		if len(current.Tabs) == 1 && current.Tabs[0].Key == p.Key {
 			return state, nil
 		}
 		targetLeaf, err = splitLeafForPlacement(&state.Root, p.TargetLeaf, *p.Location)
@@ -166,46 +165,22 @@ func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle sets the visualization resource displayed by the tab with the given key,
-// swapping it in place without changing the tab's identity or position. Clears any
-// view set on the tab so that exactly one content arm is populated. Errors
-// when no tab matches the key.
-func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
-	if err := setTabContent(&state.Root, p.Key, TabResource{
-		TabBase:  TabBase{Key: p.Key},
-		Resource: p.Resource,
-	}); err != nil {
-		return Panel{}, err
-	}
-	return state, nil
-}
-
-// Handle sets the inline view displayed by the tab with the given key, swapping it
-// in place without changing the tab's identity or position. Clears any resource set
-// on the tab so that exactly one content arm is populated. Errors when no tab
-// matches the key.
-func (p SetTabViewPayload) Handle(state Panel) (Panel, error) {
-	if err := setTabContent(&state.Root, p.Key, TabView{
-		TabBase: TabBase{Key: p.Key},
-		View:    p.View,
-	}); err != nil {
-		return Panel{}, err
-	}
-	return state, nil
-}
-
-// setTabContent replaces the variant of the tab with the given key, swapping its
-// content in place without changing the tab's position. Returns errTabNotFound
-// when no tab matches the key.
-func setTabContent(root *Node, key uuid.UUID, variant TabVariant) error {
-	path, idx, ok := findTab(*root, key)
+// Handle replaces the args of the tab with the given key, swapping its content in
+// place without changing the tab's identity or position. Errors when no tab matches
+// the key.
+func (p SetTabContentPayload) Handle(state Panel) (Panel, error) {
+	path, idx, ok := findTab(state.Root, p.Key)
 	if !ok {
-		return errTabNotFound
+		return Panel{}, errTabNotFound
 	}
-	return updateLeafAt(root, path, func(leaf Leaf) (Leaf, error) {
+	if err := updateLeafAt(&state.Root, path, func(leaf Leaf) (Leaf, error) {
 		tabs := append([]Tab{}, leaf.Tabs...)
-		tabs[idx] = Tab{Variant: variant}
+		tabs[idx].Type = p.Type
+		tabs[idx].Args = p.Args
 		leaf.Tabs = tabs
 		return leaf, nil
-	})
+	}); err != nil {
+		return Panel{}, err
+	}
+	return state, nil
 }

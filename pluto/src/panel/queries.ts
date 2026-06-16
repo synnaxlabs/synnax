@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, type ontology, panel } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { NotFoundError, panel } from "@synnaxlabs/client";
+import { array, type record } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
@@ -90,24 +90,6 @@ export const { useRetrieve, useEnsureRetrieved } = Flux.createRetrieve<
     store.panels.onSet(onChange, key),
   ],
 });
-
-export interface TabContent {
-  resource?: ontology.ID;
-  view?: panel.TabView;
-}
-
-// tabContent flattens a tab's variant into the optional content pair consumed by
-// render props, so consumers can read resource/view without switching on variant.
-export const tabContent = (tab: panel.Tab): TabContent => {
-  switch (tab.variant) {
-    case "resource":
-      return { resource: tab.resource };
-    case "view":
-      return { view: tab };
-    case "empty":
-      return {};
-  }
-};
 
 export interface SelectKeyArgs {
   key: panel.Key;

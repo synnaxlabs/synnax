@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, lineplot, panel, project } from "@synnaxlabs/client";
+import { createTestClient, panel, project } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -19,7 +19,7 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-const newTab = (): panel.Tab => ({ variant: "empty", key: uuid.create() });
+const newTab = (): panel.Tab => ({ key: uuid.create(), type: "selector", args: {} });
 
 describe("Panel queries", () => {
   let controller: AbortController;
@@ -435,14 +435,7 @@ describe("Panel queries", () => {
       expect(fresh.root).toEqual(result.current.retrieve.data?.root);
     });
 
-    it("set_tab_resource and set_tab_view clear each other", async () => {
-      const parentProject = await client.projects.create({
-        name: `tab-content-${uuid.create()}`,
-        layout: {},
-      });
-      const plot = await client.lineplots.create(parentProject.key, {
-        name: "tab-content-plot",
-      });
+    it("set_tab_content replaces a tab's type and args and persists them", async () => {
       const created = await createPanel();
       const tab = newTab();
       const { result } = await loadAndUse(created.key, () => ({
@@ -457,37 +450,22 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.setTabResource({
+            panel.setTabContent({
               key: tab.key,
-              resource: lineplot.ontologyID(plot.key),
+              type: "docs",
+              args: { path: "/intro" },
             }),
           ],
         });
       });
-      const withResource = panel.findTab(result.current.retrieve.data!.root, tab.key);
-      expect(withResource?.variant).toEqual("resource");
-      if (withResource?.variant === "resource")
-        expect(withResource.resource.key).toEqual(plot.key);
-
-      await act(async () => {
-        await result.current.dispatch.dispatchAsync({
-          key: created.key,
-          actions: [
-            panel.setTabView({
-              key: tab.key,
-              view: { type: "docs", name: "Docs", args: {} },
-            }),
-          ],
-        });
-      });
-      const withView = panel.findTab(result.current.retrieve.data!.root, tab.key);
-      expect(withView?.variant).toEqual("view");
-      if (withView?.variant === "view") expect(withView.type).toEqual("docs");
+      const updated = panel.findTab(result.current.retrieve.data!.root, tab.key);
+      expect(updated?.type).toEqual("docs");
+      expect(updated?.args).toEqual({ path: "/intro" });
 
       const fresh = await client.panels.retrieve(created.key);
       const freshTab = panel.findTab(fresh.root, tab.key);
-      expect(freshTab?.variant).toEqual("view");
-      if (freshTab?.variant === "view") expect(freshTab.type).toEqual("docs");
+      expect(freshTab?.type).toEqual("docs");
+      expect(freshTab?.args).toEqual({ path: "/intro" });
     });
   });
 
@@ -663,7 +641,7 @@ describe("Panel queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectTab returns the tab and updates after set_tab_view", async () => {
+    it("useSelectTab returns the tab and updates after set_tab_content", async () => {
       const created = await createPanel();
       const tab = newTab();
       const ops = await loadAndUse(created.key, () => ({
@@ -681,24 +659,17 @@ describe("Panel queries", () => {
         { wrapper },
       );
       expect(result.current.key).toEqual(tab.key);
-      expect(result.current.variant).toEqual("empty");
+      expect(result.current.type).toEqual("selector");
 
       await act(async () => {
         await ops.result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.setTabView({
-              key: tab.key,
-              view: { type: "docs", name: "Docs", args: {} },
-            }),
+            panel.setTabContent({ key: tab.key, type: "docs", args: { path: "/x" } }),
           ],
         });
       });
-      await waitFor(() => {
-        const current = result.current;
-        expect(current.variant).toEqual("view");
-        if (current.variant === "view") expect(current.type).toEqual("docs");
-      });
+      await waitFor(() => expect(result.current.type).toEqual("docs"));
     });
 
     it("useSelectTab keeps a stable reference when a different tab changes", async () => {
@@ -727,10 +698,7 @@ describe("Panel queries", () => {
         await ops.result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.setTabView({
-              key: tabB.key,
-              view: { type: "docs", name: "Docs", args: {} },
-            }),
+            panel.setTabContent({ key: tabB.key, type: "docs", args: { path: "/x" } }),
           ],
         });
       });

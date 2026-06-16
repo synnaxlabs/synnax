@@ -14,84 +14,34 @@ import "schemas/ontology"
 @go output "core/pkg/service/panel"
 @pb
 
-TabBase struct {
-    key uuid {
+Tab struct {
+    key  uuid   {
         @doc value """
             is the stable unique identifier of this tab within the panel. It is
             independent of the tab's content, so a tab's content may be swapped
             without changing the tab's identity or position.
         """
     }
-
-    @doc value "carries the identity shared by every tab variant."
-}
-
-View struct {
-    type string  {
+    type string {
         @doc value """
-            is the Console-owned view type identifier (e.g., 'docs',
-            'about') used to select a renderer.
+            selects the renderer for the tab's content (e.g. 'lineplot',
+            'schematic', 'docs', 'selector'). For core-backed content it is also
+            the ontology resource type.
         """
     }
-    name string? {
-        @doc value """
-            is the human-readable tab name for the view. A view has no
-            backing resource to derive a name from, so it carries its own.
-            May be renamed via SetTabView; when empty the Console falls
-            back to a type-derived default.
-        """
-    }
-    args record? {
+    args record {
         @doc value        """
-            is an opaque, Console-owned configuration payload for the
-            view. Core never interprets it; it round-trips as-is.
+            is an opaque, Console-owned payload carrying the tab's content
+            configuration (e.g. a backing resource key, name, view-specific
+            settings). Core never interprets it; it round-trips as-is.
         """
         @ts preserve_case
     }
 
     @doc value """
-        is an inline, self-describing view: a Console-owned type plus an
-        opaque configuration payload, with no backing core document. Used
-        for app-views and tools (docs, explorers, about, the visualization
-        picker).
-    """
-}
-
-Tab union on variant extends TabBase {
-    resource {
-        resource ontology.ID {
-            @doc value """
-                is the visualization resource displayed by this tab, set via
-                SetTabResource.
-            """
-        }
-
-        @doc value "is a tab displaying a backing core document."
-    }
-    view View {
-        @doc value """
-            is a tab displaying an inline, self-describing view. Unlike a
-            resource, a view has no backing core document: it carries its own
-            type and opaque args. Used for app-views and tools (docs,
-            explorers, about, the visualization picker).
-        """
-    }
-    empty {
-        @doc value """
-            is a tab with no content yet. An empty tab renders the
-            visualization selector at render time; SetTabResource or
-            SetTabView fills it in place.
-        """
-    }
-
-    @doc value """
-        is a single tab in a leaf. Tab content is a discriminated union:
-        a resource (a backing core document, e.g. a line plot), a view
-        (an inline, self-describing app-view, e.g. docs), or empty (the
-        visualization selector). Display attributes (name, icon,
-        closability) are resolved at render time from the content. The
-        same content may be referenced by multiple tabs in the same or
-        other panels.
+        is a single tab in a leaf: a stable key, a renderer type, and an opaque,
+        Console-owned args payload. The same content may be referenced by multiple
+        tabs in the same or other panels.
     """
 }
 
@@ -234,27 +184,17 @@ Panel struct {
         @doc value "adjusts the size ratio of a split node. size in [0, 1]."
     }
 
-    action SetTabResource {
-        key      uuid
-        resource ontology.ID
-
-        @doc value """
-            sets the visualization resource displayed by the tab with the
-            given key, swapping it in place without changing the tab's
-            identity or position. Clears any view set on the tab. Used to
-            fill a freshly inserted empty tab once the user picks a
-            visualization.
-        """
-    }
-
-    action SetTabView {
+    action SetTabContent {
         key  uuid
-        view View
+        type string
+        args record {
+            @ts preserve_case
+        }
 
         @doc value """
-            sets the inline view displayed by the tab with the given key,
-            swapping it in place without changing the tab's identity or
-            position. Clears any resource set on the tab.
+            replaces the type and args of the tab with the given key, swapping its
+            content in place without changing the tab's identity or position. Used
+            by the selector to replace itself once the user picks a component.
         """
     }
 
