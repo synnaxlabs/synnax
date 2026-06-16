@@ -34,7 +34,7 @@ describe("retrieve", () => {
         });
         expect(result.current.variant).toEqual("loading");
         expect(result.current.data).toEqual(undefined);
-        expect(result.current.stat.message).toEqual("Retrieving Resource");
+        expect(result.current.status.message).toEqual("Retrieving Resource");
       });
 
       it("should return a success result when the data is fetched", async () => {
@@ -49,7 +49,7 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(12);
-          expect(result.current.stat.message).toEqual(
+          expect(result.current.status.message).toEqual(
             "Successfully retrieved Resource",
           );
         });
@@ -69,8 +69,8 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("error");
           expect(result.current.data).toEqual(undefined);
-          expect(result.current.stat.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.stat.description).toEqual("test");
+          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
+          expect(result.current.status.description).toEqual("test");
         });
       });
 
@@ -86,8 +86,8 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("disabled");
           expect(result.current.data).toEqual(undefined);
-          expect(result.current.stat.message).toEqual("Failed to retrieve Resource");
-          expect(result.current.stat.description).toEqual(
+          expect(result.current.status.message).toEqual("Failed to retrieve Resource");
+          expect(result.current.status.description).toEqual(
             "Cannot retrieve Resource because no Core is connected.",
           );
         });
@@ -153,7 +153,7 @@ describe("retrieve", () => {
             expect(result.current.data?.name).toEqual("Test Label 2");
             expect(
               result.current.variant,
-              `${result.current.stat.message}:${result.current.stat.description}`,
+              `${result.current.status.message}:${result.current.status.description}`,
             ).toEqual("success");
           },
           { timeout: 1000 },

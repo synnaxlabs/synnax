@@ -45,13 +45,7 @@ export const SelectMultiple = ({
   filter,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const {
-    data,
-    retrieve,
-    getItem,
-    subscribe,
-    stat: status,
-  } = useList({
+  const { data, retrieve, getItem, subscribe, status } = useList({
     initialQuery,
     filter,
   });
@@ -96,13 +90,7 @@ export const SelectSingle = ({
   filter,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const {
-    data,
-    retrieve,
-    getItem,
-    subscribe,
-    stat: status,
-  } = useList({
+  const { data, retrieve, getItem, subscribe, status } = useList({
     initialQuery,
     filter,
   });

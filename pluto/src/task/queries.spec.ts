@@ -1311,7 +1311,7 @@ describe("queries", () => {
 
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.stat.message).toEqual("Failed to retrieve task");
+        expect(result.current.status.message).toEqual("Failed to retrieve task");
       });
     });
 

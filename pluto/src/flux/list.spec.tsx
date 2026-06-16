@@ -92,7 +92,7 @@ describe("list", () => {
       await waitFor(() => {
         expect(retrieve).toHaveBeenCalledTimes(1);
         expect(result.current.variant).toEqual("error");
-        expect(result.current.stat.description).toEqual("Test Error");
+        expect(result.current.status.description).toEqual("Test Error");
       });
     });
   });
@@ -540,7 +540,7 @@ describe("list", () => {
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("error");
-        expect(result.current.stat.description).toEqual("Test Error");
+        expect(result.current.status.description).toEqual("Test Error");
       });
     });
   });

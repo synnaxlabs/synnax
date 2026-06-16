@@ -90,7 +90,7 @@ export const createDispatch = <
     } catch (e) {
       stackRollback();
       r.rollback();
-      addStatus(errorResult(op, e).stat);
+      addStatus(errorResult(op, e).status);
       return false;
     }
   };
@@ -148,7 +148,7 @@ export const createDispatch = <
           try {
             await send({ client, key: input.key, actions, dispatchKey });
           } catch (e) {
-            addStatus(errorResult("commit transaction", e).stat);
+            addStatus(errorResult("commit transaction", e).status);
             throw errors.fromUnknown(e);
           }
         };

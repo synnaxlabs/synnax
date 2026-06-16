@@ -17,7 +17,7 @@ import { state } from "@/state";
 /// reference. Lets canvas and property-panel call sites branch on the existing
 /// Flux Result without inventing a parallel state type.
 export const isMissing = (res: Flux.Result<schematic.symbol.Symbol>): boolean =>
-  res.variant === "error" && NotFoundError.matches(res.stat.details.error);
+  res.variant === "error" && NotFoundError.matches(res.status.details.error);
 
 export const FLUX_STORE_KEY = "schematicSymbols";
 

@@ -359,7 +359,7 @@ func (p *Plugin) generateFile(
 		if omit.IsType(e, "pb") {
 			continue
 		}
-		enumPBPath := enum.FindPBOutputPath(e, req.Resolutions)
+		enumPBPath := output.GetPBPath(e)
 		if enumPBPath != "" && enumPBPath != outputPath {
 			continue
 		}
@@ -1486,14 +1486,16 @@ func (p *Plugin) generateEnumConversion(
 		backwardArg = "*" + pbField
 	}
 
-	pbPath := enum.FindPBOutputPath(resolved, data.table)
-	if pbPath != "" && pbPath != data.OutputPath {
-		importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
-		if err == nil {
-			alias := strings.ToLower(resolved.Namespace) + "pb"
-			data.imports.AddInternal(alias, importPath)
-			return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
-				fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, backwardArg)
+	if resolved.Namespace != data.Namespace {
+		pbPath := enum.FindPBOutputPath(resolved, data.table)
+		if pbPath != "" {
+			importPath, err := resolveGoImportPath(pbPath, data.repoRoot)
+			if err == nil {
+				alias := strings.ToLower(resolved.Namespace) + "pb"
+				data.imports.AddInternal(alias, importPath)
+				return fmt.Sprintf("%s.%sToPB(%s)", alias, enumName, forwardArg),
+					fmt.Sprintf("%s.%sFromPB(%s)", alias, enumName, backwardArg)
+			}
 		}
 	}
 

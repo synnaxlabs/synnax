@@ -217,16 +217,6 @@ func generateTestCodecFile(
 				})
 			}
 		}
-
-		// The codec-test generator cannot yet build a valid literal for a generic
-		// struct that uses language inheritance: the embedded parent's type
-		// arguments would need substituting through the composite literal. Skip
-		// such types rather than emit code that won't compile; their codec is
-		// exercised by the embedded payload's own test and by service tests.
-		if len(typeParams) > 0 && resolver.CanUseInheritance(form, table) {
-			continue
-		}
-
 		modes := []struct {
 			name string
 			mode valueMode

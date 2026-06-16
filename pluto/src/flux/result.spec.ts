@@ -98,7 +98,7 @@ describe("result", () => {
       const result = errorResult("fetch user", testError);
 
       expect(result.variant).toBe("error");
-      expect(result.stat.message).toBe("Failed to fetch user");
+      expect(result.status.message).toBe("Failed to fetch user");
       expect(result.data).toBeUndefined();
     });
 
@@ -106,7 +106,7 @@ describe("result", () => {
       const error = new Error("Database connection timeout");
       const result = errorResult("establish connection", error);
       expect(result.variant).toBe("error");
-      expect(result.stat.description).toBe("Database connection timeout");
+      expect(result.status.description).toBe("Database connection timeout");
     });
   });
 

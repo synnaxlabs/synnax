@@ -194,7 +194,7 @@ export const createForm =
         } catch (error) {
           if (signal?.aborted) return;
           const res = errorResult(`retrieve ${name}`, error);
-          addStatus(res.stat);
+          addStatus(res.status);
           setResult(res);
         }
       },
@@ -226,10 +226,10 @@ export const createForm =
           if (signal?.aborted === true) return false;
           const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
             setResult((p) => {
-              const nextStatus = state.executeSetter(setter, p.stat);
+              const nextStatus = state.executeSetter(setter, p.status);
               return {
                 ...p,
-                stat: nextStatus,
+                status: nextStatus,
                 variant: nextStatus.variant,
               } as Result<undefined>;
             });
@@ -246,7 +246,7 @@ export const createForm =
           }
           if (signal?.aborted === true) return false;
           const res = errorResult(`update ${name}`, error);
-          addStatus(res.stat);
+          addStatus(res.status);
           setResult(res);
           return false;
         }

@@ -424,7 +424,7 @@ var File_core_pkg_transport_grpc_status_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_status_status_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/status/status.proto\x12\vgrpc.status\x1a\x1bgoogle/protobuf/empty.proto\x1a'core/pkg/service/status/pb/status.proto\"[\n" +
+	"+core/pkg/transport/grpc/status/status.proto\x12\vgrpc.status\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bgoogle/protobuf/empty.proto\"[\n" +
 	"\n" +
 	"SetRequest\x12\x16\n" +
 	"\x06parent\x18\x01 \x01(\tR\x06parent\x125\n" +
