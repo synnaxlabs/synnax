@@ -14,9 +14,9 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
+	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
-	labelpb "github.com/synnaxlabs/x/label/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
 

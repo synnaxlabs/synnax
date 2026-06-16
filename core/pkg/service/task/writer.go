@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -36,7 +36,7 @@ func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Stat
 		s := &status.Status[StatusDetails]{Key: OntologyID(t.Key).String(), Name: t.Name}
 		s.Time = telem.Now()
 		s.Message = fmt.Sprintf("%s status unknown", t.Name)
-		s.Variant = xstatus.VariantWarning
+		s.Variant = status.VariantWarning
 		s.Details = StatusDetails{Task: t.Key}
 		return s
 	}

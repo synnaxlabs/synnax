@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { arc, createTestClient, task } from "@synnaxlabs/client";
-import { id, status, uuid } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
+import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";

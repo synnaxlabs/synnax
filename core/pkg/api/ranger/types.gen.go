@@ -12,8 +12,8 @@
 package ranger
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/label"
 )
 
 // Range is a range with additional relationships for hierarchical organization and

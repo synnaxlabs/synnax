@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -74,7 +74,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 				if !existingKeys.Contains(key) {
 					s := Status{Key: key, Name: t.Name}
 					s.Time = telem.Now()
-					s.Variant = xstatus.VariantWarning
+					s.Variant = status.VariantWarning
 					s.Message = fmt.Sprintf("%s status unknown", t.Name)
 					s.Details = StatusDetails{Task: t.Key}
 					missingStatuses = append(missingStatuses, s)

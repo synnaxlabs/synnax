@@ -12,12 +12,52 @@
 package pb
 
 import (
+	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	labelpb "github.com/synnaxlabs/x/label/pb"
-	statuspb "github.com/synnaxlabs/x/status/pb"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/anypb"
 )
+
+// VariantToPB converts status.Variant to Variant.
+func VariantToPB(v status.Variant) (Variant, error) {
+	switch v {
+	case status.VariantSuccess:
+		return Variant_VARIANT_SUCCESS, nil
+	case status.VariantInfo:
+		return Variant_VARIANT_INFO, nil
+	case status.VariantWarning:
+		return Variant_VARIANT_WARNING, nil
+	case status.VariantError:
+		return Variant_VARIANT_ERROR, nil
+	case status.VariantLoading:
+		return Variant_VARIANT_LOADING, nil
+	case status.VariantDisabled:
+		return Variant_VARIANT_DISABLED, nil
+	default:
+		return 0, errors.Newf("unrecognized status.Variant value: %v", v)
+	}
+}
+
+// VariantFromPB converts Variant to status.Variant.
+func VariantFromPB(v Variant) (status.Variant, error) {
+	switch v {
+	case Variant_VARIANT_SUCCESS:
+		return status.VariantSuccess, nil
+	case Variant_VARIANT_INFO:
+		return status.VariantInfo, nil
+	case Variant_VARIANT_WARNING:
+		return status.VariantWarning, nil
+	case Variant_VARIANT_ERROR:
+		return status.VariantError, nil
+	case Variant_VARIANT_LOADING:
+		return status.VariantLoading, nil
+	case Variant_VARIANT_DISABLED:
+		return status.VariantDisabled, nil
+	default:
+		return status.Variant(""), errors.Newf("unrecognized Variant value: %v", v)
+	}
+}
 
 // StatusToPB converts Status to Status using provided type converters.
 func StatusToPB[Details any](
@@ -28,7 +68,7 @@ func StatusToPB[Details any](
 	if err != nil {
 		return nil, err
 	}
-	variantVal, err := statuspb.VariantToPB(r.Variant)
+	variantVal, err := VariantToPB(r.Variant)
 	if err != nil {
 		return nil, err
 	}
@@ -37,11 +77,11 @@ func StatusToPB[Details any](
 		return nil, err
 	}
 	pb := &Status{
+		Key:         r.Key,
+		Name:        r.Name,
 		Message:     r.Message,
 		Description: r.Description,
 		Time:        int64(r.Time),
-		Key:         r.Key,
-		Name:        r.Name,
 		Details:     detailsAny,
 		Variant:     variantVal,
 		Labels:      labelsVal,
@@ -63,7 +103,7 @@ func StatusFromPB[Details any](
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
-	r.Variant, err = statuspb.VariantFromPB(pb.Variant)
+	r.Variant, err = VariantFromPB(pb.Variant)
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
@@ -71,11 +111,11 @@ func StatusFromPB[Details any](
 	if err != nil {
 		return status.Status[Details]{}, err
 	}
+	r.Key = pb.Key
+	r.Name = pb.Name
 	r.Message = pb.Message
 	r.Description = pb.Description
 	r.Time = telem.TimeStamp(pb.Time)
-	r.Key = pb.Key
-	r.Name = pb.Name
 	return r, nil
 }
 

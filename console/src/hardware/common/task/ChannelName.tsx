@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, NotFoundError } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Channel, Flex, Form, Text, Tooltip } from "@synnaxlabs/pluto";
-import { location, type optional, primitive, status } from "@synnaxlabs/x";
+import { location, type optional, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/css";

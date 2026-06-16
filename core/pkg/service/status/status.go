@@ -11,10 +11,8 @@ package status
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
+	"strings"
 )
 
 var _ gorp.Entry[string] = (*Status[any])(nil)
@@ -35,17 +33,17 @@ func (s Status[D]) String() string {
 
 	var variantIcon string
 	switch s.Variant {
-	case xstatus.VariantInfo:
+	case VariantInfo:
 		variantIcon = "ℹ"
-	case xstatus.VariantSuccess:
+	case VariantSuccess:
 		variantIcon = "✓"
-	case xstatus.VariantError:
+	case VariantError:
 		variantIcon = "✗"
-	case xstatus.VariantWarning:
+	case VariantWarning:
 		variantIcon = "⚠"
-	case xstatus.VariantDisabled:
+	case VariantDisabled:
 		variantIcon = "⊘"
-	case xstatus.VariantLoading:
+	case VariantLoading:
 		variantIcon = "◌"
 	default:
 		variantIcon = "•"

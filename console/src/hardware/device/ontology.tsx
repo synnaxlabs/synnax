@@ -6,12 +6,11 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
 import "@/hardware/device/ontology.css";
 
+import { status } from "@synnaxlabs/client";
 import { device, type ontology } from "@synnaxlabs/client";
 import { Access, Device, Flex, Menu, Text, Tree } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { useMemo } from "react";
 
 import { Cluster } from "@/cluster";

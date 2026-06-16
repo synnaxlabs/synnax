@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -124,7 +124,7 @@ func (t *alertTask) start(ctx context.Context) error {
 		}
 	}
 	t.disconnect = t.factoryCfg.Status.Observe().OnChange(t.handleStatusChange)
-	t.updateStatus(ctx, xstatus.VariantSuccess, true, "Task started successfully")
+	t.updateStatus(ctx, status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
 
@@ -135,7 +135,7 @@ func (t *alertTask) stop(ctx context.Context) error {
 		t.disconnect()
 		t.disconnect = nil
 	}
-	t.updateStatus(ctx, xstatus.VariantSuccess, false, "Task stopped successfully")
+	t.updateStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
 	return nil
 }
 
@@ -153,10 +153,10 @@ func (t *alertTask) handleStatusChange(
 		}
 		s := ch.Value
 		switch s.Variant {
-		case xstatus.VariantError, xstatus.VariantWarning, xstatus.VariantInfo:
+		case status.VariantError, status.VariantWarning, status.VariantInfo:
 			event := t.buildTriggerEvent(s, alertCfg)
 			t.sendEvent(ctx, event)
-		case xstatus.VariantSuccess:
+		case status.VariantSuccess:
 			event := t.buildResolveEvent(s.Key)
 			t.sendEvent(ctx, event)
 		default:
@@ -199,16 +199,16 @@ func (t *alertTask) buildResolveEvent(statusKey string) pagerduty.V2Event {
 	}
 }
 
-func mapSeverity(variant xstatus.Variant, treatErrorAsCritical bool) string {
+func mapSeverity(variant status.Variant, treatErrorAsCritical bool) string {
 	switch variant {
-	case xstatus.VariantError:
+	case status.VariantError:
 		if treatErrorAsCritical {
 			return "critical"
 		}
 		return "error"
-	case xstatus.VariantWarning:
+	case status.VariantWarning:
 		return "warning"
-	case xstatus.VariantInfo:
+	case status.VariantInfo:
 		return "info"
 	default:
 		return "info"
@@ -224,7 +224,7 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 			zap.Any("event", event),
 			zap.Error(err),
 		)
-		t.updateStatus(ctx, xstatus.VariantError, true,
+		t.updateStatus(ctx, status.VariantError, true,
 			fmt.Sprintf("Failed to send PagerDuty event: %s", err.Error()))
 		return
 	}
@@ -238,7 +238,7 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 
 func (t *alertTask) updateStatus(
 	ctx context.Context,
-	variant xstatus.Variant,
+	variant status.Variant,
 	running bool,
 	message string,
 ) {

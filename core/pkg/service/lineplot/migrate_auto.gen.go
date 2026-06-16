@@ -13,10 +13,10 @@ package lineplot
 
 import (
 	"context"
-	lineplotv55 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/v55"
+	lineplotv56 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/v56"
 )
 
-func AutoMigrateLinePlot(_ context.Context, old lineplotv55.LinePlot) (LinePlot, error) {
+func AutoMigrateLinePlot(_ context.Context, old lineplotv56.LinePlot) (LinePlot, error) {
 	return LinePlot{
 		Key:  Key(old.Key),
 		Name: old.Name,

@@ -14,9 +14,10 @@ from __future__ import annotations
 from typing import Generic, Literal, TypeVar
 from uuid import uuid4
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from synnax import label
+from x import telem
 
 VARIANT_SUCCESS: Literal["success"] = "success"
 
@@ -36,19 +37,35 @@ Variant = Literal["success", "info", "warning", "error", "loading", "disabled"]
 Details = TypeVar("Details")
 
 
-class Status(Status[Details], Generic[Details]):
-    """Is the server-side, persisted representation of a status. It extends the
-    base status payload with a unique key, a human-readable name, and labels
-    for categorization and filtering.
+class Status(BaseModel, Generic[Details]):
+    """Is a standardized message used to communicate state across the Synnax
+    platform. Statuses support different severity variants and can carry
+    component-specific details. A status is uniquely identified by a key and may
+    carry a human-readable name and labels for categorization and filtering.
 
     Attributes:
         key: Is a unique identifier for this status, auto-generated if not provided.
         name: Is an optional human-readable name for the status.
+        variant: Indicates the severity of the status. One of success, info,
+            warning, error, loading, or disabled.
+        message: Is the main message text describing the status.
+        description: Is an optional detailed description providing additional context.
+        time: Is the timestamp when the status was created.
+        details: Contains optional component-specific custom details for the status.
         labels: Contains optional labels for categorization and filtering.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     name: str = Field(default="")
+    variant: Variant
+    message: str
+    description: str | None = None
+    time: telem.TimeStamp = Field(
+        default_factory=telem.TimeStamp.now,
+        ge=-9223372036854775808,
+        le=9223372036854775807,
+    )
+    details: Details | None = None
     labels: list[label.Label] | None = None
 
     def __hash__(self) -> int:

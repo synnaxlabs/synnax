@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { arc, NotFoundError, ontology, type rack, task } from "@synnaxlabs/client";
-import { errors, primitive, status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
+import { errors, primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 

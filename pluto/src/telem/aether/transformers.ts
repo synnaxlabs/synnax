@@ -8,17 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import {
-  bounds,
-  color,
-  id,
-  type math,
-  MultiSeries,
-  notation,
-  scale,
-  Series,
-  status,
-} from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
+import { bounds, color, id, type math, MultiSeries, notation, scale, Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";

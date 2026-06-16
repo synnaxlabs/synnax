@@ -13,11 +13,10 @@ package log
 
 import (
 	"context"
-
-	logv55 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v55"
+	logv56 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v56"
 )
 
-func AutoMigrateLog(_ context.Context, old logv55.Log) (Log, error) {
+func AutoMigrateLog(_ context.Context, old logv56.Log) (Log, error) {
 	return Log{
 		Key:  Key(old.Key),
 		Name: old.Name,

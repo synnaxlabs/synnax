@@ -19,7 +19,7 @@ import (
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/status"
+
 )
 
 type Status = svcstatus.Status[types.Nil]
@@ -57,7 +57,7 @@ func (g Group) Next(
 		output, changedLocal, err = c.Next(ctx, output, output)
 		if err != nil {
 			cs := Status{Key: c.Channel().Key().String()}
-			cs.Variant = status.VariantError
+			cs.Variant = svcstatus.VariantError
 			cs.Message = fmt.Sprintf("calculation for %s failed", c.Channel())
 			cs.Description = err.Error()
 			statuses = append(statuses, cs)

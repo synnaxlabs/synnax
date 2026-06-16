@@ -8,14 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import {
-  type bounds,
-  type color,
-  type destructor,
-  type MultiSeries,
-  observe,
-  type status,
-} from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { type bounds, type color, type destructor, type MultiSeries, observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 const transferrable = z.instanceof(ArrayBuffer);

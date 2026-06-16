@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Flux, Pluto, Status, Synnax } from "@synnaxlabs/pluto";
-import { type errors, narrow, status } from "@synnaxlabs/x";
+import { type errors, narrow } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import type z from "zod";
 

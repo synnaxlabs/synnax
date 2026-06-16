@@ -6,9 +6,9 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
 import "@/auth/Login.css";
 
+import { status } from "@synnaxlabs/client";
 import { Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
@@ -20,7 +20,6 @@ import {
   Text,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";

@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { control as clientControl } from "@synnaxlabs/client";
-import { type status, TimeStamp } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 

@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -95,7 +95,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		}
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
 		stat := Status{Key: OntologyID(r.Key).String(), Name: r.Name}
-		stat.Variant = xstatus.VariantWarning
+		stat.Variant = status.VariantWarning
 		stat.Time = state.lastUpdated
 		stat.Message = fmt.Sprintf("Synnax Driver on %s not running", r.Name)
 		stat.Description = fmt.Sprintf("Driver was last alive %s seconds ago", timeSinceAlive)
@@ -134,8 +134,8 @@ func (m *monitor) handleChange(ctx context.Context, t gorp.TxReader[string, stat
 			delete(m.mu.racks, key)
 			continue
 		}
-		isHealthy := ch.Value.Variant == xstatus.VariantSuccess ||
-			ch.Value.Variant == xstatus.VariantInfo
+		isHealthy := ch.Value.Variant == status.VariantSuccess ||
+			ch.Value.Variant == status.VariantInfo
 		if isHealthy || !lo.HasKey(m.mu.racks, key) {
 			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now(), deadCheckCount: 0}
 		}

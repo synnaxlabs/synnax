@@ -28,14 +28,14 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
 )
 
 type reportCall struct {
-	variant xstatus.Variant
+	variant status.Variant
 	message string
 }
 
@@ -44,7 +44,7 @@ type recordingReporter struct {
 	calls []reportCall
 }
 
-func (r *recordingReporter) report(_ context.Context, v xstatus.Variant, m string) {
+func (r *recordingReporter) report(_ context.Context, v status.Variant, m string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, reportCall{variant: v, message: m})
@@ -284,7 +284,7 @@ var _ = Describe("setNode.Next", func() {
 		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
 		Expect(s.Key).To(Equal(newKey))
 		Expect(s.Name).To(Equal(name))
-		Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
+		Expect(s.Variant).To(Equal(status.VariantSuccess))
 		Expect(s.Message).To(Equal("All good"))
 		Expect(s.Time).ToNot(BeZero())
 
@@ -296,7 +296,7 @@ var _ = Describe("setNode.Next", func() {
 		name := "next_single_" + uuid.NewString()
 		existingKey := uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Status: xstatus.Status[any]{Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now()},
+			Status: status.Status[any]{Variant: status.VariantInfo, Message: "orig", Time: telem.Now()},
 			Key:    existingKey, Name: name,
 		})).To(Succeed())
 
@@ -305,14 +305,14 @@ var _ = Describe("setNode.Next", func() {
 
 		var s status.Status[any]
 		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](existingKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-		Expect(s.Variant).To(Equal(xstatus.VariantWarning))
+		Expect(s.Variant).To(Equal(status.VariantWarning))
 		Expect(s.Message).To(Equal("updated"))
 	})
 
 	It("Should update an existing row by UUID key", func(ctx SpecContext) {
 		key := uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Status: xstatus.Status[any]{Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now()},
+			Status: status.Status[any]{Variant: status.VariantInfo, Message: "orig", Time: telem.Now()},
 			Key:    key, Name: "by_uuid",
 		})).To(Succeed())
 
@@ -323,7 +323,7 @@ var _ = Describe("setNode.Next", func() {
 
 		var s status.Status[any]
 		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-		Expect(s.Variant).To(Equal(xstatus.VariantError))
+		Expect(s.Variant).To(Equal(status.VariantError))
 		Expect(s.Message).To(Equal("via uuid"))
 	})
 
@@ -345,7 +345,7 @@ var _ = Describe("setNode.Next", func() {
 
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+		Expect(calls[0].variant).To(Equal(status.VariantWarning))
 		Expect(calls[0].message).To(HavePrefix("status.set:"))
 		Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
 
@@ -369,11 +369,11 @@ var _ = Describe("setNode.Next", func() {
 		name := "next_multi_" + uuid.NewString()
 		k1, k2 := uuid.NewString(), uuid.NewString()
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Status: xstatus.Status[any]{Variant: xstatus.VariantInfo, Message: "first", Time: telem.Now()},
+			Status: status.Status[any]{Variant: status.VariantInfo, Message: "first", Time: telem.Now()},
 			Key:    k1, Name: name,
 		})).To(Succeed())
 		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-			Status: xstatus.Status[any]{Variant: xstatus.VariantInfo, Message: "second", Time: telem.Now()},
+			Status: status.Status[any]{Variant: status.VariantInfo, Message: "second", Time: telem.Now()},
 			Key:    k2, Name: name,
 		})).To(Succeed())
 
@@ -382,7 +382,7 @@ var _ = Describe("setNode.Next", func() {
 
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+		Expect(calls[0].variant).To(Equal(status.VariantWarning))
 		// Exact format: `status.set: multiple statuses named "name"; updated first match (<uuid>)`.
 		re := regexp.MustCompile(`^status\.set: multiple statuses named "[^"]+"; updated first match \([0-9a-f-]+\)$`)
 		Expect(re.MatchString(calls[0].message)).To(BeTrue(), "got: %q", calls[0].message)
@@ -397,9 +397,9 @@ var _ = Describe("setNode.Next", func() {
 		warning, info := 0, 0
 		for _, r := range rows {
 			switch r.Variant {
-			case xstatus.VariantWarning:
+			case status.VariantWarning:
 				warning++
-			case xstatus.VariantInfo:
+			case status.VariantInfo:
 				info++
 			}
 		}
@@ -414,7 +414,7 @@ var _ = Describe("setNode.Next", func() {
 
 		calls := rep.get()
 		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+		Expect(calls[0].variant).To(Equal(status.VariantWarning))
 		Expect(calls[0].message).To(HavePrefix("status.set:"))
 
 		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
@@ -587,7 +587,7 @@ var _ = Describe("WASM host functions", func() {
 			var s status.Status[any]
 			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
 			Expect(s.Name).To(Equal(name))
-			Expect(s.Variant).To(Equal(xstatus.VariantInfo))
+			Expect(s.Variant).To(Equal(status.VariantInfo))
 		})
 
 		It("Should warn and return 0 on an invalid key_or_name handle", func(ctx SpecContext) {
@@ -598,7 +598,7 @@ var _ = Describe("WASM host functions", func() {
 			Expect(arctest.AsU32(res[0])).To(Equal(uint32(0)))
 			calls := rep.get()
 			Expect(calls).To(HaveLen(1))
-			Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+			Expect(calls[0].variant).To(Equal(status.VariantWarning))
 			Expect(calls[0].message).To(ContainSubstring("status.set: invalid string handle"))
 		})
 

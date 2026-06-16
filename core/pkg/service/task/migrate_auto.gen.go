@@ -15,9 +15,9 @@ import (
 	"context"
 	taskv54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
 	color "github.com/synnaxlabs/x/color"
-	label "github.com/synnaxlabs/x/label"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
-	status "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	telem "github.com/synnaxlabs/x/telem"
 )
 

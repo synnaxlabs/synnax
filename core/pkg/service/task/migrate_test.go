@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -79,7 +79,7 @@ var _ = Describe("Migration v0", func() {
 			Key:  task.OntologyID(taskKey).String(),
 			Name: "Legacy Task",
 		}
-		legacyStatus.Variant = xstatus.VariantSuccess
+		legacyStatus.Variant = status.VariantSuccess
 		legacyStatus.Message = "Started"
 		legacyStatus.Time = telem.Now()
 		legacyStatus.Details = map[string]any{

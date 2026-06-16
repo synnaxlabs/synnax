@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -60,8 +60,8 @@ var _ = Describe("Migration v0", func() {
 		// simulating legacy data where the key was encoded as a msgpack
 		// float64 instead of uint32.
 		legacyStatus := status.Status[any]{
-			Status: xstatus.Status[any]{
-				Variant: xstatus.VariantSuccess,
+			Status: status.Status[any]{
+				Variant: status.VariantSuccess,
 				Message: "Started",
 				Time:    telem.Now(),
 				Details: map[string]any{

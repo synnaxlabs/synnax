@@ -18,8 +18,7 @@
 package pb
 
 import (
-	pb1 "github.com/synnaxlabs/x/label/pb"
-	pb "github.com/synnaxlabs/x/status/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -35,28 +34,88 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// Status is the server-side, persisted representation of a status. It extends the base
-// status payload with a unique key, a human-readable name, and labels for
-// categorization and filtering.
+// Variant is the severity or type of a status message.
+type Variant int32
+
+const (
+	Variant_VARIANT_SUCCESS  Variant = 0
+	Variant_VARIANT_INFO     Variant = 1
+	Variant_VARIANT_WARNING  Variant = 2
+	Variant_VARIANT_ERROR    Variant = 3
+	Variant_VARIANT_LOADING  Variant = 4
+	Variant_VARIANT_DISABLED Variant = 5
+)
+
+// Enum value maps for Variant.
+var (
+	Variant_name = map[int32]string{
+		0: "VARIANT_SUCCESS",
+		1: "VARIANT_INFO",
+		2: "VARIANT_WARNING",
+		3: "VARIANT_ERROR",
+		4: "VARIANT_LOADING",
+		5: "VARIANT_DISABLED",
+	}
+	Variant_value = map[string]int32{
+		"VARIANT_SUCCESS":  0,
+		"VARIANT_INFO":     1,
+		"VARIANT_WARNING":  2,
+		"VARIANT_ERROR":    3,
+		"VARIANT_LOADING":  4,
+		"VARIANT_DISABLED": 5,
+	}
+)
+
+func (x Variant) Enum() *Variant {
+	p := new(Variant)
+	*p = x
+	return p
+}
+
+func (x Variant) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Variant) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_status_pb_status_proto_enumTypes[0].Descriptor()
+}
+
+func (Variant) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_status_pb_status_proto_enumTypes[0]
+}
+
+func (x Variant) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Variant.Descriptor instead.
+func (Variant) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{0}
+}
+
+// Status is a standardized message used to communicate state across the Synnax
+// platform. Statuses support different severity variants and can carry
+// component-specific details. A status is uniquely identified by a key and may carry a
+// human-readable name and labels for categorization and filtering.
 type Status struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is a unique identifier for this status, auto-generated if not provided.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// name is an optional human-readable name for the status.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// variant indicates the severity of the status. One of success, info, warning, error,
 	// loading, or disabled.
-	Variant pb.Variant `protobuf:"varint,1,opt,name=variant,proto3,enum=x.status.pb.Variant" json:"variant,omitempty"`
+	Variant Variant `protobuf:"varint,3,opt,name=variant,proto3,enum=service.status.pb.Variant" json:"variant,omitempty"`
 	// message is the main message text describing the status.
-	Message string `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Message string `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 	// description is an optional detailed description providing additional context.
-	Description string `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	Description string `protobuf:"bytes,5,opt,name=description,proto3" json:"description,omitempty"`
 	// time is the timestamp when the status was created.
-	Time int64 `protobuf:"varint,4,opt,name=time,proto3" json:"time,omitempty"`
+	Time int64 `protobuf:"varint,6,opt,name=time,proto3" json:"time,omitempty"`
 	// details contains optional component-specific custom details for the status.
-	Details *anypb.Any `protobuf:"bytes,5,opt,name=details,proto3" json:"details,omitempty"`
-	// key is a unique identifier for this status, auto-generated if not provided.
-	Key string `protobuf:"bytes,6,opt,name=key,proto3" json:"key,omitempty"`
-	// name is an optional human-readable name for the status.
-	Name string `protobuf:"bytes,7,opt,name=name,proto3" json:"name,omitempty"`
+	Details *anypb.Any `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
 	// labels contains optional labels for categorization and filtering.
-	Labels        []*pb1.Label `protobuf:"bytes,8,rep,name=labels,proto3" json:"labels,omitempty"`
+	Labels        []*pb.Label `protobuf:"bytes,8,rep,name=labels,proto3" json:"labels,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -91,11 +150,25 @@ func (*Status) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Status) GetVariant() pb.Variant {
+func (x *Status) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Status) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Status) GetVariant() Variant {
 	if x != nil {
 		return x.Variant
 	}
-	return pb.Variant(0)
+	return Variant_VARIANT_SUCCESS
 }
 
 func (x *Status) GetMessage() string {
@@ -126,21 +199,7 @@ func (x *Status) GetDetails() *anypb.Any {
 	return nil
 }
 
-func (x *Status) GetKey() string {
-	if x != nil {
-		return x.Key
-	}
-	return ""
-}
-
-func (x *Status) GetName() string {
-	if x != nil {
-		return x.Name
-	}
-	return ""
-}
-
-func (x *Status) GetLabels() []*pb1.Label {
+func (x *Status) GetLabels() []*pb.Label {
 	if x != nil {
 		return x.Labels
 	}
@@ -151,16 +210,23 @@ var File_core_pkg_service_status_pb_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/status/pb/status.proto\x12\x11service.status.pb\x1a\x19google/protobuf/any.proto\x1a\x19x/go/label/pb/label.proto\x1a\x1bx/go/status/pb/status.proto\"\x89\x02\n" +
-	"\x06Status\x12.\n" +
-	"\avariant\x18\x01 \x01(\x0e2\x14.x.status.pb.VariantR\avariant\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\x12 \n" +
-	"\vdescription\x18\x03 \x01(\tR\vdescription\x12\x12\n" +
-	"\x04time\x18\x04 \x01(\x03R\x04time\x12.\n" +
-	"\adetails\x18\x05 \x01(\v2\x14.google.protobuf.AnyR\adetails\x12\x10\n" +
-	"\x03key\x18\x06 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\a \x01(\tR\x04name\x12)\n" +
-	"\x06labels\x18\b \x03(\v2\x11.x.label.pb.LabelR\x06labelsB\xbe\x01\n" +
+	"'core/pkg/service/status/pb/status.proto\x12\x11service.status.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19google/protobuf/any.proto\"\x95\x02\n" +
+	"\x06Status\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
+	"\avariant\x18\x03 \x01(\x0e2\x1a.service.status.pb.VariantR\avariant\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\x12 \n" +
+	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
+	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
+	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x12/\n" +
+	"\x06labels\x18\b \x03(\v2\x17.service.label.pb.LabelR\x06labels*\x83\x01\n" +
+	"\aVariant\x12\x13\n" +
+	"\x0fVARIANT_SUCCESS\x10\x00\x12\x10\n" +
+	"\fVARIANT_INFO\x10\x01\x12\x13\n" +
+	"\x0fVARIANT_WARNING\x10\x02\x12\x11\n" +
+	"\rVARIANT_ERROR\x10\x03\x12\x13\n" +
+	"\x0fVARIANT_LOADING\x10\x04\x12\x14\n" +
+	"\x10VARIANT_DISABLED\x10\x05B\xbe\x01\n" +
 	"\x15com.service.status.pbB\vStatusProtoP\x01Z2github.com/synnaxlabs/synnax/pkg/service/status/pb\xa2\x02\x03SSP\xaa\x02\x11Service.Status.Pb\xca\x02\x11Service\\Status\\Pb\xe2\x02\x1dService\\Status\\Pb\\GPBMetadata\xea\x02\x13Service::Status::Pbb\x06proto3"
 
 var (
@@ -175,17 +241,18 @@ func file_core_pkg_service_status_pb_status_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_status_pb_status_proto_rawDescData
 }
 
+var file_core_pkg_service_status_pb_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_core_pkg_service_status_pb_status_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_core_pkg_service_status_pb_status_proto_goTypes = []any{
-	(*Status)(nil),    // 0: service.status.pb.Status
-	(pb.Variant)(0),   // 1: x.status.pb.Variant
+	(Variant)(0),      // 0: service.status.pb.Variant
+	(*Status)(nil),    // 1: service.status.pb.Status
 	(*anypb.Any)(nil), // 2: google.protobuf.Any
-	(*pb1.Label)(nil), // 3: x.label.pb.Label
+	(*pb.Label)(nil),  // 3: service.label.pb.Label
 }
 var file_core_pkg_service_status_pb_status_proto_depIdxs = []int32{
-	1, // 0: service.status.pb.Status.variant:type_name -> x.status.pb.Variant
+	0, // 0: service.status.pb.Status.variant:type_name -> service.status.pb.Variant
 	2, // 1: service.status.pb.Status.details:type_name -> google.protobuf.Any
-	3, // 2: service.status.pb.Status.labels:type_name -> x.label.pb.Label
+	3, // 2: service.status.pb.Status.labels:type_name -> service.label.pb.Label
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -203,13 +270,14 @@ func file_core_pkg_service_status_pb_status_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_status_pb_status_proto_rawDesc), len(file_core_pkg_service_status_pb_status_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_service_status_pb_status_proto_goTypes,
 		DependencyIndexes: file_core_pkg_service_status_pb_status_proto_depIdxs,
+		EnumInfos:         file_core_pkg_service_status_pb_status_proto_enumTypes,
 		MessageInfos:      file_core_pkg_service_status_pb_status_proto_msgTypes,
 	}.Build()
 	File_core_pkg_service_status_pb_status_proto = out.File

@@ -18,9 +18,9 @@ import (
 	devicev54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
 	color "github.com/synnaxlabs/x/color"
-	label "github.com/synnaxlabs/x/label"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
-	status "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	telem "github.com/synnaxlabs/x/telem"
 )
 

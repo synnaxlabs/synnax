@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, type destructor, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, type destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 

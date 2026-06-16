@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError, status as xstatus } from "@synnaxlabs/client";
 import {
   bounds,
   DataType,
@@ -16,7 +16,6 @@ import {
   MultiSeries,
   primitive,
   type Series,
-  status as xstatus,
   TimeRange,
   TimeSpan,
   TimeStamp,

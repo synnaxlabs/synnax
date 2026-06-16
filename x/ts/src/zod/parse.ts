@@ -13,7 +13,6 @@ import { deep } from "@/deep";
 import { errors } from "@/errors";
 import { fmt } from "@/fmt";
 import { primitive } from "@/primitive";
-import { type status } from "@/status";
 
 const DEFAULT_LABEL = "value";
 const PARSE_ERROR_TYPE = "zod.parse";
@@ -421,6 +420,19 @@ export interface ParseErrorArgs {
 }
 
 /**
+ * Structural shape returned by {@link ParseError.toStatus}. It mirrors the subset of
+ * the status system's `Custom` contract that this error populates. It is declared
+ * locally rather than imported from the status module so that this low-level parsing
+ * code carries no dependency on the higher-level status layer; the status system reads
+ * `toStatus` duck-typed via the `in` operator, so no nominal `implements` is required.
+ */
+interface StatusSpec {
+  message?: string;
+  description?: string;
+  details?: Record<string, unknown>;
+}
+
+/**
  * An error thrown by `zod.parse` when a value fails to parse. It retains the original
  * input, a human-readable label, and optional context so that callers and the status
  * system can render a richer failure message than a raw `ZodError`.
@@ -434,10 +446,7 @@ export interface ParseErrorArgs {
  * unrecognized-keys expansion, while `err.issues` exposes the original zod array
  * unchanged for programmatic consumers.
  */
-export class ParseError
-  extends errors.createTyped(PARSE_ERROR_TYPE)
-  implements status.Custom
-{
+export class ParseError extends errors.createTyped(PARSE_ERROR_TYPE) {
   readonly issues: ReadonlyArray<z.core.$ZodIssue>;
   readonly input: unknown;
   readonly label: string;
@@ -451,7 +460,7 @@ export class ParseError
     this.context = context;
   }
 
-  toStatus(): Partial<status.Crude<z.ZodRecord, "error">> {
+  toStatus(): StatusSpec {
     const details: Record<string, unknown> = {
       input: fmt.value(this.input),
       issues: this.issues,

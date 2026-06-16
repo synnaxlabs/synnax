@@ -15,12 +15,12 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/label/types.gen.h"
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/color/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/types.gen.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -66,7 +66,7 @@ struct Range : public Base {
     /// @brief labels contains optional labels attached to this range for categorization
     /// and
     /// filtering.
-    std::vector<::x::label::Label> labels;
+    std::vector<::synnax::label::Label> labels;
     /// @brief parent is an optional parent range for hierarchical organization. Ranges
     /// can
     /// be nested within other ranges.

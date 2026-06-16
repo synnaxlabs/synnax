@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { control } from "@synnaxlabs/client";
-import { type status, TimeStamp } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 

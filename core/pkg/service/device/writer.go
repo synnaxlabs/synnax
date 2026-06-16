@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -39,7 +39,7 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 	if provided == nil {
 		s := &status.Status[StatusDetails]{Key: OntologyID(d.Key).String(), Name: d.Name}
 		s.Time = telem.Now()
-		s.Variant = xstatus.VariantWarning
+		s.Variant = status.VariantWarning
 		s.Message = fmt.Sprintf("%s state unknown", d.Name)
 		s.Details = StatusDetails{Rack: d.Rack, Device: d.Key}
 		return s

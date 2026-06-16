@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	xlabel "github.com/synnaxlabs/x/label"
+
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -73,7 +73,7 @@ var _ = Describe("Status", Ordered, func() {
 				s := &status.Status[any]{
 					Name: "Test Status",
 					Key:  "test-key",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "success",
 						Message: "Test message",
 						Time:    telem.Now(),
@@ -86,7 +86,7 @@ var _ = Describe("Status", Ordered, func() {
 				s := &status.Status[any]{
 					Name: "Test Status",
 					Key:  "update-key",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "info",
 						Message: "Initial message",
 						Time:    telem.Now(),
@@ -100,14 +100,14 @@ var _ = Describe("Status", Ordered, func() {
 				var retrieved status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any]("update-key")).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved.Message).To(Equal("Updated message"))
-				Expect(retrieved.Variant).To(Equal(xstatus.Variant("warning")))
+				Expect(retrieved.Variant).To(Equal(status.Variant("warning")))
 			})
 			Context("Parent Management", func() {
 				It("Should set a custom parent for the status", func(ctx SpecContext) {
 					parent := status.Status[any]{
 						Name: "Parent Status",
 						Key:  "parent-key",
-						Status: xstatus.Status[any]{
+						Status: status.Status[any]{
 							Variant: "info",
 							Message: "Parent status",
 							Time:    telem.Now(),
@@ -118,7 +118,7 @@ var _ = Describe("Status", Ordered, func() {
 					child := status.Status[any]{
 						Name: "Child Status",
 						Key:  "child-key",
-						Status: xstatus.Status[any]{
+						Status: status.Status[any]{
 							Variant: "info",
 							Message: "Child status",
 							Time:    telem.Now(),
@@ -143,7 +143,7 @@ var _ = Describe("Status", Ordered, func() {
 					{
 						Name: "Status 1",
 						Key:  "key1",
-						Status: xstatus.Status[any]{
+						Status: status.Status[any]{
 							Variant: "info",
 							Message: "Message 1",
 							Time:    telem.Now(),
@@ -152,7 +152,7 @@ var _ = Describe("Status", Ordered, func() {
 					{
 						Name: "Status 2",
 						Key:  "key2",
-						Status: xstatus.Status[any]{
+						Status: status.Status[any]{
 							Variant: "warning",
 							Message: "Message 2",
 							Time:    telem.Now(),
@@ -172,7 +172,7 @@ var _ = Describe("Status", Ordered, func() {
 				s := &status.Status[any]{
 					Name: "To Delete",
 					Key:  "delete-key",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "info",
 						Message: "Will be deleted",
 						Time:    telem.Now(),
@@ -194,7 +194,7 @@ var _ = Describe("Status", Ordered, func() {
 					{
 						Name: "Del 1",
 						Key:  "del1",
-						Status: xstatus.Status[any]{
+						Status: status.Status[any]{
 							Variant: "info",
 							Time:    telem.Now(),
 						},
@@ -202,7 +202,7 @@ var _ = Describe("Status", Ordered, func() {
 					{
 						Name: "Del 2",
 						Key:  "del2",
-						Status: xstatus.Status[any]{
+						Status: status.Status[any]{
 							Variant: "info",
 							Time:    telem.Now(),
 						},
@@ -222,7 +222,7 @@ var _ = Describe("Status", Ordered, func() {
 				{
 					Name: "Status A",
 					Key:  "retrieve-a",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "info",
 						Message: "Status A message",
 						Time:    telem.Now(),
@@ -231,7 +231,7 @@ var _ = Describe("Status", Ordered, func() {
 				{
 					Name: "Status B",
 					Key:  "retrieve-b",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "warning",
 						Message: "Status B message",
 						Time:    telem.Now(),
@@ -240,7 +240,7 @@ var _ = Describe("Status", Ordered, func() {
 				{
 					Name: "Status C",
 					Key:  "retrieve-c",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "error",
 						Message: "Status C message",
 						Time:    telem.Now(),
@@ -249,7 +249,7 @@ var _ = Describe("Status", Ordered, func() {
 				{
 					Name: "Device 1 Status",
 					Key:  "device-001-status",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "info",
 						Message: "Device 1 OK",
 						Time:    telem.Now(),
@@ -258,7 +258,7 @@ var _ = Describe("Status", Ordered, func() {
 				{
 					Name: "Device 2 Status",
 					Key:  "device-002-status",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "warning",
 						Message: "Device 2 Warning",
 						Time:    telem.Now(),
@@ -267,7 +267,7 @@ var _ = Describe("Status", Ordered, func() {
 				{
 					Name: "Sensor Status",
 					Key:  "sensor-001-status",
-					Status: xstatus.Status[any]{
+					Status: status.Status[any]{
 						Variant: "info",
 						Message: "Sensor OK",
 						Time:    telem.Now(),
@@ -351,31 +351,31 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("MatchVariants", func() {
 			It("Should retrieve statuses with a single variant", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantInfo)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](status.VariantInfo)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(3))
 				for _, s := range statuses {
-					Expect(s.Variant).To(Equal(xstatus.VariantInfo))
+					Expect(s.Variant).To(Equal(status.VariantInfo))
 				}
 			})
 
 			It("Should retrieve statuses with multiple variants", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantInfo, xstatus.VariantWarning)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](status.VariantInfo, status.VariantWarning)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(5))
 				for _, s := range statuses {
-					Expect(s.Variant).To(SatisfyAny(Equal(xstatus.VariantInfo), Equal(xstatus.VariantWarning)))
+					Expect(s.Variant).To(SatisfyAny(Equal(status.VariantInfo), Equal(status.VariantWarning)))
 				}
 			})
 
 			It("Should return empty when no statuses match variant", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantSuccess)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](status.VariantSuccess)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(BeEmpty())
 			})
 
 			It("Should retrieve only error variant statuses", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantError)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](status.VariantError)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(1))
 				Expect(statuses[0].Key).To(Equal("retrieve-c"))
 			})
@@ -412,13 +412,13 @@ var _ = Describe("Status", Ordered, func() {
 				s := &status.Status[any]{
 					Key:  "labeled-status",
 					Name: "Labeled",
-					Status: xstatus.Status[any]{
-						Variant: xstatus.VariantInfo,
+					Status: status.Status[any]{
+						Variant: status.VariantInfo,
 						Time:    telem.Now(),
 					},
 				}
 				Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
-				Expect(labelSvc.NewWriter(tx).Label(ctx, status.OntologyID(s.Key), []xlabel.Key{l.Key})).To(Succeed())
+				Expect(labelSvc.NewWriter(tx).Label(ctx, status.OntologyID(s.Key), []label.Key{l.Key})).To(Succeed())
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().
 					Where(status.MatchLabels[any](l.Key)).
@@ -447,24 +447,24 @@ var _ = Describe("Status", Ordered, func() {
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.And[any](
 					status.MatchKeyPrefix[any]("retrieve-"),
-					status.MatchVariants[any](xstatus.VariantInfo),
+					status.MatchVariants[any](status.VariantInfo),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				for _, s := range statuses {
 					Expect(s.Key).To(HavePrefix("retrieve-"))
-					Expect(s.Variant).To(Equal(xstatus.VariantInfo))
+					Expect(s.Variant).To(Equal(status.VariantInfo))
 				}
 				Expect(statuses).ToNot(BeEmpty())
 			})
 			It("Should compose filters with Or", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.Or[any](
-					status.MatchVariants[any](xstatus.VariantError),
-					status.MatchVariants[any](xstatus.VariantWarning),
+					status.MatchVariants[any](status.VariantError),
+					status.MatchVariants[any](status.VariantWarning),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				for _, s := range statuses {
 					Expect(s.Variant).To(SatisfyAny(
-						Equal(xstatus.VariantError),
-						Equal(xstatus.VariantWarning),
+						Equal(status.VariantError),
+						Equal(status.VariantWarning),
 					))
 				}
 				Expect(statuses).ToNot(BeEmpty())
@@ -473,11 +473,11 @@ var _ = Describe("Status", Ordered, func() {
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.And[any](
 					status.MatchKeyPrefix[any]("retrieve-"),
-					status.Not[any](status.MatchVariants[any](xstatus.VariantError)),
+					status.Not[any](status.MatchVariants[any](status.VariantError)),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				for _, s := range statuses {
 					Expect(s.Key).To(HavePrefix("retrieve-"))
-					Expect(s.Variant).ToNot(Equal(xstatus.VariantError))
+					Expect(s.Variant).ToNot(Equal(status.VariantError))
 				}
 				Expect(statuses).ToNot(BeEmpty())
 			})
@@ -510,7 +510,7 @@ var _ = Describe("Status", Ordered, func() {
 			s := &status.Status[IntDetails]{
 				Key:  "typed-int-status",
 				Name: "Typed Int Status",
-				Status: xstatus.Status[IntDetails]{
+				Status: status.Status[IntDetails]{
 					Variant: "info",
 					Details: IntDetails{Count: 42},
 					Time:    telem.Now(),
@@ -535,7 +535,7 @@ var _ = Describe("Status", Ordered, func() {
 			s := &status.Status[StringDetails]{
 				Key:  "typed-string-status",
 				Name: "Typed String Status",
-				Status: xstatus.Status[StringDetails]{
+				Status: status.Status[StringDetails]{
 					Variant: "info",
 					Details: StringDetails{Message: "hello"},
 					Time:    telem.Now(),
@@ -565,14 +565,14 @@ var _ = Describe("Status", Ordered, func() {
 
 			Expect(writerA.Set(ctx, &status.Status[TypeA]{
 				Key: "generic-type-a", Name: "Type A",
-				Status: xstatus.Status[TypeA]{
+				Status: status.Status[TypeA]{
 					Variant: "info", Details: TypeA{ValueA: 100}, Time: telem.Now(),
 				},
 			})).To(Succeed())
 
 			Expect(writerB.Set(ctx, &status.Status[TypeB]{
 				Key: "generic-type-b", Name: "Type B",
-				Status: xstatus.Status[TypeB]{
+				Status: status.Status[TypeB]{
 					Variant: "info", Details: TypeB{ValueB: "test"}, Time: telem.Now(),
 				},
 			})).To(Succeed())
@@ -594,7 +594,7 @@ var _ = Describe("Status", Ordered, func() {
 			writerA := status.NewWriter[TypeA](svc, tx)
 			Expect(writerA.Set(ctx, &status.Status[TypeA]{
 				Key: "mismatch-test", Name: "Mismatch Test",
-				Status: xstatus.Status[TypeA]{
+				Status: status.Status[TypeA]{
 					Variant: "info", Details: TypeA{FieldA: 42, FieldB: "hello"}, Time: telem.Now(),
 				},
 			})).To(Succeed())
@@ -622,7 +622,7 @@ var _ = Describe("Status", Ordered, func() {
 			writerB := status.NewWriter[DetailsB](svc, tx)
 			Expect(writerB.Set(ctx, &status.Status[DetailsB]{
 				Key: "details-b", Name: "Details B",
-				Status: xstatus.Status[DetailsB]{
+				Status: status.Status[DetailsB]{
 					Variant: "info", Details: DetailsB("hello"), Time: telem.Now(),
 				},
 			})).To(Succeed())
@@ -639,8 +639,8 @@ var _ = Describe("Status", Ordered, func() {
 			w := status.NewWriter[any](svc, tx)
 			s := &status.Status[any]{
 				Key: "observe-test", Name: "Observe Test",
-				Status: xstatus.Status[any]{
-					Variant: xstatus.VariantSuccess, Time: telem.Now(),
+				Status: status.Status[any]{
+					Variant: status.VariantSuccess, Time: telem.Now(),
 				},
 			}
 			Expect(w.Set(ctx, s)).To(Succeed())

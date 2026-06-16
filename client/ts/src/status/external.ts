@@ -9,4 +9,5 @@
 
 export * from "@/status/client";
 export * from "@/status/payload";
+export * from "@/status/status";
 export * from "@/status/types.gen";

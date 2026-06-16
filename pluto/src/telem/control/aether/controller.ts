@@ -13,6 +13,7 @@ import {
   control,
   DisconnectedError,
   type framer,
+  type status as xstatus,
   type Synnax,
   TimeStamp,
   ValidationError,
@@ -25,7 +26,6 @@ import {
   type CrudeSeries,
   type destructor,
   errors,
-  type status as xstatus,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 

@@ -23,7 +23,7 @@ import (
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -76,7 +76,7 @@ func expectStatus(ctx context.Context, key channel.Key) status.Status[types.Nil]
 	var result status.Status[types.Nil]
 	Eventually(func() bool {
 		s, ok := fetchStatus(ctx, key)
-		if ok && s.Variant == xstatus.VariantError {
+		if ok && s.Variant == status.VariantError {
 			result = s
 			return true
 		}
@@ -797,7 +797,7 @@ var _ = Describe("Graph", func() {
 			openGraph(ctx)
 
 			s := expectStatus(ctx, calc.Key())
-			Expect(s.Variant).To(Equal(xstatus.VariantError))
+			Expect(s.Variant).To(Equal(status.VariantError))
 			Expect(s.Message).To(Equal("invalid expression for st_detail"))
 			Expect(s.Description).ToNot(BeEmpty())
 			Expect(s.Key).To(Equal(channel.OntologyID(calc.Key()).String()))
@@ -843,7 +843,7 @@ var _ = Describe("Graph", func() {
 				return false
 			}, 2*time.Second, 10*time.Millisecond).Should(BeTrue(),
 				"expected status description to change")
-			Expect(s2.Variant).To(Equal(xstatus.VariantError))
+			Expect(s2.Variant).To(Equal(status.VariantError))
 		})
 
 		It("Should not create any status entry for valid channels", func(ctx SpecContext) {

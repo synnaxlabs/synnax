@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, id, status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
+import { type destructor, id } from "@synnaxlabs/x";
 import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import { type base } from "@/flux/base";

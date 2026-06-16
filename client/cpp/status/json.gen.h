@@ -15,9 +15,10 @@
 #include <type_traits>
 #include <vector>
 
+#include "client/cpp/label/json.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/json.gen.h"
+#include "x/cpp/telem/json.gen.h"
 
 namespace synnax::status {
 
@@ -25,8 +26,13 @@ template<typename Details>
 Status<Details> Status<Details>::parse(x::json::Parser parser) {
     return Status<Details>{
         .key = parser.field<std::string>("key"),
-        .name = parser.field<std::string>("name"),
-        .labels = parser.field<std::vector<::x::label::Label>>("labels"),
+        .name = parser.field<std::string>("name", ""),
+        .variant = parser.field<std::string>("variant"),
+        .message = parser.field<std::string>("message"),
+        .description = parser.field<std::string>("description", ""),
+        .time = parser.field<::x::telem::TimeStamp>("time"),
+        .details = parser.field<Details>("details"),
+        .labels = parser.field<std::vector<::synnax::label::Label>>("labels"),
     };
 }
 
@@ -35,6 +41,16 @@ x::json::json Status<Details>::to_json() const {
     x::json::json j;
     j["key"] = this->key;
     j["name"] = this->name;
+    j["variant"] = this->variant;
+    j["message"] = this->message;
+    j["description"] = this->description;
+    j["time"] = this->time.nanoseconds();
+    if constexpr (std::is_same_v<Details, x::json::json::object_t>)
+        j["details"] = this->details;
+    else if constexpr (std::is_same_v<Details, std::monostate>)
+        j["details"] = nullptr;
+    else
+        j["details"] = this->details.to_json();
     j["labels"] = x::json::to_array(this->labels);
     return j;
 }

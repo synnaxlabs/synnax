@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CrudeTimeSpan,
-  id,
-  type status as xstatus,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { type status as xstatus } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   useCallback,

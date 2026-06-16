@@ -15,11 +15,12 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/x/encoding/orc"
-	gostatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
+	w.String(s.Key)
+	w.String(s.Name)
 	w.String(string(s.Variant))
 	w.String(s.Message)
 	w.String(s.Description)
@@ -31,19 +32,23 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 		}
 		w.WriteWithLen(b)
 	}
-	w.String(s.Key)
-	w.String(s.Name)
 	return nil
 }
 
 func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 	var err error
+	if s.Key, err = r.String(); err != nil {
+		return err
+	}
+	if s.Name, err = r.String(); err != nil {
+		return err
+	}
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		s.Variant = gostatus.Variant(v)
+		s.Variant = Variant(v)
 	}
 	if s.Message, err = r.String(); err != nil {
 		return err
@@ -66,12 +71,6 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		if err = json.Unmarshal(b, &s.Details); err != nil {
 			return err
 		}
-	}
-	if s.Key, err = r.String(); err != nil {
-		return err
-	}
-	if s.Name, err = r.String(); err != nil {
-		return err
 	}
 	return nil
 }

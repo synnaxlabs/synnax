@@ -9,7 +9,12 @@
 
 import "@/hardware/modbus/device/Connect.css";
 
-import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
+import {
+  type device,
+  type rack,
+  status as xstatus,
+  TimeSpan,
+} from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -22,7 +27,6 @@ import {
   Status,
   Task,
 } from "@synnaxlabs/pluto";
-import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";

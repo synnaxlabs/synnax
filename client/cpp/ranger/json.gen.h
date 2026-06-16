@@ -14,10 +14,10 @@
 #include <string>
 #include <vector>
 
+#include "client/cpp/label/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/json.gen.h"
 #include "x/cpp/telem/json.gen.h"
 
 namespace synnax::ranger {
@@ -43,7 +43,7 @@ inline x::json::json Base::to_json() const {
 inline Range Range::parse(x::json::Parser parser) {
     Range result;
     static_cast<Base &>(result) = Base::parse(parser);
-    result.labels = parser.field<std::vector<::x::label::Label>>("labels");
+    result.labels = parser.field<std::vector<::synnax::label::Label>>("labels");
     result.parent = parser.field<x::mem::indirect<Range>>("parent");
     return result;
 }

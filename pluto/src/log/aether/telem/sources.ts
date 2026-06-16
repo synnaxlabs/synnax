@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
+import { channel, status as xstatus } from "@synnaxlabs/client";
 import {
   compare,
   DataType,
   type destructor,
   type Series,
-  status as xstatus,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";

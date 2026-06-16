@@ -17,21 +17,33 @@
 #include <variant>
 #include <vector>
 
+#include "client/cpp/label/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/service/status/pb/status.pb.h"
-#include "x/go/status/pb/status.pb.h"
 
 namespace synnax::status {
 
+constexpr const char *VARIANT_SUCCESS = "success";
+constexpr const char *VARIANT_INFO = "info";
+constexpr const char *VARIANT_WARNING = "warning";
+constexpr const char *VARIANT_ERROR = "error";
+constexpr const char *VARIANT_LOADING = "loading";
+constexpr const char *VARIANT_DISABLED = "disabled";
+
 /// @brief Status is a standardized message used to communicate state across the Synnax
 /// platform. Statuses support different severity variants and can carry
-/// component-specific details.
+/// component-specific details. A status is uniquely identified by a key and may carry a
+/// human-readable name and labels for categorization and filtering.
 template<typename Details = std::monostate>
 struct Status {
+    /// @brief key is a unique identifier for this status, auto-generated if not
+    /// provided.
+    std::string key;
+    /// @brief name is an optional human-readable name for the status.
+    std::string name = "";
     /// @brief variant indicates the severity of the status. One of success, info,
     /// warning,
     /// error, loading, or disabled.
@@ -42,32 +54,12 @@ struct Status {
     /// context.
     std::string description;
     /// @brief time is the timestamp when the status was created.
-    ::x::telem::TimeStamp time = x::telem::TimeStamp(0);
+    ::x::telem::TimeStamp time = x::telem::TimeStamp::now();
     /// @brief details contains optional component-specific custom details for the
     /// status.
     Details details;
-
-    static Status parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::status::pb::Status;
-    [[nodiscard]] std::pair<::x::status::pb::Status, x::errors::Error> to_proto() const;
-    static std::pair<Status, x::errors::Error>
-    from_proto(const ::x::status::pb::Status &pb);
-};
-
-/// @brief Status is the server-side, persisted representation of a status. It extends
-/// the base status payload with a unique key, a human-readable name, and labels for
-/// categorization and filtering.
-template<typename Details = std::monostate>
-struct Status : public Status<Details> {
-    /// @brief key is a unique identifier for this status, auto-generated if not
-    /// provided.
-    std::string key;
-    /// @brief name is an optional human-readable name for the status.
-    std::string name;
     /// @brief labels contains optional labels for categorization and filtering.
-    std::vector<::x::label::Label> labels;
+    std::vector<::synnax::label::Label> labels;
 
     static Status parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

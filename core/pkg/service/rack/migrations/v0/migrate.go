@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -133,7 +133,7 @@ func backfillStatuses(
 		if !existingKeys.Contains(key) {
 			s := status.Status[StatusDetails]{Key: key, Name: r.Name}
 			s.Time = telem.Now()
-			s.Variant = xstatus.VariantWarning
+			s.Variant = status.VariantWarning
 			s.Message = "Status unknown"
 			s.Details = StatusDetails{Rack: r.Key}
 			missingStatuses = append(missingStatuses, s)

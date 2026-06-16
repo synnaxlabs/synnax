@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	xlabel "github.com/synnaxlabs/x/label"
+
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -58,7 +58,7 @@ var _ = Describe("Label", Ordered, func() {
 	})
 	Describe("Create", func() {
 		It("Should create a new label", func(ctx SpecContext) {
-			l := &xlabel.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
 			}
@@ -66,7 +66,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
 		})
 		It("Should create many labels", func(ctx SpecContext) {
-			ls := []xlabel.Label{
+			ls := []label.Label{
 				{
 					Name:  "Label1",
 					Color: color.MustFromHex("#000000"),
@@ -84,7 +84,7 @@ var _ = Describe("Label", Ordered, func() {
 	})
 	Describe("Delete", func() {
 		It("Should delete a label", func(ctx SpecContext) {
-			l := &xlabel.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
 			}
@@ -93,7 +93,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should delete many labels", func(ctx SpecContext) {
-			ls := []xlabel.Label{
+			ls := []label.Label{
 				{
 					Name:  "Label1",
 					Color: color.MustFromHex("#000000"),
@@ -112,12 +112,12 @@ var _ = Describe("Label", Ordered, func() {
 	})
 	Describe("Retrieve", func() {
 		It("Should get the labels for an ontology resource", func(ctx SpecContext) {
-			l := &xlabel.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &xlabel.Label{
+			labeled := &label.Label{
 				Name:  "Labeled",
 				Color: color.MustFromHex("#000000"),
 			}
@@ -130,12 +130,12 @@ var _ = Describe("Label", Ordered, func() {
 	})
 	Describe("RemoveLabel", func() {
 		It("Should remove a label", func(ctx SpecContext) {
-			l := &xlabel.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &xlabel.Label{
+			labeled := &label.Label{
 				Name:  "Labeled",
 				Color: color.MustFromHex("#000000"),
 			}
@@ -151,12 +151,12 @@ var _ = Describe("Label", Ordered, func() {
 	})
 	Describe("Clear", func() {
 		It("Should remove all labels on an object", func(ctx SpecContext) {
-			l := &xlabel.Label{
+			l := &label.Label{
 				Name:  "Label",
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			labeled := &xlabel.Label{
+			labeled := &label.Label{
 				Name:  "Labeled",
 				Color: color.MustFromHex("#000000"),
 			}

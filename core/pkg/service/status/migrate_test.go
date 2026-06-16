@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
 	"github.com/synnaxlabs/x/migrate"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	v54 "github.com/synnaxlabs/x/status/migrations/v54"
 	"github.com/synnaxlabs/x/telem"
 	telemv54 "github.com/synnaxlabs/x/telem/migrations/v54"
@@ -66,7 +66,7 @@ var _ = Describe("v54 -> current Status migration", func() {
 			Where(gorp.MatchKeys[string, status.Status[any]](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
-		Expect(got.Variant).To(Equal(xstatus.Variant(seed.Variant)))
+		Expect(got.Variant).To(Equal(status.Variant(seed.Variant)))
 		Expect(got.Message).To(Equal(seed.Message))
 		Expect(got.Description).To(Equal(seed.Description))
 		Expect(got.Labels).To(BeEmpty())

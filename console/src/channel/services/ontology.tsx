@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, isCalculated, ontology, ranger } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import {
   Access,
   Channel as PChannel,
@@ -22,7 +23,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { id, primitive, status } from "@synnaxlabs/x";
+import { id, primitive } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";

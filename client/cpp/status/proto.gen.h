@@ -11,21 +11,60 @@
 
 #pragma once
 
+#include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 
+#include "client/cpp/label/json.gen.h"
+#include "client/cpp/label/proto.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/any.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/json.gen.h"
-#include "x/cpp/label/proto.gen.h"
 #include "x/cpp/pb/pb.h"
 
 #include "core/pkg/service/status/pb/status.pb.h"
 
 namespace synnax::status {
+
+inline std::pair<::service::status::pb::Variant, x::errors::Error>
+variant_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::service::status::pb::Variant> kMap =
+        {
+            {VARIANT_SUCCESS, ::service::status::pb::VARIANT_SUCCESS},
+            {VARIANT_INFO, ::service::status::pb::VARIANT_INFO},
+            {VARIANT_WARNING, ::service::status::pb::VARIANT_WARNING},
+            {VARIANT_ERROR, ::service::status::pb::VARIANT_ERROR},
+            {VARIANT_LOADING, ::service::status::pb::VARIANT_LOADING},
+            {VARIANT_DISABLED, ::service::status::pb::VARIANT_DISABLED},
+        };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized Variant value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+variant_from_pb(::service::status::pb::Variant pb) {
+    switch (pb) {
+        case ::service::status::pb::VARIANT_SUCCESS:
+            return {VARIANT_SUCCESS, x::errors::NIL};
+        case ::service::status::pb::VARIANT_INFO:
+            return {VARIANT_INFO, x::errors::NIL};
+        case ::service::status::pb::VARIANT_WARNING:
+            return {VARIANT_WARNING, x::errors::NIL};
+        case ::service::status::pb::VARIANT_ERROR:
+            return {VARIANT_ERROR, x::errors::NIL};
+        case ::service::status::pb::VARIANT_LOADING:
+            return {VARIANT_LOADING, x::errors::NIL};
+        case ::service::status::pb::VARIANT_DISABLED:
+            return {VARIANT_DISABLED, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized Variant protobuf value")};
+    }
+}
 
 template<typename Details>
 inline std::pair<::service::status::pb::Status, x::errors::Error>
@@ -33,6 +72,24 @@ Status<Details>::to_proto() const {
     ::service::status::pb::Status pb;
     pb.set_key(this->key);
     pb.set_name(this->name);
+    {
+        auto [v, err] = variant_to_pb(this->variant);
+        if (err) return {{}, err};
+        pb.set_variant(v);
+    }
+    pb.set_message(this->message);
+    pb.set_description(this->description);
+    pb.set_time(this->time.to_proto());
+    if constexpr (std::is_same_v<Details, x::json::json>) {
+        *pb.mutable_details() = x::json::to_any(this->details);
+    } else {
+        if constexpr (std::is_same_v<Details, std::monostate>)
+            *pb.mutable_details() = x::json::to_any(x::json::json(nullptr));
+        else if constexpr (std::is_same_v<Details, x::json::json>)
+            *pb.mutable_details() = x::json::to_any(this->details);
+        else
+            *pb.mutable_details() = x::json::to_any(this->details.to_json());
+    }
     for (const auto &item: this->labels) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
@@ -47,7 +104,33 @@ Status<Details>::from_proto(const ::service::status::pb::Status &pb) {
     Status<Details> cpp;
     cpp.key = pb.key();
     cpp.name = pb.name();
-    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(
+    {
+        auto [v, err] = variant_from_pb(pb.variant());
+        if (err) return {{}, err};
+        cpp.variant = v;
+    }
+    cpp.message = pb.message();
+    cpp.description = pb.description();
+    cpp.time = ::x::telem::TimeStamp::from_proto(pb.time());
+    if constexpr (std::is_same_v<Details, x::json::json>) {
+        {
+            auto [v, err] = x::json::from_any(pb.details());
+            if (err) return {{}, err};
+            cpp.details = v;
+        }
+    } else {
+        {
+            auto [val, err] = x::json::from_any(pb.details());
+            if (err) return {{}, err};
+            if constexpr (std::is_same_v<Details, std::monostate>)
+                cpp.details = std::monostate{};
+            else if constexpr (std::is_same_v<Details, x::json::json>)
+                cpp.details = val;
+            else
+                cpp.details = Details::parse(x::json::Parser(val));
+        }
+    }
+    if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
             cpp.labels,
             pb.labels()
         ))

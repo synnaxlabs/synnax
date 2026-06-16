@@ -12,10 +12,9 @@ package status
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/label"
 	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
-	xstatus "github.com/synnaxlabs/x/status"
 	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -23,7 +22,7 @@ import (
 // MigrateStatus migrates a persisted v54 status into the current server-side Status
 // entity. The v54 status stored its descriptive fields and identity in a single flat
 // struct; the current entity splits the descriptive payload into the embedded
-// xstatus.Status while keeping key, name, and labels on the entity itself.
+// Status while keeping key, name, and labels on the entity itself.
 func MigrateStatus[Details any](
 	ctx context.Context,
 	old statusv54.Status[Details],
@@ -36,8 +35,8 @@ func MigrateStatus[Details any](
 		}
 	}
 	return Status[Details]{
-		Status: xstatus.Status[Details]{
-			Variant:     xstatus.Variant(old.Variant),
+		Status: Status[Details]{
+			Variant:     Variant(old.Variant),
 			Message:     old.Message,
 			Description: old.Description,
 			Time:        telem.TimeStamp(old.Time),

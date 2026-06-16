@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
-	xstatus "github.com/synnaxlabs/x/status"
+
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -29,7 +29,7 @@ func StatusKey(key channel.Key) string {
 // StatusFromError builds an error status for a calculated channel.
 func StatusFromError(key channel.Key, name string, msg string, err error) *Status {
 	s := &Status{Key: StatusKey(key), Name: name}
-	s.Variant = xstatus.VariantError
+	s.Variant = svcstatus.VariantError
 	s.Message = msg
 	s.Description = err.Error()
 	s.Time = telem.Now()

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, status as xStatus, TimeStamp, uuid } from "@synnaxlabs/x";
+import { color, TimeStamp, uuid, zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import z from "zod";
 
@@ -255,15 +255,13 @@ describe("Status", () => {
     it("should delete multiple statuses", async () => {
       const keys = ["del-1", "del-2", "del-3"];
       await client.statuses.set(
-        keys.map((key) =>
-          status.create({
-            name: `Delete ${key}`,
-            key,
-            variant: "info",
-            message: "To be deleted",
-            time: TimeStamp.now(),
-          }),
-        ),
+        keys.map((key) => ({
+          name: `Delete ${key}`,
+          key,
+          variant: "info" as const,
+          message: "To be deleted",
+          time: TimeStamp.now(),
+        })),
       );
 
       await client.statuses.delete(keys);
@@ -420,7 +418,7 @@ describe("Status", () => {
 
   describe("status variants", () => {
     it("should support all status variants", async () => {
-      const variants: xStatus.Variant[] = [
+      const variants: status.Variant[] = [
         "success",
         "info",
         "warning",
@@ -444,5 +442,70 @@ describe("Status", () => {
         expect(s.variant).toBe(variants[i]);
       });
     });
+  });
+});
+
+describe("fromException with zod ParseError", () => {
+  const makeError = (): unknown => {
+    try {
+      zod.parse(
+        z.object({
+          channels: z.array(z.object({ name: z.string(), port: z.number() })),
+          owner: z.string(),
+        }),
+        { channels: [{ name: "temp", port: "oops" }], owner: "alice" },
+        { label: "task config", context: { taskKey: "tk-1" } },
+      );
+      throw new Error("expected parse to throw");
+    } catch (e) {
+      return e;
+    }
+  };
+
+  const expectedDescription = `Failed to parse task config (1 issue)
+
+  at channels[0]
+    {
+      "name": "temp",
+    ✗ "port": "oops"  × expected number
+    }
+
+  context: taskKey=tk-1`;
+
+  it("should set the status message from toStatus.message", () => {
+    expect(status.fromException(makeError()).message).toBe(
+      "Failed to parse task config",
+    );
+  });
+
+  it("should set the status description from toStatus.description", () => {
+    expect(status.fromException(makeError()).description).toBe(expectedDescription);
+  });
+
+  it("should merge input, issues, and context into status.details", () => {
+    const s = status.fromException(makeError());
+    const details = s.details as Record<string, unknown>;
+    expect(details.context).toEqual({ taskKey: "tk-1" });
+    expect(details.input).toEqual({
+      channels: [{ name: "temp", port: "oops" }],
+      owner: "alice",
+    });
+    expect(Array.isArray(details.issues)).toBe(true);
+    expect((details.issues as unknown[]).length).toBe(1);
+  });
+
+  it("should prefix a caller-provided message with the parse headline", () => {
+    expect(status.fromException(makeError(), "Saving failed").message).toBe(
+      "Saving failed: Failed to parse task config",
+    );
+  });
+
+  it("should include a populated stack and the original error in details", () => {
+    const details = status.fromException(makeError()).details as Record<
+      string,
+      unknown
+    >;
+    expect(typeof details.stack).toBe("string");
+    expect(details.error).toBeInstanceOf(Error);
   });
 });
