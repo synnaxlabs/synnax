@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -192,12 +193,16 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_program_status", MigrateArc),
+				gorp.NewEntryMigration("v54_drop_program_status", arcv56.MigrateArc),
 				"msgpack_to_orc",
 			),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v55_rename_set_status", RenameSetStatus),
+				gorp.NewEntryMigration("v55_rename_set_status", arcv56.RenameSetStatus),
 				"v54_drop_program_status",
+			),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration("v56_to_live", MigrateArc),
+				"v55_rename_set_status",
 			),
 		},
 		Instrumentation: cfg.Instrumentation,
