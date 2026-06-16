@@ -21,7 +21,7 @@ cc_library(
         "//freighter/cpp/grpc",
         "//x/cpp/color",
         "//x/cpp/errors",
-        "//x/cpp/label",
+        "//client/cpp/label",
         "//x/cpp/mem",
         "//x/cpp/pb",
         "//x/cpp/telem",

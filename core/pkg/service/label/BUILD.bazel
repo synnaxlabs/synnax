@@ -2,20 +2,16 @@ load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
 
 proto_library(
-    name = "rack_proto",
-    srcs = ["pb/rack.proto"],
+    name = "label_proto",
+    srcs = ["pb/label.proto"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//core/pkg/service/status:status_proto",
-    ],
+    deps = ["//x/go/color:color_proto"],
 )
 
 cpp_grpc_library(
-    name = "rack_grpc",
+    name = "label_grpc",
     output_mode = "NO_PREFIX",
-    protos = [":rack_proto"],
+    protos = [":label_proto"],
     visibility = ["//visibility:public"],
-    deps = [
-        "//core/pkg/service/status:status_grpc",
-    ],
+    deps = ["//x/go/color:color_grpc"],
 )

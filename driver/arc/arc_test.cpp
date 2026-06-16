@@ -823,10 +823,10 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
 
     auto *error_status = find_status_by_variant(
         ctx->statuses,
-        x::status::VARIANT_ERROR
+        synnax::status::VARIANT_ERROR
     );
     ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
-    expect_status(*error_status, x::status::VARIANT_ERROR, false);
+    expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
 
     task->stop("test_stop", true);
 }
@@ -927,7 +927,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
 
     auto *error_status = find_status_by_variant(
         ctx->statuses,
-        x::status::VARIANT_ERROR
+        synnax::status::VARIANT_ERROR
     );
     EXPECT_NE(error_status, nullptr) << "Should have error status after WASM trap";
 
@@ -1170,22 +1170,22 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
 
     auto *start_status = find_status_by_variant(
         ctx->statuses,
-        x::status::VARIANT_SUCCESS
+        synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(start_status, nullptr) << "Should have a success status after start";
-    expect_status(*start_status, x::status::VARIANT_SUCCESS, true, "started");
+    expect_status(*start_status, synnax::status::VARIANT_SUCCESS, true, "started");
 
     task->stop("verify_stop", true);
 
     auto *stop_status = find_status_by_variant(
         ctx->statuses,
-        x::status::VARIANT_SUCCESS
+        synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(stop_status, nullptr);
 
     bool found_stopped = false;
     for (const auto &s: ctx->statuses) {
-        if (s.variant == x::status::VARIANT_SUCCESS && !s.details.running) {
+        if (s.variant == synnax::status::VARIANT_SUCCESS && !s.details.running) {
             found_stopped = true;
             break;
         }
@@ -1281,7 +1281,7 @@ TEST(ArcEdgeCases, RapidStartStop) {
 
     auto *final_status = find_status_by_variant(
         ctx->statuses,
-        x::status::VARIANT_SUCCESS
+        synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(final_status, nullptr);
     EXPECT_TRUE(final_status->details.running);
@@ -1371,7 +1371,7 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     task->start("start_after_cold_stop");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
 
-    auto *status = find_status_by_variant(ctx->statuses, x::status::VARIANT_SUCCESS);
+    auto *status = find_status_by_variant(ctx->statuses, synnax::status::VARIANT_SUCCESS);
     ASSERT_NE(status, nullptr);
 
     task->stop("final_stop", true);
@@ -2657,7 +2657,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
 
     auto *error_status = find_status_by_variant(
         ctx->statuses,
-        x::status::VARIANT_ERROR
+        synnax::status::VARIANT_ERROR
     );
     EXPECT_NE(error_status, nullptr)
         << "Writer failure should propagate error status via stopped_with_err";

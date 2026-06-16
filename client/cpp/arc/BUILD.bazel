@@ -23,7 +23,7 @@ cc_library(
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
         "//x/cpp/pb",
-        "//x/cpp/status",
+        "//client/cpp/status",
         "@grpc//:grpc++",
     ],
 )

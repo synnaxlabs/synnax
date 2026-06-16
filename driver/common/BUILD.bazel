@@ -20,7 +20,7 @@ cc_library(
         "//driver/task",
         "//driver/transform",
         "//x/cpp/loop",
-        "//x/cpp/status",
+        "//client/cpp/status",
         "//x/cpp/thread",
     ],
 )

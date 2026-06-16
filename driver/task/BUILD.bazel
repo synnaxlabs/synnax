@@ -26,7 +26,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/task",
-        "//x/cpp/status",
+        "//client/cpp/status",
         "@googletest//:gtest_main",
     ],
 )
