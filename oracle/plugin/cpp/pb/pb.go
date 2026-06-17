@@ -496,7 +496,7 @@ func (p *Plugin) generateFieldConversion(
 	case resolution.EnumForm:
 		return p.generateEnumConversion(resolved, form, cppFieldName, pbAccessorName, pbSetter, data)
 	case resolution.DistinctForm:
-		return p.generateDistinctConversion(resolved, form, cppFieldName, pbAccessorName, pbSetter, data)
+		return p.generateDistinctConversion(resolved, form, field.IsHardOptional, cppFieldName, pbAccessorName, pbSetter, data)
 	case resolution.AliasForm:
 		return p.generateAliasConversion(resolved, form, field.IsHardOptional, cppFieldName, pbAccessorName, pbSetter, data)
 	default:
@@ -793,6 +793,7 @@ func (p *Plugin) generateEnumConversion(
 func (p *Plugin) generateDistinctConversion(
 	resolved resolution.Type,
 	form resolution.DistinctForm,
+	isOptional bool,
 	cppFieldName, pbAccessorName, pbSetter string,
 	data *templateData,
 ) (forward, backward string) {
@@ -813,6 +814,10 @@ func (p *Plugin) generateDistinctConversion(
 
 	if resolution.IsPrimitive(form.Base.Name) {
 		protoType := primitiveToProtoType(form.Base.Name)
+		if isOptional {
+			return fmt.Sprintf("if (this->%s.has_value()) %s(static_cast<%s>(*this->%s))", cppFieldName, pbSetter, protoType, cppFieldName),
+				fmt.Sprintf("cpp.%s = %s(pb.%s());", cppFieldName, cppName, pbAccessorName)
+		}
 		return fmt.Sprintf("%s(static_cast<%s>(this->%s))", pbSetter, protoType, cppFieldName),
 			fmt.Sprintf("cpp.%s = %s(pb.%s());", cppFieldName, cppName, pbAccessorName)
 	}

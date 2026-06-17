@@ -1009,6 +1009,26 @@ var _ = Describe("C++ PB Plugin", func() {
 						"cpp.priority = Priority(pb.priority())",
 					)
 			})
+
+			It("Should guard an optional distinct primitive with has_value", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Priority uint16
+
+					Task struct {
+						priority Priority??
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"if (this->priority.has_value()) pb.set_priority(static_cast<uint32_t>(*this->priority))",
+						"cpp.priority = Priority(pb.priority())",
+					)
+			})
 		})
 
 		Context("fixed-size uint8 array", func() {

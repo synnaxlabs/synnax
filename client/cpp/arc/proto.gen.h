@@ -99,7 +99,7 @@ inline std::pair<::service::arc::pb::Arc, x::errors::Error> Arc::to_proto() cons
         if (err) return {{}, err};
         *pb.mutable_status() = v;
     }
-    pb.set_task(static_cast<uint64_t>(this->task));
+    if (this->task.has_value()) pb.set_task(static_cast<uint64_t>(*this->task));
     return {pb, x::errors::NIL};
 }
 
