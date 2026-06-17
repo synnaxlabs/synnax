@@ -46,7 +46,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				IsIndex:  true,
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  []channel.Key{ch.Key()},
 			}))
@@ -92,7 +92,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				}
 				Expect(channelmock.ChannelService(dist).Create(ctx, dataCh2)).To(Succeed())
 				keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keys,
 					EnableAutoCommit: new(true),
@@ -111,7 +111,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				)
 				MustSucceed(w.Write(fr))
 				Expect(w.Close()).To(Succeed())
-				w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				w = MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS * 6,
 					Keys:             keys,
 					EnableAutoCommit: new(true),
@@ -450,7 +450,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					}}
 
 					// First domain
-					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
@@ -466,7 +466,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 
 					// Second domain
-					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					w = MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 5,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
@@ -482,7 +482,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 
 					// Third domain
-					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					w = MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 10,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
@@ -710,7 +710,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					keys := []channel.Key{gapIndexCh.Key(), gapDataCh.Key()}
 
 					// First domain at t=1s
-					w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
@@ -725,7 +725,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 
 					// Second domain at t=1000s (large gap)
-					w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					w = MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 						Start:            telem.SecondTS * 1000,
 						Keys:             keys,
 						EnableAutoCommit: new(true),
@@ -865,7 +865,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 				// Write channel A with index A
 				keysA := []channel.Key{idxA.Key(), dataA.Key()}
-				wA := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				wA := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keysA,
 					EnableAutoCommit: new(true),
@@ -881,7 +881,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 				// Write channel B with index B
 				keysB := []channel.Key{idxB.Key(), dataB.Key()}
-				wB := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				wB := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keysB,
 					EnableAutoCommit: new(true),
@@ -934,7 +934,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -986,7 +986,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1041,7 +1041,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1101,7 +1101,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(channelmock.ChannelService(dist).Create(ctx, calculation)).To(Succeed())
 
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1151,7 +1151,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 
 			// First domain
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1166,7 +1166,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 
 			// Second domain
-			w = MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w = MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS * 10,
 				Keys:             keys,
 				EnableAutoCommit: new(true),

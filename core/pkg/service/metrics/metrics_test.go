@@ -371,7 +371,7 @@ var _ = Describe("Metrics", func() {
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(channelSvc.Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, distFramer.WriterConfig{
+			w := MustSucceed(dist.OpenWriter(ctx, distFramer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},
 			}))

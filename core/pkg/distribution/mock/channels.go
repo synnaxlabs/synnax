@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/testutil"
@@ -108,4 +109,30 @@ func (n Node) RetrieveChannelsInto(ctx context.Context, chs *[]channel.Channel, 
 	out, err := n.channels.RetrieveByKeys(ctx, keys...)
 	*chs = out
 	return err
+}
+
+// OpenWriter opens a distribution-layer writer against the node, resolving the channel
+// metadata for cfg.Keys through the node's bound channel retriever and attaching it to
+// the config. The distribution writer requires resolved channels on its config; in
+// production the service layer supplies them. Resolving through the bound retriever lets
+// this work whether the test created channels through the mock store (pure
+// distribution-layer tests) or a real service-layer channel service.
+func (n Node) OpenWriter(ctx context.Context, cfg writer.Config) (*writer.Writer, error) {
+	channels, err := n.ChannelRetriever.RetrieveByKeys(ctx, cfg.Keys...)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Channels = channels
+	return n.Framer.OpenWriter(ctx, cfg)
+}
+
+// NewStreamWriter opens a distribution-layer stream writer against the node, resolving
+// channel metadata for cfg.Keys exactly as OpenWriter does.
+func (n Node) NewStreamWriter(ctx context.Context, cfg writer.Config) (writer.StreamWriter, error) {
+	channels, err := n.ChannelRetriever.RetrieveByKeys(ctx, cfg.Keys...)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Channels = channels
+	return n.Framer.NewStreamWriter(ctx, cfg)
 }

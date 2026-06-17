@@ -149,8 +149,13 @@ func (p *Provider) PublishFromObservable(
 		return nil, err
 	}
 	keys := channel.KeysFromChannels(channels)
+	distChannels, err := p.cfg.Channel.RetrieveByKeys(ctx, keys...)
+	if err != nil {
+		return nil, err
+	}
 	w, err := p.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:        keys,
+		Channels:    distChannels,
 		Start:       telem.Now(),
 		Authorities: []control.Authority{255},
 	})

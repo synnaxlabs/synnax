@@ -38,7 +38,7 @@ var _ = Describe("Iterator", func() {
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func(ctx SpecContext) {
 					s = sF(ctx)
-					writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					writer := MustSucceed(s.dist.OpenWriter(ctx, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
 						Sync:  new(true),

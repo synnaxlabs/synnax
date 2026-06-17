@@ -97,7 +97,7 @@ func (e *benchIterEnv) writeData(
 	for i, ch := range dataChannels {
 		keys[i+1] = ch.Key()
 	}
-	w, err := e.dist.Framer.OpenWriter(e.ctx, framer.WriterConfig{
+	w, err := e.dist.OpenWriter(e.ctx, framer.WriterConfig{
 		Start:            telem.SecondTS,
 		Keys:             keys,
 		EnableAutoCommit: new(true),
@@ -336,7 +336,7 @@ func BenchmarkIteratorCalc_MultipleDomains(b *testing.B) {
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
 			for d := range numDomains {
 				startTS := telem.TimeStamp(d*1000+1) * telem.SecondTS
-				w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
+				w, err := env.dist.OpenWriter(env.ctx, framer.WriterConfig{
 					Start:            startTS,
 					Keys:             keys,
 					EnableAutoCommit: new(true),

@@ -35,7 +35,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -78,6 +77,15 @@ type Config struct {
 	//
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
+	// Channels carries the resolved distribution-layer metadata for every key in Keys
+	// (the validator reads data types from it; the free-channel writer reads index
+	// relationships). The caller supplies it — the service layer resolves it from the
+	// channel service — so the distribution writer needs no channel retriever. Channels
+	// must contain exactly one entry per key in Keys. It is never serialized: peers
+	// receive only Keys and open storage writers directly from them.
+	//
+	// [REQUIRED]
+	Channels []channel.Channel `json:"-" msgpack:"-"`
 	// Authorities sets the control authority the writer has on each channel for the
 	// write. This should either be a single authority for all channels or a slice of
 	// authorities with the same length as the number of channels where each authority
@@ -199,6 +207,10 @@ func (c Config) Validate() error {
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
 		"authorities must be a single authority or a slice of authorities with the same length as keys",
 	)
+	if len(c.Keys) > 0 {
+		missing, _ := lo.Difference(c.Keys, channel.KeysFromChannels(c.Channels))
+		v.Ternaryf("channels", len(missing) > 0, "missing channel metadata for keys: %v", missing)
+	}
 	return v.Error()
 }
 
@@ -208,6 +220,7 @@ func (c Config) Override(other Config) Config {
 	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
 	c.ControlSubject.Group = override.Numeric(c.ControlSubject.Group, other.ControlSubject.Group)
 	c.Keys = override.Slice(c.Keys, other.Keys.Unique())
+	c.Channels = override.Slice(c.Channels, other.Channels)
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
 	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
@@ -235,11 +248,6 @@ type ServiceConfig struct {
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS *ts.DB
-	// Channel is used to resolve metadata and routing information for the provided
-	// keys (late-bound retriever hole).
-	//
-	// [REQUIRED]
-	Channel channel.Retriever
 	alamos.Instrumentation
 }
 
@@ -253,7 +261,6 @@ var (
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "ts", cfg.TS)
-	validate.NotNil(v, "channel", cfg.Channel)
 	validate.NotNil(v, "host_provider", cfg.HostResolver)
 	validate.NotNil(v, "transport", cfg.Transport)
 	return v.Error()
@@ -262,7 +269,6 @@ func (cfg ServiceConfig) Validate() error {
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
-	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
@@ -344,10 +350,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	channels, err := s.resolveChannelKeys(ctx, cfg.Keys)
-	if err != nil {
-		return nil, err
-	}
+	channels := cfg.Channels
 
 	var (
 		hostKey           = s.cfg.HostResolver.HostKey()
@@ -439,19 +442,4 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	lo.Must0(seg.RouteInletTo(validatorAddr))
 	lo.Must0(seg.RouteOutletFrom(validatorResponsesAddr, synchronizerAddr))
 	return seg, nil
-}
-
-// resolveChannelKeys retrieves the channel metadata for the given keys, returning an
-// error if any key references a channel that does not exist. Non-emptiness of keys is
-// enforced by Config.Validate and, in the service layer, by the framer wrappers.
-func (s *Service) resolveChannelKeys(ctx context.Context, keys channel.Keys) ([]channel.Channel, error) {
-	channels, err := s.cfg.Channel.RetrieveByKeys(ctx, keys...)
-	if err != nil {
-		return nil, err
-	}
-	if len(channels) != len(keys) {
-		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return nil, errors.Wrapf(validate.ErrValidation, "missing channels: %v", missing)
-	}
-	return channels, nil
 }

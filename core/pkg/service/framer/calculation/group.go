@@ -14,6 +14,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/address"
@@ -45,6 +46,9 @@ type groupConfig struct {
 	Framer         *framer.Service
 	OnStatusChange OnStatusChange
 	Calculators    calculator.Group
+	// Channels resolves the distribution-layer metadata for the channels the group
+	// writes calculated values to, which the distribution writer requires.
+	Channels dischannel.Retriever
 }
 
 var (
@@ -56,6 +60,7 @@ func (c groupConfig) Override(other groupConfig) groupConfig {
 	c.Framer = override.Nil(c.Framer, other.Framer)
 	c.Calculators = override.Slice(c.Calculators, other.Calculators)
 	c.OnStatusChange = override.Nil(c.OnStatusChange, other.OnStatusChange)
+	c.Channels = override.Nil(c.Channels, other.Channels)
 	return c
 }
 
@@ -64,6 +69,7 @@ func (c groupConfig) Validate() error {
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotEmptySlice(v, "calculators", c.Calculators)
 	validate.NotNil(v, "on_status_change", c.OnStatusChange)
+	validate.NotNil(v, "channels", c.Channels)
 	return v.Error()
 }
 
@@ -97,9 +103,14 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		return nil, err
 	}
 
+	writeChannels, err := cfg.Channels.RetrieveByKeys(ctx, writeKeys...)
+	if err != nil {
+		return nil, err
+	}
 	wrt, err := cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
-		Keys:  writeKeys,
-		Start: telem.Now(),
+		Keys:     writeKeys,
+		Channels: writeChannels,
+		Start:    telem.Now(),
 	})
 	if err != nil {
 		return nil, err

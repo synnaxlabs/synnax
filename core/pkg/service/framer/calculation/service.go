@@ -263,6 +263,7 @@ func (s *Service) updateGroup(ctx context.Context, key int, mods []compiler.Modu
 			Calculators:     calculators,
 			OnStatusChange:  s.setStatus,
 			Framer:          s.cfg.Framer,
+			Channels:        s.cfg.Channel,
 		},
 	)
 	if err != nil {

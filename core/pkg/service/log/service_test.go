@@ -123,7 +123,7 @@ var _ = Describe("OpenService", func() {
 		channelSvc := channel.Wrap(dist.Layer)
 		sigs := MustSucceed(signals.New(signals.Config{
 			Channel: channelSvc,
-			Framer:  framer.Wrap(dist.Framer),
+			Framer:  framer.Wrap(dist.Framer, dist.ChannelRetriever),
 		}))
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       dist.DB,

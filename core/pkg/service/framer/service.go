@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
+	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -87,16 +88,21 @@ type Service struct {
 	Streamer *streamer.Service
 	Iterator *iterator.Service
 	cfg      ServiceConfig
+	// channels resolves the distribution-layer metadata supplied to the distribution
+	// writer for each key in a writer's config. It is the rich channel service in
+	// production and the bound distribution retriever in lightweight (Wrap) contexts.
+	channels dischannel.Retriever
 }
 
 // Wrap builds a Service from an existing distribution-layer framer service without a
-// full ServiceConfig. The returned Service supports the writer operations that delegate
-// directly to the distribution framer (e.g. NewStreamWriter and OpenWriter), but not
-// the calculation-backed streaming and iteration that NewService wires up. It suits
-// tests and other lightweight contexts; use OpenService when a complete configuration
-// is available.
-func Wrap(dist *framer.Service) *Service {
-	return &Service{cfg: ServiceConfig{Framer: dist}}
+// full ServiceConfig. The provided channels retriever resolves writer channel metadata
+// (the same role cfg.Channel plays in OpenService). The returned Service supports the
+// writer operations that delegate directly to the distribution framer (e.g.
+// NewStreamWriter and OpenWriter), but not the calculation-backed streaming and
+// iteration that NewService wires up. It suits tests and other lightweight contexts;
+// use OpenService when a complete configuration is available.
+func Wrap(dist *framer.Service, channels dischannel.Retriever) *Service {
+	return &Service{cfg: ServiceConfig{Framer: dist}, channels: channels}
 }
 
 func (s *Service) OpenIterator(
@@ -114,37 +120,44 @@ func (s *Service) NewStreamIterator(
 func (s *Service) NewStreamWriter(
 	ctx context.Context, cfg WriterConfig,
 ) (StreamWriter, error) {
-	if err := s.validateWriterKeys(ctx, cfg.Keys); err != nil {
+	cfg, err := s.resolveWriterChannels(ctx, cfg)
+	if err != nil {
 		return nil, err
 	}
 	return s.cfg.Framer.NewStreamWriter(ctx, cfg)
 }
 
 func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	if err := s.validateWriterKeys(ctx, cfg.Keys); err != nil {
+	cfg, err := s.resolveWriterChannels(ctx, cfg)
+	if err != nil {
 		return nil, err
 	}
 	return s.cfg.Framer.OpenWriter(ctx, cfg)
 }
 
-// validateWriterKeys validates that the given keys are non-empty and reference
-// channels that exist in the cluster. When the Service was built via Wrap (and thus
-// has no Channel service), validation is skipped and left to the distribution writer.
-func (s *Service) validateWriterKeys(ctx context.Context, keys channel.Keys) error {
-	if s.cfg.Channel == nil {
-		return nil
+// resolveWriterChannels populates cfg.Channels with the distribution-layer metadata for
+// every key in cfg.Keys, so the distribution writer needs no channel retriever. It
+// returns query.ErrNotFound if any key does not reference an existing channel. When the
+// Service has no channels retriever (an empty Wrap), resolution is skipped and the
+// caller is responsible for populating cfg.Channels.
+func (s *Service) resolveWriterChannels(
+	ctx context.Context, cfg WriterConfig,
+) (WriterConfig, error) {
+	if s.channels == nil {
+		return cfg, nil
 	}
-	if len(keys) == 0 {
-		return errors.Wrap(validate.ErrValidation, "keys must be non-empty")
+	if len(cfg.Keys) == 0 {
+		return cfg, errors.Wrap(validate.ErrValidation, "keys must be non-empty")
 	}
-	exists, err := s.cfg.Channel.ContainsKeys(ctx, keys...)
+	channels, err := s.channels.RetrieveByKeys(ctx, cfg.Keys...)
 	if err != nil {
-		return err
+		return cfg, err
 	}
-	if !exists {
-		return errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", keys)
+	if len(channels) != len(cfg.Keys) {
+		return cfg, errors.Wrapf(query.ErrNotFound, "some channel keys %v not found", cfg.Keys)
 	}
-	return nil
+	cfg.Channels = channels
+	return cfg, nil
 }
 
 func (s *Service) DeleteTimeRange(
@@ -169,7 +182,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, channels: cfg.Channel}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	var calcSvc *calculation.Service

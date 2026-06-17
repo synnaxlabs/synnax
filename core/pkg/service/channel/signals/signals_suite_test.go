@@ -34,7 +34,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = DeferClose(builder.Provision(ctx))
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		Channel: channelmock.ChannelService(dist),
-		Framer:  framer.Wrap(dist.Framer),
+		Framer:  framer.Wrap(dist.Framer, dist.ChannelRetriever),
 	}))
 	MustOpen(signals.Publish(ctx, sigs, channelmock.ChannelService(dist).Observe()))
 })

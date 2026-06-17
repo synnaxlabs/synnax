@@ -135,7 +135,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
-		Channel:         cfg.Channel,
 		FreeWrites:      freeWrites,
 	}); !ok(err, nil) {
 		return nil, err

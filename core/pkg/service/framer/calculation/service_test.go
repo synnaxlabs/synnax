@@ -70,7 +70,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
 		sCtx, cancel := signal.Isolated()
-		w := MustSucceed(dist.Framer.OpenWriter(
+		w := MustSucceed(dist.OpenWriter(
 			ctx,
 			framer.WriterConfig{
 				Start: 1 * telem.SecondTS,

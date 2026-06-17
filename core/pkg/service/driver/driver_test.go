@@ -62,7 +62,7 @@ var _ = Describe("Driver", func() {
 	}
 
 	writeCommand := func(ctx context.Context, cmd task.Command) {
-		w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
+		w := MustSucceed(dist.OpenWriter(ctx, writer.Config{
 			Keys:  channel.Keys{taskService.CommandChannelKey()},
 			Start: telem.Now(),
 		}))
@@ -784,7 +784,7 @@ var _ = Describe("Driver", func() {
 
 			// Write valid JSON that won't unmarshal into task.Command
 			// (task field expects a number, not a string).
-			w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(dist.OpenWriter(ctx, writer.Config{
 				Keys:  channel.Keys{taskService.CommandChannelKey()},
 				Start: telem.Now(),
 			}))

@@ -258,13 +258,19 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
 		writeKeys := deps.Writes.Slice()
+		writeChannels, err := t.factoryCfg.Channel.RetrieveByKeys(ctx, writeKeys...)
+		if err != nil {
+			t.setStatus(ctx, status.VariantError, false, err.Error())
+			return err
+		}
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,
 				Key:  t.task.Key.String(),
 			},
-			Start: drt.startTime,
-			Keys:  writeKeys,
+			Start:    drt.startTime,
+			Keys:     writeKeys,
+			Channels: writeChannels,
 		}
 		if authorities := buildAuthorities(
 			t.prog.Program.Authorities,
