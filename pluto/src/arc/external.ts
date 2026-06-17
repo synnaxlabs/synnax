@@ -9,4 +9,5 @@
 
 export * from "@/arc/Arc";
 export * from "@/arc/functions";
+export * from "@/arc/Graph";
 export * from "@/arc/queries";

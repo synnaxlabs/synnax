@@ -15,11 +15,13 @@ import {
   status,
   task,
 } from "@synnaxlabs/client";
-import { errors, primitive } from "@synnaxlabs/x";
+import { errors, primitive, type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
+import { edgesToDiagram, nodeProps } from "@/arc/translate";
 import { Flux } from "@/flux";
+import { type Diagram } from "@/vis/diagram";
 import { useSyncedRef } from "@/hooks/ref";
 import { type List } from "@/list";
 import { state } from "@/state";
@@ -88,6 +90,65 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   storeKey: FLUX_STORE_KEY,
   send: ({ client, key, actions, dispatchKey }) =>
     client.arcs.dispatch(key, dispatchKey, actions),
+});
+
+export interface SelectKeyArgs {
+  key: arc.Key;
+}
+
+const requireArc = (store: FluxSubStore, key: arc.Key): arc.Arc => {
+  const a = store.arcs.get(key);
+  if (a == null) throw new NotFoundError(`Arc with key ${key} not found`);
+  return a;
+};
+
+// useSelectNodes returns the graph nodes of the Arc with the given key as diagram
+// nodes. graph.Node is a structural superset of Diagram.Node, so the stored array
+// is returned by reference with no translation, keeping selections referentially
+// stable across unrelated store updates.
+export const useSelectNodes = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  Diagram.Node[]
+>({
+  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+  select: (store, { key }) => requireArc(store, key).graph.nodes,
+});
+
+// useSelectEdges returns the graph edges of the Arc with the given key as keyed
+// diagram edges. select returns the stored ir.Edge array by reference; transform
+// derives the keyed diagram edges and is memoized on that reference, so it only
+// re-runs when the edges actually change.
+export const useSelectEdges = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  Diagram.Edge[],
+  arc.ir.Edge[]
+>({
+  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+  select: (store, { key }) => requireArc(store, key).graph.edges,
+  transform: edgesToDiagram,
+});
+
+export interface SelectNodePropsArgs {
+  key: arc.Key;
+  nodeKey: string;
+}
+
+// useSelectNodeProps returns the renderer props for a single graph node: the
+// function type under the reserved `key` field merged with the node's config.
+// transform is memoized on the node reference, so it only re-runs when that node
+// changes.
+export const useSelectNodeProps = Flux.createSelector<
+  FluxSubStore,
+  SelectNodePropsArgs,
+  record.Unknown | undefined,
+  arc.graph.Node | undefined
+>({
+  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+  select: (store, { key, nodeKey }) =>
+    store.arcs.get(key)?.graph.nodes.find((n) => n.key === nodeKey),
+  transform: (node) => (node == null ? undefined : nodeProps(node)),
 });
 
 export interface FluxSubStore extends Flux.Store {
