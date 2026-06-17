@@ -13,9 +13,9 @@
 
 #include <string>
 
+#include "client/cpp/status/json.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/json.gen.h"
 
 namespace synnax::task {
 

@@ -9,7 +9,6 @@
 
 import { status } from "@synnaxlabs/client";
 import { Access, Component, type Flux, Menu, Status } from "@synnaxlabs/pluto";
-import { status as xstatus } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
@@ -58,7 +57,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   );
   const getCopyText = useCallback(() => {
     if (q.variant !== "success") return "";
-    return q.data.map((s) => xstatus.toString(s)).join("\n\n");
+    return q.data.map((s) => status.toString(s)).join("\n\n");
   }, [q]);
 
   if (q.variant !== "success") return null;

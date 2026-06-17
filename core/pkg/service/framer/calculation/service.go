@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -185,7 +184,7 @@ func (s *Service) handleChange(
 			s.setStatus(ctx, calculator.Status{
 				Key:         ch.Key().String(),
 				Name:        ch.Name,
-				Variant:     xstatus.VariantError,
+				Variant:     status.VariantError,
 				Message:     fmt.Sprintf("failed to compile calculation for %s", ch.Name),
 				Description: err.Error(),
 			})
@@ -357,7 +356,7 @@ func (s *Service) updateRequests(ctx context.Context, added, removed []channel.K
 			statuses = append(statuses, calculator.Status{
 				Key:         ch.Key().String(),
 				Name:        ch.Name,
-				Variant:     xstatus.VariantError,
+				Variant:     status.VariantError,
 				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
 				Description: err.Error(),
 			})

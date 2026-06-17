@@ -7,7 +7,7 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "//core/pkg/distribution/ontology:ontology_proto",
-        "//x/go/status:status_proto",
+        "//core/pkg/service/status:status_proto",
         "@protobuf//:struct_proto",
     ],
 )
@@ -19,6 +19,6 @@ cpp_grpc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//core/pkg/distribution/ontology:ontology_grpc",
-        "//x/go/status:status_grpc",
+        "//core/pkg/service/status:status_grpc",
     ],
 )

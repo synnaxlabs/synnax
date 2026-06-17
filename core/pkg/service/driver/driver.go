@@ -31,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/signal"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -116,7 +115,7 @@ func (d *Driver) startHeartbeat() {
 				Key:     rack.StatusKey(d.rack.Key),
 				Name:    d.rack.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.VariantSuccess,
+				Variant: status.VariantSuccess,
 				Message: "Driver is running",
 				Details: rack.StatusDetails{Rack: d.rack.Key},
 			}); err != nil {

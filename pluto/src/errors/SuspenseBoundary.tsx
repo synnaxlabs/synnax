@@ -16,10 +16,10 @@ export interface SuspenseBoundaryProps {
   /// Rendered while children are suspended. Defaults to nothing (blank space).
   /// Pass a skeleton, spinner, or layout placeholder for better UX.
   loading?: ReactNode;
-  /// Custom fallback component rendered when a child throws. Defaults to the
-  /// diagnostic `<Errors.Fallback>` page. Flux retrieve errors throw an Error
-  /// whose `cause` is the original `xstatus.Status`, so a custom fallback can
-  /// recover status fields via `(error.cause as Status)` when needed.
+  /// Custom fallback component rendered when a child throws. Defaults to the diagnostic
+  /// `<Errors.Fallback>` page. Flux retrieve errors throw an Error whose `cause` is the
+  /// original `status.Status`, so a custom fallback can recover status fields via
+  /// `(error.cause as Status)` when needed.
   FallbackComponent?: ComponentType<FallbackProps>;
   children: ReactNode;
 }

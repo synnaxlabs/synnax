@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -678,7 +677,7 @@ var _ = Describe("Driver", func() {
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
-				g.Expect(statuses[0].Variant).To(Equal(xstatus.VariantSuccess))
+				g.Expect(statuses[0].Variant).To(Equal(status.VariantSuccess))
 			}).Should(Succeed())
 		})
 

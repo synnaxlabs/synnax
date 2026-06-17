@@ -13,6 +13,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
+        "//client/cpp/label",
         "//client/cpp/ontology",
         "//client/cpp/ranger/kv",
         "//core/pkg/service/ranger:range_grpc",
@@ -21,7 +22,6 @@ cc_library(
         "//freighter/cpp/grpc",
         "//x/cpp/color",
         "//x/cpp/errors",
-        "//x/cpp/label",
         "//x/cpp/mem",
         "//x/cpp/pb",
         "//x/cpp/telem",

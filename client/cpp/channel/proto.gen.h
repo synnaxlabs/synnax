@@ -17,10 +17,10 @@
 
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/channel/types.gen.h"
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/status/json.gen.h"
-#include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
 #include "core/pkg/distribution/channel/pb/channel.pb.h"
