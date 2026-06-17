@@ -14,6 +14,7 @@ package ranger
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -32,4 +33,10 @@ type Range struct {
 	// Color is an optional display color for visual identification of the range in user
 	// interfaces.
 	Color color.Color `json:"color" msgpack:"color"`
+	// Labels contains optional labels attached to this range for categorization and
+	// filtering.
+	Labels []label.Label `json:"labels" msgpack:"labels"`
+	// Parent is an optional parent range for hierarchical organization. Ranges can be
+	// nested within other ranges.
+	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
