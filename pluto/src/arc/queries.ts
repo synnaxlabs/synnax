@@ -21,12 +21,12 @@ import z from "zod";
 
 import { edgesToDiagram, nodeProps } from "@/arc/translate";
 import { Flux } from "@/flux";
-import { type Diagram } from "@/vis/diagram";
 import { useSyncedRef } from "@/hooks/ref";
 import { type List } from "@/list";
 import { state } from "@/state";
 import { type Status } from "@/status";
 import { Task } from "@/task";
+import { type Diagram } from "@/vis/diagram";
 
 export interface FluxStore extends Flux.UndoableUnaryStore<
   arc.Key,

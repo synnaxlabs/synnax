@@ -9,7 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { box, id, type record, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 
 import { create } from "@/arc/Arc";
 import { Stage } from "@/arc/functions";
@@ -140,8 +140,9 @@ const NodeRenderer = ({
     [key, nodeKey, dispatch],
   );
   if (props == null) return null;
-  const C = Stage.REGISTRY[type as string];
-  if (C == null) throw new Error(`Arc function ${type} not found`);
+  const typeKey = type as string;
+  const C = Stage.REGISTRY[typeKey];
+  if (C == null) throw new Error(`Arc function ${typeKey} not found`);
   return (
     <C.Symbol
       nodeKey={nodeKey}
