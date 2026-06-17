@@ -91,4 +91,28 @@ var _ = Describe("Create and Output markers", func() {
 		_, ok := table.Get("x.New")
 		Expect(ok).To(BeTrue())
 	})
+
+	It("Should synthesize a single New when a namespace has two @create structs", func(ctx SpecContext) {
+		source := `
+			First struct {
+				key  uuid @key
+				name string
+				@create
+			}
+			Second struct {
+				key  uuid @key
+				size int32
+				@create
+			}
+		`
+		// Both structs would target x.New; only one may be synthesized, otherwise
+		// the second table.Add collides and fails analysis.
+		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+		Expect(diag.Ok()).To(BeTrue())
+		newType, ok := table.Get("x.New")
+		Expect(ok).To(BeTrue())
+		form := newType.Form.(resolution.StructForm)
+		Expect(form.Extends).To(HaveLen(1))
+		Expect(form.Extends[0].Name).To(BeElementOf("x.First", "x.Second"))
+	})
 })

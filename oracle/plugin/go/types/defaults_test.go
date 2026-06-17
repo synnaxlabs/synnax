@@ -35,14 +35,18 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			}
 
 			Cfg struct {
-				rolling int32 = 1
-				level   Level = LevelH2
+				rolling int32   = 1
+				scale   float64 = 1.5
+				name    string  = "untitled"
+				level   Level   = LevelH2
 			}
 		`
 		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 		ExpectContent(resp, "types.gen.go").ToContain(
 			"func (c Cfg) ApplyDefaults() Cfg {",
 			"c.Rolling = 1",
+			"c.Scale = 1.5",
+			`c.Name = "untitled"`,
 			"c.Level = LevelH2",
 			"return c",
 		)
@@ -81,5 +85,25 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		`
 		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 		ExpectContent(resp, "types.gen.go").ToNotContain("ApplyDefaults")
+	})
+
+	It("Should key enum validation by the wire field name, not the Go name", func(ctx SpecContext) {
+		source := `
+			@go output "core/pkg/service/x"
+
+			Level enum {
+				h1 = "h1"
+				h2 = "h2"
+			}
+
+			Cfg struct {
+				label_level Level = LevelH2
+			}
+		`
+		resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+		ExpectContent(resp, "types.gen.go").ToContain(
+			`v.Ternaryf("label_level"`,
+			"!c.LabelLevel.IsValid()",
+		)
 	})
 })
