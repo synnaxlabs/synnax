@@ -38,10 +38,33 @@ import (
 )
 
 // Version is the per-schema integer version stamped on every envelope. On the wire it
-// is decoded by Envelope.UnmarshalJSON (which accepts both numeric values and legacy
-// "N.0.0" semver strings via versionFromAny); standalone JSON unmarshal of a Version
-// only accepts the numeric form.
+// is the canonical numeric form, but it also decodes from the legacy "N.0.0" semver
+// strings older Console exports wrote — see UnmarshalJSON. This holds both for the
+// envelope header and for a standalone Version decoded out of a versioned payload.
 type Version uint64
+
+// UnmarshalJSON decodes a Version from either the canonical numeric JSON form or a
+// legacy "N.0.0" semver string written by older Console exports. Decoding the version
+// directly into a Version field — rather than a string that a caller must then parse —
+// is why the legacy migration packages can peek the stamped version straight into a
+// Version.
+func (v *Version) UnmarshalJSON(b []byte) error {
+	var n uint64
+	if err := json.Unmarshal(b, &n); err == nil {
+		*v = Version(n)
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return errors.Newf("version must be a number or semver string, got %s", b)
+	}
+	parsed, err := legacyToNumeric(s)
+	if err != nil {
+		return err
+	}
+	*v = parsed
+	return nil
+}
 
 // NewErrUnsupportedVersion constructs a validation error for the named resource type,
 // indicating that the given version exceeds the highest version this Core supports. The
@@ -202,11 +225,19 @@ func Decode[T any](ctx context.Context, e Envelope) (T, error) {
 // Invariant: every imex-registered resource carries a non-empty top-level string `name`
 // field on the wire. Encode enforces this so that a resource without a name surfaces as
 // a programmer bug at exporter-test time rather than at runtime.
+//
+// A top-level `key` field is always dropped from the body: envelopes do not carry
+// resource-local identity today, and importers mint a fresh key on the way in.
 func Encode[T any](env *Envelope, data T) error {
 	body, err := structToMap(data)
 	if err != nil {
 		return errors.Wrap(err, "encode envelope")
 	}
+	// Keys are resource-local identity, not part of the portable envelope: an imported
+	// resource is minted a fresh key on the way in, so a stale key on the wire is at
+	// best noise and at worst a collision hazard. Strip it here. This may change if
+	// envelopes ever need to carry stable identity across clusters.
+	delete(body, "key")
 	typ := env.Type
 	if v, ok := body["type"]; ok {
 		s, ok := v.(string)
