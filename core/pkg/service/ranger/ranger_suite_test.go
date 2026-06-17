@@ -14,6 +14,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -21,5 +28,35 @@ func TestRanger(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Service Ranger Suite")
 }
+
+var (
+	db       *gorp.DB
+	svc      *ranger.Service
+	w        ranger.Writer
+	otg      *ontology.Ontology
+	tx       gorp.Tx
+	labelSvc *label.Service
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.Open())
+	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB: db, Ontology: otg, Search: searchIdx,
+	}))
+	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB: db, Ontology: otg, Group: g, Search: searchIdx,
+	}))
+	svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
+		DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
+	}))
+	Expect(searchIdx.Initialize(ctx)).To(Succeed())
+})
+
+var _ = BeforeEach(func() {
+	tx = DeferClose(db.OpenTx())
+	w = svc.NewWriter(tx)
+})
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -404,6 +404,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
 		Signals:         l.Signals,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
 		return nil, err
 	}

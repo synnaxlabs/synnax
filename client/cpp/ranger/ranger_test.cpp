@@ -17,7 +17,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/test/test.h"
 
-#include "core/pkg/api/ranger/pb/ranger.pb.h"
+#include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));

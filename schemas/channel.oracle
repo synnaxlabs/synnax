@@ -145,7 +145,7 @@ Channel struct {
         """
     }
 
-    @doc value    """
+    @doc value     """
         is an internal representation of a channel containing all storage and
         cluster-routing metadata. This type is used internally by the server;
         clients should use APIChannel instead.
@@ -154,8 +154,9 @@ Channel struct {
     @go marshal
     @go migrate
     @retrieve
-    @retrieve key "Key"
-    @search type  "channel"
+    @retrieve key  "Key"
+    @search
+    @ontology type "channel"
     @py omit
     @ts omit
     @cpp omit

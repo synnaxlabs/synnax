@@ -2093,6 +2093,58 @@ var _ = Describe("TS Types Plugin", func() {
 				ExpectContent(resp, "types.gen.ts").
 					ToContain("keyZ")
 			})
+
+			It("Should use a non-primitive type override referencing another schema type", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Bounded struct {
+						start int64
+						end   int64
+					}
+
+					Span struct {
+						start int64
+					}
+
+					Range struct {
+						extent Span {
+							@ts type Bounded
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("extent: boundedZ").
+					ToNotContain("extent: spanZ").
+					ToNotContain("extent: z.unknown()")
+			})
+		})
+
+		Context("struct field with @ts pick", func() {
+			It("Should narrow a struct-typed field to the picked fields", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Range struct {
+						key uuid {
+							@key
+						}
+						name   string
+						parent Range??
+					}
+
+					New struct extends Range {
+						parent Range?? {
+							@ts pick key
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(".omit({ parent: true })").
+					ToContain("parent: rangeZ.pick({ key: true }).optional()")
+			})
 		})
 
 		Context("struct with forward reference", func() {

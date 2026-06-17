@@ -7,6 +7,7 @@ proto_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/go/color:color_proto",
+        "//x/go/label:label_proto",
         "//x/go/telem:telem_proto",
     ],
 )
@@ -18,6 +19,7 @@ cpp_grpc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//x/go/color:color_grpc",
+        "//x/go/label:label_grpc",
         "//x/go/telem:telem_grpc",
     ],
 )

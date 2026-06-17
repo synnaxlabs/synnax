@@ -9,10 +9,15 @@
 
 package v0
 
-import "github.com/synnaxlabs/synnax/pkg/service/channel"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+)
 
-// Version is the semantic version string written by the console at this state version.
-const Version = "0.0.0"
+// Version is the imex schema version of log data at this state. The Console stamped it
+// on the wire as the semver string "0.0.0", which legacy.MigrateData decodes onto this
+// numeric version.
+const Version imex.Version = 0
 
 // Data is the frozen type for log data at version 0. Channels are stored as bare
 // channel keys. Key, Name, Type, and Version are envelope-level fields and are not part

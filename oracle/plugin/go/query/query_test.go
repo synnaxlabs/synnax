@@ -110,27 +110,6 @@ var _ = Describe("Go Query Plugin", func() {
 						"func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error)",
 					)
 			})
-
-			It("Should use explicit @search type override", func(ctx SpecContext) {
-				source := `
-					@go output "core/pkg/service/ranger"
-
-					Ranger struct {
-						key uuid {
-							@key
-						}
-						name string
-						@ontology type "ranger"
-						@retrieve
-						@search type "range"
-					}
-				`
-				resp := MustGenerate(ctx, source, "ranger", loader, p)
-
-				ExpectContent(resp, "retrieve.gen.go").
-					ToContain("ontology.ResourceTypeRange").
-					ToNotContain("ontology.ResourceTypeRanger")
-			})
 		})
 
 		Context("filters", func() {

@@ -220,6 +220,24 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Name).To(Equal("n"))
 			})
 
+			It("Should drop a top-level key field from the encoded body", func() {
+				type keyed struct {
+					Key  string `json:"key"`
+					Name string `json:"name"`
+					Foo  int    `json:"foo"`
+				}
+				env := imex.Envelope{Version: 1, Type: "log"}
+				Expect(imex.Encode(
+					&env, keyed{Key: "should-be-dropped", Name: "n", Foo: 1},
+				)).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("key"))
+				Expect(round["name"]).To(Equal("n"))
+				Expect(round["foo"]).To(BeEquivalentTo(1))
+			})
+
 			It("Should fail when neither the envelope nor the data carries a type", func() {
 				Expect(imex.Encode(
 					&imex.Envelope{Version: 1}, wirePayload{Name: "n", Foo: 1},
@@ -652,5 +670,30 @@ var _ = Describe("ImEx", func() {
 					MatchError(ContainSubstring("latest: 4")),
 				))
 		})
+	})
+
+	Describe("Version", func() {
+		DescribeTable("Should decode the numeric and legacy semver forms",
+			func(raw string, expected imex.Version) {
+				var v imex.Version
+				Expect(json.Unmarshal([]byte(raw), &v)).To(Succeed())
+				Expect(v).To(Equal(expected))
+			},
+			Entry("numeric", "2", imex.Version(2)),
+			Entry("legacy v0 semver", `"0.0.0"`, imex.Version(0)),
+			Entry("legacy v1 semver", `"1.0.0"`, imex.Version(1)),
+			Entry("legacy high major", `"42.0.0"`, imex.Version(42)),
+		)
+
+		DescribeTable("Should reject an unparseable version",
+			func(raw string) {
+				var v imex.Version
+				Expect(json.Unmarshal([]byte(raw), &v)).
+					To(MatchError(ContainSubstring("version")))
+			},
+			Entry("non-zero minor/patch", `"1.2.3"`),
+			Entry("not a semver", `"garbage"`),
+			Entry("wrong type", "true"),
+		)
 	})
 })
