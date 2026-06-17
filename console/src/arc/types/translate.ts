@@ -7,41 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { type arc } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
 
-import { type GraphState } from "@/arc/types";
-
-export const translateGraphToConsole = (module: arc.graph.Graph): GraphState => ({
-  nodes: module.nodes.map((n) => ({
-    key: n.key,
-    position: n.position,
-    zIndex: 1,
-  })),
-  edges: module.edges.map((e) => ({
-    key: `${e.source.node}-${e.target.node}`,
-    source: { node: e.source.node, param: e.source.param },
-    target: { node: e.target.node, param: e.target.param },
-  })),
-  props: Object.fromEntries(
-    module.nodes.map((n) => [n.key, { key: n.type, ...n.config }]),
-  ),
-  viewport: { position: xy.ZERO, zoom: 1 },
-  selected: [],
-  editable: false,
-  fitViewOnResize: false,
-});
-
-export const translateGraphToServer = (state: GraphState): arc.graph.Graph => ({
-  nodes: state.nodes.map((n) => {
-    const { key: type, ...config } = state.props[n.key];
-    return { key: n.key, type, config, position: n.position };
-  }),
-  edges: state.edges.map((e) => ({
-    source: e.source,
-    target: e.target,
-    kind: arc.ir.EdgeKind.continuous,
-  })),
+// ZERO_GRAPH is an empty Arc graph. The editor owns graph state via the flux
+// store, so this is only used as a fallback when a graph has not yet loaded.
+export const ZERO_GRAPH: arc.graph.Graph = {
+  nodes: [],
+  edges: [],
   viewport: { position: xy.ZERO, zoom: 1 },
   functions: [],
-});
+};

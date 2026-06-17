@@ -28,7 +28,6 @@ import { ContextMenu } from "@/arc/ContextMenu";
 import { Editor } from "@/arc/editor";
 import { EXPLORER_LAYOUT } from "@/arc/Explorer";
 import { useRename, useTask } from "@/arc/hooks";
-import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
@@ -70,8 +69,7 @@ const Content = () => {
           description: `Arc with key ${key} not found`,
         });
       const { name, text, mode } = retrieved;
-      const graph = translateGraphToConsole(retrieved.graph);
-      placeLayout(Editor.create({ key, name, graph, text, mode }));
+      placeLayout(Editor.create({ key, name, text, mode }));
     },
     [getItem, addStatus, placeLayout],
   );

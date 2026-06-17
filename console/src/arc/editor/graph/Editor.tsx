@@ -8,105 +8,21 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import {
-  Access,
-  Arc as Base,
-  Component,
-  Diagram,
-  Haul,
-  Theming,
-  useSyncedRef,
-  Viewport,
-} from "@synnaxlabs/pluto";
-import { box, id, TimeSpan, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { Access, Arc as Base, Diagram, Viewport } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback, useMemo } from "react";
+import { useDispatch } from "react-redux";
 
 import { Controls } from "@/arc/editor/Controls";
-import { Provider, useArcEditorContext } from "@/arc/editor/graph/Context";
+import { useSelect, useSelectSelected, useSelectViewportMode } from "@/arc/selectors";
 import {
-  select,
-  useSelect,
-  useSelectNodeProps,
-  useSelectSelected,
-  useSelectViewportMode,
-} from "@/arc/selectors";
-import {
-  addElement,
-  applyEdgeChanges,
-  applyNodeChanges,
-  copySelection,
-  internalCreate,
-  pasteSelection,
-  selectAll,
   setEditable,
-  setElementProps,
   setFitViewOnResize,
   setSelected,
   setViewport,
   setViewportMode,
-  type State,
 } from "@/arc/slice";
 import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
-import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
-import { type RootState } from "@/store";
-
-export const HAUL_TYPE = "arc_element";
-
-export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, undefined>;
-
-export const createHaulItem = (key: string): HaulItem => ({ type: HAUL_TYPE, key });
-
-export const isHaulItem = (item: Haul.Item): item is HaulItem =>
-  item.type === HAUL_TYPE;
-
-export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
-  items.filter(isHaulItem);
-
-export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
-
-const NodeRenderer = ({
-  nodeKey,
-  position,
-  selected,
-  draggable,
-}: Diagram.NodeProps): ReactElement | null => {
-  const { layoutKey, dispatch } = useArcEditorContext("ArcEditor.NodeRenderer");
-  const props = useSelectNodeProps(layoutKey, nodeKey);
-  const { key = "", ...rest } = props ?? {};
-  const handleChange = useCallback(
-    (props: object) => {
-      if (key == null) return;
-      dispatch(
-        setElementProps({
-          layoutKey,
-          key: nodeKey,
-          props: { key, ...props },
-        }),
-      );
-    },
-    [nodeKey, layoutKey, key, dispatch],
-  );
-  if (props == null) return null;
-  const C = Base.Stage.REGISTRY[key];
-  if (C == null) throw new Error(`Symbol ${key} not found`);
-  return (
-    <C.Symbol
-      key={key}
-      nodeKey={nodeKey}
-      position={position}
-      selected={selected}
-      draggable={draggable}
-      onChange={handleChange}
-      {...rest}
-    />
-  );
-};
-
-const ArcDiagram = Base.create({
-  node: Component.renderProp(NodeRenderer),
-});
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <CMenu.Menu>
@@ -114,189 +30,54 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   </CMenu.Menu>
 );
 
-export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
+export const Editor: Layout.Renderer = ({ layoutKey, visible }): ReactElement => {
   const state = useSelect(layoutKey);
-
   const dispatch = useDispatch();
-  const selector = useCallback(
-    (state: RootState) => select(state, layoutKey),
-    [layoutKey],
-  );
-  const [undoableDispatch, undo, redo] = useUndoableDispatch<RootState, State>(
-    selector,
-    internalCreate,
-    TimeSpan.milliseconds(30),
-  );
-
-  const theme = Theming.use();
-  const viewportRef = useSyncedRef(state.graph.viewport);
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const canEdit = hasUpdatePermission && state.graph.editable;
-
   const selected = useSelectSelected(layoutKey);
-
-  const handleSelectionChange = useCallback(
-    (selected: string[]) => dispatch(setSelected({ key: layoutKey, selected })),
-    [layoutKey, dispatch],
-  );
-
-  const handleNodesChange = useCallback(
-    (changes: Diagram.NodeChange[]) => {
-      const dragging = changes.some(
-        (c) => c.type === "position" && c.dragging === true,
-      );
-      const action = applyNodeChanges({ key: layoutKey, changes });
-      if (dragging) dispatch(action);
-      else undoableDispatch(action);
-    },
-    [layoutKey, dispatch, undoableDispatch],
-  );
-
-  const handleEdgesChange = useCallback(
-    (changes: Diagram.EdgeChange[]) =>
-      undoableDispatch(applyEdgeChanges({ key: layoutKey, changes })),
-    [layoutKey, undoableDispatch],
-  );
-
-  const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
-    (vp) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
-    [layoutKey, dispatch],
-  );
-
-  const handleEditableChange: Diagram.DiagramProps["onEditableChange"] = useCallback(
-    (cbk) => dispatch(setEditable({ key: layoutKey, editable: cbk })),
-    [layoutKey, dispatch],
-  );
-
-  const handleSetFitViewOnResize = useCallback(
-    (v: boolean) =>
-      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
-    [layoutKey, dispatch],
-  );
-
-  const ref = useRef<HTMLDivElement>(null);
-
-  const calculateCursorPosition = useCallback(
-    (cursor: xy.Crude) =>
-      Diagram.calculateCursorPosition(
-        box.construct(ref.current ?? box.ZERO),
-        cursor,
-        viewportRef.current,
-      ),
-    [],
-  );
-
-  const handleDrop = useCallback(
-    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = filterHaulItems(items);
-      if (ref.current == null || event == null) return valid;
-      valid.forEach(({ key }) => {
-        const spec = Base.Stage.REGISTRY[key];
-        if (spec == null) return;
-        const pos = xy.truncate(calculateCursorPosition(event), 0);
-        undoableDispatch(
-          addElement({
-            key: layoutKey,
-            elKey: id.create(),
-            node: { position: pos, zIndex: spec.zIndex },
-            props: { key, ...spec.defaultProps(theme) },
-          }),
-        );
-      });
-      return valid;
-    },
-    [theme, undoableDispatch, layoutKey],
-  );
-
-  const dropProps = Haul.useDrop({
-    type: "arc",
-    key: layoutKey,
-    canDrop: canDropHaulItem,
-    onDrop: handleDrop,
-  });
-
   const viewportMode = useSelectViewportMode();
   const triggers = useMemo(
     () => Viewport.DEFAULT_TRIGGERS[viewportMode],
     [viewportMode],
   );
 
+  const handleSelectionChange = useCallback(
+    (selected: string[]) => dispatch(setSelected({ key: layoutKey, selected })),
+    [layoutKey, dispatch],
+  );
+  const handleViewportChange = useCallback(
+    (viewport: Diagram.Viewport) => dispatch(setViewport({ key: layoutKey, viewport })),
+    [layoutKey, dispatch],
+  );
+  const handleEditableChange = useCallback(
+    (editable: boolean) => dispatch(setEditable({ key: layoutKey, editable })),
+    [layoutKey, dispatch],
+  );
+  const handleSetFitViewOnResize = useCallback(
+    (v: boolean) =>
+      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
+    [layoutKey, dispatch],
+  );
+  const handleViewportModeChange = useCallback(
+    (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
+    [dispatch],
+  );
   const handleDoubleClick = useCallback(() => {
     if (!state.graph.editable) return;
     dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [state.graph.editable, dispatch]);
 
-  const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
-    [dispatch],
-  );
-
-  const handleCopySelection = useCallback(
-    (cursor: xy.XY) =>
-      dispatch(copySelection({ pos: calculateCursorPosition(cursor) })),
-    [dispatch, calculateCursorPosition],
-  );
-
-  const handlePasteSelection = useCallback(
-    (cursor: xy.XY) =>
-      dispatch(
-        pasteSelection({
-          pos: calculateCursorPosition(cursor),
-          key: layoutKey,
-        }),
-      ),
-    [dispatch, calculateCursorPosition, layoutKey],
-  );
-
-  const handleSelectAll = useCallback(
-    () => dispatch(selectAll({ key: layoutKey })),
-    [dispatch, layoutKey],
-  );
-
-  const handleClearSelection = useCallback(
-    () => dispatch(setSelected({ key: layoutKey, selected: [] })),
-    [dispatch, layoutKey],
-  );
-
-  const store = useStore<RootState>();
-
-  const enableTriggers = useCallback(
-    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
-    [store, layoutKey],
-  );
-
-  Diagram.useTriggers({
-    onCopy: handleCopySelection,
-    onPaste: handlePasteSelection,
-    onSelectAll: handleSelectAll,
-    onClearSelection: handleClearSelection,
-    onUndo: undo,
-    onRedo: redo,
-    enabled: enableTriggers,
-  });
-
-  const ctxValue = useMemo(
-    () => ({ layoutKey, dispatch: undoableDispatch }),
-    [layoutKey, undoableDispatch],
-  );
-
   return (
-    <Provider value={ctxValue}>
-      <ArcDiagram
-        ref={ref}
+    <>
+      <Base.Graph
+        resourceKey={layoutKey}
+        viewport={{ ...state.graph.viewport, zoom: 1 }}
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
-        edges={state.graph.edges}
-        nodes={state.graph.nodes}
-        // Turns out that setting the zoom value to 1 here doesn't have any negative
-        // effects on the arc sizing and ensures that we position all the lines
-        // in the correct place.
-        viewport={{ ...state.graph.viewport, zoom: 1 }}
         selected={selected}
         onSelectionChange={handleSelectionChange}
-        onEdgesChange={handleEdgesChange}
-        onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
         editable={canEdit}
         triggers={triggers}
@@ -304,15 +85,14 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
         fitViewOnResize={state.graph.fitViewOnResize}
         setFitViewOnResize={handleSetFitViewOnResize}
         visible={visible}
-        {...dropProps}
       >
         <Diagram.Background />
         <BaseControls x>
           <Diagram.Controls.FitView />
           {hasUpdatePermission && <Diagram.Controls.ToggleEdit />}
         </BaseControls>
-      </ArcDiagram>
+      </Base.Graph>
       <Controls state={state} />
-    </Provider>
+    </>
   );
 };

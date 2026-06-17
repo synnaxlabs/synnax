@@ -23,9 +23,7 @@ import {
   Theming,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
 
-import { createHaulItem } from "@/arc/editor/graph/Editor";
 import { useAddSymbol } from "@/arc/useAddSymbol";
 import { CSS } from "@/css";
 
@@ -37,7 +35,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   });
   const theme = Theming.use();
   const handleDragStart = useCallback(() => {
-    startDrag([createHaulItem(itemKey)]);
+    startDrag([Arc.createHaulItem(itemKey)]);
   }, [startDrag, itemKey]);
 
   const spec = List.useItem<string, Arc.Stage.Spec>(itemKey);
@@ -140,8 +138,7 @@ const GroupList = ({ value, onChange }: GroupListProps) => {
 
 export const Stages = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const [selectedGroup, setSelectedGroup] = useState<string>("basic");
-  const dispatch = useDispatch();
-  const addSymbol = useAddSymbol(dispatch, layoutKey);
+  const addSymbol = useAddSymbol(layoutKey);
   return (
     <Flex.Box y empty full className={CSS.BE("arc", "stages")}>
       <Flex.Box x sharp className={CSS.BE("arc", "stages", "group", "list")}>

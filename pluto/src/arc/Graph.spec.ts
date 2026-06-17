@@ -16,7 +16,7 @@ import {
   filterHaulItems,
   HAUL_TYPE,
   isHaulItem,
-} from "@/arc/editor/graph/Editor";
+} from "@/arc/Graph";
 
 const KEY = "stage-key";
 const OTHER: Haul.Item = { type: "other_type", key: "other" };
