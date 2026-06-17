@@ -120,8 +120,9 @@ var _ = Describe("OpenService", func() {
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
 		builder := DeferClose(mock.NewCluster())
 		dist := DeferClose(builder.Provision(ctx))
+		channelSvc := channel.Wrap(dist.Layer)
 		sigs := MustSucceed(signals.New(signals.Config{
-			Channel: channel.Wrap(dist.Channel),
+			Channel: channelSvc,
 			Framer:  framer.Wrap(dist.Framer),
 		}))
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
@@ -133,7 +134,7 @@ var _ = Describe("OpenService", func() {
 		}))
 		for _, name := range []string{"sy_log_set", "sy_log_delete"} {
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames(name)).
+			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
 				Entry(&ch).Exec(ctx, nil)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())

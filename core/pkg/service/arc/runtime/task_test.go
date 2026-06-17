@@ -515,7 +515,8 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Status Reporting", func() {
 		It("Should set a task-level warning when status.set matches multiple statuses by name", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "report_trigger", Virtual: true, DataType: telem.Float32T}
-			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+			channelSvc := channel.Wrap(dist.Layer)
+			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
 
 			dupName := "dup_alarm_" + uuid.NewString()[:8]
 			w := status.NewWriter[any](statusSvc, nil)
