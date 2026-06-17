@@ -15,6 +15,7 @@ import {
 import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
+import { type Action, dispatchReqZ } from "@/arc/actions.gen";
 import { type Arc, arcZ, type Key, keyZ, type New, newZ } from "@/arc/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -104,6 +105,15 @@ export class Client {
       "/arc/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
+      emptyResZ,
+    );
+  }
+
+  async dispatch(key: Key, dispatchKey: string, actions: Action[]): Promise<void> {
+    await this.client.send(
+      "/arc/dispatch",
+      { key, dispatchKey, actions },
+      dispatchReqZ,
       emptyResZ,
     );
   }

@@ -26,7 +26,11 @@ import { state } from "@/state";
 import { type Status } from "@/status";
 import { Task } from "@/task";
 
-export interface FluxStore extends Flux.UnaryStore<arc.Key, arc.Arc> {}
+export interface FluxStore extends Flux.UndoableUnaryStore<
+  arc.Key,
+  arc.Arc,
+  arc.Action
+> {}
 
 export const FLUX_STORE_KEY = "arcs";
 const RESOURCE_NAME = "Arc";
@@ -36,11 +40,32 @@ export interface FluxSubStore extends Status.FluxSubStore, Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-const SET_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.arcZ> = {
-  channel: arc.SET_CHANNEL_NAME,
-  schema: arc.arcZ,
-  onChange: ({ store, changed }) => store.arcs.set(changed.key, changed),
+// kindOfTransaction classifies an action batch for the undo coalesce window. A
+// node drag dispatches a stream of set_node_position actions for a single
+// gesture; classifying them all as "move" collapses them into one undoable.
+const kindOfTransaction = (actions: arc.Action[]): string => {
+  if (actions.length === 0) return "default";
+  const hasMove = actions.some((a) => a.type === "set_node_position");
+  const onlyMove = actions.every((a) => a.type === "set_node_position");
+  if (hasMove && onlyMove) return "move";
+  if (actions.length === 1) return actions[0].type;
+  return "transaction";
 };
+
+const undoableStoreConfig = Flux.createUndoableStore<
+  arc.Key,
+  arc.Arc,
+  arc.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  reduce: arc.reduceAll,
+  channel: arc.SET_CHANNEL_NAME,
+  schema: arc.scopedActionZ,
+  isUndoable: arc.isUndoable,
+  kindOf: kindOfTransaction,
+});
 
 const DELETE_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.keyZ> = {
   channel: arc.DELETE_CHANNEL_NAME,
@@ -48,8 +73,22 @@ const DELETE_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.keyZ> =
   onChange: ({ store, changed }) => store.arcs.delete(changed),
 };
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore, arc.Key, arc.Arc> =
-  { listeners: [SET_ARC_LISTENER, DELETE_ARC_LISTENER] };
+export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
+  ...undoableStoreConfig,
+  listeners: [...undoableStoreConfig.listeners, DELETE_ARC_LISTENER],
+};
+
+export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+  arc.Key,
+  arc.Arc,
+  arc.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  send: ({ client, key, actions, dispatchKey }) =>
+    client.arcs.dispatch(key, dispatchKey, actions),
+});
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
