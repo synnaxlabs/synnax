@@ -15,7 +15,6 @@ import {
   createHaulItem,
   filterHaulItems,
   HAUL_TYPE,
-  isHaulItem,
 } from "@/arc/Graph";
 
 const KEY = "stage-key";
@@ -29,16 +28,6 @@ describe("arc element haul utilities", () => {
 
     it("creates an item with the provided key", () => {
       expect(createHaulItem(KEY).key).toEqual(KEY);
-    });
-  });
-
-  describe("isHaulItem", () => {
-    it("returns true for an arc element item", () => {
-      expect(isHaulItem(createHaulItem(KEY))).toBe(true);
-    });
-
-    it("returns false for an item of another kind", () => {
-      expect(isHaulItem(OTHER)).toBe(false);
     });
   });
 

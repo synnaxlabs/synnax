@@ -8,6 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/arc/Arc";
+export * from "@/arc/clipboard";
+export * from "@/arc/Diagram";
+export * from "@/arc/Editor";
 export * from "@/arc/functions";
 export * from "@/arc/Graph";
 export * from "@/arc/queries";

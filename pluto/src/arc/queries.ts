@@ -15,10 +15,11 @@ import {
   status,
   task,
 } from "@synnaxlabs/client";
-import { errors, id, primitive, type record } from "@synnaxlabs/x";
+import { errors, id, primitive, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
+import { Stage } from "@/arc/functions";
 import { edgesToDiagram, nodeProps } from "@/arc/translate";
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
@@ -26,6 +27,7 @@ import { type List } from "@/list";
 import { state } from "@/state";
 import { type Status } from "@/status";
 import { Task } from "@/task";
+import { Theming } from "@/theming";
 import { type Diagram } from "@/vis/diagram";
 
 export interface FluxStore extends Flux.UndoableUnaryStore<
@@ -150,6 +152,50 @@ export const useSelectNodeProps = Flux.createSelector<
     store.arcs.get(key)?.graph.nodes.find((n) => n.key === nodeKey),
   transform: (node) => (node == null ? undefined : nodeProps(node)),
 });
+
+// useSelectMode returns the representation mode of the Arc with the given key,
+// or undefined when it has not yet loaded into the store.
+export const useSelectMode = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  arc.Mode | undefined
+>({
+  subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
+  select: (store, { key }) => store.arcs.get(key)?.mode,
+});
+
+export interface AddNodeProps {
+  key: string;
+  type: string;
+  position?: xy.Crude;
+}
+
+// useAddNode returns a callback that appends a node of the given function type at
+// the given position, seeding its config from the type's default props.
+export const useAddNode = (key: arc.Key) => {
+  const theme = Theming.use();
+  const { dispatch } = useDispatch();
+  return useCallback(
+    ({ key: nodeKey, type, position }: AddNodeProps) => {
+      const spec = Stage.REGISTRY[type];
+      if (spec == null) return;
+      dispatch({
+        key,
+        actions: [
+          arc.setNode({
+            node: {
+              key: nodeKey,
+              type,
+              config: spec.defaultProps(theme),
+              position: xy.construct(position ?? xy.ZERO),
+            },
+          }),
+        ],
+      });
+    },
+    [key, dispatch, theme],
+  );
+};
 
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;

@@ -7,28 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
-import { box, id, type record, xy } from "@synnaxlabs/x";
+import { type arc } from "@synnaxlabs/client";
+import { box, id, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
-import { create } from "@/arc/Arc";
-import { Stage } from "@/arc/functions";
+import { useClipboard } from "@/arc/clipboard";
+import { Diagram, edgeChangesToActions, nodeChangesToActions } from "@/arc/Diagram";
 import {
+  useAddNode,
   useDispatch,
   useRedo,
   useSelectEdges,
-  useSelectNodeProps,
   useSelectNodes,
   useUndo,
 } from "@/arc/queries";
-import { parseEdgeKey } from "@/arc/translate";
-import { Component } from "@/component";
+import { type Component } from "@/component";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { Key } from "@/key";
 import { Menu } from "@/menu";
-import { Theming } from "@/theming";
 import { type Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
@@ -38,124 +36,12 @@ export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, undefined>;
 
 export const createHaulItem = (key: string): HaulItem => ({ type: HAUL_TYPE, key });
 
-export const isHaulItem = (item: Haul.Item): item is HaulItem =>
-  item.type === HAUL_TYPE;
+const isHaulItem = (item: Haul.Item): item is HaulItem => item.type === HAUL_TYPE;
 
 export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
   items.filter(isHaulItem);
 
 export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
-
-// nodeChangesToActions converts diagram node gestures into Arc actions. Dimension
-// changes are dropped: Arc graph nodes carry no measured field, so the diagram
-// re-measures them on mount.
-export const nodeChangesToActions = (
-  changes: BaseDiagram.NodeChange[],
-): arc.Action[] => {
-  const actions: arc.Action[] = [];
-  changes.forEach((ch) => {
-    switch (ch.type) {
-      case "position":
-        actions.push(arc.setNodePosition({ key: ch.key, position: ch.position }));
-        return;
-      case "remove":
-        actions.push(arc.removeNode({ key: ch.key }));
-    }
-  });
-  return actions;
-};
-
-// edgeChangesToActions converts diagram edge gestures into Arc actions. Removal
-// recovers the endpoints from the diagram edge key, since Arc edges carry no key
-// on the wire.
-export const edgeChangesToActions = (changes: BaseDiagram.EdgeChange[]): arc.Action[] =>
-  changes.flatMap((ch) => {
-    switch (ch.type) {
-      case "add":
-        return [
-          arc.addEdge({
-            edge: {
-              source: ch.edge.source,
-              target: ch.edge.target,
-              kind: arc.ir.EdgeKind.continuous,
-            },
-          }),
-        ];
-      case "remove":
-        return [arc.removeEdge(parseEdgeKey(ch.key))];
-      default:
-        return [];
-    }
-  });
-
-export interface AddNodeProps {
-  key: string;
-  type: string;
-  position?: xy.Crude;
-}
-
-// useAddNode returns a callback that appends a node of the given function type at
-// the given position, seeding its config from the type's default props.
-export const useAddNode = (key: arc.Key) => {
-  const theme = Theming.use();
-  const { dispatch } = useDispatch();
-  return useCallback(
-    ({ key: nodeKey, type, position }: AddNodeProps) => {
-      const spec = Stage.REGISTRY[type];
-      if (spec == null) return;
-      dispatch({
-        key,
-        actions: [
-          arc.setNode({
-            node: {
-              key: nodeKey,
-              type,
-              config: spec.defaultProps(theme),
-              position: xy.construct(position ?? xy.ZERO),
-            },
-          }),
-        ],
-      });
-    },
-    [key, dispatch, theme],
-  );
-};
-
-const NodeRenderer = ({
-  nodeKey,
-  position,
-  selected,
-  draggable,
-}: BaseDiagram.NodeProps): ReactElement | null => {
-  const key = Key.use<arc.Key>("Arc.Graph.NodeRenderer");
-  const props = useSelectNodeProps({ key, nodeKey });
-  const { dispatch } = useDispatch();
-  const { key: type = "", ...rest } = props ?? {};
-  const handleChange = useCallback(
-    (config: record.Unknown) =>
-      dispatch({
-        key,
-        actions: [arc.setNodeConfig({ key: nodeKey, config })],
-      }),
-    [key, nodeKey, dispatch],
-  );
-  if (props == null) return null;
-  const typeKey = type as string;
-  const C = Stage.REGISTRY[typeKey];
-  if (C == null) throw new Error(`Arc function ${typeKey} not found`);
-  return (
-    <C.Symbol
-      nodeKey={nodeKey}
-      position={position}
-      selected={selected}
-      draggable={draggable}
-      onChange={handleChange}
-      {...rest}
-    />
-  );
-};
-
-const ArcDiagram = create({ node: Component.renderProp(NodeRenderer) });
 
 const UNDO_TRIGGER: Triggers.Trigger = ["Control", "Z"];
 const REDO_TRIGGER: Triggers.Trigger = ["Control", "Shift", "Z"];
@@ -248,6 +134,12 @@ export const Graph = ({
   const { undo, canUndo } = useUndo({ key });
   const { redo, canRedo } = useRedo({ key });
 
+  const { onCopy, onPaste } = useClipboard({
+    key,
+    selected,
+    onPaste: onSelectionChange,
+  });
+
   BaseDiagram.useTriggers({
     onSelectAll: handleSelectAll,
     onClearSelection: handleClearSelection,
@@ -291,7 +183,7 @@ export const Graph = ({
 
   return (
     <Key.Provider value={key}>
-      <ArcDiagram
+      <Diagram
         ref={ref}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
@@ -299,6 +191,8 @@ export const Graph = ({
         onSelectionChange={onSelectionChange}
         editable={editable}
         onContextMenu={contextMenu.open}
+        onCopy={onCopy}
+        onPaste={onPaste}
         nodes={nodes}
         edges={edges}
         selected={selected}
@@ -307,7 +201,7 @@ export const Graph = ({
       >
         {children}
         <Menu.ContextMenu {...contextMenu} menu={renderMenu} />
-      </ArcDiagram>
+      </Diagram>
     </Key.Provider>
   );
 };
