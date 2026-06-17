@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -132,9 +133,20 @@ type (
 		Offset        int       `json:"offset" msgpack:"offset"`
 		IncludeStatus bool      `json:"include_status" msgpack:"include_status"`
 		Compile       bool      `json:"compile" msgpack:"compile"`
+		IncludeDoc    bool      `json:"include_doc" msgpack:"include_doc"`
 	}
 	RetrieveResponse struct {
-		Arcs []Arc `json:"arcs" msgpack:"arcs"`
+		Arcs []Arc         `json:"arcs" msgpack:"arcs"`
+		Docs []DocSnapshot `json:"docs" msgpack:"docs"`
+	}
+	// DocSnapshot is the set of operations that reconstruct an arc's live collaborative
+	// document. Retrieve returns one per arc when IncludeDoc is set so a joining client
+	// bootstraps into the same id space as the other editors instead of re-seeding from
+	// the materialized text and diverging.
+	DocSnapshot struct {
+		Key     arc.Key       `json:"key" msgpack:"key"`
+		Inserts []crdt.Insert `json:"inserts" msgpack:"inserts"`
+		Deletes []crdt.Delete `json:"deletes" msgpack:"deletes"`
 	}
 )
 
@@ -190,6 +202,21 @@ func (s *Service) Retrieve(
 		Objects: arc.OntologyIDsFromArcs(arcs),
 	}); err != nil {
 		return RetrieveResponse{}, err
+	}
+
+	if req.IncludeDoc {
+		res.Docs = make([]DocSnapshot, 0, len(arcs))
+		for i := range arcs {
+			inserts, deletes, err := s.internal.Snapshot(ctx, arcs[i].Key)
+			if err != nil {
+				return RetrieveResponse{}, err
+			}
+			res.Docs = append(res.Docs, DocSnapshot{
+				Key:     arcs[i].Key,
+				Inserts: inserts,
+				Deletes: deletes,
+			})
+		}
 	}
 	return res, nil
 }

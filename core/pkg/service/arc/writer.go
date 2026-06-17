@@ -35,9 +35,10 @@ type Writer struct {
 
 // Dispatch broadcasts a sequence of collaborative-edit actions for the arc with the
 // given key to the other editors of that arc, via the cluster signals pipeline. The
-// actions are relayed verbatim; the server does not materialize them into the arc's
-// text (see SY-4393). dispatchKey is the originating client's batch identifier, echoed
-// on the broadcast so the sender can recognize its own edits.
+// actions are relayed verbatim and integrated into the server's authoritative document
+// by the collaborative session; Dispatch itself does not touch the arc's stored text.
+// dispatchKey is the originating client's batch identifier, echoed on the broadcast so
+// the sender can recognize its own edits.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,

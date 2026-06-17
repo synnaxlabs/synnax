@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
@@ -99,6 +100,18 @@ type Service struct {
 	cfg    ServiceConfig
 	// state owns the observer that collaborative-edit dispatches are broadcast through.
 	state *actions.State[Key, Action]
+	// collab holds the authoritative CRDT document for each arc under collaborative edit.
+	collab *collab
+}
+
+// Snapshot returns the operations that reconstruct the current collaborative document for
+// the arc with the given key, so a joining client can bootstrap into the same id space.
+// The document is seeded from persisted text if no session is yet open.
+func (s *Service) Snapshot(
+	ctx context.Context,
+	key Key,
+) ([]crdt.Insert, []crdt.Delete, error) {
+	return s.collab.snapshot(ctx, key)
 }
 
 // NewChannelResolver returns the dynamic resolver that the analyzer consults for
@@ -218,6 +231,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			return nil, err
 		}
 	}
+	s.collab = openCollab(s)
+	ok(nil, s.collab)
 	return s, nil
 }
 
