@@ -15,7 +15,7 @@ import {
   status,
   task,
 } from "@synnaxlabs/client";
-import { errors, primitive, type record } from "@synnaxlabs/x";
+import { errors, id, primitive, type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -367,7 +367,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
       data: { key, name },
       rollbacks,
     } = params;
-    const arc = await retrieveSingle({ client, store, query: { key } });
     const task = await retrieveTask({ client, store, query: { arcKey: key } });
     if (task != null) await Task.rename({ ...params, data: { key: task.key, name } });
 
@@ -377,7 +376,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
         state.skipUndefined((p) => ({ ...p, name })),
       ),
     );
-    await client.arcs.create({ ...arc, name });
+    await client.arcs.dispatch(key, id.create(), [arc.rename({ name })]);
     return { key, name };
   },
 });
