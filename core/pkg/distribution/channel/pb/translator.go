@@ -12,6 +12,7 @@ package pb
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -20,132 +21,101 @@ import (
 )
 
 type (
-	CreateMessageTranslator struct{}
-	DeleteRequestTranslator struct{}
-	RenameMessageTranslator struct{}
+	createMessageTranslator struct{}
+	deleteRequestTranslator struct{}
+	renameMessageTranslator struct{}
 )
 
 var (
-	_ grpc.Translator[channel.CreateMessage, *CreateMessage] = (*CreateMessageTranslator)(nil)
-	_ grpc.Translator[channel.DeleteRequest, *DeleteRequest] = (*DeleteRequestTranslator)(nil)
-	_ grpc.Translator[channel.RenameRequest, *RenameRequest] = (*RenameMessageTranslator)(nil)
+	CreateMessageTranslator grpc.Translator[channel.CreateMessage, *CreateMessage] = createMessageTranslator{}
+	DeleteRequestTranslator grpc.Translator[channel.DeleteRequest, *DeleteRequest] = deleteRequestTranslator{}
+	RenameMessageTranslator grpc.Translator[channel.RenameRequest, *RenameRequest] = renameMessageTranslator{}
 )
 
-// channelToPB converts a minimal distribution channel to its protobuf representation.
-// Only the storage and routing fields the distribution layer carries are mapped; the
-// rich metadata fields on the protobuf message (internal/operations/expression) are
-// owned by the service layer and left zero on the cluster-internal wire.
-func channelToPB(c channel.Channel) (*Channel, error) {
-	concurrency, err := controlpb.ConcurrencyToPB(c.Concurrency)
-	if err != nil {
-		return nil, err
-	}
-	return &Channel{
-		Name:        string(c.Name),
-		Leaseholder: uint32(c.Leaseholder),
-		DataType:    string(c.DataType),
-		IsIndex:     c.IsIndex,
-		LocalKey:    uint32(c.LocalKey),
-		LocalIndex:  uint32(c.LocalIndex),
-		Virtual:     c.Virtual,
-		Concurrency: concurrency,
-	}, nil
-}
-
-func channelFromPB(pb *Channel) (channel.Channel, error) {
-	if pb == nil {
-		return channel.Channel{}, nil
-	}
-	concurrency, err := controlpb.ConcurrencyFromPB(pb.Concurrency)
-	if err != nil {
-		return channel.Channel{}, err
-	}
-	return channel.Channel{
-		Name:        channel.Name(pb.Name),
-		Leaseholder: node.Key(pb.Leaseholder),
-		DataType:    telem.DataType(pb.DataType),
-		IsIndex:     pb.IsIndex,
-		LocalKey:    channel.LocalKey(pb.LocalKey),
-		LocalIndex:  channel.LocalKey(pb.LocalIndex),
-		Virtual:     pb.Virtual,
-		Concurrency: concurrency,
-	}, nil
-}
-
-func channelsToPB(cs []channel.Channel) ([]*Channel, error) {
-	res := make([]*Channel, len(cs))
-	for i := range cs {
-		var err error
-		if res[i], err = channelToPB(cs[i]); err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func channelsFromPB(pbs []*Channel) ([]channel.Channel, error) {
-	res := make([]channel.Channel, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		if res[i], err = channelFromPB(pb); err != nil {
-			return nil, err
-		}
-	}
-	return res, nil
-}
-
-func (c CreateMessageTranslator) Forward(
+func (createMessageTranslator) Forward(
 	_ context.Context,
 	msg channel.CreateMessage,
 ) (*CreateMessage, error) {
-	channels, err := channelsToPB(msg.Channels)
+	channels, err := lo.MapErr(msg.Channels,
+		func(c channel.Channel, _ int) (*Channel, error) {
+			concurrency, err := controlpb.ConcurrencyToPB(c.Concurrency)
+			if err != nil {
+				return nil, err
+			}
+			return &Channel{
+				Name:        string(c.Name),
+				Leaseholder: uint32(c.Leaseholder),
+				DataType:    string(c.DataType),
+				IsIndex:     c.IsIndex,
+				LocalKey:    uint32(c.LocalKey),
+				LocalIndex:  uint32(c.LocalIndex),
+				Virtual:     c.Virtual,
+				Concurrency: concurrency,
+			}, nil
+		})
 	if err != nil {
 		return nil, err
 	}
 	return &CreateMessage{Channels: channels}, nil
 }
 
-func (c CreateMessageTranslator) Backward(
+func (createMessageTranslator) Backward(
 	_ context.Context,
 	msg *CreateMessage,
 ) (channel.CreateMessage, error) {
-	channels, err := channelsFromPB(msg.Channels)
+	channels, err := lo.MapErr(msg.Channels,
+		func(c *Channel, _ int) (channel.Channel, error) {
+			if c == nil {
+				return channel.Channel{}, nil
+			}
+			concurrency, err := controlpb.ConcurrencyFromPB(c.Concurrency)
+			if err != nil {
+				return channel.Channel{}, err
+			}
+			return channel.Channel{
+				Name:        channel.Name(c.Name),
+				Leaseholder: node.Key(c.Leaseholder),
+				DataType:    telem.DataType(c.DataType),
+				IsIndex:     c.IsIndex,
+				LocalKey:    channel.LocalKey(c.LocalKey),
+				LocalIndex:  channel.LocalKey(c.LocalIndex),
+				Virtual:     c.Virtual,
+				Concurrency: concurrency,
+			}, nil
+		})
 	if err != nil {
 		return channel.CreateMessage{}, err
 	}
 	return channel.CreateMessage{Channels: channels}, nil
 }
 
-func (d DeleteRequestTranslator) Forward(
+func (deleteRequestTranslator) Forward(
 	_ context.Context,
-	msg channel.DeleteRequest,
+	req channel.DeleteRequest,
 ) (*DeleteRequest, error) {
-	return &DeleteRequest{Keys: msg.Keys.Uint32()}, nil
+	return &DeleteRequest{Keys: req.Keys.Uint32()}, nil
 }
 
-func (d DeleteRequestTranslator) Backward(
+func (deleteRequestTranslator) Backward(
 	_ context.Context,
-	msg *DeleteRequest,
+	req *DeleteRequest,
 ) (channel.DeleteRequest, error) {
-	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys)}, nil
+	return channel.DeleteRequest{Keys: channel.KeysFromUint32(req.Keys)}, nil
 }
 
-func (r RenameMessageTranslator) Forward(
+func (renameMessageTranslator) Forward(
 	_ context.Context,
-	msg channel.RenameRequest,
+	req channel.RenameRequest,
 ) (*RenameRequest, error) {
-	return &RenameRequest{
-		Names: msg.Names,
-		Keys:  msg.Keys.Uint32(),
-	}, nil
+	return &RenameRequest{Names: req.Names, Keys: req.Keys.Uint32()}, nil
 }
 
-func (r RenameMessageTranslator) Backward(
+func (renameMessageTranslator) Backward(
 	_ context.Context,
-	msg *RenameRequest,
+	req *RenameRequest,
 ) (channel.RenameRequest, error) {
 	return channel.RenameRequest{
-		Names: msg.Names,
-		Keys:  channel.KeysFromUint32(msg.Keys),
+		Names: req.Names,
+		Keys:  channel.KeysFromUint32(req.Keys),
 	}, nil
 }

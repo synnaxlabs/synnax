@@ -105,8 +105,8 @@ var (
 func New(pool *fgrpc.Pool) Transport {
 	createClient := &createClient{
 		Pool:               pool,
-		RequestTranslator:  channelpb.CreateMessageTranslator{},
-		ResponseTranslator: channelpb.CreateMessageTranslator{},
+		RequestTranslator:  channelpb.CreateMessageTranslator,
+		ResponseTranslator: channelpb.CreateMessageTranslator,
 		Exec: func(
 			ctx context.Context,
 			conn grpc.ClientConnInterface,
@@ -118,13 +118,13 @@ func New(pool *fgrpc.Pool) Transport {
 	}
 	createServer := &createServer{
 		Internal:           true,
-		RequestTranslator:  channelpb.CreateMessageTranslator{},
-		ResponseTranslator: channelpb.CreateMessageTranslator{},
+		RequestTranslator:  channelpb.CreateMessageTranslator,
+		ResponseTranslator: channelpb.CreateMessageTranslator,
 		ServiceDesc:        &channelpb.CreateService_ServiceDesc,
 	}
 	deleteClient := &deleteClient{
 		Pool:               pool,
-		RequestTranslator:  channelpb.DeleteRequestTranslator{},
+		RequestTranslator:  channelpb.DeleteRequestTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		Exec: func(
 			ctx context.Context,
@@ -136,13 +136,13 @@ func New(pool *fgrpc.Pool) Transport {
 		ServiceDesc: &channelpb.DeleteService_ServiceDesc,
 	}
 	deleteServer := &deleteServer{
-		RequestTranslator:  channelpb.DeleteRequestTranslator{},
+		RequestTranslator:  channelpb.DeleteRequestTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		ServiceDesc:        &channelpb.DeleteService_ServiceDesc,
 	}
 	renameClient := &renameClient{
 		Pool:               pool,
-		RequestTranslator:  channelpb.RenameMessageTranslator{},
+		RequestTranslator:  channelpb.RenameMessageTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		Exec: func(
 			ctx context.Context,
@@ -154,7 +154,7 @@ func New(pool *fgrpc.Pool) Transport {
 		ServiceDesc: &channelpb.RenameService_ServiceDesc,
 	}
 	renameServer := &renameServer{
-		RequestTranslator:  channelpb.RenameMessageTranslator{},
+		RequestTranslator:  channelpb.RenameMessageTranslator,
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		ServiceDesc:        &channelpb.RenameService_ServiceDesc,
 	}

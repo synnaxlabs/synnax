@@ -24,7 +24,7 @@ import (
 var _ = Describe("Translator", func() {
 	ctx := context.Background()
 	Describe("CreateMessage", func() {
-		t := pb.CreateMessageTranslator{}
+		t := pb.CreateMessageTranslator
 		It("Should round-trip the minimal storage and routing fields", func() {
 			msg := channel.CreateMessage{Channels: []channel.Channel{
 				{
@@ -60,7 +60,7 @@ var _ = Describe("Translator", func() {
 		})
 	})
 	Describe("DeleteRequest", func() {
-		t := pb.DeleteRequestTranslator{}
+		t := pb.DeleteRequestTranslator
 		It("Should round-trip the channel keys", func() {
 			msg := channel.DeleteRequest{Keys: channel.Keys{
 				channel.NewKey(1, 2),
@@ -72,7 +72,7 @@ var _ = Describe("Translator", func() {
 		})
 	})
 	Describe("RenameRequest", func() {
-		t := pb.RenameMessageTranslator{}
+		t := pb.RenameMessageTranslator
 		It("Should round-trip keys and names", func() {
 			msg := channel.RenameRequest{
 				Keys:  channel.Keys{channel.NewKey(1, 2), channel.NewKey(1, 3)},

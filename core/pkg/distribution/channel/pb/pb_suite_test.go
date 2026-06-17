@@ -18,5 +18,5 @@ import (
 
 func TestPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Channel PB Suite")
+	RunSpecs(t, "Distribution Channel Protobuf Suite")
 }
