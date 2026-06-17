@@ -13,8 +13,8 @@ package ranger
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/telem"
 )
 
