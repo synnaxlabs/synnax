@@ -12,7 +12,7 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { array } from "@synnaxlabs/x";
+import { array, crdt } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { type Action, dispatchReqZ } from "@/arc/actions.gen";
@@ -22,6 +22,16 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 export const SET_CHANNEL_NAME = "sy_arc_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
+/** docSnapshotZ is the set of operations that reconstruct an arc's live collaborative
+ * document, returned by retrieve when includeDoc is set so a joining client bootstraps
+ * into the server's id space. */
+export const docSnapshotZ = z.object({
+  key: keyZ,
+  inserts: crdt.insertZ.array(),
+  deletes: crdt.deleteZ.array(),
+});
+export interface DocSnapshot extends z.infer<typeof docSnapshotZ> {}
+
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
@@ -29,11 +39,15 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
   offset: z.int().optional(),
   includeStatus: z.boolean().optional(),
+  includeDoc: z.boolean().optional(),
 });
 const createReqZ = z.object({ arcs: newZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveResZ = z.object({ arcs: array.nullishToEmpty(arcZ) });
+const retrieveResZ = z.object({
+  arcs: array.nullishToEmpty(arcZ),
+  docs: array.nullishToEmpty(docSnapshotZ),
+});
 const createResZ = z.object({ arcs: arcZ.array() });
 const emptyResZ = z.object({});
 
@@ -125,5 +139,18 @@ export class Client {
       dispatchReqZ,
       emptyResZ,
     );
+  }
+
+  /** retrieveDoc fetches the current collaborative document snapshot for the arc with the
+   * given key, so a joining client can bootstrap into the same id space as the other
+   * editors instead of re-seeding from the materialized text and diverging. */
+  async retrieveDoc(key: Key): Promise<DocSnapshot> {
+    const res = await this.client.send(
+      "/arc/retrieve",
+      { keys: [key], includeDoc: true },
+      retrieveReqZ,
+      retrieveResZ,
+    );
+    return res.docs.find((d) => d.key === key) ?? { key, inserts: [], deletes: [] };
   }
 }

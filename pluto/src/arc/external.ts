@@ -8,5 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/arc/Arc";
+export * from "@/arc/collab";
 export * from "@/arc/functions";
 export * from "@/arc/queries";
+export * from "@/arc/session";
