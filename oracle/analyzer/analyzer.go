@@ -1452,8 +1452,8 @@ func extractTypeNormal(tr *parser.TypeRefNormalContext) string {
 }
 
 // modifiersFrom reports whether an optionality modifier context marks the field
-// optional. A trailing `?` makes the field optional; `??` is accepted as a
-// transitional alias for `?` while schemas migrate to the single marker.
+// optional. A trailing `?` makes the field optional; `??` is a grammar error
+// and is rejected by the parser before this function is reached.
 func modifiersFrom(mods parser.ITypeModifiersContext) (optional bool) {
 	if mods == nil {
 		return false

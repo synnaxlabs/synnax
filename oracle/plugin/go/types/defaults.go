@@ -105,7 +105,7 @@ func goEnumCheck(field resolution.Field, data *templateData) (enumCheckData, boo
 	if form.IsIntEnum {
 		return enumCheckData{}, false
 	}
-	return enumCheckData{GoName: naming.GetFieldName(field), FieldName: naming.GetFieldName(field)}, true
+	return enumCheckData{GoName: naming.GetFieldName(field), FieldName: field.Name}, true
 }
 
 // stripPointer removes a leading pointer marker from a resolved Go type.

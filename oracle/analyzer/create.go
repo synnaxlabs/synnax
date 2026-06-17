@@ -56,6 +56,9 @@ func synthesizeCreateTypes(c *analysisCtx) {
 			},
 			Domains: newTypeDomains(typ),
 		})
+		// Only one New can exist per namespace; stop after synthesizing it so a
+		// second @create struct in the same namespace can't collide on table.Add.
+		break
 	}
 	for _, t := range created {
 		if err := c.table.Add(t); err != nil {
