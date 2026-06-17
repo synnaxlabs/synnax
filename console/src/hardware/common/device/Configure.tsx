@@ -9,7 +9,7 @@
 
 import "@/hardware/common/device/Configure.css";
 
-import { type device } from "@synnaxlabs/client";
+import { type device, status } from "@synnaxlabs/client";
 import {
   Button,
   Device as Base,
@@ -21,7 +21,7 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { deep, type record, status, strings } from "@synnaxlabs/x";
+import { deep, type record, strings } from "@synnaxlabs/x";
 import { useCallback, useRef, useState } from "react";
 import { z } from "zod";
 

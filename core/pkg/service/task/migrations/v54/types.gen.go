@@ -12,8 +12,8 @@
 package v54
 
 import (
+	statusv54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
 )
 
 // Key is a composite identifier for a task. The high 32 bits contain the rack key, and

@@ -16,13 +16,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/label"
 )
 
 // Retrieve is a builder for querying labels.
 type Retrieve struct {
 	baseTx     gorp.Tx
-	gorp       gorp.Retrieve[label.Key, label.Label]
+	gorp       gorp.Retrieve[Key, Label]
 	search     *search.Index
 	searchTerm string
 }
@@ -36,37 +35,37 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // Offset marks the starting index of results that Retrieve will return.
 func (r Retrieve) Offset(offset int) Retrieve { r.gorp = r.gorp.Offset(offset); return r }
 
-// Entry binds the label.Label that Retrieve will fill results into. If multiple results match
-// the query, only the first result will be filled into the provided label.Label.
-func (r Retrieve) Entry(label *label.Label) Retrieve { r.gorp = r.gorp.Entry(label); return r }
+// Entry binds the Label that Retrieve will fill results into. If multiple results match
+// the query, only the first result will be filled into the provided Label.
+func (r Retrieve) Entry(label *Label) Retrieve { r.gorp = r.gorp.Entry(label); return r }
 
 // Entries binds a slice that Retrieve will fill results into.
-func (r Retrieve) Entries(labels *[]label.Label) Retrieve { r.gorp = r.gorp.Entries(labels); return r }
+func (r Retrieve) Entries(labels *[]Label) Retrieve { r.gorp = r.gorp.Entries(labels); return r }
 
 // Where applies the provided filter to the query. To compose multiple filters,
 // chain Where calls or pass a combined filter via gorp.And / gorp.Or.
-func (r Retrieve) Where(filter gorp.Filter[label.Key, label.Label]) Retrieve {
+func (r Retrieve) Where(filter gorp.Filter[Key, Label]) Retrieve {
 	r.gorp = r.gorp.Where(filter)
 	return r
 }
 
 // MatchKeys returns a filter that restricts results to labels whose key matches
 // any of the provided values.
-func MatchKeys(keys ...label.Key) gorp.Filter[label.Key, label.Label] {
-	return gorp.MatchKeys[label.Key, label.Label](keys...)
+func MatchKeys(keys ...Key) gorp.Filter[Key, Label] {
+	return gorp.MatchKeys[Key, Label](keys...)
 }
 
 // MatchNames returns a filter for labels whose Name matches any of the provided values.
-func MatchNames(names ...string) gorp.Filter[label.Key, label.Label] {
-	return gorp.Match(func(_ gorp.Context, l *label.Label) (bool, error) {
+func MatchNames(names ...string) gorp.Filter[Key, Label] {
+	return gorp.Match(func(_ gorp.Context, l *Label) (bool, error) {
 		return lo.Contains(names, l.Name), nil
 	})
 }
 
 // Exec executes the Retrieve query. If a tx is provided, Exec will use it to execute
 // the query. Otherwise, it will execute against the underlying gorp.DB. It's important
-// to note that fuzzy search will not be aware of any writes/deletes executed on the
-// tx, and will only search the underlying database.
+// to note that fuzzy search will not be aware of any writes/deletes executed on the tx,
+// and will only search the underlying database.
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.baseTx, tx)
 	if r.searchTerm != "" {
@@ -93,7 +92,7 @@ func (s *Service) RetrieveFor(
 	ctx context.Context,
 	id ontology.ID,
 	tx gorp.Tx,
-) ([]label.Label, error) {
+) ([]Label, error) {
 	var labelResources []ontology.Resource
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	if err := s.cfg.Ontology.NewRetrieve().
@@ -107,7 +106,7 @@ func (s *Service) RetrieveFor(
 	if err != nil {
 		return nil, err
 	}
-	labels := make([]label.Label, 0, len(keys))
+	labels := make([]Label, 0, len(keys))
 	return labels, s.NewRetrieve().
 		Where(MatchKeys(keys...)).
 		Entries(&labels).

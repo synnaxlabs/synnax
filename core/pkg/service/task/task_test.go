@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -373,14 +372,14 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
 			Expect(taskStatus.Details.Task).To(Equal(m.Key))
 		})
 
 		It("Should use the provided status when creating a task", func(ctx SpecContext) {
 			providedStatus := &task.Status{
-				Variant:     xstatus.VariantSuccess,
+				Variant:     status.VariantSuccess,
 				Message:     "Custom task status",
 				Description: "Task is running",
 				Time:        telem.Now(),
@@ -400,7 +399,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(taskStatus.Message).To(Equal("Custom task status"))
 			Expect(taskStatus.Description).To(Equal("Task is running"))
 			// Key should be auto-assigned
@@ -454,7 +453,7 @@ var _ = Describe("Task", Ordered, func() {
 				Key:  task.NewKey(testRack.Key, 0),
 				Name: "Live Status Task",
 				Status: &task.Status{
-					Variant: xstatus.VariantSuccess,
+					Variant: status.VariantSuccess,
 					Message: "Task is running",
 					Time:    telem.Now(),
 				},
@@ -469,7 +468,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(preserved.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
 			Expect(preserved.Message).To(Equal("Task is running"))
 		})
 
@@ -487,7 +486,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(copied.Key).String())).
 				Entry(&copiedStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(copiedStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(copiedStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
@@ -510,7 +509,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 					Entry(&taskStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+				g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 				g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
 			}).Should(Succeed())
@@ -587,7 +586,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(task.Key(t.Key)).String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
 			Expect(restoredStatus.Details.Task).To(Equal(task.Key(t.Key)))
 		})
@@ -645,7 +644,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(taskStatus.Message).To(Equal("Task With Status status unknown"))
 		})
 	})

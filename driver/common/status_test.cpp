@@ -32,7 +32,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.details.running, true);
     EXPECT_EQ(first.message, "Task started successfully");
 
@@ -44,7 +44,7 @@ TEST(TestTaskStateHandler, testStartCommunication) {
     EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.name, "task1");
     EXPECT_EQ(second.details.task, task.key);
-    EXPECT_EQ(second.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(second.details.running, false);
     EXPECT_EQ(second.message, "task validation error");
 }
@@ -63,7 +63,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     const auto first = ctx->statuses[0];
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(first.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(first.message, "Test warning message");
 
     handler.error(x::errors::Error(x::errors::VALIDATION, "task validation error"));
@@ -71,7 +71,7 @@ TEST(TestTaskStateHandler, testSendWarning) {
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
     EXPECT_EQ(second.details.task, task.key);
-    EXPECT_EQ(second.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(second.message, "task validation error");
 }
 
@@ -89,7 +89,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     ASSERT_GE(ctx->statuses.size(), 1);
     const auto first = ctx->statuses[0];
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(first.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(first.message, "Test warning message");
 
     // Now clear the warning
@@ -97,7 +97,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     ASSERT_GE(ctx->statuses.size(), 2);
     const auto second = ctx->statuses[1];
     EXPECT_EQ(second.details.task, task.key);
-    EXPECT_EQ(second.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(second.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second.message, "Task running");
 
     // Test that clear_warning doesn't do anything if not in warning state
@@ -105,7 +105,7 @@ TEST(TestTaskStateHandle, testClearWarning) {
     handler.send_warning("This is an error");
     ASSERT_GE(ctx->statuses.size(), 3);
     const auto third = ctx->statuses[2];
-    EXPECT_EQ(third.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(third.variant, synnax::status::VARIANT_ERROR);
 
     // Clear warning should have no effect when in error state
     const size_t stateCount = ctx->statuses.size();
@@ -128,7 +128,7 @@ TEST(TestTaskStateHandler, testSendError) {
     EXPECT_EQ(first.key, synnax::task::status_key(task));
     EXPECT_EQ(first.name, "task1");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(first.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(first.details.running, false);
     EXPECT_EQ(first.message, "fatal runtime error");
 
@@ -153,7 +153,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     EXPECT_EQ(first.key, synnax::task::status_key(task));
     EXPECT_EQ(first.details.cmd, "cmd_key");
     EXPECT_EQ(first.details.task, task.key);
-    EXPECT_EQ(first.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first.details.running, false);
     EXPECT_EQ(first.message, "Task stopped successfully");
 
@@ -164,7 +164,7 @@ TEST(TestTaskStateHandler, testStopCommunication) {
     EXPECT_EQ(second.key, synnax::task::status_key(task));
     EXPECT_EQ(second.details.cmd, "cmd_key");
     EXPECT_EQ(second.details.task, task.key);
-    EXPECT_EQ(second.variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(second.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(second.details.running, false);
     EXPECT_EQ(second.message, "task validation error");
 }
@@ -181,7 +181,7 @@ TEST(TestStatusRateLimit, testSuppressesIdenticalWarnings) {
     handler.send_warning("skew too high");
     EXPECT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].message, "skew too high");
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_WARNING);
 }
 
 /// @brief a different warning message should go through immediately even if
@@ -223,7 +223,7 @@ TEST(TestStatusRateLimit, testSuppressesIdenticalErrors) {
     handler.send_error(err);
     handler.send_error(err);
     EXPECT_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(ctx->statuses[0].message, "device disconnected");
 }
 
@@ -267,7 +267,7 @@ TEST(TestStatusRateLimit, testClearWarningThenSuppressRepeatedClears) {
 
     handler.clear_warning();
     EXPECT_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
 
     // Sending the same warning again should be suppressed (it was sent <5s ago).
     handler.send_warning("skew too high");
@@ -377,10 +377,10 @@ TEST(TestStatusRateLimit, testDifferentVariantSameMessage) {
 
     handler.send_warning("device issue");
     EXPECT_EQ(ctx->statuses.size(), 1);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_WARNING);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_WARNING);
 
     handler.send_error(x::errors::Error(x::errors::VALIDATION, "device issue"));
     EXPECT_EQ(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_ERROR);
 }
 }

@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -486,7 +485,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Where(status.MatchKeys[types.Nil](statusKey)).
 				Entry(&st).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(st.Variant).To(Equal(xstatus.VariantError))
+			Expect(st.Variant).To(Equal(status.VariantError))
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 		Specify("Should persist error status on calculation update failure", func(ctx SpecContext) {
@@ -516,7 +515,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Entry(&st).
 					Exec(ctx, nil)
 				g.Expect(err).To(Succeed())
-				g.Expect(st.Variant).To(Equal(xstatus.VariantError))
+				g.Expect(st.Variant).To(Equal(status.VariantError))
 			}).Should(Succeed())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})

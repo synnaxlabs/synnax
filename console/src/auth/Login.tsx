@@ -9,7 +9,7 @@
 
 import "@/auth/Login.css";
 
-import { Synnax as Client } from "@synnaxlabs/client";
+import { status, Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Button,
@@ -20,7 +20,6 @@ import {
   Text,
   type Triggers,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";

@@ -48,7 +48,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
 	"go.uber.org/zap"
@@ -93,7 +92,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	drt := dataRuntime{}
 	deps, err := NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 
@@ -120,36 +119,36 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 
 	timeMod, err := time.NewHost(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	channelMod, err := channels.NewHost(ctx, wasmRT, drt.state.channel, drt.state.strings)
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	statefulMod, err := stateful.NewHost(ctx, wasmRT, drt.state.series, drt.state.strings)
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	if _, err = series.NewHost(ctx, wasmRT, drt.state.series); err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	stringsMod, err := strings.NewHost(ctx, wasmRT, drt.state.strings, nil)
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	mathMod, err := math.NewHost(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
@@ -159,7 +158,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		Reporter: t.reporter(),
 	})
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 
@@ -179,7 +178,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	if len(t.prog.Program.WASM) > 0 {
 		guest, guestErr := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
 		if guestErr != nil {
-			t.setStatus(ctx, xstatus.VariantError, false, guestErr.Error())
+			t.setStatus(ctx, status.VariantError, false, guestErr.Error())
 			return guestErr
 		}
 		stringsMod.SetMemory(guest.Memory())
@@ -203,7 +202,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
 		if nodeErr != nil {
-			t.setStatus(ctx, xstatus.VariantError, false, nodeErr.Error())
+			t.setStatus(ctx, status.VariantError, false, nodeErr.Error())
 			return nodeErr
 		}
 		nodes[irNode.Key] = n
@@ -242,7 +241,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 			framer.StreamerConfig{Keys: deps.Reads.Slice()},
 		)
 		if err != nil {
-			t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+			t.setStatus(ctx, status.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, streamerAddr, streamer)
@@ -276,7 +275,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		var wrt framer.StreamWriter
 		wrt, err = t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
-			t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+			t.setStatus(ctx, status.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, writerAddr, wrt)
@@ -289,7 +288,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 						zap.Int("seqNum", res.SeqNum),
 						zap.Error(res.Err),
 					)
-					t.setStatus(ctx, xstatus.VariantError, false, res.Err.Error())
+					t.setStatus(ctx, status.VariantError, false, res.Err.Error())
 					return res.Err
 				} else if !res.Authorized {
 					t.factoryCfg.L.Warn("unauthorized writer response",
@@ -318,7 +317,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		confluence.RecoverWithErrOnPanic(),
 		confluence.CancelOnFail(),
 	)
-	t.setStatus(ctx, xstatus.VariantSuccess, true, "Task started successfully")
+	t.setStatus(ctx, status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
 
@@ -332,20 +331,20 @@ func (t *taskImpl) Stop() error {
 	// https://linear.app/synnax/issue/SY-4002/refactor-usages-of-contextcontext
 	ctx := context.TODO()
 	if err != nil {
-		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	t.setStatus(ctx, xstatus.VariantSuccess, false, "Task stopped successfully")
+	t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
 	return nil
 }
 
 func (t *taskImpl) reporter() taskreporter.Reporter {
-	return func(ctx context.Context, variant xstatus.Variant, message string) {
+	return func(ctx context.Context, variant status.Variant, message string) {
 		t.setStatus(ctx, variant, t.isRunning(), fmt.Sprintf("[%s] %s", t.task.Name, message))
 	}
 }
 
-func (t *taskImpl) setStatus(ctx context.Context, variant xstatus.Variant, running bool, message string) {
+func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
 		Variant: variant,
@@ -370,7 +369,7 @@ func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err erro
 	}
 	stat := task.Status{
 		Key:         task.OntologyID(t.task.Key).String(),
-		Variant:     xstatus.VariantWarning,
+		Variant:     status.VariantWarning,
 		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
 		Description: err.Error(),
 		Time:        telem.Now(),

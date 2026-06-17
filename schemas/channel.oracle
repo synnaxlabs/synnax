@@ -150,7 +150,7 @@ Channel struct {
         cluster-routing metadata. This type is used internally by the server;
         clients should use APIChannel instead.
     """
-    @go output    "core/pkg/service/channel"
+    @go output     "core/pkg/service/channel"
     @go marshal
     @go migrate
     @retrieve

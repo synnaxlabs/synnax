@@ -12,10 +12,11 @@ import {
   group,
   type ontology,
   schematic,
+  status,
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { Group, Status, Synnax } from "@synnaxlabs/pluto";
-import { status, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Runtime } from "@/runtime";

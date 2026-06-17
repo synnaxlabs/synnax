@@ -14,8 +14,8 @@ syntax = "proto3";
 package api.channel.pb;
 
 import "core/pkg/service/channel/pb/channel.proto";
+import "core/pkg/service/status/pb/status.proto";
 import "x/go/control/pb/control.proto";
-import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/channel/pb";
 
@@ -57,5 +57,5 @@ message Channel {
   // channels can have a policy of shared concurrency.
   .x.control.pb.Concurrency concurrency = 12;
   // status is the current operational status of the channel.
-  optional .x.status.pb.Status status = 13;
+  optional .service.status.pb.Status status = 13;
 }

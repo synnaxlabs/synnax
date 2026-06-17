@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@synnaxlabs/client";
 import { Component, type Dialog, Form, type Select, Status } from "@synnaxlabs/pluto";
-import { location, type status } from "@synnaxlabs/x";
+import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<status.Variant> = {

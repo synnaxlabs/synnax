@@ -9,7 +9,7 @@
 
 import "@/hardware/http/device/Connect.css";
 
-import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -25,7 +25,7 @@ import {
   Task,
   Text,
 } from "@synnaxlabs/pluto";
-import { json, status } from "@synnaxlabs/x";
+import { json } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { KeyValueEditor } from "@/components/form/KeyValueEditor";

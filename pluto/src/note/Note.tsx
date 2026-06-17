@@ -9,7 +9,7 @@
 
 import "@/note/Note.css";
 
-import { type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
