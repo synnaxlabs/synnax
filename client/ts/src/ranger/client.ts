@@ -33,7 +33,7 @@ import {
   type Payload,
   payloadZ,
 } from "@/ranger/types.gen";
-import { type CreateOptions, type Writer } from "@/ranger/writer";
+import { type Writer } from "@/ranger/writer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
@@ -225,13 +225,11 @@ export class Client {
     this.createKVClient = createKVClient;
   }
 
-  async create(range: New, options?: CreateOptions): Promise<Range>;
-  async create(ranges: New[], options?: CreateOptions): Promise<Range[]>;
-  async create(ranges: New | New[], options?: CreateOptions): Promise<Range | Range[]> {
+  async create(range: New): Promise<Range>;
+  async create(ranges: New[]): Promise<Range[]>;
+  async create(ranges: New | New[]): Promise<Range | Range[]> {
     const single = !Array.isArray(ranges);
-    const res = this.sugarMany(
-      await this.writer.create(array.toArray(ranges), options),
-    );
+    const res = this.sugarMany(await this.writer.create(array.toArray(ranges)));
     return single ? res[0] : res;
   }
 

@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
@@ -115,7 +114,7 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
 			msg, mOK := strings.Get(msgH)
 			variant, vOK := strings.Get(variantH)
 			if !kOK || !mOK || !vOK {
-				m.report(ctx, xstatus.VariantWarning,
+				m.report(ctx, status.VariantWarning,
 					"status.set: invalid string handle from WASM runtime")
 				return 0
 			}
@@ -187,11 +186,11 @@ func dispatchSet(
 ) string {
 	key, multi, err := stat.SetByKeyOrName(ctx, keyOrName, message, variantStr)
 	if err != nil {
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.set: %v", err))
+		report(ctx, status.VariantWarning, fmt.Sprintf("status.set: %v", err))
 		return ""
 	}
 	if multi {
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf(
+		report(ctx, status.VariantWarning, fmt.Sprintf(
 			"status.set: multiple statuses named %q; updated first match (%s)",
 			keyOrName, key,
 		))
@@ -226,7 +225,7 @@ func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpression
 		return
 	}
 	value, ok := parsed.Value.(string)
-	if !ok || xstatus.Variant(value).IsValid() {
+	if !ok || status.Variant(value).IsValid() {
 		return
 	}
 	diags.Add(diagnostics.Errorf(expr,

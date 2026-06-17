@@ -14,8 +14,8 @@ package channel
 import (
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	gotypes "go/types"
 )

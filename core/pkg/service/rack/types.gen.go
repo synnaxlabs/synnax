@@ -12,7 +12,7 @@
 package rack
 
 import (
-	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
 // Key is a composite identifier for a rack. The high 16 bits contain the core node key,

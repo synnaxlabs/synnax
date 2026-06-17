@@ -19,9 +19,9 @@ import (
 	textv56 "github.com/synnaxlabs/arc/text/migrations/v56"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	colorv56 "github.com/synnaxlabs/x/color/migrations/v56"
-	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
-	labelv56 "github.com/synnaxlabs/x/label/migrations/v56"
-	statusv56 "github.com/synnaxlabs/x/status/migrations/v56"
+	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
+	labelv56 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v56"
+	statusv56 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v56"
 	telemv56 "github.com/synnaxlabs/x/telem/migrations/v56"
 )
 

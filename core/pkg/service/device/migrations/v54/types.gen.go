@@ -14,8 +14,8 @@ package v54
 import (
 	ontologyv54 "github.com/synnaxlabs/synnax/pkg/distribution/ontology/migrations/v54"
 	rackv54 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v54"
+	statusv54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
 )
 
 // Key is the device's serial number, used as its unique identifier.

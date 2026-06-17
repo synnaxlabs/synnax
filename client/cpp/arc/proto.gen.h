@@ -17,10 +17,10 @@
 
 #include "client/cpp/arc/json.gen.h"
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/status/json.gen.h"
-#include "x/cpp/status/proto.gen.h"
 
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/graph/proto.gen.h"

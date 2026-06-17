@@ -9,7 +9,7 @@
 
 import "@/input/Input.css";
 
-import { type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";

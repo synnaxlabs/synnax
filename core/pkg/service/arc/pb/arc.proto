@@ -16,7 +16,7 @@ package service.arc.pb;
 import "arc/go/graph/pb/graph.proto";
 import "arc/go/program/pb/program.proto";
 import "arc/go/text/pb/text.proto";
-import "x/go/status/pb/status.proto";
+import "core/pkg/service/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
 
@@ -49,5 +49,5 @@ message Arc {
   // program is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.program.pb.Program program = 6;
   // status is the current execution status of the module.
-  optional .x.status.pb.Status status = 7;
+  optional .service.status.pb.Status status = 7;
 }

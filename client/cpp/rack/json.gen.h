@@ -16,8 +16,8 @@
 #include <vector>
 
 #include "client/cpp/rack/types.gen.h"
+#include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/json.gen.h"
 
 namespace synnax::rack {
 

@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -372,6 +372,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
 		Signals:         l.Signals,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
 		return nil, err
 	}
@@ -507,8 +508,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
-		Instrumentation: cfg.Child("arc.runtime"),
+	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
+		Instrumentation: cfg.Child("arc.task"),
 		Channel:         l.Channel,
 		Framer:          cfg.Distribution.Framer,
 		Status:          l.Status,

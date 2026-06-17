@@ -175,7 +175,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(start_state.key, synnax::task::status_key(task));
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
-    EXPECT_EQ(start_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(start_state.message, "Task started successfully");
 
     ASSERT_EVENTUALLY_GE(
@@ -207,7 +207,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(stop_state.key, synnax::task::status_key(task));
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
-    EXPECT_EQ(stop_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Task stopped successfully");
 
     auto write_fr = std::move(writes->at(0));

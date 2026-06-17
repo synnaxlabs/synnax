@@ -13,9 +13,9 @@ package pb
 
 import (
 	"encoding/json"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/status"
-	statuspb "github.com/synnaxlabs/x/status/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"

@@ -54,7 +54,7 @@ var _ = Describe("Migrate", func() {
 		// Open a bare Range table with only the codec transition migration.
 		// This simulates the state of the DB before the range_groups migration
 		// was added.
-		bareTable := MustSucceed(gorp.OpenTable[uuid.UUID, ranger.Range](
+		bareTable := MustSucceed(gorp.OpenTable(
 			ctx, gorp.TableConfig[uuid.UUID, ranger.Range]{DB: db},
 		))
 
@@ -107,12 +107,11 @@ var _ = Describe("Migrate", func() {
 		Expect(bareTable.Close()).To(Succeed())
 
 		svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:             db,
-			Ontology:       otg,
-			Group:          gSvc,
-			Label:          lab,
-			ForceMigration: new(true),
-			Search:         searchIdx,
+			DB:       db,
+			Ontology: otg,
+			Group:    gSvc,
+			Label:    lab,
+			Search:   searchIdx,
 		}))
 
 		// The "Ranges" group and "Subgroup" should be deleted.

@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	xstatus "github.com/synnaxlabs/x/status"
 )
 
 var _ = Describe("Status", func() {
@@ -40,7 +40,7 @@ var _ = Describe("Status", func() {
 			)
 			Expect(st.Key).To(Equal(calculation.StatusKey(42)))
 			Expect(st.Name).To(Equal("my_channel"))
-			Expect(st.Variant).To(Equal(xstatus.VariantError))
+			Expect(st.Variant).To(Equal(status.VariantError))
 			Expect(st.Message).To(Equal("expression parse failed"))
 			Expect(st.Description).To(Equal("unexpected token"))
 			Expect(st.Time).ToNot(BeZero())

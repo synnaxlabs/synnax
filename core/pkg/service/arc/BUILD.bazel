@@ -9,7 +9,7 @@ proto_library(
         "//arc/go/graph:graph_proto",
         "//arc/go/program:program_proto",
         "//arc/go/text:text_proto",
-        "//x/go/status:status_proto",
+        "//core/pkg/service/status:status_proto",
     ],
 )
 
@@ -22,6 +22,6 @@ cpp_grpc_library(
         "//arc/go/graph:graph_grpc",
         "//arc/go/program:program_grpc",
         "//arc/go/text:text_grpc",
-        "//x/go/status:status_grpc",
+        "//core/pkg/service/status:status_grpc",
     ],
 )

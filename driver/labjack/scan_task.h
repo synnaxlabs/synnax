@@ -93,7 +93,7 @@ class Scanner final : public common::Scanner {
             sy_dev.status = synnax::device::Status{
                 .key = synnax::device::status_key(sy_dev),
                 .name = name,
-                .variant = x::status::VARIANT_SUCCESS,
+                .variant = synnax::status::VARIANT_SUCCESS,
                 .message = "Device present",
                 .time = x::telem::TimeStamp::now(),
                 .details = synnax::device::StatusDetails{
