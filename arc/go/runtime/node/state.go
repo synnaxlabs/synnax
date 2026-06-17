@@ -162,9 +162,14 @@ type State struct {
 	outputCache  []*value
 }
 
-// Reset is called by the scheduler when the stage containing this node is
-// activated.
-func (n *State) Reset() {}
+// Reset re-arms every input when the node's stage is (re)activated, so a node
+// whose gating inputs are all literal-valued re-runs instead of staying consumed.
+func (n *State) Reset() {
+	for i := range n.accumulated {
+		n.accumulated[i].consumed = false
+		n.accumulated[i].lastTimestamp = 0
+	}
+}
 
 // RefreshInputs performs temporal alignment of node inputs and returns whether
 // the node should execute.
