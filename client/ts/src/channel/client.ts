@@ -16,7 +16,6 @@ import {
   type CrudeTimeStamp,
   DataType,
   type MultiSeries,
-  status,
   TimeSpan,
   type TypedArray,
 } from "@synnaxlabs/x";
@@ -47,6 +46,7 @@ import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { group } from "@/group";
 import { type ontology } from "@/ontology";
+import { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {

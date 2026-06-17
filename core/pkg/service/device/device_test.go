@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -262,7 +261,7 @@ var _ = Describe("Device", func() {
 
 		It("Should use the provided status when creating a device", func(ctx SpecContext) {
 			providedStatus := &device.Status{
-				Variant:     xstatus.VariantSuccess,
+				Variant:     status.VariantSuccess,
 				Time:        telem.Now(),
 				Message:     "Device is connected",
 				Description: "Custom device description",
@@ -281,7 +280,7 @@ var _ = Describe("Device", func() {
 				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&deviceStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(deviceStatus.Message).To(Equal("Device is connected"))
 			Expect(deviceStatus.Description).To(Equal("Custom device description"))
 			// Key should be auto-assigned
@@ -316,7 +315,7 @@ var _ = Describe("Device", func() {
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
 			Expect(d.Status).ToNot(BeNil())
-			Expect(d.Status.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(d.Status.Variant).To(Equal(status.VariantWarning))
 			Expect(d.Status.Name).To(Equal("Populated Device"))
 			Expect(d.Parent).ToNot(BeNil())
 			Expect(*d.Parent).To(Equal(rackSvc.EmbeddedKey.OntologyID()))
@@ -359,7 +358,7 @@ var _ = Describe("Device", func() {
 				Location: "live-loc",
 				Name:     "Live Device",
 				Status: &device.Status{
-					Variant: xstatus.VariantSuccess,
+					Variant: status.VariantSuccess,
 					Message: "Device is connected",
 					Time:    telem.Now(),
 				},
@@ -379,7 +378,7 @@ var _ = Describe("Device", func() {
 				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(preserved.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
 			Expect(preserved.Message).To(Equal("Device is connected"))
 		})
 
@@ -811,7 +810,7 @@ var _ = Describe("Device", func() {
 					Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 					Entry(&deviceStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))
+				g.Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
 				g.Expect(deviceStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(deviceStatus.Details.Device).To(Equal(d.Key))
 				g.Expect(deviceStatus.Details.Rack).To(Equal(r.Key))
@@ -874,7 +873,7 @@ var _ = Describe("Device", func() {
 				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
 			Expect(restoredStatus.Details.Device).To(Equal(d.Key))
 			Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
@@ -932,7 +931,7 @@ var _ = Describe("Device", func() {
 				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
 				Entry(&deviceStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(deviceStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(deviceStatus.Message).To(ContainSubstring("Device With Status"))
 		})
 	})

@@ -9,7 +9,8 @@
 
 import "@/select/Dialog.css";
 
-import { type record, type status } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { memo, type ReactElement, useMemo } from "react";
 import { type z } from "zod";

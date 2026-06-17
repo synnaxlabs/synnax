@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@synnaxlabs/client";
 import { Button, Flex, Form, Nav, Status } from "@synnaxlabs/pluto";
-import { type status, TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 

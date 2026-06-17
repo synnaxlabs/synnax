@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, NotFoundError } from "@synnaxlabs/client";
+import { type channel, NotFoundError, status } from "@synnaxlabs/client";
 import { Channel, Flex, Form, Text, Tooltip } from "@synnaxlabs/pluto";
-import { location, type optional, primitive, status } from "@synnaxlabs/x";
+import { location, type optional, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 
 import { CSS } from "@/css";

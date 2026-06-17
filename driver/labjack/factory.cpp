@@ -93,7 +93,7 @@ bool Factory::check_health(
     synnax::task::Status status{
         .key = synnax::task::status_key(task),
         .name = task.name,
-        .variant = x::status::VARIANT_ERROR,
+        .variant = synnax::status::VARIANT_ERROR,
         .message = NO_LIBS_MSG,
         .details = synnax::task::StatusDetails{.task = task.key}
     };
