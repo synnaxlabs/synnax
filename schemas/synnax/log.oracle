@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/channel"
-import "schemas/color"
-import "schemas/notation"
-import "schemas/telem"
+import "schemas/synnax/channel"
+import "schemas/x/color"
+import "schemas/x/notation"
+import "schemas/x/telem"
 
 @ts output "client/ts/src/log"
 @go output "core/pkg/service/log"

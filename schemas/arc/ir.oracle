@@ -22,8 +22,8 @@ Handle struct {
         @doc value "is the parameter name (input or output)."
     }
 
-    @doc value    "is a reference to a specific parameter on a specific node in the dataflow graph."
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Handle& h)"
+    @doc value   "is a reference to a specific parameter on a specific node in the dataflow graph."
+    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Handle& h)"
 }
 
 EdgeKind enum {
@@ -35,18 +35,18 @@ EdgeKind enum {
 }
 
 Edge struct {
-    source Handle    {
+    source Handle   {
         @doc value "is the source node parameter producing data."
     }
-    target Handle    {
+    target Handle   {
         @doc value "is the target node parameter consuming data."
     }
-    kind   EdgeKind  {
+    kind   EdgeKind {
         @doc value "defines execution semantics for this connection."
     }
 
-    @doc value    "is a dataflow connection between node parameters in the Arc graph."
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Edge& e)"
+    @doc value   "is a dataflow connection between node parameters in the Arc graph."
+    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Edge& e)"
 }
 
 Edges Edge[] {
@@ -70,18 +70,18 @@ Liveness enum {
 }
 
 Transition struct {
-    on        Handle     {
+    on        Handle   {
         @doc value "is the dataflow handle whose truthy value fires this transition."
     }
-    targetKey string??   {
+    targetKey string?? {
         @doc value """
             is the sibling step key to activate. Null when the transition
             exits the scope, yielding to the parent.
         """
     }
 
-    @doc value    "is a declarative state-transition rule on a sequential Scope."
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Transition& t)"
+    @doc value   "is a declarative state-transition rule on a sequential Scope."
+    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Transition& t)"
 }
 
 Member struct {
@@ -95,13 +95,13 @@ Member struct {
         @doc value "is set when this member is a nested scope."
     }
 
-    @doc value """
+    @doc value   """
         is a tagged union representing a single child of a Scope. Exactly one
         of nodeKey or scope is set. The member's lookup key (used as the
         target of `=> name` transitions) is derived from the set variant via
         Member.key().
     """
-    @cpp methods  "[[nodiscard]] const std::string& key() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
+    @cpp methods "[[nodiscard]] const std::string& key() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
 }
 
 Members = Member[] {
@@ -109,38 +109,38 @@ Members = Member[] {
 }
 
 Scope struct {
-    key         string        {
+    key         string       {
         @doc value "is the scope identifier."
     }
-    mode        ScopeMode     {
+    mode        ScopeMode    {
         @doc value "defines whether this scope runs steps in parallel or sequentially."
     }
-    liveness    Liveness      {
+    liveness    Liveness     {
         @doc value "defines whether this scope is continuously active or must be activated."
     }
-    activation  Handle??      {
+    activation  Handle??     {
         @doc value "is the handle whose truthy value activates a gated scope. Unset for always-live scopes."
     }
-    strata      Members[]     {
+    strata      Members[]    {
         @doc value """
             contains stratified execution layers for parallel scopes. Empty
             for sequential scopes. Stratum N depends only on strata 0 to N-1.
         """
     }
-    steps       Members       {
+    steps       Members      {
         @doc value "contains ordered steps for sequential scopes. Empty for parallel scopes."
     }
-    transitions Transition[]  {
+    transitions Transition[] {
         @doc value "contains state-transition rules for sequential scopes. Empty for parallel scopes."
     }
 
-    @doc value """
+    @doc value   """
         is the unified Layer 2 execution primitive. Parameterized by mode
         (parallel or sequential) and liveness (always-live or gated). Parallel
         scopes organize members into strata; sequential scopes run one step
         at a time and advance via transitions.
     """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Scope& s)"
+    @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Scope& s)"
 }
 
 Body struct {
@@ -154,7 +154,7 @@ Body struct {
 }
 
 Function struct {
-    key      string          {
+    key      string         {
         @doc value "is the function identifier (template name)."
     }
     body     Body?          {
@@ -173,11 +173,11 @@ Function struct {
         @doc value "contains channel read/write declarations."
     }
 
-    @doc value    """
+    @doc value   """
         is a function template definition with typed parameters, serving as a
         blueprint for node instantiation.
     """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Function& f)"
+    @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Function& f)"
 }
 
 Functions Function[] {
@@ -185,10 +185,10 @@ Functions Function[] {
 }
 
 Node struct {
-    key      string          {
+    key      string         {
         @doc value "is the unique identifier for this node instance."
     }
-    type     string          {
+    type     string         {
         @doc value "is the function type being instantiated."
     }
     config   types.Params   {
@@ -204,11 +204,11 @@ Node struct {
         @doc value "contains channel read/write mappings."
     }
 
-    @doc value    """
+    @doc value   """
         is a concrete instantiation of a function with typed parameters and
         configuration values.
     """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
+    @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
 }
 
 Nodes Node[] {
@@ -216,10 +216,10 @@ Nodes Node[] {
 }
 
 Authorities struct {
-    default  uint8??             {
+    default  uint8??            {
         @doc value "is the default authority for all write channels not explicitly listed."
     }
-    channels map<uint32, uint8>  {
+    channels map<uint32, uint8> {
         @doc value "maps channel keys to their specific authority values."
     }
 
@@ -239,7 +239,7 @@ IR struct {
     authorities Authorities {
         @doc value "contains the static authority declarations for this program."
     }
-    root        Scope        {
+    root        Scope       {
         @doc value """
             is the top-level execution context. The root is always a
             parallel, always-live Scope whose strata mix module-scope
