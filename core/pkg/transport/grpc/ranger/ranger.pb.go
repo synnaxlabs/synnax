@@ -16,7 +16,7 @@
 package ranger
 
 import (
-	pb "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
@@ -316,18 +316,18 @@ var File_core_pkg_transport_grpc_ranger_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/ranger/ranger.proto\x12\vgrpc.ranger\x1a#core/pkg/api/ranger/pb/ranger.proto\x1a\x1bgoogle/protobuf/empty.proto\"#\n" +
+	"+core/pkg/transport/grpc/ranger/ranger.proto\x12\vgrpc.ranger\x1a'core/pkg/service/ranger/pb/ranger.proto\x1a\x1bgoogle/protobuf/empty.proto\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\"=\n" +
-	"\rCreateRequest\x12,\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x14.api.ranger.pb.RangeR\x06ranges\">\n" +
-	"\x0eCreateResponse\x12,\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x14.api.ranger.pb.RangeR\x06ranges\";\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"A\n" +
+	"\rCreateRequest\x120\n" +
+	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\"B\n" +
+	"\x0eCreateResponse\x120\n" +
+	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\";\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\"@\n" +
-	"\x10RetrieveResponse\x12,\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x14.api.ranger.pb.RangeR\x06ranges\"5\n" +
+	"\x05names\x18\x02 \x03(\tR\x05names\"D\n" +
+	"\x10RetrieveResponse\x120\n" +
+	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\"5\n" +
 	"\rRenameRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name2W\n" +
@@ -361,13 +361,13 @@ var file_core_pkg_transport_grpc_ranger_ranger_proto_goTypes = []any{
 	(*RetrieveRequest)(nil),  // 3: grpc.ranger.RetrieveRequest
 	(*RetrieveResponse)(nil), // 4: grpc.ranger.RetrieveResponse
 	(*RenameRequest)(nil),    // 5: grpc.ranger.RenameRequest
-	(*pb.Range)(nil),         // 6: api.ranger.pb.Range
+	(*pb.Range)(nil),         // 6: service.ranger.pb.Range
 	(*emptypb.Empty)(nil),    // 7: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_ranger_ranger_proto_depIdxs = []int32{
-	6, // 0: grpc.ranger.CreateRequest.ranges:type_name -> api.ranger.pb.Range
-	6, // 1: grpc.ranger.CreateResponse.ranges:type_name -> api.ranger.pb.Range
-	6, // 2: grpc.ranger.RetrieveResponse.ranges:type_name -> api.ranger.pb.Range
+	6, // 0: grpc.ranger.CreateRequest.ranges:type_name -> service.ranger.pb.Range
+	6, // 1: grpc.ranger.CreateResponse.ranges:type_name -> service.ranger.pb.Range
+	6, // 2: grpc.ranger.RetrieveResponse.ranges:type_name -> service.ranger.pb.Range
 	1, // 3: grpc.ranger.RangeCreateService.Exec:input_type -> grpc.ranger.CreateRequest
 	3, // 4: grpc.ranger.RangeRetrieveService.Exec:input_type -> grpc.ranger.RetrieveRequest
 	0, // 5: grpc.ranger.RangeDeleteService.Exec:input_type -> grpc.ranger.DeleteRequest

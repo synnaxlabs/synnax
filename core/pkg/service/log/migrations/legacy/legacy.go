@@ -16,6 +16,7 @@
 package legacy
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/legacy/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -28,7 +29,7 @@ import (
 // outside their closed sets flow through untouched for the latest-Log lift to default.
 func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 	var peek struct {
-		Version string `json:"version"`
+		Version imex.Version `json:"version"`
 	}
 	if blob != nil {
 		if err := blob.Unmarshal(&peek); err != nil {
@@ -38,30 +39,30 @@ func MigrateData(blob msgpack.EncodedJSON) (v1.Data, error) {
 	return dispatch(blob, peek.Version)
 }
 
-func dispatch(blob msgpack.EncodedJSON, version string) (v1.Data, error) {
+func dispatch(blob msgpack.EncodedJSON, version imex.Version) (v1.Data, error) {
 	switch version {
 	case v1.Version:
 		return decode[v1.Data](blob, version)
-	case v0.Version, "":
+	case v0.Version:
 		d, err := decode[v0.Data](blob, version)
 		if err != nil {
 			return v1.Data{}, err
 		}
 		return v1.Migrate(d), nil
 	default:
-		return v1.Data{}, errors.Newf("unknown log data version %q", version)
+		return v1.Data{}, errors.Newf("unknown log data version %d", version)
 	}
 }
 
 // decode unmarshals blob as T, treating a nil blob as a zero T so empty entries
 // round-trip without erroring.
-func decode[T any](blob msgpack.EncodedJSON, version string) (T, error) {
+func decode[T any](blob msgpack.EncodedJSON, version imex.Version) (T, error) {
 	var d T
 	if blob == nil {
 		return d, nil
 	}
 	if err := blob.Unmarshal(&d); err != nil {
-		return d, errors.Wrapf(err, "decode v%s log data", version)
+		return d, errors.Wrapf(err, "decode v%d log data", version)
 	}
 	return d, nil
 }

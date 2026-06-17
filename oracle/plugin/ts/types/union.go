@@ -110,7 +110,7 @@ func (p *Plugin) processUnion(entry resolution.Type, table *resolution.Table, da
 					}
 					for _, f := range pform.Fields {
 						vd.Fields = append(vd.Fields,
-							p.processField(f, payload, table, data, false, false))
+							p.processField(f, payload, table, data, false))
 					}
 				}
 			}

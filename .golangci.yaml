@@ -36,8 +36,3 @@ linters:
         type: "module"
         description: >
           Detects map[T]struct{} and map[T]bool patterns that should use set.Set[T].
-
-run:
-  build-tags:
-    - console
-    - driver
