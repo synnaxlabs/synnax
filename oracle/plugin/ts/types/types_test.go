@@ -2131,11 +2131,11 @@ var _ = Describe("TS Types Plugin", func() {
 							@key
 						}
 						name   string
-						parent Range??
+						parent Range?
 					}
 
 					New struct extends Range {
-						parent Range?? {
+						parent Range? {
 							@ts pick key
 						}
 					}
