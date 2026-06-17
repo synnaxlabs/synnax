@@ -26,16 +26,16 @@ Key uint64 {
 }
 
 StatusDetails struct<Data? = record> {
-    task    Key     {
+    task    Key    {
         @doc value "is the key of the task this status pertains to."
     }
-    running bool    {
+    running bool   {
         @doc value "is true if the task is currently executing."
     }
-    cmd     string? {
+    cmd     string = "" {
         @doc value "is the last command executed on this task."
     }
-    data    Data??  {
+    data    Data?  {
         @doc value "contains task-specific status data."
     }
 
@@ -50,16 +50,16 @@ Status<Data? = record> = status.Status<StatusDetails<Data>> {
 }
 
 NewStatusDetails struct<Data? = record> {
-    task    Key?    {
+    task    Key?   {
         @doc value "is an optional task key."
     }
-    running bool    {
+    running bool   {
         @doc value "indicates whether the task is running."
     }
-    cmd     string? {
+    cmd     string = "" {
         @doc value "is the command being executed."
     }
-    data    Data??  {
+    data    Data?  {
         @doc value "contains task-specific status data."
     }
 
@@ -84,36 +84,36 @@ Task struct<
     Config extends record = record,
     StatusData? = record
 > {
-    key      Key                  {
+    key      Key                 {
         @doc value "is the composite identifier for this task."
         @key
     }
-    name     string               {
+    name     string              {
         @doc value "is a human-readable name for the task."
         @filter
     }
-    type     Type                 {
+    type     Type                {
         @doc value """
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
         @filter
     }
-    config   Config               {
+    config   Config              {
         @doc value """
             is task-specific configuration stored as JSON. Structure varies by
             task type.
         """
     }
-    internal bool?                {
+    internal bool = false {
         @doc value "is true if this is an internal system task."
         @filter
     }
-    snapshot bool?                {
+    snapshot bool = false {
         @doc value "indicates whether to persist this task's configuration."
         @filter
     }
-    status   Status<StatusData>?? {
+    status   Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
     }

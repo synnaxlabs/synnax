@@ -23,15 +23,17 @@ import (
 
 // CommandToPB converts Command to Command.
 func CommandToPB(r task.Command) (*Command, error) {
-	argsVal, err := structpb.NewStruct(r.Args)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Command{
 		Task: uint64(r.Task),
 		Type: r.Type,
 		Key:  r.Key,
-		Args: argsVal,
+	}
+	if r.Args != nil {
+		var err error
+		pb.Args, err = structpb.NewStruct(r.Args)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -42,10 +44,12 @@ func CommandFromPB(pb *Command) (task.Command, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Args = pb.Args.AsMap()
 	r.Task = task.Key(pb.Task)
 	r.Type = pb.Type
 	r.Key = pb.Key
+	if pb.Args != nil {
+		r.Args = pb.Args.AsMap()
+	}
 	return r, nil
 }
 

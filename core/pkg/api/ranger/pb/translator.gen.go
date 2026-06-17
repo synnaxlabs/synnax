@@ -13,9 +13,10 @@ package pb
 
 import (
 	"github.com/google/uuid"
-	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/api/ranger"
+	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
+	labelpb "github.com/synnaxlabs/x/label/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
 
@@ -37,6 +38,20 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 			return nil, err
 		}
 	}
+	if r.Labels != nil {
+		vals, err := labelpb.LabelsToPB(r.Labels)
+		if err != nil {
+			return nil, err
+		}
+		pb.Labels = &LabelList{Values: vals}
+	}
+	if r.Parent != nil {
+		var err error
+		pb.Parent, err = RangeToPB(*r.Parent)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -51,7 +66,7 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 	if err != nil {
 		return ranger.Range{}, err
 	}
-	r.Key = ranger.Key(parsedKey)
+	r.Key = serviceranger.Key(parsedKey)
 	r.TimeRange, err = telempb.TimeRangeFromPB(pb.TimeRange)
 	if err != nil {
 		return ranger.Range{}, err
@@ -63,6 +78,20 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 			return ranger.Range{}, err
 		}
 		r.Color = &val
+	}
+	if pb.Labels != nil {
+		vals, err := labelpb.LabelsFromPB(pb.Labels.Values)
+		if err != nil {
+			return ranger.Range{}, err
+		}
+		r.Labels = vals
+	}
+	if pb.Parent != nil {
+		val, err := RangeFromPB(pb.Parent)
+		if err != nil {
+			return ranger.Range{}, err
+		}
+		r.Parent = &val
 	}
 	return r, nil
 }

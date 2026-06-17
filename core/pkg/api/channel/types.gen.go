@@ -45,7 +45,7 @@ type Channel struct {
 	// a timestamp.
 	Index distributionchannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
-	Alias string `json:"alias" msgpack:"alias"`
+	Alias *string `json:"alias,omitempty" msgpack:"alias,omitempty"`
 	// Virtual is true if this channel does not store data in the database but can still be
 	// used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
@@ -59,7 +59,7 @@ type Channel struct {
 	Operations []distributionchannel.Operation `json:"operations" msgpack:"operations"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
 	// channels can have a policy of shared concurrency.
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency *control.Concurrency `json:"concurrency,omitempty" msgpack:"concurrency,omitempty"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

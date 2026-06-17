@@ -33,7 +33,7 @@ export const policyZ = z.object({
   /** actions is the list of actions this policy permits. */
   actions: array.nullishToEmpty(access.actionZ),
   /** internal is true if this is a built-in system policy that cannot be deleted. */
-  internal: z.boolean().default(false).optional(),
+  internal: z.boolean().default(false),
 });
 export interface Policy extends z.infer<typeof policyZ> {}
 

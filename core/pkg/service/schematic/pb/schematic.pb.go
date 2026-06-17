@@ -43,10 +43,10 @@ type Node struct {
 	Position *pb.XY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
 	// z_index is the stacking order of the node within the schematic. Higher values render
 	// above lower values. Set by the user via send-to-back / bring-to-front actions.
-	ZIndex int32 `protobuf:"varint,3,opt,name=z_index,json=zIndex,proto3" json:"z_index,omitempty"`
+	ZIndex *int32 `protobuf:"varint,3,opt,name=z_index,json=zIndex,proto3,oneof" json:"z_index,omitempty"`
 	// measured is the rendered pixel size of the node. Populated by the renderer after the
 	// node is mounted and used to keep diagram measurements consistent across re-renders.
-	Measured      *pb.Dimensions `protobuf:"bytes,4,opt,name=measured,proto3" json:"measured,omitempty"`
+	Measured      *pb.Dimensions `protobuf:"bytes,4,opt,name=measured,proto3,oneof" json:"measured,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -96,8 +96,8 @@ func (x *Node) GetPosition() *pb.XY {
 }
 
 func (x *Node) GetZIndex() int32 {
-	if x != nil {
-		return x.ZIndex
+	if x != nil && x.ZIndex != nil {
+		return *x.ZIndex
 	}
 	return 0
 }
@@ -328,12 +328,15 @@ var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescript
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x95\x01\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\xb8\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
-	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x17\n" +
-	"\az_index\x18\x03 \x01(\x05R\x06zIndex\x124\n" +
-	"\bmeasured\x18\x04 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\"2\n" +
+	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x1c\n" +
+	"\az_index\x18\x03 \x01(\x05H\x00R\x06zIndex\x88\x01\x01\x129\n" +
+	"\bmeasured\x18\x04 \x01(\v2\x18.x.spatial.pb.DimensionsH\x01R\bmeasured\x88\x01\x01B\n" +
+	"\n" +
+	"\b_z_indexB\v\n" +
+	"\t_measured\"2\n" +
 	"\x06Handle\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x14\n" +
 	"\x05param\x18\x02 \x01(\tR\x05param\"\x84\x01\n" +
@@ -397,6 +400,7 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 	if File_core_pkg_service_schematic_pb_schematic_proto != nil {
 		return
 	}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -11,6 +11,10 @@
 
 package spatial
 
+import (
+	"github.com/synnaxlabs/x/validate"
+)
+
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
 type Decimal = float64
@@ -257,12 +261,26 @@ type CornerLocation struct {
 	Y YLocation `json:"y" msgpack:"y"`
 }
 
+func (c CornerLocation) Validate() error {
+	v := validate.New("CornerLocation")
+	v.Ternaryf("X", !c.X.IsValid(), "invalid X: %v", c.X)
+	v.Ternaryf("Y", !c.Y.IsValid(), "invalid Y: %v", c.Y)
+	return v.Error()
+}
+
 // StickyUnits specifies the measurement units for sticky positioning.
 type StickyUnits struct {
 	// X is the horizontal unit.
 	X StickyUnit `json:"x" msgpack:"x"`
 	// Y is the vertical unit.
 	Y StickyUnit `json:"y" msgpack:"y"`
+}
+
+func (s StickyUnits) Validate() error {
+	v := validate.New("StickyUnits")
+	v.Ternaryf("X", !s.X.IsValid(), "invalid X: %v", s.X)
+	v.Ternaryf("Y", !s.Y.IsValid(), "invalid Y: %v", s.Y)
+	return v.Error()
 }
 
 // StickyXY is a position that can be anchored to different corners of a container with
@@ -292,6 +310,13 @@ type Viewport struct {
 	Zoom float64 `json:"zoom" msgpack:"zoom"`
 	// Position is the (x, y) pan offset of the viewport.
 	Position XY `json:"position" msgpack:"position"`
+}
+
+func (v Viewport) ApplyDefaults() Viewport {
+	if v.Zoom == 0 {
+		v.Zoom = 1
+	}
+	return v
 }
 
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing

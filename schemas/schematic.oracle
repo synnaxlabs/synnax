@@ -71,7 +71,7 @@ Edge struct {
 }
 
 Schematic struct {
-    key      Key                 {
+    key      Key = create {
         @doc value "is the unique identifier for this schematic."
         @key
     }
@@ -83,13 +83,13 @@ Schematic struct {
             indicates whether this schematic represents a saved snapshot state.
         """
     }
-    nodes    Node[]              {
+    nodes    Node[] = [] {
         @doc value "contains all diagram nodes in the schematic."
     }
-    edges    Edge[]              {
+    edges    Edge[] = [] {
         @doc value "contains all connections between nodes."
     }
-    configs  map<string, record> {
+    configs  map<string, record> = {} {
         @doc value        """
             contains per-element configuration keyed by node or edge key. The
             shape of each value is determined by the element's variant; the
@@ -179,18 +179,7 @@ Schematic struct {
     """
     @ontology type "schematic"
     @retrieve
+    @create
     @go marshal
     @go migrate
-}
-
-New struct extends Schematic {
-    key     = create
-    nodes   = []
-    edges   = []
-    configs = {}
-
-    @doc value    "contains parameters for creating a new schematic."
-    @ts use_input
-    @go omit
-    @pb omit
 }

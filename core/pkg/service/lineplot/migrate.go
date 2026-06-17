@@ -56,7 +56,7 @@ func migrateTitle(t v0.Title) Title {
 }
 
 func migrateLegend(l v1.Legend) Legend {
-	return Legend{Visible: l.Visible, Position: migrateStickyXY(l.Position)}
+	return Legend{Hidden: !l.Visible, Position: migrateStickyXY(l.Position)}
 }
 
 func migrateStickyXY(p v1.LegendPosition) spatial.StickyXY {
@@ -108,7 +108,7 @@ func migrateAxis(a v2.Axis) Axis {
 		LabelDirection: spatial.Direction(a.LabelDirection),
 		LabelLevel:     text.Level(a.LabelLevel),
 		Bounds:         spatial.Bounds{Lower: a.Bounds.Lower, Upper: a.Bounds.Upper},
-		AutoBounds:     AutoBounds{Lower: a.AutoBounds.Lower, Upper: a.AutoBounds.Upper},
+		ManualBounds:   ManualBounds{Lower: !a.AutoBounds.Lower, Upper: !a.AutoBounds.Upper},
 		TickSpacing:    a.TickSpacing,
 		Type:           migrateTickType(a.Type),
 	}

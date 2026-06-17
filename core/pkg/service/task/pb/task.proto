@@ -60,5 +60,5 @@ message Command {
   // key is a unique identifier for this command instance.
   string key = 3;
   // args contains optional arguments for the command.
-  google.protobuf.Struct args = 4;
+  optional google.protobuf.Struct args = 4;
 }

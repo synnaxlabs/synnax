@@ -16,7 +16,8 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Status is the status of an Arc module including execution state.
@@ -67,4 +68,10 @@ type Arc struct {
 	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
 	// Status is the current execution status of the module.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
+}
+
+func (a Arc) Validate() error {
+	v := validate.New("Arc")
+	v.Ternaryf("Mode", !a.Mode.IsValid(), "invalid Mode: %v", a.Mode)
+	return v.Error()
 }

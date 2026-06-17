@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, errors, Rate, TimeSpan } from "@synnaxlabs/x";
+import { DataType, errors, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
@@ -49,7 +49,6 @@ describe("channelchannel.Retriever", () => {
         dataType: DataType.FLOAT32,
         internal: false,
         isIndex: false,
-        rate: Rate.hz(1),
         leaseholder: 1,
         index: 0,
         virtual: false,
@@ -81,7 +80,6 @@ describe("channelchannel.Retriever", () => {
         dataType: DataType.FLOAT32,
         internal: false,
         isIndex: false,
-        rate: Rate.hz(1),
         leaseholder: 1,
         index: 0,
         virtual: false,

@@ -59,13 +59,13 @@ class Status(BaseModel, Generic[Details]):
     name: str = Field(default="")
     variant: Variant
     message: str
-    description: str | None = None
+    description: str = Field(default="")
     time: telem.TimeStamp = Field(
         default_factory=telem.TimeStamp.now,
         ge=-9223372036854775808,
         le=9223372036854775807,
     )
-    details: Details | None = None
+    details: Details
     labels: list[label.Label] | None = None
 
     def __hash__(self) -> int:

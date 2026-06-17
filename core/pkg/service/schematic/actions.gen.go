@@ -52,7 +52,7 @@ type SetNodeMeasuredPayload struct {
 // node's key in the schematic configs map.
 type SetNodePayload struct {
 	Node   Node                `json:"node" msgpack:"node"`
-	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
+	Config msgpack.EncodedJSON `json:"config,omitempty" msgpack:"config,omitempty"`
 }
 
 // RemoveNodePayload removes a node and any config stored under its key.

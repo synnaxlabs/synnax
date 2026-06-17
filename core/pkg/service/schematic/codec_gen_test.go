@@ -78,14 +78,14 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", schematic.Node{
 				Key:      "test_1",
 				Position: spatial.XY{X: 3.5, Y: 4.5},
-				ZIndex:   6,
-				Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
+				ZIndex:   new(int16(6)),
+				Measured: new(spatial.Dimensions{Width: 7.5, Height: 8.5}),
 			}),
 			Entry("zero values", schematic.Node{
 				Key:      "",
 				Position: spatial.XY{X: 0, Y: 0},
-				ZIndex:   0,
-				Measured: spatial.Dimensions{Width: 0, Height: 0},
+				ZIndex:   nil,
+				Measured: nil,
 			}),
 		)
 	})
@@ -108,8 +108,8 @@ var _ = Describe("Codec", func() {
 					{
 						Key:      "test_5",
 						Position: spatial.XY{X: 7.5, Y: 8.5},
-						ZIndex:   10,
-						Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
+						ZIndex:   new(int16(10)),
+						Measured: new(spatial.Dimensions{Width: 11.5, Height: 12.5}),
 					},
 				},
 				Edges: []schematic.Edge{
@@ -183,8 +183,8 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	nv := schematic.Node{
 		Key:      "test_1",
 		Position: spatial.XY{X: 3.5, Y: 4.5},
-		ZIndex:   6,
-		Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
+		ZIndex:   new(int16(6)),
+		Measured: new(spatial.Dimensions{Width: 7.5, Height: 8.5}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -210,8 +210,8 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			{
 				Key:      "test_5",
 				Position: spatial.XY{X: 7.5, Y: 8.5},
-				ZIndex:   10,
-				Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
+				ZIndex:   new(int16(10)),
+				Measured: new(spatial.Dimensions{Width: 11.5, Height: 12.5}),
 			},
 		},
 		Edges: []schematic.Edge{
@@ -343,8 +343,8 @@ func FuzzDecodeNode(f *testing.F) {
 		seed := schematic.Node{
 			Key:      "test_1",
 			Position: spatial.XY{X: 3.5, Y: 4.5},
-			ZIndex:   6,
-			Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
+			ZIndex:   new(int16(6)),
+			Measured: new(spatial.Dimensions{Width: 7.5, Height: 8.5}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -356,8 +356,8 @@ func FuzzDecodeNode(f *testing.F) {
 		seed := schematic.Node{
 			Key:      "",
 			Position: spatial.XY{X: 0, Y: 0},
-			ZIndex:   0,
-			Measured: spatial.Dimensions{Width: 0, Height: 0},
+			ZIndex:   nil,
+			Measured: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -404,8 +404,8 @@ func FuzzDecodeSchematic(f *testing.F) {
 				{
 					Key:      "test_5",
 					Position: spatial.XY{X: 7.5, Y: 8.5},
-					ZIndex:   10,
-					Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
+					ZIndex:   new(int16(10)),
+					Measured: new(spatial.Dimensions{Width: 11.5, Height: 12.5}),
 				},
 			},
 			Edges: []schematic.Edge{

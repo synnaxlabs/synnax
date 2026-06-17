@@ -37,7 +37,8 @@ func (p SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 func (p SetNodeMeasuredPayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == p.Key {
-			state.Nodes[i].Measured = p.Measured
+			measured := p.Measured
+			state.Nodes[i].Measured = &measured
 			break
 		}
 	}

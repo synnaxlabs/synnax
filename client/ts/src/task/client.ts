@@ -145,6 +145,7 @@ export class Task<S extends Schemas = Schemas> {
       config: this.config,
       status: this.status,
       internal: this.internal,
+      snapshot: this.snapshot,
     };
   }
 

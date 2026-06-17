@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a panel, represented as a UUID.
@@ -64,6 +65,12 @@ type Split struct {
 	First Node `json:"first" msgpack:"first"`
 	// Last is the second child (right for x, bottom for y).
 	Last Node `json:"last" msgpack:"last"`
+}
+
+func (s Split) Validate() error {
+	v := validate.New("Split")
+	v.Ternaryf("Direction", !s.Direction.IsValid(), "invalid Direction: %v", s.Direction)
+	return v.Error()
 }
 
 // Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by

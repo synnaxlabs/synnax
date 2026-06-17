@@ -23,7 +23,7 @@ export type Key = z.infer<typeof keyZ>;
 export type StatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> = z.ZodObject<{
   task: typeof keyZ;
   running: z.ZodBoolean;
-  cmd: z.ZodOptional<z.ZodString>;
+  cmd: z.ZodDefault<z.ZodString>;
   data: [Data] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : z.ZodOptional<Data>;
 }>;
 
@@ -38,20 +38,20 @@ export const statusDetailsZ: StatusDetailsZFunction = <Data extends z.ZodType>(
   z.object({
     task: keyZ,
     running: z.boolean(),
-    cmd: z.string().optional(),
+    cmd: z.string().default(""),
     data: (data ?? z.unknown()).optional(),
   });
 export type StatusDetails<Data extends z.ZodType = z.ZodNever> = {
   task: Key;
   running: boolean;
-  cmd?: string;
+  cmd: string;
 } & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
 
 export type NewStatusDetailsZodObject<Data extends z.ZodType = z.ZodNever> =
   z.ZodObject<{
     task: z.ZodOptional<typeof keyZ>;
     running: z.ZodBoolean;
-    cmd: z.ZodOptional<z.ZodString>;
+    cmd: z.ZodDefault<z.ZodString>;
     data: [Data] extends [z.ZodNever]
       ? z.ZodOptional<z.ZodUnknown>
       : z.ZodOptional<Data>;
@@ -68,13 +68,13 @@ export const newStatusDetailsZ: NewStatusDetailsZFunction = <Data extends z.ZodT
   z.object({
     task: keyZ.optional(),
     running: z.boolean(),
-    cmd: z.string().optional(),
+    cmd: z.string().default(""),
     data: (data ?? z.unknown()).optional(),
   });
 export type NewStatusDetails<Data extends z.ZodType = z.ZodNever> = {
   task?: Key;
   running: boolean;
-  cmd?: string;
+  cmd: string;
 } & ([Data] extends [z.ZodNever] ? {} : { data?: z.infer<Data> });
 
 /** Command is a command to execute on a task in the Driver system. */
@@ -126,8 +126,8 @@ export const payloadZ = <
     name: z.string(),
     type: type ?? z.string(),
     config: config ?? record.nullishToEmpty(),
-    internal: z.boolean().optional(),
-    snapshot: z.boolean().optional(),
+    internal: z.boolean().default(false),
+    snapshot: z.boolean().default(false),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
   });
 export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
@@ -135,8 +135,8 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   name: string;
   type: z.infer<S["type"]>;
   config: z.infer<S["config"]>;
-  internal?: boolean;
-  snapshot?: boolean;
+  internal: boolean;
+  snapshot: boolean;
   status?: Status<S["statusData"]>;
 }
 

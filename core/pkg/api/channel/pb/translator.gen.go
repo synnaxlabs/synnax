@@ -29,10 +29,6 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 	if err != nil {
 		return nil, err
 	}
-	concurrencyVal, err := controlpb.ConcurrencyToPB(r.Concurrency)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Channel{
 		Key:         uint32(r.Key),
 		Name:        string(r.Name),
@@ -40,12 +36,20 @@ func ChannelToPB(r channel.Channel) (*Channel, error) {
 		DataType:    string(r.DataType),
 		IsIndex:     r.IsIndex,
 		Index:       uint32(r.Index),
-		Alias:       r.Alias,
 		Virtual:     r.Virtual,
 		Internal:    r.Internal,
 		Expression:  r.Expression,
 		Operations:  operationsVal,
-		Concurrency: concurrencyVal,
+	}
+	if r.Alias != nil {
+		pb.Alias = r.Alias
+	}
+	if r.Concurrency != nil {
+		val, err := controlpb.ConcurrencyToPB(*r.Concurrency)
+		if err != nil {
+			return nil, err
+		}
+		pb.Concurrency = &val
 	}
 	if r.Status != nil {
 		var err error
@@ -68,20 +72,25 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	if err != nil {
 		return channel.Channel{}, err
 	}
-	r.Concurrency, err = controlpb.ConcurrencyFromPB(pb.Concurrency)
-	if err != nil {
-		return channel.Channel{}, err
-	}
 	r.Key = distributionchannel.Key(pb.Key)
 	r.Name = distributionchannel.Name(pb.Name)
 	r.Leaseholder = node.Key(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex
 	r.Index = distributionchannel.Key(pb.Index)
-	r.Alias = pb.Alias
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
+	if pb.Alias != nil {
+		r.Alias = pb.Alias
+	}
+	if pb.Concurrency != nil {
+		val, err := controlpb.ConcurrencyFromPB(*pb.Concurrency)
+		if err != nil {
+			return channel.Channel{}, err
+		}
+		r.Concurrency = &val
+	}
 	if pb.Status != nil {
 		val, err := statuspb.StatusFromPB[gotypes.Nil](pb.Status, nil)
 		if err != nil {

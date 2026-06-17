@@ -46,33 +46,33 @@ Mode enum {
 }
 
 Arc struct {
-    key     Key               {
+    key     Key              {
         @key
         @doc value "is the unique identifier for this module."
     }
-    name    string            {
+    name    string           {
         @doc value "is a human-readable name for the module."
         @filter
     }
-    mode    Mode              {
+    mode    Mode             {
         @doc value """
             specifies the representation mode for this module.
             Either "text" for text-based Arc code or "graph" for visual dataflow.
         """
     }
-    graph   graph.Graph       {
+    graph   graph.Graph      {
         @doc value "is the visual dataflow graph representation of the module."
     }
-    text    text.Text         {
+    text    text.Text        {
         @doc value "is the text-based Arc source code."
     }
-    program program.Program?? {
+    program program.Program? {
         @doc value  """
             is the compiled module output including IR and WebAssembly bytecode.
         """
         @go marshal omit
     }
-    status  Status??          {
+    status  Status?          {
         @doc value  "is the current execution status of the module."
         @go marshal omit
     }

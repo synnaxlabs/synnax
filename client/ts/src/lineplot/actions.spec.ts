@@ -76,16 +76,16 @@ describe("lineplot reducer", () => {
     });
   });
 
-  describe("setLegendVisible", () => {
+  describe("setLegendHidden", () => {
     it("should set legend visibility, leaving position unchanged", () => {
-      const out = apply(createEmpty(), lineplot.setLegendVisible({ visible: false }));
-      expect(out.legend.visible).toEqual(false);
+      const out = apply(createEmpty(), lineplot.setLegendHidden({ hidden: true }));
+      expect(out.legend.hidden).toEqual(true);
       expect(out.legend.position).toEqual(createEmpty().legend.position);
     });
     it("should round-trip the previous visibility through its inverse", () => {
       const state = createEmpty();
       expect(
-        roundTrip(state, lineplot.setLegendVisible({ visible: false })).legend,
+        roundTrip(state, lineplot.setLegendHidden({ hidden: true })).legend,
       ).toEqual(state.legend);
     });
   });
@@ -97,7 +97,7 @@ describe("lineplot reducer", () => {
         lineplot.setLegendPosition({ position: { x: 10, y: 20 } }),
       );
       expect(out.legend.position.x).toEqual(10);
-      expect(out.legend.visible).toEqual(createEmpty().legend.visible);
+      expect(out.legend.hidden).toEqual(createEmpty().legend.hidden);
     });
     it("should round-trip the previous position through its inverse", () => {
       const state = createEmpty();
@@ -555,16 +555,16 @@ describe("lineplot reducer", () => {
       expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
     });
 
-    it("setAxisBounds sets bounds and auto flags together and round-trips", () => {
+    it("setAxisBounds sets bounds and manual flags together and round-trips", () => {
       const state = createEmpty();
       const action = lineplot.setAxisBounds({
         key: "y1",
         bounds: { lower: 1, upper: 2 },
-        autoBounds: { lower: false, upper: false },
+        manualBounds: { lower: true, upper: true },
       });
       const out = apply(state, action).axes.y1;
       expect(out.bounds).toEqual({ lower: 1, upper: 2 });
-      expect(out.autoBounds).toEqual({ lower: false, upper: false });
+      expect(out.manualBounds).toEqual({ lower: true, upper: true });
       expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
     });
 

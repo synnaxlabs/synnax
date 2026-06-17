@@ -35,7 +35,7 @@ export const subjectZ = z.object({
    * group optional identifier shared by subjects from the same logical group
    * (e.g.) all writers from the same Driver rack.
    */
-  group: z.uint32().optional(),
+  group: z.uint32().default(0),
 });
 export interface Subject extends z.infer<typeof subjectZ> {}
 

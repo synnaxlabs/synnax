@@ -62,28 +62,28 @@ ChannelEntry struct {
 }
 
 Log struct {
-    key                    Key            {
+    key                    Key = create {
         @doc value "is the unique identifier for this log."
         @key
     }
     name                   string         {
         @doc value "is a human-readable name for the log."
     }
-    channels               ChannelEntry[] {
+    channels               ChannelEntry[] = [] {
         @doc value "are the channels displayed in this log, in order."
     }
-    timestamp_precision    int32          {
+    timestamp_precision    int32 = 0 {
         @doc value "is the precision of displayed timestamps (0-3)."
         @validate {
             min 0
             max 3
         }
     }
-    show_channel_names     bool           {
-        @doc value "controls whether channel names are displayed."
+    hide_channel_names     bool = false {
+        @doc value "controls whether channel names are hidden. When false (the default), names are displayed."
     }
-    show_receipt_timestamp bool           {
-        @doc value "controls whether the receipt timestamp column is displayed."
+    hide_receipt_timestamp bool = false {
+        @doc value "controls whether the receipt timestamp column is hidden. When false (the default), it is displayed."
     }
 
     action Rename {
@@ -147,16 +147,16 @@ Log struct {
         @doc value "sets the precision of displayed timestamps (0-3)."
     }
 
-    action SetShowChannelNames {
-        show_channel_names bool
+    action SetHideChannelNames {
+        hide_channel_names bool
 
-        @doc value "controls whether channel names are displayed."
+        @doc value "controls whether channel names are hidden."
     }
 
-    action SetShowReceiptTimestamp {
-        show_receipt_timestamp bool
+    action SetHideReceiptTimestamp {
+        hide_receipt_timestamp bool
 
-        @doc value "controls whether the receipt timestamp column is displayed."
+        @doc value "controls whether the receipt timestamp column is hidden."
     }
 
     @doc value     """
@@ -165,19 +165,8 @@ Log struct {
         filtering and formatting capabilities.
     """
     @ontology type "log"
+    @create
     @go marshal
     @go migrate
     @retrieve
-}
-
-New struct extends Log {
-    key                    = create
-    channels               = []
-    timestamp_precision    = 0
-    show_channel_names     = true
-    show_receipt_timestamp = true
-
-    @doc value    "contains parameters for creating a new log."
-    @ts use_input
-    @go omit
 }

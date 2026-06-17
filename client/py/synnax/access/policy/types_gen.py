@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax import ontology
 from synnax.access import action
@@ -38,7 +38,7 @@ class Policy(BaseModel):
     name: str
     objects: list[ontology.ID]
     actions: list[action.Action]
-    internal: bool | None = None
+    internal: bool = Field(default=False)
 
 
 ONTOLOGY_TYPE = ID(type="policy")

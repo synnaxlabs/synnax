@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -126,10 +127,24 @@ type Title struct {
 	Visible bool `json:"visible" msgpack:"visible"`
 }
 
+func (t Title) ApplyDefaults() Title {
+	if t.Level == "" {
+		t.Level = text.LevelH4
+	}
+	return t
+}
+
+func (t Title) Validate() error {
+	v := validate.New("Title")
+	v.Ternaryf("Level", !t.Level.IsValid(), "invalid Level: %v", t.Level)
+	return v.Error()
+}
+
 // Legend is the plot legend configuration.
 type Legend struct {
-	// Visible is whether the legend is shown.
-	Visible bool `json:"visible" msgpack:"visible"`
+	// Hidden is whether the legend is hidden. When false (the default), the legend is
+	// shown.
+	Hidden bool `json:"hidden" msgpack:"hidden"`
 	// Position is the anchor position of the legend within the plot container.
 	Position spatial.StickyXY `json:"position" msgpack:"position"`
 }
@@ -162,13 +177,14 @@ type Ranges struct {
 	X2 []string `json:"x2" msgpack:"x2"`
 }
 
-// AutoBounds controls whether an axis derives its bounds from the rendered data window
-// on each side independently. When a bound is auto, the corresponding entry in
-// Axis.bounds is recomputed locally and never broadcast to the server.
-type AutoBounds struct {
-	// Lower is whether the lower bound is computed from data.
+// ManualBounds controls whether an axis uses a manually-set bound on each side
+// independently. When a side is false (the default), the corresponding entry in
+// Axis.bounds is recomputed locally from the rendered data window and never broadcast
+// to the server; when true, Axis.bounds holds the user-set value.
+type ManualBounds struct {
+	// Lower is whether the lower bound is set manually rather than computed from data.
 	Lower bool `json:"lower" msgpack:"lower"`
-	// Upper is whether the upper bound is computed from data.
+	// Upper is whether the upper bound is set manually rather than computed from data.
 	Upper bool `json:"upper" msgpack:"upper"`
 }
 
@@ -182,17 +198,38 @@ type Axis struct {
 	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
 	// LabelLevel is the typography level of the label.
 	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
-	// Bounds is the value-space window of the axis. When the matching entry in auto_bounds
-	// is true the field is overwritten locally on every render; otherwise it is the
-	// user-set fixed bound.
+	// Bounds is the value-space window of the axis. When the matching entry in
+	// manual_bounds is false the field is overwritten locally on every render; otherwise it
+	// is the user-set fixed bound.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	// AutoBounds controls per-edge automatic bound derivation.
-	AutoBounds AutoBounds `json:"auto_bounds" msgpack:"auto_bounds"`
+	// ManualBounds controls per-edge manual bound override.
+	ManualBounds ManualBounds `json:"manual_bounds" msgpack:"manual_bounds"`
 	// TickSpacing is the target pixel distance between adjacent tick marks.
 	TickSpacing float64 `json:"tick_spacing" msgpack:"tick_spacing"`
 	// Type selects the tick label style. Null means default (linear). X-axes typically
 	// carry "time" when bound to a timestamp channel.
 	Type *TickType `json:"type,omitempty" msgpack:"type,omitempty"`
+}
+
+func (a Axis) ApplyDefaults() Axis {
+	if a.LabelDirection == "" {
+		a.LabelDirection = spatial.DirectionX
+	}
+	if a.LabelLevel == "" {
+		a.LabelLevel = text.LevelSmall
+	}
+	if a.TickSpacing == 0 {
+		a.TickSpacing = 75
+	}
+	return a
+}
+
+func (a Axis) Validate() error {
+	v := validate.New("Axis")
+	v.Ternaryf("Key", !a.Key.IsValid(), "invalid Key: %v", a.Key)
+	v.Ternaryf("LabelDirection", !a.LabelDirection.IsValid(), "invalid LabelDirection: %v", a.LabelDirection)
+	v.Ternaryf("LabelLevel", !a.LabelLevel.IsValid(), "invalid LabelLevel: %v", a.LabelLevel)
+	return v.Error()
 }
 
 // Axes bundles configuration for all six fixed plot axes.
@@ -231,6 +268,25 @@ type Line struct {
 	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
 }
 
+func (l Line) ApplyDefaults() Line {
+	if l.StrokeWidth == 0 {
+		l.StrokeWidth = 2
+	}
+	if l.Downsample == 0 {
+		l.Downsample = 1
+	}
+	if l.DownsampleMode == "" {
+		l.DownsampleMode = DownsampleModeDecimate
+	}
+	return l
+}
+
+func (l Line) Validate() error {
+	v := validate.New("Line")
+	v.Ternaryf("DownsampleMode", !l.DownsampleMode.IsValid(), "invalid DownsampleMode: %v", l.DownsampleMode)
+	return v.Error()
+}
+
 // Rule is a horizontal or vertical annotation line drawn over the plot.
 type Rule struct {
 	// Key is the unique rule identifier within the line plot.
@@ -250,6 +306,19 @@ type Rule struct {
 	Units string `json:"units" msgpack:"units"`
 	// Position is the value-space position of the rule along its anchored axis.
 	Position float64 `json:"position" msgpack:"position"`
+}
+
+func (r Rule) ApplyDefaults() Rule {
+	if r.LineWidth == 0 {
+		r.LineWidth = 1
+	}
+	return r
+}
+
+func (r Rule) Validate() error {
+	v := validate.New("Rule")
+	v.Ternaryf("Axis", !r.Axis.IsValid(), "invalid Axis: %v", r.Axis)
+	return v.Error()
 }
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line

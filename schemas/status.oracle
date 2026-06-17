@@ -45,13 +45,13 @@ Status struct<Details?, V extends Variant = Variant> {
     message     string          {
         @doc value "is the main message text describing the status."
     }
-    description string?         {
+    description string = "" {
         @doc value "is an optional detailed description providing additional context."
     }
     time        telem.TimeStamp = now {
         @doc value "is the timestamp when the status was created."
     }
-    details     Details?        {
+    details     Details         {
         @doc value  "contains optional component-specific custom details for the status."
         @go marshal json_only
     }

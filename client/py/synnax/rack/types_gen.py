@@ -49,27 +49,23 @@ class Base(BaseModel):
             "labjack"). An empty or nil list means the rack supports no integrations.
     """
 
-    key: Key = Field(ge=0, le=4294967295)
+    key: Key = Field(default=Key(0), ge=0, le=4294967295)
     name: str
-    task_counter: int | None = Field(default=None, ge=0, le=4294967295)
-    embedded: bool | None = None
+    task_counter: int = Field(default=0, ge=0, le=4294967295)
+    embedded: bool = Field(default=False)
     status: Status | None = None
-    integrations: list[str] | None = None
+    integrations: list[str] = Field(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(self.key)
 
 
-class Rack(Base):
-    """Contains parameters for creating a new rack.
+class New(Base):
+    task_counter: int = Field(exclude=True)
+    embedded: bool = Field(exclude=True)
 
-    Attributes:
-        key: Is an optional key for the rack. If 0, one will be automatically assigned.
-    """
-
-    key: int = Field(default=0, ge=0, le=4294967295)
-    task_counter: int | None = Field(default=None, exclude=True)
-    embedded: bool | None = Field(default=None, exclude=True)
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 ONTOLOGY_TYPE = ID(type="rack")

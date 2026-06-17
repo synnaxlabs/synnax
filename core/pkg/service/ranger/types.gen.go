@@ -31,12 +31,6 @@ type Range struct {
 	// TimeRange is the temporal extent of the range, defining its start and end timestamps.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is an optional display color for visual identification of the range in user
-	// interfaces.
-	Color color.Color `json:"color" msgpack:"color"`
-	// Labels contains optional labels attached to this range for categorization and
-	// filtering.
-	Labels []label.Label `json:"labels" msgpack:"labels"`
-	// Parent is an optional parent range for hierarchical organization. Ranges can be
-	// nested within other ranges.
-	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
+	// interfaces. When null, the Console assigns one.
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 }

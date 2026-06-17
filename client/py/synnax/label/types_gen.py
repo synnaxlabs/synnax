@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -32,9 +32,14 @@ class Label(BaseModel):
         color: Is the display color for visual identification of the label.
     """
 
-    key: Key
+    key: Key = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
     color: color_.Color
 
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class New(Label):
     def __hash__(self) -> int:
         return hash(self.key)

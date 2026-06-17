@@ -47,7 +47,7 @@ export type StatusZodObject<
   name: z.ZodDefault<z.ZodString>;
   variant: V;
   message: z.ZodString;
-  description: z.ZodOptional<z.ZodString>;
+  description: z.ZodDefault<z.ZodString>;
   time: z.ZodDefault<typeof telem.timeStampZ>;
   labels: ReturnType<typeof zod.nullToUndefined<z.ZodArray<typeof label.labelZ>>>;
   details: [Details] extends [z.ZodNever] ? z.ZodOptional<z.ZodUnknown> : Details;
@@ -78,7 +78,7 @@ export const statusZ: StatusZFunction = <
     name: z.string().default(""),
     variant: v ?? variantZ,
     message: z.string(),
-    description: z.string().optional(),
+    description: z.string().default(""),
     time: telem.timeStampZ.default(() => TimeStamp.now()),
     details: details ?? z.unknown().optional(),
     labels: zod.nullToUndefined(label.labelZ.array()),
@@ -91,7 +91,7 @@ export type Status<
   name: string;
   variant: z.infer<V>;
   message: string;
-  description?: string;
+  description: string;
   time: telem.TimeStamp;
   labels?: label.Label[];
 } & ([Details] extends [z.ZodNever] ? {} : { details: z.infer<Details> });

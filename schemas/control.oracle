@@ -29,13 +29,13 @@ Concurrency enum {
 }
 
 Subject struct {
-    key   string  {
+    key   string {
         @doc value "is a unique identifier for the subject."
     }
-    name  string  {
+    name  string {
         @doc value "is a human-readable name for the subject."
     }
-    group uint32? {
+    group uint32 = 0 {
         @doc value """
             optional identifier shared by subjects from the same logical group
             (e.g.) all writers from the same Driver rack.
@@ -69,10 +69,10 @@ State struct<R> {
 }
 
 Transfer struct<R extends comparable> {
-    from State<R>?? {
+    from State<R>? {
         @doc value "the previous authority holder. Null on initial acquire."
     }
-    to   State<R>?? {
+    to   State<R>? {
         @doc value "the new authority holder. Null on release."
     }
 

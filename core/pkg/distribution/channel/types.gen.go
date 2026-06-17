@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a channel in the Synnax database. Composed of a
@@ -65,6 +66,12 @@ type Operation struct {
 	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
 	// Duration is the time window for aggregation when reset_channel is 0.
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
+}
+
+func (o Operation) Validate() error {
+	v := validate.New("Operation")
+	v.Ternaryf("Type", !o.Type.IsValid(), "invalid Type: %v", o.Type)
+	return v.Error()
 }
 
 // Channel is an internal representation of a channel containing all storage and

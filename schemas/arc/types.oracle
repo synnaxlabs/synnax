@@ -68,13 +68,13 @@ Type struct extends FunctionProperties {
     name           string         {
         @doc value "is the type name for variables and user-defined types."
     }
-    elem           Type??         {
+    elem           Type?         {
         @doc value "is the element type for compound types (chan, series)."
     }
-    unit           Unit??         {
+    unit           Unit?         {
         @doc value "is the physical unit metadata for dimensional analysis."
     }
-    constraint     Type??         {
+    constraint     Type?         {
         @doc value "is the type constraint for type variables."
     }
     chan_direction  ChanDirection? {

@@ -33,7 +33,7 @@ Policy struct {
     actions  access.Action[] {
         @doc value "is the list of actions this policy permits."
     }
-    internal bool? = false {
+    internal bool = false {
         @doc value """
             is true if this is a built-in system policy that cannot be deleted.
         """

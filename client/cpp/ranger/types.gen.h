@@ -11,30 +11,33 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "client/cpp/label/types.gen.h"
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/color/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/label/types.gen.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "core/pkg/api/ranger/pb/ranger.pb.h"
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 
+struct Base;
 struct Range;
 
 using Key = x::uuid::UUID;
 
-/// @brief Range is a user-defined region of time in the Synnax cluster. Ranges act as a
+/// @brief Base is a user-defined region of time in the Synnax cluster. Ranges act as a
 /// method for labeling and categorizing telemetry data within specific time periods.
-struct Range {
+struct Base {
     /// @brief key is the unique identifier for this range.
     Key key;
     /// @brief name is a human-readable name for the range.
@@ -45,12 +48,26 @@ struct Range {
     ::x::telem::TimeRange time_range = x::telem::TimeRange{};
     /// @brief color is an optional display color for visual identification of the range
     /// in
-    /// user interfaces.
-    ::x::color::Color color;
+    /// user interfaces. When null, the Console assigns one.
+    std::optional<::x::color::Color> color;
+
+    static Base parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::ranger::pb::Range;
+    [[nodiscard]] std::pair<::service::ranger::pb::Range, x::errors::Error>
+    to_proto() const;
+    static std::pair<Base, x::errors::Error>
+    from_proto(const ::service::ranger::pb::Range &pb);
+};
+
+/// @brief Range is a range with additional relationships for hierarchical organization
+/// and metadata. This is the primary type exposed through the API.
+struct Range : public Base {
     /// @brief labels contains optional labels attached to this range for categorization
     /// and
     /// filtering.
-    std::vector<::synnax::label::Label> labels;
+    std::optional<std::vector<::x::label::Label>> labels;
     /// @brief parent is an optional parent range for hierarchical organization. Ranges
     /// can
     /// be nested within other ranges.
@@ -59,11 +76,11 @@ struct Range {
     static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::service::ranger::pb::Range;
-    [[nodiscard]] std::pair<::service::ranger::pb::Range, x::errors::Error>
+    using proto_type = ::api::ranger::pb::Range;
+    [[nodiscard]] std::pair<::api::ranger::pb::Range, x::errors::Error>
     to_proto() const;
     static std::pair<Range, x::errors::Error>
-    from_proto(const ::service::ranger::pb::Range &pb);
+    from_proto(const ::api::ranger::pb::Range &pb);
     ranger::kv::Client kv;
 };
 

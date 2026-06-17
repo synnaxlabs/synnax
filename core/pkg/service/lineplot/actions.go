@@ -30,9 +30,9 @@ func (p SetTitlePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle sets whether the plot legend is shown.
-func (p SetLegendVisiblePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Legend.Visible = p.Visible
+// Handle sets whether the plot legend is hidden.
+func (p SetLegendHiddenPayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Legend.Hidden = p.Hidden
 	return state, nil
 }
 
@@ -209,7 +209,7 @@ func (p SetAxisBoundsPayload) Handle(state LinePlot) (LinePlot, error) {
 		return LinePlot{}, unknownAxisKey(p.Key)
 	}
 	axis.Bounds = p.Bounds
-	axis.AutoBounds = p.AutoBounds
+	axis.ManualBounds = p.ManualBounds
 	return state, nil
 }
 

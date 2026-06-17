@@ -51,7 +51,7 @@ Range struct {
         """
         @go marshal omit
     }
-    parent     Range??         {
+    parent     Range?          {
         @doc value  """
             is an optional parent range for hierarchical organization. Ranges
             can be nested within other ranges.
@@ -79,7 +79,7 @@ Range struct {
 
 New struct extends Range {
     -labels
-    parent Range?? {
+    parent Range? {
         @doc value "references the parent range by key."
         @ts pick   key
     }

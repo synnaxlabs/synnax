@@ -55,35 +55,21 @@ export interface ChannelEntry extends z.infer<typeof channelEntryZ> {}
  */
 export const logZ = z.object({
   /** key is the unique identifier for this log. */
-  key: keyZ,
+  key: keyZ.default(() => uuid.create()),
   /** name is a human-readable name for the log. */
   name: z.string(),
   /** channels are the channels displayed in this log, in order. */
   channels: array.nullishToEmpty(channelEntryZ),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */
-  timestampPrecision: z.int32().min(0).max(3),
-  /** showChannelNames controls whether channel names are displayed. */
-  showChannelNames: z.boolean(),
-  /** showReceiptTimestamp controls whether the receipt timestamp column is displayed. */
-  showReceiptTimestamp: z.boolean(),
+  timestampPrecision: z.int32().min(0).max(3).default(0),
+  /** hideChannelNames controls whether channel names are hidden. When false (the default), names are displayed. */
+  hideChannelNames: z.boolean().default(false),
+  /** hideReceiptTimestamp controls whether the receipt timestamp column is hidden. When false (the default), it is displayed. */
+  hideReceiptTimestamp: z.boolean().default(false),
 });
 export interface Log extends z.infer<typeof logZ> {}
 
-export const newZ = logZ
-  .omit({
-    key: true,
-    channels: true,
-    timestampPrecision: true,
-    showChannelNames: true,
-    showReceiptTimestamp: true,
-  })
-  .extend({
-    key: keyZ.default(() => uuid.create()),
-    channels: array.nullishToEmpty(channelEntryZ),
-    timestampPrecision: z.int32().min(0).max(3).default(0),
-    showChannelNames: z.boolean().default(true),
-    showReceiptTimestamp: z.boolean().default(true),
-  });
+export const newZ = logZ;
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("log");

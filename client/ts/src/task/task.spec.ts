@@ -54,7 +54,7 @@ describe("Task", async () => {
         message: "Custom task status",
         description: "Task is running",
         time: TimeStamp.now(),
-        details: { running: true, data: { customData: true } },
+        details: { running: true, cmd: "", data: { customData: true } },
       };
       const m = await testRack.createTask({
         name: "task-with-status",
@@ -139,8 +139,9 @@ describe("Task", async () => {
           key: ontology.idToString(task.ontologyID(t.key)),
           name: "test",
           variant: "success",
-          details: { task: t.key, running: false, data: undefined },
+          details: { task: t.key, running: false, cmd: "", data: undefined },
           message: "test",
+          description: "",
           time: TimeStamp.now(),
         };
         await client.statuses.set(communicatedStatus);

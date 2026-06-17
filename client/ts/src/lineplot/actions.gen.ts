@@ -15,12 +15,12 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { channel } from "@/channel";
 import {
-  autoBoundsZ,
   axisKeyZ,
   downsampleModeZ,
   keyZ,
   type LinePlot,
   lineZ,
+  manualBoundsZ,
   ruleZ,
   tickTypeZ,
   titleZ,
@@ -42,12 +42,12 @@ export const setTitlePayloadZ = z.object({
 
 export type SetTitlePayload = z.infer<typeof setTitlePayloadZ>;
 
-/** SetLegendVisible sets whether the plot legend is shown. */
-export const setLegendVisiblePayloadZ = z.object({
-  visible: z.boolean(),
+/** SetLegendHidden sets whether the plot legend is hidden. */
+export const setLegendHiddenPayloadZ = z.object({
+  hidden: z.boolean(),
 });
 
-export type SetLegendVisiblePayload = z.infer<typeof setLegendVisiblePayloadZ>;
+export type SetLegendHiddenPayload = z.infer<typeof setLegendHiddenPayloadZ>;
 
 /** SetLegendPosition sets the anchor position of the plot legend within the container. */
 export const setLegendPositionPayloadZ = z.object({
@@ -164,14 +164,14 @@ export const setAxisLabelLevelPayloadZ = z.object({
 export type SetAxisLabelLevelPayload = z.infer<typeof setAxisLabelLevelPayloadZ>;
 
 /**
- * SetAxisBounds sets the axis value-space window together with its per-edge auto
- * derivation flags. The two travel together: fixing a bound disables
- * auto derivation for that edge, so callers set both at once.
+ * SetAxisBounds sets the axis value-space window together with its per-edge manual
+ * override flags. The two travel together: fixing a bound enables the
+ * manual override for that edge, so callers set both at once.
  */
 export const setAxisBoundsPayloadZ = z.object({
   key: axisKeyZ,
   bounds: spatial.boundsZ(),
-  autoBounds: autoBoundsZ,
+  manualBounds: manualBoundsZ,
 });
 
 export type SetAxisBoundsPayload = z.infer<typeof setAxisBoundsPayloadZ>;
@@ -337,8 +337,8 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({ type: z.literal("set_title"), setTitle: setTitlePayloadZ }),
   z.object({
-    type: z.literal("set_legend_visible"),
-    setLegendVisible: setLegendVisiblePayloadZ,
+    type: z.literal("set_legend_hidden"),
+    setLegendHidden: setLegendHiddenPayloadZ,
   }),
   z.object({
     type: z.literal("set_legend_position"),
@@ -416,9 +416,9 @@ export const setTitle = (payload: SetTitlePayload): Action => ({
   setTitle: payload,
 });
 
-export const setLegendVisible = (payload: SetLegendVisiblePayload): Action => ({
-  type: "set_legend_visible",
-  setLegendVisible: payload,
+export const setLegendHidden = (payload: SetLegendHiddenPayload): Action => ({
+  type: "set_legend_hidden",
+  setLegendHidden: payload,
 });
 
 export const setLegendPosition = (payload: SetLegendPositionPayload): Action => ({
@@ -577,9 +577,9 @@ export type ReduceAllResult = actions.ReduceAllResult<LinePlot, Action>;
 export interface Handlers {
   rename: (state: Draft<LinePlot>, payload: RenamePayload) => HandlerResult;
   setTitle: (state: Draft<LinePlot>, payload: SetTitlePayload) => HandlerResult;
-  setLegendVisible: (
+  setLegendHidden: (
     state: Draft<LinePlot>,
-    payload: SetLegendVisiblePayload,
+    payload: SetLegendHiddenPayload,
   ) => HandlerResult;
   setLegendPosition: (
     state: Draft<LinePlot>,
@@ -655,8 +655,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.rename(state, action.rename);
       case "set_title":
         return handlers.setTitle(state, action.setTitle);
-      case "set_legend_visible":
-        return handlers.setLegendVisible(state, action.setLegendVisible);
+      case "set_legend_hidden":
+        return handlers.setLegendHidden(state, action.setLegendHidden);
       case "set_legend_position":
         return handlers.setLegendPosition(state, action.setLegendPosition);
       case "add_channel":

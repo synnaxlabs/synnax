@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
@@ -28,6 +29,13 @@ type TimestampConfig struct {
 	Format telem.TimestampFormat `json:"format" msgpack:"format"`
 	// Tz is the time zone used when rendering timestamps.
 	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
+}
+
+func (t TimestampConfig) Validate() error {
+	v := validate.New("TimestampConfig")
+	v.Ternaryf("Format", !t.Format.IsValid(), "invalid Format: %v", t.Format)
+	v.Ternaryf("Tz", !t.Tz.IsValid(), "invalid Tz: %v", t.Tz)
+	return v.Error()
 }
 
 // ChannelEntry is a per-channel display configuration entry within a log.
@@ -47,6 +55,22 @@ type ChannelEntry struct {
 	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
 }
 
+func (c ChannelEntry) ApplyDefaults() ChannelEntry {
+	if c.Notation == "" {
+		c.Notation = "standard"
+	}
+	if c.Precision == 0 {
+		c.Precision = -1
+	}
+	return c
+}
+
+func (c ChannelEntry) Validate() error {
+	v := validate.New("ChannelEntry")
+	v.Ternaryf("Notation", !c.Notation.IsValid(), "invalid Notation: %v", c.Notation)
+	return v.Error()
+}
+
 // Log is a timestamped event and message logging component. Logs display chronological
 // records of events, system messages, and audit trails with filtering and formatting
 // capabilities.
@@ -59,8 +83,10 @@ type Log struct {
 	Channels []ChannelEntry `json:"channels" msgpack:"channels"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
-	// ShowChannelNames controls whether channel names are displayed.
-	ShowChannelNames bool `json:"show_channel_names" msgpack:"show_channel_names"`
-	// ShowReceiptTimestamp controls whether the receipt timestamp column is displayed.
-	ShowReceiptTimestamp bool `json:"show_receipt_timestamp" msgpack:"show_receipt_timestamp"`
+	// HideChannelNames controls whether channel names are hidden. When false (the default),
+	// names are displayed.
+	HideChannelNames bool `json:"hide_channel_names" msgpack:"hide_channel_names"`
+	// HideReceiptTimestamp controls whether the receipt timestamp column is hidden. When
+	// false (the default), it is displayed.
+	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
 }

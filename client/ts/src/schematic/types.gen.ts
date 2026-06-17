@@ -68,7 +68,7 @@ export interface Edge extends z.infer<typeof edgeZ> {}
  */
 export const schematicZ = z.object({
   /** key is the unique identifier for this schematic. */
-  key: keyZ,
+  key: keyZ.default(() => uuid.create()),
   /** name is a human-readable name for the schematic. */
   name: z.string(),
   /** snapshot indicates whether this schematic represents a saved snapshot state. */
@@ -86,16 +86,7 @@ export const schematicZ = z.object({
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 
-export const newZ = schematicZ
-  .omit({ key: true, nodes: true, edges: true, configs: true })
-  .extend({
-    key: keyZ.default(() => uuid.create()),
-    nodes: array.nullishToEmpty(nodeZ),
-    edges: array.nullishToEmpty(edgeZ),
-    configs: caseconv.preserveCase(
-      record.nullishToEmpty(z.string(), record.unknownZ()),
-    ),
-  });
+export const newZ = schematicZ;
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("schematic");
