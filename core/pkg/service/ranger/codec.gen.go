@@ -28,6 +28,10 @@ func (rv Range) EncodeOrc(w *orc.Writer) error {
 }
 
 func (rv *Range) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	var err error
 	if _, err := r.Read(rv.Key[:]); err != nil {
 		return err

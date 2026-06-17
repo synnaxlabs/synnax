@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "type": "log",
+  "name": "Malformed V2",
+  "channels": "not an array"
+}

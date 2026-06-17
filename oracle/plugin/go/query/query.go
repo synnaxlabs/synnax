@@ -18,7 +18,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
-	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
@@ -300,19 +299,11 @@ func extractRetrieveInfo(
 	isCustom := plugindomain.HasExprFromType(typ, "retrieve", "custom")
 	hasSearch := plugindomain.HasDomainFromType(typ, "search")
 
-	// Get ontology type for search. Check @search type "X" first, then fall
-	// back to @ontology type "X" on the struct itself.
+	// Search queries the index against the struct's ontology resource type, read
+	// directly from its @ontology type annotation.
 	var ontologyType string
 	if hasSearch {
-		if searchType := plugindomain.GetStringFromType(typ, "search", "type"); searchType != "" {
-			ontologyType = searchType
-		} else {
-			keyFields := key.Collect([]resolution.Type{typ}, table, nil)
-			ontData := ontology.Extract([]resolution.Type{typ}, keyFields, nil)
-			if ontData != nil {
-				ontologyType = ontData.TypeName
-			}
-		}
+		ontologyType = plugindomain.GetStringFromType(typ, "ontology", "type")
 	}
 
 	// Collect @filter and @index fields. A field may carry both: in that

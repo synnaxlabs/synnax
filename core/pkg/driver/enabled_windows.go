@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package log_test
+//go:build driver && windows
 
-import (
-	"testing"
+package driver
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
+import "embed"
 
-func TestLog(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Driver Log Suite")
-}
+//go:embed assets/driver.exe
+var embeddedAssets embed.FS
