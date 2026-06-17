@@ -40,13 +40,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
 		Search:   dist.Search,
 	}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
-		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
 		Search:   dist.Search,

@@ -11,7 +11,6 @@ package arc
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
@@ -20,7 +19,6 @@ import (
 	arcsymbol "github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -55,11 +53,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Task *task.Service
-	// Signals is used for propagating changes to Arcs through the cluster.
-	//
-	// [OPTIONAL] - Defaults to nil. Signals will not be propagated if this service is
-	// nil.
-	Signals *signals.Provider
 	// Search is the search index for fuzzy searching Arcs.
 	//
 	// [REQUIRED]
@@ -75,7 +68,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
@@ -211,17 +203,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = signals.PublishFromGorp(
-			ctx,
-			s.cfg.Signals,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
-			return nil, err
-		}
-	}
 	return s, nil
+}
+
+// Observe returns an observable that notifies callers of changes to Arc entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Arc]] {
+	return s.table.Observe()
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting Arcs in Synnax. If

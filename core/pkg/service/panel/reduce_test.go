@@ -94,12 +94,15 @@ var _ = Describe("Reduce", func() {
 		k := uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k))},
-			panel.NewSetTabViewAction(panel.SetTabViewPayload{Key: k, Type: "docs"}),
+			panel.NewSetTabViewAction(panel.SetTabViewPayload{
+				Key:  k,
+				View: panel.View{Type: "docs"},
+			}),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
 		Expect(leaf.Tabs[0].Variant).To(Equal(panel.TabView{
 			TabBase: panel.TabBase{Key: k},
-			Type:    "docs",
+			View:    panel.View{Type: "docs"},
 		}))
 	})
 
