@@ -1,0 +1,74 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+@ts output "x/ts/src/crdt"
+@go output "x/go/crdt"
+
+ID struct {
+    replica uint32 {
+        @doc value """
+            is the replica that created the character. A zero replica marks the
+            document root sentinel.
+        """
+    }
+    counter uint64 {
+        @doc value """
+            is the per-replica counter, incremented for every character the replica
+            inserts.
+        """
+    }
+
+    @doc value """
+        uniquely identifies a character within a replicated text document. It pairs the
+        replica that created the character with that replica's per-character counter,
+        making the identifier globally unique without coordination.
+    """
+}
+
+Side enum {
+    left  = "left"
+    right = "right"
+
+    @doc value """
+        is the side a character anchors to relative to its origin: left places it
+        immediately before the origin, right immediately after.
+    """
+}
+
+Insert struct {
+    id     ID    {
+        @doc value "is the identity of the inserted character."
+    }
+    origin ID    {
+        @doc value """
+            is the existing character this one anchors to. The root sentinel anchors to
+            the start of the document.
+        """
+    }
+    side   Side  {
+        @doc value "is the side of origin the character anchors to."
+    }
+    char   int32 {
+        @doc value "is the inserted Unicode code point."
+    }
+
+    @doc value "introduces a single character into a replicated text document."
+}
+
+Delete struct {
+    id ID {
+        @doc value "is the identity of the character to tombstone."
+    }
+
+    @doc value """
+        tombstones the character with the given id. It carries only the id because
+        removal needs no position; the character remains in the document tree as a
+        tombstone so concurrently-inserted neighbors can still anchor to it.
+    """
+}

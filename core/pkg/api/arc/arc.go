@@ -37,6 +37,7 @@ type Service struct {
 	access   *rbac.Service
 	internal *arc.Service
 	status   *status.Service
+	sessions *sessionHub
 	alamos.Instrumentation
 }
 
@@ -50,6 +51,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		Instrumentation: cfg.Instrumentation,
 		internal:        cfg.Service.Arc,
 		status:          cfg.Service.Status,
+		sessions:        newSessionHub(),
 	}, nil
 }
 

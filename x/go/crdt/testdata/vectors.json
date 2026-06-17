@@ -1,0 +1,94 @@
+{
+  "behavior": [
+    {
+      "name": "forward typing",
+      "replicas": 1,
+      "steps": [{ "type": "insert", "replica": 1, "index": 0, "text": "hello" }],
+      "expected": "hello"
+    },
+    {
+      "name": "backward typing",
+      "replicas": 1,
+      "steps": [
+        { "type": "insert", "replica": 1, "index": 0, "text": "o" },
+        { "type": "insert", "replica": 1, "index": 0, "text": "l" },
+        { "type": "insert", "replica": 1, "index": 0, "text": "l" },
+        { "type": "insert", "replica": 1, "index": 0, "text": "e" },
+        { "type": "insert", "replica": 1, "index": 0, "text": "h" }
+      ],
+      "expected": "hello"
+    },
+    {
+      "name": "insert into the middle",
+      "replicas": 1,
+      "steps": [
+        { "type": "insert", "replica": 1, "index": 0, "text": "ad" },
+        { "type": "insert", "replica": 1, "index": 1, "text": "bc" }
+      ],
+      "expected": "abcd"
+    },
+    {
+      "name": "delete a range",
+      "replicas": 1,
+      "steps": [
+        { "type": "insert", "replica": 1, "index": 0, "text": "hello world" },
+        { "type": "delete", "replica": 1, "index": 5, "length": 6 }
+      ],
+      "expected": "hello"
+    },
+    {
+      "name": "multibyte code points",
+      "replicas": 1,
+      "steps": [{ "type": "insert", "replica": 1, "index": 0, "text": "héllo→世界" }],
+      "expected": "héllo→世界"
+    },
+    {
+      "name": "concurrent same position does not interleave",
+      "replicas": 2,
+      "steps": [
+        { "type": "insert", "replica": 1, "index": 0, "text": "abc" },
+        { "type": "insert", "replica": 2, "index": 0, "text": "xyz" },
+        { "type": "sync" }
+      ],
+      "expected": "abcxyz"
+    },
+    {
+      "name": "concurrent backward typing does not interleave",
+      "replicas": 2,
+      "steps": [
+        { "type": "insert", "replica": 1, "index": 0, "text": "c" },
+        { "type": "insert", "replica": 1, "index": 0, "text": "b" },
+        { "type": "insert", "replica": 1, "index": 0, "text": "a" },
+        { "type": "insert", "replica": 2, "index": 0, "text": "z" },
+        { "type": "insert", "replica": 2, "index": 0, "text": "y" },
+        { "type": "insert", "replica": 2, "index": 0, "text": "x" },
+        { "type": "sync" }
+      ],
+      "expected": "abcxyz"
+    },
+    {
+      "name": "concurrent inserts before a shared character",
+      "replicas": 2,
+      "steps": [
+        { "type": "insert", "replica": 1, "index": 0, "text": "o" },
+        { "type": "sync" },
+        { "type": "insert", "replica": 1, "index": 0, "text": "ab" },
+        { "type": "insert", "replica": 2, "index": 0, "text": "xy" },
+        { "type": "sync" }
+      ],
+      "expected": "abxyo"
+    },
+    {
+      "name": "delete of a concurrently inserted character",
+      "replicas": 2,
+      "steps": [
+        { "type": "insert", "replica": 1, "index": 0, "text": "abc" },
+        { "type": "sync" },
+        { "type": "delete", "replica": 2, "index": 1, "length": 1 },
+        { "type": "insert", "replica": 1, "index": 3, "text": "d" },
+        { "type": "sync" }
+      ],
+      "expected": "acd"
+    }
+  ]
+}
