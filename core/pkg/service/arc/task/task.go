@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime
+package task
 
 import (
 	"context"
@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -91,7 +92,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		return nil
 	}
 	drt := dataRuntime{}
-	deps, err := NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
+	deps, err := runtime.NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
 		t.setStatus(ctx, xstatus.VariantError, false, err.Error())
 		return err

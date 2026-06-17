@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime
+// Package task implements the driver task and factory infrastructure for
+// executing compiled Arc programs. It is split out from arc/runtime so that
+// arc/runtime (the core the calculation compiler depends on) does not import
+// the arc service package, which would otherwise form an import cycle once the
+// arc service depends on the action-dispatch stack.
+package task
 
 import (
 	"context"
@@ -78,7 +83,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 }
 
 func (c FactoryConfig) Validate() error {
-	v := validate.New("arc.runtime.factory")
+	v := validate.New("arc.task.factory")
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "status", c.Status)
