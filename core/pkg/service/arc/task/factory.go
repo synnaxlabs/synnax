@@ -31,15 +31,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// TaskType is the type identifier for Arc tasks.
-const TaskType = "arc"
+// Type is the type identifier for Arc tasks.
+const Type = "arc"
 
-// TaskConfig is the configuration for an Arc taskImpl.
-type TaskConfig struct {
+// Config is the configuration for an Arc task.
+type Config struct {
 	alamos.Instrumentation
 	// ArcKey is the UUID of the Arc program to execute.
 	ArcKey arc.Key `json:"arc_key"`
-	// AutoStart sets whether the taskImpl should start automatically when configured.
+	// AutoStart sets whether the task should start automatically when configured.
 	AutoStart bool `json:"auto_start"`
 }
 
@@ -107,10 +107,10 @@ func (f *factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
 ) (driver.Task, error) {
-	if t.Type != TaskType {
+	if t.Type != Type {
 		return nil, driver.ErrTaskNotHandled
 	}
-	var cfg TaskConfig
+	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
 		return nil, err
@@ -120,7 +120,7 @@ func (f *factory) ConfigureTask(
 		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
 		return nil, err
 	}
-	arcTask := &taskImpl{
+	arcTask := &impl{
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,

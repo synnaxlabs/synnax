@@ -103,7 +103,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	}
 
-	configToMap := func(cfg arctask.TaskConfig) map[string]any {
+	configToMap := func(cfg arctask.Config) map[string]any {
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -114,8 +114,8 @@ var _ = Describe("Task", Ordered, func() {
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
 			Name:   "test-task",
-			Type:   arctask.TaskType,
-			Config: configToMap(arctask.TaskConfig{ArcKey: uuid.New()}),
+			Type:   arctask.Type,
+			Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 		}
 		return MustSucceed(factory.ConfigureTask(ctx, svcTask))
 	}
@@ -239,7 +239,7 @@ var _ = Describe("Task", Ordered, func() {
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
-				Type:   arctask.TaskType,
+				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
@@ -255,8 +255,8 @@ var _ = Describe("Task", Ordered, func() {
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
-				Type:   arctask.TaskType,
-				Config: configToMap(arctask.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(MatchError(query.ErrNotFound))
@@ -272,7 +272,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
 				Name:   "test-invalid-config",
-				Type:   arctask.TaskType,
+				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
@@ -296,8 +296,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),
 				Name:   "test-module-not-found",
-				Type:   arctask.TaskType,
-				Config: configToMap(arctask.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(MatchError(query.ErrNotFound))
@@ -320,8 +320,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 4),
 				Name:   "test-config-success",
-				Type:   arctask.TaskType,
-				Config: configToMap(arctask.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(
 				newGraphFactory(simpleGraph(ch.Key())).
@@ -348,8 +348,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:  task.NewKey(rack.NewKey(1, 1), 5),
 				Name: "test-auto-start",
-				Type: arctask.TaskType,
-				Config: configToMap(arctask.TaskConfig{
+				Type: arctask.Type,
+				Config: configToMap(arctask.Config{
 					ArcKey:    uuid.New(),
 					AutoStart: true,
 				}),
@@ -428,8 +428,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Name:   "test-bad-node",
-				Type:   arctask.TaskType,
-				Config: configToMap(arctask.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			Expect(newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask)).
 				Error().To(MatchError(ContainSubstring("undefined symbol")))
@@ -544,8 +544,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 42),
 				Name:   "test-status-report",
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
@@ -1327,8 +1327,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 100),
 				Name:   "test-div-zero",
-				Type:   arctask.TaskType,
-				Config: configToMap(arctask.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
@@ -1448,8 +1448,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 101),
 				Name:   "test-div-recover",
-				Type:   arctask.TaskType,
-				Config: configToMap(arctask.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
 
