@@ -160,6 +160,14 @@ export const createDispatch = <
     return { dispatch, dispatchAsync, beginTransaction };
   };
 
+  const useSingleDispatch = (key: Key): ((action: Action | Action[]) => void) => {
+    const { dispatch } = useDispatch();
+    return useCallback(
+      (actions: Action | Action[]) => dispatch({ key, actions }),
+      [key],
+    );
+  };
+
   const useUndo = ({ key }: { key: Key }) => {
     const store = useStore<ScopedStore>();
     const client = Synnax.use();
@@ -206,5 +214,5 @@ export const createDispatch = <
     return { redo, canRedo };
   };
 
-  return { useDispatch, useUndo, useRedo };
+  return { useDispatch, useSingleDispatch, useUndo, useRedo };
 };

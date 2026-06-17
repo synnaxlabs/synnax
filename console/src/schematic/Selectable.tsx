@@ -8,26 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Access, type Flux, Icon, Panel, Schematic } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { LAYOUT_TYPE } from "@/schematic/layout";
-import { useCreate } from "@/schematic/useCreate";
+import { Project } from "@/project";
+import { Tab } from "@/schematic/tab";
 import { Selector } from "@/selector";
 
-export const Selectable: Selector.Selectable = ({ tabKey }) => {
-  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
-  const create = useCreate({ tabKey });
-  const handleClick = useCallback(() => create(), [create]);
-  if (!hasCreatePermission) return null;
+const NAME = "Schematic";
+
+export const Selectable: Selector.Selectable = () => {
+  const project = Project.useSelectActiveKey();
+  const setTabContent = Panel.useSetCurrentTabContent();
+  const { update: create } = Schematic.useCreate({
+    afterOptimistic: useCallback(
+      ({ data: { key } }: Flux.AfterOptimisticParams<schematic.Schematic>) =>
+        setTabContent({ type: Tab.TYPE, args: { key } }),
+      [setTabContent],
+    ),
+  });
+  const handleClick = () => create({ project, name: NAME });
   return (
     <Selector.Item
-      key={LAYOUT_TYPE}
-      title="Schematic"
+      key={Tab.TYPE}
+      title={NAME}
       icon={<Icon.Schematic />}
       onClick={handleClick}
     />
   );
 };
-Selectable.type = LAYOUT_TYPE;
+Selectable.type = Tab.TYPE;
 Selectable.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);

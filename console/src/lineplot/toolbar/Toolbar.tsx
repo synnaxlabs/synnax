@@ -12,22 +12,22 @@ import "@/lineplot/toolbar/Toolbar.css";
 import { lineplot } from "@synnaxlabs/client";
 import { Access, Button, Flex, Icon, LinePlot, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 import { useExport } from "@/lineplot/export";
-import { useSelectActiveToolbarTab, useSelectExists } from "@/lineplot/selectors";
-import { setActiveToolbarTab, type ToolbarTab } from "@/lineplot/slice";
+import { type ToolbarTab } from "@/lineplot/session/slice";
+import { Tab } from "@/lineplot/tab";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
 import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/lineplot/useDownloadAsCSV";
+
+import { Session } from "../session";
 
 interface Tab {
   tabKey: ToolbarTab;
@@ -42,52 +42,36 @@ const TABS: Tab[] = [
   { tabKey: "annotations", name: "Rules" },
 ];
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  // The toolbar reads body fields through LinePlot selectors that throw
-  // NotFoundError when the plot is not in the flux cache. Suspend until the
-  // canonical record is loaded so the surrounding error boundary doesn't tear
-  // the toolbar down on first mount of a freshly placed plot.
-  LinePlot.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const dispatch = useDispatch();
-  const activeTab = useSelectActiveToolbarTab(layoutKey);
-  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
+const Internal = (): ReactElement | null => {
+  const key = LinePlot.useKey();
+  const name = LinePlot.useSelectName({});
+  const activeTab = Session.useSelectSelectedToolbarTab();
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
   const handleExport = useExport();
-  const content = useCallback(
-    ({ tabKey }: Tabs.Tab) => {
-      switch (tabKey) {
-        case "lines":
-          return <Lines layoutKey={layoutKey} />;
-        case "axes":
-          return <Axes layoutKey={layoutKey} />;
-        case "properties":
-          return <Properties layoutKey={layoutKey} />;
-        case "annotations":
-          return <Annotations layoutKey={layoutKey} />;
-        default:
-          return <Data layoutKey={layoutKey} />;
-      }
-    },
-    [layoutKey],
-  );
-  const handleTabSelect = useCallback(
-    (tabKey: string): void => {
-      dispatch(setActiveToolbarTab({ key: layoutKey, tab: tabKey as ToolbarTab }));
-    },
-    [dispatch, layoutKey],
-  );
-  const downloadAsCSV = useDownloadPlotAsCSV(layoutKey);
+  const content = useCallback(({ tabKey }: Tabs.Tab) => {
+    switch (tabKey) {
+      case "lines":
+        return <Lines />;
+      case "axes":
+        return <Axes />;
+      case "properties":
+        return <Properties />;
+      case "annotations":
+        return <Annotations />;
+      default:
+        return <Data />;
+    }
+  }, []);
+  const handleTabSelect = Session.useSetSelectedToolbarTab();
+  const downloadAsCSV = useDownloadPlotAsCSV(key);
   const value = useMemo(
-    () => ({
-      tabs: TABS,
-      selected: activeTab,
-      content,
-      onSelect: handleTabSelect,
-    }),
+    () =>
+      ({
+        tabs: TABS,
+        selected: activeTab,
+        content,
+        onSelect: handleTabSelect,
+      }) as Tabs.ContextValue,
     [activeTab, content, handleTabSelect],
   );
   return (
@@ -106,10 +90,10 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               >
                 <Icon.CSV />
               </Button.Button>
-              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+              <Export.ToolbarButton onExport={() => handleExport(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
-                ontologyID={lineplot.ontologyID(layoutKey)}
+                ontologyID={lineplot.ontologyID(key)}
               />
             </Flex.Box>
             {hasUpdatePermission && (
@@ -123,8 +107,11 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
 };
 
-export const Toolbar = (props: ToolbarProps): ReactElement | null => {
-  const exists = useSelectExists(props.layoutKey);
-  if (!exists) return null;
-  return <Internal {...props} />;
+export const Toolbar = (): ReactElement | null => {
+  const { key } = Tab.useArgs();
+  return (
+    <LinePlot.Suspended lineplotKey={key}>
+      <Internal />
+    </LinePlot.Suspended>
+  );
 };

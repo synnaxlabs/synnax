@@ -204,6 +204,27 @@ func findTabAt(n Node, path int32, tabKey uuid.UUID) (int32, int, bool) {
 	}
 }
 
+// firstLeafPath returns the path-derived key of the first leaf in traversal
+// order (first child before last). ok is false only for a tree containing no
+// leaf, which cannot occur for a well-formed tree.
+func firstLeafPath(root Node) (path int32, ok bool) {
+	return firstLeafPathAt(root, rootPathKey)
+}
+
+func firstLeafPathAt(n Node, path int32) (int32, bool) {
+	switch v := n.Variant.(type) {
+	case NodeLeaf:
+		return path, true
+	case NodeSplit:
+		if p, ok := firstLeafPathAt(v.First, path*2); ok {
+			return p, true
+		}
+		return firstLeafPathAt(v.Last, path*2+1)
+	default:
+		return 0, false
+	}
+}
+
 // removeTab removes the tab with the given key from the tree, leaving any
 // emptied leaf in place. Collapsing empty leaves is the caller's responsibility
 // (collapseEmptyLeaves), deferred so that a composed action sequence (e.g.

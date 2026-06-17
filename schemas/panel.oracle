@@ -14,8 +14,10 @@ import "schemas/ontology"
 @go output "core/pkg/service/panel"
 @pb
 
+TabKey = uuid
+
 Tab struct {
-    key  uuid   {
+    key  TabKey {
         @doc value """
             is the stable unique identifier of this tab within the panel. It is
             independent of the tab's content, so a tab's content may be swapped
@@ -123,16 +125,20 @@ Panel struct {
 
     action InsertTab {
         tab         Tab
-        target_leaf int32
+        target_leaf int32??
+        target_tab  TabKey??
         index       int32??
         location    spatial.Location??
 
         @doc value """
-            inserts a tab into the leaf with the given path-derived key at
-            the given index. Appends when index is absent. When location is
-            an edge, the target leaf is first split at that location and the
-            tab is inserted into the new empty leaf; a center location places
-            the tab directly in the target leaf, equivalent to absent.
+            inserts a tab into a leaf at the given index, appending when index
+            is absent. The destination leaf is resolved from target_tab (the
+            leaf holding that tab) when set, otherwise from the target_leaf
+            path-derived key, otherwise the first leaf in traversal order. When
+            location is an edge, the resolved leaf is first split at that
+            location and the tab is inserted into the new empty leaf; a center
+            location places the tab directly in the resolved leaf, equivalent
+            to absent.
         """
     }
 

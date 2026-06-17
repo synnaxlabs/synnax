@@ -9,142 +9,113 @@
 
 import "@/panel/Mosaic.css";
 
-import { type panel } from "@synnaxlabs/client";
 import {
   Breadcrumb,
   Button,
+  Component,
   Dialog,
   Errors,
   Icon,
-  type Menu,
   Nav,
-  Panel as Base,
+  Panel,
+  Tabs,
 } from "@synnaxlabs/pluto";
-import { type PropsWithChildren, type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
-import { ContextMenu } from "@/panel/ContextMenu";
-import { selectorTab } from "@/panel/selectorTab";
-import { TabName } from "@/panel/TabName";
+import { useTabRenderer } from "@/panel/renderer";
+import { useSelectIsOverlaid, useSelectSelectedTabs } from "@/panel/selectors";
+import { clearOverlaidTab, focusTab } from "@/panel/slice";
 
-export interface MosaicProps {
-  panelKey: panel.Key;
-  windowKey: string;
-}
-
-interface RendererContentProps {
-  panelKey: panel.Key;
-  tabKey: string;
-}
-
-interface FocusFrameProps extends PropsWithChildren {
-  tabKey: string;
-  type: string;
-}
-
-const FocusFrame = ({ tabKey, type, children }: FocusFrameProps): ReactElement => {
-  const dispatch = useDispatch();
-  const { windowKey, focused: focusedKey } = Layout.useSelectFocused();
-  const renderers = Layout.useRenderers();
-  const focused = focusedKey === tabKey;
-  const handleFocusChange = useCallback(() => {
-    if (windowKey != null) dispatch(Layout.setFocus({ windowKey, key: null }));
-  }, [dispatch, windowKey]);
-  return (
-    <Dialog.Frame
-      onVisibleChange={handleFocusChange}
-      visible={focused}
-      full
-      modalPosition="slammed"
-      variant="modal"
-      background={focused ? 0 : undefined}
-    >
-      <Dialog.Dialog passthrough full className={CSS.B("panel-focus")}>
-        <Nav.Bar
-          location="top"
-          size="5rem"
-          bordered
-          className={CSS(
-            CSS.B("panel-focus-bar"),
-            focused && CSS.BM("panel-focus-bar", "focused"),
-          )}
-        >
-          {focused && (
-            <>
-              <Nav.Bar.Start>
-                <Breadcrumb.Breadcrumb>
-                  <Breadcrumb.Segment>
-                    {renderers[type]?.icon}
-                    <TabName
-                      type={type}
-                      tabKey={tabKey}
-                      level="h5"
-                      selected={false}
-                      editable={false}
-                    />
-                  </Breadcrumb.Segment>
-                </Breadcrumb.Breadcrumb>
-              </Nav.Bar.Start>
-              <Nav.Bar.End pack>
-                <Button.Button onClick={handleFocusChange} size="small" textColor={9}>
-                  <Icon.Subtract />
-                </Button.Button>
-              </Nav.Bar.End>
-            </>
-          )}
-        </Nav.Bar>
-        {children}
-      </Dialog.Dialog>
-    </Dialog.Frame>
-  );
+const TabName = (
+  props: Omit<Tabs.NameProps, "name" | "onRename" | "tabKey">,
+): ReactElement => {
+  const nameProps = useTabRenderer().useName();
+  const tabKey = Panel.useTabKey("TabName");
+  return <Tabs.DefaultName tabKey={tabKey} {...nameProps} {...props} />;
 };
 
-const RendererContent = ({ tabKey, type }: RendererContentProps): ReactElement => {
-  const Renderer = Layout.useRenderer(type);
+const Content = (): ReactElement => {
+  const Component = useTabRenderer();
+  const dispatch = useDispatch();
+  const isOverlaid = useSelectIsOverlaid();
+  const handleDialogClose = useCallback(
+    () => dispatch(clearOverlaidTab({})),
+    [dispatch],
+  );
   return (
     <Errors.SuspenseBoundary>
-      <FocusFrame tabKey={tabKey} type={type}>
-        <Renderer key={tabKey} onClose={handleClose} />
-      </FocusFrame>
+      <Dialog.Frame
+        onVisibleChange={handleDialogClose}
+        visible={isOverlaid}
+        full
+        modalPosition="slammed"
+        variant="modal"
+        background={isOverlaid ? 0 : undefined}
+      >
+        <Dialog.Dialog passthrough full className={CSS.B("panel-focus")}>
+          <Nav.Bar
+            location="top"
+            size="5rem"
+            bordered
+            className={CSS(
+              CSS.B("panel-focus-bar"),
+              isOverlaid && CSS.BM("panel-focus-bar", "focused"),
+            )}
+          >
+            {isOverlaid && (
+              <>
+                <Nav.Bar.Start>
+                  <Breadcrumb.Breadcrumb>
+                    <Breadcrumb.Segment>
+                      {Component.icon}
+                      <TabName level="h5" selected={false} editable={false} />
+                    </Breadcrumb.Segment>
+                  </Breadcrumb.Breadcrumb>
+                </Nav.Bar.Start>
+                <Nav.Bar.End pack>
+                  <Button.Button onClick={handleDialogClose} size="small" textColor={9}>
+                    <Icon.Subtract />
+                  </Button.Button>
+                </Nav.Bar.End>
+              </>
+            )}
+          </Nav.Bar>
+          <Component />
+        </Dialog.Dialog>
+      </Dialog.Frame>
     </Errors.SuspenseBoundary>
   );
 };
 
-export const Mosaic = ({ panelKey, windowKey }: MosaicProps): ReactElement => {
+const content = Component.renderProp(Content);
+const tabName = Component.renderProp(TabName);
+
+export interface MosaicProps {
+  panelKey: string;
+}
+
+export const Mosaic = ({ panelKey }: MosaicProps): ReactElement => {
   const dispatch = useDispatch();
-  const focused = Layout.useSelectFocusedKey();
-  const selected = Layout.useSelectSelectedTabs();
+  const selected = useSelectSelectedTabs();
   const handleSelect = useCallback(
-    (key: string) => dispatch(Layout.setFocusedTab({ windowKey, key })),
-    [dispatch, windowKey],
-  );
-  const renderContextMenu = useCallback(
-    (props: Menu.ContextMenuMenuProps) => (
-      <ContextMenu {...props} panelKey={panelKey} />
-    ),
-    [panelKey],
-  );
-  const renderTabName = useCallback(
-    (props: Base.MosaicTabNameProps): ReactElement => <TabName {...props} />,
-    [panelKey],
+    (tabKey: string) => dispatch(focusTab({ tabKey })),
+    [dispatch],
   );
   return (
-    <Base.Mosaic
+    <Panel.Mosaic
       panelKey={panelKey}
-      focused={focused ?? undefined}
       selected={selected}
       onSelect={handleSelect}
-      tabName={renderTabName}
-      defaultTab={selectorTab}
-      contextMenu={renderContextMenu}
       rounded={1}
       bordered
       borderColor={5}
       background={0}
+      tabName={tabName}
+      contextMenu={}
     >
-      {(props) => <TabContent panelKey={panelKey} {...props} />}
-    </Base.Mosaic>
+      {content}
+    </Panel.Mosaic>
   );
 };

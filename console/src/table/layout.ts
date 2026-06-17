@@ -11,7 +11,7 @@ import { table } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
-import { internalCreate, type State } from "@/table/slice";
+import { internalCreate, type State } from "@/table/session/slice";
 
 export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;

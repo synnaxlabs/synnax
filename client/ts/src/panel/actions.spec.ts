@@ -155,6 +155,46 @@ describe("reduceAll", () => {
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual(["a"]);
     });
+
+    it("should insert into the leaf holding targetTab when set", () => {
+      const { next } = panel.reduceAll(state(split("x", 0.5, leaf("a"), leaf("b"))), [
+        panel.insertTab({
+          tab: { key: "c", type: "selector", args: {} },
+          targetTab: "b",
+        }),
+      ]);
+      const root = asSplit(next.root);
+      expect(tabKeys(root.first)).toEqual(["a"]);
+      expect(tabKeys(root.last)).toEqual(["b", "c"]);
+    });
+
+    it("should no-op when targetTab matches no tab", () => {
+      const prev = state(leaf("a"));
+      const { next } = panel.reduceAll(prev, [
+        panel.insertTab({
+          tab: { key: "b", type: "selector", args: {} },
+          targetTab: "z",
+        }),
+      ]);
+      expect(next).toBe(prev);
+    });
+
+    it("should default to the first leaf in traversal order when no target is set", () => {
+      const { next } = panel.reduceAll(state(split("x", 0.5, leaf("a"), leaf("b"))), [
+        panel.insertTab({ tab: { key: "c", type: "selector", args: {} } }),
+      ]);
+      const root = asSplit(next.root);
+      expect(tabKeys(root.first)).toEqual(["a", "c"]);
+      expect(tabKeys(root.last)).toEqual(["b"]);
+    });
+
+    it("should default to the root leaf when no target is set on a single-leaf tree", () => {
+      const { next } = panel.reduceAll(state(leaf("a")), [
+        panel.insertTab({ tab: { key: "b", type: "selector", args: {} } }),
+      ]);
+      expect(next.root.variant).toEqual("leaf");
+      expect(tabKeys(next.root)).toEqual(["a", "b"]);
+    });
   });
 
   describe("removeTab", () => {

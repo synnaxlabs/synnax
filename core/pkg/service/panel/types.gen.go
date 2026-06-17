@@ -20,6 +20,8 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
+type TabKey = uuid.UUID
+
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
 
@@ -30,7 +32,7 @@ type Tab struct {
 	// Key is the stable unique identifier of this tab within the panel. It is independent
 	// of the tab's content, so a tab's content may be swapped without changing the tab's
 	// identity or position.
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key TabKey `json:"key" msgpack:"key"`
 	// Type selects the renderer for the tab's content (e.g. 'lineplot', 'schematic',
 	// 'docs', 'selector'). For core-backed content it is also the ontology resource type.
 	Type string `json:"type" msgpack:"type"`

@@ -9,169 +9,209 @@
 
 import "@/lineplot/Controls.css";
 
-import { Button, Flex, Icon, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Icon,
+  LinePlot,
+  Text,
+  Triggers,
+  Viewport,
+} from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls as Base } from "@/components";
 import { CSS } from "@/css";
-import { LAYOUT_TYPE } from "@/lineplot/layout";
-import {
-  useSelect,
-  useSelectControlState,
-  useSelectMeasureMode,
-  useSelectViewportMode,
-} from "@/lineplot/selectors";
-import {
-  type ClickMode,
-  setControlState,
-  setMeasureMode,
-  setRangeAnnotationsVisible,
-  setViewport,
-  setViewportMode,
-} from "@/lineplot/slice";
-import { Panel } from "@/panel";
+
+import { Session } from "./session";
 
 export interface ControlsProps {
   layoutKey: string;
   hasAnnotations: boolean;
 }
 
-export const Controls = ({
-  layoutKey,
-  hasAnnotations,
-}: ControlsProps): ReactElement => {
-  const control = useSelectControlState(layoutKey);
-  const plot = useSelect(layoutKey);
-  const active = Panel.useActiveResource();
-  const vis = active?.type === LAYOUT_TYPE ? active.key : null;
-  const mode = useSelectViewportMode(layoutKey);
-  const measureMode = useSelectMeasureMode(layoutKey);
+const SelectViewportMode = (): ReactElement => {
+  const viewportMode = Session.useSelectViewportMode();
+  const handleViewportModeChange = Session.useSetViewportMode();
+  const triggers = useMemo(
+    () => Viewport.DEFAULT_TRIGGERS[viewportMode],
+    [viewportMode],
+  );
+  return (
+    <Viewport.SelectMode
+      value={viewportMode}
+      onChange={handleViewportModeChange}
+      triggers={triggers}
+      tooltipLocation={location.BOTTOM_LEFT}
+    />
+  );
+};
+
+const ZoomReset = (): ReactElement => {
+  const key = LinePlot.useKey();
+  const viewportMode = Session.useSelectViewportMode();
+  const triggers = useMemo(
+    () => Viewport.DEFAULT_TRIGGERS[viewportMode],
+    [viewportMode],
+  );
   const dispatch = useDispatch();
+  const handleZoomReset = useCallback((): void => {
+    dispatch(Session.resetViewport({ key }));
+  }, [key]);
+  return (
+    <Button.Button
+      onClick={handleZoomReset}
+      tooltipLocation={location.BOTTOM_LEFT}
+      tooltip={
+        <Text.Text level="small" color={11}>
+          Reset zoom
+          <Triggers.Text trigger={triggers.zoomReset[0]} el="span" />
+        </Text.Text>
+      }
+      size="small"
+    >
+      <Icon.Expand />
+    </Button.Button>
+  );
+};
 
-  const handleModeChange = (mode: Viewport.Mode): void => {
-    dispatch(setViewportMode({ key: layoutKey, mode }));
-  };
+const ToggleTooltips = (): ReactElement => {
+  const enableTooltips = Session.useSelectEnableTooltip();
+  const handleEnableTooltipChange = Session.useSetTooltipsVisible();
+  return (
+    <Button.Toggle
+      value={enableTooltips}
+      onChange={handleEnableTooltipChange}
+      size="small"
+      tooltip="Show tooltip on hover"
+      tooltipLocation={location.BOTTOM_LEFT}
+    >
+      <Icon.Tooltip />
+    </Button.Toggle>
+  );
+};
 
-  const handleClickModeChange = (clickMode: ClickMode | null): void => {
-    dispatch(setControlState({ key: layoutKey, state: { clickMode } }));
-  };
+const ToggleRangeAnnotations = (): ReactElement => {
+  const showRangeAnnotations = Session.useSelectShowRangeAnnotations();
+  const handleRangeAnnotationsVisibleChange = Session.useSetShowRangeAnnotations();
+  return (
+    <Button.Toggle
+      value={showRangeAnnotations}
+      onChange={handleRangeAnnotationsVisibleChange}
+      size="small"
+      tooltip={`${showRangeAnnotations ? "Hide" : "Show"} range annotations`}
+      tooltipLocation={location.BOTTOM_LEFT}
+    >
+      <Icon.Range />
+    </Button.Toggle>
+  );
+};
 
-  const handleTooltipChange = (tooltip: boolean): void => {
-    dispatch(setControlState({ key: layoutKey, state: { enableTooltip: tooltip } }));
-  };
+const ToggleMeasureTool = (): ReactElement => {
+  const clickMode = Session.useSelectClickMode();
+  const handleClickModeChange = Session.useSetClickMode();
+  return (
+    <Button.Toggle
+      value={clickMode != null}
+      tooltip={`${clickMode != null ? "Close" : "Open"} measure tool`}
+      tooltipLocation={location.BOTTOM_LEFT}
+      onChange={() =>
+        handleClickModeChange(clickMode != null ? undefined : "measure")
+      }
+      size="small"
+    >
+      <Icon.Rule />
+    </Button.Toggle>
+  );
+};
 
-  const handleZoomReset = (): void => {
-    if (vis != null) dispatch(setViewport({ key: vis }));
-  };
+const HOLD_TRIGGER: Triggers.Trigger = ["H"]
 
-  const handleHoldChange = (hold: boolean): void => {
-    dispatch(setControlState({ key: layoutKey, state: { hold } }));
-  };
+const ToggleHold = (): ReactElement => {
+  const hold = Session.useSelectHold();
+  const handleHoldChange = Session.useSetHold();
+  return (
+    <Button.Toggle
+      value={hold}
+      onChange={handleHoldChange}
+      tooltipLocation={location.BOTTOM_LEFT}
+      size="small"
+      tooltip={
+        <Text.Text level="small" color={11}>
+          {`${hold ? "Resume" : "Pause"} live plotting`}
+          <Triggers.Text trigger={HOLD_TRIGGER} level="small"></Triggers.Text>
+        </Text.Text>
+      }
+    >
+      {hold ? <Icon.Play /> : <Icon.Pause />}
+    </Button.Toggle>
+  );
+};
 
-  const handleAnnotationsVisibilityChange = (visible: boolean): void => {
-    dispatch(setRangeAnnotationsVisible({ key: layoutKey, visible }));
-  };
+const MeasureModeFirst = (): ReactElement => {
+  const measureMode = Session.useSelectMeasureMode();
+  const handleMeasureModeChange = Session.useSetMeasureMode();
+  return (
+    <Button.Toggle
+      size="small"
+      value={measureMode === "one"}
+      tooltip="Select first point"
+      tooltipLocation={location.BOTTOM_LEFT}
+      onChange={() => handleMeasureModeChange("one")}
+    >
+      1
+    </Button.Toggle>
+  );
+};
 
-  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+const MeasureModeSecond = (): ReactElement => {
+  const measureMode = Session.useSelectMeasureMode();
+  const handleMeasureModeChange = Session.useSetMeasureMode();
+  return (
+    <Button.Toggle
+      size="small"
+      tooltipLocation={location.BOTTOM_LEFT}
+      value={measureMode === "two"}
+      tooltip="Select second point"
+      onChange={() => handleMeasureModeChange("two")}
+    >
+      2
+    </Button.Toggle>
+  );
+};
 
+const MeasureControls = (): ReactElement | null => {
+  const clickMode = Session.useSelectClickMode();
+  if (clickMode !== "measure") return null;
+  return (
+    <Flex.Box x pack className={CSS.BE("control", "measure")}>
+      <MeasureModeFirst />
+      <MeasureModeSecond />
+    </Flex.Box>
+  );
+};
+
+export const Controls = ({ hasAnnotations }: ControlsProps): ReactElement => {
+  const showRangeAnnotations = Session.useSelectShowRangeAnnotations();
   return (
     <Base
       className={CSS(
-        plot.annotations.visible &&
+        showRangeAnnotations &&
           hasAnnotations &&
           CSS.BM("controls", "annotations-visible"),
       )}
     >
       <Flex.Box x gap="small">
-        <Viewport.SelectMode
-          value={mode}
-          onChange={handleModeChange}
-          triggers={triggers}
-          tooltipLocation={location.BOTTOM_LEFT}
-        />
-        <Button.Button
-          onClick={handleZoomReset}
-          tooltipLocation={location.BOTTOM_LEFT}
-          tooltip={
-            <Text.Text level="small" color={11}>
-              Reset zoom
-              <Triggers.Text trigger={triggers.zoomReset[0]} el="span" />
-            </Text.Text>
-          }
-          size="small"
-        >
-          <Icon.Expand />
-        </Button.Button>
-        <Button.Toggle
-          value={control.enableTooltip}
-          onChange={handleTooltipChange}
-          size="small"
-          tooltip="Show tooltip on hover"
-          tooltipLocation={location.BOTTOM_LEFT}
-        >
-          <Icon.Tooltip />
-        </Button.Toggle>
-        {hasAnnotations && (
-          <Button.Toggle
-            value={plot.annotations.visible}
-            onChange={handleAnnotationsVisibilityChange}
-            size="small"
-            tooltip={`${plot.annotations.visible ? "Hide" : "Show"} range annotations`}
-            tooltipLocation={location.BOTTOM_LEFT}
-          >
-            <Icon.Range />
-          </Button.Toggle>
-        )}
-        <Button.Toggle
-          value={control.clickMode != null}
-          tooltip={`${control.clickMode != null ? "Close" : "Open"} measure tool`}
-          tooltipLocation={location.BOTTOM_LEFT}
-          onChange={() =>
-            handleClickModeChange(control.clickMode != null ? null : "measure")
-          }
-          size="small"
-        >
-          <Icon.Rule />
-        </Button.Toggle>
-        <Button.Toggle
-          value={control.hold}
-          onChange={handleHoldChange}
-          tooltipLocation={location.BOTTOM_LEFT}
-          size="small"
-          tooltip={
-            <Text.Text level="small" color={11}>
-              {`${control.hold ? "Resume" : "Pause"} live plotting`}
-              <Triggers.Text trigger={["H"]} level="small"></Triggers.Text>
-            </Text.Text>
-          }
-        >
-          {control.hold ? <Icon.Play /> : <Icon.Pause />}
-        </Button.Toggle>
+        <SelectViewportMode />
+        <ZoomReset />
+        <ToggleTooltips />
+        {hasAnnotations && <ToggleRangeAnnotations />}
+        <ToggleMeasureTool />
+        <ToggleHold />
       </Flex.Box>
-      {control.clickMode === "measure" && (
-        <Flex.Box x pack className={CSS.BE("control", "measure")}>
-          <Button.Toggle
-            size="small"
-            value={measureMode === "one"}
-            tooltip="Select first point"
-            tooltipLocation={location.BOTTOM_LEFT}
-            onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "one" }))}
-          >
-            1
-          </Button.Toggle>
-          <Button.Toggle
-            size="small"
-            tooltipLocation={location.BOTTOM_LEFT}
-            value={measureMode === "two"}
-            tooltip="Select second point"
-            onChange={() => dispatch(setMeasureMode({ key: layoutKey, mode: "two" }))}
-          >
-            2
-          </Button.Toggle>
-        </Flex.Box>
-      )}
+      <MeasureControls />
     </Base>
   );
 };

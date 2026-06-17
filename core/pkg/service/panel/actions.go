@@ -20,23 +20,27 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle inserts the tab into the leaf at the given path-derived key, at the
-// given index. The caller is responsible for choosing a valid index in
-// [0, len(leaf.Tabs)] — to append, pass len(leaf.Tabs). When Location is an
-// edge, the target leaf is first split at that location and the tab is
-// inserted into the new empty sibling leaf; a center Location places the tab
-// directly in the target leaf, equivalent to absent. Empty leaves left under
-// a split are collapsed afterwards, so an edge insert into an empty leaf
-// degrades to a direct insert. Errors when the target leaf path does not
-// resolve, when it resolves to a split, when index is outside
-// [0, len(leaf.Tabs)], or when Location cannot produce a split. On any error
-// the returned state is the zero Panel; the dispatch substrate aborts the
+// Handle inserts the tab into the resolved destination leaf at the given index.
+// The destination is resolved in priority order: the leaf holding TargetTab when
+// set, otherwise the TargetLeaf path key, otherwise the first leaf in traversal
+// order. Appends when Index is nil; otherwise the caller is responsible for
+// choosing a valid index in [0, len(leaf.Tabs)]. When Location is an edge, the
+// resolved leaf is first split at that location and the tab is inserted into the
+// new empty sibling leaf; a center Location places the tab directly in the
+// resolved leaf, equivalent to absent. Empty leaves left under a split are
+// collapsed afterwards, so an edge insert into an empty leaf degrades to a
+// direct insert. Errors when TargetTab is set but unmatched, when the resolved
+// leaf path does not resolve or resolves to a split, when index is outside
+// [0, len(leaf.Tabs)], or when Location cannot produce a split. On any error the
+// returned state is the zero Panel; the dispatch substrate aborts the
 // transaction on error, so partial state would not be meaningful.
 func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
-	targetLeaf := p.TargetLeaf
+	targetLeaf, err := p.resolveTargetLeaf(state.Root)
+	if err != nil {
+		return Panel{}, err
+	}
 	if p.Location != nil && *p.Location != spatial.LocationCenter {
-		var err error
-		targetLeaf, err = splitLeafForPlacement(&state.Root, p.TargetLeaf, *p.Location)
+		targetLeaf, err = splitLeafForPlacement(&state.Root, targetLeaf, *p.Location)
 		if err != nil {
 			return Panel{}, err
 		}
@@ -54,6 +58,29 @@ func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
 	}
 	collapseEmptyLeaves(&state.Root)
 	return state, nil
+}
+
+// resolveTargetLeaf resolves the destination leaf's path-derived key from the
+// payload's addressing fields, in priority order: the leaf holding TargetTab
+// when set, then the TargetLeaf path key, then the first leaf in traversal
+// order. Errors when TargetTab is set but no tab matches it, or when the tree
+// contains no leaf to default to.
+func (p InsertTabPayload) resolveTargetLeaf(root Node) (int32, error) {
+	if p.TargetTab != nil {
+		leafPath, _, ok := findTab(root, *p.TargetTab)
+		if !ok {
+			return 0, errTabNotFound
+		}
+		return leafPath, nil
+	}
+	if p.TargetLeaf != nil {
+		return *p.TargetLeaf, nil
+	}
+	leafPath, ok := firstLeafPath(root)
+	if !ok {
+		return 0, errInvalidPath
+	}
+	return leafPath, nil
 }
 
 // Handle removes the tab with the given key. When the containing leaf is left

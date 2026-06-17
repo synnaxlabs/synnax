@@ -82,10 +82,10 @@ export const Main = (): ReactElement => (
           <Nav.Left />
           <Flex.Box gap="tiny" grow style={{ width: 0 }}>
             <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
-              <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
+              <Layout.Nav.LeftDrawer items={Nav.LEFT_DRAWER_ITEMS} />
               <Mosaic />
             </Flex.Box>
-            <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
+            <Layout.Nav.BottomDrawer item={Nav.BOTTOM_DRAWER_ITEM} />
           </Flex.Box>
         </Flex.Box>
       </Project.Guard>

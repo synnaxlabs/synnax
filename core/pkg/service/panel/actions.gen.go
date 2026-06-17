@@ -34,13 +34,16 @@ type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// InsertTabPayload inserts a tab into the leaf with the given path-derived key at the
-// given index. Appends when index is absent. When location is an edge, the target leaf
-// is first split at that location and the tab is inserted into the new empty leaf; a
-// center location places the tab directly in the target leaf, equivalent to absent.
+// InsertTabPayload inserts a tab into a leaf at the given index, appending when index
+// is absent. The destination leaf is resolved from target_tab (the leaf holding that
+// tab) when set, otherwise from the target_leaf path-derived key, otherwise the first
+// leaf in traversal order. When location is an edge, the resolved leaf is first split
+// at that location and the tab is inserted into the new empty leaf; a center location
+// places the tab directly in the resolved leaf, equivalent to absent.
 type InsertTabPayload struct {
 	Tab        Tab               `json:"tab" msgpack:"tab"`
-	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
+	TargetLeaf *int32            `json:"target_leaf,omitempty" msgpack:"target_leaf,omitempty"`
+	TargetTab  *TabKey           `json:"target_tab,omitempty" msgpack:"target_tab,omitempty"`
 	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
 	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
 }

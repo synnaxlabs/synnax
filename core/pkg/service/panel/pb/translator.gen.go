@@ -42,10 +42,11 @@ func TabFromPB(pb *Tab) (panel.Tab, error) {
 		return r, nil
 	}
 	var err error
-	r.Key, err = uuid.Parse(pb.Key)
+	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
 		return panel.Tab{}, err
 	}
+	r.Key = panel.TabKey(parsedKey)
 	r.Args = pb.Args.AsMap()
 	r.Type = pb.Type
 	return r, nil

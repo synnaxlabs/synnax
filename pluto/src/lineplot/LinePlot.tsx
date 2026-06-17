@@ -55,10 +55,12 @@ import {
   useSelectXAxisKeys,
   useSelectYAxis,
   useSelectYAxisKeys,
+  useSingleDispatch,
   useUndo,
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
 import { Rule as BaseRule } from "@/lineplot/rule";
+import { useKey } from "@/lineplot/Suspended";
 import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
@@ -93,11 +95,11 @@ const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
 const UNDO_REDO_TRIGGERS = Triggers.flattenConfig(UNDO_REDO_CONFIG);
 
 interface UseUndoRedoTriggersProps {
-  key: lineplot.Key;
   enabled: boolean | (() => boolean);
 }
 
-const useUndoRedoTriggers = ({ key, enabled }: UseUndoRedoTriggersProps) => {
+const useUndoRedoTriggers = ({ enabled }: UseUndoRedoTriggersProps) => {
+  const key = useKey();
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
   Triggers.use({
@@ -137,19 +139,17 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
   });
 
 interface LineProps {
-  pKey: lineplot.Key;
   lineKey: string;
   resolved?: ResolvedRange;
   visible?: boolean;
 }
 
 const Line = ({
-  pKey,
   lineKey,
   resolved,
   visible = true,
 }: LineProps): ReactElement | null => {
-  const { key, ...line } = useSelectLine({ key: pKey, lineKey });
+  const { key, ...line } = useSelectLine({ lineKey });
   const telemetry = useMemo(() => {
     if (resolved == null) return null;
     const { xChannel, yChannel } = line;
@@ -195,15 +195,17 @@ const Line = ({
 };
 
 interface TitleProps {
-  pKey: lineplot.Key;
   editable: boolean;
 }
 
-const Title = ({ pKey: key, editable }: TitleProps): ReactElement | null => {
-  const { visible, level } = useSelectTitle({ key });
-  const name = useSelectName({ key });
-  const { update: rn } = useRename({});
-  const handleChange = useCallback((name: string) => rn({ key, name }), [rn, key]);
+const Title = ({ editable }: TitleProps): ReactElement | null => {
+  const { visible, level } = useSelectTitle({});
+  const name = useSelectName({});
+  const dispatch = useSingleDispatch();
+  const handleChange = useCallback(
+    (name: string) => dispatch(lineplot.rename({ name })),
+    [dispatch],
+  );
   if (!visible) return null;
   return (
     <BaseTitle
@@ -216,37 +218,32 @@ const Title = ({ pKey: key, editable }: TitleProps): ReactElement | null => {
 };
 
 interface LegendProps {
-  pKey: lineplot.Key;
   variant?: BaseLegendProps["variant"];
   editable: boolean;
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
 const Legend = ({
-  pKey: key,
   variant,
   editable,
   onLineVisibleChange,
 }: LegendProps): ReactElement | null => {
-  const { dispatch } = useDispatch();
-  const legend = useSelectLegend({ key });
+  const dispatch = useSingleDispatch();
+  const legend = useSelectLegend({});
   const handlePositionChange = useCallback(
     (position: typeof legend.position) =>
-      editable &&
-      dispatch({ key, actions: [lineplot.setLegendPosition({ position })] }),
-    [dispatch, key, editable],
+      editable && dispatch(lineplot.setLegendPosition({ position })),
+    [dispatch, editable],
   );
   const handleLineColorChange = useCallback(
     (lineKey: string, color: color.Color) =>
-      editable &&
-      dispatch({ key, actions: [lineplot.setLineColor({ key: lineKey, color })] }),
-    [dispatch, key, editable],
+      editable && dispatch(lineplot.setLineColor({ key: lineKey, color })),
+    [dispatch, editable],
   );
   const handleLineLabelChange = useCallback(
     (lineKey: string, label: string) =>
-      editable &&
-      dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] }),
-    [dispatch, key, editable],
+      editable && dispatch(lineplot.setLineLabel({ key: lineKey, label })),
+    [dispatch, editable],
   );
   if (!legend.visible) return null;
   return (
@@ -262,7 +259,6 @@ const Legend = ({
 };
 
 interface AxisChildrenProps {
-  pKey: lineplot.Key;
   editable: boolean;
   resolvedRanges?: Map<string, ResolvedRange>;
   hiddenLines?: Set<string>;
@@ -270,36 +266,26 @@ interface AxisChildrenProps {
 }
 
 interface RuleProps {
-  pKey: lineplot.Key;
   ruleKey: string;
   onSelectRule?: (key: string) => void;
 }
 
-const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null => {
-  const { dispatch } = useDispatch();
-  const { key, ...rule } = useSelectRule({ key: pKey, ruleKey });
-  const apply = useCallback(
-    (action: lineplot.Action): void => {
-      dispatch({ key: pKey, actions: [action] });
-    },
-    [dispatch, pKey],
-  );
+const Rule = ({ ruleKey: key, onSelectRule }: RuleProps): ReactElement | null => {
+  const dispatch = useSingleDispatch();
+  const { key: _, ...rule } = useSelectRule({ ruleKey: key });
   const handleLabelChange = useCallback(
-    (label: string) => apply(lineplot.setRuleLabel({ key: ruleKey, label })),
-    [apply, ruleKey],
+    (label: string) => dispatch(lineplot.setRuleLabel({ key, label })),
+    [key],
   );
   const handlePositionChange = useCallback(
-    (position: number) => apply(lineplot.setRulePosition({ key: ruleKey, position })),
-    [apply, ruleKey],
+    (position: number) => dispatch(lineplot.setRulePosition({ key, position })),
+    [key],
   );
   const handleUnitsChange = useCallback(
-    (units: string) => apply(lineplot.setRuleUnits({ key: ruleKey, units })),
-    [apply, ruleKey],
+    (units: string) => dispatch(lineplot.setRuleUnits({ key, units })),
+    [key],
   );
-  const handleClick = useCallback(
-    () => onSelectRule?.(ruleKey),
-    [onSelectRule, ruleKey],
-  );
+  const handleClick = useCallback(() => onSelectRule?.(key), [onSelectRule, key]);
   return (
     <BaseRule.Rule
       key={key}
@@ -314,17 +300,16 @@ const Rule = ({ pKey, ruleKey, onSelectRule }: RuleProps): ReactElement | null =
 };
 
 interface RulesProps {
-  pKey: lineplot.Key;
   axisKey: lineplot.AxisKey;
   onSelectRule?: (key: string) => void;
 }
 
-const Rules = ({ pKey, axisKey, onSelectRule }: RulesProps): ReactElement => {
-  const ruleKeys = useSelectAxisRuleKeys({ key: pKey, axisKey });
+const Rules = ({ axisKey, onSelectRule }: RulesProps): ReactElement => {
+  const ruleKeys = useSelectAxisRuleKeys({ axisKey });
   return (
     <>
       {ruleKeys.map((ruleKey) => (
-        <Rule key={ruleKey} pKey={pKey} ruleKey={ruleKey} onSelectRule={onSelectRule} />
+        <Rule key={ruleKey} ruleKey={ruleKey} onSelectRule={onSelectRule} />
       ))}
     </>
   );
@@ -335,37 +320,27 @@ interface YAxisProps extends AxisChildrenProps {
 }
 
 const YAxis = ({
-  pKey: key,
   axisKey,
   editable,
   resolvedRanges,
   hiddenLines,
   onSelectRule,
 }: YAxisProps): ReactElement => {
-  const { dispatch } = useDispatch();
-  const { axis, lineKeys, channels } = useSelectYAxis({ key, axisKey });
+  const dispatch = useSingleDispatch();
+  const { axis, lineKeys, channels } = useSelectYAxis({ axisKey });
   const handleDrop = useCallback(
     (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
       if (!editable) return;
       const existing = new Set(channels);
       const additions = dropped.filter((channel) => !existing.has(channel));
       if (additions.length > 0)
-        dispatch({
-          key,
-          actions: additions.map((channel) =>
-            lineplot.addChannel({ axisKey, channel }),
-          ),
-        });
+        dispatch(additions.map((channel) => lineplot.addChannel({ axisKey, channel })));
     },
-    [channels, dispatch, key, editable],
+    [channels, dispatch, editable],
   );
   const handleLabelChange = useCallback(
     (label: string) =>
-      editable &&
-      dispatch({
-        key,
-        actions: [lineplot.setAxisLabel({ key: axisKey, label })],
-      }),
+      editable && dispatch(lineplot.setAxisLabel({ key: axisKey, label })),
     [editable],
   );
   const dropProps = useAxisDrop(axisKey, "y", handleDrop);
@@ -384,13 +359,12 @@ const YAxis = ({
       {lineKeys.map((lineKey) => (
         <Line
           key={lineKey}
-          pKey={key}
           lineKey={lineKey}
           resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
           visible={hiddenLines == null || !hiddenLines.has(lineKey)}
         />
       ))}
-      <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
+      <Rules axisKey={axisKey} onSelectRule={onSelectRule} />
     </BaseYAxis>
   );
 };
@@ -401,7 +375,6 @@ interface XAxisProps extends AxisChildrenProps {
 }
 
 const XAxis = ({
-  pKey: key,
   axisKey,
   editable,
   resolvedRanges,
@@ -409,28 +382,21 @@ const XAxis = ({
   onSelectRule,
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
-  const { dispatch } = useDispatch();
+  const dispatch = useSingleDispatch();
   const handleDrop = useCallback(
     (axisKey: lineplot.XAxisKey, [channel]: channel.Key[]): void => {
       if (editable && channel != null)
-        dispatch({
-          key,
-          actions: [lineplot.setXChannel({ axisKey, channel })],
-        });
+        dispatch(lineplot.setXChannel({ axisKey, channel }));
     },
-    [dispatch, key, editable],
+    [dispatch, editable],
   );
   const dropProps = useAxisDrop(axisKey, "x", handleDrop);
   const dragging = Haul.useDraggingState();
-  const { key: _, ...axisConfig } = useSelectXAxis({ key, axisKey });
-  const yAxes = useSelectYAxisKeys({ key });
+  const { key: _, ...axisConfig } = useSelectXAxis({ axisKey });
+  const yAxes = useSelectYAxisKeys({});
   const handleLabelChange = useCallback(
-    (label: string) =>
-      dispatch({
-        key,
-        actions: [lineplot.setAxisLabel({ key: axisKey, label })],
-      }),
-    [dispatch, key, axisKey],
+    (label: string) => dispatch(lineplot.setAxisLabel({ key: axisKey, label })),
+    [dispatch, axisKey],
   );
   return (
     <BaseXAxis
@@ -445,7 +411,6 @@ const XAxis = ({
       {yAxes.map((yAxisKey) => (
         <YAxis
           key={yAxisKey}
-          pKey={key}
           axisKey={yAxisKey}
           editable={editable}
           resolvedRanges={resolvedRanges}
@@ -453,22 +418,20 @@ const XAxis = ({
           onSelectRule={onSelectRule}
         />
       ))}
-      <Rules pKey={key} axisKey={axisKey} onSelectRule={onSelectRule} />
+      <Rules axisKey={axisKey} onSelectRule={onSelectRule} />
       <Range.Provider {...rangeProviderProps} />
     </BaseXAxis>
   );
 };
 
 interface UseViewportResetParams {
-  key: lineplot.Key;
   hold?: boolean;
 }
 
 const useViewportReset = ({
-  key,
   hold,
 }: UseViewportResetParams): RefObject<Viewport.UseRefValue | null> => {
-  const lineCount = useSelectLineCount({ key });
+  const lineCount = useSelectLineCount({});
   const prevLineCount = usePrevious(lineCount);
   const prevHold = usePrevious(hold);
   const viewportRef = useRef<Viewport.UseRefValue | null>(null);
@@ -483,7 +446,6 @@ const useViewportReset = ({
 };
 
 export interface LinePlotProps extends FrameProps {
-  resourceKey: lineplot.Key;
   editable?: boolean;
   enableTriggers?: boolean | (() => boolean);
   resolvedRanges?: Map<string, ResolvedRange>;
@@ -502,7 +464,6 @@ export interface LinePlotProps extends FrameProps {
 }
 
 export const LinePlot = ({
-  resourceKey: key,
   editable = true,
   enableTriggers = true,
   resolvedRanges,
@@ -522,16 +483,14 @@ export const LinePlot = ({
   ref,
   ...rest
 }: LinePlotProps): ReactElement => {
-  useEnsureRetrieved({ key });
-  useUndoRedoTriggers({ key, enabled: enableTriggers });
-  const xAxisKeys = useSelectXAxisKeys({ key });
-  const viewportRef = useViewportReset({ key, hold: rest.hold });
+  useUndoRedoTriggers({ enabled: enableTriggers });
+  const xAxisKeys = useSelectXAxisKeys({});
+  const viewportRef = useViewportReset({ hold: rest.hold });
   return (
     <Frame ref={ref} {...rest}>
       {xAxisKeys.map((xAxisKey) => (
         <XAxis
           key={xAxisKey}
-          pKey={key}
           axisKey={xAxisKey}
           editable={editable}
           resolvedRanges={resolvedRanges}
@@ -541,12 +500,11 @@ export const LinePlot = ({
         />
       ))}
       <Legend
-        pKey={key}
         variant={legendVariant}
         editable={editable}
         onLineVisibleChange={onLineVisibleChange}
       />
-      <Title pKey={key} editable={editable} />
+      <Title editable={editable} />
       <BaseViewport
         initial={initialViewport}
         onChange={onViewportChange}

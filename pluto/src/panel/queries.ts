@@ -9,9 +9,12 @@
 
 import { NotFoundError, panel } from "@synnaxlabs/client";
 import { array, type record } from "@synnaxlabs/x";
+import { useCallback, useMemo } from "react";
+import type z from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
+import { useKey, useTabKey } from "@/panel/Context";
 
 export const FLUX_STORE_KEY = "panels";
 const RESOURCE_NAME = "panel";
@@ -101,36 +104,78 @@ const requirePanel = (store: FluxSubStore, key: panel.Key): panel.Panel => {
   return p;
 };
 
-// useSelectRoot selects the panel's stored tree root. The reference only
-// changes when the document changes, so consumers can memoize derivations on
-// it directly.
-export const useSelectRoot = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  panel.Node
->({
-  subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-  select: (store, { key }) => requirePanel(store, key).root,
-});
+const withPanelKey = <Args extends { key: string }, Selected>(
+  useSelect: Flux.UseSelect<Args, Selected>,
+): Flux.UseSelect<Omit<Args, "key">, Selected> => {
+  const key = useKey("cat");
+  return (args) => useSelect({ key, ...args } as Args);
+};
+
+const withPanelAndTabKey = <Args extends { key: string; tabKey: string }, Selected>(
+  useSelect: Flux.UseSelect<Args, Selected>,
+): Flux.UseSelect<Omit<Args, "key" | "tabKey">, Selected> => {
+  const key = useKey("cat");
+  const tabKey = useTabKey("cat");
+  return (args) => useSelect({ key, tabKey, ...args } as Args);
+};
+
+export const useSelectRoot = withPanelKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, panel.Node>({
+    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+    select: (store, { key }) => requirePanel(store, key).root,
+  }),
+);
 
 export interface SelectTabContentArgs {
   key: panel.Key;
   tabKey: string;
 }
 
-export const useSelectTab = Flux.createSelector<
+const selectRequiredTab = (
+  store: FluxSubStore,
+  { key, tabKey }: SelectTabContentArgs,
+): panel.Tab => {
+  const tab = panel.findTab(requirePanel(store, key).root, tabKey);
+  if (tab == null)
+    throw new NotFoundError(`Tab with key ${tabKey} not found in panel ${key}`);
+  return tab;
+};
+
+export const useSelectTab = withPanelAndTabKey(
+  Flux.createSelector<FluxSubStore, SelectTabContentArgs, panel.Tab>({
+    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+    select: (store, args) => selectRequiredTab(store, args),
+  }),
+);
+
+export const useSelectTabType = withPanelAndTabKey(
+  Flux.createSelector<FluxSubStore, SelectTabContentArgs, string>({
+    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+    select: (store, args) => selectRequiredTab(store, args).type,
+  }),
+);
+
+const useSelectTabArgsBase = Flux.createSelector<
   FluxSubStore,
   SelectTabContentArgs,
-  panel.Tab
+  record.Unknown
 >({
   subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-  select: (store, { key, tabKey }) => {
-    const tab = panel.findTab(requirePanel(store, key).root, tabKey);
-    if (tab == null)
-      throw new NotFoundError(`Tab with key ${tabKey} not found in panel ${key}`);
-    return tab;
-  },
+  select: (store, args) => selectRequiredTab(store, args).args,
 });
+
+export interface SelectTabArgs<Z extends z.ZodType> extends SelectTabContentArgs {
+  schema: Z;
+}
+
+export const createSelectContextTabArgs =
+  <ArgsSchema extends z.ZodType>(schema: ArgsSchema): (() => z.output<ArgsSchema>) =>
+  () => {
+    const key = useKey("cat");
+    const tabKey = useTabKey("cat");
+    const args = useSelectTabArgsBase({ key, tabKey });
+    return useMemo(() => schema.parse(args), [args]);
+  };
 
 export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}
 
@@ -200,7 +245,12 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   },
 });
 
-export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+export const {
+  useDispatch,
+  useSingleDispatch: useSingleDispatchBase,
+  useUndo,
+  useRedo,
+} = Flux.createDispatch<
   panel.Key,
   panel.Panel,
   panel.Action,
@@ -211,3 +261,20 @@ export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
   send: ({ client, key, actions, dispatchKey }) =>
     client.panels.dispatch(key, dispatchKey, actions),
 });
+
+export const useSingleDispatch = () => {
+  const key = useKey("cat");
+  return useSingleDispatchBase(key);
+};
+
+export const useSetCurrentTabContent = (): ((
+  payload: Omit<panel.SetTabContentPayload, "key">,
+) => void) => {
+  const dispatch = useSingleDispatch();
+  const tabKey = useTabKey("cat");
+  return useCallback(
+    (payload: Omit<panel.SetTabContentPayload, "key">) =>
+      dispatch(panel.setTabContent({ key: tabKey, ...payload })),
+    [dispatch, tabKey],
+  );
+};

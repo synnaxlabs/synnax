@@ -9,11 +9,10 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { Menu } from "@/layouts/nav/Menu";
+import { BOTTOM_DRAWER_ITEM, LEFT_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
 import { Palette } from "@/palette";
 
 const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
@@ -26,14 +25,15 @@ const SearchAndCommandPalette = (): ReactElement => (
   <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
 );
 
-export const Left = (): ReactElement => (
-  <Layout.Nav.Bar location="left" size="8rem">
-    <Nav.Bar.Content align="center">
+export const Left = (): ReactElement => {
+  const { blurred } = Layout.useSelectActiveTabState();
+  return (
+    <Layout.Nav.LeftBar
+      items={LEFT_DRAWER_ITEMS}
+      bottomItem={BOTTOM_DRAWER_ITEM}
+      enabled={!blurred}
+    >
       <SearchAndCommandPalette />
-      <Menu location="left" />
-    </Nav.Bar.Content>
-    <Nav.Bar.End bordered>
-      <Menu location="bottom" />
-    </Nav.Bar.End>
-  </Layout.Nav.Bar>
-);
+    </Layout.Nav.LeftBar>
+  );
+};

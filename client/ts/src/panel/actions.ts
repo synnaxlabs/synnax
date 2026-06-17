@@ -15,7 +15,7 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/panel/actions.gen";
-import { ROOT_PATH, walkPath } from "@/panel/tree";
+import { firstLeafPath, ROOT_PATH, tabLeafPath, walkPath } from "@/panel/tree";
 import { type Node, type NodeLeaf, type Panel, type Tab } from "@/panel/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
@@ -143,7 +143,12 @@ const handlers: Handlers = {
   },
 
   insertTab: (state, payload) => {
-    let targetLeaf = payload.targetLeaf;
+    let targetLeaf: number | null;
+    if (payload.targetTab != null)
+      targetLeaf = tabLeafPath(state.root, payload.targetTab);
+    else if (payload.targetLeaf != null) targetLeaf = payload.targetLeaf;
+    else targetLeaf = firstLeafPath(state.root);
+    if (targetLeaf == null) return NO_OP;
     if (payload.location != null && payload.location !== "center") {
       const placed = splitLeafAt(state, targetLeaf, payload.location, 0.5);
       if (placed == null) return NO_OP;

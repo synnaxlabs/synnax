@@ -10,48 +10,29 @@
 import { lineplot } from "@synnaxlabs/client";
 import { Flex, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
 
-export interface PropertiesProps {
-  layoutKey: string;
-}
+export const Properties = (): ReactElement => {
+  const name = LinePlot.useSelectName({});
+  const title = LinePlot.useSelectTitle({});
+  const legend = LinePlot.useSelectLegend({});
+  const dispatch = LinePlot.useSingleDispatch();
 
-export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
-  const title = LinePlot.useSelectTitle({ key: layoutKey });
-  const legend = LinePlot.useSelectLegend({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const reduxDispatch = useDispatch();
-  const { dispatch } = LinePlot.useDispatch();
-  const { update: renameRemote } = LinePlot.useRename({});
+  const handleRename = (name: string): void => dispatch(lineplot.rename({ name }));
 
-  const handleTitleRename = (value: string): void => {
-    reduxDispatch(Layout.rename({ key: layoutKey, name: value }));
-    renameRemote({ key: layoutKey, name: value });
-  };
+  const handleTitleVisibilityChange = (visible: boolean): void =>
+    dispatch(lineplot.setTitleVisible({ visible }));
 
-  const handleTitleVisibilityChange = (visible: boolean): void => {
-    dispatch({
-      key: layoutKey,
-      actions: [lineplot.setTitle({ title: { ...title, visible } })],
-    });
-  };
-
-  const handleLegendVisibilityChange = (visible: boolean): void => {
-    dispatch({
-      key: layoutKey,
-      actions: [lineplot.setLegendVisible({ visible })],
-    });
-  };
+  const handleLegendVisibilityChange = (visible: boolean): void =>
+    dispatch(lineplot.setLegendVisible({ visible }));
 
   return (
     <Flex.Box x className={CSS.BE("line-plot", "toolbar", "properties")}>
       <Input.Item label="Title" grow>
         <Input.Text
           value={name}
-          onChange={handleTitleRename}
+          onChange={handleRename}
           selectOnFocus
           resetOnBlurIfEmpty
         />

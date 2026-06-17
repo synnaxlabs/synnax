@@ -9,9 +9,6 @@
 
 export * from "@/panel/ContextMenu";
 export * from "@/panel/Mosaic";
-export * from "@/panel/PanelTabs";
-export * from "@/panel/selectorTab";
-export * from "@/panel/TabName";
-export * from "@/panel/useActiveResource";
-export * from "@/panel/useActiveTab";
-export * from "@/panel/useCreateTab";
+export * from "@/panel/renderer";
+export * from "@/panel/selectors";
+export * from "@/panel/slice";

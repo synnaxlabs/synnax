@@ -9,7 +9,7 @@
 
 import { panel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Menu, Panel as Base, Text } from "@synnaxlabs/pluto";
+import { Icon, Menu, Panel as Base, Panel, Text } from "@synnaxlabs/pluto";
 import { type direction } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -22,10 +22,6 @@ export interface TabMenuItemsProps {
   tabKey: string;
 }
 
-// TabMenuItems renders the standard context-menu items for a panel tab: rename,
-// close, focus, and (when the tab's leaf holds more than one tab) splitting the
-// leaf with this tab on the new side. All actions address the tab through the
-// panel document; none touch the layout slice.
 export const TabMenuItems = ({ panelKey, tabKey }: TabMenuItemsProps): ReactElement => {
   const dispatch = useDispatch();
   const windowKey = useSelectWindowKey();
@@ -58,7 +54,7 @@ export const TabMenuItems = ({ panelKey, tabKey }: TabMenuItemsProps): ReactElem
     [dispatchPanel, panelKey, tabKey],
   );
   const handleFocus = useCallback(() => {
-    if (windowKey != null) dispatch(Layout.setFocus({ windowKey, key: tabKey }));
+    if (windowKey != null) dispatch(Layout.overlay({ windowKey, key: tabKey }));
   }, [dispatch, windowKey, tabKey]);
   return (
     <>
@@ -100,24 +96,11 @@ export const TabMenuItems = ({ panelKey, tabKey }: TabMenuItemsProps): ReactElem
   );
 };
 
-export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
-  panelKey: panel.Key;
-}
+export interface ContextMenuProps extends Menu.ContextMenuMenuProps {}
 
-// ContextMenu is the panel tab strip's context menu. The tab's content type can
-// register a custom renderer (Layout.ContextMenuProvider) that replaces the whole
-// menu, receiving the content key as layoutKey and the hosting tab's key;
-// otherwise the standard tab items render.
-export const ContextMenu = ({
-  keys,
-  panelKey,
-}: ContextMenuProps): ReactElement | null => {
+export const ContextMenu = ({ keys }: ContextMenuProps): ReactElement | null => {
+  const panelKey = Panel.useKey("ContextMenu");
   const tabKey: string | undefined = keys[0];
-  const { data: p } = Base.useRetrieve({ key: panelKey });
-  const tab = p != null && tabKey != null ? panel.findTab(p.root, tabKey) : null;
-  const content = tab != null ? Base.tabContent(tab) : null;
-  const type = content?.resource?.type ?? content?.view?.type ?? "";
-  const Custom = Layout.useContextMenuRenderer(type);
   if (tabKey == null)
     return (
       <CMenu.Menu>

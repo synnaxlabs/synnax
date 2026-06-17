@@ -9,21 +9,23 @@
 
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
+import { Content } from "@/log/content/Content";
 import { extract } from "@/log/export";
-import { LAYOUT_TYPE, Log } from "@/log/Log";
+import { LAYOUT_TYPE } from "@/log/layout";
 import { Selectable } from "@/log/Selectable";
 import { type Selector } from "@/selector";
 
+export * from "@/log/content/Content";
 export * from "@/log/export";
-export * from "@/log/Log";
+export * from "@/log/layout";
 export * from "@/log/Selectable";
-export * from "@/log/selectors";
-export * from "@/log/slice";
+export * from "@/log/session/slice";
 export * from "@/log/toolbar/Toolbar";
 export * from "@/log/useCreate";
+export * from "@/log/useName";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: Log };
+export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: Content };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];

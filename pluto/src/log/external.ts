@@ -12,4 +12,5 @@ export * from "@/log/Base";
 export * from "@/log/Icons";
 export * from "@/log/Log";
 export * from "@/log/queries";
+export * from "@/log/Suspended";
 export * from "@/log/use";

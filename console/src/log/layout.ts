@@ -11,7 +11,7 @@ import { log } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
-import { internalCreate } from "@/log/slice";
+import { internalCreate } from "@/log/session/slice";
 
 export const LAYOUT_TYPE = "log";
 export type LayoutType = typeof LAYOUT_TYPE;

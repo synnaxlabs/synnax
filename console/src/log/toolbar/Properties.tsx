@@ -16,11 +16,8 @@ import { CSS } from "@/css";
 
 const RECEIPT_TIMESTAMP_PRECISION_BOUNDS: bounds.Bounds = { lower: 0, upper: 4 };
 
-export interface PropertiesProps {
-  layoutKey: string;
-}
-
-export const Properties = ({ layoutKey: key }: PropertiesProps): ReactElement => {
+export const Properties = (): ReactElement => {
+  const key = Log.useKey();
   const { dispatch } = Log.useDispatch();
   const showChannelNames = Log.useSelectShowChannelNames({ key });
   const showReceiptTimestamp = Log.useSelectShowReceiptTimestamp({ key });

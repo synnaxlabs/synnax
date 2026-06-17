@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware } from "@reduxjs/toolkit";
+import { type ActionCreatorWithPayload, type Middleware } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW, selectWindowKey } from "@synnaxlabs/drift";
 import { runtime } from "@synnaxlabs/x";
 
 import { select, selectSliceState } from "@/layout/selectors";
 import {
+  clearOverlay,
+  overlay,
   place,
   type PlacePayload,
   remove,
   type RemovePayload,
+  setNavDrawer,
   setNavDrawerVisible,
   setProject,
   type SetProjectPayload,
@@ -93,22 +96,24 @@ export const createWindowsOnSetProjectEffect: MiddlewareEffect<
     });
 };
 
-/**
- * Injects the current window key into setNavDrawerVisible actions whose payload
- * omits one. Lets call sites dispatch the action without selecting the window key
- * themselves; the reducer still requires a windowKey to be present.
- */
-const injectNavDrawerWindowKey: Middleware<{}, StoreState & Drift.StoreState> =
-  (store) => (next) => (action) => {
-    if (!setNavDrawerVisible.match(action) || action.payload.windowKey != null)
+const createInjectWindowKey =
+  <P extends { windowKey?: string }, T extends string = string>(
+    actionCreator: ActionCreatorWithPayload<P, T>,
+  ): Middleware<{}, StoreState & Drift.StoreState> =>
+  (store) =>
+  (next) =>
+  (action) => {
+    if (!actionCreator.match(action) || action.payload.windowKey != null)
       return next(action);
     const windowKey = selectWindowKey(store.getState());
     if (windowKey == null) return next(action);
-    return next(setNavDrawerVisible({ ...action.payload, windowKey }));
+    return next(actionCreator({ ...action.payload, windowKey }));
   };
 
 export const MIDDLEWARE = [
-  injectNavDrawerWindowKey,
+  createInjectWindowKey(setNavDrawer),
+  createInjectWindowKey(overlay),
+  createInjectWindowKey(clearOverlay),
   effectMiddleware([place.type], [createWindowOnPlaceEffect]),
   effectMiddleware([remove.type], [closeWindowOnRemoveEffect], true),
   effectMiddleware([setProject.type], [createWindowsOnSetProjectEffect]),

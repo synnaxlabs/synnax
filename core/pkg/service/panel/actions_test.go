@@ -102,7 +102,7 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab3))}
 			next := MustSucceed(panel.InsertTabPayload{
 				Tab:        tab(tab2),
-				TargetLeaf: 1,
+				TargetLeaf: new(int32(1)),
 				Index:      new(int32(1)),
 			}.Handle(p))
 			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1, tab2, tab3}))
@@ -112,7 +112,7 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			next := MustSucceed(panel.InsertTabPayload{
 				Tab:        tab(tab2),
-				TargetLeaf: 1,
+				TargetLeaf: new(int32(1)),
 			}.Handle(p))
 			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
 		})
@@ -121,7 +121,7 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			next := MustSucceed(panel.InsertTabPayload{
 				Tab:        tab(tab2),
-				TargetLeaf: 1,
+				TargetLeaf: new(int32(1)),
 				Location:   new(spatial.LocationBottom),
 			}.Handle(p))
 			split := MustBeOk(asSplit(next.Root))
@@ -134,7 +134,7 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			next := MustSucceed(panel.InsertTabPayload{
 				Tab:        tab(tab2),
-				TargetLeaf: 1,
+				TargetLeaf: new(int32(1)),
 				Location:   new(spatial.LocationLeft),
 			}.Handle(p))
 			split := MustBeOk(asSplit(next.Root))
@@ -147,7 +147,7 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
 			next := MustSucceed(panel.InsertTabPayload{
 				Tab:        tab(tab2),
-				TargetLeaf: 1,
+				TargetLeaf: new(int32(1)),
 				Location:   new(spatial.LocationCenter),
 			}.Handle(p))
 			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
@@ -157,10 +157,50 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Root: leafNode()}
 			next := MustSucceed(panel.InsertTabPayload{
 				Tab:        tab(tab1),
-				TargetLeaf: 1,
+				TargetLeaf: new(int32(1)),
 				Location:   new(spatial.LocationRight),
 			}.Handle(p))
 			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1}))
+		})
+
+		It("Should insert into the leaf holding TargetTab when set", func() {
+			p := panel.Panel{Root: splitNode(
+				spatial.DirectionX, 0.5,
+				leafNode(tab(tab1)),
+				leafNode(tab(tab2)),
+			)}
+			next := MustSucceed(panel.InsertTabPayload{
+				Tab:       tab(tab3),
+				TargetTab: &tab2,
+			}.Handle(p))
+			split := MustBeOk(asSplit(next.Root))
+			Expect(tabKeys(split.First)).To(Equal([]uuid.UUID{tab1}))
+			Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2, tab3}))
+		})
+
+		It("Should error when TargetTab is set but no tab matches it", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			missing := uuid.New()
+			Expect(panel.InsertTabPayload{Tab: tab(tab2), TargetTab: &missing}.Handle(p)).
+				Error().To(MatchError(ContainSubstring("tab not found in tree")))
+		})
+
+		It("Should default to the first leaf in traversal order when no target is set", func() {
+			p := panel.Panel{Root: splitNode(
+				spatial.DirectionX, 0.5,
+				leafNode(tab(tab1)),
+				leafNode(tab(tab2)),
+			)}
+			next := MustSucceed(panel.InsertTabPayload{Tab: tab(tab3)}.Handle(p))
+			split := MustBeOk(asSplit(next.Root))
+			Expect(tabKeys(split.First)).To(Equal([]uuid.UUID{tab1, tab3}))
+			Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
+		})
+
+		It("Should default to the root leaf when no target is set on a single-leaf tree", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			next := MustSucceed(panel.InsertTabPayload{Tab: tab(tab2)}.Handle(p))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1, tab2}))
 		})
 
 		DescribeTable("Should error on bad inputs",
@@ -169,17 +209,17 @@ var _ = Describe("Actions", func() {
 			},
 			Entry("path does not resolve",
 				panel.Panel{Root: leafNode()},
-				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 7, Index: new(int32(0))},
+				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: new(int32(7)), Index: new(int32(0))},
 				"invalid node path",
 			),
 			Entry("path resolves to a split",
 				panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
-				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 1, Index: new(int32(0))},
+				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: new(int32(1)), Index: new(int32(0))},
 				"node at path is not a leaf",
 			),
 			Entry("index exceeds tab count",
 				panel.Panel{Root: leafNode()},
-				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 1, Index: new(int32(5))},
+				panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: new(int32(1)), Index: new(int32(5))},
 				"index out of range",
 			),
 		)

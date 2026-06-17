@@ -13,7 +13,7 @@ import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 
 import { selectFocused, selectModals } from "@/layout/selectors";
-import { setFocus } from "@/layout/slice";
+import { overlay } from "@/layout/slice";
 import { useRemover } from "@/layout/useRemover";
 import { Panel } from "@/panel";
 import { Selector } from "@/selector";
@@ -41,8 +41,8 @@ export const useTriggers = (): void => {
         const windowKey = selectWindowKey(state);
         const { focused } = selectFocused(state);
         if (active == null || windowKey == null) return;
-        if (focused != null) store.dispatch(setFocus({ key: null, windowKey }));
-        else store.dispatch(setFocus({ key: active, windowKey }));
+        if (focused != null) store.dispatch(overlay({ key: null, windowKey }));
+        else store.dispatch(overlay({ key: active, windowKey }));
       },
       [store, resolveActiveTab],
     ),

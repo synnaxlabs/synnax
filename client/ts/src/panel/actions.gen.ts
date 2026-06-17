@@ -13,7 +13,7 @@ import { type Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { keyZ, type Panel, tabZ } from "@/panel/types.gen";
+import { keyZ, type Panel, tabKeyZ, tabZ } from "@/panel/types.gen";
 
 /**
  * Rename renames the panel. When the panel is owned by a user (draft),
@@ -27,15 +27,19 @@ export const renamePayloadZ = z.object({
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
 /**
- * InsertTab inserts a tab into the leaf with the given path-derived key at
- * the given index. Appends when index is absent. When location is
- * an edge, the target leaf is first split at that location and the
- * tab is inserted into the new empty leaf; a center location places
- * the tab directly in the target leaf, equivalent to absent.
+ * InsertTab inserts a tab into a leaf at the given index, appending when index
+ * is absent. The destination leaf is resolved from target_tab (the
+ * leaf holding that tab) when set, otherwise from the target_leaf
+ * path-derived key, otherwise the first leaf in traversal order. When
+ * location is an edge, the resolved leaf is first split at that
+ * location and the tab is inserted into the new empty leaf; a center
+ * location places the tab directly in the resolved leaf, equivalent
+ * to absent.
  */
 export const insertTabPayloadZ = z.object({
   tab: tabZ,
-  targetLeaf: z.int32(),
+  targetLeaf: z.int32().optional(),
+  targetTab: tabKeyZ.optional(),
   index: z.int32().optional(),
   location: spatial.locationZ.optional(),
 });

@@ -14,6 +14,12 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
+export const tabKeyZ = z.uuid();
+export type TabKey = z.infer<typeof tabKeyZ>;
+
+export const keyZ = z.uuid();
+export type Key = z.infer<typeof keyZ>;
+
 /**
  * Tab is a single tab in a leaf: a stable key, a renderer type, and an opaque,
  * Console-owned args payload. The same content may be referenced by multiple
@@ -25,7 +31,7 @@ export const tabZ = z.object({
    * independent of the tab's content, so a tab's content may be swapped
    * without changing the tab's identity or position.
    */
-  key: z.uuid(),
+  key: tabKeyZ,
   /**
    * type selects the renderer for the tab's content (e.g. 'lineplot',
    * 'schematic', 'docs', 'selector'). For core-backed content it is also
@@ -40,9 +46,6 @@ export const tabZ = z.object({
   args: caseconv.preserveCase(record.nullishToEmpty()),
 });
 export interface Tab extends z.infer<typeof tabZ> {}
-
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
 
 /** Leaf is a leaf node in the panel tree displaying a tab strip. */
 export const leafZ = z.object({

@@ -36,7 +36,7 @@ var _ = Describe("Reduce", func() {
 		k := uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode()},
-			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: 1}),
+			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))}),
 		))
 		Expect(tabKeys(next.Root)).To(ContainElement(k))
 	})
@@ -94,7 +94,7 @@ var _ = Describe("Reduce", func() {
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Name: "old", Root: leafNode()},
 			panel.NewRenameAction(panel.RenamePayload{Name: "new"}),
-			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: 1}),
+			panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(k), TargetLeaf: new(int32(1))}),
 		))
 		Expect(next.Name).To(Equal("new"))
 		Expect(tabKeys(next.Root)).To(ContainElement(k))

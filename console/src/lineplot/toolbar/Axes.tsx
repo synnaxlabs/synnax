@@ -19,32 +19,21 @@ import {
   Tabs,
 } from "@synnaxlabs/pluto";
 import { type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 
-export interface AxesProps {
-  layoutKey: string;
-}
-
-export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
-  const axisKeys = LinePlot.useSelectAxisKeys({ key: layoutKey });
-
+export const Axes = (): ReactElement => {
+  const axisKeys = LinePlot.useSelectAxisKeys({});
   const tabs = useMemo(
     () => axisKeys.map((key) => ({ tabKey: key, name: key.toUpperCase() })),
     [axisKeys],
   );
-
   const t = Tabs.useStatic({ tabs });
-
   return (
     <Tabs.Tabs {...t} size="small">
       {(p) => (
-        <LinePlotAxisControls
-          key={p.tabKey}
-          axisKey={p.tabKey as lineplot.AxisKey}
-          layoutKey={layoutKey}
-        />
+        <LinePlotAxisControls key={p.tabKey} axisKey={p.tabKey as lineplot.AxisKey} />
       )}
     </Tabs.Tabs>
   );
@@ -52,7 +41,6 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
 
 export interface LinePlotAxisControlsProps {
   axisKey: lineplot.AxisKey;
-  layoutKey: string;
 }
 
 interface AutoBoundButtonProps extends Omit<Button.ButtonProps, "children"> {
@@ -75,66 +63,34 @@ const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactEleme
 const AXES_BOUNDS_DRAG_SCALE = { x: 0.1, y: 0.1 };
 
 export const LinePlotAxisControls = ({
-  axisKey,
-  layoutKey,
+  axisKey: key,
 }: LinePlotAxisControlsProps): ReactElement => {
-  const { dispatch } = LinePlot.useDispatch();
-  const axis = LinePlot.useSelectAxis({ key: layoutKey, axisKey });
+  const dispatch = LinePlot.useSingleDispatch();
+  const axis = LinePlot.useSelectAxis({ axisKey: key });
 
-  const apply = useCallback(
-    (action: lineplot.Action): void => {
-      dispatch({ key: layoutKey, actions: [action] });
-    },
-    [dispatch, layoutKey],
-  );
-
-  const handleLabelChange: Input.Control<string>["onChange"] = (value) =>
-    apply(lineplot.setAxisLabel({ key: axisKey, label: value }));
+  const handleLabelChange: Input.Control<string>["onChange"] = (label) =>
+    dispatch(lineplot.setAxisLabel({ key, label }));
 
   const handleLowerBoundChange: Input.Control<number>["onChange"] = (value) =>
-    apply(
-      lineplot.setAxisBounds({
-        key: axisKey,
-        bounds: { ...axis.bounds, lower: value },
-        autoBounds: { ...axis.autoBounds, lower: false },
-      }),
-    );
+    dispatch(lineplot.setAxisLowerBound({ key, bound: value }));
 
   const handleLowerAutoBoundEnable = (): void =>
-    apply(
-      lineplot.setAxisBounds({
-        key: axisKey,
-        bounds: axis.bounds,
-        autoBounds: { ...axis.autoBounds, lower: true },
-      }),
-    );
+    dispatch(lineplot.enableAxisLowerAutoBound({ key }));
 
   const handleUpperBoundChange: Input.Control<number>["onChange"] = (value) =>
-    apply(
-      lineplot.setAxisBounds({
-        key: axisKey,
-        bounds: { ...axis.bounds, upper: value },
-        autoBounds: { ...axis.autoBounds, upper: false },
-      }),
-    );
+    dispatch(lineplot.setAxisUpperBound({ key, bound: value }));
 
   const handleUpperAutoBoundEnable = (): void =>
-    apply(
-      lineplot.setAxisBounds({
-        key: axisKey,
-        bounds: axis.bounds,
-        autoBounds: { ...axis.autoBounds, upper: true },
-      }),
-    );
+    dispatch(lineplot.enableAxisUpperAutoBound({ key }));
 
   const handleLabelDirectionChange: Input.Control<"x" | "y">["onChange"] = (value) =>
-    apply(lineplot.setAxisLabelDirection({ key: axisKey, labelDirection: value }));
+    dispatch(lineplot.setAxisLabelDirection({ key, labelDirection: value }));
 
   const handleTickSpacingChange: Input.Control<number>["onChange"] = (value) =>
-    apply(lineplot.setAxisTickSpacing({ key: axisKey, tickSpacing: value }));
+    dispatch(lineplot.setAxisTickSpacing({ key, tickSpacing: value }));
 
   const handleLabelLevelChange: Input.Control<text.Level>["onChange"] = (value) =>
-    apply(lineplot.setAxisLabelLevel({ key: axisKey, labelLevel: value }));
+    dispatch(lineplot.setAxisLabelLevel({ key, labelLevel: value }));
 
   return (
     <Flex.Box y className={CSS.BE("line-plot", "toolbar", "axes")} gap="small">
@@ -179,7 +135,7 @@ export const LinePlotAxisControls = ({
       <Flex.Box x>
         <Input.Item label="Label" grow>
           <Input.Text
-            placeholder={axisKey.toUpperCase()}
+            placeholder={key.toUpperCase()}
             value={axis.label}
             onChange={handleLabelChange}
           />

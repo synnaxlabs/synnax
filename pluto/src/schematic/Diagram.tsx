@@ -12,21 +12,19 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Component } from "@/component";
-import { Key } from "@/key";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
-import { useDispatch, useSelectElementConfig } from "@/schematic/queries";
+import { useSelectElementConfig, useSingleDispatch } from "@/schematic/queries";
 import { Diagram as Base } from "@/vis/diagram";
 
 const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
-  const { nodeKey } = rest;
-  const key = Key.use<string>("Schematic.Node.Renderer");
-  const config = useSelectElementConfig({ key, elKey: nodeKey });
-  const { dispatch } = useDispatch();
+  const { nodeKey: elKey } = rest;
+  const config = useSelectElementConfig({ elKey });
+  const dispatch = useSingleDispatch();
   const handleChange = useCallback(
     (config: Partial<Node.Config>) =>
-      dispatch({ key, actions: schematic.setConfig({ key: nodeKey, config }) }),
-    [nodeKey, key, dispatch],
+      dispatch(schematic.setConfig({ key: elKey, config })),
+    [elKey, dispatch],
   );
   // React flow can take time to unmount the node, meaning that we need to tolerate
   // temporarily undefined configs.
@@ -43,14 +41,13 @@ const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | nul
 };
 
 const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
-  const { edgeKey } = props;
-  const key = Key.use<string>("Schematic.Edge.Renderer");
-  const config = useSelectElementConfig({ key, elKey: edgeKey });
-  const { dispatch } = useDispatch();
+  const { edgeKey: elKey } = props;
+  const config = useSelectElementConfig({ elKey });
+  const dispatch = useSingleDispatch();
   const handleChange = useCallback(
     (config: Partial<Edge.Config>) =>
-      dispatch({ key, actions: schematic.setConfig({ key: edgeKey, config }) }),
-    [edgeKey, key, dispatch],
+      dispatch(schematic.setConfig({ key: elKey, config })),
+    [elKey, dispatch],
   );
   // React flow can take time to unmount the edge, meaning that we need to tolerate
   // temporarily undefined configs.

@@ -12,17 +12,20 @@ import {
   addChannel,
   addRange,
   createReduceAll,
+  enableAxisLowerAutoBound,
+  enableAxisUpperAutoBound,
   type Handlers,
   removeChannel,
   removeRange,
   removeRule,
   rename,
-  setAxisBounds,
   setAxisLabel,
   setAxisLabelDirection,
   setAxisLabelLevel,
+  setAxisLowerBound,
   setAxisTickSpacing,
   setAxisType,
+  setAxisUpperBound,
   setChannels,
   setLegendPosition,
   setLegendVisible,
@@ -41,7 +44,8 @@ import {
   setRuleLineWidth,
   setRulePosition,
   setRuleUnits,
-  setTitle,
+  setTitleLevel,
+  setTitleVisible,
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { reconcileLines } from "@/lineplot/line";
@@ -59,10 +63,16 @@ const handlers: Handlers = {
     return { inverse: [rename({ name: oldName })], targets: [state.key] };
   },
 
-  setTitle: (state, payload) => {
-    const oldTitle = actions.snapshotDraft(state.title);
-    state.title = payload.title;
-    return { inverse: [setTitle({ title: oldTitle })], targets: [state.key] };
+  setTitleVisible: (state, payload) => {
+    const oldVisible = state.title.visible;
+    state.title.visible = payload.visible;
+    return { inverse: [setTitleVisible({ visible: oldVisible })], targets: [state.key] };
+  },
+
+  setTitleLevel: (state, payload) => {
+    const oldLevel = state.title.level;
+    state.title.level = payload.level;
+    return { inverse: [setTitleLevel({ level: oldLevel })], targets: [state.key] };
   },
 
   setLegendVisible: (state, payload) => {
@@ -270,17 +280,49 @@ const handlers: Handlers = {
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 
-  setAxisBounds: (state, payload) => {
+  setAxisLowerBound: (state, payload) => {
     const axis = state.axes[payload.key];
-    const inverse = [
-      setAxisBounds({
-        key: payload.key,
-        bounds: actions.snapshotDraft(axis.bounds),
-        autoBounds: actions.snapshotDraft(axis.autoBounds),
-      }),
-    ];
-    axis.bounds = payload.bounds;
-    axis.autoBounds = payload.autoBounds;
+    const prevBound = axis.bounds.lower;
+    const inverse = axis.autoBounds.lower
+      ? [
+          setAxisLowerBound({ key: payload.key, bound: prevBound }),
+          enableAxisLowerAutoBound({ key: payload.key }),
+        ]
+      : [setAxisLowerBound({ key: payload.key, bound: prevBound })];
+    axis.bounds.lower = payload.bound;
+    axis.autoBounds.lower = false;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  setAxisUpperBound: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const prevBound = axis.bounds.upper;
+    const inverse = axis.autoBounds.upper
+      ? [
+          setAxisUpperBound({ key: payload.key, bound: prevBound }),
+          enableAxisUpperAutoBound({ key: payload.key }),
+        ]
+      : [setAxisUpperBound({ key: payload.key, bound: prevBound })];
+    axis.bounds.upper = payload.bound;
+    axis.autoBounds.upper = false;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  enableAxisLowerAutoBound: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = axis.autoBounds.lower
+      ? [enableAxisLowerAutoBound({ key: payload.key })]
+      : [setAxisLowerBound({ key: payload.key, bound: axis.bounds.lower })];
+    axis.autoBounds.lower = true;
+    return { inverse, targets: [`axis:${payload.key}`] };
+  },
+
+  enableAxisUpperAutoBound: (state, payload) => {
+    const axis = state.axes[payload.key];
+    const inverse = axis.autoBounds.upper
+      ? [enableAxisUpperAutoBound({ key: payload.key })]
+      : [setAxisUpperBound({ key: payload.key, bound: axis.bounds.upper })];
+    axis.autoBounds.upper = true;
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 

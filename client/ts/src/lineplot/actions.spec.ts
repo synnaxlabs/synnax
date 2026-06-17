@@ -59,19 +59,34 @@ describe("lineplot reducer", () => {
     });
   });
 
-  describe("setTitle", () => {
-    it("should replace the title configuration", () => {
+  describe("setTitleVisible", () => {
+    it("should set title visibility without touching the level", () => {
       const out = apply(
-        createEmpty(),
-        lineplot.setTitle({ title: { level: "h2", visible: true } }),
+        createEmpty({ title: { level: "h2", visible: false } }),
+        lineplot.setTitleVisible({ visible: true }),
       );
       expect(out.title).toEqual({ level: "h2", visible: true });
     });
-    it("should round-trip the previous title through its inverse", () => {
+    it("should round-trip the previous visibility through its inverse", () => {
       const state = createEmpty({ title: { level: "h4", visible: false } });
       expect(
-        roundTrip(state, lineplot.setTitle({ title: { level: "h1", visible: true } }))
-          .title,
+        roundTrip(state, lineplot.setTitleVisible({ visible: true })).title,
+      ).toEqual(state.title);
+    });
+  });
+
+  describe("setTitleLevel", () => {
+    it("should set the title level without touching visibility", () => {
+      const out = apply(
+        createEmpty({ title: { level: "h4", visible: true } }),
+        lineplot.setTitleLevel({ level: "h1" }),
+      );
+      expect(out.title).toEqual({ level: "h1", visible: true });
+    });
+    it("should round-trip the previous level through its inverse", () => {
+      const state = createEmpty({ title: { level: "h4", visible: false } });
+      expect(
+        roundTrip(state, lineplot.setTitleLevel({ level: "h1" })).title,
       ).toEqual(state.title);
     });
   });
@@ -555,16 +570,37 @@ describe("lineplot reducer", () => {
       expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
     });
 
-    it("setAxisBounds sets bounds and auto flags together and round-trips", () => {
+    it("setAxisLowerBound fixes the lower bound, disables its auto flag, and round-trips", () => {
       const state = createEmpty();
-      const action = lineplot.setAxisBounds({
-        key: "y1",
-        bounds: { lower: 1, upper: 2 },
-        autoBounds: { lower: false, upper: false },
-      });
+      const action = lineplot.setAxisLowerBound({ key: "y1", bound: 1 });
       const out = apply(state, action).axes.y1;
-      expect(out.bounds).toEqual({ lower: 1, upper: 2 });
-      expect(out.autoBounds).toEqual({ lower: false, upper: false });
+      expect(out.bounds.lower).toEqual(1);
+      expect(out.autoBounds.lower).toEqual(false);
+      expect(out.autoBounds.upper).toEqual(state.axes.y1.autoBounds.upper);
+      expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
+    });
+
+    it("setAxisUpperBound fixes the upper bound, disables its auto flag, and round-trips", () => {
+      const state = createEmpty();
+      const action = lineplot.setAxisUpperBound({ key: "y1", bound: 2 });
+      const out = apply(state, action).axes.y1;
+      expect(out.bounds.upper).toEqual(2);
+      expect(out.autoBounds.upper).toEqual(false);
+      expect(out.autoBounds.lower).toEqual(state.axes.y1.autoBounds.lower);
+      expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
+    });
+
+    it("enableAxisLowerAutoBound re-enables the lower auto flag and round-trips from a fixed bound", () => {
+      const state = apply(createEmpty(), lineplot.setAxisLowerBound({ key: "y1", bound: 1 }));
+      const action = lineplot.enableAxisLowerAutoBound({ key: "y1" });
+      expect(apply(state, action).axes.y1.autoBounds.lower).toEqual(true);
+      expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
+    });
+
+    it("enableAxisUpperAutoBound re-enables the upper auto flag and round-trips from a fixed bound", () => {
+      const state = apply(createEmpty(), lineplot.setAxisUpperBound({ key: "y1", bound: 2 }));
+      const action = lineplot.enableAxisUpperAutoBound({ key: "y1" });
+      expect(apply(state, action).axes.y1.autoBounds.upper).toEqual(true);
       expect(roundTrip(state, action).axes.y1).toEqual(state.axes.y1);
     });
 

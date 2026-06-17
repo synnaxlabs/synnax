@@ -14,21 +14,15 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { type Component } from "@/component";
 import { Key } from "@/key";
 import { Mosaic as Base } from "@/mosaic";
-import {
-  useDispatch,
-  useEnsureRetrieved,
-  useSelectRoot,
-  useSelectTab,
-} from "@/panel/queries";
+import { useEnsureRetrieved, useSelectRoot, useSingleDispatch } from "@/panel/queries";
 import { Portal } from "@/portal";
 import { type Tabs } from "@/tabs";
 
-export interface MosaicTabRenderProps {
-  tabKey: string;
-  visible: boolean;
-}
+import { TabKeyContext } from "./Context";
 
-export interface MosaicTabNameProps extends Tabs.NameProps {}
+export interface MosaicTabRenderProps {
+  visible?: boolean;
+}
 
 export interface MosaicProps extends Omit<
   Base.MosaicProps,
@@ -40,13 +34,11 @@ export interface MosaicProps extends Omit<
   | "onResize"
   | "onClose"
   | "onCreate"
-  | "onSelect"
 > {
   panelKey: panel.Key;
   selected?: string[];
-  onSelect?: (tabKey: string) => void;
   children: Component.RenderProp<MosaicTabRenderProps>;
-  tabName?: Component.RenderProp<MosaicTabNameProps>;
+  tabName?: Component.RenderProp<Tabs.NameProps>;
   onCreate?: (node: number, location: location.Location) => panel.Tab[];
 }
 
@@ -75,51 +67,32 @@ const adaptToMosaic = (root: panel.Node, selected: string[] | undefined): Base.N
   return visit(root, panel.ROOT_PATH);
 };
 
-interface ContentProps extends Pick<MosaicProps, "children"> {
-  panelKey: panel.Key;
-  tabKey: string;
-  visible: boolean;
-}
-
-const Content = ({
-  panelKey: key,
-  tabKey,
-  visible,
-  children,
-}: ContentProps): ReactElement | null =>
-  children({ ...tabContent(useSelectTab({ key, tabKey })), tabKey, visible });
-
 export const Mosaic = ({
   panelKey: key,
   selected,
-  onSelect,
   children,
-  tabName,
+  onSelect,
   ...rest
 }: MosaicProps): ReactElement | null => {
   useEnsureRetrieved({ key });
-  const { dispatch } = useDispatch();
-  const treeRoot = useSelectRoot({ key });
+  const dispatch = useSingleDispatch();
+  const treeRoot = useSelectRoot({});
   const root = useMemo(() => adaptToMosaic(treeRoot, selected), [treeRoot, selected]);
 
   const handleDrop = useCallback(
-    (targetLeaf: number, tabKey: string, location: location.Location, index?: number) =>
-      dispatch({
-        key,
-        actions: [panel.moveTab({ key: tabKey, targetLeaf, index, location })],
-      }),
-    [dispatch, key],
+    (targetLeaf: number, key: string, location: location.Location, index?: number) =>
+      dispatch(panel.moveTab({ key, targetLeaf, index, location })),
+    [dispatch],
   );
 
   const handleResize = useCallback(
-    (split: number, size: number) =>
-      dispatch({ key, actions: [panel.resizeSplit({ split, size })] }),
-    [dispatch, key],
+    (split: number, size: number) => dispatch(panel.resizeSplit({ split, size })),
+    [dispatch],
   );
 
   const handleClose = useCallback(
-    (tabKey: string) => dispatch({ key, actions: [panel.removeTab({ key: tabKey })] }),
-    [dispatch, key],
+    (key: string) => dispatch(panel.removeTab({ key })),
+    [dispatch],
   );
 
   const handleCreate = useCallback(
@@ -142,24 +115,24 @@ export const Mosaic = ({
       // dispatch({ key, actions });
       // onSelect?.(tabs[tabs.length - 1].key);
     },
-    [dispatch, key, onSelect, defaultTab],
+    [dispatch, key, onSelect],
   );
 
   const [portalRef, portalNodes] = Base.usePortal({
     root,
     onSelect,
-    children: ({ tabKey, visible }) => (
-      <Content panelKey={key} tabKey={tabKey} visible={visible !== false}>
-        {children}
-      </Content>
-    ),
+    children,
   });
 
   const renderProp = useCallback<Tabs.RenderProp>(
-    (props) => {
-      const node = portalRef.current.get(props.tabKey);
+    ({ tabKey }) => {
+      const node = portalRef.current.get(tabKey);
       if (node == null) return null;
-      return <Portal.Out node={node} />;
+      return (
+        <TabKeyContext value={tabKey}>
+          <Portal.Out node={node} />)
+        </TabKeyContext>
+      );
     },
     [portalRef],
   );
@@ -170,12 +143,11 @@ export const Mosaic = ({
       <Base.Mosaic
         {...rest}
         root={root}
-        onSelect={onSelect}
         onDrop={handleDrop}
         onResize={handleResize}
+        onSelect={onSelect}
         onClose={handleClose}
         onCreate={handleCreate}
-        tabName={tabName}
       >
         {renderProp}
       </Base.Mosaic>

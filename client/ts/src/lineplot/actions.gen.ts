@@ -15,7 +15,6 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { channel } from "@/channel";
 import {
-  autoBoundsZ,
   axisKeyZ,
   downsampleModeZ,
   keyZ,
@@ -23,7 +22,6 @@ import {
   lineZ,
   ruleZ,
   tickTypeZ,
-  titleZ,
   xAxisKeyZ,
   yAxisKeyZ,
 } from "@/lineplot/types.gen";
@@ -35,12 +33,19 @@ export const renamePayloadZ = z.object({
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
-/** SetTitle replaces the plot title configuration. */
-export const setTitlePayloadZ = z.object({
-  title: titleZ,
+/** SetTitleVisible sets whether the title is shown above the plot. */
+export const setTitleVisiblePayloadZ = z.object({
+  visible: z.boolean(),
 });
 
-export type SetTitlePayload = z.infer<typeof setTitlePayloadZ>;
+export type SetTitleVisiblePayload = z.infer<typeof setTitleVisiblePayloadZ>;
+
+/** SetTitleLevel sets the typography level of the title text. */
+export const setTitleLevelPayloadZ = z.object({
+  level: text.levelZ,
+});
+
+export type SetTitleLevelPayload = z.infer<typeof setTitleLevelPayloadZ>;
 
 /** SetLegendVisible sets whether the plot legend is shown. */
 export const setLegendVisiblePayloadZ = z.object({
@@ -164,17 +169,44 @@ export const setAxisLabelLevelPayloadZ = z.object({
 export type SetAxisLabelLevelPayload = z.infer<typeof setAxisLabelLevelPayloadZ>;
 
 /**
- * SetAxisBounds sets the axis value-space window together with its per-edge auto
- * derivation flags. The two travel together: fixing a bound disables
- * auto derivation for that edge, so callers set both at once.
+ * SetAxisLowerBound sets the fixed lower bound of the axis value-space window and
+ * disables automatic derivation of that edge.
  */
-export const setAxisBoundsPayloadZ = z.object({
+export const setAxisLowerBoundPayloadZ = z.object({
   key: axisKeyZ,
-  bounds: spatial.boundsZ(),
-  autoBounds: autoBoundsZ,
+  bound: z.number(),
 });
 
-export type SetAxisBoundsPayload = z.infer<typeof setAxisBoundsPayloadZ>;
+export type SetAxisLowerBoundPayload = z.infer<typeof setAxisLowerBoundPayloadZ>;
+
+/**
+ * SetAxisUpperBound sets the fixed upper bound of the axis value-space window and
+ * disables automatic derivation of that edge.
+ */
+export const setAxisUpperBoundPayloadZ = z.object({
+  key: axisKeyZ,
+  bound: z.number(),
+});
+
+export type SetAxisUpperBoundPayload = z.infer<typeof setAxisUpperBoundPayloadZ>;
+
+/** EnableAxisLowerAutoBound re-enables automatic derivation of the axis lower bound from data. */
+export const enableAxisLowerAutoBoundPayloadZ = z.object({
+  key: axisKeyZ,
+});
+
+export type EnableAxisLowerAutoBoundPayload = z.infer<
+  typeof enableAxisLowerAutoBoundPayloadZ
+>;
+
+/** EnableAxisUpperAutoBound re-enables automatic derivation of the axis upper bound from data. */
+export const enableAxisUpperAutoBoundPayloadZ = z.object({
+  key: axisKeyZ,
+});
+
+export type EnableAxisUpperAutoBoundPayload = z.infer<
+  typeof enableAxisUpperAutoBoundPayloadZ
+>;
 
 /** SetAxisTickSpacing sets the target pixel distance between adjacent tick marks. */
 export const setAxisTickSpacingPayloadZ = z.object({
@@ -335,7 +367,14 @@ export type RemoveRulePayload = z.infer<typeof removeRulePayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
-  z.object({ type: z.literal("set_title"), setTitle: setTitlePayloadZ }),
+  z.object({
+    type: z.literal("set_title_visible"),
+    setTitleVisible: setTitleVisiblePayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_title_level"),
+    setTitleLevel: setTitleLevelPayloadZ,
+  }),
   z.object({
     type: z.literal("set_legend_visible"),
     setLegendVisible: setLegendVisiblePayloadZ,
@@ -361,8 +400,20 @@ export const actionZ = z.discriminatedUnion("type", [
     setAxisLabelLevel: setAxisLabelLevelPayloadZ,
   }),
   z.object({
-    type: z.literal("set_axis_bounds"),
-    setAxisBounds: setAxisBoundsPayloadZ,
+    type: z.literal("set_axis_lower_bound"),
+    setAxisLowerBound: setAxisLowerBoundPayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_axis_upper_bound"),
+    setAxisUpperBound: setAxisUpperBoundPayloadZ,
+  }),
+  z.object({
+    type: z.literal("enable_axis_lower_auto_bound"),
+    enableAxisLowerAutoBound: enableAxisLowerAutoBoundPayloadZ,
+  }),
+  z.object({
+    type: z.literal("enable_axis_upper_auto_bound"),
+    enableAxisUpperAutoBound: enableAxisUpperAutoBoundPayloadZ,
   }),
   z.object({
     type: z.literal("set_axis_tick_spacing"),
@@ -411,9 +462,14 @@ export const rename = (payload: RenamePayload): Action => ({
   rename: payload,
 });
 
-export const setTitle = (payload: SetTitlePayload): Action => ({
-  type: "set_title",
-  setTitle: payload,
+export const setTitleVisible = (payload: SetTitleVisiblePayload): Action => ({
+  type: "set_title_visible",
+  setTitleVisible: payload,
+});
+
+export const setTitleLevel = (payload: SetTitleLevelPayload): Action => ({
+  type: "set_title_level",
+  setTitleLevel: payload,
 });
 
 export const setLegendVisible = (payload: SetLegendVisiblePayload): Action => ({
@@ -478,9 +534,28 @@ export const setAxisLabelLevel = (payload: SetAxisLabelLevelPayload): Action => 
   setAxisLabelLevel: payload,
 });
 
-export const setAxisBounds = (payload: SetAxisBoundsPayload): Action => ({
-  type: "set_axis_bounds",
-  setAxisBounds: payload,
+export const setAxisLowerBound = (payload: SetAxisLowerBoundPayload): Action => ({
+  type: "set_axis_lower_bound",
+  setAxisLowerBound: payload,
+});
+
+export const setAxisUpperBound = (payload: SetAxisUpperBoundPayload): Action => ({
+  type: "set_axis_upper_bound",
+  setAxisUpperBound: payload,
+});
+
+export const enableAxisLowerAutoBound = (
+  payload: EnableAxisLowerAutoBoundPayload,
+): Action => ({
+  type: "enable_axis_lower_auto_bound",
+  enableAxisLowerAutoBound: payload,
+});
+
+export const enableAxisUpperAutoBound = (
+  payload: EnableAxisUpperAutoBoundPayload,
+): Action => ({
+  type: "enable_axis_upper_auto_bound",
+  enableAxisUpperAutoBound: payload,
 });
 
 export const setAxisTickSpacing = (payload: SetAxisTickSpacingPayload): Action => ({
@@ -576,7 +651,14 @@ export type ReduceAllResult = actions.ReduceAllResult<LinePlot, Action>;
 
 export interface Handlers {
   rename: (state: Draft<LinePlot>, payload: RenamePayload) => HandlerResult;
-  setTitle: (state: Draft<LinePlot>, payload: SetTitlePayload) => HandlerResult;
+  setTitleVisible: (
+    state: Draft<LinePlot>,
+    payload: SetTitleVisiblePayload,
+  ) => HandlerResult;
+  setTitleLevel: (
+    state: Draft<LinePlot>,
+    payload: SetTitleLevelPayload,
+  ) => HandlerResult;
   setLegendVisible: (
     state: Draft<LinePlot>,
     payload: SetLegendVisiblePayload,
@@ -604,9 +686,21 @@ export interface Handlers {
     state: Draft<LinePlot>,
     payload: SetAxisLabelLevelPayload,
   ) => HandlerResult;
-  setAxisBounds: (
+  setAxisLowerBound: (
     state: Draft<LinePlot>,
-    payload: SetAxisBoundsPayload,
+    payload: SetAxisLowerBoundPayload,
+  ) => HandlerResult;
+  setAxisUpperBound: (
+    state: Draft<LinePlot>,
+    payload: SetAxisUpperBoundPayload,
+  ) => HandlerResult;
+  enableAxisLowerAutoBound: (
+    state: Draft<LinePlot>,
+    payload: EnableAxisLowerAutoBoundPayload,
+  ) => HandlerResult;
+  enableAxisUpperAutoBound: (
+    state: Draft<LinePlot>,
+    payload: EnableAxisUpperAutoBoundPayload,
   ) => HandlerResult;
   setAxisTickSpacing: (
     state: Draft<LinePlot>,
@@ -653,8 +747,10 @@ export const createReduceAll = (handlers: Handlers) =>
     switch (action.type) {
       case "rename":
         return handlers.rename(state, action.rename);
-      case "set_title":
-        return handlers.setTitle(state, action.setTitle);
+      case "set_title_visible":
+        return handlers.setTitleVisible(state, action.setTitleVisible);
+      case "set_title_level":
+        return handlers.setTitleLevel(state, action.setTitleLevel);
       case "set_legend_visible":
         return handlers.setLegendVisible(state, action.setLegendVisible);
       case "set_legend_position":
@@ -679,8 +775,20 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setAxisLabelDirection(state, action.setAxisLabelDirection);
       case "set_axis_label_level":
         return handlers.setAxisLabelLevel(state, action.setAxisLabelLevel);
-      case "set_axis_bounds":
-        return handlers.setAxisBounds(state, action.setAxisBounds);
+      case "set_axis_lower_bound":
+        return handlers.setAxisLowerBound(state, action.setAxisLowerBound);
+      case "set_axis_upper_bound":
+        return handlers.setAxisUpperBound(state, action.setAxisUpperBound);
+      case "enable_axis_lower_auto_bound":
+        return handlers.enableAxisLowerAutoBound(
+          state,
+          action.enableAxisLowerAutoBound,
+        );
+      case "enable_axis_upper_auto_bound":
+        return handlers.enableAxisUpperAutoBound(
+          state,
+          action.enableAxisUpperAutoBound,
+        );
       case "set_axis_tick_spacing":
         return handlers.setAxisTickSpacing(state, action.setAxisTickSpacing);
       case "set_axis_type":
