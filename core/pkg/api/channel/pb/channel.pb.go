@@ -19,8 +19,8 @@ package pb
 
 import (
 	pb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
+	pb2 "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	pb1 "github.com/synnaxlabs/x/control/pb"
-	pb2 "github.com/synnaxlabs/x/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -204,7 +204,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a\x1dx/go/control/pb/control.proto\x1a\x1bx/go/status/pb/status.proto\"\xc9\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a.core/pkg/distribution/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xcf\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -222,8 +222,8 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"operations\x18\v \x03(\v2\".distribution.channel.pb.OperationR\n" +
 	"operations\x12;\n" +
-	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x120\n" +
-	"\x06status\x18\r \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\vconcurrency\x18\f \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
+	"\x06status\x18\r \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_statusB\xad\x01\n" +
 	"\x12com.api.channel.pbB\fChannelProtoP\x01Z/github.com/synnaxlabs/synnax/pkg/api/channel/pb\xa2\x02\x03ACP\xaa\x02\x0eApi.Channel.Pb\xca\x02\x0eApi\\Channel\\Pb\xe2\x02\x1aApi\\Channel\\Pb\\GPBMetadata\xea\x02\x10Api::Channel::Pbb\x06proto3"
 
@@ -244,12 +244,12 @@ var file_core_pkg_api_channel_pb_channel_proto_goTypes = []any{
 	(*Channel)(nil),      // 0: api.channel.pb.Channel
 	(*pb.Operation)(nil), // 1: distribution.channel.pb.Operation
 	(pb1.Concurrency)(0), // 2: x.control.pb.Concurrency
-	(*pb2.Status)(nil),   // 3: x.status.pb.Status
+	(*pb2.Status)(nil),   // 3: service.status.pb.Status
 }
 var file_core_pkg_api_channel_pb_channel_proto_depIdxs = []int32{
 	1, // 0: api.channel.pb.Channel.operations:type_name -> distribution.channel.pb.Operation
 	2, // 1: api.channel.pb.Channel.concurrency:type_name -> x.control.pb.Concurrency
-	3, // 2: api.channel.pb.Channel.status:type_name -> x.status.pb.Status
+	3, // 2: api.channel.pb.Channel.status:type_name -> service.status.pb.Status
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

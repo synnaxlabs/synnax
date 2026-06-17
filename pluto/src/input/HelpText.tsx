@@ -9,7 +9,7 @@
 
 import "@/input/HelpText.css";
 
-import { status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

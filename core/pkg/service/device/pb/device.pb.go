@@ -19,7 +19,7 @@ package pb
 
 import (
 	pb1 "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
-	pb "github.com/synnaxlabs/x/status/pb"
+	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -227,10 +227,10 @@ var File_core_pkg_service_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\";\n" +
+	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\";\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\"\xe4\x02\n" +
+	"\x06device\x18\x02 \x01(\tR\x06device\"\xea\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x1a\n" +
@@ -243,8 +243,8 @@ const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"configured\x127\n" +
 	"\n" +
 	"properties\x18\b \x01(\v2\x17.google.protobuf.StructR\n" +
-	"properties\x120\n" +
-	"\x06status\x18\t \x01(\v2\x13.x.status.pb.StatusH\x00R\x06status\x88\x01\x01\x129\n" +
+	"properties\x126\n" +
+	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x129\n" +
 	"\x06parent\x18\n" +
 	" \x01(\v2\x1c.distribution.ontology.pb.IDH\x01R\x06parent\x88\x01\x01B\t\n" +
 	"\a_statusB\t\n" +
@@ -268,12 +268,12 @@ var file_core_pkg_service_device_pb_device_proto_goTypes = []any{
 	(*StatusDetails)(nil),   // 0: service.device.pb.StatusDetails
 	(*Device)(nil),          // 1: service.device.pb.Device
 	(*structpb.Struct)(nil), // 2: google.protobuf.Struct
-	(*pb.Status)(nil),       // 3: x.status.pb.Status
+	(*pb.Status)(nil),       // 3: service.status.pb.Status
 	(*pb1.ID)(nil),          // 4: distribution.ontology.pb.ID
 }
 var file_core_pkg_service_device_pb_device_proto_depIdxs = []int32{
 	2, // 0: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
-	3, // 1: service.device.pb.Device.status:type_name -> x.status.pb.Status
+	3, // 1: service.device.pb.Device.status:type_name -> service.status.pb.Status
 	4, // 2: service.device.pb.Device.parent:type_name -> distribution.ontology.pb.ID
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type

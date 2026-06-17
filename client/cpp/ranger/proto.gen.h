@@ -13,13 +13,13 @@
 
 #include <utility>
 
+#include "client/cpp/label/json.gen.h"
+#include "client/cpp/label/proto.gen.h"
 #include "client/cpp/ranger/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/json.gen.h"
 #include "x/cpp/color/proto.gen.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/label/json.gen.h"
-#include "x/cpp/label/proto.gen.h"
 #include "x/cpp/pb/pb.h"
 #include "x/cpp/telem/json.gen.h"
 #include "x/cpp/telem/proto.gen.h"
@@ -75,7 +75,7 @@ Range::from_proto(const ::service::ranger::pb::Range &pb) {
         if (err) return {{}, err};
         cpp.color = v;
     }
-    if (auto err = x::pb::from_proto_repeated<::x::label::Label>(
+    if (auto err = x::pb::from_proto_repeated<::synnax::label::Label>(
             cpp.labels,
             pb.labels()
         ))

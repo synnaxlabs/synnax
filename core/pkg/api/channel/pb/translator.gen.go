@@ -16,9 +16,9 @@ import (
 	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
-	"github.com/synnaxlabs/x/status"
-	statuspb "github.com/synnaxlabs/x/status/pb"
 	"github.com/synnaxlabs/x/telem"
 	gotypes "go/types"
 )

@@ -10,10 +10,10 @@
 import "schemas/telem"
 import "schemas/label"
 
-@ts output  "x/ts/src/status"
+@ts output  "client/ts/src/status"
 @py output  "client/py/synnax/status"
-@go output  "x/go/status"
-@cpp output "x/cpp/status"
+@go output  "core/pkg/service/status"
+@cpp output "client/cpp/status"
 @pb
 
 Variant enum {
@@ -61,21 +61,12 @@ Status struct<Details?, V extends Variant = Variant> {
     }
 
     @doc value         """
-        is a standardized message used to communicate state across the
-        Synnax platform. Statuses support different severity variants
-        and can carry component-specific details.
+        is a standardized message used to communicate state across the Synnax
+        platform. Statuses support different severity variants and can carry
+        component-specific details. A status is uniquely identified by a key and may
+        carry a human-readable name and labels for categorization and filtering.
     """
     @ts concrete_types
-    @go migrate
-}
-
-GoSVCStatus<Details?> = Status<Details?> {
-    @doc value "is a server-side status type alias for Go services."
-    @go output "core/pkg/service/status"
-    @go name   "Status"
-    @ts omit
-    @py omit
-    @cpp omit
 }
 
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {

@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -72,7 +71,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config
 func (c ServiceConfig) Validate() error {
-	v := validate.New("status.service")
+	v := validate.New("service.status")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
@@ -91,9 +90,9 @@ type Service struct {
 	group  group.Group
 }
 
-// OpenService opens a new status.Service with the provided configuration. If error is
-// nil, the service is ready for use and must be closed by calling Close to prevent
-// resource leaks.
+// OpenService opens a new Service with the provided configuration. If error is nil, the
+// service is ready for use and must be closed by calling Close to prevent resource
+// leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
@@ -108,7 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
 			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration("v54_drop_labels", xstatus.MigrateStatus[any]),
+				gorp.NewEntryMigration("v54_drop_labels", MigrateStatus[any]),
 			},
 		},
 	); !ok(err, s.table) {
@@ -170,7 +169,7 @@ func SetTarget(matches []Status[any], keyOrName, message, variant string) Status
 		st = matches[0]
 	}
 	st.Message = message
-	st.Variant = xstatus.Variant(variant)
+	st.Variant = Variant(variant)
 	st.Time = telem.Now()
 	return st
 }
@@ -183,7 +182,7 @@ func (s *Service) SetByKeyOrName(
 	keyOrName, message, variant string,
 ) (key string, multipleMatches bool, err error) {
 	// Check before opening a Tx
-	if !xstatus.Variant(variant).IsValid() {
+	if !Variant(variant).IsValid() {
 		return "", false, errors.Wrap(validate.ErrValidation, "invalid status variant")
 	}
 	if err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {

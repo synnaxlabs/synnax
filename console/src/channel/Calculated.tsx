@@ -9,7 +9,7 @@
 
 import "@/channel/Calculated.css";
 
-import { channel, TimeSpan } from "@synnaxlabs/client";
+import { channel, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Channel,
@@ -21,7 +21,6 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
 import { Arc } from "@/arc";

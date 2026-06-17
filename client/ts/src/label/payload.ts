@@ -7,15 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label } from "@synnaxlabs/x";
+import { type Key } from "@/label/types.gen";
 
-export type Params = label.Key | label.Key[];
-
-export const keyZ = label.keyZ;
-export type Key = label.Key;
-export const labelZ = label.labelZ;
-export interface Label extends label.Label {}
-export const newZ = label.newZ;
-export interface New extends label.New {}
+export type Params = Key | Key[];
 
 export const LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE = "labeled_by";

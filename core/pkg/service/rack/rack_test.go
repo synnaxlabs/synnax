@@ -33,7 +33,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -540,7 +539,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Status unknown"))
-			Expect(s.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 			Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
 			Expect(s.Details.Rack).To(Equal(r.Key))
@@ -548,7 +547,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 		It("Should use the provided status when creating a rack", func(ctx SpecContext) {
 			providedStatus := &rack.Status{
-				Variant:     xstatus.VariantSuccess,
+				Variant:     status.VariantSuccess,
 				Time:        telem.Now(),
 				Message:     "Custom status message",
 				Description: "Custom description",
@@ -558,7 +557,7 @@ var _ = Describe("Rack", Ordered, func() {
 			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 			Expect(s.Message).To(Equal("Custom status message"))
 			Expect(s.Description).To(Equal("Custom description"))
-			Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(s.Variant).To(Equal(status.VariantSuccess))
 			// Key should be auto-assigned to match ontology ID
 			Expect(s.Key).To(Equal(rack.OntologyID(r.Key).String()))
 			// Time should be auto-filled
@@ -603,7 +602,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := rack.Rack{
 				Name: "live status rack",
 				Status: &rack.Status{
-					Variant: xstatus.VariantSuccess,
+					Variant: status.VariantSuccess,
 					Message: "Rack is connected",
 					Time:    telem.Now(),
 				},
@@ -618,7 +617,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(preserved.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
 			Expect(preserved.Message).To(Equal("Rack is connected"))
 		})
 
@@ -629,7 +628,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Eventually(func(g Gomega) {
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 				g.Expect(s.Message).To(Equal("Synnax Driver on dead test rack not running"))
-				g.Expect(s.Variant).To(Equal(xstatus.VariantWarning))
+				g.Expect(s.Variant).To(Equal(status.VariantWarning))
 				g.Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 				g.Expect(s.Key).To(ContainSubstring(string(ontology.ResourceTypeRack)))
 				g.Expect(s.Details.Rack).To(Equal(r.Key))
@@ -651,7 +650,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Key:     rack.OntologyID(r.Key).String(),
 				Name:    r.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.VariantSuccess,
+				Variant: status.VariantSuccess,
 				Message: "Running",
 				Details: rack.StatusDetails{Rack: r.Key},
 			})).To(Succeed())
@@ -659,7 +658,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Consistently(func(g Gomega) {
 				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
 				g.Expect(s.Message).To(Equal("Running"))
-				g.Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
+				g.Expect(s.Variant).To(Equal(status.VariantSuccess))
 				g.Expect(s.Description).ToNot(ContainSubstring("Driver was last alive"))
 			}, 50*telem.Millisecond.Duration(), 5*telem.Millisecond.Duration()).Should(Succeed())
 		})
@@ -721,7 +720,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Key:     rack.OntologyID(r.Key).String(),
 				Name:    r.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.VariantSuccess,
+				Variant: status.VariantSuccess,
 				Message: "Running",
 				Details: rack.StatusDetails{Rack: r.Key},
 			})).To(Succeed())
@@ -792,7 +791,7 @@ var _ = Describe("Migration", func() {
 			Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(rack.Key(r.Key)).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
-		Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
+		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 		Expect(restoredStatus.Message).To(Equal("Status unknown"))
 		Expect(restoredStatus.Details.Rack).To(Equal(rack.Key(r.Key)))
 	})

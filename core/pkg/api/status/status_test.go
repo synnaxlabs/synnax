@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -41,7 +40,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "hello",
-				Variant:   xstatus.VariantInfo,
+				Variant:   status.VariantInfo,
 			}))
 			MustSucceed(uuid.Parse(res.Key))
 			Expect(res.Key).ToNot(Equal(name))
@@ -57,7 +56,8 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 		It("Should update an existing row when the input matches its Key", func(ctx SpecContext) {
 			key := uuid.NewString()
 			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key: key, Name: "api_uuid", Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now(),
+				Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
+				Key: key, Name: "api_uuid",
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionUpdate},
@@ -66,7 +66,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: key,
 				Message:   "updated",
-				Variant:   xstatus.VariantWarning,
+				Variant:   status.VariantWarning,
 			}))
 			Expect(res.Key).To(Equal(key))
 			Expect(res.MultipleMatches).To(BeFalse())
@@ -75,10 +75,12 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 		It("Should report multipleMatches when the name resolves to multiple rows", func(ctx SpecContext) {
 			name := "api_multi_" + uuid.New().String()
 			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "a", Time: telem.Now(),
+				Variant: status.VariantInfo, Message: "a", Time: telem.Now(),
+				Key: uuid.NewString(), Name: name,
 			})).To(Succeed())
 			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
-				Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "b", Time: telem.Now(),
+				Variant: status.VariantInfo, Message: "b", Time: telem.Now(),
+				Key: uuid.NewString(), Name: name,
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionUpdate},
@@ -87,7 +89,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "updated",
-				Variant:   xstatus.VariantWarning,
+				Variant:   status.VariantWarning,
 			}))
 			Expect(res.MultipleMatches).To(BeTrue())
 		})
@@ -115,7 +117,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, author), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: "",
 				Message:   "x",
-				Variant:   xstatus.VariantInfo,
+				Variant:   status.VariantInfo,
 			})).Error().To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(ContainSubstring("key_or_name is required"))))
 		})
 
@@ -126,7 +128,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "noop",
-				Variant:   xstatus.VariantInfo,
+				Variant:   status.VariantInfo,
 			})).Error().To(MatchError(access.ErrDenied))
 
 			Expect(statusSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
@@ -143,7 +145,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			Expect(apiSvc.SetByKeyOrName(authedCtx(ctx, anon), db, apistatus.SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "x",
-				Variant:   xstatus.VariantInfo,
+				Variant:   status.VariantInfo,
 			})).Error().To(MatchError(access.ErrDenied))
 		})
 	})

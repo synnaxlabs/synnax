@@ -62,7 +62,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = x::status::VARIANT_WARNING,
+            .variant = synnax::status::VARIANT_WARNING,
             .message = "Invalid device properties",
             .description = parser.error().message(),
             .time = x::telem::TimeStamp::now(),
@@ -76,7 +76,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = x::status::VARIANT_WARNING,
+            .variant = synnax::status::VARIANT_WARNING,
             .message = "Failed to reach device",
             .description = conn_err.message(),
             .time = x::telem::TimeStamp::now(),
@@ -86,7 +86,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
-            .variant = x::status::VARIANT_SUCCESS,
+            .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Device connected",
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
@@ -99,7 +99,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
     synnax::task::Status status{
         .key = synnax::task::status_key(this->task),
         .name = this->task.name,
-        .variant = x::status::VARIANT_ERROR,
+        .variant = synnax::status::VARIANT_ERROR,
         .details = synnax::task::StatusDetails{
             .task = task.key,
             .running = true,
@@ -116,7 +116,7 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         status.message = err.data;
         return ctx->set_status(status);
     }
-    status.variant = x::status::VARIANT_SUCCESS;
+    status.variant = synnax::status::VARIANT_SUCCESS;
     status.message = "Connection successful";
     return ctx->set_status(status);
 }
