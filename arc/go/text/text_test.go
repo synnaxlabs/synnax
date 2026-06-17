@@ -3695,7 +3695,7 @@ time.wait{duration=500ms} -> output`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(diagnostics.String()).To(ContainSubstring("missing required argument"))
+			Expect(diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
 		})
 
 		It("Should allow a flow function in a flow statement", func(ctx SpecContext) {

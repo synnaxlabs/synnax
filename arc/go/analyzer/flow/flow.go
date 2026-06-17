@@ -41,6 +41,9 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	if funcType == nil {
 		return
 	}
+	if rejectWASMFlowNode(ctx, funcType, name) {
+		return
+	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
 	args := inputArguments(ctx, ctx.AST.ConfigValues())
 	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST, funcType.Trigger.Target)
@@ -83,6 +86,9 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser.IFlowNodeContext) {
 	funcType, name := resolveFunc(ctx, ctx.AST)
 	if funcType == nil {
+		return
+	}
+	if rejectWASMFlowNode(ctx, funcType, name) {
 		return
 	}
 
@@ -312,6 +318,22 @@ func resolveFunc[T antlr.ParserRuleContext](
 		return nil, name
 	}
 	return sym, name
+}
+
+// rejectWASMFlowNode reports an error and returns true when fn is a WASM-only
+// function, which is callable inside a func block but cannot be a flow node.
+func rejectWASMFlowNode(
+	ctx context.Context[parser.IFunctionContext],
+	fn *symbol.Symbol,
+	name string,
+) bool {
+	if fn.Exec != symbol.ExecWASM {
+		return false
+	}
+	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+		"function '%s' cannot be used as a flow statement. Call it inside a func block instead: %s()",
+		name, name))
+	return true
 }
 
 // resolveFuncOutput returns fn's default output type for chained use, emitting
