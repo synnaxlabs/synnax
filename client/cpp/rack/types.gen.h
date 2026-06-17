@@ -18,10 +18,10 @@
 #include <vector>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
@@ -47,7 +47,7 @@ struct StatusDetails {
     from_proto(const ::service::rack::pb::StatusDetails &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails>;
+using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
 /// specific cluster node. Racks serve as the integration point between the Synnax

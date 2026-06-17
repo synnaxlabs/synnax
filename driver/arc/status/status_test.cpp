@@ -256,7 +256,7 @@ TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].first, x::status::VARIANT_WARNING);
+    EXPECT_EQ(calls[0].first, synnax::status::VARIANT_WARNING);
     EXPECT_NE(calls[0].second.find("status.set:"), std::string::npos);
 }
 

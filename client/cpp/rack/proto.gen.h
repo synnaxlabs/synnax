@@ -15,10 +15,10 @@
 
 #include "client/cpp/rack/json.gen.h"
 #include "client/cpp/rack/types.gen.h"
+#include "client/cpp/status/json.gen.h"
+#include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/status/json.gen.h"
-#include "x/cpp/status/proto.gen.h"
 
 #include "core/pkg/service/rack/pb/rack.pb.h"
 

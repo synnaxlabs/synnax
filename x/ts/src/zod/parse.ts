@@ -13,7 +13,6 @@ import { deep } from "@/deep";
 import { errors } from "@/errors";
 import { fmt } from "@/fmt";
 import { primitive } from "@/primitive";
-import { type status } from "@/status";
 
 const DEFAULT_LABEL = "value";
 const PARSE_ERROR_TYPE = "zod.parse";
@@ -434,10 +433,7 @@ export interface ParseErrorArgs {
  * unrecognized-keys expansion, while `err.issues` exposes the original zod array
  * unchanged for programmatic consumers.
  */
-export class ParseError
-  extends errors.createTyped(PARSE_ERROR_TYPE)
-  implements status.Custom
-{
+export class ParseError extends errors.createTyped(PARSE_ERROR_TYPE) {
   readonly issues: ReadonlyArray<z.core.$ZodIssue>;
   readonly input: unknown;
   readonly label: string;
@@ -451,7 +447,7 @@ export class ParseError
     this.context = context;
   }
 
-  toStatus(): Partial<status.Crude<z.ZodRecord, "error">> {
+  toStatus() {
     const details: Record<string, unknown> = {
       input: fmt.value(this.input),
       issues: this.issues,

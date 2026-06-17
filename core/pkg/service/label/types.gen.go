@@ -12,12 +12,20 @@
 package label
 
 import (
-	golabel "github.com/synnaxlabs/x/label"
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/color"
 )
+
+// Key is a unique identifier for a label, represented as a UUID.
+type Key = uuid.UUID
 
 // Label is a tagging and categorization entity with a name and associated color. Labels
 // can be attached to resources like ranges for organization and filtering.
-type Label = golabel.Label
-
-// Key is a unique identifier for a label, represented as a UUID.
-type Key = golabel.Key
+type Label struct {
+	// Key is the unique identifier for this label.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the label.
+	Name string `json:"name" msgpack:"name"`
+	// Color is the display color for visual identification of the label.
+	Color color.Color `json:"color" msgpack:"color"`
+}

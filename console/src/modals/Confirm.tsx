@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@synnaxlabs/client";
 import { Button, Nav, Text } from "@synnaxlabs/pluto";
-import { type status } from "@synnaxlabs/x";
 
 import { type BaseArgs, createBase, type Prompt } from "@/modals/Base";
 import { ModalContentLayout } from "@/modals/layout";
