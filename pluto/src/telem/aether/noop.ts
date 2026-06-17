@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { bounds, color, MultiSeries, observe, TimeStamp } from "@synnaxlabs/x";
 import { type z } from "zod";
 
@@ -125,13 +125,12 @@ class StatusSource extends Noop implements StatusSource {
   static readonly TYPE = "noop-status-source";
 
   value(): status.Status<z.ZodNever> {
-    return {
+    return status.create({
       key: "noop",
       name: "noop",
       variant: "disabled",
       message: "unknown",
-      time: TimeStamp.now(),
-    };
+    });
   }
 }
 

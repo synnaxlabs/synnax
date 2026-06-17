@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type rack, task } from "@synnaxlabs/client";
+import { ontology, type rack, status, task } from "@synnaxlabs/client";
 import { array, type optional, TimeStamp } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
@@ -58,15 +58,13 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.comma
   onChange: ({ store, changed }) => {
     store.statuses.set(task.statusKey(changed.task), (prev) => {
       if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-      const status: task.Status = {
+      return status.create<task.StatusDetailsZodObject>({
         key: task.statusKey(changed.task),
         name: "Task Status",
-        time: TimeStamp.now(),
         variant: "loading",
         message: `Running ${changed.type} command...`,
-        details: { task: changed.task, running: true, data: {} },
-      };
-      return status;
+        details: { task: changed.task, running: true, cmd: "", data: {} },
+      });
     });
   },
 };
@@ -227,7 +225,7 @@ export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
 
 export interface InitialValues<
   S extends task.Schemas = task.Schemas,
-> extends optional.Optional<task.Payload<S>, "key"> {
+> extends optional.Optional<task.Payload<S>, "key" | "internal" | "snapshot"> {
   key?: task.Key;
 }
 

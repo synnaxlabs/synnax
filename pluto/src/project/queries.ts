@@ -157,7 +157,7 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   },
 });
 
-export const formSchema = project.projectZ.partial({ key: true });
+export const formSchema = project.newZ.partial({ key: true });
 
 const INITIAL_VALUES: z.infer<typeof formSchema> = {
   name: "",

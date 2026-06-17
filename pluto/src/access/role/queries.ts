@@ -153,6 +153,8 @@ const retrieveUserRole = async ({
   const r: access.role.Role = {
     key: parent.id.key,
     name: parent.name,
+    description: "",
+    internal: false,
     ...parent.data,
   };
   store.roles.set(r.key, r);
@@ -214,9 +216,10 @@ export const useForm = Flux.createForm<
   name: RESOURCE_NAME,
   schema: formSchema,
   initialValues: {
-    key: undefined,
+    key: "",
     name: "",
     description: "",
+    internal: false,
     policies: [],
   },
   retrieve: async ({ client, query, store }) => {
@@ -226,7 +229,7 @@ export const useForm = Flux.createForm<
   },
   update: async ({ client, value, store, set, rollbacks }) => {
     const v = value();
-    let r: access.role.Role = { key: uuid.create(), ...v };
+    let r: access.role.Role = { ...v, key: v.key || uuid.create() };
     const otgID = access.role.ontologyID(r.key);
     const otgKey = ontology.idToString(otgID);
     rollbacks.push(

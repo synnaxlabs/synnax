@@ -117,6 +117,7 @@ const retrieveSingle = async ({
 };
 
 const ZERO_VALUES = {
+  key: "",
   name: "",
   type: "",
   query: {},

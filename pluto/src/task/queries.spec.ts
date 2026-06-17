@@ -239,6 +239,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: {},
         },
       });
@@ -332,6 +333,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: true,
+          cmd: "",
           data: {},
         },
       });
@@ -406,6 +408,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: { error: "Test error" },
         },
       });
@@ -998,6 +1001,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: { errorCode: 500 },
         },
       });
@@ -1133,6 +1137,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: { errorCode: 500 },
         },
       });
@@ -1464,14 +1469,13 @@ describe("queries", () => {
         const fr = await streamer.read();
         const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
         const parsed = task.commandZ.parse(sample);
-        const stat: task.Status = {
+        const stat: task.Status = status.create<task.StatusDetailsZodObject>({
           key: parsed.key,
           name: "Task Status",
           variant: "success",
           message: "Command executed successfully",
-          time: TimeStamp.now(),
-          details: { task: t.key, running: true, data: {} },
-        };
+          details: { task: t.key, running: true, cmd: "", data: {} },
+        });
         await client.statuses.set(stat);
       });
       streamer.close();

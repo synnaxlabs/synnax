@@ -164,7 +164,7 @@ const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusData
     name: "Configuring task",
     variant: "loading",
     message: "Configuring task...",
-    details: { task: taskKey, running: false, data: undefined },
+    details: { task: taskKey, running: false, cmd: "", data: undefined },
   });
 
 const TASK_SCHEMAS = {
