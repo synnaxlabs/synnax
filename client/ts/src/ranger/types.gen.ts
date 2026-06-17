@@ -18,11 +18,11 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
 /**
- * Base is a user-defined region of time in the Synnax cluster. Ranges act as a
+ * Payload is a user-defined region of time in the Synnax cluster. Ranges act as a
  * method for labeling and categorizing telemetry data within specific time
  * periods.
  */
-export const baseZ = z.object({
+export const payloadZ = z.object({
   /** key is the unique identifier for this range. */
   key: keyZ,
   /** name is a human-readable name for the range. */
@@ -31,35 +31,33 @@ export const baseZ = z.object({
    * timeRange is the temporal extent of the range, defining its start and end
    * timestamps.
    */
-  timeRange: telem.timeRangeZ,
+  timeRange: telem.timeRangeBoundedZ,
   /**
    * color is an optional display color for visual identification of the range
    * in user interfaces.
    */
   color: color.colorZ.optional(),
-});
-export interface Base extends z.infer<typeof baseZ> {}
-
-export const apiRangeZ = baseZ.extend({
+  /**
+   * labels contains optional labels attached to this range for categorization
+   * and filtering.
+   */
   labels: zod.nullToUndefined(label.labelZ.array()),
-  get parent(): z.ZodOptional<typeof apiRangeZ> {
-    return apiRangeZ.optional();
-  },
-});
-export interface APIRange extends z.infer<typeof apiRangeZ> {}
-
-export const payloadZ = baseZ.omit({ timeRange: true }).extend({
-  labels: zod.nullToUndefined(label.labelZ.array()),
+  /**
+   * parent is an optional parent range for hierarchical organization. Ranges
+   * can be nested within other ranges.
+   */
   get parent(): z.ZodOptional<typeof payloadZ> {
     return payloadZ.optional();
   },
-  timeRange: telem.timeRangeBoundedZ,
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
 export const newZ = payloadZ
-  .omit({ parent: true, labels: true })
-  .partial({ key: true });
+  .omit({ labels: true, parent: true })
+  .partial({ key: true })
+  .extend({
+    parent: payloadZ.pick({ key: true }).optional(),
+  });
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("range");

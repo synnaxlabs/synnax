@@ -195,7 +195,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // on non-primitive types (i.e., references other schema types that need to be
 // declared before this type). This is used to determine whether a distinct type
 // should be included in topological sorting.
-func hasNonPrimitiveDependency(typ resolution.Type, table *resolution.Table) bool {
+func hasNonPrimitiveDependency(typ resolution.Type) bool {
 	var checkRef func(ref resolution.TypeRef) bool
 	checkRef = func(ref resolution.TypeRef) bool {
 		if ref.Name == "" || ref.IsTypeParam() {
@@ -260,7 +260,7 @@ func (p *Plugin) generateFile(
 		case resolution.AliasForm:
 			dependentTypeDefs = append(dependentTypeDefs, td)
 		case resolution.DistinctForm:
-			if hasNonPrimitiveDependency(td, req.Resolutions) {
+			if hasNonPrimitiveDependency(td) {
 				dependentTypeDefs = append(dependentTypeDefs, td)
 			} else {
 				primitiveTypeDefs = append(primitiveTypeDefs, td)
@@ -600,7 +600,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			return sd
 		}
 		for _, tp := range aliasForm.TypeParams {
-			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+			sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table))
 		}
 		for _, tp := range sd.TypeParams {
 			if tp.IsJSON || strings.Contains(tp.Constraint, "record.") || strings.Contains(tp.Default, "record.") {
@@ -673,7 +673,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		return sd
 	}
 	for _, tp := range form.TypeParams {
-		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table))
 	}
 	for _, tp := range sd.TypeParams {
 		if tp.IsJSON || strings.Contains(tp.Constraint, "record.") || strings.Contains(tp.Default, "record.") {
@@ -782,10 +782,10 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 						sd.PartialFields = append(sd.PartialFields, fieldData{TSName: fieldCamel(field.Name)})
 					} else {
 						sd.OmittedFields = append(sd.OmittedFields, fieldCamel(field.Name))
-						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
+						sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.ConcreteTypes))
 					}
 				} else {
-					sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes))
+					sd.ExtendFields = append(sd.ExtendFields, p.processField(field, entry, table, data, sd.ConcreteTypes))
 				}
 			}
 
@@ -809,7 +809,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	}
 
 	for _, field := range allFields {
-		fd := p.processField(field, entry, table, data, sd.UseInput, sd.ConcreteTypes)
+		fd := p.processField(field, entry, table, data, sd.ConcreteTypes)
 		sd.Fields = append(sd.Fields, fd)
 
 		if sd.ConcreteTypes && field.Type.IsTypeParam() &&
@@ -846,6 +846,10 @@ func isFieldUnchanged(parent, child resolution.Field) bool {
 		return false
 	}
 	if hasPreserveKeys(parent) != hasPreserveKeys(child) {
+		return false
+	}
+	if domain.GetStringFromField(parent, "ts", "pick") !=
+		domain.GetStringFromField(child, "ts", "pick") {
 		return false
 	}
 	if !sameDefault(parent.Default, child.Default) {
@@ -1057,7 +1061,7 @@ func coalesceTSType(tsType string, typeParams []typeParamData) string {
 	return result
 }
 
-func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table, data *templateData) typeParamData {
+func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Table) typeParamData {
 	tpd := typeParamData{Name: tp.Name, Constraint: "z.ZodType"}
 	if tp.Constraint != nil {
 		if resolution.IsPrimitive(tp.Constraint.Name) && tp.Constraint.Name == "record" {
@@ -1240,7 +1244,7 @@ func isForwardReference(t resolution.TypeRef, data *templateData, table *resolut
 	return checkRef(t)
 }
 
-func (p *Plugin) processField(field resolution.Field, parentType resolution.Type, table *resolution.Table, data *templateData, useInput bool, needsTypeImports bool) fieldData {
+func (p *Plugin) processField(field resolution.Field, parentType resolution.Type, table *resolution.Table, data *templateData, needsTypeImports bool) fieldData {
 	isArray := field.Type.Name == "Array"
 	needsGetter := isSelfReference(field.Type, parentType) || isForwardReference(field.Type, data, table)
 
@@ -1254,9 +1258,27 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		IsSelfRef:      needsGetter,
 	}
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
-		fd.ZodType = primitiveToZod(typeOverride, data)
-		fd.TSType = primitiveToTS(typeOverride)
-		fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
+		// A `@ts type` override may name either a primitive (e.g. `string`) or another
+		// schema type (e.g. `telem.TimeRangeBounded`). When it resolves to a known
+		// non-primitive type, route it through the normal type-ref machinery so its
+		// schema reference and import are emitted correctly; otherwise treat it as a
+		// primitive. The override may be qualified (cross-namespace, e.g.
+		// telem.TimeRangeBounded) or unqualified (same namespace as the field): try the
+		// qualified name first, then resolve against the field's own namespace.
+		overrideType, overrideResolves := table.Get(typeOverride)
+		if !overrideResolves {
+			overrideType, overrideResolves = table.Lookup(parentType.Namespace, typeOverride)
+		}
+		if overrideResolves && !resolution.IsPrimitive(typeOverride) && typeOverride != "record" {
+			overrideRef := resolution.TypeRef{Name: overrideType.QualifiedName}
+			fd.ZodType = p.typeRefToZod(&overrideRef, table, data)
+			fd.TSType = p.typeRefToTS(&overrideRef, table, data, needsTypeImports)
+			fd.ZodSchemaType = p.typeRefToZodSchemaType(&overrideRef, table, data)
+		} else {
+			fd.ZodType = primitiveToZod(typeOverride, data)
+			fd.TSType = primitiveToTS(typeOverride)
+			fd.ZodSchemaType = primitiveToZodSchemaType(typeOverride)
+		}
 		if validateDomain, ok := field.Domains["validate"]; ok || field.Default != nil {
 			result := p.applyValidation(fd.ZodType, validateDomain, field.Default, field.Type, field.Name, table, data, typeOverride)
 			fd.ZodType = result.ZodType
@@ -1295,6 +1317,14 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 				}
 			}
 		}
+	}
+	// `@ts pick <field>` narrows a struct-typed field to a subset of the referenced
+	// type's fields (e.g. a parent referenced by key alone), emitting a Zod .pick() and
+	// a TS Pick<> rather than a standalone reference type.
+	if pickField := domain.GetStringFromField(field, "ts", "pick"); pickField != "" {
+		camel := fieldCamel(pickField)
+		fd.ZodType = fmt.Sprintf("%s.pick({ %s: true })", fd.ZodType, camel)
+		fd.TSType = fmt.Sprintf("Pick<%s, %q>", fd.TSType, camel)
 	}
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	typeOverride := getFieldTypeOverride(field, "ts")

@@ -115,13 +115,11 @@ describe("range", () => {
         name: "My New Parent Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      await client.ranges.create(
-        {
-          name: "My New Child Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      await client.ranges.create({
+        name: "My New Child Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parentRange,
+      });
       const children = await client.ontology.retrieveChildren(parentRange.ontologyID);
       expect(children).toHaveLength(1);
     });
@@ -205,13 +203,11 @@ describe("range", () => {
         name: "My New Parent Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "My New Child Range",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "My New Child Range",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parentRange,
+      });
       const parent = await childRange.retrieveParent();
       expect(parent?.key).toEqual(parentRange.key);
     });
