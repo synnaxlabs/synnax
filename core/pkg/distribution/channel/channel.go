@@ -23,8 +23,8 @@ import (
 	"github.com/synnaxlabs/x/unsafe"
 )
 
-// Key is a unique identifier for a channel in the Synnax database. Composed of a cluster
-// node key (first 12 bits) and a local key (last 20 bits), enabling distributed
+// Key is a unique identifier for a channel in the Synnax database. Composed of a
+// cluster node key (first 12 bits) and a local key (last 20 bits), enabling distributed
 // assignment while maintaining global uniqueness.
 type Key uint32
 
@@ -34,9 +34,7 @@ type LocalKey types.Uint20
 
 // Channel is the minimal, distribution-layer representation of a channel. It carries
 // only the storage and routing metadata the distribution layer needs to allocate local
-// keys, create storage, and route frames across the cluster. The rich, user-facing
-// channel record (with internal/operations/expression metadata, ontology integration,
-// and the metadata table) lives in the service layer.
+// keys, create storage, and route frames across the cluster.
 type Channel struct {
 	// Name is the human-readable channel name.
 	Name string `json:"name" msgpack:"name"`

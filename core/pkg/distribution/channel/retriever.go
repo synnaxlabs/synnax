@@ -21,9 +21,7 @@ import (
 type Retriever interface {
 	// RetrieveByKeys returns the channels matching the provided keys. Keys that do not
 	// resolve to a channel are omitted from the result.
-	RetrieveByKeys(ctx context.Context, keys ...Key) ([]Channel, error)
-	// ContainsKeys reports whether every provided key resolves to an existing channel.
-	ContainsKeys(ctx context.Context, keys ...Key) (bool, error)
+	RetrieveByKeys(context.Context, ...Key) ([]Channel, error)
 }
 
 // RetrieverHolder is a settable, concurrency-safe Retriever indirection. The
@@ -55,11 +53,6 @@ func (h *RetrieverHolder) retriever() Retriever {
 // RetrieveByKeys implements Retriever.
 func (h *RetrieverHolder) RetrieveByKeys(ctx context.Context, keys ...Key) ([]Channel, error) {
 	return h.retriever().RetrieveByKeys(ctx, keys...)
-}
-
-// ContainsKeys implements Retriever.
-func (h *RetrieverHolder) ContainsKeys(ctx context.Context, keys ...Key) (bool, error) {
-	return h.retriever().ContainsKeys(ctx, keys...)
 }
 
 var _ Retriever = (*RetrieverHolder)(nil)
