@@ -161,4 +161,37 @@ var _ = Describe("CRDT", func() {
 			Expect(b.String()).To(Equal("abc"))
 		})
 	})
+
+	Describe("Snapshot", func() {
+		It("Should round-trip the document through a snapshot", func() {
+			a := crdt.New(1)
+			a.Insert(0, "héllo→世界")
+			b := crdt.New(2)
+			b.Load(a.Snapshot())
+			Expect(b.String()).To(Equal("héllo→世界"))
+		})
+
+		It("Should preserve tombstones across a snapshot", func() {
+			a := crdt.New(1)
+			a.Insert(0, "hello world")
+			a.Delete(5, 6)
+			b := crdt.New(2)
+			b.Load(a.Snapshot())
+			Expect(b.String()).To(Equal("hello"))
+		})
+
+		It("Should let a bootstrapped replica converge on concurrent edits", func() {
+			a := crdt.New(1)
+			a.Insert(0, "shared")
+			b := crdt.New(2)
+			b.Load(a.Snapshot())
+			Expect(b.String()).To(Equal("shared"))
+			opsA := a.Insert(0, "A")
+			opsB := b.Insert(b.Len(), "B")
+			b.ApplyInsert(opsA...)
+			a.ApplyInsert(opsB...)
+			Expect(a.String()).To(Equal(b.String()))
+			Expect(a.String()).To(Equal("AsharedB"))
+		})
+	})
 })

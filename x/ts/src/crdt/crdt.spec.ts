@@ -155,4 +155,37 @@ describe("crdt", () => {
       expect(b.toString()).toEqual("abc");
     });
   });
+
+  describe("snapshot", () => {
+    it("should round-trip the document through a snapshot", () => {
+      const a = new crdt.Text(1);
+      a.insert(0, "héllo→世界");
+      const b = new crdt.Text(2);
+      b.load(a.snapshot());
+      expect(b.toString()).toEqual("héllo→世界");
+    });
+
+    it("should preserve tombstones across a snapshot", () => {
+      const a = new crdt.Text(1);
+      a.insert(0, "hello world");
+      a.delete(5, 6);
+      const b = new crdt.Text(2);
+      b.load(a.snapshot());
+      expect(b.toString()).toEqual("hello");
+    });
+
+    it("should let a bootstrapped replica converge on concurrent edits", () => {
+      const a = new crdt.Text(1);
+      a.insert(0, "shared");
+      const b = new crdt.Text(2);
+      b.load(a.snapshot());
+      expect(b.toString()).toEqual("shared");
+      const opsA = a.insert(0, "A");
+      const opsB = b.insert(b.len(), "B");
+      b.applyInsert(...opsA);
+      a.applyInsert(...opsB);
+      expect(a.toString()).toEqual(b.toString());
+      expect(a.toString()).toEqual("AsharedB");
+    });
+  });
 });

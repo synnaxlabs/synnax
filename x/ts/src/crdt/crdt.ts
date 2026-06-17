@@ -68,6 +68,34 @@ export class Text {
     return this.replica;
   }
 
+  /** snapshot captures the full current state of the document as the operations that
+   * reconstruct it when applied to an empty document, in an order where every
+   * operation's origin precedes it. It is used to bootstrap a replica joining an
+   * in-progress session. Deleted characters are included as both an insert and a delete
+   * so anchoring is preserved. */
+  snapshot(): { inserts: Insert[]; deletes: Delete[] } {
+    const inserts: Insert[] = [];
+    const deletes: Delete[] = [];
+    const walk = (e: Element, origin: ID): void => {
+      if (e !== this.root) {
+        inserts.push({ id: e.id, origin, side: e.side, char: e.char });
+        if (e.deleted) deletes.push({ id: e.id });
+      }
+      for (const c of e.left) walk(c, e.id);
+      for (const c of e.right) walk(c, e.id);
+    };
+    walk(this.root, ROOT_ID);
+    return { inserts, deletes };
+  }
+
+  /** load applies a snapshot to the document. It is intended for a freshly created
+   * document; the local replica's edits remain attributed to its own replica id and do
+   * not collide with the snapshot's operations. */
+  load(snapshot: { inserts: Insert[]; deletes: Delete[] }): void {
+    this.applyInsert(...snapshot.inserts);
+    this.applyDelete(...snapshot.deletes);
+  }
+
   private rebuild(): void {
     if (!this.dirty) return;
     this.order = [];
