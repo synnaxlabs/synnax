@@ -139,22 +139,22 @@ export const useSelectTimestampPrecision = Flux.createSelector<
   select: (store, { key }) => requireLog(store, key).timestampPrecision,
 });
 
-export const useSelectShowChannelNames = Flux.createSelector<
+export const useSelectHideChannelNames = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
   boolean
 >({
   subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).showChannelNames,
+  select: (store, { key }) => requireLog(store, key).hideChannelNames,
 });
 
-export const useSelectShowReceiptTimestamp = Flux.createSelector<
+export const useSelectHideReceiptTimestamp = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
   boolean
 >({
   subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).showReceiptTimestamp,
+  select: (store, { key }) => requireLog(store, key).hideReceiptTimestamp,
 });
 
 // kindOfTransaction keys single-channel edits by channel so rapid edits to one

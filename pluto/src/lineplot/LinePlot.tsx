@@ -248,7 +248,7 @@ const Legend = ({
       dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] }),
     [dispatch, key, editable],
   );
-  if (!legend.visible) return null;
+  if (legend.hidden) return null;
   return (
     <BaseLegend
       onLineColorChange={handleLineColorChange}
