@@ -510,6 +510,68 @@ var _ = Describe("Task", Ordered, func() {
 
 	})
 
+	Describe("Status Reporting", func() {
+		It("Should set a task-level warning when status.set matches multiple statuses by name", func(ctx SpecContext) {
+			ch := &channel.Channel{Name: "report_trigger", Virtual: true, DataType: telem.Float32T}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+
+			dupName := "dup_alarm_" + uuid.NewString()[:8]
+			w := status.NewWriter[any](statusSvc, nil)
+			Expect(w.Set(ctx, &status.Status[any]{
+				Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
+				Message: "first", Time: telem.Now(),
+			})).To(Succeed())
+			Expect(w.Set(ctx, &status.Status[any]{
+				Key: uuid.NewString(), Name: dupName, Variant: status.VariantInfo,
+				Message: "second", Time: telem.Now(),
+			})).To(Succeed())
+
+			reportGraph := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "on", Type: "on", Config: map[string]any{"channel": ch.Key()}},
+					{Key: "status_set", Type: "status.set", Config: map[string]any{
+						"key_or_name": dupName, "message": "ping", "variant": "success",
+					}},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: graph.Handle{Node: "status_set", Param: ir.DefaultOutputParam},
+					},
+				},
+			}
+
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 42),
+				Name:   "test-status-report",
+				Type:   runtime.TaskType,
+				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+			}
+			t := MustSucceed(newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+			fw := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{ch.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(fw.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](1)))).To(BeTrue())
+			Expect(fw.Close()).To(Succeed())
+
+			taskKey := task.OntologyID(svcTask.Key).String()
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](taskKey)).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				g.Expect(stat.Variant).To(BeEquivalentTo("warning"))
+				g.Expect(stat.Message).To(ContainSubstring("multiple statuses named"))
+				g.Expect(stat.Message).To(ContainSubstring("test-status-report"))
+			}).Should(Succeed())
+		})
+	})
+
 	Describe("Interval Timing", func() {
 		It("Should fire intervals without any streaming data", func(ctx SpecContext) {
 			indexCh := &channel.Channel{
