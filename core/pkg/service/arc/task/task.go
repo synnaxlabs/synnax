@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime
+package task
 
 import (
 	"context"
@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -60,19 +61,19 @@ const (
 	runtimeAddr         address.Address = "runtime"
 )
 
-// taskImpl implements the driver.Task interface and manages Arc program execution.
-type taskImpl struct {
+// impl implements the driver.Task interface and manages Arc program execution.
+type impl struct {
 	factoryCfg FactoryConfig
 	task       task.Task
-	cfg        TaskConfig
+	cfg        Config
 	prog       arc.Arc
 
 	closer io.Closer
 }
 
-var _ driver.Task = (*taskImpl)(nil)
+var _ driver.Task = (*impl)(nil)
 
-func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
+func (t *impl) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
 		return t.start(ctx)
@@ -83,14 +84,14 @@ func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	}
 }
 
-func (t *taskImpl) isRunning() bool { return t.closer != nil }
+func (t *impl) isRunning() bool { return t.closer != nil }
 
-func (t *taskImpl) start(ctx context.Context) (err error) {
+func (t *impl) start(ctx context.Context) (err error) {
 	if t.isRunning() {
 		return nil
 	}
 	drt := dataRuntime{}
-	deps, err := NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
+	deps, err := runtime.NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
@@ -321,7 +322,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	return nil
 }
 
-func (t *taskImpl) Stop() error {
+func (t *impl) Stop() error {
 	if !t.isRunning() {
 		return nil
 	}
@@ -338,13 +339,13 @@ func (t *taskImpl) Stop() error {
 	return nil
 }
 
-func (t *taskImpl) reporter() taskreporter.Reporter {
+func (t *impl) reporter() taskreporter.Reporter {
 	return func(ctx context.Context, variant status.Variant, message string) {
 		t.setStatus(ctx, variant, t.isRunning(), fmt.Sprintf("[%s] %s", t.task.Name, message))
 	}
 }
 
-func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
+func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
 		Variant: variant,
@@ -354,7 +355,7 @@ func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, runnin
 	}
 	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
-			"failed to set status for taskImpl",
+			"failed to set status for Arc task",
 			zap.Uint64("key", uint64(t.task.Key)),
 			zap.String("name", t.task.Name),
 			zap.Error(err),
@@ -362,7 +363,7 @@ func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, runnin
 	}
 }
 
-func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
+func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	nodeType := nodeKey
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
