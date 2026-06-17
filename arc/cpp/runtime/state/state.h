@@ -71,6 +71,9 @@ class Node {
     std::vector<InputEntry> accumulated;
     std::vector<Series> aligned_data;
     std::vector<Series> aligned_time;
+    // is_reference marks inputs that are channel references rather than value
+    // streams. Reference inputs carry no data series and never gate execution.
+    std::vector<bool> is_reference;
 
     Node(
         State &state,
@@ -80,7 +83,8 @@ class Node {
         std::vector<size_t> output_idx,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
-        std::vector<Series> aligned_time
+        std::vector<Series> aligned_time,
+        std::vector<bool> is_reference
     ):
         state(state),
         inputs(std::move(inputs)),
@@ -89,7 +93,8 @@ class Node {
         output_idx(std::move(output_idx)),
         accumulated(std::move(accumulated)),
         aligned_data(std::move(aligned_data)),
-        aligned_time(std::move(aligned_time)) {}
+        aligned_time(std::move(aligned_time)),
+        is_reference(std::move(is_reference)) {}
 
 public:
     Node(const Node &) = delete;

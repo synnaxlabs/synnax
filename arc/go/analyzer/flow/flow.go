@@ -93,9 +93,20 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 	if prevNode != nil && funcType.Trigger.Target != "" {
 		externallySatisfied = append(externallySatisfied, funcType.Trigger.Target)
 	}
+	if isFedByRoutingTable(ctx) {
+		// Inputs are bound by the routing table; defer to the routing/edge checks.
+		for _, p := range freshType.Inputs {
+			externallySatisfied = append(externallySatisfied, p.Name)
+		}
+	}
 	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST, externallySatisfied...)
 
 	if prevNode == nil {
+		return
+	}
+	// TriggerOnly: the upstream is pure activation, so there is no input to
+	// type-check against its value (or absence).
+	if funcType.Trigger.Target == "" {
 		return
 	}
 	upstreamType, ok := resolveUpstreamType(ctx, prevNode, name)
@@ -149,6 +160,40 @@ func resolveUpstreamType(
 		return prevOutputType, true
 	}
 	return types.Type{}, false
+}
+
+// isFedByRoutingTable reports whether ctx's func node is the first func after a
+// routing table, whose entries bind its inputs.
+func isFedByRoutingTable(ctx context.Context[parser.IFunctionContext]) bool {
+	parent := ctx.AST.GetParent()
+	if parent == nil {
+		return false
+	}
+	grandparent := parent.GetParent()
+	if grandparent == nil {
+		return false
+	}
+	flowStmt, ok := grandparent.(parser.IFlowStatementContext)
+	if !ok {
+		return false
+	}
+	sawTable := false
+	for _, child := range flowStmt.GetChildren() {
+		if _, ok := child.(parser.IRoutingTableContext); ok {
+			sawTable = true
+			continue
+		}
+		flowNode, ok := child.(parser.IFlowNodeContext)
+		if !ok {
+			continue
+		}
+		if sawTable {
+			if fn := flowNode.Function(); fn != nil {
+				return fn == ctx.AST
+			}
+		}
+	}
+	return false
 }
 
 // hasRoutingTableBetween reports whether the flow statement enclosing the func

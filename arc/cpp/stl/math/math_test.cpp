@@ -97,7 +97,7 @@ private:
         target_node.inputs.push_back(target_input);
         target_node.outputs.push_back(target_output);
         for (const auto &p: config_params)
-            target_node.config.push_back(p);
+            target_node.inputs.push_back(p);
 
         ir::Edge edge;
         edge.source = ir::Handle("source", ir::default_output_param);
@@ -1473,5 +1473,33 @@ TEST(MathModuleTest, CreatesDerivativeWithQualifiedTypeViaMultiFactory) {
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_target_node()))
     );
     ASSERT_NE(node, nullptr);
+}
+
+/// @brief A node missing its input param must fail at construction, not throw at
+/// runtime.
+TEST(MathConstructionTest, ErrorsWhenInputMissing) {
+    for (const auto *node_type: {"avg", "min", "max", "derivative", "neg", "add"}) {
+        SCOPED_TRACE(node_type);
+        types::Param out;
+        out.name = ir::default_output_param;
+        out.type = types::Type{.kind = types::Kind::F32};
+        ir::Node n;
+        n.key = "math";
+        n.type = node_type;
+        n.outputs.push_back(out);
+        ir::IR ir;
+        ir.nodes.push_back(n);
+        runtime::state::State state(
+            runtime::state::Config{.ir = ir, .channels = {}},
+            runtime::errors::noop_handler
+        );
+        Module module;
+        ASSERT_OCCURRED_AS_P(
+            module.create(
+                runtime::node::Config(ir, ir.nodes[0], ASSERT_NIL_P(state.node("math")))
+            ),
+            x::errors::NOT_FOUND
+        );
+    }
 }
 }

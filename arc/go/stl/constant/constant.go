@@ -27,8 +27,8 @@ var symbolName = "constant"
 // is Internal — it is emitted by graph-mode lowering of literal flow nodes,
 // not called directly from user source.
 func NewSymbols() []*symbol.Symbol {
-	constraint := new(types.NumericConstraint())
-	typeVar := types.Variable("T", constraint)
+	constraint := types.NumericConstraint()
+	typeVar := types.Variable("T", &constraint)
 	return []*symbol.Symbol{
 		{
 			Name:     symbolName,
@@ -37,8 +37,9 @@ func NewSymbols() []*symbol.Symbol {
 			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
-				Config:  types.Params{{Name: "value", Type: typeVar}},
+				Inputs:  types.Params{{Name: "value", Type: typeVar}},
 			}),
+			Trigger: symbol.TriggerOnly,
 		},
 	}
 }
@@ -56,7 +57,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	return &constant{
 		State:       cfg.State,
-		value:       cfg.Node.Config[0].Value,
+		value:       cfg.Node.Inputs[0].Value,
 		isEntryNode: cfg.Node.IsEntryNode(cfg.Program.Edges),
 	}, nil
 }

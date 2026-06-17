@@ -13,13 +13,13 @@ package v54
 
 import (
 	"context"
-	ir "github.com/synnaxlabs/arc/ir"
-	types "github.com/synnaxlabs/arc/types"
+	irv56 "github.com/synnaxlabs/arc/ir/migrations/v56"
 	typesv54 "github.com/synnaxlabs/arc/types/migrations/v54"
+	typesv56 "github.com/synnaxlabs/arc/types/migrations/v56"
 )
 
-func AutoMigrateFunctions(ctx context.Context, old Functions) (ir.Functions, error) {
-	result := make(ir.Functions, len(old))
+func AutoMigrateFunctions(ctx context.Context, old Functions) (irv56.Functions, error) {
+	result := make(irv56.Functions, len(old))
 	for i, v := range old {
 		var err error
 		if result[i], err = AutoMigrateFunction(ctx, v); err != nil {
@@ -29,40 +29,40 @@ func AutoMigrateFunctions(ctx context.Context, old Functions) (ir.Functions, err
 	return result, nil
 }
 
-func AutoMigrateFunction(ctx context.Context, old Function) (ir.Function, error) {
-	config := make(types.Params, len(old.Config))
+func AutoMigrateFunction(ctx context.Context, old Function) (irv56.Function, error) {
+	config := make(typesv56.Params, len(old.Config))
 	for i, v := range old.Config {
 		var err error
 		if config[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return ir.Function{}, err
+			return irv56.Function{}, err
 		}
 	}
-	inputs := make(types.Params, len(old.Inputs))
+	inputs := make(typesv56.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
 		if inputs[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return ir.Function{}, err
+			return irv56.Function{}, err
 		}
 	}
-	outputs := make(types.Params, len(old.Outputs))
+	outputs := make(typesv56.Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
 		if outputs[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return ir.Function{}, err
+			return irv56.Function{}, err
 		}
 	}
-	return ir.Function{
+	return irv56.Function{
 		Key:      old.Key,
-		Body:     ir.Body(old.Body),
+		Body:     irv56.Body(old.Body),
 		Config:   config,
 		Inputs:   inputs,
 		Outputs:  outputs,
-		Channels: types.Channels(old.Channels),
+		Channels: typesv56.Channels(old.Channels),
 	}, nil
 }
 
-func AutoMigrateEdges(ctx context.Context, old Edges) (ir.Edges, error) {
-	result := make(ir.Edges, len(old))
+func AutoMigrateEdges(ctx context.Context, old Edges) (irv56.Edges, error) {
+	result := make(irv56.Edges, len(old))
 	for i, v := range old {
 		var err error
 		if result[i], err = AutoMigrateEdge(ctx, v); err != nil {
@@ -72,49 +72,41 @@ func AutoMigrateEdges(ctx context.Context, old Edges) (ir.Edges, error) {
 	return result, nil
 }
 
-func AutoMigrateEdge(ctx context.Context, old Edge) (ir.Edge, error) {
-	kind, err := AutoMigrateEdgeKind(ctx, old.Kind)
-	if err != nil {
-		return ir.Edge{}, err
-	}
-	return ir.Edge{
-		Source: ir.Handle(old.Source),
-		Target: ir.Handle(old.Target),
-		Kind:   kind,
+func AutoMigrateEdge(_ context.Context, old Edge) (irv56.Edge, error) {
+	return irv56.Edge{
+		Source: irv56.Handle(old.Source),
+		Target: irv56.Handle(old.Target),
+		Kind:   irv56.EdgeKind(old.Kind),
 	}, nil
 }
 
-func AutoMigrateEdgeKind(_ context.Context, old EdgeKind) (ir.EdgeKind, error) {
-	return ir.EdgeKind(old), nil
-}
-
-func AutoMigrateIR(ctx context.Context, old IR) (ir.IR, error) {
-	functions := make(ir.Functions, len(old.Functions))
+func AutoMigrateIR(ctx context.Context, old IR) (irv56.IR, error) {
+	functions := make(irv56.Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
 		if functions[i], err = AutoMigrateFunction(ctx, v); err != nil {
-			return ir.IR{}, err
+			return irv56.IR{}, err
 		}
 	}
-	nodes := make(ir.Nodes, len(old.Nodes))
+	nodes := make(irv56.Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
 		if nodes[i], err = AutoMigrateNode(ctx, v); err != nil {
-			return ir.IR{}, err
+			return irv56.IR{}, err
 		}
 	}
-	edges := make(ir.Edges, len(old.Edges))
+	edges := make(irv56.Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
 		if edges[i], err = AutoMigrateEdge(ctx, v); err != nil {
-			return ir.IR{}, err
+			return irv56.IR{}, err
 		}
 	}
 	authorities, err := AutoMigrateAuthorities(ctx, old.Authorities)
 	if err != nil {
-		return ir.IR{}, err
+		return irv56.IR{}, err
 	}
-	return ir.IR{
+	return irv56.IR{
 		Functions:   functions,
 		Nodes:       nodes,
 		Edges:       edges,
@@ -122,8 +114,8 @@ func AutoMigrateIR(ctx context.Context, old IR) (ir.IR, error) {
 	}, nil
 }
 
-func AutoMigrateNodes(ctx context.Context, old Nodes) (ir.Nodes, error) {
-	result := make(ir.Nodes, len(old))
+func AutoMigrateNodes(ctx context.Context, old Nodes) (irv56.Nodes, error) {
+	result := make(irv56.Nodes, len(old))
 	for i, v := range old {
 		var err error
 		if result[i], err = AutoMigrateNode(ctx, v); err != nil {
@@ -133,129 +125,129 @@ func AutoMigrateNodes(ctx context.Context, old Nodes) (ir.Nodes, error) {
 	return result, nil
 }
 
-func AutoMigrateNode(ctx context.Context, old Node) (ir.Node, error) {
-	config := make(types.Params, len(old.Config))
+func AutoMigrateNode(ctx context.Context, old Node) (irv56.Node, error) {
+	config := make(typesv56.Params, len(old.Config))
 	for i, v := range old.Config {
 		var err error
 		if config[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return ir.Node{}, err
+			return irv56.Node{}, err
 		}
 	}
-	inputs := make(types.Params, len(old.Inputs))
+	inputs := make(typesv56.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
 		if inputs[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return ir.Node{}, err
+			return irv56.Node{}, err
 		}
 	}
-	outputs := make(types.Params, len(old.Outputs))
+	outputs := make(typesv56.Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
 		if outputs[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return ir.Node{}, err
+			return irv56.Node{}, err
 		}
 	}
-	return ir.Node{
+	return irv56.Node{
 		Key:      old.Key,
 		Type:     old.Type,
 		Config:   config,
 		Inputs:   inputs,
 		Outputs:  outputs,
-		Channels: types.Channels(old.Channels),
+		Channels: typesv56.Channels(old.Channels),
 	}, nil
 }
 
-func AutoMigrateAuthorities(_ context.Context, old Authorities) (ir.Authorities, error) {
-	return ir.Authorities{
+func AutoMigrateAuthorities(_ context.Context, old Authorities) (irv56.Authorities, error) {
+	return irv56.Authorities{
 		Default:  old.Default,
 		Channels: old.Channels,
 	}, nil
 }
 
-func AutoMigrateParam(ctx context.Context, old typesv54.Param) (types.Param, error) {
+func AutoMigrateParam(ctx context.Context, old typesv54.Param) (typesv56.Param, error) {
 	typeVal, err := AutoMigrateType(ctx, old.Type)
 	if err != nil {
-		return types.Param{}, err
+		return typesv56.Param{}, err
 	}
-	return types.Param{
+	return typesv56.Param{
 		Name:  old.Name,
 		Type:  typeVal,
 		Value: old.Value,
 	}, nil
 }
 
-func AutoMigrateType(ctx context.Context, old typesv54.Type) (types.Type, error) {
+func AutoMigrateType(ctx context.Context, old typesv54.Type) (typesv56.Type, error) {
 	functionProperties, err := AutoMigrateFunctionProperties(ctx, old.FunctionProperties)
 	if err != nil {
-		return types.Type{}, err
+		return typesv56.Type{}, err
 	}
-	var elem *types.Type
+	var elem *typesv56.Type
 	if old.Elem != nil {
 		v, err := AutoMigrateType(ctx, *old.Elem)
 		if err != nil {
-			return types.Type{}, err
+			return typesv56.Type{}, err
 		}
 		elem = &v
 	}
-	var unit *types.Unit
+	var unit *typesv56.Unit
 	if old.Unit != nil {
 		v, err := AutoMigrateUnit(ctx, *old.Unit)
 		if err != nil {
-			return types.Type{}, err
+			return typesv56.Type{}, err
 		}
 		unit = &v
 	}
-	var constraint *types.Type
+	var constraint *typesv56.Type
 	if old.Constraint != nil {
 		v, err := AutoMigrateType(ctx, *old.Constraint)
 		if err != nil {
-			return types.Type{}, err
+			return typesv56.Type{}, err
 		}
 		constraint = &v
 	}
-	return types.Type{
+	return typesv56.Type{
 		FunctionProperties: functionProperties,
-		Kind:               types.Kind(old.Kind),
+		Kind:               typesv56.Kind(old.Kind),
 		Name:               old.Name,
 		Elem:               elem,
 		Unit:               unit,
 		Constraint:         constraint,
-		ChanDirection:      types.ChanDirection(old.ChanDirection),
+		ChanDirection:      typesv56.ChanDirection(old.ChanDirection),
 	}, nil
 }
 
-func AutoMigrateFunctionProperties(ctx context.Context, old typesv54.FunctionProperties) (types.FunctionProperties, error) {
-	inputs := make(types.Params, len(old.Inputs))
+func AutoMigrateFunctionProperties(ctx context.Context, old typesv54.FunctionProperties) (typesv56.FunctionProperties, error) {
+	inputs := make(typesv56.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
 		if inputs[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return types.FunctionProperties{}, err
+			return typesv56.FunctionProperties{}, err
 		}
 	}
-	outputs := make(types.Params, len(old.Outputs))
+	outputs := make(typesv56.Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
 		if outputs[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return types.FunctionProperties{}, err
+			return typesv56.FunctionProperties{}, err
 		}
 	}
-	config := make(types.Params, len(old.Config))
+	config := make(typesv56.Params, len(old.Config))
 	for i, v := range old.Config {
 		var err error
 		if config[i], err = AutoMigrateParam(ctx, v); err != nil {
-			return types.FunctionProperties{}, err
+			return typesv56.FunctionProperties{}, err
 		}
 	}
-	return types.FunctionProperties{
+	return typesv56.FunctionProperties{
 		Inputs:  inputs,
 		Outputs: outputs,
 		Config:  config,
 	}, nil
 }
 
-func AutoMigrateUnit(_ context.Context, old typesv54.Unit) (types.Unit, error) {
-	return types.Unit{
-		Dimensions: types.Dimensions(old.Dimensions),
+func AutoMigrateUnit(_ context.Context, old typesv54.Unit) (typesv56.Unit, error) {
+	return typesv56.Unit{
+		Dimensions: typesv56.Dimensions(old.Dimensions),
 		Scale:      old.Scale,
 		Name:       old.Name,
 	}, nil

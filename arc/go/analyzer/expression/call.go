@@ -61,7 +61,7 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 		}
 	}
 	if hook != nil {
-		hook(ctx, args)
+		hook(ctx.Diagnostics, args)
 	}
 }
 

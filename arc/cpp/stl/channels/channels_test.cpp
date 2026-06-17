@@ -43,7 +43,7 @@ TEST(ChannelModuleTest, CreateSourceNode) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -73,7 +73,7 @@ TEST(ChannelModuleTest, CreateSinkNode) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -98,7 +98,7 @@ TEST(ChannelModuleTest, ReturnsErrorForNullChannelParam) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = nullptr;
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -123,7 +123,7 @@ TEST(ChannelModuleTest, UnknownNodeType) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -162,7 +162,7 @@ TEST(OnTest, NextReadsChannelData) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -216,7 +216,7 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(20);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -265,7 +265,7 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(999);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -300,7 +300,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -364,7 +364,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -415,7 +415,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(30);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -463,7 +463,7 @@ TEST(OnTest, NextCallsMarkChanged) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(10);
-    ir_node.config.push_back(channel_config);
+    ir_node.inputs.push_back(channel_config);
 
     ir::IR ir;
     ir.nodes.push_back(ir_node);
@@ -524,7 +524,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.push_back(channel_config);
+    sink_node.inputs.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -614,7 +614,7 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.push_back(channel_config);
+    sink_node.inputs.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -673,7 +673,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.push_back(channel_config);
+    sink_node.inputs.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -743,7 +743,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     channel_config.name = "channel";
     channel_config.type.kind = types::Kind::U32;
     channel_config.value = static_cast<uint32_t>(100);
-    sink_node.config.push_back(channel_config);
+    sink_node.inputs.push_back(channel_config);
 
     ir::Edge edge;
     edge.source = ir::Handle("upstream", ir::default_output_param);
@@ -819,7 +819,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     read_channel.name = "channel";
     read_channel.type.kind = types::Kind::U32;
     read_channel.value = static_cast<uint32_t>(1);
-    read_node.config.push_back(read_channel);
+    read_node.inputs.push_back(read_channel);
 
     types::Param write_input;
     write_input.name = ir::default_input_param;
@@ -839,7 +839,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     write_channel.name = "channel";
     write_channel.type.kind = types::Kind::U32;
     write_channel.value = static_cast<uint32_t>(3);
-    write_node.config.push_back(write_channel);
+    write_node.inputs.push_back(write_channel);
 
     ir::Edge edge;
     edge.source = ir::Handle("read", ir::default_output_param);
@@ -1051,6 +1051,35 @@ TEST(ChannelStateTest, WriteSeries_RoundTripsViaReadSeries) {
     ASSERT_TRUE(out.contains(2));
     EXPECT_EQ(out.at<int64_t>(2, 0), 300);
     EXPECT_EQ(out.at<int64_t>(2, 1), 400);
+}
+
+/// @brief A write node carrying its channel config but missing the data input
+/// must fail at construction.
+TEST(ChannelWriteConstructionTest, ErrorsWhenInputMissing) {
+    types::Param channel;
+    channel.name = "channel";
+    channel.type = types::Type{.kind = types::Kind::U32};
+    channel.value = static_cast<uint32_t>(10);
+    types::Param out;
+    out.name = ir::default_output_param;
+    out.type = types::Type{.kind = types::Kind::U8};
+    ir::Node n;
+    n.key = "write";
+    n.type = "write";
+    n.inputs.push_back(channel);
+    n.outputs.push_back(out);
+    ir::IR ir;
+    ir.nodes.push_back(n);
+    runtime::state::State state(
+        runtime::state::Config{.ir = ir, .channels = {}},
+        runtime::errors::noop_handler
+    );
+    auto state_node = ASSERT_NIL_P(state.node("write"));
+    channels::Module module(nullptr, nullptr);
+    ASSERT_OCCURRED_AS_P(
+        module.create(runtime::node::Config(ir, ir.nodes[0], std::move(state_node))),
+        x::errors::NOT_FOUND
+    );
 }
 
 }

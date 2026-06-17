@@ -297,7 +297,8 @@ public:
         Module &module;
         wasmtime::Func fn;
         types::Params outputs;
-        size_t config_count;
+        /// @brief one flag per input, true when streamed per sample (nil value).
+        std::vector<bool> streamed;
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
@@ -307,33 +308,31 @@ public:
             Module &module,
             wasmtime::Func fn,
             const types::Params &outputs,
-            const types::Params &config,
             const types::Params &inputs,
             const uint32_t base
         ):
-            module(module),
-            fn(std::move(fn)),
-            outputs(outputs),
-            config_count(config.size()),
-            base(base) {
-            this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
-            for (size_t i = 0; i < config.size(); i++) {
-                if (config[i].value.is_null()) continue;
-                if (config[i].value.is_string()) {
-                    // String config params get a stable handle created once at
-                    // configure time — not cleared by flush(), no per-call refresh.
-                    // bindings is always non-null in production; the null branch is
-                    // only reachable in tests that construct a Module without WASM
-                    // host bindings, where args[i] stays 0 (unused).
-                    const auto &s = config[i].value.get<std::string>();
+            module(module), fn(std::move(fn)), outputs(outputs), base(base) {
+            this->args.resize(inputs.size(), wasmtime::Val(0));
+            this->streamed.assign(inputs.size(), false);
+            // An input with a nil value is edge-fed and streams in call(); a literal
+            // input is set once here.
+            for (size_t i = 0; i < inputs.size(); i++) {
+                if (inputs[i].value.is_null()) {
+                    this->streamed[i] = true;
+                    continue;
+                }
+                if (inputs[i].value.is_string()) {
+                    // A literal string gets a stable handle, not cleared by flush().
+                    // strings is null only in tests without host bindings.
+                    const auto &s = inputs[i].value.get<std::string>();
                     if (module.cfg.strings != nullptr)
                         this->args[i] = wasmtime::Val(
-                            static_cast<int32_t>(module.cfg.strings->create_config(s))
+                            static_cast<int32_t>(module.cfg.strings->create_literal(s))
                         );
                     continue;
                 }
-                auto sv = types::to_sample_value(config[i].value, config[i].type);
-                if (sv.has_value()) this->args[i] = sample_to_wasm(*sv, config[i].type);
+                auto sv = types::to_sample_value(inputs[i].value, inputs[i].type);
+                if (sv.has_value()) this->args[i] = sample_to_wasm(*sv, inputs[i].type);
             }
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
@@ -352,7 +351,7 @@ public:
             output_vals.assign(this->outputs.size(), Result{});
 
             for (size_t i = 0; i < input_vals.size(); i++)
-                this->args[this->config_count + i] = sample_to_wasm(input_vals[i]);
+                if (this->streamed[i]) this->args[i] = sample_to_wasm(input_vals[i]);
 
             auto result = fn.call(this->module.store, this->args);
             if (!result) {
@@ -411,14 +410,17 @@ public:
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
     }
 
-    /// @brief Returns a WASM function wrapper for the given function name.
-    /// @param name The function name.
-    /// @param node_config The node's config params with values. If empty, uses the
-    /// function's config.
+    /// @brief Wraps the WASM export `name` using its declared inputs.
+    std::pair<Function, x::errors::Error> func(const std::string &name) {
+        return this->func(name, {});
+    }
+
+    /// @brief Wraps the WASM export `name` for a node's inputs. An input with a nil
+    /// value is edge-fed (streamed per sample); a non-nil value is a literal set once.
     std::pair<Function, x::errors::Error>
-    func(const std::string &name, const types::Params &node_config = {}) {
+    func(const std::string &name, const types::Params &node_inputs) {
         const auto export_opt = this->instance.get(this->store, name);
-        const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
+        const Function zero_func(*this, wasmtime::Func({}), {}, {}, 0);
         if (!export_opt) return {zero_func, x::errors::NOT_FOUND};
 
         const auto *func_ptr = std::get_if<wasmtime::Func>(&*export_opt);
@@ -448,9 +450,9 @@ public:
                 };
         }
 
-        const auto &config_to_use = node_config.empty() ? func.config : node_config;
+        const auto &inputs_to_use = node_inputs.empty() ? func.inputs : node_inputs;
         return {
-            Function(*this, *func_ptr, func.outputs, config_to_use, func.inputs, base),
+            Function(*this, *func_ptr, func.outputs, inputs_to_use, base),
             x::errors::NIL
         };
     }

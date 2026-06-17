@@ -79,7 +79,7 @@ func openMath(
 	ctx SpecContext,
 	nodeType string,
 	dt types.Type,
-	config types.Params,
+	inputs types.Params,
 ) mathSetup {
 	g := makeMathGraph(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -88,7 +88,7 @@ func openMath(
 	inputNode := s.Node("input")
 	m := MustSucceed(stlmath.NewHost(ctx, nil))
 	n := MustSucceed(m.Create(ctx, node.Config{
-		Node:    ir.Node{Key: "math", Type: nodeType, Config: config},
+		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
 		State:   s.Node("math"),
 		Program: program.Program{IR: analyzed},
 	}))
@@ -99,7 +99,7 @@ func openMathWithReset(
 	ctx SpecContext,
 	nodeType string,
 	dt types.Type,
-	config types.Params,
+	inputs types.Params,
 ) mathSetup {
 	g := makeMathGraphWithReset(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
@@ -108,7 +108,7 @@ func openMathWithReset(
 	inputNode := s.Node("input")
 	m := MustSucceed(stlmath.NewHost(ctx, nil))
 	n := MustSucceed(m.Create(ctx, node.Config{
-		Node:    ir.Node{Key: "math", Type: nodeType, Config: config},
+		Node:    ir.Node{Key: "math", Type: nodeType, Inputs: inputs},
 		State:   s.Node("math"),
 		Program: program.Program{IR: analyzed},
 	}))
@@ -809,5 +809,48 @@ var _ = Describe("Derivative", func() {
 		Expect(result.Alignment).To(Equal(telem.Alignment(250)))
 		Expect(result.TimeRange.Start).To(Equal(100 * telem.SecondTS))
 		Expect(result.TimeRange.End).To(Equal(200 * telem.SecondTS))
+	})
+})
+
+var _ = Describe("Construction validation", func() {
+	DescribeTable("Should error at construction when the input param is missing",
+		func(ctx SpecContext, nodeType string) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:     "math",
+				Type:    nodeType,
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+			}}}
+			s := node.New(prog)
+			m := MustSucceed(stlmath.NewHost(ctx, nil))
+			cfg := node.Config{
+				Node:    prog.Nodes[0],
+				State:   s.Node("math"),
+				Program: program.Program{IR: prog},
+			}
+			Expect(m.Create(ctx, cfg)).Error().To(MatchError(node.ErrInputNotFound))
+		},
+		Entry("avg", "avg"),
+		Entry("min", "min"),
+		Entry("max", "max"),
+		Entry("derivative", "derivative"),
+	)
+	It("Should error at construction when the window count value is invalid", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "math",
+			Type: "avg",
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.F64(), Value: 0.0},
+				{Name: "count", Type: types.String(), Value: []any{1}},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+		}}}
+		s := node.New(prog)
+		m := MustSucceed(stlmath.NewHost(ctx, nil))
+		cfg := node.Config{
+			Node:    prog.Nodes[0],
+			State:   s.Node("math"),
+			Program: program.Program{IR: prog},
+		}
+		Expect(m.Create(ctx, cfg)).Error().To(BeAValidationPathError())
 	})
 })

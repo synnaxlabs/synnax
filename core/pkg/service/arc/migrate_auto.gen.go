@@ -13,26 +13,26 @@ package arc
 
 import (
 	"context"
-	graphv54 "github.com/synnaxlabs/arc/graph/migrations/v54"
+	graphv56 "github.com/synnaxlabs/arc/graph/migrations/v56"
 	program "github.com/synnaxlabs/arc/program"
-	programv54 "github.com/synnaxlabs/arc/program/migrations/v54"
+	programv56 "github.com/synnaxlabs/arc/program/migrations/v56"
 	text "github.com/synnaxlabs/arc/text"
-	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 	color "github.com/synnaxlabs/x/color"
 	label "github.com/synnaxlabs/x/label"
-	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
+	labelv56 "github.com/synnaxlabs/x/label/migrations/v56"
 	status "github.com/synnaxlabs/x/status"
 	telem "github.com/synnaxlabs/x/telem"
 )
 
-func AutoMigrateArc(ctx context.Context, old arcv54.Arc) (Arc, error) {
-	graph, err := graphv54.AutoMigrateGraph(ctx, old.Graph)
+func AutoMigrateArc(ctx context.Context, old arcv56.Arc) (Arc, error) {
+	graph, err := graphv56.AutoMigrateGraph(ctx, old.Graph)
 	if err != nil {
 		return Arc{}, err
 	}
 	var program *program.Program
 	if old.Program != nil {
-		v, err := programv54.AutoMigrateProgram(ctx, *old.Program)
+		v, err := programv56.AutoMigrateProgram(ctx, *old.Program)
 		if err != nil {
 			return Arc{}, err
 		}
@@ -57,7 +57,7 @@ func AutoMigrateArc(ctx context.Context, old arcv54.Arc) (Arc, error) {
 	}, nil
 }
 
-func AutoMigrateStatus(ctx context.Context, old arcv54.Status) (Status, error) {
+func AutoMigrateStatus(ctx context.Context, old arcv56.Status) (Status, error) {
 	labels := make([]label.Label, len(old.Labels))
 	for i, v := range old.Labels {
 		var err error
@@ -77,7 +77,7 @@ func AutoMigrateStatus(ctx context.Context, old arcv54.Status) (Status, error) {
 	}, nil
 }
 
-func AutoMigrateLabel(_ context.Context, old labelv54.Label) (label.Label, error) {
+func AutoMigrateLabel(_ context.Context, old labelv56.Label) (label.Label, error) {
 	return label.Label{
 		Key:   label.Key(old.Key),
 		Name:  old.Name,
