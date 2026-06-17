@@ -779,16 +779,6 @@ func (s *SchemaContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *SchemaContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitSchema(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) Schema() (localctx ISchemaContext) {
 	localctx = NewSchemaContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 0, OracleParserRULE_schema)
@@ -1027,16 +1017,6 @@ func (s *NlContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *NlContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitNl(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) Nl() (localctx INlContext) {
 	localctx = NewNlContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 2, OracleParserRULE_nl)
@@ -1135,16 +1115,6 @@ func (s *ImportStmtContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *ImportStmtContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitImportStmt(s)
-	}
-}
-
-func (s *ImportStmtContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitImportStmt(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -1271,16 +1241,6 @@ func (s *FileDomainContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *FileDomainContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitFileDomain(s)
-	}
-}
-
-func (s *FileDomainContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitFileDomain(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -1460,16 +1420,6 @@ func (s *DefinitionContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *DefinitionContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitDefinition(s)
-	}
-}
-
-func (s *DefinitionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDefinition(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -1721,16 +1671,6 @@ func (s *StructFullContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *StructFullContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitStructFull(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 type StructAliasContext struct {
 	StructDefContext
 }
@@ -1814,16 +1754,6 @@ func (s *StructAliasContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *StructAliasContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitStructAlias(s)
-	}
-}
-
-func (s *StructAliasContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitStructAlias(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -2183,16 +2113,6 @@ func (s *TypeRefListContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *TypeRefListContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeRefList(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) TypeRefList() (localctx ITypeRefListContext) {
 	localctx = NewTypeRefListContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 12, OracleParserRULE_typeRefList)
@@ -2423,16 +2343,6 @@ func (s *AliasBodyContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *AliasBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitAliasBody(s)
-	}
-}
-
-func (s *AliasBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitAliasBody(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -2723,16 +2633,6 @@ func (s *TypeParamsContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *TypeParamsContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeParams(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) TypeParams() (localctx ITypeParamsContext) {
 	localctx = NewTypeParamsContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 16, OracleParserRULE_typeParams)
@@ -2986,16 +2886,6 @@ func (s *TypeParamContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *TypeParamContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitTypeParam(s)
-	}
-}
-
-func (s *TypeParamContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeParam(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -3369,16 +3259,6 @@ func (s *StructBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *StructBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitStructBody(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) StructBody() (localctx IStructBodyContext) {
 	localctx = NewStructBodyContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 20, OracleParserRULE_structBody)
@@ -3545,16 +3425,6 @@ func (s *FieldOmitContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *FieldOmitContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitFieldOmit(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) FieldOmit() (localctx IFieldOmitContext) {
 	localctx = NewFieldOmitContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 22, OracleParserRULE_fieldOmit)
@@ -3666,16 +3536,6 @@ func (s *DomainOmitContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *DomainOmitContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitDomainOmit(s)
-	}
-}
-
-func (s *DomainOmitContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDomainOmit(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -3863,16 +3723,6 @@ func (s *ActionDefContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *ActionDefContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitActionDef(s)
-	}
-}
-
-func (s *ActionDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitActionDef(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -4163,16 +4013,6 @@ func (s *ActionBodyContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *ActionBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitActionBody(s)
-	}
-}
-
-func (s *ActionBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitActionBody(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -4484,16 +4324,6 @@ func (s *FieldDefContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *FieldDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitFieldDef(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) FieldDef() (localctx IFieldDefContext) {
 	localctx = NewFieldDefContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 30, OracleParserRULE_fieldDef)
@@ -4740,16 +4570,6 @@ func (s *FieldDefaultContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *FieldDefaultContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitFieldDefault(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) FieldDefault() (localctx IFieldDefaultContext) {
 	localctx = NewFieldDefaultContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 32, OracleParserRULE_fieldDefault)
@@ -4912,16 +4732,6 @@ func (s *DefaultValueContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *DefaultValueContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitDefaultValue(s)
-	}
-}
-
-func (s *DefaultValueContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDefaultValue(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -5142,16 +4952,6 @@ func (s *ArrayDefaultContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *ArrayDefaultContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitArrayDefault(s)
-	}
-}
-
-func (s *ArrayDefaultContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitArrayDefault(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -5464,16 +5264,6 @@ func (s *StructDefaultContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *StructDefaultContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitStructDefault(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) StructDefault() (localctx IStructDefaultContext) {
 	localctx = NewStructDefaultContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 38, OracleParserRULE_structDefault)
@@ -5704,16 +5494,6 @@ func (s *StructFieldDefaultContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *StructFieldDefaultContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitStructFieldDefault(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) StructFieldDefault() (localctx IStructFieldDefaultContext) {
 	localctx = NewStructFieldDefaultContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 40, OracleParserRULE_structFieldDefault)
@@ -5841,16 +5621,6 @@ func (s *InlineDomainContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *InlineDomainContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitInlineDomain(s)
-	}
-}
-
-func (s *InlineDomainContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitInlineDomain(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -6104,16 +5874,6 @@ func (s *FieldBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *FieldBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitFieldBody(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) FieldBody() (localctx IFieldBodyContext) {
 	localctx = NewFieldBodyContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 44, OracleParserRULE_fieldBody)
@@ -6341,16 +6101,6 @@ func (s *DomainContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *DomainContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDomain(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) Domain() (localctx IDomainContext) {
 	localctx = NewDomainContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 46, OracleParserRULE_domain)
@@ -6493,16 +6243,6 @@ func (s *DomainContentContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *DomainContentContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitDomainContent(s)
-	}
-}
-
-func (s *DomainContentContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDomainContent(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -6706,16 +6446,6 @@ func (s *DomainBlockContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *DomainBlockContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitDomainBlock(s)
-	}
-}
-
-func (s *DomainBlockContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitDomainBlock(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -7001,16 +6731,6 @@ func (s *TypeRefMapContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *TypeRefMapContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeRefMap(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 type TypeRefNormalContext struct {
 	TypeRefContext
 }
@@ -7102,16 +6822,6 @@ func (s *TypeRefNormalContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *TypeRefNormalContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitTypeRefNormal(s)
-	}
-}
-
-func (s *TypeRefNormalContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeRefNormal(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -7294,16 +7004,6 @@ func (s *ArrayModifierContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *ArrayModifierContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitArrayModifier(s)
-	}
-}
-
-func (s *ArrayModifierContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitArrayModifier(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -7508,16 +7208,6 @@ func (s *MapTypeContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *MapTypeContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitMapType(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) MapType() (localctx IMapTypeContext) {
 	localctx = NewMapTypeContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 56, OracleParserRULE_mapType)
@@ -7704,16 +7394,6 @@ func (s *TypeArgsContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *TypeArgsContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeArgs(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) TypeArgs() (localctx ITypeArgsContext) {
 	localctx = NewTypeArgsContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 58, OracleParserRULE_typeArgs)
@@ -7852,16 +7532,6 @@ func (s *TypeModifiersContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *TypeModifiersContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeModifiers(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) TypeModifiers() (localctx ITypeModifiersContext) {
 	localctx = NewTypeModifiersContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 60, OracleParserRULE_typeModifiers)
@@ -7965,16 +7635,6 @@ func (s *QualifiedIdentContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *QualifiedIdentContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitQualifiedIdent(s)
-	}
-}
-
-func (s *QualifiedIdentContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitQualifiedIdent(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -8145,16 +7805,6 @@ func (s *ExpressionContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *ExpressionContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitExpression(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) Expression() (localctx IExpressionContext) {
 	localctx = NewExpressionContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 64, OracleParserRULE_expression)
@@ -8314,16 +7964,6 @@ func (s *ExpressionValueContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *ExpressionValueContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitExpressionValue(s)
-	}
-}
-
-func (s *ExpressionValueContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitExpressionValue(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -8581,16 +8221,6 @@ func (s *EnumDefContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *EnumDefContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitEnumDef(s)
-	}
-}
-
-func (s *EnumDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitEnumDef(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -8906,16 +8536,6 @@ func (s *EnumBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *EnumBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitEnumBody(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) EnumBody() (localctx IEnumBodyContext) {
 	localctx = NewEnumBodyContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 70, OracleParserRULE_enumBody)
@@ -9094,16 +8714,6 @@ func (s *EnumValueContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *EnumValueContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitEnumValue(s)
-	}
-}
-
-func (s *EnumValueContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitEnumValue(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -9324,16 +8934,6 @@ func (s *EnumValueBodyContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *EnumValueBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitEnumValueBody(s)
-	}
-}
-
-func (s *EnumValueBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitEnumValueBody(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -9574,16 +9174,6 @@ func (s *TypeDefDefContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *TypeDefDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeDefDef(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) TypeDefDef() (localctx ITypeDefDefContext) {
 	localctx = NewTypeDefDefContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 76, OracleParserRULE_typeDefDef)
@@ -9800,16 +9390,6 @@ func (s *TypeDefBodyContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *TypeDefBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitTypeDefBody(s)
-	}
-}
-
-func (s *TypeDefBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitTypeDefBody(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -10098,16 +9678,6 @@ func (s *UnionDefContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *UnionDefContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitUnionDef(s)
-	}
-}
-
-func (s *UnionDefContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitUnionDef(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -10439,16 +10009,6 @@ func (s *UnionBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *UnionBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitUnionBody(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) UnionBody() (localctx IUnionBodyContext) {
 	localctx = NewUnionBodyContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 82, OracleParserRULE_unionBody)
@@ -10660,16 +10220,6 @@ func (s *NamedVariantContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *NamedVariantContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitNamedVariant(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 type InlineVariantContext struct {
 	UnionVariantContext
 }
@@ -10798,16 +10348,6 @@ func (s *InlineVariantContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *InlineVariantContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitInlineVariant(s)
-	}
-}
-
-func (s *InlineVariantContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitInlineVariant(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
@@ -11059,16 +10599,6 @@ func (s *VariantNameContext) ExitRule(listener antlr.ParseTreeListener) {
 	}
 }
 
-func (s *VariantNameContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitVariantName(s)
-
-	default:
-		return t.VisitChildren(s)
-	}
-}
-
 func (p *OracleParser) VariantName() (localctx IVariantNameContext) {
 	localctx = NewVariantNameContext(p, p.GetParserRuleContext(), p.GetState())
 	p.EnterRule(localctx, 86, OracleParserRULE_variantName)
@@ -11258,16 +10788,6 @@ func (s *UnionVariantBodyContext) EnterRule(listener antlr.ParseTreeListener) {
 func (s *UnionVariantBodyContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(OracleParserListener); ok {
 		listenerT.ExitUnionVariantBody(s)
-	}
-}
-
-func (s *UnionVariantBodyContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
-	switch t := visitor.(type) {
-	case OracleParserVisitor:
-		return t.VisitUnionVariantBody(s)
-
-	default:
-		return t.VisitChildren(s)
 	}
 }
 
