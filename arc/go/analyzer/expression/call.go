@@ -23,10 +23,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// AnalyzeCall validates a call's arguments against fnType.Inputs (count, type, name, and
-// required-param coverage) and runs the symbol's optional hook. args bind by name or
-// position. externallySatisfied names params filled by something other than a
-// call-site argument (in flow, the wire-fed trigger), so they aren't reported missing.
+// AnalyzeCall validates args against fnType.Inputs and runs the hook, accounting for
+// the trigger in positional binding; externallySatisfied names aren't reported missing.
 func AnalyzeCall[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	fnName string,
@@ -34,12 +32,13 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	args []symbol.Argument,
 	hook symbol.ArgumentsHook,
 	site antlr.ParserRuleContext,
+	trigger string,
 	externallySatisfied ...string,
 ) {
 	signature := ir.FormatFunctionSignature(fnName, fnType)
 	supplied := set.New[string]()
 	for _, arg := range args {
-		param, ok := matchParam(ctx, fnName, fnType, arg, signature)
+		param, ok := matchParam(ctx, fnName, fnType, arg, signature, trigger)
 		if !ok {
 			continue
 		}
@@ -65,14 +64,15 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	}
 }
 
-// matchParam resolves arg to the param it binds, by name or by position, reporting
-// an unknown name or an out-of-range positional argument.
+// matchParam resolves arg to its param by name or position, accounting for the
+// trigger when binding by position. Reports an unknown name or out-of-range arg.
 func matchParam[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	fnName string,
 	fnType types.Type,
 	arg symbol.Argument,
 	signature string,
+	trigger string,
 ) (types.Param, bool) {
 	if arg.Name != "" {
 		param, ok := fnType.Inputs.Get(arg.Name)
@@ -84,16 +84,17 @@ func matchParam[T antlr.ParserRuleContext](
 		}
 		return param, true
 	}
-	if arg.Index >= len(fnType.Inputs) {
-		if arg.Index == len(fnType.Inputs) {
+	positional := fnType.Inputs.Positional(trigger)
+	if arg.Index >= len(positional) {
+		if arg.Index == len(positional) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(arg.AST,
 				"too many arguments for func '%s': expected at most %d",
-				fnName, len(fnType.Inputs)).
+				fnName, len(positional)).
 				WithCode(codes.FuncArgCount).WithNote("signature: " + signature))
 		}
 		return types.Param{}, false
 	}
-	return fnType.Inputs[arg.Index], true
+	return positional[arg.Index], true
 }
 
 // checkArgType checks arg's type against param, dereferencing a channel argument to

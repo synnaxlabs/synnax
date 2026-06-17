@@ -43,7 +43,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
 	args := inputArguments(ctx, ctx.AST.ConfigValues())
-	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST)
+	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST, funcType.Trigger.Target)
 }
 
 // Analyze validates a flow statement's node chain and routing tables.
@@ -99,7 +99,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			externallySatisfied = append(externallySatisfied, p.Name)
 		}
 	}
-	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST, externallySatisfied...)
+	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST, funcType.Trigger.Target, externallySatisfied...)
 
 	if prevNode == nil {
 		return
@@ -113,7 +113,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 	if !ok {
 		return
 	}
-	consultTrigger(ctx, funcType, freshType, name, upstreamType, suppliedNames(args, freshType))
+	consultTrigger(ctx, funcType, freshType, name, upstreamType, suppliedNames(args, freshType, funcType.Trigger.Target))
 }
 
 // resolveUpstreamType returns the value type flowing from prevNode into the func
@@ -377,14 +377,15 @@ func inputArguments[T antlr.ParserRuleContext](
 }
 
 // suppliedNames returns the set of param names bound by args, resolving positional
-// args to their param name via fnType.Inputs.
-func suppliedNames(args []symbol.Argument, fnType types.Type) set.Set[string] {
+// args over the non-trigger params (accounting for the trigger).
+func suppliedNames(args []symbol.Argument, fnType types.Type, trigger string) set.Set[string] {
 	supplied := set.New[string]()
+	positional := fnType.Inputs.Positional(trigger)
 	for _, arg := range args {
 		if arg.Name != "" {
 			supplied.Add(arg.Name)
-		} else if arg.Index < len(fnType.Inputs) {
-			supplied.Add(fnType.Inputs[arg.Index].Name)
+		} else if arg.Index < len(positional) {
+			supplied.Add(positional[arg.Index].Name)
 		}
 	}
 	return supplied
@@ -636,7 +637,7 @@ func analyzeRoutingTargetWithParam(
 		if fnType.Trigger.Target != "" {
 			externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)
 		}
-		expression.AnalyzeCall(ctx, fnName, fnType.Type, args, fnType.AnalyzeArguments, fn, externallySatisfied...)
+		expression.AnalyzeCall(ctx, fnName, fnType.Type, args, fnType.AnalyzeArguments, fn, fnType.Trigger.Target, externallySatisfied...)
 
 		if targetParam != nil {
 			var outputType types.Type
@@ -664,7 +665,7 @@ func analyzeRoutingTargetWithParam(
 				}
 			}
 		} else {
-			consultTrigger(ctx, fnType, fnType.Type, fnName, sourceType, suppliedNames(args, fnType.Type))
+			consultTrigger(ctx, fnType, fnType.Type, fnName, sourceType, suppliedNames(args, fnType.Type, fnType.Trigger.Target))
 		}
 	} else if idNode := ctx.AST.Identifier(); idNode != nil {
 		idName := idNode.IDENTIFIER().GetText()

@@ -1169,12 +1169,21 @@ func extractConfigValues(
 			}
 		}
 	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
-		for i, expr := range anon.AllExpression() {
-			value, ok := parseConfigExpr(expr, config[i].Type, fmt.Sprintf("position %d", i))
+		exprs := anon.AllExpression()
+		pos := 0
+		for i := range config {
+			if config[i].Name == fnSym.Trigger.Target {
+				continue
+			}
+			if pos >= len(exprs) {
+				break
+			}
+			value, ok := parseConfigExpr(exprs[pos], config[i].Type, fmt.Sprintf("position %d", pos))
 			if !ok {
 				return nil, false
 			}
 			config[i].Value = value
+			pos++
 		}
 	}
 

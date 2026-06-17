@@ -138,6 +138,22 @@ func (p Params) Has(name string) bool {
 	return ok
 }
 
+// Positional returns the params bindable by position: all params except the
+// trigger, which the upstream feeds rather than the call site.
+func (p Params) Positional(trigger string) Params {
+	if trigger == "" {
+		return p
+	}
+	positional := make(Params, 0, len(p))
+	for _, param := range p {
+		if param.Name == trigger {
+			continue
+		}
+		positional = append(positional, param)
+	}
+	return positional
+}
+
 // ValueMap returns a map of parameter names to their values.
 func (p Params) ValueMap() map[string]any {
 	return lo.SliceToMap(p, func(item Param) (string, any) {

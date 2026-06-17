@@ -301,6 +301,64 @@ sensor_chan -> transform{2.5, "bad"} -> sink{}`))
 		})
 	})
 
+	Describe("Positional arguments with a trigger-first param", func() {
+		// Mirrors stdlib funcs (control.set_authority, channels.write) whose
+		// trigger is the first input param, so positional binding accounts for it.
+		triggerFirstResolver := []symbol.Symbol{
+			{
+				Name: "set_auth",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: types.Function(types.FunctionProperties{
+					Inputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
+						{Name: "value", Type: types.U8()},
+						{Name: "channel", Type: types.U8(), Value: uint8(0)},
+					},
+				}),
+				Trigger: symbol.TriggerInput(ir.DefaultOutputParam),
+			},
+			{
+				Name: "start_high_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+			},
+		}
+
+		It("Should bind a positional value to the first non-trigger param on a standalone node", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+sequence main {
+    stage done {
+        set_auth{0}
+    }
+}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should bind a positional value while the upstream feeds the trigger", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`start_high_cmd -> set_auth{200}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should count only non-trigger params when rejecting too many positional values", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+sequence main {
+    stage done {
+        set_auth{0, 1, 2}
+    }
+}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("too many arguments"))
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("expected at most 2"))
+		})
+	})
+
 	Describe("Channel to func Flows", func() {
 		Context("function to function connections", func() {
 			It("Should detect when func with no output connects to func expecting input", func(bCtx SpecContext) {
@@ -2151,7 +2209,7 @@ var _ = Describe("Trigger call-site conflict", func() {
 			"parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire"))
 	})
 
-	It("Should flag a param bound by both a positional call-site argument and an upstream wire", func(bCtx SpecContext) {
+	It("Should reject a positional argument when the only param is the trigger", func(bCtx SpecContext) {
 		ast := MustSucceed(parser.Parse(`
 		func consumer(v f64) {}
 		sensor_chan -> consumer{5.0}`))
@@ -2159,7 +2217,7 @@ var _ = Describe("Trigger call-site conflict", func() {
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
-			"parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire"))
+			"too many arguments for func 'consumer': expected at most 0"))
 	})
 })
 
