@@ -73,6 +73,22 @@ export const {
   ],
 });
 
+export const { useRetrieveSuspended: useRetrieveName } = Flux.createRetrieve<
+  RetrieveQuery,
+  string,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: async (params) => (await retrieveSingle(params)).name,
+  mountListeners: ({ store, query: { key }, onChange }) => [
+    store.lineplots.onSet((l) => onChange(l.name), key),
+    store.resources.onSet(
+      ({ name }) => onChange(name),
+      ontology.idToString(lineplot.ontologyID(key)),
+    ),
+  ],
+});
+
 export const useRetrieveObservableName = ({
   onChange,
   ...params

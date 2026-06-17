@@ -304,10 +304,15 @@ describe("Panel queries", () => {
         retrieve: Panel.useRetrieve({ key: created.key }),
         dispatch: Panel.useDispatch(),
       }));
+      const [tabA, tabB] = [newTab(), newTab()];
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" })],
+          actions: [
+            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_PATH }),
+            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_PATH }),
+            panel.splitTab({ key: tabA.key, direction: "x" }),
+          ],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -322,7 +327,7 @@ describe("Panel queries", () => {
       expect(asSplit(fresh.root)?.size).toEqual(0.25);
     });
 
-    it("moves a tab into the sibling leaf created by a split", async () => {
+    it("splits a tab off into a new sibling pane", async () => {
       const created = await createPanel();
       const { result } = await loadAndUse(created.key, () => ({
         retrieve: Panel.useRetrieve({ key: created.key }),
@@ -339,20 +344,12 @@ describe("Panel queries", () => {
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" })],
-        });
-        await result.current.dispatch.dispatchAsync({
-          key: created.key,
-          actions: [
-            panel.moveTab({
-              key: tabA.key,
-              targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
-            }),
-          ],
+          actions: [panel.splitTab({ key: tabA.key, direction: "x" })],
         });
       });
       await waitFor(() => {
         const root = asSplit(result.current.retrieve.data?.root);
+        expect(root?.direction).toEqual("x");
         expect(leafTabKeys(root?.first)).toEqual([tabB.key]);
         expect(leafTabKeys(root?.last)).toEqual([tabA.key]);
       });
@@ -409,16 +406,7 @@ describe("Panel queries", () => {
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" })],
-        });
-        await result.current.dispatch.dispatchAsync({
-          key: created.key,
-          actions: [
-            panel.moveTab({
-              key: tabA.key,
-              targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
-            }),
-          ],
+          actions: [panel.splitTab({ key: tabA.key, direction: "x" })],
         });
         await result.current.dispatch.dispatchAsync({
           key: created.key,
@@ -476,10 +464,15 @@ describe("Panel queries", () => {
         dispatch: Panel.useDispatch(),
         undo: Panel.useUndo({ key: created.key }),
       }));
+      const [tabA, tabB] = [newTab(), newTab()];
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" })],
+          actions: [
+            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_PATH }),
+            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_PATH }),
+            panel.splitTab({ key: tabA.key, direction: "x" }),
+          ],
         });
       });
       for (const size of [0.2, 0.3, 0.4])
@@ -503,6 +496,7 @@ describe("Panel queries", () => {
         dispatch: Panel.useDispatch(),
         undo: Panel.useUndo({ key: created.key }),
       }));
+      const [tabA, tabB, tabC] = [newTab(), newTab(), newTab()];
       const firstChild = panel.childPath(panel.ROOT_PATH, "first");
       const dispatchOne = async (action: panel.Action) =>
         await act(async () => {
@@ -511,8 +505,18 @@ describe("Panel queries", () => {
             actions: [action],
           });
         });
-      await dispatchOne(panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" }));
-      await dispatchOne(panel.splitLeaf({ leaf: firstChild, location: "right" }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [
+            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_PATH }),
+            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_PATH }),
+            panel.insertTab({ tab: tabC, targetLeaf: panel.ROOT_PATH }),
+            panel.splitTab({ key: tabA.key, direction: "x" }),
+          ],
+        });
+      });
+      await dispatchOne(panel.splitTab({ key: tabB.key, direction: "x" }));
       await dispatchOne(panel.resizeSplit({ split: panel.ROOT_PATH, size: 0.3 }));
       await dispatchOne(panel.resizeSplit({ split: firstChild, size: 0.6 }));
 
@@ -530,7 +534,7 @@ describe("Panel queries", () => {
         dispatch: Panel.useDispatch(),
         undo: Panel.useUndo({ key: created.key }),
       }));
-      const [tabA, tabB] = [newTab(), newTab()];
+      const [tabA, tabB, tabC] = [newTab(), newTab(), newTab()];
       const firstChild = panel.childPath(panel.ROOT_PATH, "first");
       const lastChild = panel.childPath(panel.ROOT_PATH, "last");
       const dispatchOne = async (action: panel.Action) =>
@@ -542,7 +546,15 @@ describe("Panel queries", () => {
         });
       await dispatchOne(panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_PATH }));
       await dispatchOne(panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_PATH }));
-      await dispatchOne(panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: created.key,
+          actions: [
+            panel.insertTab({ tab: tabC, targetLeaf: panel.ROOT_PATH }),
+            panel.splitTab({ key: tabC.key, direction: "x" }),
+          ],
+        });
+      });
       await dispatchOne(panel.moveTab({ key: tabA.key, targetLeaf: lastChild }));
       await dispatchOne(panel.moveTab({ key: tabA.key, targetLeaf: firstChild }));
 
@@ -561,10 +573,15 @@ describe("Panel queries", () => {
         undo: Panel.useUndo({ key: created.key }),
         redo: Panel.useRedo({ key: created.key }),
       }));
+      const [tabA, tabB] = [newTab(), newTab()];
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" })],
+          actions: [
+            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_PATH }),
+            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_PATH }),
+            panel.splitTab({ key: tabA.key, direction: "x" }),
+          ],
         });
       });
       expect(result.current.undo.canUndo).toBe(true);
@@ -603,10 +620,15 @@ describe("Panel queries", () => {
       }));
       expect(result.current.root.variant).toEqual("leaf");
 
+      const [tabA, tabB] = [newTab(), newTab()];
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" })],
+          actions: [
+            panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_PATH }),
+            panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_PATH }),
+            panel.splitTab({ key: tabA.key, direction: "x" }),
+          ],
         });
       });
       await waitFor(() => expect(result.current.root.variant).toEqual("split"));
@@ -720,32 +742,23 @@ describe("Panel queries", () => {
 
     it("applies dispatches from other writers through the action channel", async () => {
       const created = await createPanel();
-      // Seed the root with a tab so the split's original side stays non-empty;
-      // splitting an empty leaf and filling only the new sibling collapses the
-      // empty pane back to a single leaf.
-      const seed = newTab();
-      await client.panels.dispatch(created.key, "", [
-        panel.insertTab({ tab: seed, targetLeaf: panel.ROOT_PATH }),
-      ]);
       const { result } = await loadAndUse(created.key, () =>
         Panel.useSelectRoot({ key: created.key }),
       );
-      expect(leafTabKeys(result.current)).toEqual([seed.key]);
+      expect(result.current.variant).toEqual("leaf");
 
-      const tab = newTab();
+      const [tabA, tabB] = [newTab(), newTab()];
       await client.panels.dispatch(created.key, "", [
-        panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" }),
-        panel.insertTab({
-          tab,
-          targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
-        }),
+        panel.insertTab({ tab: tabA, targetLeaf: panel.ROOT_PATH }),
+        panel.insertTab({ tab: tabB, targetLeaf: panel.ROOT_PATH }),
+        panel.splitTab({ key: tabB.key, direction: "x" }),
       ]);
 
       await waitFor(() => {
         const root = asSplit(result.current);
         expect(root).toBeDefined();
-        expect(leafTabKeys(root?.first)).toEqual([seed.key]);
-        expect(leafTabKeys(root?.last)).toEqual([tab.key]);
+        expect(leafTabKeys(root?.first)).toEqual([tabA.key]);
+        expect(leafTabKeys(root?.last)).toEqual([tabB.key]);
       });
     });
 

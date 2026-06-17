@@ -12,7 +12,7 @@ import { uuid } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
 import { internalCreate, type State } from "@/table/session/slice";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;

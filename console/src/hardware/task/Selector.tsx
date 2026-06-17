@@ -18,7 +18,7 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { PagerDuty } from "@/hardware/pagerduty";
 import { Selector as BaseSelector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 const withTaskVisibility = (
   Selectable: BaseSelector.Selectable,

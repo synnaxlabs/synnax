@@ -19,7 +19,7 @@ import {
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/opc/task/Write";
 import { type Import } from "@/import";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/opc/task/palette";
 export * from "@/hardware/opc/task/Read";

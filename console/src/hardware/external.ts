@@ -17,7 +17,7 @@ import { type Nav } from "@/nav";
 import { type Notifications } from "@/notifications";
 import { type Palette } from "@/palette";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/device";
 export * from "@/hardware/rack";

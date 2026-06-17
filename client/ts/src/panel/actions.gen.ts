@@ -76,19 +76,17 @@ export const moveTabPayloadZ = z.object({
 export type MoveTabPayload = z.infer<typeof moveTabPayloadZ>;
 
 /**
- * SplitLeaf splits the given leaf into a parent split with two children:
- * the original leaf and a new empty leaf. location determines on
- * which side ("left", "right", "top", "bottom") the new empty leaf
- * sits. size is the initial ratio in [0, 1] for the original leaf;
- * defaults to 0.5 when absent.
+ * SplitTab splits the tab with the given key off its leaf into a new sibling
+ * pane, moving the tab into it. direction x places the new pane to
+ * the right, y to the bottom. The tab must share its leaf with at
+ * least one other tab; splitting the only tab in a leaf is a no-op.
  */
-export const splitLeafPayloadZ = z.object({
-  leaf: z.int32(),
-  location: spatial.locationZ,
-  size: spatial.decimalZ.optional(),
+export const splitTabPayloadZ = z.object({
+  key: z.uuid(),
+  direction: spatial.directionZ,
 });
 
-export type SplitLeafPayload = z.infer<typeof splitLeafPayloadZ>;
+export type SplitTabPayload = z.infer<typeof splitTabPayloadZ>;
 
 /** ResizeSplit adjusts the size ratio of a split node. size in [0, 1]. */
 export const resizeSplitPayloadZ = z.object({
@@ -125,7 +123,7 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("insert_tab"), insertTab: insertTabPayloadZ }),
   z.object({ type: z.literal("remove_tab"), removeTab: removeTabPayloadZ }),
   z.object({ type: z.literal("move_tab"), moveTab: moveTabPayloadZ }),
-  z.object({ type: z.literal("split_leaf"), splitLeaf: splitLeafPayloadZ }),
+  z.object({ type: z.literal("split_tab"), splitTab: splitTabPayloadZ }),
   z.object({ type: z.literal("resize_split"), resizeSplit: resizeSplitPayloadZ }),
   z.object({ type: z.literal("set_tab_type"), setTabType: setTabTypePayloadZ }),
   z.object({ type: z.literal("set_tab_args"), setTabArgs: setTabArgsPayloadZ }),
@@ -153,9 +151,9 @@ export const moveTab = (payload: MoveTabPayload): Action => ({
   moveTab: payload,
 });
 
-export const splitLeaf = (payload: SplitLeafPayload): Action => ({
-  type: "split_leaf",
-  splitLeaf: payload,
+export const splitTab = (payload: SplitTabPayload): Action => ({
+  type: "split_tab",
+  splitTab: payload,
 });
 
 export const resizeSplit = (payload: ResizeSplitPayload): Action => ({
@@ -182,7 +180,7 @@ export interface Handlers {
   insertTab: (state: Draft<Panel>, payload: InsertTabPayload) => HandlerResult;
   removeTab: (state: Draft<Panel>, payload: RemoveTabPayload) => HandlerResult;
   moveTab: (state: Draft<Panel>, payload: MoveTabPayload) => HandlerResult;
-  splitLeaf: (state: Draft<Panel>, payload: SplitLeafPayload) => HandlerResult;
+  splitTab: (state: Draft<Panel>, payload: SplitTabPayload) => HandlerResult;
   resizeSplit: (state: Draft<Panel>, payload: ResizeSplitPayload) => HandlerResult;
   setTabType: (state: Draft<Panel>, payload: SetTabTypePayload) => HandlerResult;
   setTabArgs: (state: Draft<Panel>, payload: SetTabArgsPayload) => HandlerResult;
@@ -199,8 +197,8 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.removeTab(state, action.removeTab);
       case "move_tab":
         return handlers.moveTab(state, action.moveTab);
-      case "split_leaf":
-        return handlers.splitLeaf(state, action.splitLeaf);
+      case "split_tab":
+        return handlers.splitTab(state, action.splitTab);
       case "resize_split":
         return handlers.resizeSplit(state, action.resizeSplit);
       case "set_tab_type":

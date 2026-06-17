@@ -10,7 +10,7 @@
 import { type Modals } from "@/modals";
 import { Create, CREATE_LAYOUT_TYPE } from "@/status/Create";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/status/Explorer";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/status/Create";
 export * from "@/status/Explorer";

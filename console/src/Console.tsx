@@ -42,7 +42,6 @@ import { Hauling } from "@/hauling";
 import { Import } from "@/import";
 import { FILE_INGESTERS } from "@/ingesters";
 import { Label } from "@/label";
-import { Layout } from "@/layout";
 import { Layouts } from "@/layouts";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
@@ -50,6 +49,7 @@ import { Modals } from "@/modals";
 import { Ontology } from "@/ontology";
 import { Palette } from "@/palette";
 import { Panel } from "@/panel";
+import { Tabs } from "@/panel/tabs/index";
 import { Project } from "@/project";
 import { Range } from "@/range";
 import { Runtime } from "@/runtime";
@@ -59,7 +59,6 @@ import { SERVICES } from "@/services";
 import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
-import { Tabs } from "@/tabs";
 import { Theme } from "@/theme";
 import { User } from "@/user";
 import { Version } from "@/version";
@@ -197,7 +196,7 @@ export const Console = (): ReactElement => (
   <Errors.OverlayWithoutStore>
     <Provider store={store}>
       <Errors.OverlayWithStore>
-        <Modals.RendererProvider value={MODAL_RENDERERS}>
+        <Modals.RendererContext value={MODAL_RENDERERS}>
           <Tabs.RendererProvider value={TAB_RENDERERS}>
             <Selector.Provider value={SELECTABLES}>
               <Tabs.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
@@ -213,7 +212,7 @@ export const Console = (): ReactElement => (
               </Tabs.ContextMenuProvider>
             </Selector.Provider>
           </Tabs.RendererProvider>
-        </Modals.RendererProvider>
+        </Modals.RendererContext>
       </Errors.OverlayWithStore>
     </Provider>
   </Errors.OverlayWithoutStore>

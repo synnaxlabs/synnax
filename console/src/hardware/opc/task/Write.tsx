@@ -164,6 +164,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Common.Task.wrapForm({
   Properties,
   Form: TaskForm,
+  icon: <Icon.Logo.OPC />,
   schemas: WRITE_SCHEMAS,
   type: "opc_write",
   getInitialValues,

@@ -43,9 +43,9 @@ const replaceNodeAt = (state: Draft<Panel>, pathKey: number, next: Node): boolea
 
 // removeTab mirrors removeTab in core/pkg/service/panel/tree.go, removing a tab
 // and leaving any emptied leaf in place. Collapsing empty leaves is the caller's
-// responsibility (collapseEmptyLeaves), deferred so that a composed action
-// sequence (e.g. SplitLeaf followed by MoveTab) can target a freshly created
-// empty sibling before the tree is tidied.
+// responsibility (collapseEmptyLeaves), deferred so that a split-then-move
+// sequence (MoveTab with an edge location, or SplitTab) can target the freshly
+// created empty sibling before the tree is tidied.
 const removeTab = (n: Draft<Node>, key: string): Tab | null => {
   if (n.variant === "leaf") {
     const idx = n.tabs.findIndex((t) => t.key === key);
@@ -177,7 +177,7 @@ const handlers: Handlers = {
   // The target leaf is resolved before the remove, and empty-leaf collapse is
   // deferred until after the insert, so the destination may be a leaf the
   // source's removal would otherwise collapse away (e.g. the empty sibling
-  // created by a preceding SplitLeaf).
+  // created by the preceding edge split).
   moveTab: (state, payload) => {
     let targetLeaf = payload.targetLeaf;
     if (payload.location != null && payload.location !== "center") {
@@ -202,15 +202,25 @@ const handlers: Handlers = {
     return { inverse: [], targets: [payload.key] };
   },
 
-  splitLeaf: (state, payload) => {
-    const placed = splitLeafAt(
-      state,
-      payload.leaf,
-      payload.location,
-      payload.size ?? 0.5,
-    );
+  // splitTab resolves the tab's own leaf, splits it on the direction-mapped
+  // edge (x -> right, y -> bottom), and moves the tab into the new sibling
+  // pane. A leaf holding a single tab is a no-op (the result would be the tab
+  // beside an empty pane).
+  splitTab: (state, payload) => {
+    const leafPath = tabLeafPath(state.root, payload.key);
+    if (leafPath == null) return NO_OP;
+    const source = walkLeaf(state.root, leafPath);
+    if (source == null || source.tabs.length < 2) return NO_OP;
+    const location = payload.direction === "y" ? "bottom" : "right";
+    const placed = splitLeafAt(state, leafPath, location, 0.5);
     if (placed == null) return NO_OP;
-    return { inverse: [], targets: [String(payload.leaf)] };
+    const removed = removeTab(state.root, payload.key);
+    if (removed == null) return NO_OP;
+    const target = walkLeaf(state.root, placed);
+    if (target == null) return NO_OP;
+    target.tabs.splice(0, 0, removed);
+    collapseEmptyLeaves(state);
+    return { inverse: [], targets: [payload.key] };
   },
 
   resizeSplit: (state, payload) => {

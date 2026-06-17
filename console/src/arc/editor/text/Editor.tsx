@@ -15,7 +15,7 @@ import { EXTENSIONS } from "@/arc/editor/text/placeholderSuggest";
 import { useSelect } from "@/arc/selectors";
 import { setRawText } from "@/arc/slice";
 import { Editor as BaseEditor } from "@/code/Editor";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export const Editor: Tabs.Renderer = ({ layoutKey }) => {
   const state = useSelect(layoutKey);

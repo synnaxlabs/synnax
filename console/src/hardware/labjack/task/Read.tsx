@@ -309,6 +309,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.LabJack />,
   schemas: READ_SCHEMAS,
   type: "labjack_read",
   getInitialValues,

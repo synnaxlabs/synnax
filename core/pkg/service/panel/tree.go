@@ -227,10 +227,10 @@ func firstLeafPathAt(n Node, path int32) (int32, bool) {
 
 // removeTab removes the tab with the given key from the tree, leaving any
 // emptied leaf in place. Collapsing empty leaves is the caller's responsibility
-// (collapseEmptyLeaves), deferred so that a composed action sequence (e.g.
-// SplitLeaf followed by MoveTab) can target a freshly created empty sibling
-// before the tree is tidied. Returns the removed tab and ok=true; ok=false when
-// the tab is not present.
+// (collapseEmptyLeaves), deferred so that a split-then-move sequence (MoveTab
+// with an edge location, or SplitTab) can target the freshly created empty
+// sibling before the tree is tidied. Returns the removed tab and ok=true;
+// ok=false when the tab is not present.
 func removeTab(root *Node, tabKey uuid.UUID) (Tab, bool) {
 	path, idx, ok := findTab(*root, tabKey)
 	if !ok {

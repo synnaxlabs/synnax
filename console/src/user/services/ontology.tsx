@@ -12,7 +12,6 @@ import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { ContextMenu } from "@/components";
-import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { ASSIGN_ROLE_LAYOUT } from "@/user/AssignRole";

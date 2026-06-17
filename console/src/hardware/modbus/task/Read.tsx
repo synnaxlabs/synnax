@@ -238,6 +238,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.Modbus />,
   schemas: READ_SCHEMAS,
   type: "modbus_read",
   getInitialValues,

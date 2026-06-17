@@ -17,7 +17,7 @@ import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export const Overview: Tabs.Renderer = ({ layoutKey }) => (
   <Flex.Box

@@ -13,7 +13,7 @@ import { Content } from "@/table/content/Content";
 import { extract } from "@/table/export";
 import { LAYOUT_TYPE } from "@/table/layout";
 import { Selectable } from "@/table/Selectable";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/table/content/Content";
 export * from "@/table/export";
@@ -22,7 +22,6 @@ export * from "@/table/Selectable";
 export * from "@/table/session/slice";
 export * from "@/table/Toolbar";
 export * from "@/table/useCreate";
-export * from "@/table/useName";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

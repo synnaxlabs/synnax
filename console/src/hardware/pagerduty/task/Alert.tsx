@@ -315,6 +315,7 @@ const onConfigure: Common.Task.OnConfigure<AlertSchemas["config"]> = async (
 export const Alert = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.PagerDuty />,
   schemas: ALERT_SCHEMAS,
   type: ALERT_TYPE,
   getInitialValues,

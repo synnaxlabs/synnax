@@ -16,7 +16,7 @@ import { CSS } from "@/css";
 import { Panel } from "@/panel";
 
 export const Canvas = (props: PropsWithChildren): ReactElement => {
-  const focused = Panel.useSelectIsAnyFocused();
+  const focused = Panel.Session.useSelectIsAnyFocused();
   return (
     <Base.Canvas
       id={CSS.BE("vis", "canvas")}

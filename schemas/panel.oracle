@@ -169,17 +169,15 @@ Panel struct {
         """
     }
 
-    action SplitLeaf {
-        leaf     int32
-        location spatial.Location
-        size     spatial.Decimal??
+    action SplitTab {
+        key       uuid
+        direction spatial.Direction
 
         @doc value """
-            splits the given leaf into a parent split with two children:
-            the original leaf and a new empty leaf. location determines on
-            which side ("left", "right", "top", "bottom") the new empty leaf
-            sits. size is the initial ratio in [0, 1] for the original leaf;
-            defaults to 0.5 when absent.
+            splits the tab with the given key off its leaf into a new sibling
+            pane, moving the tab into it. direction x places the new pane to
+            the right, y to the bottom. The tab must share its leaf with at
+            least one other tab; splitting the only tab in a leaf is a no-op.
         """
     }
 

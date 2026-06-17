@@ -13,7 +13,7 @@ import { Alert, ALERT_LAYOUT, AlertSelectable } from "@/hardware/pagerduty/task/
 import { ALERT_SCHEMAS, ALERT_TYPE } from "@/hardware/pagerduty/task/types";
 import { type Import } from "@/import";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/pagerduty/task/Alert";
 export * from "@/hardware/pagerduty/task/palette";

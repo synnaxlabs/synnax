@@ -263,6 +263,7 @@ export const Read = Common.Task.wrapForm({
   type: "opc_read",
   Properties,
   Form: TaskForm,
+  icon: <Icon.Logo.OPC />,
   schemas: READ_SCHEMAS,
   getInitialValues,
   onConfigure,

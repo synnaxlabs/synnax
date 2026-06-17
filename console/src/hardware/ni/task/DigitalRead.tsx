@@ -158,6 +158,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
 export const DigitalRead = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.NI />,
   schemas: DIGITAL_READ_SCHEMAS,
   getInitialValues,
   onConfigure,

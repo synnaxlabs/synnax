@@ -294,21 +294,6 @@ var _ = Describe("Actions", func() {
 			Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab1, tab3}))
 		})
 
-		It("Should move a tab into the empty side of a freshly split leaf", func() {
-			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
-			p = MustSucceed(panel.SplitLeafPayload{
-				Leaf:     1,
-				Location: spatial.LocationRight,
-				Size:     new(float64(0.5)),
-			}.Handle(p))
-			next := MustSucceed(panel.MoveTabPayload{
-				Key: tab2, TargetLeaf: 3, Index: new(int32(0)),
-			}.Handle(p))
-			split := MustBeOk(asSplit(next.Root))
-			Expect(tabKeys(split.First)).To(Equal([]uuid.UUID{tab1}))
-			Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
-		})
-
 		It("Should collapse the source split when moving the last tab out of a side", func() {
 			p := panel.Panel{Root: splitNode(
 				spatial.DirectionX, 0.5,
@@ -382,80 +367,62 @@ var _ = Describe("Actions", func() {
 		})
 	})
 
-	Describe("SplitLeaf", func() {
-		It("Should split the root leaf into a split with the new empty leaf on the chosen side", func() {
+	Describe("SplitTab", func() {
+		It("Should split the tab off into a new sibling pane to the right for direction x", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
-			next := MustSucceed(panel.SplitLeafPayload{
-				Leaf:     1,
-				Location: spatial.LocationRight,
-				Size:     new(float64(0.4)),
+			next := MustSucceed(panel.SplitTabPayload{
+				Key:       tab2,
+				Direction: spatial.DirectionX,
 			}.Handle(p))
 			split := MustBeOk(asSplit(next.Root))
 			Expect(split.Direction).To(Equal(spatial.DirectionX))
-			Expect(split.Size).To(Equal(0.4))
-			Expect(tabKeys(split.First)).To(Equal([]uuid.UUID{tab1, tab2}))
-			Expect(tabKeys(split.Last)).To(BeEmpty())
+			Expect(tabKeys(split.First)).To(Equal([]uuid.UUID{tab1}))
+			Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
 		})
 
-		It("Should split a nested leaf without disturbing siblings", func() {
+		It("Should split the tab off into a new sibling pane below for direction y", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
+			next := MustSucceed(panel.SplitTabPayload{
+				Key:       tab2,
+				Direction: spatial.DirectionY,
+			}.Handle(p))
+			split := MustBeOk(asSplit(next.Root))
+			Expect(split.Direction).To(Equal(spatial.DirectionY))
+			Expect(tabKeys(split.First)).To(Equal([]uuid.UUID{tab1}))
+			Expect(tabKeys(split.Last)).To(Equal([]uuid.UUID{tab2}))
+		})
+
+		It("Should resolve the tab's own leaf in a nested tree without disturbing siblings", func() {
 			p := panel.Panel{Root: splitNode(
-				spatial.DirectionY, 0.5,
-				leafNode(tab(tab1)),
-				leafNode(tab(tab2)),
+				spatial.DirectionX, 0.5,
+				leafNode(tab(tab1), tab(tab2)),
+				leafNode(tab(tab3)),
 			)}
-			next := MustSucceed(panel.SplitLeafPayload{
-				Leaf:     2,
-				Location: spatial.LocationLeft,
-				Size:     new(float64(0.5)),
+			next := MustSucceed(panel.SplitTabPayload{
+				Key:       tab1,
+				Direction: spatial.DirectionX,
 			}.Handle(p))
 			outer := MustBeOk(asSplit(next.Root))
 			inner := MustBeOk(asSplit(outer.First))
-			Expect(tabKeys(inner.First)).To(BeEmpty())
+			Expect(tabKeys(inner.First)).To(Equal([]uuid.UUID{tab2}))
 			Expect(tabKeys(inner.Last)).To(Equal([]uuid.UUID{tab1}))
-			Expect(tabKeys(outer.Last)).To(Equal([]uuid.UUID{tab2}))
+			Expect(tabKeys(outer.Last)).To(Equal([]uuid.UUID{tab3}))
 		})
 
-		It("Should default size to 0.5 when absent", func() {
+		It("Should no-op when the tab is the only tab in its leaf", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
-			next := MustSucceed(panel.SplitLeafPayload{
-				Leaf:     1,
-				Location: spatial.LocationBottom,
+			next := MustSucceed(panel.SplitTabPayload{
+				Key:       tab1,
+				Direction: spatial.DirectionX,
 			}.Handle(p))
-			split := MustBeOk(asSplit(next.Root))
-			Expect(split.Size).To(Equal(0.5))
-			Expect(split.Direction).To(Equal(spatial.DirectionY))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab1}))
 		})
 
-		DescribeTable("Should error on bad inputs",
-			func(p panel.Panel, payload panel.SplitLeafPayload, expected string) {
-				Expect(payload.Handle(p)).Error().To(MatchError(ContainSubstring(expected)))
-			},
-			Entry("path does not resolve",
-				panel.Panel{Root: leafNode()},
-				panel.SplitLeafPayload{Leaf: 7, Location: spatial.LocationLeft},
-				"invalid node path",
-			),
-			Entry("path resolves to a split",
-				panel.Panel{Root: splitNode(spatial.DirectionX, 0.5, leafNode(), leafNode())},
-				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft},
-				"node at path is not a leaf",
-			),
-			Entry("location does not divide the area",
-				panel.Panel{Root: leafNode()},
-				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationCenter},
-				"invalid split location",
-			),
-			Entry("size above 1",
-				panel.Panel{Root: leafNode(tab(uuid.New()))},
-				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft, Size: new(float64(1.5))},
-				"split size must be in [0, 1]",
-			),
-			Entry("size below 0",
-				panel.Panel{Root: leafNode(tab(uuid.New()))},
-				panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft, Size: new(float64(-0.1))},
-				"split size must be in [0, 1]",
-			),
-		)
+		It("Should return ErrTabNotFound when no tab matches the key", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2))}
+			Expect(panel.SplitTabPayload{Key: uuid.New(), Direction: spatial.DirectionX}.Handle(p)).Error().
+				To(MatchError(ContainSubstring("tab not found in tree")))
+		})
 	})
 
 	Describe("ResizeSplit", func() {

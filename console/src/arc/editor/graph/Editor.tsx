@@ -50,8 +50,8 @@ import {
 import { Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Nav } from "@/nav";
+import { type Tabs } from "@/panel/tabs/index";
 import { type RootState } from "@/store";
-import { type Tabs } from "@/tabs";
 
 export const HAUL_TYPE = "arc_element";
 

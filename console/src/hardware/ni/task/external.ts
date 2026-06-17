@@ -28,7 +28,7 @@ import {
 } from "@/hardware/ni/task/types";
 import { type Import } from "@/import";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/ni/task/AnalogRead";
 export * from "@/hardware/ni/task/AnalogWrite";

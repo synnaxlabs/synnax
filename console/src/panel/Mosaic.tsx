@@ -18,30 +18,25 @@ import {
   Icon,
   Nav,
   Panel,
-  Tabs,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { useTabRenderer } from "@/panel/renderer";
-import { useSelectIsOverlaid, useSelectSelectedTabs } from "@/panel/selectors";
-import { clearOverlaidTab, focusTab } from "@/panel/slice";
+import { Session } from "@/panel/session";
+import { Tabs } from "@/panel/tabs";
 
-const TabName = (
-  props: Omit<Tabs.NameProps, "name" | "onRename" | "tabKey">,
-): ReactElement => {
-  const nameProps = useTabRenderer().useName();
-  const tabKey = Panel.useTabKey("TabName");
-  return <Tabs.DefaultName tabKey={tabKey} {...nameProps} {...props} />;
+const TabName = (props: Panel.MosaicTabNameRenderProps): ReactElement => {
+  const Name = Tabs.useName();
+  return <Name {...props} />;
 };
 
 const Content = (): ReactElement => {
-  const Component = useTabRenderer();
+  const Component = Tabs.useRenderer();
   const dispatch = useDispatch();
-  const isOverlaid = useSelectIsOverlaid();
+  const isOverlaid = Session.useSelectIsOverlaid();
   const handleDialogClose = useCallback(
-    () => dispatch(clearOverlaidTab({})),
+    () => dispatch(Session.clearOverlaidTab({})),
     [dispatch],
   );
   return (
@@ -69,8 +64,7 @@ const Content = (): ReactElement => {
                 <Nav.Bar.Start>
                   <Breadcrumb.Breadcrumb>
                     <Breadcrumb.Segment>
-                      {Component.icon}
-                      <TabName level="h5" selected={false} editable={false} />
+                      <Component.Name level="h5" selected={false} />
                     </Breadcrumb.Segment>
                   </Breadcrumb.Breadcrumb>
                 </Nav.Bar.Start>
@@ -98,9 +92,9 @@ export interface MosaicProps {
 
 export const Mosaic = ({ panelKey }: MosaicProps): ReactElement => {
   const dispatch = useDispatch();
-  const selected = useSelectSelectedTabs();
+  const selected = Session.useSelectSelectedTabs();
   const handleSelect = useCallback(
-    (tabKey: string) => dispatch(focusTab({ tabKey })),
+    (tabKey: string) => dispatch(Session.focusTab({ tabKey })),
     [dispatch],
   );
   return (
@@ -113,7 +107,6 @@ export const Mosaic = ({ panelKey }: MosaicProps): ReactElement => {
       borderColor={5}
       background={0}
       tabName={tabName}
-      contextMenu={}
     >
       {content}
     </Panel.Mosaic>

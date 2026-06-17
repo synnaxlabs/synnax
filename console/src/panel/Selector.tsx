@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import * as Drift from "@synnaxlabs/drift/react";
 import {
   Access,
   CSS as PCSS,
   type Flux,
   type List,
   Menu,
+  Panel,
   Panel as PlutoPanel,
   Tabs,
   Text,
@@ -24,10 +24,8 @@ import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/components";
-import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { useCreatePanel } from "@/panel/useCreateTab";
-import { Project } from "@/project";
+import { Session } from "@/panel/session";
 
 interface PanelContextMenuProps extends Menu.ContextMenuMenuProps {
   getItem: List.GetItem<panel.Key, panel.Panel>;
@@ -85,20 +83,10 @@ const PanelTabName = ({ tabKey, name, ...rest }: Tabs.NameProps): ReactElement =
 
 const renderPanelTabName: Tabs.NameRenderProp = (props) => <PanelTabName {...props} />;
 
-// PanelTabs renders the panel tab strip in the top nav. Source of truth is Flux
-// (panel.useList); per-window active panel state lives in the Redux layout
-// slice. The list is currently unscoped — project / per-user draft scoping in
-// the listing query lands with a follow-up. When there is no active project,
-// the strip renders nothing — the project guard handles that case at the
-// viewport level.
-export const PanelTabs = (): ReactElement | null => {
+export const Selector = (): ReactElement | null => {
   const dispatch = useDispatch();
-  const windowKey = Drift.useSelectWindowKey();
-  const activeProjectKey = Project.useSelectActiveKey();
-  const activeKey = Layout.useSelectActivePanelKey();
+  const selected = Session.useSelectSelected();
   const { data, retrieve, getItem } = PlutoPanel.useList();
-  const createPanel = useCreatePanel();
-  const { update: rename } = PlutoPanel.useRename();
   useEffect(() => retrieve({}), [retrieve]);
 
   const tabs = useMemo<Tabs.Tab[]>(() => {
@@ -113,47 +101,45 @@ export const PanelTabs = (): ReactElement | null => {
 
   const handleSelect = useCallback(
     (key: string) => {
-      if (windowKey == null) return;
-      dispatch(Layout.setActivePanel({ windowKey, key }));
+      dispatch(Session.select({ key }));
     },
-    [dispatch, windowKey],
+    [dispatch],
   );
 
+  const { update: create } = Panel.useCreate();
+  const handleCreate = useCallback(() => {
+    create({ name: "New Panel" });
+  }, []);
+
+  const { update: rename } = PlutoPanel.useRename();
   const handleRename = useCallback(
     (key: string, name: string) => rename({ key, name }),
     [rename],
   );
 
-  // Autoselect: the session's active-panel cursor must point at a real panel for
-  // imperative consumers (the placer, triggers) to work, so when the cursor is
-  // unset or dangling (panel deleted by another client) repoint it at the first
-  // listed panel.
   useEffect(() => {
-    if (windowKey == null || tabs.length === 0) return;
-    if (activeKey != null && tabs.some((t) => t.tabKey === activeKey)) return;
-    dispatch(Layout.setActivePanel({ windowKey, key: tabs[0].tabKey }));
-  }, [windowKey, activeKey, tabs, dispatch]);
+    if (tabs.length === 0) return;
+    if (selected != null && tabs.some((t) => t.tabKey === selected)) return;
+    dispatch(Session.select({ key: tabs[0].tabKey }));
+  }, [selected, tabs, dispatch]);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <PanelContextMenu {...props} getItem={getItem} />,
     [getItem],
   );
 
-  const providerValue = useMemo(
+  const providerValue = useMemo<Tabs.ContextValue>(
     () => ({
       tabs,
-      selected: activeKey ?? undefined,
+      selected: selected ?? undefined,
       closable: true,
       onSelect: handleSelect,
-      onCreate: createPanel,
+      onCreate: handleCreate,
       onRename: handleRename,
       tabName: renderPanelTabName,
     }),
-    [tabs, activeKey, handleSelect, createPanel, handleRename],
+    [tabs, selected, handleSelect, handleCreate, handleRename],
   );
-
-  if (windowKey == null || activeProjectKey == null) return null;
-
   return (
     <Tabs.Provider value={providerValue}>
       <Tabs.Selector size="medium" variant="pill" contextMenu={contextMenu} />

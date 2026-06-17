@@ -18,7 +18,7 @@ import { CREATE_LAYOUT } from "@/status/Create";
 import { Filter } from "@/status/filter";
 import { contextMenu } from "@/status/list/ContextMenu";
 import { Item } from "@/status/list/Item";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";

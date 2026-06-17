@@ -12,35 +12,22 @@ import "@/docs/Docs.css";
 import { Logo } from "@synnaxlabs/media";
 import { Button, Icon, Theming, Triggers } from "@synnaxlabs/pluto";
 import { buildQueryString, URL } from "@synnaxlabs/x";
-import { memo, type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { useSelectLocation } from "@/docs/selectors";
 import { setDocsLocation } from "@/docs/slice";
-import { Layout } from "@/layout";
-import { type Tabs } from "@/tabs";
+import { Tabs } from "@/panel/tabs";
 
 const HOST = new URL({
   host: "docs.synnaxlabs.com",
   port: 443,
   protocol: "https",
 });
-export const LAYOUT_TYPE = "docs";
+export const TAB_TYPE = "docs";
 
-export const LAYOUT: Tabs.BaseState = {
-  key: LAYOUT_TYPE,
-  type: LAYOUT_TYPE,
-  location: "mosaic",
-  name: "Documentation",
-  tab: { editable: false },
-};
-
-/**
- * Renders a layout that loads the documentation site in an iframe. Updates the docs
- * redux store to preserve the location when re-opening the docs.
- */
-export const Docs: Tabs.Renderer = memo(() => {
+export const Docs = () => {
   // Iframes prevent drop interactions on the mosaic, so we need to listen for
   // the mouse being held down and add a class the docs that adds a mask over the frame
   // to allow for drop interactions.
@@ -89,8 +76,13 @@ export const Docs: Tabs.Renderer = memo(() => {
       <iframe src={url.toString()} onLoad={() => setLoaded(true)} />
     </div>
   );
-});
+};
+
 Docs.displayName = "DocsLayoutRenderer";
+Docs.Name = Tabs.createStaticName({
+  name: "Documentation",
+  icon: <Icon.QuestionMark />,
+});
 
 export const OpenButton = (): ReactElement => {
   const placeLayout = Layout.usePlacer();

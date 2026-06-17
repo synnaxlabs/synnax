@@ -315,6 +315,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.LabJack />,
   schemas: WRITE_SCHEMAS,
   type: "labjack_write",
   getInitialValues,

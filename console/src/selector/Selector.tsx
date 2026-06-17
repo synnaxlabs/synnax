@@ -13,7 +13,7 @@ import { Eraser, Flex, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 // SELECTOR_VIEW_TYPE is the view type of the component selector. A selector tab is
 // just a view tab the host seeds into otherwise-empty leaves; picking an item

@@ -13,7 +13,7 @@ import { type Export } from "@/export";
 import { extract } from "@/lineplot/export";
 import { Selectable } from "@/lineplot/Selectable";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/lineplot/addChannelsToActivePlot";
 export * from "@/lineplot/Controls";

@@ -11,11 +11,10 @@ import { Errors, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
-import { Nav } from "@/nav";
+import { type Nav } from "@/nav";
+import { Session } from "@/panel/session";
+import { Tabs } from "@/panel/tabs";
 import { Selector } from "@/selector";
-
-import { useTabRenderer } from "./renderer";
-import { useSelectFocused, useSelectSelected } from "./selectors";
 
 const NoVis = (): ReactElement => {
   const handleCreateNewVisualization = () => {};
@@ -40,7 +39,7 @@ const NoVis = (): ReactElement => {
 };
 
 const Content = (): ReactElement => {
-  const Toolbar = useTabRenderer()?.Toolbar;
+  const Toolbar = Tabs.useRenderer().Toolbar;
   if (Toolbar == null) return <NoVis />;
   return (
     <Errors.SuspenseBoundary>
@@ -50,8 +49,8 @@ const Content = (): ReactElement => {
 };
 
 const Wrapper = () => {
-  const panelKey = useSelectSelected();
-  const tabKey = useSelectFocused();
+  const panelKey = Session.useSelectSelected();
+  const tabKey = Session.useSelectFocused();
   if (panelKey || tabKey == null) return <NoVis />;
   return (
     <Panel.KeyContext value={panelKey}>

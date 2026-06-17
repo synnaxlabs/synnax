@@ -13,7 +13,7 @@ import { extract } from "@/log/export";
 import { LAYOUT_TYPE } from "@/log/layout";
 import { Selectable } from "@/log/Selectable";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/log/content/Content";
 export * from "@/log/export";
@@ -22,7 +22,6 @@ export * from "@/log/Selectable";
 export * from "@/log/session/slice";
 export * from "@/log/toolbar/Toolbar";
 export * from "@/log/useCreate";
-export * from "@/log/useName";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 

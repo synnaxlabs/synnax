@@ -8,14 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Menu, Panel as Base, Panel, Text } from "@synnaxlabs/pluto";
 import { type direction } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/components";
-import { Layout } from "@/layout";
+import { Session } from "@/panel/session";
 
 export interface TabMenuItemsProps {
   panelKey: panel.Key;
@@ -24,38 +23,21 @@ export interface TabMenuItemsProps {
 
 export const TabMenuItems = ({ panelKey, tabKey }: TabMenuItemsProps): ReactElement => {
   const dispatch = useDispatch();
-  const windowKey = useSelectWindowKey();
-  const { dispatch: dispatchPanel } = Base.useDispatch();
+  const dispatchPanel = Base.useSingleDispatch();
   const { data: p } = Base.useRetrieve({ key: panelKey });
-  const leafPath = p != null ? panel.tabLeafPath(p.root, tabKey) : null;
-  const leaf = p != null && leafPath != null ? panel.walkPath(p.root, leafPath) : null;
-  const leafTabCount = leaf?.variant === "leaf" ? leaf.tabs.length : 0;
-  const canSplit = leafTabCount >= 2;
+  const canSplit = p != null && panel.canSplitTab(p.root, tabKey);
   const handleSplit = useCallback(
-    (dir: direction.Direction) => {
-      if (leafPath == null) return;
-      const location = dir === "x" ? "right" : "bottom";
-      dispatchPanel({
-        key: panelKey,
-        actions: [
-          panel.splitLeaf({ leaf: leafPath, location, size: 0.5 }),
-          panel.moveTab({
-            key: tabKey,
-            targetLeaf: panel.childPath(leafPath, "last"),
-            index: 0,
-          }),
-        ],
-      });
-    },
-    [dispatchPanel, panelKey, tabKey, leafPath],
+    (direction: direction.Direction) =>
+      dispatchPanel(panel.splitTab({ key: tabKey, direction })),
+    [dispatchPanel, tabKey],
   );
   const handleClose = useCallback(
-    () => dispatchPanel({ key: panelKey, actions: [panel.removeTab({ key: tabKey })] }),
+    () => dispatchPanel(panel.removeTab({ key: tabKey })),
     [dispatchPanel, panelKey, tabKey],
   );
-  const handleFocus = useCallback(() => {
-    if (windowKey != null) dispatch(Layout.overlay({ windowKey, key: tabKey }));
-  }, [dispatch, windowKey, tabKey]);
+  const handleOverlay = useCallback(() => {
+    dispatch(Session.overlayTab({ tabKey }));
+  }, [dispatch, tabKey]);
   return (
     <>
       <CMenu.RenameItem
@@ -73,7 +55,7 @@ export const TabMenuItems = ({ panelKey, tabKey }: TabMenuItemsProps): ReactElem
         Close
       </Menu.Item>
       <Menu.Divider />
-      <Menu.Item itemKey="focus" onClick={handleFocus} trigger={["Control", "L"]}>
+      <Menu.Item itemKey="focus" onClick={handleOverlay} trigger={["Control", "L"]}>
         <Icon.Focus />
         Focus
       </Menu.Item>
@@ -107,9 +89,6 @@ export const ContextMenu = ({ keys }: ContextMenuProps): ReactElement | null => 
         <CMenu.ReloadConsoleItem />
       </CMenu.Menu>
     );
-  if (tab == null) return null;
-  if (Custom != null)
-    return <Custom layoutKey={content?.resource?.key ?? tabKey} tabKey={tabKey} />;
   return (
     <CMenu.Menu>
       <TabMenuItems panelKey={panelKey} tabKey={tabKey} />

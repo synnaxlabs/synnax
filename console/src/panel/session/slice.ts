@@ -1,8 +1,11 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { panel } from "@synnaxlabs/client";
+import { Drift as BaseDrift } from "@synnaxlabs/drift";
+import { Panel } from "@synnaxlabs/pluto";
 import z from "zod";
 
 import { Drift } from "@/drift";
+import { useMemoSelect } from "@/hooks";
 
 export const stateZ = z.object({
   selectedTabs: panel.tabKeyZ.array().default([]),
@@ -58,7 +61,7 @@ const selectOrCreatePanelState = (
 };
 
 export interface PanelKeyPayload extends Drift.OptionalWindowKeyPayload {
-  panelKey: string;
+  key: string;
 }
 
 export interface TabKeyPayload extends Drift.OptionalWindowKeyPayload {
@@ -74,13 +77,13 @@ const { actions, reducer } = createSlice({
   initialState: sliceStateZ.parse({}),
   reducers: {
     select: Drift.withWindowKey<PanelKeyPayload, SliceState>(
-      (state, { payload: { windowKey, panelKey } }) => {
-        selectOrCreateWindowState(state, windowKey).selected = panelKey;
+      (state, { payload: { windowKey, key } }) => {
+        selectOrCreateWindowState(state, windowKey).selected = key;
       },
     ),
     clear: Drift.withWindowKey<PanelKeyPayload, SliceState>(
-      (state, { payload: { windowKey, panelKey } }) => {
-        delete selectOrCreateWindowState(state, windowKey).panels[panelKey];
+      (state, { payload: { windowKey, key } }) => {
+        delete selectOrCreateWindowState(state, windowKey).panels[key];
       },
     ),
     focusTab: Drift.withWindowKey<TabKeyPayload, SliceState>(
@@ -99,7 +102,7 @@ const { actions, reducer } = createSlice({
       },
     ),
     setSelectedTabs: Drift.withWindowKey<SetSelectedTabsPayload, SliceState>(
-      (state, { payload: { windowKey, panelKey, selectedTabs } }) => {
+      (state, { payload: { windowKey, key: panelKey, selectedTabs } }) => {
         selectOrCreatePanelState(state, windowKey, panelKey).selectedTabs =
           selectedTabs;
       },
@@ -127,3 +130,78 @@ export const MIDDLEWARE = [
   Drift.createInjectWindowKeyMiddleware(clearOverlaidTab),
   Drift.createInjectWindowKeyMiddleware(setSelectedTabs),
 ];
+
+export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+
+export const useSelectSliceState = (): SliceState =>
+  useMemoSelect((state: StoreState) => selectSliceState(state), []);
+
+const selectWindowState = (
+  state: StoreState & BaseDrift.StoreState,
+): WindowState | undefined => {
+  const windowKey = BaseDrift.selectWindowKey(state);
+  if (windowKey == null) return undefined;
+  return selectSliceState(state).windows[windowKey];
+};
+
+export const selectIsOverlaid = (
+  state: StoreState & BaseDrift.StoreState,
+  tabKey: string,
+): boolean => selectWindowState(state)?.overlaidTab == tabKey;
+
+export const useSelectIsOverlaid = (): boolean => {
+  const tabKey = Panel.useTabKey("useSelectIsOverlaid");
+  return useMemoSelect(
+    (state: StoreState & BaseDrift.StoreState) => selectIsOverlaid(state, tabKey),
+    [tabKey],
+  );
+};
+
+export const selectIsFocused = (
+  state: StoreState & BaseDrift.StoreState,
+  tabKey: string,
+): boolean => selectWindowState(state)?.focusedTab == tabKey;
+
+export const useSelectIsFocused = (): boolean => {
+  const tabKey = Panel.useTabKey("useSelectIsFocused");
+  return useMemoSelect(
+    (state: StoreState & BaseDrift.StoreState) => selectIsFocused(state, tabKey),
+    [tabKey],
+  );
+};
+
+export const selectFocused = (
+  state: StoreState & BaseDrift.StoreState,
+): string | undefined => selectWindowState(state)?.focusedTab;
+
+export const useSelectFocused = (): string | undefined =>
+  useMemoSelect((state: StoreState & BaseDrift.StoreState) => selectFocused(state), []);
+
+export const selectSelected = (
+  state: StoreState & BaseDrift.StoreState,
+): string | undefined => selectWindowState(state)?.selected;
+
+export const useSelectSelected = (): string | undefined =>
+  useMemoSelect((state: StoreState & BaseDrift.StoreState) => selectFocused(state), []);
+
+export const selectSelectedTabs = (
+  state: StoreState & BaseDrift.StoreState,
+  panelKey: string,
+): string[] => selectWindowState(state)?.panels[panelKey]?.selectedTabs ?? [];
+
+export const useSelectSelectedTabs = () => {
+  const key = Panel.useKey("useSelectSelected");
+  return useMemoSelect(
+    (state: StoreState & BaseDrift.StoreState) => selectSelectedTabs(state, key),
+    [key],
+  );
+};
+
+export const selectIsAnyFocused = (state: StoreState & BaseDrift.StoreState): boolean =>
+  selectWindowState(state)?.focusedTab != null;
+
+export const useSelectIsAnyFocused = (): boolean =>
+  useMemoSelect(
+    (state: StoreState & BaseDrift.StoreState) => selectIsAnyFocused(state),
+    [],
+  );

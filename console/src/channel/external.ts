@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Channel, type Icon } from "@synnaxlabs/pluto";
+
 import { Calculated } from "@/channel/Calculated";
 import { CALCULATED_LAYOUT_TYPE } from "@/channel/calculatedLayout";
 import { Create, CREATE_LAYOUT_TYPE } from "@/channel/Create";
@@ -19,4 +21,9 @@ export * from "@/channel/Create";
 export const MODALS: Record<string, Modals.Renderer> = {
   [CREATE_LAYOUT_TYPE]: Create,
   [CALCULATED_LAYOUT_TYPE]: Calculated,
+};
+
+export const ICONS: Record<string, Icon.FC> = {
+  [CREATE_LAYOUT_TYPE]: Channel.CreateIcon,
+  [CALCULATED_LAYOUT_TYPE]: Channel.CreateCalculatedIcon
 };

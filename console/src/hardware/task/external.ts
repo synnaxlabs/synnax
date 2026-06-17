@@ -20,7 +20,7 @@ import { TOOLBAR_NAV_DRAWER_ITEM } from "@/hardware/task/Toolbar";
 import { type Import } from "@/import";
 import { Nav } from "@/nav";
 import { type Palette } from "@/palette";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/task/layouts";
 export * from "@/hardware/task/link";

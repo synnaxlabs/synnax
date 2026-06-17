@@ -12,7 +12,7 @@ import { Create, CREATE_LAYOUT_TYPE } from "@/range/Create";
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/range/Explorer";
 import { OVERVIEW_LAYOUT_TYPE } from "@/range/overview/layout";
 import { Overview } from "@/range/overview/Overview";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/range/ContextMenu";
 export * from "@/range/Create";

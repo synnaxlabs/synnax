@@ -14,7 +14,7 @@ import { useCallback } from "react";
 
 import { Layout } from "@/layout";
 import { type Selectable } from "@/selector/Selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   title: string;

@@ -16,10 +16,10 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
 } from "@/hardware/ethercat/task/types";
-import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/ethercat/task/Write";
+import { Write, WriteSelectable } from "@/hardware/ethercat/task/Write";
 import { type Import } from "@/import";
+import { type Tabs } from "@/panel/tabs";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
 
 export * from "@/hardware/ethercat/task/palette";
 export * from "@/hardware/ethercat/task/Read";
@@ -32,8 +32,8 @@ export const EXTRACTORS: Export.Extractors = {
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
-  [READ_TYPE]: Common.Task.createIngester(READ_SCHEMAS.config, READ_LAYOUT),
-  [WRITE_TYPE]: Common.Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
+  [READ_TYPE]: Common.Task.createIngester(READ_SCHEMAS.config),
+  [WRITE_TYPE]: Common.Task.createIngester(WRITE_SCHEMAS.config),
 };
 
 export const TABS: Record<string, Tabs.Renderer> = {
@@ -42,8 +42,3 @@ export const TABS: Record<string, Tabs.Renderer> = {
 };
 
 export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
-
-export const ZERO_LAYOUTS: Record<string, Common.Task.Layout> = {
-  [READ_TYPE]: READ_LAYOUT,
-  [WRITE_TYPE]: WRITE_LAYOUT,
-};

@@ -13,7 +13,7 @@ import { extract } from "@/schematic/imex";
 import { Selectable } from "@/schematic/Selectable";
 import { Tab } from "@/schematic/tab";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/schematic/content/Content";
 export * from "@/schematic/session/slice";

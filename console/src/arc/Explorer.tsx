@@ -10,7 +10,7 @@
 import { Arc } from "@synnaxlabs/pluto";
 
 import { List } from "@/arc/list/List";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export const EXPLORER_LAYOUT_TYPE = "arc_explorer";
 

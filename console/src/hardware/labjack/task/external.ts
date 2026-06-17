@@ -19,7 +19,7 @@ import {
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/labjack/task/Write";
 import { type Import } from "@/import";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/labjack/task/palette";
 export * from "@/hardware/labjack/task/Read";

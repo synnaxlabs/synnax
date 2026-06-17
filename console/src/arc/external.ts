@@ -13,8 +13,8 @@ import { extract } from "@/arc/export";
 import { TYPE } from "@/arc/types";
 import { type Export } from "@/export";
 import { type Modals } from "@/modals";
+import { type Tabs } from "@/panel/tabs/index";
 import { type Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
 
 export * from "@/arc/editor";
 export * from "@/arc/Explorer";

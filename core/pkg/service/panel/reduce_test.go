@@ -59,10 +59,11 @@ var _ = Describe("Reduce", func() {
 		Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{k2, k1}))
 	})
 
-	It("Should route a SplitLeaf action", func() {
+	It("Should route a SplitTab action", func() {
+		k1, k2 := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
-			panel.Panel{Root: leafNode()},
-			panel.NewSplitLeafAction(panel.SplitLeafPayload{Leaf: 1, Location: spatial.LocationLeft}),
+			panel.Panel{Root: leafNode(tab(k1), tab(k2))},
+			panel.NewSplitTabAction(panel.SplitTabPayload{Key: k2, Direction: spatial.DirectionX}),
 		))
 		MustBeOk(asSplit(next.Root))
 	})
@@ -123,7 +124,7 @@ var _ = Describe("Reduce", func() {
 		Entry("InsertTab", panel.ActionTypeInsertTab),
 		Entry("RemoveTab", panel.ActionTypeRemoveTab),
 		Entry("MoveTab", panel.ActionTypeMoveTab),
-		Entry("SplitLeaf", panel.ActionTypeSplitLeaf),
+		Entry("SplitTab", panel.ActionTypeSplitTab),
 		Entry("ResizeSplit", panel.ActionTypeResizeSplit),
 		Entry("SetTabType", panel.ActionTypeSetTabType),
 		Entry("SetTabArgs", panel.ActionTypeSetTabArgs),

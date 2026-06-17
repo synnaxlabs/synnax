@@ -22,8 +22,8 @@ import { TYPE } from "@/arc/types";
 import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { type Tabs } from "@/panel/tabs/index";
 import { Selector } from "@/selector";
-import { type Tabs } from "@/tabs";
 
 export const useLoadRemote = createLoadRemote<arc.Arc>({
   useRetrieve: Arc.useRetrieveObservable,
@@ -40,15 +40,15 @@ export const useLoadRemote = createLoadRemote<arc.Arc>({
     }),
 });
 
-const Loaded: Tabs.Renderer = (props) => {
+const Loaded: Tabs.Content = () => {
   const { layoutKey } = props;
   const mode = useSelectMode(layoutKey) ?? "graph";
   if (mode === "graph") return <Graph.Editor {...props} />;
   return <Text.Editor {...props} />;
 };
 
-export const Editor: Tabs.Renderer = (props) => {
-  const arc = useLoadRemote(props.layoutKey);
+export const Editor = () => {
+  const arc = useLoadRemote();
   if (arc == null) return null;
   return <Loaded {...props} />;
 };

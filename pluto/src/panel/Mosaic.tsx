@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import { type location } from "@synnaxlabs/x";
+import { type location, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
@@ -16,12 +16,24 @@ import { Key } from "@/key";
 import { Mosaic as Base } from "@/mosaic";
 import { useEnsureRetrieved, useSelectRoot, useSingleDispatch } from "@/panel/queries";
 import { Portal } from "@/portal";
-import { type Tabs } from "@/tabs";
+import { Tabs } from "@/tabs";
 
-import { TabKeyContext } from "./Context";
+import { TabKeyContext, useTabKey } from "./Context";
+
+export interface DefaultTabNameProps extends Omit<Tabs.DefaultNameProps, "tabKey"> {}
+
+export const DefaultTabName = (props: DefaultTabNameProps) => {
+  const tabKey = useTabKey("Panel.DefaultTabName");
+  return <Tabs.DefaultName tabKey={tabKey} {...props} />;
+};
 
 export interface MosaicTabRenderProps {
   visible?: boolean;
+}
+
+export interface MosaicTabNameRenderProps {
+  selected: boolean;
+  level: text.Level;
 }
 
 export interface MosaicProps extends Omit<
@@ -38,7 +50,7 @@ export interface MosaicProps extends Omit<
   panelKey: panel.Key;
   selected?: string[];
   children: Component.RenderProp<MosaicTabRenderProps>;
-  tabName?: Component.RenderProp<Tabs.NameProps>;
+  tabName: Component.RenderProp<MosaicTabNameRenderProps>;
   onCreate?: (node: number, location: location.Location) => panel.Tab[];
 }
 
@@ -72,6 +84,7 @@ export const Mosaic = ({
   selected,
   children,
   onSelect,
+  tabName: baseTabName,
   ...rest
 }: MosaicProps): ReactElement | null => {
   useEnsureRetrieved({ key });
@@ -124,7 +137,7 @@ export const Mosaic = ({
     children,
   });
 
-  const renderProp = useCallback<Tabs.RenderProp>(
+  const renderContent = useCallback<Tabs.RenderProp>(
     ({ tabKey }) => {
       const node = portalRef.current.get(tabKey);
       if (node == null) return null;
@@ -135,6 +148,13 @@ export const Mosaic = ({
       );
     },
     [portalRef],
+  );
+
+  const renderTabName = useCallback<Tabs.NameRenderProp>(
+    ({ tabKey, level, selected }) => (
+      <TabKeyContext value={tabKey}>{baseTabName({ level, selected })}</TabKeyContext>
+    ),
+    [baseTabName],
   );
 
   return (
@@ -148,8 +168,9 @@ export const Mosaic = ({
         onSelect={onSelect}
         onClose={handleClose}
         onCreate={handleCreate}
+        tabName={renderTabName}
       >
-        {renderProp}
+        {renderContent}
       </Base.Mosaic>
     </Key.Provider>
   );

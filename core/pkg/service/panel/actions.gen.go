@@ -23,7 +23,7 @@ const (
 	ActionTypeInsertTab   = "insert_tab"
 	ActionTypeRemoveTab   = "remove_tab"
 	ActionTypeMoveTab     = "move_tab"
-	ActionTypeSplitLeaf   = "split_leaf"
+	ActionTypeSplitTab    = "split_tab"
 	ActionTypeResizeSplit = "resize_split"
 	ActionTypeSetTabType  = "set_tab_type"
 	ActionTypeSetTabArgs  = "set_tab_args"
@@ -68,14 +68,13 @@ type MoveTabPayload struct {
 	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
 }
 
-// SplitLeafPayload splits the given leaf into a parent split with two children: the
-// original leaf and a new empty leaf. location determines on which side ("left",
-// "right", "top", "bottom") the new empty leaf sits. size is the initial ratio in [0,
-// 1] for the original leaf; defaults to 0.5 when absent.
-type SplitLeafPayload struct {
-	Leaf     int32            `json:"leaf" msgpack:"leaf"`
-	Location spatial.Location `json:"location" msgpack:"location"`
-	Size     *spatial.Decimal `json:"size,omitempty" msgpack:"size,omitempty"`
+// SplitTabPayload splits the tab with the given key off its leaf into a new sibling
+// pane, moving the tab into it. direction x places the new pane to the right, y to the
+// bottom. The tab must share its leaf with at least one other tab; splitting the only
+// tab in a leaf is a no-op.
+type SplitTabPayload struct {
+	Key       uuid.UUID         `json:"key" msgpack:"key"`
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
 }
 
 // ResizeSplitPayload adjusts the size ratio of a split node. size in [0, 1].
@@ -106,7 +105,7 @@ type Action struct {
 	InsertTab   *InsertTabPayload   `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
 	RemoveTab   *RemoveTabPayload   `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
 	MoveTab     *MoveTabPayload     `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
-	SplitLeaf   *SplitLeafPayload   `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
+	SplitTab    *SplitTabPayload    `json:"split_tab,omitempty" msgpack:"split_tab,omitempty"`
 	ResizeSplit *ResizeSplitPayload `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
 	SetTabType  *SetTabTypePayload  `json:"set_tab_type,omitempty" msgpack:"set_tab_type,omitempty"`
 	SetTabArgs  *SetTabArgsPayload  `json:"set_tab_args,omitempty" msgpack:"set_tab_args,omitempty"`
@@ -141,11 +140,11 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.MoveTab.Handle(state)
-		case ActionTypeSplitLeaf:
-			if a.SplitLeaf == nil {
+		case ActionTypeSplitTab:
+			if a.SplitTab == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SplitLeaf.Handle(state)
+			state, err = a.SplitTab.Handle(state)
 		case ActionTypeResizeSplit:
 			if a.ResizeSplit == nil {
 				return state, union.MissingPayload(a.Type)
@@ -191,9 +190,9 @@ func NewMoveTabAction(p MoveTabPayload) Action {
 	return Action{Type: ActionTypeMoveTab, MoveTab: &p}
 }
 
-// NewSplitLeafAction wraps a SplitLeafPayload in an Action envelope.
-func NewSplitLeafAction(p SplitLeafPayload) Action {
-	return Action{Type: ActionTypeSplitLeaf, SplitLeaf: &p}
+// NewSplitTabAction wraps a SplitTabPayload in an Action envelope.
+func NewSplitTabAction(p SplitTabPayload) Action {
+	return Action{Type: ActionTypeSplitTab, SplitTab: &p}
 }
 
 // NewResizeSplitAction wraps a ResizeSplitPayload in an Action envelope.

@@ -700,6 +700,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.HTTP />,
   schemas: READ_SCHEMAS,
   type: "http_read",
   getInitialValues,

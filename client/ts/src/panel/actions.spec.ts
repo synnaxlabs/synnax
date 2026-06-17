@@ -39,20 +39,6 @@ const tabKeys = (node: panel.Node | undefined): string[] =>
 
 describe("reduceAll", () => {
   describe("moveTab", () => {
-    it("should move a tab into the empty side of a freshly split leaf", () => {
-      const { next } = panel.reduceAll(state(leaf("a", "b")), [
-        panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right", size: 0.5 }),
-        panel.moveTab({
-          key: "b",
-          targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
-          index: 0,
-        }),
-      ]);
-      const root = asSplit(next.root);
-      expect(tabKeys(root.first)).toEqual(["a"]);
-      expect(tabKeys(root.last)).toEqual(["b"]);
-    });
-
     it("should collapse the source split when moving the last tab out of a side", () => {
       const { next } = panel.reduceAll(state(split("x", 0.5, leaf("a"), leaf("b"))), [
         panel.moveTab({ key: "a", targetLeaf: 3, index: 0 }),
@@ -95,6 +81,56 @@ describe("reduceAll", () => {
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual(["b", "a"]);
+    });
+  });
+
+  describe("splitTab", () => {
+    it("should split the tab off into a new sibling pane to the right for direction x", () => {
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.splitTab({ key: "b", direction: "x" }),
+      ]);
+      const root = asSplit(next.root);
+      expect(root.direction).toEqual("x");
+      expect(tabKeys(root.first)).toEqual(["a"]);
+      expect(tabKeys(root.last)).toEqual(["b"]);
+    });
+
+    it("should split the tab off into a new sibling pane below for direction y", () => {
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.splitTab({ key: "b", direction: "y" }),
+      ]);
+      const root = asSplit(next.root);
+      expect(root.direction).toEqual("y");
+      expect(tabKeys(root.first)).toEqual(["a"]);
+      expect(tabKeys(root.last)).toEqual(["b"]);
+    });
+
+    it("should resolve the tab's own leaf in a nested tree", () => {
+      const { next } = panel.reduceAll(
+        state(split("x", 0.5, leaf("a", "b"), leaf("c"))),
+        [panel.splitTab({ key: "a", direction: "x" })],
+      );
+      const root = asSplit(next.root);
+      const firstChild = asSplit(root.first);
+      expect(tabKeys(firstChild.first)).toEqual(["b"]);
+      expect(tabKeys(firstChild.last)).toEqual(["a"]);
+      expect(tabKeys(root.last)).toEqual(["c"]);
+    });
+
+    it("should no-op when the tab is the only tab in its leaf", () => {
+      const prev = state(leaf("a"));
+      const { next } = panel.reduceAll(prev, [
+        panel.splitTab({ key: "a", direction: "x" }),
+      ]);
+      expect(next).toBe(prev);
+    });
+
+    it("should no-op when no tab matches the key", () => {
+      const prev = state(leaf("a", "b"));
+      const { next } = panel.reduceAll(prev, [
+        panel.splitTab({ key: "z", direction: "x" }),
+      ]);
+      expect(next).toBe(prev);
     });
   });
 

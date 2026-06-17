@@ -98,7 +98,7 @@ func (p RemoveTabPayload) Handle(state Panel) (Panel, error) {
 // Handle moves a tab to a position within the panel. The target leaf is resolved
 // before the remove, and empty-leaf collapse is deferred until after the insert,
 // so the destination may be a leaf the source's removal would otherwise collapse
-// away (e.g. the empty sibling created by a preceding SplitLeaf). When Location
+// away (e.g. the empty sibling created by the preceding edge split). When Location
 // is an edge, the target leaf is first split at that location and the tab moves
 // into the new empty sibling leaf; moving a leaf's only tab to an edge of its
 // own leaf is a no-op (the result would be the tab beside an empty pane). A
@@ -150,23 +150,38 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle splits the given leaf into a parent split with two children: the
-// original leaf and a new empty leaf. Location determines which side the new
-// empty leaf occupies. Size is the fraction allocated to the original leaf;
-// defaults to 0.5 when absent. Errors when the leaf path does not resolve,
-// when it resolves to a split, when size is outside [0, 1], or when Location
-// is not one of left/right/top/bottom.
-func (p SplitLeafPayload) Handle(state Panel) (Panel, error) {
-	size := 0.5
-	if p.Size != nil {
-		size = *p.Size
+// Handle splits the tab with the given key off its leaf into a new sibling
+// pane, moving the tab into it. Direction x places the new pane to the right,
+// y to the bottom. A leaf holding a single tab is a no-op (the result would be
+// the tab beside an empty pane). Errors when no tab matches the key.
+func (p SplitTabPayload) Handle(state Panel) (Panel, error) {
+	leafPath, _, ok := findTab(state.Root, p.Key)
+	if !ok {
+		return Panel{}, errTabNotFound
 	}
-	if size < 0 || size > 1 {
-		return Panel{}, errInvalidSize
-	}
-	if err := splitLeafAt(&state.Root, p.Leaf, p.Location, size); err != nil {
+	source, err := walkLeaf(state.Root, leafPath)
+	if err != nil {
 		return Panel{}, err
 	}
+	if len(source.Tabs) < 2 {
+		return state, nil
+	}
+	location := spatial.LocationRight
+	if p.Direction == spatial.DirectionY {
+		location = spatial.LocationBottom
+	}
+	targetLeaf, err := splitLeafForPlacement(&state.Root, leafPath, location)
+	if err != nil {
+		return Panel{}, err
+	}
+	removed, ok := removeTab(&state.Root, p.Key)
+	if !ok {
+		return Panel{}, errTabNotFound
+	}
+	if err := insertTabAt(&state.Root, targetLeaf, removed, 0); err != nil {
+		return Panel{}, err
+	}
+	collapseEmptyLeaves(&state.Root)
 	return state, nil
 }
 

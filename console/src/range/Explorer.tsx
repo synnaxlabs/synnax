@@ -19,7 +19,7 @@ import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item } from "@/range/list/Item";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/panel/tabs/index";
 import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "range_explorer";
