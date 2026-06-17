@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from typing import TypeAlias
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +24,7 @@ from x import telem
 Key: TypeAlias = UUID
 
 
-class Base(BaseModel):
+class Payload(BaseModel):
     """Is a user-defined region of time in the Synnax cluster. Ranges act as a
     method for labeling and categorizing telemetry data within specific time
     periods.
@@ -35,29 +35,17 @@ class Base(BaseModel):
         time_range: Is the temporal extent of the range, defining its start and end
             timestamps.
         color: Is an optional display color for visual identification of the range
-            in user interfaces. When null, the Console assigns one.
-    """
-
-    key: Key = Field(default_factory=uuid4)
-    name: str = Field(min_length=1)
-    time_range: telem.TimeRange
-    color: color_.Color | None = None
-
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class Payload(Base):
-    """Is a range with additional relationships for hierarchical organization
-    and metadata. This is the primary type exposed through the API.
-
-    Attributes:
+            in user interfaces.
         labels: Contains optional labels attached to this range for categorization
             and filtering.
         parent: Is an optional parent range for hierarchical organization. Ranges
             can be nested within other ranges.
     """
 
+    key: Key
+    name: str = Field(min_length=1)
+    time_range: telem.TimeRange
+    color: color_.Color | None = None
     labels: list[label.Label] | None = None
     parent: Payload | None = None
 

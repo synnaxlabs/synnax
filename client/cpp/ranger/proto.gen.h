@@ -24,53 +24,13 @@
 #include "x/cpp/telem/json.gen.h"
 #include "x/cpp/telem/proto.gen.h"
 
-#include "core/pkg/api/ranger/pb/ranger.pb.h"
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
 
 namespace synnax::ranger {
 
 inline std::pair<::service::ranger::pb::Range, x::errors::Error>
-Base::to_proto() const {
+Range::to_proto() const {
     ::service::ranger::pb::Range pb;
-    pb.set_key(this->key.to_string());
-    pb.set_name(this->name);
-    {
-        auto [v, err] = this->time_range.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_time_range() = v;
-    }
-    if (this->color.has_value()) {
-        auto [v, err] = this->color->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_color() = v;
-    }
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<Base, x::errors::Error>
-Base::from_proto(const ::service::ranger::pb::Range &pb) {
-    Base cpp;
-    {
-        auto [v, err] = x::uuid::UUID::parse(pb.key());
-        if (err) return {{}, err};
-        cpp.key = v;
-    }
-    cpp.name = pb.name();
-    {
-        auto [v, err] = ::x::telem::TimeRange::from_proto(pb.time_range());
-        if (err) return {{}, err};
-        cpp.time_range = v;
-    }
-    if (pb.has_color()) {
-        auto [v, err] = ::x::color::Color::from_proto(pb.color());
-        if (err) return {{}, err};
-        cpp.color = v;
-    }
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::api::ranger::pb::Range, x::errors::Error> Range::to_proto() const {
-    ::api::ranger::pb::Range pb;
     pb.set_key(this->key.to_string());
     pb.set_name(this->name);
     {
@@ -97,7 +57,7 @@ inline std::pair<::api::ranger::pb::Range, x::errors::Error> Range::to_proto() c
 }
 
 inline std::pair<Range, x::errors::Error>
-Range::from_proto(const ::api::ranger::pb::Range &pb) {
+Range::from_proto(const ::service::ranger::pb::Range &pb) {
     Range cpp;
     {
         auto [v, err] = x::uuid::UUID::parse(pb.key());

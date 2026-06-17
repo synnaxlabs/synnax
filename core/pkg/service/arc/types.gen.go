@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/validate"
 )
 

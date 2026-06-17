@@ -70,16 +70,19 @@ Status struct<Details?, V extends Variant = Variant> {
 }
 
 New struct<Details?, V extends Variant = Variant> extends Status<Details, V> {
-    key  string?          {
+    key         string?          {
         @doc value """
             is an optional key for the status. If not provided, one will
             be automatically generated.
         """
     }
-    name string?          {
+    name        string?          {
         @doc value "is an optional name for the status."
     }
-    time telem.TimeStamp? {
+    description string?          {
+        @doc value "is an optional detailed description providing additional context."
+    }
+    time        telem.TimeStamp? {
         @doc value "is an optional timestamp. Defaults to the current time."
     }
 

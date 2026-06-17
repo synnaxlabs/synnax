@@ -14,44 +14,31 @@
 #include <string>
 #include <vector>
 
+#include "client/cpp/label/json.gen.h"
 #include "client/cpp/ranger/types.gen.h"
 #include "x/cpp/color/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/label/json.gen.h"
 #include "x/cpp/telem/json.gen.h"
 
 namespace synnax::ranger {
 
-inline Base Base::parse(x::json::Parser parser) {
-    return Base{
+inline Range Range::parse(x::json::Parser parser) {
+    return Range{
         .key = parser.field<Key>("key"),
         .name = parser.field<std::string>("name"),
         .time_range = parser.field<::x::telem::TimeRange>("time_range"),
         .color = parser.field<std::optional<::x::color::Color>>("color"),
+        .labels = parser.field<std::vector<::synnax::label::Label>>("labels"),
+        .parent = parser.field<x::mem::indirect<Range>>("parent"),
     };
 }
 
-inline x::json::json Base::to_json() const {
+inline x::json::json Range::to_json() const {
     x::json::json j;
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["time_range"] = this->time_range.to_json();
     if (this->color.has_value()) j["color"] = this->color->to_json();
-    return j;
-}
-
-inline Range Range::parse(x::json::Parser parser) {
-    Range result;
-    static_cast<Base &>(result) = Base::parse(parser);
-    result.labels = parser.field<std::vector<::x::label::Label>>("labels");
-    result.parent = parser.field<x::mem::indirect<Range>>("parent");
-    return result;
-}
-
-inline x::json::json Range::to_json() const {
-    x::json::json j;
-    for (auto &[k, v]: Base::to_json().items())
-        j[k] = v;
     j["labels"] = x::json::to_array(this->labels);
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
     return j;

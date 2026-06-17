@@ -58,12 +58,12 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:      "test_2",
 				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-				Color: color.Color{
+				Color: new(color.Color{
 					R: 8,
 					G: 9,
 					B: 10,
 					A: 10.5,
-				},
+				}),
 			}),
 		)
 	})
@@ -133,12 +133,12 @@ func FuzzDecodeRange(f *testing.F) {
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:      "test_2",
 			TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-			Color: color.Color{
+			Color: new(color.Color{
 				R: 8,
 				G: 9,
 				B: 10,
 				A: 10.5,
-			},
+			}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

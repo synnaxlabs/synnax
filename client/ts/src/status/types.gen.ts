@@ -108,8 +108,13 @@ export const newZ = <
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
 >({ details, v }: Partial<NewSchemas<Details, V>> = {}) =>
-  statusZ({ details, v }).partial({ key: true, name: true, time: true });
+  statusZ({ details, v }).partial({
+    key: true,
+    name: true,
+    description: true,
+    time: true,
+  });
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
-> = optional.Optional<Status<Details, V>, "key" | "name" | "time">;
+> = optional.Optional<Status<Details, V>, "key" | "name" | "description" | "time">;

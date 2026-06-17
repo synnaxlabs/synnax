@@ -11,12 +11,12 @@
 
 syntax = "proto3";
 
-package x.status.pb;
+package service.status.pb;
 
+import "core/pkg/service/label/pb/label.proto";
 import "google/protobuf/any.proto";
-import "x/go/label/pb/label.proto";
 
-option go_package = "github.com/synnaxlabs/x/status/pb";
+option go_package = "github.com/synnaxlabs/synnax/pkg/service/status/pb";
 
 // Variant is the severity or type of a status message.
 enum Variant {
@@ -28,12 +28,13 @@ enum Variant {
   VARIANT_DISABLED = 5;
 }
 message LabelList {
-  repeated .x.label.pb.Label values = 1;
+  repeated .service.label.pb.Label values = 1;
 }
 
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
-// component-specific details.
+// component-specific details. A status is uniquely identified by a key and may carry a
+// human-readable name and labels for categorization and filtering.
 message Status {
   // key is a unique identifier for this status, auto-generated if not provided.
   string key = 1;
