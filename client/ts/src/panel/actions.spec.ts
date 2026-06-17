@@ -208,14 +208,55 @@ describe("reduceAll", () => {
     });
   });
 
-  describe("setTabContent", () => {
-    it("should swap the tab's type and args in place without changing its position", () => {
-      const args = { resourceKey: "lp-1" };
+  describe("setTabType", () => {
+    it("should replace the tab's type in place, leaving its args untouched", () => {
       const { next } = panel.reduceAll(state(leaf("a", "b")), [
-        panel.setTabContent({ key: "a", type: "lineplot", args }),
+        panel.setTabType({ key: "a", type: "lineplot" }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual(["a", "b"]);
+      const tab = panel.findTab(next.root, "a");
+      expect(tab?.type).toEqual("lineplot");
+      expect(tab?.args).toEqual({});
+    });
+
+    it("should be a no-op when no tab matches the key", () => {
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.setTabType({ key: "missing", type: "lineplot" }),
+      ]);
+      expect(panel.findTab(next.root, "a")?.type).toEqual("selector");
+    });
+  });
+
+  describe("setTabArgs", () => {
+    it("should replace the tab's args in place, leaving its type untouched", () => {
+      const args = { resourceKey: "lp-1" };
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.setTabArgs({ key: "a", args }),
+      ]);
+      expect(next.root.variant).toEqual("leaf");
+      expect(tabKeys(next.root)).toEqual(["a", "b"]);
+      const tab = panel.findTab(next.root, "a");
+      expect(tab?.type).toEqual("selector");
+      expect(tab?.args).toEqual(args);
+    });
+
+    it("should be a no-op when no tab matches the key", () => {
+      const args = { resourceKey: "lp-1" };
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.setTabArgs({ key: "missing", args }),
+      ]);
+      expect(panel.findTab(next.root, "a")?.args).toEqual({});
+    });
+  });
+
+  describe("setTabType + setTabArgs", () => {
+    it("should swap both type and args when batched in one dispatch", () => {
+      const args = { resourceKey: "lp-1" };
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.setTabType({ key: "a", type: "lineplot" }),
+        panel.setTabArgs({ key: "a", args }),
+      ]);
       const tab = panel.findTab(next.root, "a");
       expect(tab?.type).toEqual("lineplot");
       expect(tab?.args).toEqual(args);

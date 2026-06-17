@@ -24,10 +24,9 @@ import { StartStopButton } from "@/hardware/common/task/controls/StartStopButton
 import { Status } from "@/hardware/common/task/controls/Status";
 import { useKey } from "@/hardware/common/task/useKey";
 import { useStatus } from "@/hardware/common/task/useStatus";
-import { Layout } from "@/layout";
+import { Panel } from "@/panel";
 
 export interface ControlsProps extends Flex.BoxProps {
-  layoutKey: string;
   formStatus: Flux.Result<undefined>["status"];
   onConfigure: () => void;
 }
@@ -38,19 +37,13 @@ const EXCLUDE_STATUS_VARIANTS: status.Variant[] = ["loading", "disabled"] as con
  * Task controls component that wires up the presentational controls
  * with task-specific data from Form context.
  */
-export const Controls = ({
-  layoutKey,
-  onConfigure,
-  formStatus,
-  ...props
-}: ControlsProps) => {
+export const Controls = ({ onConfigure, formStatus, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const handleError = BaseStatus.useErrorHandler();
   const client = Synnax.use();
   const key = useKey();
-  const { tabKey: activeTabKey, blurred } = Layout.useSelectActiveTabState();
-  const hasTriggers = activeTabKey != null && !blurred;
+  const hasTriggers = Panel.useSelectIsFocused();
 
   const [expanded, setExpanded] = useState(false);
 

@@ -192,10 +192,9 @@ func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle replaces the args of the tab with the given key, swapping its content in
-// place without changing the tab's identity or position. Errors when no tab matches
-// the key.
-func (p SetTabContentPayload) Handle(state Panel) (Panel, error) {
+// Handle replaces the renderer type of the tab with the given key, leaving its args
+// untouched. Errors when no tab matches the key.
+func (p SetTabTypePayload) Handle(state Panel) (Panel, error) {
 	path, idx, ok := findTab(state.Root, p.Key)
 	if !ok {
 		return Panel{}, errTabNotFound
@@ -203,6 +202,23 @@ func (p SetTabContentPayload) Handle(state Panel) (Panel, error) {
 	if err := updateLeafAt(&state.Root, path, func(leaf Leaf) (Leaf, error) {
 		tabs := append([]Tab{}, leaf.Tabs...)
 		tabs[idx].Type = p.Type
+		leaf.Tabs = tabs
+		return leaf, nil
+	}); err != nil {
+		return Panel{}, err
+	}
+	return state, nil
+}
+
+// Handle replaces the args of the tab with the given key, leaving its type untouched.
+// Errors when no tab matches the key.
+func (p SetTabArgsPayload) Handle(state Panel) (Panel, error) {
+	path, idx, ok := findTab(state.Root, p.Key)
+	if !ok {
+		return Panel{}, errTabNotFound
+	}
+	if err := updateLeafAt(&state.Root, path, func(leaf Leaf) (Leaf, error) {
+		tabs := append([]Tab{}, leaf.Tabs...)
 		tabs[idx].Args = p.Args
 		leaf.Tabs = tabs
 		return leaf, nil

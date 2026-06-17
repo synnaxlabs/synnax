@@ -30,17 +30,10 @@ import {
 } from "@/hardware/ni/task/types";
 import { Selector } from "@/selector";
 
-export const ANALOG_WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: ANALOG_WRITE_TYPE,
-  name: ZERO_ANALOG_WRITE_PAYLOAD.name,
-  icon: "Logo.NI",
-};
-
 export const AnalogWriteSelectable = Selector.createSimpleItem({
   title: "NI Analog Write Task",
   icon: <Icon.Logo.NI />,
-  layout: ANALOG_WRITE_LAYOUT,
+  type: ANALOG_WRITE_TYPE,
 });
 
 const Properties = () => (

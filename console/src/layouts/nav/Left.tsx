@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
 import { BOTTOM_DRAWER_ITEM, LEFT_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
+import { Nav } from "@/nav";
 import { Palette } from "@/palette";
 
 const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
@@ -28,12 +29,12 @@ const SearchAndCommandPalette = (): ReactElement => (
 export const Left = (): ReactElement => {
   const { blurred } = Layout.useSelectActiveTabState();
   return (
-    <Layout.Nav.LeftBar
+    <Nav.LeftBar
       items={LEFT_DRAWER_ITEMS}
       bottomItem={BOTTOM_DRAWER_ITEM}
       enabled={!blurred}
     >
       <SearchAndCommandPalette />
-    </Layout.Nav.LeftBar>
+    </Nav.LeftBar>
   );
 };

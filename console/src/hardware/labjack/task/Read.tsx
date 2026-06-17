@@ -31,17 +31,10 @@ import {
 } from "@/hardware/labjack/task/types";
 import { Selector } from "@/selector";
 
-export const READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.LabJack",
-};
-
 export const ReadSelectable = Selector.createSimpleItem({
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  layout: READ_LAYOUT,
+  type: READ_TYPE,
 });
 
 const Properties = () => (

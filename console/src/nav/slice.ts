@@ -128,6 +128,12 @@ const { actions, reducer } = createSlice({
     resizeBottom: (state, { payload }: PayloadAction<number>) => {
       state.bottom.size = payload;
     },
+    hideAll: (state) => {
+      state.left.selected = undefined;
+      state.left.hover = false;
+      state.bottom.visible = false;
+      state.bottom.hover = false;
+    },
   },
 });
 
@@ -144,6 +150,7 @@ export const {
   startBottomHover,
   stopBottomHover,
   resizeBottom,
+  hideAll,
 } = actions;
 
 export { reducer };

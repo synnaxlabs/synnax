@@ -31,42 +31,29 @@ export const Item = ({ title, icon, ...rest }: ItemProps) => (
 export interface SimpleItemProps {
   title: string;
   icon: Icon.ReactElement;
-  layout: Tabs.BaseState;
   useVisible?: () => boolean;
+  type: string;
 }
 
 export const createSimpleItem = ({
   title,
   icon,
-  layout,
   useVisible,
+  type,
 }: SimpleItemProps): Selectable => {
   const C: Selectable = ({ tabKey }) => {
     const visible = useVisible?.() ?? true;
-    const place = Layout.usePlacer();
-    const panelKey = Layout.useSelectActivePanelKey();
-    const { dispatch } = Base.useDispatch();
-    // In a panel the item replaces its tab with the chosen view (the layout's
-    // type selects the renderer, its args/name seed the view); otherwise it
-    // places the layout as before (e.g. a window form).
+    const dispatch = Base.useSingleDispatch();
     const handleClick = useCallback(() => {
-      if (tabKey != null && panelKey != null)
-        dispatch({
-          key: panelKey,
-          actions: [
-            panel.setTabContent({
-              key: tabKey,
-              type: layout.type,
-              args: { ...(layout.args as record.Unknown), name: layout.name },
-            }),
-          ],
-        });
-      else place(layout);
-    }, [tabKey, panelKey, dispatch, place]);
+      dispatch([
+        panel.setTabType({ key: tabKey, type }),
+        panel.setTabArgs({ key: tabKey, args: { name: title } }),
+      ]);
+    }, [dispatch]);
     if (!visible) return null;
     return <Item title={title} icon={icon} onClick={handleClick} />;
   };
-  C.type = layout.type;
+  C.type = type;
   C.useVisible = useVisible;
   return C;
 };

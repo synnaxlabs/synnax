@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
+import { Nav } from "@/nav";
 import { Ontology } from "@/ontology";
 import { CREATE_LAYOUT } from "@/project/Create";
 
@@ -58,7 +59,7 @@ const EmptyContent = () => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "project",
   icon: <Icon.Project />,
   content: <Content />,

@@ -14,7 +14,7 @@ import { type ReactElement, type ReactNode, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Bar } from "@/nav/Bar";
-import { type NavDrawerItem } from "@/nav/item";
+import { type DrawerItem } from "@/nav/item";
 import { Menu } from "@/nav/Menu";
 import { useSelectBottom, useSelectLeft } from "@/nav/selectors";
 import {
@@ -32,8 +32,8 @@ import {
 } from "@/nav/slice";
 
 export interface LeftBarProps {
-  items: NavDrawerItem[];
-  bottomItem: NavDrawerItem;
+  items: DrawerItem[];
+  bottomItem: DrawerItem;
   enabled?: boolean;
   children?: ReactNode;
 }

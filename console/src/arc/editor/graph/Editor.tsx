@@ -49,7 +49,7 @@ import {
 } from "@/arc/slice";
 import { Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
-import { Layout } from "@/layout";
+import { Nav } from "@/nav";
 import { type RootState } from "@/store";
 import { type Tabs } from "@/tabs";
 
@@ -218,7 +218,7 @@ export const Editor: Tabs.Renderer = ({ layoutKey, visible, active }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (!state.graph.editable) return;
-    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+    dispatch(Nav.setBottomVisible(true));
   }, [state.graph.editable, dispatch]);
 
   const handleViewportModeChange = useCallback(

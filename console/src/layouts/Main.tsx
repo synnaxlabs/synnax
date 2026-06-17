@@ -17,10 +17,10 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
-import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
-import { Nav } from "@/layouts/nav";
+import { Nav as AppNav } from "@/layouts/nav";
 import { Notifications } from "@/layouts/Notifications";
+import { Nav } from "@/nav";
 import { useTriggers } from "@/layouts/useTriggers";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
@@ -70,20 +70,20 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Auth.Guard>
       <Project.Guard>
-        <Nav.Top />
+        <AppNav.Top />
         <Flex.Box
           x
           gap="tiny"
           grow
           style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
         >
-          <Nav.Left />
+          <AppNav.Left />
           <Flex.Box gap="tiny" grow style={{ width: 0 }}>
             <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
-              <Layout.Nav.LeftDrawer items={Nav.LEFT_DRAWER_ITEMS} />
+              <Nav.LeftDrawer items={AppNav.LEFT_DRAWER_ITEMS} />
               <Mosaic />
             </Flex.Box>
-            <Layout.Nav.BottomDrawer item={Nav.BOTTOM_DRAWER_ITEM} />
+            <Nav.BottomDrawer item={AppNav.BOTTOM_DRAWER_ITEM} />
           </Flex.Box>
         </Flex.Box>
       </Project.Guard>

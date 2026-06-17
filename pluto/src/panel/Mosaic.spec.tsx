@@ -276,7 +276,7 @@
 
 //       const next = { marker: uuid.create() };
 //       await client.panels.dispatch(p.key, "", [
-//         panel.setTabContent({ key: t.key, type: "docs", args: next }),
+//         panel.setTabArgs({ key: t.key, args: next }),
 //       ]);
 
 //       await waitFor(

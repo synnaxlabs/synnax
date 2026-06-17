@@ -99,17 +99,26 @@ export const resizeSplitPayloadZ = z.object({
 export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;
 
 /**
- * SetTabContent replaces the type and args of the tab with the given key, swapping its
- * content in place without changing the tab's identity or position. Used
- * by the selector to replace itself once the user picks a component.
+ * SetTabType replaces the renderer type of the tab with the given key, leaving its
+ * args untouched and without changing the tab's identity or position.
  */
-export const setTabContentPayloadZ = z.object({
+export const setTabTypePayloadZ = z.object({
   key: z.uuid(),
   type: z.string(),
+});
+
+export type SetTabTypePayload = z.infer<typeof setTabTypePayloadZ>;
+
+/**
+ * SetTabArgs replaces the args of the tab with the given key, leaving its type
+ * untouched and without changing the tab's identity or position.
+ */
+export const setTabArgsPayloadZ = z.object({
+  key: z.uuid(),
   args: caseconv.preserveCase(record.nullishToEmpty()),
 });
 
-export type SetTabContentPayload = z.infer<typeof setTabContentPayloadZ>;
+export type SetTabArgsPayload = z.infer<typeof setTabArgsPayloadZ>;
 
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
@@ -118,10 +127,8 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("move_tab"), moveTab: moveTabPayloadZ }),
   z.object({ type: z.literal("split_leaf"), splitLeaf: splitLeafPayloadZ }),
   z.object({ type: z.literal("resize_split"), resizeSplit: resizeSplitPayloadZ }),
-  z.object({
-    type: z.literal("set_tab_content"),
-    setTabContent: setTabContentPayloadZ,
-  }),
+  z.object({ type: z.literal("set_tab_type"), setTabType: setTabTypePayloadZ }),
+  z.object({ type: z.literal("set_tab_args"), setTabArgs: setTabArgsPayloadZ }),
 ]);
 
 export type Action = z.infer<typeof actionZ>;
@@ -156,9 +163,14 @@ export const resizeSplit = (payload: ResizeSplitPayload): Action => ({
   resizeSplit: payload,
 });
 
-export const setTabContent = (payload: SetTabContentPayload): Action => ({
-  type: "set_tab_content",
-  setTabContent: payload,
+export const setTabType = (payload: SetTabTypePayload): Action => ({
+  type: "set_tab_type",
+  setTabType: payload,
+});
+
+export const setTabArgs = (payload: SetTabArgsPayload): Action => ({
+  type: "set_tab_args",
+  setTabArgs: payload,
 });
 
 export type HandlerResult = actions.HandlerResult<Action>;
@@ -172,7 +184,8 @@ export interface Handlers {
   moveTab: (state: Draft<Panel>, payload: MoveTabPayload) => HandlerResult;
   splitLeaf: (state: Draft<Panel>, payload: SplitLeafPayload) => HandlerResult;
   resizeSplit: (state: Draft<Panel>, payload: ResizeSplitPayload) => HandlerResult;
-  setTabContent: (state: Draft<Panel>, payload: SetTabContentPayload) => HandlerResult;
+  setTabType: (state: Draft<Panel>, payload: SetTabTypePayload) => HandlerResult;
+  setTabArgs: (state: Draft<Panel>, payload: SetTabArgsPayload) => HandlerResult;
 }
 
 export const createReduceAll = (handlers: Handlers) =>
@@ -190,8 +203,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.splitLeaf(state, action.splitLeaf);
       case "resize_split":
         return handlers.resizeSplit(state, action.resizeSplit);
-      case "set_tab_content":
-        return handlers.setTabContent(state, action.setTabContent);
+      case "set_tab_type":
+        return handlers.setTabType(state, action.setTabType);
+      case "set_tab_args":
+        return handlers.setTabArgs(state, action.setTabArgs);
     }
   });
 

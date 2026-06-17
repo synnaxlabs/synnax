@@ -29,6 +29,7 @@ import { Arc } from "@/arc";
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Code } from "@/code";
+import { Color as ColorState } from "@/color";
 import { COMMANDS } from "@/commands";
 import { CSV } from "@/csv";
 import { Docs } from "@/docs";
@@ -59,6 +60,7 @@ import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
 import { Tabs } from "@/tabs";
+import { Theme } from "@/theme";
 import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -137,10 +139,10 @@ const useHaulState: state.PureUse<Haul.DraggingState> = () => {
 };
 
 const useColorContextState: state.PureUse<Color.ContextState> = () => {
-  const colorContext = Layout.useSelectColorContext();
+  const colorContext = ColorState.useSelectContext();
   const dispatch = useDispatch();
   const onColorContextChange = useCallback(
-    (state: Color.ContextState) => dispatch(Layout.setColorContext({ state })),
+    (state: Color.ContextState) => dispatch(ColorState.setContext(state)),
     [dispatch],
   );
   return [colorContext, onColorContextChange];
@@ -166,6 +168,7 @@ const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
   const cluster = Cluster.useSelect();
+  const theming = Theme.useProvider();
   useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
   return (
@@ -174,6 +177,7 @@ const MainUnderContext = (): ReactElement => {
       connParams={cluster ?? undefined}
       workerURL={WorkerURL}
       triggers={TRIGGERS_PROVIDER_PROPS}
+      theming={theming}
       haul={HAUL_PROPS}
       color={COLOR_PROPS}
       alamos={ALAMOS_PROPS}

@@ -8,21 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@synnaxlabs/pluto";
-import { type ComponentType } from "react";
+import { type ComponentType, type FC } from "react";
 
-/** The props passed to a tab {@link Renderer}. */
-export interface RendererProps {
-  /** The unique key of the tab layout. */
-  layoutKey: string;
-  /** Closes the tab. */
-  onClose: (result?: unknown) => void;
-  visible: boolean;
-  focused: boolean;
-  active: boolean;
-}
-
-/** A React component that renders the content of a tab of a particular registered type. */
-export interface Renderer extends ComponentType<RendererProps> {}
+export interface Renderer extends FC {}
 
 export interface Renderers extends Record<string, Renderer> {}
 

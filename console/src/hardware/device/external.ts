@@ -14,8 +14,8 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { type Layout } from "@/layout";
 import { type Modals } from "@/modals";
+import { Nav } from "@/nav";
 import { type Palette } from "@/palette";
 
 export * from "@/hardware/device/link";
@@ -39,4 +39,4 @@ export const MODALS: Record<string, Modals.Renderer> = {
   ...OPC.Device.MODALS,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR];
+export const NAV_DRAWER_ITEMS: Nav.DrawerItem[] = [TOOLBAR];

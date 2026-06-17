@@ -20,6 +20,7 @@ import { type deep, type record } from "@synnaxlabs/x";
 
 import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
+import { Color } from "@/color";
 import { Docs } from "@/docs";
 import { Hauling } from "@/hauling";
 import { Layout } from "@/layout";
@@ -33,6 +34,7 @@ import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Table } from "@/table";
+import { Theme } from "@/theme";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
@@ -41,27 +43,31 @@ const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootSta
   Hauling.SLICE_NAME,
   "nav.left.hover",
   "nav.bottom.hover",
+  "theme.themes",
 ];
 
 const ZERO_STATE: RootState = {
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
   [Hauling.SLICE_NAME]: Hauling.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-  [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
+  [LinePlot.Session.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+  [Theme.SLICE_NAME]: Theme.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
   [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Color.SLICE_NAME]: Color.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
   [Hauling.SLICE_NAME]: Hauling.reducer,
@@ -73,12 +79,14 @@ const reducer = combineReducers({
   [Schematic.SLICE_NAME]: Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
+  [Theme.SLICE_NAME]: Theme.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Arc.SLICE_NAME]: Arc.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
   [Cluster.SLICE_NAME]: Cluster.SliceState;
+  [Color.SLICE_NAME]: Color.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
   [Hauling.SLICE_NAME]: Hauling.SliceState;
@@ -90,12 +98,14 @@ export interface RootState {
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
+  [Theme.SLICE_NAME]: Theme.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Arc.SLICE_NAME]: Arc.SliceState;
 }
 
 export type RootAction =
   | Cluster.Action
+  | Color.Action
   | Docs.Action
   | Drift.Action
   | Hauling.Action
@@ -107,6 +117,7 @@ export type RootAction =
   | Schematic.Action
   | Status.Action
   | Table.Action
+  | Theme.Action
   | Project.Action
   | Arc.Action;
 

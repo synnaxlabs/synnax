@@ -19,13 +19,14 @@ import (
 )
 
 const (
-	ActionTypeRename        = "rename"
-	ActionTypeInsertTab     = "insert_tab"
-	ActionTypeRemoveTab     = "remove_tab"
-	ActionTypeMoveTab       = "move_tab"
-	ActionTypeSplitLeaf     = "split_leaf"
-	ActionTypeResizeSplit   = "resize_split"
-	ActionTypeSetTabContent = "set_tab_content"
+	ActionTypeRename      = "rename"
+	ActionTypeInsertTab   = "insert_tab"
+	ActionTypeRemoveTab   = "remove_tab"
+	ActionTypeMoveTab     = "move_tab"
+	ActionTypeSplitLeaf   = "split_leaf"
+	ActionTypeResizeSplit = "resize_split"
+	ActionTypeSetTabType  = "set_tab_type"
+	ActionTypeSetTabArgs  = "set_tab_args"
 )
 
 // RenamePayload renames the panel. When the panel is owned by a user (draft), the
@@ -83,26 +84,32 @@ type ResizeSplitPayload struct {
 	Size  spatial.Decimal `json:"size" msgpack:"size"`
 }
 
-// SetTabContentPayload replaces the type and args of the tab with the given key,
-// swapping its content in place without changing the tab's identity or position. Used
-// by the selector to replace itself once the user picks a component.
-type SetTabContentPayload struct {
+// SetTabTypePayload replaces the renderer type of the tab with the given key, leaving
+// its args untouched and without changing the tab's identity or position.
+type SetTabTypePayload struct {
+	Key  uuid.UUID `json:"key" msgpack:"key"`
+	Type string    `json:"type" msgpack:"type"`
+}
+
+// SetTabArgsPayload replaces the args of the tab with the given key, leaving its type
+// untouched and without changing the tab's identity or position.
+type SetTabArgsPayload struct {
 	Key  uuid.UUID           `json:"key" msgpack:"key"`
-	Type string              `json:"type" msgpack:"type"`
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
 // Action is a discriminated union for all Panel mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type          string                `json:"type" msgpack:"type"`
-	Rename        *RenamePayload        `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	InsertTab     *InsertTabPayload     `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
-	RemoveTab     *RemoveTabPayload     `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
-	MoveTab       *MoveTabPayload       `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
-	SplitLeaf     *SplitLeafPayload     `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
-	ResizeSplit   *ResizeSplitPayload   `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
-	SetTabContent *SetTabContentPayload `json:"set_tab_content,omitempty" msgpack:"set_tab_content,omitempty"`
+	Type        string              `json:"type" msgpack:"type"`
+	Rename      *RenamePayload      `json:"rename,omitempty" msgpack:"rename,omitempty"`
+	InsertTab   *InsertTabPayload   `json:"insert_tab,omitempty" msgpack:"insert_tab,omitempty"`
+	RemoveTab   *RemoveTabPayload   `json:"remove_tab,omitempty" msgpack:"remove_tab,omitempty"`
+	MoveTab     *MoveTabPayload     `json:"move_tab,omitempty" msgpack:"move_tab,omitempty"`
+	SplitLeaf   *SplitLeafPayload   `json:"split_leaf,omitempty" msgpack:"split_leaf,omitempty"`
+	ResizeSplit *ResizeSplitPayload `json:"resize_split,omitempty" msgpack:"resize_split,omitempty"`
+	SetTabType  *SetTabTypePayload  `json:"set_tab_type,omitempty" msgpack:"set_tab_type,omitempty"`
+	SetTabArgs  *SetTabArgsPayload  `json:"set_tab_args,omitempty" msgpack:"set_tab_args,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -144,11 +151,16 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeSplit.Handle(state)
-		case ActionTypeSetTabContent:
-			if a.SetTabContent == nil {
+		case ActionTypeSetTabType:
+			if a.SetTabType == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetTabContent.Handle(state)
+			state, err = a.SetTabType.Handle(state)
+		case ActionTypeSetTabArgs:
+			if a.SetTabArgs == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetTabArgs.Handle(state)
 		default:
 			continue
 		}
@@ -189,7 +201,12 @@ func NewResizeSplitAction(p ResizeSplitPayload) Action {
 	return Action{Type: ActionTypeResizeSplit, ResizeSplit: &p}
 }
 
-// NewSetTabContentAction wraps a SetTabContentPayload in an Action envelope.
-func NewSetTabContentAction(p SetTabContentPayload) Action {
-	return Action{Type: ActionTypeSetTabContent, SetTabContent: &p}
+// NewSetTabTypeAction wraps a SetTabTypePayload in an Action envelope.
+func NewSetTabTypeAction(p SetTabTypePayload) Action {
+	return Action{Type: ActionTypeSetTabType, SetTabType: &p}
+}
+
+// NewSetTabArgsAction wraps a SetTabArgsPayload in an Action envelope.
+func NewSetTabArgsAction(p SetTabArgsPayload) Action {
+	return Action{Type: ActionTypeSetTabArgs, SetTabArgs: &p}
 }

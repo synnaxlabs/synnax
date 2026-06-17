@@ -13,6 +13,7 @@ import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
+import { Nav } from "@/nav";
 import { Ontology } from "@/ontology";
 import { REGISTER_LAYOUT } from "@/user/Register";
 
@@ -52,7 +53,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "user",
   icon: <Icon.User />,
   content: <Content />,

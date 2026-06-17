@@ -34,17 +34,10 @@ import {
 } from "@/hardware/ethercat/task/types";
 import { Selector } from "@/selector";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.EtherCAT",
-};
-
 export const WriteSelectable = Selector.createSimpleItem({
   title: "EtherCAT Write Task",
   icon: <Icon.Logo.EtherCAT />,
-  layout: WRITE_LAYOUT,
+  type: WRITE_TYPE,
 });
 
 const Properties = () => (

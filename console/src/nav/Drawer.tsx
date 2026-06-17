@@ -15,7 +15,7 @@ import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { type NavDrawerItem } from "@/nav/item";
+import { type DrawerItem } from "@/nav/item";
 import { useSelectBottom, useSelectLeft } from "@/nav/selectors";
 import {
   resizeBottom,
@@ -53,7 +53,7 @@ const X_THRESHOLD = xy.construct(LONG_AXIS_THRESHOLD, SHORT_AXIS_THRESHOLD);
 
 interface DrawerProps {
   location: location.Location;
-  activeItem?: NavDrawerItem;
+  activeItem?: DrawerItem;
   hover: boolean;
   onResize: (size: number) => void;
   onCollapse: () => void;
@@ -87,7 +87,7 @@ const Drawer = ({
 );
 
 export interface LeftDrawerProps {
-  items: NavDrawerItem[];
+  items: DrawerItem[];
 }
 
 export const LeftDrawer = ({ items }: LeftDrawerProps): ReactElement => {
@@ -121,7 +121,7 @@ export const LeftDrawer = ({ items }: LeftDrawerProps): ReactElement => {
 };
 
 export interface BottomDrawerProps {
-  item: NavDrawerItem;
+  item: DrawerItem;
 }
 
 export const BottomDrawer = ({ item }: BottomDrawerProps): ReactElement => {

@@ -96,11 +96,8 @@ export const Selectable: Selector.Selectable = ({ tabKey }) => {
         panelDispatch({
           key: panelKey,
           actions: [
-            panel.setTabContent({
-              key: tabKey,
-              type: arc.ontologyID(key).type,
-              args: { resourceKey: key },
-            }),
+            panel.setTabType({ key: tabKey, type: arc.ontologyID(key).type }),
+            panel.setTabArgs({ key: tabKey, args: { resourceKey: key } }),
           ],
         });
       },

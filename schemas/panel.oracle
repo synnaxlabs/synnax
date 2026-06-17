@@ -190,17 +190,25 @@ Panel struct {
         @doc value "adjusts the size ratio of a split node. size in [0, 1]."
     }
 
-    action SetTabContent {
+    action SetTabType {
         key  uuid
         type string
+
+        @doc value """
+            replaces the renderer type of the tab with the given key, leaving its
+            args untouched and without changing the tab's identity or position.
+        """
+    }
+
+    action SetTabArgs {
+        key  uuid
         args record {
             @ts preserve_case
         }
 
         @doc value """
-            replaces the type and args of the tab with the given key, swapping its
-            content in place without changing the tab's identity or position. Used
-            by the selector to replace itself once the user picks a component.
+            replaces the args of the tab with the given key, leaving its type
+            untouched and without changing the tab's identity or position.
         """
     }
 

@@ -435,7 +435,7 @@ describe("Panel queries", () => {
       expect(fresh.root).toEqual(result.current.retrieve.data?.root);
     });
 
-    it("set_tab_content replaces a tab's type and args and persists them", async () => {
+    it("set_tab_type and set_tab_args replace a tab's type and args and persist them", async () => {
       const created = await createPanel();
       const tab = newTab();
       const { result } = await loadAndUse(created.key, () => ({
@@ -450,11 +450,8 @@ describe("Panel queries", () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.setTabContent({
-              key: tab.key,
-              type: "docs",
-              args: { path: "/intro" },
-            }),
+            panel.setTabType({ key: tab.key, type: "docs" }),
+            panel.setTabArgs({ key: tab.key, args: { path: "/intro" } }),
           ],
         });
       });
@@ -641,7 +638,7 @@ describe("Panel queries", () => {
       expect(renderCount()).toEqual(countBefore);
     });
 
-    it("useSelectTab returns the tab and updates after set_tab_content", async () => {
+    it("useSelectTab returns the tab and updates after set_tab_type", async () => {
       const created = await createPanel();
       const tab = newTab();
       const ops = await loadAndUse(created.key, () => ({
@@ -665,7 +662,8 @@ describe("Panel queries", () => {
         await ops.result.current.dispatch.dispatchAsync({
           key: created.key,
           actions: [
-            panel.setTabContent({ key: tab.key, type: "docs", args: { path: "/x" } }),
+            panel.setTabType({ key: tab.key, type: "docs" }),
+            panel.setTabArgs({ key: tab.key, args: { path: "/x" } }),
           ],
         });
       });
@@ -697,9 +695,7 @@ describe("Panel queries", () => {
       await act(async () => {
         await ops.result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [
-            panel.setTabContent({ key: tabB.key, type: "docs", args: { path: "/x" } }),
-          ],
+          actions: [panel.setTabType({ key: tabB.key, type: "docs" })],
         });
       });
 

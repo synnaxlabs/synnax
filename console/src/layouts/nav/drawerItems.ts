@@ -10,14 +10,14 @@
 import { Arc } from "@/arc";
 import { ChannelServices } from "@/channel/services";
 import { Hardware } from "@/hardware";
-import { type Layout } from "@/layout";
+import { Nav } from "@/nav";
 import { ProjectServices } from "@/project/services";
 import { Range } from "@/range";
 import { Status } from "@/status";
 import { UserServices } from "@/user/services";
 import { Vis } from "@/vis";
 
-export const LEFT_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
+export const LEFT_DRAWER_ITEMS: Nav.DrawerItem[] = [
   ChannelServices.TOOLBAR,
   Range.TOOLBAR,
   ...Hardware.NAV_DRAWER_ITEMS,
@@ -27,4 +27,4 @@ export const LEFT_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
   Status.TOOLBAR,
 ];
 
-export const BOTTOM_DRAWER_ITEM: Layout.NavDrawerItem = Vis.TOOLBAR;
+export const BOTTOM_DRAWER_ITEM: Nav.NavDrawerItem = Vis.TOOLBAR;

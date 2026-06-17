@@ -42,6 +42,7 @@ import { useSetDataSaving } from "@/hardware/task/useSetDataSaving";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { Modals } from "@/modals";
+import { type Nav } from "@/nav";
 import { Range } from "@/range";
 
 const EmptyContent = () => {
@@ -238,7 +239,7 @@ const Content = () => {
   );
 };
 
-export const TOOLBAR_NAV_DRAWER_ITEM: Layout.NavDrawerItem = {
+export const TOOLBAR_NAV_DRAWER_ITEM: Nav.DrawerItem = {
   key: "task",
   icon: <Icon.Task />,
   content: <Content />,

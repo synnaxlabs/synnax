@@ -18,19 +18,11 @@ export interface ContentProps {
   onClose: (result?: unknown) => void;
 }
 
-/** Renders the registered renderer for the active modal. */
 export const Content = ({ spec, onClose }: ContentProps): ReactElement => {
   const Renderer = useRenderer(spec.type);
   return (
     <Errors.SuspenseBoundary>
-      <Renderer
-        key={spec.key}
-        layoutKey={spec.key}
-        onClose={onClose}
-        visible
-        focused
-        active
-      />
+      <Renderer key={spec.key} layoutKey={spec.key} onClose={onClose} />
     </Errors.SuspenseBoundary>
   );
 };

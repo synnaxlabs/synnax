@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Icon, type Nav, type Triggers } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto";
 
-export interface MenuItem {
-  key: string;
-  icon: Icon.ReactElement;
-  tooltip: string;
-  trigger: Triggers.Trigger;
-  useVisible?: () => boolean;
-}
+import { useMemoSelect } from "@/hooks";
+import { SLICE_NAME, type StoreState } from "@/color/slice";
 
-export interface DrawerItem extends Nav.DrawerItem, MenuItem {}
+export const selectContext = (state: StoreState): Color.ContextState =>
+  Color.contextStateZ.parse(state[SLICE_NAME]);
+
+export const useSelectContext = (): Color.ContextState =>
+  useMemoSelect(selectContext, []);

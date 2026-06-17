@@ -11,7 +11,7 @@ import { Errors, Icon, Panel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { EmptyAction, Toolbar } from "@/components";
-import { type Layout } from "@/layout";
+import { Nav } from "@/nav";
 import { Selector } from "@/selector";
 
 import { useTabRenderer } from "./renderer";
@@ -62,7 +62,7 @@ const Wrapper = () => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "visualization",
   content: <Wrapper />,
   tooltip: "Visualize",

@@ -124,16 +124,20 @@ const splitLeafAt = (
   return ds.side === "first" ? leafPath * 2 : leafPath * 2 + 1;
 };
 
-// replaceTab swaps the variant of the tab with the given key in place, keeping
-// its position within its leaf. Returns false when no tab matches the key.
-const replaceTab = (n: Draft<Node>, key: string, next: Tab): boolean => {
+// updateTab applies update to the tab with the given key in place, keeping its
+// position within its leaf. Returns false when no tab matches the key.
+const updateTab = (
+  n: Draft<Node>,
+  key: string,
+  update: (tab: Draft<Tab>) => void,
+): boolean => {
   if (n.variant === "leaf") {
-    const idx = n.tabs.findIndex((t) => t.key === key);
-    if (idx < 0) return false;
-    n.tabs[idx] = next;
+    const tab = n.tabs.find((t) => t.key === key);
+    if (tab == null) return false;
+    update(tab);
     return true;
   }
-  return replaceTab(n.first, key, next) || replaceTab(n.last, key, next);
+  return updateTab(n.first, key, update) || updateTab(n.last, key, update);
 };
 
 const handlers: Handlers = {
@@ -219,9 +223,15 @@ const handlers: Handlers = {
     return { inverse: [], targets: [String(payload.split)] };
   },
 
-  setTabContent: (state, payload) => {
-    const next: Tab = { key: payload.key, type: payload.type, args: payload.args };
-    if (!replaceTab(state.root, payload.key, next)) return NO_OP;
+  setTabType: (state, payload) => {
+    if (!updateTab(state.root, payload.key, (tab) => (tab.type = payload.type)))
+      return NO_OP;
+    return { inverse: [], targets: [payload.key] };
+  },
+
+  setTabArgs: (state, payload) => {
+    if (!updateTab(state.root, payload.key, (tab) => (tab.args = payload.args)))
+      return NO_OP;
     return { inverse: [], targets: [payload.key] };
   },
 };

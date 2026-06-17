@@ -31,17 +31,10 @@ import {
 } from "@/hardware/ni/task/types";
 import { Selector } from "@/selector";
 
-export const ANALOG_READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: ANALOG_READ_TYPE,
-  name: ZERO_ANALOG_READ_PAYLOAD.name,
-  icon: "Logo.NI",
-};
-
 export const AnalogReadSelectable = Selector.createSimpleItem({
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  layout: ANALOG_READ_LAYOUT,
+  type: ANALOG_READ_TYPE,
 });
 
 const Properties = () => (

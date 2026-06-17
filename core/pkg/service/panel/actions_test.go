@@ -497,30 +497,42 @@ var _ = Describe("Actions", func() {
 		)
 	})
 
-	Describe("SetTabContent", func() {
-		It("Should replace the type and args in place without changing identity", func() {
+	Describe("SetTabType", func() {
+		It("Should replace the type in place, leaving args untouched", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
-			args := msgpack.EncodedJSON{"resourceKey": tab2.String()}
 			next := MustSucceed(
-				panel.SetTabContentPayload{Key: tab1, Type: "schematic", Args: args}.Handle(p),
+				panel.SetTabTypePayload{Key: tab1, Type: "schematic"}.Handle(p),
 			)
 			leaf := MustBeOk(asLeaf(next.Root))
-			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: tab1, Type: "schematic", Args: args}))
-		})
-
-		It("Should swap a view tab's content to a resource", func() {
-			p := panel.Panel{Root: leafNode(viewTab(tab1, "docs"))}
-			args := msgpack.EncodedJSON{"resourceKey": tab2.String()}
-			next := MustSucceed(
-				panel.SetTabContentPayload{Key: tab1, Type: "schematic", Args: args}.Handle(p),
-			)
-			leaf := MustBeOk(asLeaf(next.Root))
-			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: tab1, Type: "schematic", Args: args}))
+			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{
+				Key:  tab1,
+				Type: "schematic",
+				Args: msgpack.EncodedJSON{"resourceKey": tab1.String()},
+			}))
 		})
 
 		It("Should return ErrTabNotFound when no tab matches the key", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
-			Expect(panel.SetTabContentPayload{Key: uuid.New()}.Handle(p)).Error().
+			Expect(panel.SetTabTypePayload{Key: uuid.New()}.Handle(p)).Error().
+				To(MatchError(ContainSubstring("tab not found in tree")))
+		})
+	})
+
+	Describe("SetTabArgs", func() {
+		It("Should replace the args in place, leaving type untouched", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			args := msgpack.EncodedJSON{"resourceKey": tab2.String()}
+			next := MustSucceed(
+				panel.SetTabArgsPayload{Key: tab1, Args: args}.Handle(p),
+			)
+			leaf := MustBeOk(asLeaf(next.Root))
+			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: tab1, Type: "lineplot", Args: args}))
+		})
+
+		It("Should return ErrTabNotFound when no tab matches the key", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1))}
+			args := msgpack.EncodedJSON{"resourceKey": tab2.String()}
+			Expect(panel.SetTabArgsPayload{Key: uuid.New(), Args: args}.Handle(p)).Error().
 				To(MatchError(ContainSubstring("tab not found in tree")))
 		})
 	})

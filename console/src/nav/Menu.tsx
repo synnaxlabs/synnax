@@ -14,10 +14,10 @@ import { xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { CSS } from "@/css";
-import { type NavMenuItem } from "@/nav/item";
+import { type MenuItem } from "@/nav/item";
 
 interface MenuItemProps {
-  item: NavMenuItem;
+  item: MenuItem;
   isActive: boolean;
   enabled: boolean;
   onStartHover: (key: string) => void;
@@ -113,7 +113,7 @@ const MenuItem = ({
 };
 
 export interface MenuProps extends Omit<PMenu.MenuProps, "children" | "onChange"> {
-  items: NavMenuItem[];
+  items: MenuItem[];
   activeKey?: string;
   enabled?: boolean;
   onSelect: (key: string) => void;

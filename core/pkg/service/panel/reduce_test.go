@@ -76,17 +76,26 @@ var _ = Describe("Reduce", func() {
 		Expect(split.Size).To(Equal(0.7))
 	})
 
-	It("Should route a SetTabContent action", func() {
+	It("Should route a SetTabType action", func() {
+		k := uuid.New()
+		args := msgpack.EncodedJSON{"resourceKey": k.String()}
+		next := MustSucceed(panel.Reduce(
+			panel.Panel{Root: leafNode(tab(k))},
+			panel.NewSetTabTypeAction(panel.SetTabTypePayload{Key: k, Type: "schematic"}),
+		))
+		leaf := MustBeOk(asLeaf(next.Root))
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: k, Type: "schematic", Args: args}))
+	})
+
+	It("Should route a SetTabArgs action", func() {
 		k := uuid.New()
 		args := msgpack.EncodedJSON{"resourceKey": uuid.New().String()}
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k))},
-			panel.NewSetTabContentAction(
-				panel.SetTabContentPayload{Key: k, Type: "schematic", Args: args},
-			),
+			panel.NewSetTabArgsAction(panel.SetTabArgsPayload{Key: k, Args: args}),
 		))
 		leaf := MustBeOk(asLeaf(next.Root))
-		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: k, Type: "schematic", Args: args}))
+		Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Key: k, Type: "lineplot", Args: args}))
 	})
 
 	It("Should apply a multi-action sequence in order", func() {
@@ -116,6 +125,7 @@ var _ = Describe("Reduce", func() {
 		Entry("MoveTab", panel.ActionTypeMoveTab),
 		Entry("SplitLeaf", panel.ActionTypeSplitLeaf),
 		Entry("ResizeSplit", panel.ActionTypeResizeSplit),
-		Entry("SetTabContent", panel.ActionTypeSetTabContent),
+		Entry("SetTabType", panel.ActionTypeSetTabType),
+		Entry("SetTabArgs", panel.ActionTypeSetTabArgs),
 	)
 })

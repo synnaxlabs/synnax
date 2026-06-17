@@ -31,17 +31,10 @@ import {
 } from "@/hardware/ni/task/types";
 import { Selector } from "@/selector";
 
-export const COUNTER_READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: COUNTER_READ_TYPE,
-  name: ZERO_COUNTER_READ_PAYLOAD.name,
-  icon: "Logo.NI",
-};
-
 export const CounterReadSelectable = Selector.createSimpleItem({
   title: "NI Counter Read Task",
   icon: <Icon.Logo.NI />,
-  layout: COUNTER_READ_LAYOUT,
+  type: COUNTER_READ_TYPE,
 });
 
 const Properties = () => (

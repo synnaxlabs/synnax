@@ -19,6 +19,7 @@ export * from "@/lineplot/addChannelsToActivePlot";
 export * from "@/lineplot/Controls";
 export * from "@/lineplot/export";
 export * from "@/lineplot/LinePlot";
+export * from "@/lineplot/session";
 export * from "@/lineplot/toolbar";
 export * from "@/lineplot/useCreate";
 export * from "@/lineplot/useTriggerHold";

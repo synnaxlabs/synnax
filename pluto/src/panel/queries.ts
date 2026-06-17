@@ -267,14 +267,38 @@ export const useSingleDispatch = () => {
   return useSingleDispatchBase(key);
 };
 
-export const useSetCurrentTabContent = (): ((
-  payload: Omit<panel.SetTabContentPayload, "key">,
-) => void) => {
+export const useSetCurrentTabType = (): ((type: string) => void) => {
   const dispatch = useSingleDispatch();
   const tabKey = useTabKey("cat");
   return useCallback(
-    (payload: Omit<panel.SetTabContentPayload, "key">) =>
-      dispatch(panel.setTabContent({ key: tabKey, ...payload })),
+    (type: string) => dispatch(panel.setTabType({ key: tabKey, type })),
+    [dispatch, tabKey],
+  );
+};
+
+export const useSetCurrentTabArgs = (): ((args: record.Unknown) => void) => {
+  const dispatch = useSingleDispatch();
+  const tabKey = useTabKey("cat");
+  return useCallback(
+    (args: record.Unknown) => dispatch(panel.setTabArgs({ key: tabKey, args })),
+    [dispatch, tabKey],
+  );
+};
+
+export interface TabContent {
+  type: string;
+  args: record.Unknown;
+}
+
+export const useSetCurrentTabContent = (): ((content: TabContent) => void) => {
+  const dispatch = useSingleDispatch();
+  const tabKey = useTabKey("cat");
+  return useCallback(
+    ({ type, args }: TabContent) =>
+      dispatch([
+        panel.setTabType({ key: tabKey, type }),
+        panel.setTabArgs({ key: tabKey, args }),
+      ]),
     [dispatch, tabKey],
   );
 };
