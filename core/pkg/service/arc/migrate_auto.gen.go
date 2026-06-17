@@ -18,10 +18,10 @@ import (
 	programv56 "github.com/synnaxlabs/arc/program/migrations/v56"
 	text "github.com/synnaxlabs/arc/text"
 	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
-	color "github.com/synnaxlabs/x/color"
 	label "github.com/synnaxlabs/synnax/pkg/service/label"
 	labelv56 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v56"
 	status "github.com/synnaxlabs/synnax/pkg/service/status"
+	color "github.com/synnaxlabs/x/color"
 	telem "github.com/synnaxlabs/x/telem"
 )
 
