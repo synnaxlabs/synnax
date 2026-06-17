@@ -19,8 +19,9 @@ const defaultStatus = <StatusData extends z.ZodType>(): task.Status<
   name: "Task Status",
   variant: "disabled",
   message: "Task has not been configured",
+  description: "",
   time: TimeStamp.now(),
-  details: { task: "", running: false, data: {} as any },
+  details: { task: "", running: false, cmd: "", data: {} as any },
 });
 
 export const useStatus = <Schema extends z.ZodType>(ctx?: Form.ContextValue<Schema>) =>

@@ -16,7 +16,6 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import user
 from synnax.ontology.payload import ID
 
 Key: TypeAlias = UUID
@@ -30,7 +29,6 @@ class Project(BaseModel):
     Attributes:
         key: Is the unique identifier for this project.
         name: Is a human-readable name for the project.
-        author: Is the UUID of the user who created this project.
         layout: Is the mosaic tree structure that defines how visualizations are
             arranged. Contains tab layout, split configurations, and window
             positions.
@@ -38,7 +36,6 @@ class Project(BaseModel):
 
     key: Key = Field(default_factory=uuid4)
     name: str
-    author: user.Key
     layout: dict[str, Any]
 
     def __hash__(self) -> int:
@@ -46,8 +43,6 @@ class Project(BaseModel):
 
 
 class New(Project):
-    author: user.Key = Field(exclude=True)
-
     def __hash__(self) -> int:
         return hash(self.key)
 

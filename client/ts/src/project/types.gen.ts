@@ -13,7 +13,6 @@ import { caseconv, record, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
-import { user } from "@/user";
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -28,8 +27,6 @@ export const projectZ = z.object({
   key: keyZ.default(() => uuid.create()),
   /** name is a human-readable name for the project. */
   name: z.string().min(1, "Name is required"),
-  /** author is the UUID of the user who created this project. */
-  author: user.keyZ,
   /**
    * layout is the mosaic tree structure that defines how visualizations are
    * arranged. Contains tab layout, split configurations, and window
@@ -39,7 +36,7 @@ export const projectZ = z.object({
 });
 export interface Project extends z.infer<typeof projectZ> {}
 
-export const newZ = projectZ.omit({ author: true });
+export const newZ = projectZ;
 export interface New extends z.input<typeof newZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("project");

@@ -59,14 +59,13 @@ var _ = Describe("Workspace to project migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		// Seed two legacy workspace records under the "Workspace" gorp prefix.
-		wsA, wsB, authorKey := uuid.New(), uuid.New(), uuid.New()
+		wsA, wsB := uuid.New(), uuid.New()
 		wsTable := MustOpen(gorp.OpenTable[projectv56.Key, projectv56.Workspace](
 			ctx, gorp.TableConfig[projectv56.Key, projectv56.Workspace]{DB: db},
 		))
 		seedA := projectv56.Workspace{
 			Key:    wsA,
 			Name:   "Ops",
-			Author: authorKey,
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}
 		Expect(wsTable.NewCreate().Entry(&seedA).Exec(ctx, db)).To(Succeed())
@@ -114,7 +113,6 @@ var _ = Describe("Workspace to project migration", func() {
 		Expect(pA).To(Equal(project.Project{
 			Key:    wsA,
 			Name:   "Ops",
-			Author: authorKey,
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}))
 		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[project.Key, project.Project](wsB)).

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/user"
-
 @ts output "client/ts/src/project"
 @py output "client/py/synnax/project"
 @go output "core/pkg/service/project"
@@ -23,16 +21,11 @@ Project struct {
         @doc value "is the unique identifier for this project."
         @key
     }
-    name   string   {
+    name   string {
         @doc value         "is a human-readable name for the project."
         @validate required
     }
-    author user.Key {
-        @doc value     "is the UUID of the user who created this project."
-        @output
-        @filter scalar
-    }
-    layout record   {
+    layout record {
         @doc value        """
             is the mosaic tree structure that defines how visualizations are
             arranged. Contains tab layout, split configurations, and window

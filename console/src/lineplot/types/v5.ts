@@ -84,10 +84,15 @@ export const ZERO_SLICE_STATE: SliceState = { version: VERSION, plots: {} };
 const buildPendingUpload = (state: v4.State): PendingUpload => ({
   key: state.key,
   title: state.title,
-  legend: state.legend,
+  legend: { position: state.legend.position, hidden: !state.legend.visible },
   channels: state.channels,
   ranges: state.ranges,
-  axes: state.axes.axes,
+  axes: Object.fromEntries(
+    Object.entries(state.axes.axes).map(([k, { autoBounds, ...axis }]) => [
+      k,
+      { ...axis, manualBounds: { lower: !autoBounds.lower, upper: !autoBounds.upper } },
+    ]),
+  ) as PendingUpload["axes"],
   lines: state.lines.map((l) => ({ ...l, color: toColor(l.color) })),
   rules: state.rules.map(({ selected: _selected, ...rest }) => ({
     ...rest,

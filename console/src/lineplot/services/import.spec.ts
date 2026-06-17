@@ -41,7 +41,7 @@ const zeroAxis = (key: lineplot.AxisKey): lineplot.Axis => ({
   labelDirection: "x",
   labelLevel: "small",
   bounds: { lower: 0, upper: 0 },
-  autoBounds: { lower: false, upper: false },
+  manualBounds: { lower: true, upper: true },
   tickSpacing: 0,
 });
 

@@ -19,12 +19,10 @@ import {
   type Project,
   projectZ,
 } from "@/project/types.gen";
-import { keyZ as userKeyZ } from "@/user/types.gen";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
   searchTerm: z.string().optional(),
-  author: userKeyZ.optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
 });

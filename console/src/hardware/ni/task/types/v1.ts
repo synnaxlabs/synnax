@@ -304,4 +304,6 @@ export interface AnalogReadPayload extends task.Payload<AnalogReadSchemas> {}
 export const ZERO_ANALOG_READ_PAYLOAD = {
   ...v0.ZERO_ANALOG_READ_PAYLOAD,
   config: ZERO_ANALOG_READ_CONFIG,
+  internal: false,
+  snapshot: false,
 } as const satisfies AnalogReadPayload;
