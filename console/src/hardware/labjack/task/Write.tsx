@@ -27,17 +27,10 @@ import {
 } from "@/hardware/labjack/task/types";
 import { Selector } from "@/selector";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.LabJack",
-};
-
 export const WriteSelectable = Selector.createSimpleItem({
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  layout: WRITE_LAYOUT,
+  type: WRITE_TYPE,
 });
 
 const Properties = () => (
@@ -322,6 +315,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.LabJack />,
   schemas: WRITE_SCHEMAS,
   type: "labjack_write",
   getInitialValues,

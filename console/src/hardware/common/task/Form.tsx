@@ -9,12 +9,20 @@
 
 import "@/hardware/common/task/Form.css";
 
-import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
-import { Device, Flex, type Flux, Form as PForm, Input, Task } from "@synnaxlabs/pluto";
-import { primitive, TimeStamp } from "@synnaxlabs/x";
+import { device, panel, rack, type Synnax, task } from "@synnaxlabs/client";
+import {
+  Device,
+  Flex,
+  type Flux,
+  Form as PForm,
+  type Icon,
+  Input,
+  Panel,
+  Task,
+} from "@synnaxlabs/pluto";
+import { primitive, record, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
-import { type z } from "zod";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Controls } from "@/hardware/common/task/controls";
@@ -22,9 +30,8 @@ import { ParentRangeButton } from "@/hardware/common/task/ParentRangeButton";
 import { Rack } from "@/hardware/common/task/Rack";
 import { useStatus } from "@/hardware/common/task/useStatus";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
-import { Layout } from "@/layout";
 import { useConfirm } from "@/modals/Confirm";
-import { type RootState } from "@/store";
+import { type Tabs } from "@/panel/tabs/index";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
@@ -33,21 +40,6 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
-export interface FormLayoutArgs {
-  deviceKey?: device.Key;
-  taskKey?: task.Key;
-  rackKey?: rack.Key;
-  config?: unknown;
-}
-
-export interface Layout extends Layout.BaseState<FormLayoutArgs> {}
-
-export const LAYOUT: Omit<Layout, "type"> = {
-  name: "Configure",
-  icon: "Task",
-  location: "mosaic",
-  args: {},
-};
 
 export interface getInitialValuesArgs {
   deviceKey?: device.Key;
@@ -61,7 +53,6 @@ export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
 export interface FormProps<
   S extends task.Schemas = task.Schemas,
 > extends PForm.UseReturn<Task.FormSchema<S>> {
-  layoutKey: string;
   status: Flux.Result<undefined>["status"];
   onConfigure: () => void;
 }
@@ -70,6 +61,7 @@ export interface WrapFormArgs<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
   Form: FC<FormProps<S>>;
   type: z.infer<S["type"]>;
+  icon: Icon.ReactElement;
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
   getInitialValues: GetInitialValues<S>;
@@ -104,6 +96,18 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   </>
 );
 
+const formArgsZ = z
+  .object({
+    deviceKey: device.keyZ.optional(),
+    taskKey: task.keyZ.optional(),
+    rackKey: rack.keyZ.optional(),
+    config: record.unknownZ().optional(),
+    name: z.string().default("New Task"),
+  })
+  .prefault({});
+
+const useArgs = Panel.createSelectContextTabArgs(formArgsZ);
+
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
@@ -111,21 +115,14 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   type,
   getInitialValues,
   onConfigure,
+  icon,
   showHeader = true,
   showControls = true,
-}: WrapFormArgs<S>): Layout.Renderer => {
-  const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const store = useStore<RootState>();
-    const { deviceKey, taskKey, rackKey, config } = Layout.selectArgs<FormLayoutArgs>(
-      store.getState(),
-      layoutKey,
-    );
-    const dispatch = useDispatch();
-    const handleUnsavedChanges = useCallback(
-      (unsavedChanges: boolean) =>
-        dispatch(Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),
-      [dispatch, layoutKey],
-    );
+}: WrapFormArgs<S>): Tabs.Renderer => {
+  const Content: Tabs.Content = () => {
+    const panelDispatch = Panel.useSingleDispatch();
+    const tabKey = Panel.useTabKey("");
+    const { deviceKey, taskKey, rackKey, config } = useArgs();
     const initialValues = {
       ...getInitialValues({ deviceKey, config }),
       key: taskKey,
@@ -134,7 +131,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const confirm = useConfirm();
     const { form, status, save } = Task.createForm({ schemas, initialValues })({
       query: { key: taskKey },
-      onHasTouched: handleUnsavedChanges,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();
         const [newConfig, rackKey] = await onConfigure(client, config, name);
@@ -169,9 +165,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       afterSave: ({ client, ...form }) => {
         const { key, name } = form.value();
         if (key == null) return;
-        dispatch(Layout.rename({ key: layoutKey, name }));
-        dispatch(Layout.setArgs({ key: layoutKey, args: { taskKey: key } }));
-        dispatch(Layout.setAltKey({ key: layoutKey, altKey: key }));
+        panelDispatch([
+          panel.setTabArgs({ key: tabKey, args: { name, taskKey: key } }),
+        ]);
       },
     });
     Device.useRetrieveEffect({
@@ -206,49 +202,36 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               grow
               empty
             >
-              <Form
-                layoutKey={layoutKey}
-                status={status}
-                onConfigure={save}
-                {...form}
-              />
+              <Form status={status} onConfigure={save} {...form} />
             </Flex.Box>
             {showControls && (
-              <Controls.Controls
-                layoutKey={layoutKey}
-                formStatus={status}
-                onConfigure={save}
-              />
+              <Controls.Controls formStatus={status} onConfigure={save} />
             )}
           </PForm.Form>
         </Flex.Box>
       </Flex.Box>
     );
   };
-  Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
-  Wrapper.useName = useName;
-  return Wrapper;
-};
-
-const useName: Layout.UseName = (layoutKey, onChange) => {
-  const args = Layout.useSelectArgs<FormLayoutArgs>(layoutKey);
-  const taskKey = args?.taskKey;
-  const isPersisted = taskKey != null;
-  const { retrieve: baseRetrieve } = Task.useRetrieveObservableName({
-    onChange,
-    addStatusOnFailure: false,
-  });
-  const { update } = Task.useRename({
-    beforeUpdate: useCallback(() => isPersisted, [isPersisted]),
-  });
-  const onRename = useCallback(
-    (name: string) => {
-      if (taskKey != null) update({ key: taskKey, name });
-    },
-    [taskKey, update],
-  );
-  const retrieve = useCallback(() => {
-    if (taskKey != null) baseRetrieve({ key: taskKey });
-  }, [taskKey, baseRetrieve]);
-  return { retrieve, onRename };
+  Content.displayName = `Form(${Form.displayName ?? Form.name})`;
+  const PersistedName = ({
+    taskKey: key,
+    ...rest
+  }: Panel.MosaicTabNameRenderProps & { taskKey: task.Key }) => {
+    const name = Task.useRetrieveName({ key });
+    const { update } = Task.useRename();
+    const onRename = useCallback(
+      (name: string) => update({ key, name }),
+      [key, update],
+    );
+    return (
+      <Panel.DefaultTabName icon={icon} name={name} onRename={onRename} {...rest} />
+    );
+  };
+  const Name: Tabs.Name = (props) => {
+    const { taskKey, name } = useArgs();
+    if (taskKey != null) return <PersistedName {...props} taskKey={taskKey} />;
+    return <Panel.DefaultTabName icon={icon} name={name} {...props} />;
+  };
+  Name.displayName = `Name(${Form.displayName ?? Form.name}}`;
+  return { Content, Name };
 };

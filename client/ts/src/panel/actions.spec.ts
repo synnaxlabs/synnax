@@ -13,7 +13,7 @@ import { panel } from "@/panel";
 
 const leaf = (...tabKeys: string[]): panel.Node => ({
   variant: "leaf",
-  tabs: tabKeys.map((key) => ({ variant: "empty", key })),
+  tabs: tabKeys.map((key) => ({ key, type: "selector", args: {} })),
 });
 
 const split = (
@@ -39,20 +39,6 @@ const tabKeys = (node: panel.Node | undefined): string[] =>
 
 describe("reduceAll", () => {
   describe("moveTab", () => {
-    it("should move a tab into the empty side of a freshly split leaf", () => {
-      const { next } = panel.reduceAll(state(leaf("a", "b")), [
-        panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right", size: 0.5 }),
-        panel.moveTab({
-          key: "b",
-          targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
-          index: 0,
-        }),
-      ]);
-      const root = asSplit(next.root);
-      expect(tabKeys(root.first)).toEqual(["a"]);
-      expect(tabKeys(root.last)).toEqual(["b"]);
-    });
-
     it("should collapse the source split when moving the last tab out of a side", () => {
       const { next } = panel.reduceAll(state(split("x", 0.5, leaf("a"), leaf("b"))), [
         panel.moveTab({ key: "a", targetLeaf: 3, index: 0 }),
@@ -98,6 +84,56 @@ describe("reduceAll", () => {
     });
   });
 
+  describe("splitTab", () => {
+    it("should split the tab off into a new sibling pane to the right for direction x", () => {
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.splitTab({ key: "b", direction: "x" }),
+      ]);
+      const root = asSplit(next.root);
+      expect(root.direction).toEqual("x");
+      expect(tabKeys(root.first)).toEqual(["a"]);
+      expect(tabKeys(root.last)).toEqual(["b"]);
+    });
+
+    it("should split the tab off into a new sibling pane below for direction y", () => {
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.splitTab({ key: "b", direction: "y" }),
+      ]);
+      const root = asSplit(next.root);
+      expect(root.direction).toEqual("y");
+      expect(tabKeys(root.first)).toEqual(["a"]);
+      expect(tabKeys(root.last)).toEqual(["b"]);
+    });
+
+    it("should resolve the tab's own leaf in a nested tree", () => {
+      const { next } = panel.reduceAll(
+        state(split("x", 0.5, leaf("a", "b"), leaf("c"))),
+        [panel.splitTab({ key: "a", direction: "x" })],
+      );
+      const root = asSplit(next.root);
+      const firstChild = asSplit(root.first);
+      expect(tabKeys(firstChild.first)).toEqual(["b"]);
+      expect(tabKeys(firstChild.last)).toEqual(["a"]);
+      expect(tabKeys(root.last)).toEqual(["c"]);
+    });
+
+    it("should no-op when the tab is the only tab in its leaf", () => {
+      const prev = state(leaf("a"));
+      const { next } = panel.reduceAll(prev, [
+        panel.splitTab({ key: "a", direction: "x" }),
+      ]);
+      expect(next).toBe(prev);
+    });
+
+    it("should no-op when no tab matches the key", () => {
+      const prev = state(leaf("a", "b"));
+      const { next } = panel.reduceAll(prev, [
+        panel.splitTab({ key: "z", direction: "x" }),
+      ]);
+      expect(next).toBe(prev);
+    });
+  });
+
   describe("resizeSplit", () => {
     it("should return the same state reference when the size is unchanged", () => {
       const prev = state(split("x", 0.5, leaf("a"), leaf("b")));
@@ -121,7 +157,7 @@ describe("reduceAll", () => {
     it("should split the target leaf and insert into the new sibling when location is present", () => {
       const { next } = panel.reduceAll(state(leaf("a")), [
         panel.insertTab({
-          tab: { variant: "empty", key: "b" },
+          tab: { key: "b", type: "selector", args: {} },
           targetLeaf: panel.ROOT_PATH,
           location: "bottom",
         }),
@@ -135,7 +171,7 @@ describe("reduceAll", () => {
     it("should insert directly into the target leaf for a center location", () => {
       const { next } = panel.reduceAll(state(leaf("a")), [
         panel.insertTab({
-          tab: { variant: "empty", key: "b" },
+          tab: { key: "b", type: "selector", args: {} },
           targetLeaf: panel.ROOT_PATH,
           location: "center",
         }),
@@ -147,13 +183,53 @@ describe("reduceAll", () => {
     it("should degrade an edge insert into an empty leaf to a direct insert", () => {
       const { next } = panel.reduceAll(state(leaf()), [
         panel.insertTab({
-          tab: { variant: "empty", key: "a" },
+          tab: { key: "a", type: "selector", args: {} },
           targetLeaf: panel.ROOT_PATH,
           location: "right",
         }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual(["a"]);
+    });
+
+    it("should insert into the leaf holding targetTab when set", () => {
+      const { next } = panel.reduceAll(state(split("x", 0.5, leaf("a"), leaf("b"))), [
+        panel.insertTab({
+          tab: { key: "c", type: "selector", args: {} },
+          targetTab: "b",
+        }),
+      ]);
+      const root = asSplit(next.root);
+      expect(tabKeys(root.first)).toEqual(["a"]);
+      expect(tabKeys(root.last)).toEqual(["b", "c"]);
+    });
+
+    it("should no-op when targetTab matches no tab", () => {
+      const prev = state(leaf("a"));
+      const { next } = panel.reduceAll(prev, [
+        panel.insertTab({
+          tab: { key: "b", type: "selector", args: {} },
+          targetTab: "z",
+        }),
+      ]);
+      expect(next).toBe(prev);
+    });
+
+    it("should default to the first leaf in traversal order when no target is set", () => {
+      const { next } = panel.reduceAll(state(split("x", 0.5, leaf("a"), leaf("b"))), [
+        panel.insertTab({ tab: { key: "c", type: "selector", args: {} } }),
+      ]);
+      const root = asSplit(next.root);
+      expect(tabKeys(root.first)).toEqual(["a", "c"]);
+      expect(tabKeys(root.last)).toEqual(["b"]);
+    });
+
+    it("should default to the root leaf when no target is set on a single-leaf tree", () => {
+      const { next } = panel.reduceAll(state(leaf("a")), [
+        panel.insertTab({ tab: { key: "b", type: "selector", args: {} } }),
+      ]);
+      expect(next.root.variant).toEqual("leaf");
+      expect(tabKeys(next.root)).toEqual(["a", "b"]);
     });
   });
 
@@ -168,31 +244,58 @@ describe("reduceAll", () => {
     });
   });
 
-  describe("setTabResource", () => {
-    it("should swap the tab variant in place without changing its position", () => {
-      const resource = { type: "lineplot", key: "lp-1" } as const;
+  describe("setTabType", () => {
+    it("should replace the tab's type in place, leaving its args untouched", () => {
       const { next } = panel.reduceAll(state(leaf("a", "b")), [
-        panel.setTabResource({ key: "a", resource }),
+        panel.setTabType({ key: "a", type: "lineplot" }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual(["a", "b"]);
       const tab = panel.findTab(next.root, "a");
-      expect(tab?.variant).toEqual("resource");
-      if (tab?.variant === "resource") expect(tab.resource).toEqual(resource);
+      expect(tab?.type).toEqual("lineplot");
+      expect(tab?.args).toEqual({});
+    });
+
+    it("should be a no-op when no tab matches the key", () => {
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.setTabType({ key: "missing", type: "lineplot" }),
+      ]);
+      expect(panel.findTab(next.root, "a")?.type).toEqual("selector");
     });
   });
 
-  describe("setTabView", () => {
-    it("should swap the tab variant in place without changing its position", () => {
-      const { next } = panel.reduceAll(state(leaf("a")), [
-        panel.setTabView({ key: "a", view: { type: "docs", args: {} } }),
+  describe("setTabArgs", () => {
+    it("should replace the tab's args in place, leaving its type untouched", () => {
+      const args = { resourceKey: "lp-1" };
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.setTabArgs({ key: "a", args }),
+      ]);
+      expect(next.root.variant).toEqual("leaf");
+      expect(tabKeys(next.root)).toEqual(["a", "b"]);
+      const tab = panel.findTab(next.root, "a");
+      expect(tab?.type).toEqual("selector");
+      expect(tab?.args).toEqual(args);
+    });
+
+    it("should be a no-op when no tab matches the key", () => {
+      const args = { resourceKey: "lp-1" };
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.setTabArgs({ key: "missing", args }),
+      ]);
+      expect(panel.findTab(next.root, "a")?.args).toEqual({});
+    });
+  });
+
+  describe("setTabType + setTabArgs", () => {
+    it("should swap both type and args when batched in one dispatch", () => {
+      const args = { resourceKey: "lp-1" };
+      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+        panel.setTabType({ key: "a", type: "lineplot" }),
+        panel.setTabArgs({ key: "a", args }),
       ]);
       const tab = panel.findTab(next.root, "a");
-      expect(tab?.variant).toEqual("view");
-      if (tab?.variant === "view") {
-        expect(tab.type).toEqual("docs");
-        expect(tab.args).toEqual({});
-      }
+      expect(tab?.type).toEqual("lineplot");
+      expect(tab?.args).toEqual(args);
     });
   });
 });

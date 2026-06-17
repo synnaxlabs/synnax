@@ -52,8 +52,20 @@ export type CreateUpdateParams<
 > = {
   name: string;
   verbs: base.Verbs;
-  update: (
+  /**
+   * Applies optimistic store writes and pushes their rollbacks, returning the
+   * optimistic output. Runs before update, and its writes are guaranteed to be
+   * applied before afterOptimistic and update observe the store. May await, but
+   * keep it synchronous when possible so all optimistic writes land in a single
+   * render.
+   */
+  updateOptimistic?: (
     params: UpdateParams<Input, ScopedStore, StatusDetails, AllowDisconnected>,
+  ) => Output | Promise<Output>;
+  update: (
+    params: UpdateParams<Input, ScopedStore, StatusDetails, AllowDisconnected> & {
+      optimistic?: Output;
+    },
   ) => Promise<Output | false>;
   allowDisconnected?: AllowDisconnected;
 } & InitialStatusDetailsContainer<StatusDetails>;
@@ -76,6 +88,15 @@ export interface UseObservableUpdateParams<
   beforeUpdate?: (
     params: BeforeUpdateParams<Input, AllowDisconnected, SubStore>,
   ) => Promise<Input | boolean> | Input | boolean;
+  /**
+   * Runs after updateOptimistic has applied its store writes and before the
+   * server update. Use for optimistic side effects that depend on the optimistic
+   * record (such as routing a tab to it); push to rollbacks to unwind them if the
+   * update fails. Only fires when the resource defines updateOptimistic.
+   */
+  afterOptimistic?: (
+    params: AfterOptimisticParams<Output, AllowDisconnected, SubStore>,
+  ) => Promise<void> | void;
   afterSuccess?: (
     params: AfterSuccessParams<Output, AllowDisconnected>,
   ) => Promise<void> | void;
@@ -93,6 +114,17 @@ export interface BeforeUpdateParams<
   client: AllowDisconnected extends true ? Client | null : Client;
   data: Data;
   store: Store;
+}
+
+export interface AfterOptimisticParams<
+  Output extends base.Data,
+  AllowDisconnected extends boolean = false,
+  Store extends base.Store = {},
+> {
+  client: AllowDisconnected extends true ? Client | null : Client;
+  data: Output;
+  store: Store;
+  rollbacks: destructor.Destructor[];
 }
 
 export interface AfterSuccessParams<
@@ -199,12 +231,14 @@ const useObservable = <
 ): UseObservableUpdateReturn<Input> => {
   const {
     onChange,
+    updateOptimistic,
     update,
     name,
     verbs: { present, past, participle },
     debounce = 0,
     scope,
     beforeUpdate,
+    afterOptimistic,
     afterSuccess,
     afterFailure,
     allowDisconnected = false as AllowDisconnected,
@@ -274,7 +308,27 @@ const useObservable = <
             } as Result<Input | undefined, StatusDetails>;
           });
 
-        const output = await update({ client, data, store, rollbacks, setStatus });
+        let optimistic: Output | undefined;
+        if (updateOptimistic != null) {
+          optimistic = await updateOptimistic({
+            client,
+            data,
+            store,
+            rollbacks,
+            setStatus,
+          });
+          await afterOptimistic?.({ client, data: optimistic, store, rollbacks });
+          if (signal?.aborted === true) return false;
+        }
+
+        const output = await update({
+          client,
+          data,
+          store,
+          rollbacks,
+          setStatus,
+          optimistic,
+        });
         if (signal?.aborted === true) return false;
         onChange((p) =>
           successResult(
@@ -308,8 +362,10 @@ const useObservable = <
       store,
       onChange,
       addStatus,
+      updateOptimistic,
       update,
       beforeUpdate,
+      afterOptimistic,
       afterSuccess,
       afterFailure,
     ],

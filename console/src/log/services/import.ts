@@ -12,24 +12,11 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/log/layout";
-import { anyStateZ } from "@/log/types";
 
 export const parseImport = (
   data: unknown,
   fallbackName: string | undefined,
 ): log.New => {
-  // Legacy console-state exports are tried first: forcing remoteCreated false makes the
-  // migration ladder park the body in pendingUpload regardless of the source's sync
-  // state. A current typed export carries a name and parses as logZ; it falls through
-  // because its body fields are stripped by the console-state schema, leaving no
-  // pendingUpload.
-  if (typeof data === "object" && data != null) {
-    const legacy = anyStateZ.safeParse({ ...data, remoteCreated: false });
-    if (legacy.success && legacy.data.pendingUpload != null) {
-      const { key: _key, ...body } = legacy.data.pendingUpload;
-      return { ...body, name: fallbackName ?? "Log" };
-    }
-  }
   const { key: _key, ...rest } = log.logZ.parse(data);
   return { ...rest, name: fallbackName ?? rest.name };
 };

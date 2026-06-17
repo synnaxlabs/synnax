@@ -34,17 +34,10 @@ import {
 } from "@/hardware/ethercat/task/types";
 import { Selector } from "@/selector";
 
-export const READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.EtherCAT",
-};
-
 export const ReadSelectable = Selector.createSimpleItem({
   title: "EtherCAT Read Task",
   icon: <Icon.Logo.EtherCAT />,
-  layout: READ_LAYOUT,
+  type: READ_TYPE,
 });
 
 const Properties = () => (
@@ -152,6 +145,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.EtherCAT />,
   schemas: READ_SCHEMAS,
   type: "ethercat_read",
   getInitialValues,

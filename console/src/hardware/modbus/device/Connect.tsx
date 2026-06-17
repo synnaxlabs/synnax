@@ -32,18 +32,16 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/hardware/modbus/task/types";
-import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CONNECT_LAYOUT_TYPE = "configureModbusServer";
 
-export const CONNECT_LAYOUT: Layout.BaseState = {
+export const CONNECT_LAYOUT: Modals.BaseState = {
   key: CONNECT_LAYOUT_TYPE,
   type: CONNECT_LAYOUT_TYPE,
   name: "Server.Connect",
   icon: "Logo.Modbus",
-  location: "modal",
   window: { resizable: false, size: { height: 500, width: 600 }, navTop: true },
 };
 
@@ -109,7 +107,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
+export const Connect: Modals.Renderer = ({ layoutKey, onClose }) => {
   const { form, save, status, variant } = useForm({
     query: { key: layoutKey === CONNECT_LAYOUT_TYPE ? "" : layoutKey },
     initialValues: INITIAL_VALUES,

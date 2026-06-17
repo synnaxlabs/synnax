@@ -9,31 +9,31 @@
 
 import { Flex, Input } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { useSelectAuthority, useSelectLegendVisible } from "@/schematic/selectors";
-import { setAuthority, setLegendVisible } from "@/schematic/slice";
+import {
+  useSelectAuthority,
+  useSelectLegendVisible,
+  useSetControlAuthority,
+  useSetLegendVisible,
+} from "@/schematic/session/slice";
 
-export const Control = ({ layoutKey }: { layoutKey: string }) => {
-  const dispatch = useDispatch();
-  const authority = useSelectAuthority(layoutKey);
-  const legendVisible = useSelectLegendVisible(layoutKey);
-
+export const Control = () => {
+  const authority = useSelectAuthority();
+  const handleAuthorityChange = useSetControlAuthority();
+  const legendVisible = useSelectLegendVisible();
+  const handleVisibleChange = useSetLegendVisible();
   return (
     <Flex.Box x gap="small" className={CSS.BE("schematic", "control")}>
       <Input.Item label="Control authority">
         <Input.Numeric
           value={authority}
-          onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
+          onChange={handleAuthorityChange}
           bounds={control.AUTHORITY_BOUNDS}
         />
       </Input.Item>
       <Input.Item label="Show control state legend">
-        <Input.Switch
-          value={legendVisible ?? true}
-          onChange={(v) => dispatch(setLegendVisible({ key: layoutKey, visible: v }))}
-        />
+        <Input.Switch value={legendVisible} onChange={handleVisibleChange} />
       </Input.Item>
     </Flex.Box>
   );

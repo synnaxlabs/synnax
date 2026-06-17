@@ -161,87 +161,10 @@ func (s *Split) DecodeOrc(r *orc.Reader) error {
 }
 
 func (t Tab) EncodeOrc(w *orc.Writer) error {
-	switch v := t.Variant.(type) {
-	case TabResource:
-		w.String("resource")
-		if err := v.TabBase.EncodeOrc(w); err != nil {
-			return err
-		}
-		if err := v.Resource.EncodeOrc(w); err != nil {
-			return err
-		}
-	case TabView:
-		w.String("view")
-		if err := v.TabBase.EncodeOrc(w); err != nil {
-			return err
-		}
-		if err := v.View.EncodeOrc(w); err != nil {
-			return err
-		}
-	case TabEmpty:
-		w.String("empty")
-		if err := v.TabBase.EncodeOrc(w); err != nil {
-			return err
-		}
-	default:
-		return errors.Newf("Tab: nil or unknown variant %T", t.Variant)
-	}
-	return nil
-}
-
-func (t *Tab) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
-	if err != nil {
-		return err
-	}
-	switch tag {
-	case "resource":
-		var v TabResource
-		if err := v.TabBase.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err = v.Resource.DecodeOrc(r); err != nil {
-			return err
-		}
-		t.Variant = v
-	case "view":
-		var v TabView
-		if err := v.TabBase.DecodeOrc(r); err != nil {
-			return err
-		}
-		if err := v.View.DecodeOrc(r); err != nil {
-			return err
-		}
-		t.Variant = v
-	case "empty":
-		var v TabEmpty
-		if err := v.TabBase.DecodeOrc(r); err != nil {
-			return err
-		}
-		t.Variant = v
-	default:
-		return errors.Newf("Tab: unknown variant %q", tag)
-	}
-	return nil
-}
-
-func (tb TabBase) EncodeOrc(w *orc.Writer) error {
-	w.Write(tb.Key[:])
-	return nil
-}
-
-func (tb *TabBase) DecodeOrc(r *orc.Reader) error {
-	if _, err := r.Read(tb.Key[:]); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (vv View) EncodeOrc(w *orc.Writer) error {
-	w.String(vv.Type)
-	w.String(vv.Name)
+	w.Write(t.Key[:])
+	w.String(t.Type)
 	{
-		b, err := json.Marshal(vv.Args)
+		b, err := json.Marshal(t.Args)
 		if err != nil {
 			return err
 		}
@@ -250,12 +173,12 @@ func (vv View) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-func (vv *View) DecodeOrc(r *orc.Reader) error {
+func (t *Tab) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if vv.Type, err = r.String(); err != nil {
+	if _, err := r.Read(t.Key[:]); err != nil {
 		return err
 	}
-	if vv.Name, err = r.String(); err != nil {
+	if t.Type, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -263,7 +186,7 @@ func (vv *View) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &vv.Args); err != nil {
+		if err = json.Unmarshal(b, &t.Args); err != nil {
 			return err
 		}
 	}

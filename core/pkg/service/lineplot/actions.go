@@ -24,9 +24,15 @@ func (p RenamePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle replaces the plot title configuration.
-func (p SetTitlePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Title = p.Title
+// Handle sets whether the title is shown above the plot.
+func (p SetTitleVisiblePayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Title.Visible = p.Visible
+	return state, nil
+}
+
+// Handle sets the typography level of the title text.
+func (p SetTitleLevelPayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Title.Level = p.Level
 	return state, nil
 }
 
@@ -202,14 +208,47 @@ func (p SetAxisLabelLevelPayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle sets the axis value-space window together with its per-edge auto flags.
-func (p SetAxisBoundsPayload) Handle(state LinePlot) (LinePlot, error) {
+// Handle sets the fixed lower bound of the axis and disables auto derivation of
+// that edge.
+func (p SetAxisLowerBoundPayload) Handle(state LinePlot) (LinePlot, error) {
 	axis := axisPointer(&state.Axes, p.Key)
 	if axis == nil {
 		return LinePlot{}, unknownAxisKey(p.Key)
 	}
-	axis.Bounds = p.Bounds
-	axis.AutoBounds = p.AutoBounds
+	axis.Bounds.Lower = p.Bound
+	axis.AutoBounds.Lower = false
+	return state, nil
+}
+
+// Handle sets the fixed upper bound of the axis and disables auto derivation of
+// that edge.
+func (p SetAxisUpperBoundPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.Bounds.Upper = p.Bound
+	axis.AutoBounds.Upper = false
+	return state, nil
+}
+
+// Handle re-enables automatic derivation of the axis lower bound from data.
+func (p EnableAxisLowerAutoBoundPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.AutoBounds.Lower = true
+	return state, nil
+}
+
+// Handle re-enables automatic derivation of the axis upper bound from data.
+func (p EnableAxisUpperAutoBoundPayload) Handle(state LinePlot) (LinePlot, error) {
+	axis := axisPointer(&state.Axes, p.Key)
+	if axis == nil {
+		return LinePlot{}, unknownAxisKey(p.Key)
+	}
+	axis.AutoBounds.Upper = true
 	return state, nil
 }
 

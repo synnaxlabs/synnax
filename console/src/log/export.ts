@@ -12,14 +12,13 @@ import { DisconnectedError } from "@synnaxlabs/client";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/log/layout";
-import { VERSION } from "@/log/types/v2";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const name = Layout.select(store.getState(), key)?.name;
   if (client == null) throw new DisconnectedError();
   const l = await client.logs.retrieve({ key });
   return {
-    data: JSON.stringify({ ...l, type: LAYOUT_TYPE, version: VERSION }),
+    data: JSON.stringify({ ...l, type: LAYOUT_TYPE }),
     name: name ?? l.name,
   };
 };

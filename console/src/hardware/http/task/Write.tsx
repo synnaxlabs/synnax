@@ -50,17 +50,10 @@ import {
 } from "@/hardware/http/task/types";
 import { Selector } from "@/selector";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.HTTP",
-};
-
 export const WriteSelectable = Selector.createSimpleItem({
   title: "HTTP Write Task",
   icon: <Icon.Logo.HTTP />,
-  layout: WRITE_LAYOUT,
+  type: WRITE_TYPE,
 });
 
 const Properties = () => (
@@ -711,6 +704,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.HTTP />,
   schemas: WRITE_SCHEMAS,
   type: WRITE_TYPE,
   getInitialValues,

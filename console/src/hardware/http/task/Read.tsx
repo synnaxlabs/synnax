@@ -51,17 +51,10 @@ import {
 } from "@/hardware/http/task/types";
 import { Selector } from "@/selector";
 
-export const READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.HTTP",
-};
-
 export const ReadSelectable = Selector.createSimpleItem({
   title: "HTTP Read Task",
   icon: <Icon.Logo.HTTP />,
-  layout: READ_LAYOUT,
+  type: READ_TYPE,
 });
 
 const RATE_INPUT_PROPS = {
@@ -707,6 +700,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.HTTP />,
   schemas: READ_SCHEMAS,
   type: "http_read",
   getInitialValues,

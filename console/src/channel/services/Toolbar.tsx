@@ -15,6 +15,7 @@ import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
 import { CREATE_LAYOUT } from "@/channel/Create";
 import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
+import { type Nav } from "@/nav";
 import { Ontology } from "@/ontology";
 
 const Actions = (): ReactElement | null => {
@@ -67,7 +68,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "channel",
   icon: <Icon.Channel />,
   content: <Content />,

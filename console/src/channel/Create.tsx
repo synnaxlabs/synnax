@@ -20,18 +20,16 @@ import {
 } from "@synnaxlabs/pluto";
 import { useState } from "react";
 
-import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CREATE_LAYOUT_TYPE = "createChannel";
 
-export const CREATE_LAYOUT: Layout.BaseState = {
+export const CREATE_LAYOUT: Modals.BaseState = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
   name: "Channel.Create",
   icon: "Channel",
-  location: "modal",
   window: {
     resizable: false,
     size: { height: 375, width: 700 },
@@ -42,7 +40,7 @@ export const CREATE_LAYOUT: Layout.BaseState = {
 
 const INDEX_QUERY: Partial<Channel.RetrieveMultipleQuery> = { isIndex: true };
 
-export const Create: Layout.Renderer = ({ onClose }) => {
+export const Create: Modals.Renderer = ({ onClose }) => {
   const [createMore, setCreateMore] = useState(false);
   const { form, variant, save } = Channel.useForm({
     query: {},

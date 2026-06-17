@@ -7,23 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 import { Create, CREATE_LAYOUT_TYPE } from "@/project/Create";
 
 export * from "@/project/Create";
 export * from "@/project/createUseCreate";
-export * from "@/project/export";
 export * from "@/project/Guard";
+export * from "@/project/imex";
 export * from "@/project/Selector";
 export * from "@/project/selectors";
-export * from "@/project/slice";
+export * from "@/project/session/slice";
 export * from "@/project/Splash";
 export * from "@/project/types";
 export * from "@/project/useCheckCore";
 export * from "@/project/useMaybeChange";
 export * from "@/project/useSyncComponent";
-export * from "@/project/useSyncLayout";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [CREATE_LAYOUT_TYPE]: Create,
 };

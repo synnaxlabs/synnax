@@ -13,7 +13,6 @@ import { type ReactElement } from "react";
 import { type z } from "zod";
 
 import { Label } from "@/label";
-import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
@@ -21,10 +20,9 @@ export type CreateLayoutArgs = Partial<z.infer<typeof Status.formSchema>>;
 
 export const CREATE_LAYOUT_TYPE = "createStatus";
 
-export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
+export const CREATE_LAYOUT: Modals.BaseState<CreateLayoutArgs> = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
-  location: "modal",
   name: "Status.Create",
   icon: "Status",
   window: { resizable: false, size: { height: 440, width: 700 }, navTop: true },
@@ -32,10 +30,10 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
 
 export const createCreateLayout = (
   initial: CreateLayoutArgs = {},
-): Layout.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, args: initial });
+): Modals.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, args: initial });
 
-export const Create = ({ layoutKey, onClose }: Layout.RendererProps): ReactElement => {
-  const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
+export const Create = ({ onClose }: Modals.RendererProps): ReactElement => {
+  const args = Modals.useArgs<CreateLayoutArgs>();
   const { form, save, variant } = Status.useForm({
     query: { key: args?.key },
     autoSave: false,

@@ -86,7 +86,7 @@ const importComponent = ({
     if (projectKey != null && activeProjectKey !== projectKey) {
       if (client == null) throw new DisconnectedError();
       const proj = await client.projects.retrieve(projectKey);
-      store.dispatch(Project.setActive(proj));
+      store.dispatch(Project.activeate(proj));
       store.dispatch(
         Layout.setProject({
           slice: proj.layout as Layout.SliceState,

@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/ethercat/device/Configure";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export * from "@/hardware/ethercat/device/Configure";
 export * from "@/hardware/ethercat/device/queries";
 export * from "@/hardware/ethercat/device/SelectSlave";
 export * from "@/hardware/ethercat/device/types";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [CONFIGURE_LAYOUT_TYPE]: Configure,
 };

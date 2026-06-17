@@ -11,13 +11,14 @@ import { table } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
-import { internalCreate, type State } from "@/table/slice";
+import { internalCreate, type State } from "@/table/session/slice";
+import { type Tabs } from "@/panel/tabs/index";
 
 export const LAYOUT_TYPE = "table";
 export type LayoutType = typeof LAYOUT_TYPE;
 
 export interface CreateArg
-  extends Partial<Layout.BaseState>, Partial<Pick<State, "editable">> {
+  extends Partial<Tabs.BaseState>, Partial<Pick<State, "editable">> {
   key?: string;
 }
 

@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
-import { Access, Arc, Icon } from "@synnaxlabs/pluto";
+import { arc, panel } from "@synnaxlabs/client";
+import { Access, Arc, Icon, Panel as Base, Status } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
+import { useDispatch } from "react-redux";
 
 import { useCreateModal } from "@/arc/editor/CreateModal";
 import { Graph } from "@/arc/editor/graph";
@@ -18,9 +19,10 @@ import { Text } from "@/arc/editor/text";
 import { useSelectMode, useSelectVersion } from "@/arc/selectors";
 import { internalCreate, type State, ZERO_STATE } from "@/arc/slice";
 import { TYPE } from "@/arc/types";
-import { translateGraphToConsole } from "@/arc/types/translate";
+import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/translate";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { type Tabs } from "@/panel/tabs/index";
 import { Selector } from "@/selector";
 
 export const useLoadRemote = createLoadRemote<arc.Arc>({
@@ -38,22 +40,23 @@ export const useLoadRemote = createLoadRemote<arc.Arc>({
     }),
 });
 
-const Loaded: Layout.Renderer = (props) => {
+const Loaded: Tabs.Content = () => {
   const { layoutKey } = props;
   const mode = useSelectMode(layoutKey) ?? "graph";
   if (mode === "graph") return <Graph.Editor {...props} />;
   return <Text.Editor {...props} />;
 };
 
-export const Editor: Layout.Renderer = (props) => {
-  const arc = useLoadRemote(props.layoutKey);
+export const Editor = () => {
+  const arc = useLoadRemote();
   if (arc == null) return null;
   return <Loaded {...props} />;
 };
 
 Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);
+Editor.icon = <Icon.Arc />;
 
-export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
+export type CreateArg = Partial<State> & Partial<Tabs.BaseState>;
 
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>
@@ -78,21 +81,51 @@ export const create =
     };
   };
 
-export const Selectable: Selector.Selectable = ({
-  layoutKey,
-  onPlace,
-  handleError,
-}) => {
+export const Selectable: Selector.Selectable = ({ tabKey }) => {
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const createArcModal = useCreateModal();
+  const dispatch = useDispatch();
+  const place = Layout.usePlacer();
+  const handleError = Status.useErrorHandler();
+  const panelKey = Layout.useSelectActivePanelKey();
+  const { dispatch: panelDispatch } = Base.useDispatch();
+  const { update } = Arc.useCreate({
+    afterSuccess: useCallback(
+      async ({ data: { key } }) => {
+        if (tabKey == null || panelKey == null) return;
+        panelDispatch({
+          key: panelKey,
+          actions: [
+            panel.setTabType({ key: tabKey, type: arc.ontologyID(key).type }),
+            panel.setTabArgs({ key: tabKey, args: { resourceKey: key } }),
+          ],
+        });
+      },
+      [tabKey, panelKey, panelDispatch],
+    ),
+  });
 
   const handleClick = useCallback(() => {
     handleError(async () => {
       const result = await createArcModal({});
-      if (result != null)
-        onPlace(create({ key: layoutKey, name: result.name, mode: result.mode }));
+      if (result == null) return;
+      const key = uuid.create();
+      // In a panel, create the arc on the server (so the tab references a real
+      // resource) and seed the local editor's working copy, then fill the tab;
+      // otherwise open it as a mosaic tab as before.
+      if (tabKey != null && panelKey != null) {
+        const zero = deep.copy(ZERO_STATE);
+        dispatch(internalCreate({ ...zero, key, mode: result.mode }));
+        update({
+          key,
+          name: result.name,
+          mode: result.mode,
+          graph: translateGraphToServer(zero.graph),
+          text: zero.text,
+        });
+      } else place(create({ key, name: result.name, mode: result.mode }));
     }, "Failed to create Arc program");
-  }, [onPlace, layoutKey, createArcModal, handleError]);
+  }, [tabKey, panelKey, place, dispatch, createArcModal, handleError, update]);
 
   if (!hasCreatePermission) return null;
 

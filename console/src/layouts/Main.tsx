@@ -17,10 +17,10 @@ import { ChannelServices } from "@/channel/services";
 import { Cluster } from "@/cluster";
 import { ClusterServices } from "@/cluster/services";
 import { Hardware } from "@/hardware";
-import { Layout } from "@/layout";
 import { Mosaic } from "@/layouts/Mosaic";
-import { Nav } from "@/layouts/nav";
+import { Nav as AppNav } from "@/layouts/nav";
 import { Notifications } from "@/layouts/Notifications";
+import { Nav } from "@/nav";
 import { useTriggers } from "@/layouts/useTriggers";
 import { LinePlotServices } from "@/lineplot/services";
 import { Link } from "@/link";
@@ -32,7 +32,6 @@ import { RangeServices } from "@/range/services";
 import { SchematicServices } from "@/schematic/services";
 import { Status } from "@/status";
 import { TableServices } from "@/table/services";
-import { Version } from "@/version";
 
 const LINK_HANDLERS: Record<string, Link.Handler> = {
   arc: ArcServices.handleLink,
@@ -48,7 +47,6 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
-  Version.useLoadTauri();
   Cluster.useSyncClusterKey();
   Hardware.Device.useListenForChanges();
   Range.useListenForChanges();
@@ -56,15 +54,6 @@ const SideEffect = (): null => {
   Status.useListenForChanges();
   Link.useDeep(ClusterServices.handleLink, LINK_HANDLERS);
   useTriggers();
-  return null;
-};
-
-// ProjectSideEffect holds effects that only make sense with an active project. It is
-// rendered inside Project.Guard, so it mounts only once a project is active - layout
-// sync and the file-drop importer never run against the select-or-create screen.
-const ProjectSideEffect = (): null => {
-  Project.useSyncLayout();
-  Layout.useDropOutside();
   return null;
 };
 
@@ -81,21 +70,20 @@ export const Main = (): ReactElement => (
     <SideEffect />
     <Auth.Guard>
       <Project.Guard>
-        <ProjectSideEffect />
-        <Nav.Top />
+        <AppNav.Top />
         <Flex.Box
           x
           gap="tiny"
           grow
           style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
         >
-          <Nav.Left />
+          <AppNav.Left />
           <Flex.Box gap="tiny" grow style={{ width: 0 }}>
             <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
-              <Layout.Nav.Drawer location="left" menuItems={Nav.DRAWER_ITEMS} />
+              <Nav.LeftDrawer items={AppNav.LEFT_DRAWER_ITEMS} />
               <Mosaic />
             </Flex.Box>
-            <Layout.Nav.Drawer location="bottom" menuItems={Nav.DRAWER_ITEMS} />
+            <Nav.BottomDrawer item={AppNav.BOTTOM_DRAWER_ITEM} />
           </Flex.Box>
         </Flex.Box>
       </Project.Guard>

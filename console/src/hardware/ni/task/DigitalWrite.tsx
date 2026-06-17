@@ -30,17 +30,10 @@ import {
 } from "@/hardware/ni/task/types";
 import { Selector } from "@/selector";
 
-export const DIGITAL_WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  icon: "Logo.NI",
-  name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
-  type: DIGITAL_WRITE_TYPE,
-};
-
 export const DigitalWriteSelectable = Selector.createSimpleItem({
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  layout: DIGITAL_WRITE_LAYOUT,
+  type: DIGITAL_WRITE_TYPE,
 });
 
 const Properties = () => (
@@ -213,6 +206,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalWriteConfigZ> = async (
 export const DigitalWrite = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.NI />,
   schemas: DIGITAL_WRITE_SCHEMAS,
   getInitialValues,
   onConfigure,

@@ -20,38 +20,42 @@ import (
 )
 
 const (
-	ActionTypeRename                = "rename"
-	ActionTypeSetTitle              = "set_title"
-	ActionTypeSetLegendVisible      = "set_legend_visible"
-	ActionTypeSetLegendPosition     = "set_legend_position"
-	ActionTypeAddChannel            = "add_channel"
-	ActionTypeRemoveChannel         = "remove_channel"
-	ActionTypeSetChannels           = "set_channels"
-	ActionTypeSetXChannel           = "set_x_channel"
-	ActionTypeAddRange              = "add_range"
-	ActionTypeRemoveRange           = "remove_range"
-	ActionTypeSetRanges             = "set_ranges"
-	ActionTypeSetAxisLabel          = "set_axis_label"
-	ActionTypeSetAxisLabelDirection = "set_axis_label_direction"
-	ActionTypeSetAxisLabelLevel     = "set_axis_label_level"
-	ActionTypeSetAxisBounds         = "set_axis_bounds"
-	ActionTypeSetAxisTickSpacing    = "set_axis_tick_spacing"
-	ActionTypeSetAxisType           = "set_axis_type"
-	ActionTypeSetLineLabel          = "set_line_label"
-	ActionTypeSetLineColor          = "set_line_color"
-	ActionTypeSetLineStrokeWidth    = "set_line_stroke_width"
-	ActionTypeSetLineDownsample     = "set_line_downsample"
-	ActionTypeSetLineDownsampleMode = "set_line_downsample_mode"
-	ActionTypeSetLine               = "set_line"
-	ActionTypeSetRule               = "set_rule"
-	ActionTypeSetRuleLabel          = "set_rule_label"
-	ActionTypeSetRuleColor          = "set_rule_color"
-	ActionTypeSetRuleAxis           = "set_rule_axis"
-	ActionTypeSetRuleLineWidth      = "set_rule_line_width"
-	ActionTypeSetRuleLineDash       = "set_rule_line_dash"
-	ActionTypeSetRuleUnits          = "set_rule_units"
-	ActionTypeSetRulePosition       = "set_rule_position"
-	ActionTypeRemoveRule            = "remove_rule"
+	ActionTypeRename                   = "rename"
+	ActionTypeSetTitleVisible          = "set_title_visible"
+	ActionTypeSetTitleLevel            = "set_title_level"
+	ActionTypeSetLegendVisible         = "set_legend_visible"
+	ActionTypeSetLegendPosition        = "set_legend_position"
+	ActionTypeAddChannel               = "add_channel"
+	ActionTypeRemoveChannel            = "remove_channel"
+	ActionTypeSetChannels              = "set_channels"
+	ActionTypeSetXChannel              = "set_x_channel"
+	ActionTypeAddRange                 = "add_range"
+	ActionTypeRemoveRange              = "remove_range"
+	ActionTypeSetRanges                = "set_ranges"
+	ActionTypeSetAxisLabel             = "set_axis_label"
+	ActionTypeSetAxisLabelDirection    = "set_axis_label_direction"
+	ActionTypeSetAxisLabelLevel        = "set_axis_label_level"
+	ActionTypeSetAxisLowerBound        = "set_axis_lower_bound"
+	ActionTypeSetAxisUpperBound        = "set_axis_upper_bound"
+	ActionTypeEnableAxisLowerAutoBound = "enable_axis_lower_auto_bound"
+	ActionTypeEnableAxisUpperAutoBound = "enable_axis_upper_auto_bound"
+	ActionTypeSetAxisTickSpacing       = "set_axis_tick_spacing"
+	ActionTypeSetAxisType              = "set_axis_type"
+	ActionTypeSetLineLabel             = "set_line_label"
+	ActionTypeSetLineColor             = "set_line_color"
+	ActionTypeSetLineStrokeWidth       = "set_line_stroke_width"
+	ActionTypeSetLineDownsample        = "set_line_downsample"
+	ActionTypeSetLineDownsampleMode    = "set_line_downsample_mode"
+	ActionTypeSetLine                  = "set_line"
+	ActionTypeSetRule                  = "set_rule"
+	ActionTypeSetRuleLabel             = "set_rule_label"
+	ActionTypeSetRuleColor             = "set_rule_color"
+	ActionTypeSetRuleAxis              = "set_rule_axis"
+	ActionTypeSetRuleLineWidth         = "set_rule_line_width"
+	ActionTypeSetRuleLineDash          = "set_rule_line_dash"
+	ActionTypeSetRuleUnits             = "set_rule_units"
+	ActionTypeSetRulePosition          = "set_rule_position"
+	ActionTypeRemoveRule               = "remove_rule"
 )
 
 // RenamePayload renames the line plot.
@@ -59,9 +63,14 @@ type RenamePayload struct {
 	Name string `json:"name" msgpack:"name"`
 }
 
-// SetTitlePayload replaces the plot title configuration.
-type SetTitlePayload struct {
-	Title Title `json:"title" msgpack:"title"`
+// SetTitleVisiblePayload sets whether the title is shown above the plot.
+type SetTitleVisiblePayload struct {
+	Visible bool `json:"visible" msgpack:"visible"`
+}
+
+// SetTitleLevelPayload sets the typography level of the title text.
+type SetTitleLevelPayload struct {
+	Level text.Level `json:"level" msgpack:"level"`
 }
 
 // SetLegendVisiblePayload sets whether the plot legend is shown.
@@ -146,13 +155,30 @@ type SetAxisLabelLevelPayload struct {
 	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
 }
 
-// SetAxisBoundsPayload sets the axis value-space window together with its per-edge auto
-// derivation flags. The two travel together: fixing a bound disables auto derivation
-// for that edge, so callers set both at once.
-type SetAxisBoundsPayload struct {
-	Key        AxisKey        `json:"key" msgpack:"key"`
-	Bounds     spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	AutoBounds AutoBounds     `json:"auto_bounds" msgpack:"auto_bounds"`
+// SetAxisLowerBoundPayload sets the fixed lower bound of the axis value-space window
+// and disables automatic derivation of that edge.
+type SetAxisLowerBoundPayload struct {
+	Key   AxisKey `json:"key" msgpack:"key"`
+	Bound float64 `json:"bound" msgpack:"bound"`
+}
+
+// SetAxisUpperBoundPayload sets the fixed upper bound of the axis value-space window
+// and disables automatic derivation of that edge.
+type SetAxisUpperBoundPayload struct {
+	Key   AxisKey `json:"key" msgpack:"key"`
+	Bound float64 `json:"bound" msgpack:"bound"`
+}
+
+// EnableAxisLowerAutoBoundPayload re-enables automatic derivation of the axis lower
+// bound from data.
+type EnableAxisLowerAutoBoundPayload struct {
+	Key AxisKey `json:"key" msgpack:"key"`
+}
+
+// EnableAxisUpperAutoBoundPayload re-enables automatic derivation of the axis upper
+// bound from data.
+type EnableAxisUpperAutoBoundPayload struct {
+	Key AxisKey `json:"key" msgpack:"key"`
 }
 
 // SetAxisTickSpacingPayload sets the target pixel distance between adjacent tick marks.
@@ -271,39 +297,43 @@ type RemoveRulePayload struct {
 // Action is a discriminated union for all LinePlot mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type                  string                        `json:"type" msgpack:"type"`
-	Rename                *RenamePayload                `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	SetTitle              *SetTitlePayload              `json:"set_title,omitempty" msgpack:"set_title,omitempty"`
-	SetLegendVisible      *SetLegendVisiblePayload      `json:"set_legend_visible,omitempty" msgpack:"set_legend_visible,omitempty"`
-	SetLegendPosition     *SetLegendPositionPayload     `json:"set_legend_position,omitempty" msgpack:"set_legend_position,omitempty"`
-	AddChannel            *AddChannelPayload            `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
-	RemoveChannel         *RemoveChannelPayload         `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
-	SetChannels           *SetChannelsPayload           `json:"set_channels,omitempty" msgpack:"set_channels,omitempty"`
-	SetXChannel           *SetXChannelPayload           `json:"set_x_channel,omitempty" msgpack:"set_x_channel,omitempty"`
-	AddRange              *AddRangePayload              `json:"add_range,omitempty" msgpack:"add_range,omitempty"`
-	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitempty" msgpack:"remove_range,omitempty"`
-	SetRanges             *SetRangesPayload             `json:"set_ranges,omitempty" msgpack:"set_ranges,omitempty"`
-	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitempty" msgpack:"set_axis_label,omitempty"`
-	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitempty" msgpack:"set_axis_label_direction,omitempty"`
-	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitempty" msgpack:"set_axis_label_level,omitempty"`
-	SetAxisBounds         *SetAxisBoundsPayload         `json:"set_axis_bounds,omitempty" msgpack:"set_axis_bounds,omitempty"`
-	SetAxisTickSpacing    *SetAxisTickSpacingPayload    `json:"set_axis_tick_spacing,omitempty" msgpack:"set_axis_tick_spacing,omitempty"`
-	SetAxisType           *SetAxisTypePayload           `json:"set_axis_type,omitempty" msgpack:"set_axis_type,omitempty"`
-	SetLineLabel          *SetLineLabelPayload          `json:"set_line_label,omitempty" msgpack:"set_line_label,omitempty"`
-	SetLineColor          *SetLineColorPayload          `json:"set_line_color,omitempty" msgpack:"set_line_color,omitempty"`
-	SetLineStrokeWidth    *SetLineStrokeWidthPayload    `json:"set_line_stroke_width,omitempty" msgpack:"set_line_stroke_width,omitempty"`
-	SetLineDownsample     *SetLineDownsamplePayload     `json:"set_line_downsample,omitempty" msgpack:"set_line_downsample,omitempty"`
-	SetLineDownsampleMode *SetLineDownsampleModePayload `json:"set_line_downsample_mode,omitempty" msgpack:"set_line_downsample_mode,omitempty"`
-	SetLine               *SetLinePayload               `json:"set_line,omitempty" msgpack:"set_line,omitempty"`
-	SetRule               *SetRulePayload               `json:"set_rule,omitempty" msgpack:"set_rule,omitempty"`
-	SetRuleLabel          *SetRuleLabelPayload          `json:"set_rule_label,omitempty" msgpack:"set_rule_label,omitempty"`
-	SetRuleColor          *SetRuleColorPayload          `json:"set_rule_color,omitempty" msgpack:"set_rule_color,omitempty"`
-	SetRuleAxis           *SetRuleAxisPayload           `json:"set_rule_axis,omitempty" msgpack:"set_rule_axis,omitempty"`
-	SetRuleLineWidth      *SetRuleLineWidthPayload      `json:"set_rule_line_width,omitempty" msgpack:"set_rule_line_width,omitempty"`
-	SetRuleLineDash       *SetRuleLineDashPayload       `json:"set_rule_line_dash,omitempty" msgpack:"set_rule_line_dash,omitempty"`
-	SetRuleUnits          *SetRuleUnitsPayload          `json:"set_rule_units,omitempty" msgpack:"set_rule_units,omitempty"`
-	SetRulePosition       *SetRulePositionPayload       `json:"set_rule_position,omitempty" msgpack:"set_rule_position,omitempty"`
-	RemoveRule            *RemoveRulePayload            `json:"remove_rule,omitempty" msgpack:"remove_rule,omitempty"`
+	Type                     string                           `json:"type" msgpack:"type"`
+	Rename                   *RenamePayload                   `json:"rename,omitempty" msgpack:"rename,omitempty"`
+	SetTitleVisible          *SetTitleVisiblePayload          `json:"set_title_visible,omitempty" msgpack:"set_title_visible,omitempty"`
+	SetTitleLevel            *SetTitleLevelPayload            `json:"set_title_level,omitempty" msgpack:"set_title_level,omitempty"`
+	SetLegendVisible         *SetLegendVisiblePayload         `json:"set_legend_visible,omitempty" msgpack:"set_legend_visible,omitempty"`
+	SetLegendPosition        *SetLegendPositionPayload        `json:"set_legend_position,omitempty" msgpack:"set_legend_position,omitempty"`
+	AddChannel               *AddChannelPayload               `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
+	RemoveChannel            *RemoveChannelPayload            `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
+	SetChannels              *SetChannelsPayload              `json:"set_channels,omitempty" msgpack:"set_channels,omitempty"`
+	SetXChannel              *SetXChannelPayload              `json:"set_x_channel,omitempty" msgpack:"set_x_channel,omitempty"`
+	AddRange                 *AddRangePayload                 `json:"add_range,omitempty" msgpack:"add_range,omitempty"`
+	RemoveRange              *RemoveRangePayload              `json:"remove_range,omitempty" msgpack:"remove_range,omitempty"`
+	SetRanges                *SetRangesPayload                `json:"set_ranges,omitempty" msgpack:"set_ranges,omitempty"`
+	SetAxisLabel             *SetAxisLabelPayload             `json:"set_axis_label,omitempty" msgpack:"set_axis_label,omitempty"`
+	SetAxisLabelDirection    *SetAxisLabelDirectionPayload    `json:"set_axis_label_direction,omitempty" msgpack:"set_axis_label_direction,omitempty"`
+	SetAxisLabelLevel        *SetAxisLabelLevelPayload        `json:"set_axis_label_level,omitempty" msgpack:"set_axis_label_level,omitempty"`
+	SetAxisLowerBound        *SetAxisLowerBoundPayload        `json:"set_axis_lower_bound,omitempty" msgpack:"set_axis_lower_bound,omitempty"`
+	SetAxisUpperBound        *SetAxisUpperBoundPayload        `json:"set_axis_upper_bound,omitempty" msgpack:"set_axis_upper_bound,omitempty"`
+	EnableAxisLowerAutoBound *EnableAxisLowerAutoBoundPayload `json:"enable_axis_lower_auto_bound,omitempty" msgpack:"enable_axis_lower_auto_bound,omitempty"`
+	EnableAxisUpperAutoBound *EnableAxisUpperAutoBoundPayload `json:"enable_axis_upper_auto_bound,omitempty" msgpack:"enable_axis_upper_auto_bound,omitempty"`
+	SetAxisTickSpacing       *SetAxisTickSpacingPayload       `json:"set_axis_tick_spacing,omitempty" msgpack:"set_axis_tick_spacing,omitempty"`
+	SetAxisType              *SetAxisTypePayload              `json:"set_axis_type,omitempty" msgpack:"set_axis_type,omitempty"`
+	SetLineLabel             *SetLineLabelPayload             `json:"set_line_label,omitempty" msgpack:"set_line_label,omitempty"`
+	SetLineColor             *SetLineColorPayload             `json:"set_line_color,omitempty" msgpack:"set_line_color,omitempty"`
+	SetLineStrokeWidth       *SetLineStrokeWidthPayload       `json:"set_line_stroke_width,omitempty" msgpack:"set_line_stroke_width,omitempty"`
+	SetLineDownsample        *SetLineDownsamplePayload        `json:"set_line_downsample,omitempty" msgpack:"set_line_downsample,omitempty"`
+	SetLineDownsampleMode    *SetLineDownsampleModePayload    `json:"set_line_downsample_mode,omitempty" msgpack:"set_line_downsample_mode,omitempty"`
+	SetLine                  *SetLinePayload                  `json:"set_line,omitempty" msgpack:"set_line,omitempty"`
+	SetRule                  *SetRulePayload                  `json:"set_rule,omitempty" msgpack:"set_rule,omitempty"`
+	SetRuleLabel             *SetRuleLabelPayload             `json:"set_rule_label,omitempty" msgpack:"set_rule_label,omitempty"`
+	SetRuleColor             *SetRuleColorPayload             `json:"set_rule_color,omitempty" msgpack:"set_rule_color,omitempty"`
+	SetRuleAxis              *SetRuleAxisPayload              `json:"set_rule_axis,omitempty" msgpack:"set_rule_axis,omitempty"`
+	SetRuleLineWidth         *SetRuleLineWidthPayload         `json:"set_rule_line_width,omitempty" msgpack:"set_rule_line_width,omitempty"`
+	SetRuleLineDash          *SetRuleLineDashPayload          `json:"set_rule_line_dash,omitempty" msgpack:"set_rule_line_dash,omitempty"`
+	SetRuleUnits             *SetRuleUnitsPayload             `json:"set_rule_units,omitempty" msgpack:"set_rule_units,omitempty"`
+	SetRulePosition          *SetRulePositionPayload          `json:"set_rule_position,omitempty" msgpack:"set_rule_position,omitempty"`
+	RemoveRule               *RemoveRulePayload               `json:"remove_rule,omitempty" msgpack:"remove_rule,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -320,11 +350,16 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
-		case ActionTypeSetTitle:
-			if a.SetTitle == nil {
+		case ActionTypeSetTitleVisible:
+			if a.SetTitleVisible == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetTitle.Handle(state)
+			state, err = a.SetTitleVisible.Handle(state)
+		case ActionTypeSetTitleLevel:
+			if a.SetTitleLevel == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetTitleLevel.Handle(state)
 		case ActionTypeSetLegendVisible:
 			if a.SetLegendVisible == nil {
 				return state, union.MissingPayload(a.Type)
@@ -385,11 +420,26 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetAxisLabelLevel.Handle(state)
-		case ActionTypeSetAxisBounds:
-			if a.SetAxisBounds == nil {
+		case ActionTypeSetAxisLowerBound:
+			if a.SetAxisLowerBound == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetAxisBounds.Handle(state)
+			state, err = a.SetAxisLowerBound.Handle(state)
+		case ActionTypeSetAxisUpperBound:
+			if a.SetAxisUpperBound == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetAxisUpperBound.Handle(state)
+		case ActionTypeEnableAxisLowerAutoBound:
+			if a.EnableAxisLowerAutoBound == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.EnableAxisLowerAutoBound.Handle(state)
+		case ActionTypeEnableAxisUpperAutoBound:
+			if a.EnableAxisUpperAutoBound == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.EnableAxisUpperAutoBound.Handle(state)
 		case ActionTypeSetAxisTickSpacing:
 			if a.SetAxisTickSpacing == nil {
 				return state, union.MissingPayload(a.Type)
@@ -490,9 +540,14 @@ func NewRenameAction(p RenamePayload) Action {
 	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
-// NewSetTitleAction wraps a SetTitlePayload in an Action envelope.
-func NewSetTitleAction(p SetTitlePayload) Action {
-	return Action{Type: ActionTypeSetTitle, SetTitle: &p}
+// NewSetTitleVisibleAction wraps a SetTitleVisiblePayload in an Action envelope.
+func NewSetTitleVisibleAction(p SetTitleVisiblePayload) Action {
+	return Action{Type: ActionTypeSetTitleVisible, SetTitleVisible: &p}
+}
+
+// NewSetTitleLevelAction wraps a SetTitleLevelPayload in an Action envelope.
+func NewSetTitleLevelAction(p SetTitleLevelPayload) Action {
+	return Action{Type: ActionTypeSetTitleLevel, SetTitleLevel: &p}
 }
 
 // NewSetLegendVisibleAction wraps a SetLegendVisiblePayload in an Action envelope.
@@ -555,9 +610,24 @@ func NewSetAxisLabelLevelAction(p SetAxisLabelLevelPayload) Action {
 	return Action{Type: ActionTypeSetAxisLabelLevel, SetAxisLabelLevel: &p}
 }
 
-// NewSetAxisBoundsAction wraps a SetAxisBoundsPayload in an Action envelope.
-func NewSetAxisBoundsAction(p SetAxisBoundsPayload) Action {
-	return Action{Type: ActionTypeSetAxisBounds, SetAxisBounds: &p}
+// NewSetAxisLowerBoundAction wraps a SetAxisLowerBoundPayload in an Action envelope.
+func NewSetAxisLowerBoundAction(p SetAxisLowerBoundPayload) Action {
+	return Action{Type: ActionTypeSetAxisLowerBound, SetAxisLowerBound: &p}
+}
+
+// NewSetAxisUpperBoundAction wraps a SetAxisUpperBoundPayload in an Action envelope.
+func NewSetAxisUpperBoundAction(p SetAxisUpperBoundPayload) Action {
+	return Action{Type: ActionTypeSetAxisUpperBound, SetAxisUpperBound: &p}
+}
+
+// NewEnableAxisLowerAutoBoundAction wraps a EnableAxisLowerAutoBoundPayload in an Action envelope.
+func NewEnableAxisLowerAutoBoundAction(p EnableAxisLowerAutoBoundPayload) Action {
+	return Action{Type: ActionTypeEnableAxisLowerAutoBound, EnableAxisLowerAutoBound: &p}
+}
+
+// NewEnableAxisUpperAutoBoundAction wraps a EnableAxisUpperAutoBoundPayload in an Action envelope.
+func NewEnableAxisUpperAutoBoundAction(p EnableAxisUpperAutoBoundPayload) Action {
+	return Action{Type: ActionTypeEnableAxisUpperAutoBound, EnableAxisUpperAutoBound: &p}
 }
 
 // NewSetAxisTickSpacingAction wraps a SetAxisTickSpacingPayload in an Action envelope.

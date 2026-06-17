@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { DELETE_LAYOUT, DeleteModal } from "@/framer/DeleteModal";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export { COMMANDS } from "@/framer/palette";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [DELETE_LAYOUT.type]: DeleteModal,
 };

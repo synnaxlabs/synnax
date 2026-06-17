@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Edit, EDIT_LAYOUT_TYPE } from "@/label/Edit";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export * from "@/label/Edit";
 export * from "@/label/filter";
 export * from "@/label/Select";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [EDIT_LAYOUT_TYPE]: Edit,
 };

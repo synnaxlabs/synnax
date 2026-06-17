@@ -11,69 +11,57 @@ import "@/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { type ReactElement, useMemo } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 import { useExport } from "@/log/export";
-import { useSelectActiveToolbarTab, useSelectExists } from "@/log/selectors";
-import { setActiveToolbarTab, type ToolbarTab } from "@/log/slice";
+import { Session } from "@/log/session";
+import { Tab } from "@/log/tab";
 import { Channels } from "@/log/toolbar/Channels";
 import { Properties } from "@/log/toolbar/Properties";
-
-export interface ToolbarProps {
-  layoutKey: string;
-}
 
 const TABS: Tabs.Tab[] = [
   { tabKey: "channels", name: "Channels" },
   { tabKey: "properties", name: "Properties" },
 ];
 
-const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
-  Log.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const dispatch = useDispatch();
-  const activeTab = useSelectActiveToolbarTab(layoutKey);
-  const handleTabSelect = useCallback(
-    (tab: string) =>
-      dispatch(setActiveToolbarTab({ key: layoutKey, tab: tab as ToolbarTab })),
-    [dispatch, layoutKey],
-  );
+const content = ({ tabKey }: Tabs.Tab): ReactElement => {
+  if (tabKey === "properties") return <Properties />;
+  return <Channels />;
+};
+
+const Internal = (): ReactElement => {
+  const key = Log.useKey();
+  const name = Log.useSelectName({});
+  const activeTab = Session.useSelectActiveToolbarTab();
+  const handleSelectTab = Session.useSetActiveToolbarTab();
   const handleExport = useExport();
 
-  const content = useCallback(
-    ({ tabKey }: Tabs.Tab) => {
-      switch (tabKey) {
-        case "properties":
-          return <Properties layoutKey={layoutKey} />;
-        default:
-          return <Channels layoutKey={layoutKey} />;
-      }
-    },
-    [layoutKey],
-  );
-
-  const tabsValue = useMemo(
-    () => ({ tabs: TABS, selected: activeTab, content, onSelect: handleTabSelect }),
-    [activeTab, content, handleTabSelect],
+  const value = useMemo<Tabs.ContextValue>(
+    () =>
+      ({
+        tabs: TABS,
+        selected: activeTab,
+        onSelect: handleSelectTab,
+        content,
+      }) as Tabs.ContextValue,
+    [activeTab, handleSelectTab],
   );
 
   return (
     <Base.Content className={CSS.B("log-toolbar")}>
-      <Tabs.Provider value={tabsValue}>
+      <Tabs.Provider value={value}>
         <Base.Header>
           <Base.Title icon={<Icon.Log />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+              <Export.ToolbarButton onExport={() => handleExport(key)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
-                ontologyID={log.ontologyID(layoutKey)}
+                ontologyID={log.ontologyID(key)}
               />
             </Flex.Box>
             <Tabs.Selector className={CSS.BE("log-toolbar", "tabs")} />
@@ -85,8 +73,11 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
   );
 };
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  const exists = useSelectExists(layoutKey);
-  if (!exists) return null;
-  return <Internal layoutKey={layoutKey} />;
+export const Toolbar = (): ReactElement => {
+  const { key } = Tab.useArgs();
+  return (
+    <Log.Suspended logKey={key}>
+      <Internal />
+    </Log.Suspended>
+  );
 };

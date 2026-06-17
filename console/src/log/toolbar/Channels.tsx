@@ -206,13 +206,10 @@ const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement =>
   </Flex.Box>
 );
 
-export interface ChannelsProps {
-  layoutKey: string;
-}
-
-export const Channels = ({ layoutKey }: ChannelsProps): ReactElement => {
+export const Channels = (): ReactElement => {
+  const layoutKey = Log.useKey();
   const { dispatch } = Log.useDispatch();
-  const channels = Log.useSelectChannels({ key: layoutKey });
+  const channels = Log.useSelectChannels({});
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
 
   const apply = useCallback(

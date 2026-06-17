@@ -10,7 +10,6 @@
 package panel
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -21,23 +20,27 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle inserts the tab into the leaf at the given path-derived key, at the
-// given index. The caller is responsible for choosing a valid index in
-// [0, len(leaf.Tabs)] — to append, pass len(leaf.Tabs). When Location is an
-// edge, the target leaf is first split at that location and the tab is
-// inserted into the new empty sibling leaf; a center Location places the tab
-// directly in the target leaf, equivalent to absent. Empty leaves left under
-// a split are collapsed afterwards, so an edge insert into an empty leaf
-// degrades to a direct insert. Errors when the target leaf path does not
-// resolve, when it resolves to a split, when index is outside
-// [0, len(leaf.Tabs)], or when Location cannot produce a split. On any error
-// the returned state is the zero Panel; the dispatch substrate aborts the
+// Handle inserts the tab into the resolved destination leaf at the given index.
+// The destination is resolved in priority order: the leaf holding TargetTab when
+// set, otherwise the TargetLeaf path key, otherwise the first leaf in traversal
+// order. Appends when Index is nil; otherwise the caller is responsible for
+// choosing a valid index in [0, len(leaf.Tabs)]. When Location is an edge, the
+// resolved leaf is first split at that location and the tab is inserted into the
+// new empty sibling leaf; a center Location places the tab directly in the
+// resolved leaf, equivalent to absent. Empty leaves left under a split are
+// collapsed afterwards, so an edge insert into an empty leaf degrades to a
+// direct insert. Errors when TargetTab is set but unmatched, when the resolved
+// leaf path does not resolve or resolves to a split, when index is outside
+// [0, len(leaf.Tabs)], or when Location cannot produce a split. On any error the
+// returned state is the zero Panel; the dispatch substrate aborts the
 // transaction on error, so partial state would not be meaningful.
 func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
-	targetLeaf := p.TargetLeaf
+	targetLeaf, err := p.resolveTargetLeaf(state.Root)
+	if err != nil {
+		return Panel{}, err
+	}
 	if p.Location != nil && *p.Location != spatial.LocationCenter {
-		var err error
-		targetLeaf, err = splitLeafForPlacement(&state.Root, p.TargetLeaf, *p.Location)
+		targetLeaf, err = splitLeafForPlacement(&state.Root, targetLeaf, *p.Location)
 		if err != nil {
 			return Panel{}, err
 		}
@@ -57,6 +60,29 @@ func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
+// resolveTargetLeaf resolves the destination leaf's path-derived key from the
+// payload's addressing fields, in priority order: the leaf holding TargetTab
+// when set, then the TargetLeaf path key, then the first leaf in traversal
+// order. Errors when TargetTab is set but no tab matches it, or when the tree
+// contains no leaf to default to.
+func (p InsertTabPayload) resolveTargetLeaf(root Node) (int32, error) {
+	if p.TargetTab != nil {
+		leafPath, _, ok := findTab(root, *p.TargetTab)
+		if !ok {
+			return 0, errTabNotFound
+		}
+		return leafPath, nil
+	}
+	if p.TargetLeaf != nil {
+		return *p.TargetLeaf, nil
+	}
+	leafPath, ok := firstLeafPath(root)
+	if !ok {
+		return 0, errInvalidPath
+	}
+	return leafPath, nil
+}
+
 // Handle removes the tab with the given key. When the containing leaf is left
 // empty and has a non-empty sibling under a split, the split is collapsed:
 // the sibling subtree takes the parent split's position in the tree. Errors
@@ -72,7 +98,7 @@ func (p RemoveTabPayload) Handle(state Panel) (Panel, error) {
 // Handle moves a tab to a position within the panel. The target leaf is resolved
 // before the remove, and empty-leaf collapse is deferred until after the insert,
 // so the destination may be a leaf the source's removal would otherwise collapse
-// away (e.g. the empty sibling created by a preceding SplitLeaf). When Location
+// away (e.g. the empty sibling created by the preceding edge split). When Location
 // is an edge, the target leaf is first split at that location and the tab moves
 // into the new empty sibling leaf; moving a leaf's only tab to an edge of its
 // own leaf is a no-op (the result would be the tab beside an empty pane). A
@@ -88,7 +114,7 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 		if err != nil {
 			return Panel{}, err
 		}
-		if len(current.Tabs) == 1 && current.Tabs[0].Key() == p.Key {
+		if len(current.Tabs) == 1 && current.Tabs[0].Key == p.Key {
 			return state, nil
 		}
 		targetLeaf, err = splitLeafForPlacement(&state.Root, p.TargetLeaf, *p.Location)
@@ -124,23 +150,38 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle splits the given leaf into a parent split with two children: the
-// original leaf and a new empty leaf. Location determines which side the new
-// empty leaf occupies. Size is the fraction allocated to the original leaf;
-// defaults to 0.5 when absent. Errors when the leaf path does not resolve,
-// when it resolves to a split, when size is outside [0, 1], or when Location
-// is not one of left/right/top/bottom.
-func (p SplitLeafPayload) Handle(state Panel) (Panel, error) {
-	size := 0.5
-	if p.Size != nil {
-		size = *p.Size
+// Handle splits the tab with the given key off its leaf into a new sibling
+// pane, moving the tab into it. Direction x places the new pane to the right,
+// y to the bottom. A leaf holding a single tab is a no-op (the result would be
+// the tab beside an empty pane). Errors when no tab matches the key.
+func (p SplitTabPayload) Handle(state Panel) (Panel, error) {
+	leafPath, _, ok := findTab(state.Root, p.Key)
+	if !ok {
+		return Panel{}, errTabNotFound
 	}
-	if size < 0 || size > 1 {
-		return Panel{}, errInvalidSize
-	}
-	if err := splitLeafAt(&state.Root, p.Leaf, p.Location, size); err != nil {
+	source, err := walkLeaf(state.Root, leafPath)
+	if err != nil {
 		return Panel{}, err
 	}
+	if len(source.Tabs) < 2 {
+		return state, nil
+	}
+	location := spatial.LocationRight
+	if p.Direction == spatial.DirectionY {
+		location = spatial.LocationBottom
+	}
+	targetLeaf, err := splitLeafForPlacement(&state.Root, leafPath, location)
+	if err != nil {
+		return Panel{}, err
+	}
+	removed, ok := removeTab(&state.Root, p.Key)
+	if !ok {
+		return Panel{}, errTabNotFound
+	}
+	if err := insertTabAt(&state.Root, targetLeaf, removed, 0); err != nil {
+		return Panel{}, err
+	}
+	collapseEmptyLeaves(&state.Root)
 	return state, nil
 }
 
@@ -166,46 +207,38 @@ func (p ResizeSplitPayload) Handle(state Panel) (Panel, error) {
 	return state, nil
 }
 
-// Handle sets the visualization resource displayed by the tab with the given key,
-// swapping it in place without changing the tab's identity or position. Clears any
-// view set on the tab so that exactly one content arm is populated. Errors
-// when no tab matches the key.
-func (p SetTabResourcePayload) Handle(state Panel) (Panel, error) {
-	if err := setTabContent(&state.Root, p.Key, TabResource{
-		TabBase:  TabBase{Key: p.Key},
-		Resource: p.Resource,
-	}); err != nil {
-		return Panel{}, err
-	}
-	return state, nil
-}
-
-// Handle sets the inline view displayed by the tab with the given key, swapping it
-// in place without changing the tab's identity or position. Clears any resource set
-// on the tab so that exactly one content arm is populated. Errors when no tab
-// matches the key.
-func (p SetTabViewPayload) Handle(state Panel) (Panel, error) {
-	if err := setTabContent(&state.Root, p.Key, TabView{
-		TabBase: TabBase{Key: p.Key},
-		View:    p.View,
-	}); err != nil {
-		return Panel{}, err
-	}
-	return state, nil
-}
-
-// setTabContent replaces the variant of the tab with the given key, swapping its
-// content in place without changing the tab's position. Returns errTabNotFound
-// when no tab matches the key.
-func setTabContent(root *Node, key uuid.UUID, variant TabVariant) error {
-	path, idx, ok := findTab(*root, key)
+// Handle replaces the renderer type of the tab with the given key, leaving its args
+// untouched. Errors when no tab matches the key.
+func (p SetTabTypePayload) Handle(state Panel) (Panel, error) {
+	path, idx, ok := findTab(state.Root, p.Key)
 	if !ok {
-		return errTabNotFound
+		return Panel{}, errTabNotFound
 	}
-	return updateLeafAt(root, path, func(leaf Leaf) (Leaf, error) {
+	if err := updateLeafAt(&state.Root, path, func(leaf Leaf) (Leaf, error) {
 		tabs := append([]Tab{}, leaf.Tabs...)
-		tabs[idx] = Tab{Variant: variant}
+		tabs[idx].Type = p.Type
 		leaf.Tabs = tabs
 		return leaf, nil
-	})
+	}); err != nil {
+		return Panel{}, err
+	}
+	return state, nil
+}
+
+// Handle replaces the args of the tab with the given key, leaving its type untouched.
+// Errors when no tab matches the key.
+func (p SetTabArgsPayload) Handle(state Panel) (Panel, error) {
+	path, idx, ok := findTab(state.Root, p.Key)
+	if !ok {
+		return Panel{}, errTabNotFound
+	}
+	if err := updateLeafAt(&state.Root, path, func(leaf Leaf) (Leaf, error) {
+		tabs := append([]Tab{}, leaf.Tabs...)
+		tabs[idx].Args = p.Args
+		leaf.Tabs = tabs
+		return leaf, nil
+	}); err != nil {
+		return Panel{}, err
+	}
+	return state, nil
 }

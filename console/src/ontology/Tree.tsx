@@ -22,6 +22,7 @@ import {
   List,
   Menu,
   Ontology,
+  type Pluto,
   Status,
   Synnax,
   Text,
@@ -45,6 +46,7 @@ import {
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
+import { Layouts } from "@/layouts";
 import { DefaultContextMenu } from "@/ontology/DefaultContextMenu";
 import { MultipleSelectionContextMenu } from "@/ontology/MultipleSelectionContextMenu";
 import {
@@ -362,6 +364,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const removeLayout = Layout.useRemover();
   const addStatus = Status.useAdder();
   const store = useStore<RootState, RootAction>();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
 
   const moveChildren = Ontology.useMoveChildren({});
 
@@ -369,13 +372,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (client: Client): BaseProps => ({
       client,
       store,
+      fluxStore,
       placeLayout,
       removeLayout,
       addStatus,
       handleError,
       services,
     }),
-    [store, placeLayout, removeLayout, addStatus, handleError, services],
+    [store, fluxStore, placeLayout, removeLayout, addStatus, handleError, services],
   );
 
   const handleDrop = useCallback(
@@ -446,7 +450,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
-      if (client == null) return <Layout.DefaultContextMenu />;
+      if (client == null) return <Layouts.DefaultContextMenu />;
       if (keys.length === 0)
         return <DefaultContextMenu root={root} state={getState()} />;
       const rightClickedButNotSelected = keys.find(
@@ -491,7 +495,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (!allSameType) return <MultipleSelectionContextMenu {...props} />;
 
       const M = services[firstID.type].TreeContextMenu;
-      return M == null ? <Layout.DefaultContextMenu /> : <M {...props} />;
+      return M == null ? <Layouts.DefaultContextMenu /> : <M {...props} />;
     },
     [client, setNodes, services, placeLayout, removeLayout, nodesRef, setSelected],
   );

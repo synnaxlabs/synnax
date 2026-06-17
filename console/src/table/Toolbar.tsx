@@ -31,33 +31,21 @@ import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Tb } from "@/components";
 import { CSS } from "@/css";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 import { useExport } from "@/table/export";
-import {
-  useSelectEditable,
-  useSelectExists,
-  useSelectSelectedCellKeys,
-} from "@/table/selectors";
-import { setEditable } from "@/table/slice";
+import { Session } from "@/table/session";
+import { Tab } from "@/table/tab";
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
-  Base.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const editable = useSelectEditable(layoutKey);
-  const selectedCellKeys = useSelectSelectedCellKeys(layoutKey);
-  const cellsByKey = Base.useSelectCells({
-    key: layoutKey,
-    cellKeys: selectedCellKeys,
-  });
+const Internal = (): ReactElement => {
+  const key = Base.useKey();
+  const name = Base.useSelectName({});
+  const editable = Session.useSelectEditable();
+  const selectedCellKeys = Session.useSelectSelectedCellKeys();
+  const cellsByKey = Base.useSelectCells({ key, cellKeys: selectedCellKeys });
   const liveCellCount = cellsByKey.size;
   const singleSelectedKey =
     liveCellCount === 1 ? (cellsByKey.keys().next().value ?? null) : null;
   const selectedCellPos = Base.useCellPosition({
-    key: layoutKey,
+    key,
     cellKey: singleSelectedKey ?? "",
   });
   const handleExport = useExport();
@@ -82,36 +70,39 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement => {
           </Breadcrumb.Breadcrumb>
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
-          <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+          <Export.ToolbarButton onExport={() => handleExport(key)} />
           <Cluster.CopyLinkToolbarButton
             name={name}
-            ontologyID={table.ontologyID(layoutKey)}
+            ontologyID={table.ontologyID(key)}
           />
         </Flex.Box>
       </Tb.Header>
       <Flex.Box full>
         {!editable ? (
-          <NotEditableContent layoutKey={layoutKey} name={name} />
+          <NotEditableContent tableKey={key} name={name} />
         ) : liveCellCount === 0 ? (
           <EmptyContent />
         ) : singleSelectedKey != null ? (
           <CellForm
             key={singleSelectedKey}
-            tableKey={layoutKey}
+            tableKey={key}
             cellKey={singleSelectedKey}
           />
         ) : (
-          <MultiCellForm tableKey={layoutKey} cellKeys={selectedCellKeys} />
+          <MultiCellForm tableKey={key} cellKeys={selectedCellKeys} />
         )}
       </Flex.Box>
     </Tb.Content>
   );
 };
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
-  const exists = useSelectExists(layoutKey);
-  if (!exists) return null;
-  return <Internal layoutKey={layoutKey} />;
+export const Toolbar = (): ReactElement => {
+  const { key } = Tab.useArgs();
+  return (
+    <Base.Suspended tableKey={key}>
+      <Internal />
+    </Base.Suspended>
+  );
 };
 
 // buildVariantSwapActions returns one setCell action per cell whose variant
@@ -194,22 +185,22 @@ const EmptyContent = (): ReactElement => (
 );
 
 interface NotEditableContentProps {
-  layoutKey: string;
+  tableKey: string;
   name: string;
 }
 
 const NotEditableContent = ({
-  layoutKey,
+  tableKey,
   name,
 }: NotEditableContentProps): ReactElement => {
   const dispatch = useDispatch();
-  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(layoutKey));
+  const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(tableKey));
   return (
     <EmptyAction
       x
       message={`${name} is not editable.${hasUpdatePermission ? " To make changes," : ""}`}
       action={hasUpdatePermission ? "enable editing." : undefined}
-      onClick={() => dispatch(setEditable({ key: layoutKey, editable: true }))}
+      onClick={() => dispatch(Session.setEditable({ key: tableKey, editable: true }))}
     />
   );
 };

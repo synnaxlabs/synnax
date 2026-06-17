@@ -10,21 +10,38 @@
 import { Button, Icon, Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
-import { useState } from "react";
-import { useDispatch } from "react-redux";
+import { useState, useSyncExternalStore } from "react";
 
 import { Layout } from "@/layout";
 import { type Notifications } from "@/notifications";
 import { Runtime } from "@/runtime";
 import { INFO_LAYOUT } from "@/version/Info";
-import { useSelectUpdateNotificationsSilenced } from "@/version/selectors";
-import { silenceUpdateNotifications } from "@/version/slice";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
 
+// Update-notification silencing is session-local: snoozing suppresses notifications
+// until the Console is reloaded.
+let silenced = false;
+const silenceListeners = new Set<() => void>();
+
+const silenceUpdateNotifications = (): void => {
+  if (silenced) return;
+  silenced = true;
+  silenceListeners.forEach((listener) => listener());
+};
+
+const useUpdateNotificationsSilenced = (): boolean =>
+  useSyncExternalStore(
+    (listener) => {
+      silenceListeners.add(listener);
+      return () => silenceListeners.delete(listener);
+    },
+    () => silenced,
+  );
+
 export const useCheckForUpdates = (): boolean => {
   const addStatus = Status.useAdder();
-  const isSilenced = useSelectUpdateNotificationsSilenced();
+  const isSilenced = useUpdateNotificationsSilenced();
   const [available, setAvailable] = useState(false);
 
   const checkForUpdates = async (addNotification: boolean) => {
@@ -87,9 +104,8 @@ interface SilenceActionProps {
 }
 
 const SilenceAction = ({ onClick }: SilenceActionProps) => {
-  const dispatch = useDispatch();
   const handleClick = () => {
-    dispatch(silenceUpdateNotifications());
+    silenceUpdateNotifications();
     onClick();
   };
   return (

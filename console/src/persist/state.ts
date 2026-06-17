@@ -18,7 +18,6 @@ import {
 
 import { openSugaredKV, type SugaredKV } from "@/persist/kv";
 import { Runtime } from "@/runtime";
-import { type Version } from "@/version";
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
 export const DB_VERSION_KEY = "console-version";
@@ -33,7 +32,7 @@ interface StateVersionValue {
   version: number;
 }
 
-export interface RequiredState extends Version.StoreState {}
+export type RequiredState = object;
 
 export interface KVOpener {
   (base: string): SugaredKV;
@@ -119,6 +118,9 @@ export const open = async <S extends RequiredState>(
   config: Config<S>,
 ): Promise<Engine<S>> => {
   const { exclude = [], initial, migrator, openKV } = config;
+  const isExcludeFn = (
+    key: deep.Key<S> | ((state: S) => S),
+  ): key is (state: S) => S => typeof key === "function";
   // We need to make sure we copy the initial state because we're going to mutate it,
   // and we don't want to accidentally mutate the initial state, or run into errors
   // with readonly properties.
@@ -143,7 +145,7 @@ export const open = async <S extends RequiredState>(
     version = nextVersion(version);
     let deepCopy = deep.copy(state);
     exclude.forEach((key) => {
-      if (typeof key === "function") deepCopy = key(deepCopy);
+      if (isExcludeFn(key)) deepCopy = key(deepCopy);
       else deep.remove<S>(deepCopy, key);
     });
     await db.set(persistedStateKey(version), deepCopy).catch((err: unknown) => {

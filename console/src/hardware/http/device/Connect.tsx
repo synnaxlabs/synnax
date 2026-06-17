@@ -46,18 +46,16 @@ import {
   SCAN_TYPE,
   TEST_CONNECTION_COMMAND_TYPE,
 } from "@/hardware/http/task/types";
-import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CONNECT_LAYOUT_TYPE = "configureHTTPServer";
 
-export const CONNECT_LAYOUT: Layout.BaseState = {
+export const CONNECT_LAYOUT: Modals.BaseState = {
   key: CONNECT_LAYOUT_TYPE,
   type: CONNECT_LAYOUT_TYPE,
   name: "Server.Connect",
   icon: "Logo.HTTP",
-  location: "modal",
   window: { resizable: true, size: { height: 900, width: 700 }, navTop: true },
 };
 
@@ -118,7 +116,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
+export const Connect: Modals.Renderer = ({ layoutKey, onClose }) => {
   const {
     form,
     save,

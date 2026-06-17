@@ -30,17 +30,10 @@ import {
 } from "@/hardware/ni/task/types";
 import { Selector } from "@/selector";
 
-export const DIGITAL_READ_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  icon: "Logo.NI",
-  name: ZERO_DIGITAL_READ_PAYLOAD.name,
-  type: DIGITAL_READ_TYPE,
-};
-
 export const DigitalReadSelectable = Selector.createSimpleItem({
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  layout: DIGITAL_READ_LAYOUT,
+  type: DIGITAL_READ_TYPE,
 });
 
 const Properties = () => (
@@ -165,6 +158,7 @@ const onConfigure: Common.Task.OnConfigure<typeof digitalReadConfigZ> = async (
 export const DigitalRead = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.NI />,
   schemas: DIGITAL_READ_SCHEMAS,
   getInitialValues,
   onConfigure,

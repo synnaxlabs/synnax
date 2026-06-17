@@ -19,11 +19,12 @@ import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { ContextMenu } from "@/range/list/ContextMenu";
 import { Item } from "@/range/list/Item";
+import { type Tabs } from "@/panel/tabs/index";
 import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "range_explorer";
 
-export const EXPLORER_LAYOUT: Layout.State = {
+export const EXPLORER_LAYOUT: Tabs.State = {
   key: EXPLORER_LAYOUT_TYPE,
   windowKey: EXPLORER_LAYOUT_TYPE,
   type: EXPLORER_LAYOUT_TYPE,
@@ -35,7 +36,7 @@ export const EXPLORER_LAYOUT: Layout.State = {
 const item = Component.renderProp(Item);
 const contextMenu = Component.renderProp(ContextMenu);
 
-export const Explorer: Layout.Renderer = () => (
+export const Explorer: Tabs.Renderer = () => (
   <View.Frame resourceType="range" icon="Range">
     <Internal />
   </View.Frame>

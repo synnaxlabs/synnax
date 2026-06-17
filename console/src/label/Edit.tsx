@@ -30,7 +30,7 @@ import { color } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 
 interface LabelListItemProps extends List.ItemProps<label.Key> {
   isCreate?: boolean;
@@ -152,18 +152,17 @@ const LabelListItem = ({
 
 export const EDIT_LAYOUT_TYPE = "editLabels";
 
-export const EDIT_LAYOUT: Layout.BaseState = {
+export const EDIT_LAYOUT: Modals.BaseState = {
   key: EDIT_LAYOUT_TYPE,
   type: EDIT_LAYOUT_TYPE,
   name: "Labels.Edit",
-  location: "modal",
   icon: "Label",
   window: { navTop: true, size: { height: 700, width: 450 } },
 };
 
 const listItem = Component.renderProp(LabelListItem);
 
-export const Edit: Layout.Renderer = () => {
+export const Edit: Modals.Renderer = () => {
   const { data, getItem, retrieve, subscribe } = Label.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 15 });
   const [newFormVisible, setNewFormVisible] = useState(false);

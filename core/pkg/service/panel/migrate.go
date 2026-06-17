@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -275,10 +276,11 @@ func convertNode(
 		if !exists {
 			continue
 		}
-		tabs = append(tabs, Tab{Variant: TabResource{
-			TabBase:  TabBase{Key: uuid.New()},
-			Resource: id,
-		}})
+		tabs = append(tabs, Tab{
+			Key:  uuid.New(),
+			Type: string(resourceType),
+			Args: msgpack.EncodedJSON{"resourceKey": t.TabKey},
+		})
 	}
 	if len(tabs) == 0 {
 		return nil, nil

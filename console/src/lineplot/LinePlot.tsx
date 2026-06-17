@@ -18,37 +18,20 @@ import {
   useDebouncedCallback,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { type lineplot as etherLineplot } from "@synnaxlabs/pluto/ether";
-import { box, location, scale, TimeRange, TimeSpan, unique } from "@synnaxlabs/x";
+import { box, scale, TimeRange, TimeSpan, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components";
-import { createEnsureState } from "@/hooks/useEnsureState";
 import { Layout } from "@/layout";
 import { Controls } from "@/lineplot/Controls";
-import {
-  useSelect,
-  useSelectControlState,
-  useSelectExists,
-  useSelectHiddenLines,
-  useSelectSelection,
-  useSelectViewportMode,
-} from "@/lineplot/selectors";
-import {
-  internalCreate,
-  setActiveToolbarTab,
-  setControlState,
-  setLineVisible,
-  setMeasureMode,
-  setSelectedRule,
-  setSelection,
-  storeViewport,
-  ZERO_STATE,
-} from "@/lineplot/slice";
+import { Session } from "@/lineplot/session";
 import { type DownloadLine, useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
+import { Nav } from "@/nav";
+import { Panel } from "@/panel";
 import { Range } from "@/range";
-import { type RootState } from "@/store";
+
+import { Tab } from "./tab";
 
 interface RangeAnnotationContextMenuProps {
   lines: DownloadLine[];
@@ -86,17 +69,21 @@ const RangeAnnotationContextMenu = ({
   );
 };
 
-const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
-  PLinePlot.useEnsureRetrieved({ key: layoutKey });
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const vis = useSelect(layoutKey);
-  const dispatch = useDispatch();
-  const store = useStore<RootState>();
-  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
+export interface ContentProps {
+  visible?: boolean;
+}
 
-  const ranges = PLinePlot.useSelectRanges({ key: layoutKey });
+const Content = Tab.createSuspended(({ visible = true }) => {
+  const key = PLinePlot.useKey();
+  const name = PLinePlot.useSelectName({});
+  const vis = Session.useSelect();
+  const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
+  const ranges = PLinePlot.useSelectRanges({});
+  const focused = Panel.useSelectIsFocused();
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
   const resolved = Range.useSelectMultiple(rangeKeys);
+  const measureMode = Session.useSelectMeasureMode();
+  const showRangeAnnotations = Session.useSelectShowRangeAnnotations();
   const resolvedRanges = useMemo(() => {
     const m = new Map<string, PLinePlot.ResolvedRange>();
     for (const r of resolved)
@@ -109,15 +96,16 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     return m;
   }, [resolved]);
 
-  const hiddenLineKeys = useSelectHiddenLines(layoutKey);
+  const hiddenLineKeys = Session.useSelectHiddenLines();
   const hiddenLines = useMemo(() => new Set(hiddenLineKeys), [hiddenLineKeys]);
+  const dispatch = useDispatch();
   const handleLineVisibleChange = useCallback(
-    (lineKey: string, lineVisible: boolean) =>
-      dispatch(setLineVisible({ key: layoutKey, lineKey, visible: lineVisible })),
-    [dispatch, layoutKey],
+    (lineKey: string, visible: boolean) =>
+      dispatch(Session.setLineVisible({ key, lineKey, visible })),
+    [dispatch, key],
   );
 
-  const derived = PLinePlot.useSelectLines({ key: layoutKey });
+  const derived = PLinePlot.useSelectLines({});
   const csvLines = useMemo<DownloadLine[]>(
     () =>
       derived.map((d) => ({
@@ -126,68 +114,51 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     [derived],
   );
 
-  const { enableTooltip, clickMode, hold } = useSelectControlState(layoutKey);
-  const mode = useSelectViewportMode(layoutKey);
+  const enableTooltip = Session.useSelectEnableTooltip();
+  const clickMode = Session.useSelectClickMode();
+  const hold = Session.useSelectHold();
+  const mode = Session.useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
-  const initialViewport = useMemo(
-    () =>
-      box.reRoot(
-        box.construct(vis.viewport.pan, vis.viewport.zoom),
-        location.BOTTOM_LEFT,
-      ),
-    [vis.viewport.renderTrigger],
-  );
 
   const enableTriggers = useCallback(
-    () =>
-      Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey &&
-      hasUpdatePermission,
-    [store, layoutKey, hasUpdatePermission],
+    () => focused && hasUpdatePermission,
+    [focused, hasUpdatePermission],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
       if (stage !== "end") return;
-      if (mode === "select") dispatch(setSelection({ key: layoutKey, box: b }));
+      if (mode === "select") dispatch(Session.setSelection({ key, selection: b }));
       else
         dispatch(
-          storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
+          Session.setViewport({ key, pan: box.bottomLeft(b), zoom: box.dims(b) }),
         );
     },
     TimeSpan.milliseconds(100),
-    [dispatch, layoutKey],
+    [dispatch, key],
   );
 
-  const handleSelectRule = useCallback(
-    (ruleKey: string) => dispatch(setSelectedRule({ key: layoutKey, ruleKey })),
-    [dispatch, layoutKey],
-  );
-  const handleMeasureModeChange = useCallback(
-    (m: etherLineplot.measure.Mode) =>
-      dispatch(setMeasureMode({ key: layoutKey, mode: m })),
-    [dispatch, layoutKey],
-  );
-  const handleHold = useCallback(
-    (h: boolean) => dispatch(setControlState({ key: layoutKey, state: { hold: h } })),
-    [dispatch, layoutKey],
-  );
+  const handleSelectRule = Session.useSelectRule();
+  const handleMeasureModeChange = Session.useSetMeasureMode();
+  const handleHold = Session.useSetHold();
+  const handleSelectToolbarTab = Session.useSetSelectedToolbarTab();
   const handleDoubleClick = useCallback(() => {
-    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
-    dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
-  }, [dispatch, layoutKey]);
+    dispatch(Nav.setBottomVisible(true));
+    handleSelectToolbarTab("data");
+  }, [dispatch]);
 
   const menuProps = Menu.useContextMenu();
   const linePlotRef = useRef<PLinePlot.FrameRef | null>(null);
   const [hasAnnotations, setHasAnnotations] = useState(false);
 
   const ContextMenuContent = (): ReactElement => {
-    const { box: selection } = useSelectSelection(layoutKey);
+    const selection = Session.useSelectViewportSelection();
     const placeLayout = Layout.usePlacer();
     const handleError = Status.useErrorHandler();
     const downloadAsCSV = useDownloadAsCSV();
     const getTimeRange = useCallback(async (): Promise<TimeRange> => {
       const bounds = await linePlotRef.current?.getBounds();
-      if (bounds == null) throw new Error("No bounds available");
+      if (bounds == null || selection == null) throw new Error("No bounds available");
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
       return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
     }, [selection]);
@@ -258,21 +229,19 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
       <Menu.ContextMenu {...menuProps} menu={() => <ContextMenuContent />}>
         <PLinePlot.LinePlot
           ref={linePlotRef}
-          resourceKey={layoutKey}
-          aetherKey={layoutKey}
           editable={hasUpdatePermission}
           enableTriggers={enableTriggers}
           resolvedRanges={resolvedRanges}
           legendVariant={focused ? "fixed" : "floating"}
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
-          measureMode={vis.measure.mode}
+          measureMode={measureMode}
           onMeasureModeChange={handleMeasureModeChange}
           initialViewport={initialViewport}
           onViewportChange={handleViewportChange}
           viewportTriggers={triggers}
           rangeProviderProps={{
-            visible: vis.annotations.visible,
+            visible: showRangeAnnotations,
             onHasAnnotationsChange: setHasAnnotations,
             menu: (p) => <RangeAnnotationContextMenu lines={csvLines} range={p} />,
           }}
@@ -286,28 +255,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           clearOverScan={{ x: 5, y: 5 }}
           visible={visible}
         >
-          {!focused && (
-            <Controls layoutKey={layoutKey} hasAnnotations={hasAnnotations} />
-          )}
+          {!focused && <Controls hasAnnotations={hasAnnotations} />}
         </PLinePlot.LinePlot>
       </Menu.ContextMenu>
-      {focused && <Controls layoutKey={layoutKey} hasAnnotations={hasAnnotations} />}
+      {focused && <Controls hasAnnotations={hasAnnotations} />}
     </div>
   );
-};
-
-const useEnsureState = createEnsureState({
-  useExists: useSelectExists,
-  create: (key) => internalCreate({ ...ZERO_STATE, key }),
 });
-
-export const LinePlot: Layout.Renderer = (props) => {
-  const exists = useEnsureState(props.layoutKey);
-  if (!exists) return null;
-  return <Loaded {...props} />;
-};
-
-LinePlot.useName = Layout.createUseFluxName(
-  PLinePlot.useRename,
-  PLinePlot.useRetrieveObservableName,
-);

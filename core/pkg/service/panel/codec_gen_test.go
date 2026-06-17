@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -29,27 +28,18 @@ import (
 var (
 	fullyPopulatedLeaf = panel.Leaf{
 		Tabs: []panel.Tab{
-			{Variant: panel.TabResource{
-				TabBase:  panel.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
-			}},
+			{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+				Type: "test_3",
+				Args: msgpack.EncodedJSON{"key_4": "value_4"},
+			},
 		},
 	}
 	fullyPopulatedSplit = panel.Split{
 		Direction: spatial.Direction("x"),
 		Size:      2.5,
-		First: panel.Node{Variant: panel.NodeLeaf{
-			Leaf: panel.Leaf{Tabs: []panel.Tab{{Variant: panel.TabResource{}}}},
-		}},
-		Last: panel.Node{Variant: panel.NodeLeaf{
-			Leaf: panel.Leaf{Tabs: []panel.Tab{{Variant: panel.TabResource{}}}},
-		}},
-	}
-	fullyPopulatedTabBase = panel.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}
-	fullyPopulatedView    = panel.View{
-		Type: "test_1",
-		Name: "test_2",
-		Args: msgpack.EncodedJSON{"key_3": "value_3"},
+		First:     panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: []panel.Tab{{}}}}},
+		Last:      panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: []panel.Tab{{}}}}},
 	}
 )
 
@@ -139,44 +129,14 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("resource variant", panel.Tab{Variant: panel.TabResource{
-				TabBase:  fullyPopulatedTabBase,
-				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
-			}}),
-			Entry("view variant", panel.Tab{Variant: panel.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}),
-			Entry("empty variant", panel.Tab{Variant: panel.TabEmpty{TabBase: fullyPopulatedTabBase}}),
-		)
-	})
-	Describe("TabBase", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original panel.TabBase) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded panel.TabBase
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedTabBase),
-			Entry("zero values", panel.TabBase{Key: uuid.Nil}),
-		)
-	})
-	Describe("View", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original panel.View) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded panel.View
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", fullyPopulatedView),
-			Entry("zero values", panel.View{
+			Entry("fully populated", panel.Tab{
+				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Type: "test_2",
+				Args: msgpack.EncodedJSON{"key_3": "value_3"},
+			}),
+			Entry("zero values", panel.Tab{
+				Key:  uuid.Nil,
 				Type: "",
-				Name: "",
 				Args: nil,
 			}),
 		)
@@ -256,10 +216,11 @@ func BenchmarkEncodeDecodeSplit(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTab(b *testing.B) {
-	t := panel.Tab{Variant: panel.TabResource{
-		TabBase:  fullyPopulatedTabBase,
-		Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
-	}}
+	t := panel.Tab{
+		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Type: "test_2",
+		Args: msgpack.EncodedJSON{"key_3": "value_3"},
+	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -268,40 +229,6 @@ func BenchmarkEncodeDecodeTab(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded panel.Tab
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeTabBase(b *testing.B) {
-	tb := fullyPopulatedTabBase
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := tb.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded panel.TabBase
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeView(b *testing.B) {
-	vv := fullyPopulatedView
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := vv.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded panel.View
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -516,10 +443,11 @@ func FuzzDecodeSplit(f *testing.F) {
 
 func FuzzDecodeTab(f *testing.F) {
 	{
-		seed := panel.Tab{Variant: panel.TabResource{
-			TabBase:  fullyPopulatedTabBase,
-			Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
-		}}
+		seed := panel.Tab{
+			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Type: "test_2",
+			Args: msgpack.EncodedJSON{"key_3": "value_3"},
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -527,15 +455,11 @@ func FuzzDecodeTab(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := panel.Tab{Variant: panel.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
+		seed := panel.Tab{
+			Key:  uuid.Nil,
+			Type: "",
+			Args: nil,
 		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := panel.Tab{Variant: panel.TabEmpty{TabBase: fullyPopulatedTabBase}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -554,102 +478,6 @@ func FuzzDecodeTab(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded panel.Tab
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeTabBase(f *testing.F) {
-	{
-		seed := fullyPopulatedTabBase
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := panel.TabBase{Key: uuid.Nil}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded panel.TabBase
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded panel.TabBase
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeView(f *testing.F) {
-	{
-		seed := fullyPopulatedView
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := panel.View{
-			Type: "",
-			Name: "",
-			Args: nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded panel.View
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded panel.View
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

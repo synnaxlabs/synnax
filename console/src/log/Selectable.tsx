@@ -8,26 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Access, type Flux, Icon, Log, Panel } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { LAYOUT_TYPE } from "@/log/layout";
-import { useCreate } from "@/log/useCreate";
+import { Tab } from "@/log/tab";
+import { Project } from "@/project";
 import { Selector } from "@/selector";
 
-export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
-  const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);
-  const create = useCreate({});
-  const handleClick = useCallback(() => create({ key }), [create, key]);
-  if (!hasCreatePermission) return null;
+const NAME = "Log";
+
+export const Selectable: Selector.Selectable = () => {
+  const project = Project.useSelectActiveKey();
+  const setTabContent = Panel.useSetCurrentTabContent();
+  const { update: create } = Log.useCreate({
+    afterOptimistic: useCallback(
+      ({ data: { key } }: Flux.AfterOptimisticParams<log.Log>) =>
+        setTabContent({ type: Tab.TYPE, args: { key } }),
+      [setTabContent],
+    ),
+  });
+  const handleClick = () => create({ project, name: NAME });
   return (
     <Selector.Item
-      key={LAYOUT_TYPE}
-      title="Log"
+      key={Tab.TYPE}
+      title={NAME}
       icon={<Icon.Log />}
       onClick={handleClick}
     />
   );
 };
-Selectable.type = LAYOUT_TYPE;
+Selectable.type = Tab.TYPE;
 Selectable.useVisible = () => Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);

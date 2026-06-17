@@ -36,7 +36,7 @@ import { CSS } from "@/css";
 import { Persist } from "@/persist";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 import { Runtime } from "@/runtime";
-import { useSelectVersion } from "@/version/selectors";
+import { useVersion } from "@/version/useVersion";
 
 export interface OverlayProps extends PropsWithChildren {}
 
@@ -49,7 +49,7 @@ const useExtraErrorInfo = (): ExtraErrorInfo => {
   // These hooks must be called unconditionally per React rules.
   // If they throw, the error bubbles to OverlayWithoutStore which is fine.
   // We use optional chaining when building extraInfo to handle undefined values.
-  const consoleVersion = useSelectVersion();
+  const consoleVersion = useVersion();
   const connectionState = Synnax.useConnectionState();
 
   const extraInfo: ExtraErrorInfo = {

@@ -20,7 +20,6 @@ import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 import { Log } from "@/log";
 import { Project } from "@/project";
-import { Version } from "@/version";
 
 const consoleReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,
@@ -28,7 +27,6 @@ const consoleReducer = combineReducers({
   [Log.SLICE_NAME]: Log.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
-  [Version.SLICE_NAME]: Version.reducer,
 });
 
 export type ConsolePreloadedState = {
@@ -36,7 +34,6 @@ export type ConsolePreloadedState = {
   [Log.SLICE_NAME]?: Log.SliceState;
   [Project.SLICE_NAME]?: Project.SliceState;
   [Cluster.SLICE_NAME]?: Cluster.SliceState;
-  [Version.SLICE_NAME]?: Version.SliceState;
 };
 
 export interface ConsoleTestProviderOptions {
@@ -78,24 +75,30 @@ const createFluxClient = (client: Client | null): Flux.Client =>
 
 export const ConsoleTestProvider = ({
   store,
-  client,
+  client = null,
   fluxClient,
   children,
 }: PropsWithChildren<{
   store: EnhancedStore;
-  client: Client | null;
-  fluxClient: Flux.Client;
-}>): ReactElement => (
-  <AetherTestProvider>
-    <Status.Aggregator>
-      <Synnax.TestProvider client={client}>
-        <Flux.Provider client={fluxClient}>
-          <Provider store={store}>{children}</Provider>
-        </Flux.Provider>
-      </Synnax.TestProvider>
-    </Status.Aggregator>
-  </AetherTestProvider>
-);
+  client?: Client | null;
+  fluxClient?: Flux.Client;
+}>): ReactElement => {
+  const resolvedFluxClient = useMemo(
+    () => fluxClient ?? createFluxClient(client),
+    [fluxClient, client],
+  );
+  return (
+    <AetherTestProvider>
+      <Status.Aggregator>
+        <Synnax.TestProvider client={client}>
+          <Flux.Provider client={resolvedFluxClient}>
+            <Provider store={store}>{children}</Provider>
+          </Flux.Provider>
+        </Synnax.TestProvider>
+      </Status.Aggregator>
+    </AetherTestProvider>
+  );
+};
 
 export interface RenderWithConsoleOptions extends RenderOptions {
   preloadedState?: ConsolePreloadedState;

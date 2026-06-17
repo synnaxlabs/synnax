@@ -21,17 +21,15 @@ import {
 import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const REGISTER_LAYOUT_TYPE = "registerUser";
 
-export const REGISTER_LAYOUT: Layout.BaseState = {
+export const REGISTER_LAYOUT: Modals.BaseState = {
   key: REGISTER_LAYOUT_TYPE,
   type: REGISTER_LAYOUT_TYPE,
   icon: "User",
-  location: "modal",
   name: "User.Register",
   window: {
     resizable: false,
@@ -66,7 +64,7 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   full: "x",
 };
 
-export const Register: Layout.Renderer = ({ onClose }) => {
+export const Register: Modals.Renderer = ({ onClose }) => {
   const client = Synnax.use();
   const { form, save, variant } = User.useForm({
     query: {},

@@ -304,10 +304,16 @@ LinePlot struct {
         @doc value "renames the line plot."
     }
 
-    action SetTitle {
-        title Title
+    action SetTitleVisible {
+        visible bool
 
-        @doc value "replaces the plot title configuration."
+        @doc value "sets whether the title is shown above the plot."
+    }
+
+    action SetTitleLevel {
+        level text.Level
+
+        @doc value "sets the typography level of the title text."
     }
 
     action SetLegendVisible {
@@ -417,16 +423,36 @@ LinePlot struct {
         @doc value "sets the typography level of the axis label."
     }
 
-    action SetAxisBounds {
-        key         AxisKey
-        bounds      spatial.Bounds
-        auto_bounds AutoBounds
+    action SetAxisLowerBound {
+        key   AxisKey
+        bound float64
 
         @doc value """
-            sets the axis value-space window together with its per-edge auto
-            derivation flags. The two travel together: fixing a bound disables
-            auto derivation for that edge, so callers set both at once.
+            sets the fixed lower bound of the axis value-space window and
+            disables automatic derivation of that edge.
         """
+    }
+
+    action SetAxisUpperBound {
+        key   AxisKey
+        bound float64
+
+        @doc value """
+            sets the fixed upper bound of the axis value-space window and
+            disables automatic derivation of that edge.
+        """
+    }
+
+    action EnableAxisLowerAutoBound {
+        key AxisKey
+
+        @doc value "re-enables automatic derivation of the axis lower bound from data."
+    }
+
+    action EnableAxisUpperAutoBound {
+        key AxisKey
+
+        @doc value "re-enables automatic derivation of the axis upper bound from data."
     }
 
     action SetAxisTickSpacing {

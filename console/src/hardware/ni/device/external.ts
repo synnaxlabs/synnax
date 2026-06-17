@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/ni/device/Configure";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export * from "@/hardware/ni/device/Configure";
 export * from "@/hardware/ni/device/enrich";
@@ -16,6 +16,6 @@ export * from "@/hardware/ni/device/PortField";
 export * from "@/hardware/ni/device/Select";
 export * from "@/hardware/ni/device/types";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [CONFIGURE_LAYOUT_TYPE]: Configure,
 };

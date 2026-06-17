@@ -12,18 +12,16 @@ import { Access, Button, Flex, Form, Nav, Synnax } from "@synnaxlabs/pluto";
 import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 
 export const ASSIGN_ROLE_LAYOUT_TYPE = "user_assign_role";
 
 export interface AssignRoleLayoutArgs extends Access.Role.RetrieveQuery {}
 
-export const ASSIGN_ROLE_LAYOUT: Layout.BaseState = {
+export const ASSIGN_ROLE_LAYOUT: Modals.BaseState = {
   key: ASSIGN_ROLE_LAYOUT_TYPE,
   type: ASSIGN_ROLE_LAYOUT_TYPE,
   icon: "User",
-  location: "modal",
   name: "Assign Role",
   window: {
     resizable: false,
@@ -32,9 +30,9 @@ export const ASSIGN_ROLE_LAYOUT: Layout.BaseState = {
   },
 };
 
-export const AssignRole: Layout.Renderer = ({ layoutKey, onClose }) => {
+export const AssignRole: Modals.Renderer = ({ onClose }) => {
   const client = Synnax.use();
-  const args = Layout.useSelectArgs<AssignRoleLayoutArgs>(layoutKey);
+  const args = Modals.useArgs<AssignRoleLayoutArgs>();
   const { form, save, variant } = Access.Role.useChangeRoleForm({
     query: args,
     afterSave: useCallback(() => onClose(), [onClose]),

@@ -17,8 +17,8 @@ import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { PagerDuty } from "@/hardware/pagerduty";
-import { type Layout } from "@/layout";
 import { Selector as BaseSelector } from "@/selector";
+import { type Tabs } from "@/panel/tabs/index";
 
 const withTaskVisibility = (
   Selectable: BaseSelector.Selectable,
@@ -44,7 +44,7 @@ export const SELECTABLES: BaseSelector.Selectable[] = [
 
 export const SELECTOR_LAYOUT_TYPE = "taskSelector";
 
-export const SELECTOR_LAYOUT: Layout.BaseState = {
+export const SELECTOR_LAYOUT: Tabs.BaseState = {
   type: SELECTOR_LAYOUT_TYPE,
   icon: "Task",
   location: "mosaic",

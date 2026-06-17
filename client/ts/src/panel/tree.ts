@@ -14,7 +14,7 @@ import { type Node, type Tab } from "@/panel/types.gen";
 // Nodes in the panel tree are identified by path-derived numeric keys: the root
 // is ROOT_PATH, and a split's children are childPath(key, "first" | "last").
 // The scheme is shared with the Go and TypeScript reducers; every consumer that
-// addresses nodes (dispatching InsertTab/SplitLeaf, adapting the tree for
+// addresses nodes (dispatching InsertTab/MoveTab, adapting the tree for
 // rendering) must use these helpers rather than re-deriving the math.
 export const ROOT_PATH = 1;
 
@@ -25,7 +25,7 @@ export const childPath = (pathKey: number, side: spatial.Order): number =>
 /**
  * splitSide returns the child slot the new empty leaf occupies when a leaf is
  * split at the given location: "first" for left/top, "last" otherwise. The
- * convention is shared by SplitLeaf and location-bearing InsertTab/MoveTab.
+ * convention is shared by location-bearing InsertTab/MoveTab and SplitTab.
  */
 export const splitSide = (loc: location.Outer): spatial.Order =>
   loc === "left" || loc === "top" ? "first" : "last";
@@ -90,6 +90,19 @@ export const tabLeafPath = (
   tabKey: string,
 ): number | null =>
   findLeafPath(root, ROOT_PATH, (tabs) => tabs.some((t) => t.key === tabKey));
+
+/**
+ * canSplitTab reports whether the tab can be split off into its own pane: true
+ * when the tab shares its leaf with at least one other tab. Splitting the only
+ * tab in a leaf is a no-op (the SplitTab action rejects it), so menu
+ * affordances for the split should gate on this.
+ */
+export const canSplitTab = (root: Node | undefined | null, tabKey: string): boolean => {
+  const leafPath = tabLeafPath(root, tabKey);
+  if (leafPath == null) return false;
+  const leaf = walkPath(root, leafPath);
+  return leaf?.variant === "leaf" && leaf.tabs.length >= 2;
+};
 
 /** firstLeafPath returns the path key of the first leaf in traversal order. */
 export const firstLeafPath = (root: Node | undefined | null): number | null =>

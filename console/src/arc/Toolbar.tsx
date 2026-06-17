@@ -32,6 +32,7 @@ import { translateGraphToConsole } from "@/arc/types/translate";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { Nav } from "@/nav";
 
 interface EmptyContentProps {
   onCreate: () => void;
@@ -158,7 +159,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
   );
 };
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "arc",
   icon: <Icon.Arc />,
   content: <Content />,

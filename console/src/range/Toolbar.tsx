@@ -32,6 +32,7 @@ import { useDispatch, useStore } from "react-redux";
 import { EmptyAction, Toolbar } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { Nav } from "@/nav";
 import { ContextMenu } from "@/range/ContextMenu";
 import { CREATE_LAYOUT } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
@@ -205,7 +206,7 @@ const Content = (): ReactElement => (
   </Toolbar.Content>
 );
 
-export const TOOLBAR: Layout.NavDrawerItem = {
+export const TOOLBAR: Nav.DrawerItem = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,

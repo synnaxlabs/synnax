@@ -19,27 +19,20 @@ import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/panel/pb";
 
-// TabBase carries the identity shared by every tab variant.
-message TabBase {
+// Tab is a single tab in a leaf: a stable key, a renderer type, and an opaque,
+// Console-owned args payload. The same content may be referenced by multiple tabs in
+// the same or other panels.
+message Tab {
   // key is the stable unique identifier of this tab within the panel. It is independent
   // of the tab's content, so a tab's content may be swapped without changing the tab's
   // identity or position.
   string key = 1;
-}
-
-// View is an inline, self-describing view: a Console-owned type plus an opaque
-// configuration payload, with no backing core document. Used for app-views and tools
-// (docs, explorers, about, the visualization picker).
-message View {
-  // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-  // a renderer.
-  string type = 1;
-  // name is the human-readable tab name for the view. A view has no backing resource to
-  // derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-  // the Console falls back to a type-derived default.
-  string name = 2;
-  // args is an opaque, Console-owned configuration payload for the view. Core never
-  // interprets it; it round-trips as-is.
+  // type selects the renderer for the tab's content (e.g. 'lineplot', 'schematic',
+  // 'docs', 'selector'). For core-backed content it is also the ontology resource type.
+  string type = 2;
+  // args is an opaque, Console-owned payload carrying the tab's content configuration
+  // (e.g. a backing resource key, name, view-specific settings). Core never interprets
+  // it; it round-trips as-is.
   google.protobuf.Struct args = 3;
 }
 
@@ -77,25 +70,6 @@ message Panel {
   // the ontology graph, so the field is not persisted on the panel record and is absent
   // on retrieve.
   optional .distribution.ontology.pb.ID parent = 4;
-}
-message TabResourcePayload {
-  // resource is the visualization resource displayed by this tab, set via SetTabResource.
-  .distribution.ontology.pb.ID resource = 1;
-}
-message TabEmptyPayload {}
-
-// Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot), a view (an inline, self-describing
-// app-view, e.g. docs), or empty (the visualization selector). Display attributes
-// (name, icon, closability) are resolved at render time from the content. The same
-// content may be referenced by multiple tabs in the same or other panels.
-message Tab {
-  TabBase tab_base = 1;
-  oneof variant {
-    TabResourcePayload resource = 2;
-    View view = 3;
-    TabEmptyPayload empty = 4;
-  }
 }
 
 // Node is a node in the panel tree: either a leaf displaying a tab strip or an interior

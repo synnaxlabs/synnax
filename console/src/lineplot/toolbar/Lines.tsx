@@ -20,17 +20,13 @@ import {
   type telem,
 } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { EmptyAction } from "@/components";
 import { CSS } from "@/css";
 
-export interface LinesProps {
-  layoutKey: string;
-}
-
-export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
-  const lineKeys = LinePlot.useSelectLineKeys({ key: layoutKey });
+export const Lines = (): ReactElement => {
+  const lineKeys = LinePlot.useSelectLineKeys({});
   const { onSelect } = Tabs.useContext();
 
   const emptyContent = (
@@ -52,16 +48,13 @@ export const Lines = ({ layoutKey }: LinesProps): ReactElement => {
         className={CSS.BE("line-plot", "toolbar", "lines")}
         emptyContent={emptyContent}
       >
-        {({ key, index, ...rest }) => (
-          <Line key={key} layoutKey={layoutKey} index={index} {...rest} />
-        )}
+        {({ key, index, ...rest }) => <Line key={key} index={index} {...rest} />}
       </List.Items>
     </List.Frame>
   );
 };
 
 interface LineProps extends Omit<List.ItemProps<string>, "onChange"> {
-  layoutKey: string;
   index: number;
 }
 
@@ -88,39 +81,34 @@ const SelectDownsampleMode = (props: SelectDownsampleModeProps): ReactElement =>
   </Select.Buttons>
 );
 
-const Line = ({ itemKey, index, layoutKey }: LineProps): ReactElement | null => {
-  const line = LinePlot.useSelectLine({ key: layoutKey, lineKey: itemKey });
-  const { dispatch } = LinePlot.useDispatch();
-
-  const apply = useCallback(
-    (action: lineplot.Action): void => dispatch({ key: layoutKey, actions: [action] }),
-    [dispatch, layoutKey],
-  );
+const Line = ({ itemKey: key, index }: LineProps): ReactElement | null => {
+  const line = LinePlot.useSelectLine({ lineKey: key });
+  const dispatch = LinePlot.useSingleDispatch();
 
   const handleLabelChange: Input.Control<string>["onChange"] = (label) =>
-    apply(
+    dispatch(
       lineplot.setLineLabel({
-        key: itemKey,
+        key,
         label: label.length === 0 ? undefined : label,
       }),
     );
 
-  const handleLabelReset = (): void => apply(lineplot.setLineLabel({ key: itemKey }));
+  const handleLabelReset = (): void => dispatch(lineplot.setLineLabel({ key }));
 
   const handleWidthChange = (strokeWidth: number) =>
-    apply(lineplot.setLineStrokeWidth({ key: itemKey, strokeWidth }));
+    dispatch(lineplot.setLineStrokeWidth({ key, strokeWidth }));
 
   const handleDownsampleChange = (downsample: number) =>
-    apply(lineplot.setLineDownsample({ key: itemKey, downsample }));
+    dispatch(lineplot.setLineDownsample({ key, downsample }));
 
   const handleDownsampleModeChange = (downsampleMode: telem.DownsampleMode) =>
-    apply(lineplot.setLineDownsampleMode({ key: itemKey, downsampleMode }));
+    dispatch(lineplot.setLineDownsampleMode({ key, downsampleMode }));
 
   const handleColorChange = (color: color.Color) =>
-    apply(lineplot.setLineColor({ key: itemKey, color }));
+    dispatch(lineplot.setLineColor({ key, color }));
 
   return (
-    <List.Item itemKey={itemKey} index={index} key={itemKey} gap="large">
+    <List.Item itemKey={key} index={index} key={key} gap="large">
       <Channel.AliasInput
         channel={line.yChannel}
         variant="shadow"

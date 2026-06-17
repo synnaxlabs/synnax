@@ -12,12 +12,19 @@ import { describe, expect, it } from "vitest";
 
 import { Persist } from "@/persist";
 import { type SugaredKV } from "@/persist/kv";
-import { Version } from "@/version";
 
-type MockState = Version.StoreState;
+const MOCK_SLICE_NAME = "mock";
+
+interface MockSliceState {
+  consoleVersion: string;
+}
+
+interface MockState {
+  [MOCK_SLICE_NAME]: MockSliceState;
+}
 
 const ZERO_MOCK_STATE: MockState = {
-  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
+  [MOCK_SLICE_NAME]: { consoleVersion: "" },
 };
 
 describe("Persist", () => {
@@ -42,8 +49,8 @@ describe("Persist", () => {
       const persistedStateKey = Persist.persistedStateKey(version);
       await v1Store.set(Persist.DB_VERSION_KEY, { version });
       const persistedState = {
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
           consoleVersion: "16.2.0",
         },
       };
@@ -59,8 +66,8 @@ describe("Persist", () => {
       await expect(v1Store.length()).resolves.toBe(0);
       await expect(v2Store.length()).resolves.toBe(2);
       expect(engine.initialState).toEqual({
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
           consoleVersion: "16.2.0",
         },
       });
@@ -82,8 +89,8 @@ describe("Persist", () => {
         initial: ZERO_MOCK_STATE,
       });
       const state = {
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
           consoleVersion: "16.2.0",
         },
       };
@@ -99,8 +106,8 @@ describe("Persist", () => {
       const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       for (let i = 0; i < 10; i++)
         await engine.persist({
-          [Version.SLICE_NAME]: {
-            ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+          [MOCK_SLICE_NAME]: {
+            ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
             consoleVersion: `16.2.${i}`,
           },
         });
@@ -109,8 +116,8 @@ describe("Persist", () => {
       // Open the engine again to make sure the initial state is correct
       const engine2 = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       expect(engine2.initialState).toEqual({
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
           consoleVersion: "16.2.9",
         },
       });
@@ -122,8 +129,8 @@ describe("Persist", () => {
         initial: ZERO_MOCK_STATE,
       });
       const state = {
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
           consoleVersion: "16.2.0",
         },
       };
@@ -140,15 +147,15 @@ describe("Persist", () => {
       const openKV = () => store;
       const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       const state = {
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
           consoleVersion: "16.2.0",
         },
       };
       await engine.persist(state);
       const state2 = {
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
           consoleVersion: "16.2.1",
         },
       };
@@ -164,8 +171,8 @@ describe("Persist", () => {
       const openKV = () => store;
       const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
       await engine.persist({
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
           consoleVersion: "16.2.0",
         },
       });
@@ -184,8 +191,8 @@ describe("Persist", () => {
     it("should correctly exclude keys from the state", async () => {
       type State = MockState & { a: number; b: number; c: number };
       const state: State = {
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
         },
         a: 1,
         b: 2,
@@ -199,8 +206,8 @@ describe("Persist", () => {
       });
       await v.persist(state);
       await expect(store.get(Persist.persistedStateKey(1))).resolves.toEqual({
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
         },
         b: 2,
         c: 3,
@@ -212,8 +219,8 @@ describe("Persist", () => {
     it("should correctly apply a migration function to the state", async () => {
       type State = { a: number; b: number; c: number } & MockState;
       const state: State = {
-        [Version.SLICE_NAME]: {
-          ...ZERO_MOCK_STATE[Version.SLICE_NAME],
+        [MOCK_SLICE_NAME]: {
+          ...ZERO_MOCK_STATE[MOCK_SLICE_NAME],
         },
         a: 1,
         b: 2,

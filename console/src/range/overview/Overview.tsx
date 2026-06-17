@@ -17,8 +17,9 @@ import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
+import { type Tabs } from "@/panel/tabs/index";
 
-export const Overview: Layout.Renderer = ({ layoutKey }) => (
+export const Overview: Tabs.Renderer = ({ layoutKey }) => (
   <Flex.Box
     y
     style={{ padding: "5rem", maxWidth: 1050, margin: "0 auto", overflowY: "auto" }}

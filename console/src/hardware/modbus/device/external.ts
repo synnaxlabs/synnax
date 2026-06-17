@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Connect, CONNECT_LAYOUT_TYPE } from "@/hardware/modbus/device/Connect";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export * from "@/hardware/modbus/device/Connect";
 export * from "@/hardware/modbus/device/palette";
 export * from "@/hardware/modbus/device/Select";
 export * from "@/hardware/modbus/device/types";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [CONNECT_LAYOUT_TYPE]: Connect,
 };

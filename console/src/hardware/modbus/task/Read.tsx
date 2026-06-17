@@ -32,17 +32,10 @@ import {
 } from "@/hardware/modbus/task/types";
 import { Selector } from "@/selector";
 
-export const READ_LAYOUT = {
-  ...Common.Task.LAYOUT,
-  type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.Modbus",
-} as const satisfies Common.Task.Layout;
-
 export const ReadSelectable = Selector.createSimpleItem({
   title: "Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
-  layout: READ_LAYOUT,
+  type: READ_TYPE,
 });
 
 const Properties = () => (
@@ -245,6 +238,7 @@ const onConfigure: Common.Task.OnConfigure<ReadSchemas["config"]> = async (
 export const Read = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.Modbus />,
   schemas: READ_SCHEMAS,
   type: "modbus_read",
   getInitialValues,

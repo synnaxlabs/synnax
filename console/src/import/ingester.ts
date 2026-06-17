@@ -11,8 +11,6 @@ import { type Store } from "@reduxjs/toolkit";
 import { type ontology, type project, type Synnax } from "@synnaxlabs/client";
 import { type Pluto } from "@synnaxlabs/pluto";
 
-import { type Layout } from "@/layout";
-
 export interface File {
   data: unknown;
   name: string;

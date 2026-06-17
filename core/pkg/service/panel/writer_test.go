@@ -53,7 +53,7 @@ var _ = Describe("Writer", func() {
 			res := retrieve(ctx, p.Key)
 			leaf := MustBeOk(asLeaf(res.Root))
 			Expect(leaf.Tabs).To(HaveLen(1))
-			Expect(leaf.Tabs[0].Key()).To(Equal(key))
+			Expect(leaf.Tabs[0].Key).To(Equal(key))
 		})
 
 		DescribeTable("Should reject a caller-provided tree that violates invariants",
@@ -220,11 +220,11 @@ var _ = Describe("Writer", func() {
 			tabKey := uuid.New()
 			key := create(ctx, leafNode())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: new(int32(1))}),
 			})).To(Succeed())
 			leaf := MustBeOk(asLeaf(retrieve(ctx, key).Root))
 			Expect(leaf.Tabs).To(HaveLen(1))
-			Expect(leaf.Tabs[0].Key()).To(Equal(tabKey))
+			Expect(leaf.Tabs[0].Key).To(Equal(tabKey))
 		})
 
 		It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
@@ -232,7 +232,7 @@ var _ = Describe("Writer", func() {
 			key := create(ctx, leafNode())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "batched"}),
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: new(int32(1))}),
 			})).To(Succeed())
 			res := retrieve(ctx, key)
 			Expect(res.Name).To(Equal("batched"))
@@ -243,7 +243,7 @@ var _ = Describe("Writer", func() {
 			key := create(ctx, leafNode())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 99}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: new(int32(99))}),
 			})).Error().To(MatchError(ContainSubstring("invalid node path")))
 			Expect(retrieve(ctx, key).Name).To(Equal("test"))
 		})
@@ -252,7 +252,7 @@ var _ = Describe("Writer", func() {
 			tabKey := uuid.New()
 			key := create(ctx, leafNode(tab(tabKey)))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: new(int32(1))}),
 			})).Error().To(MatchError(ContainSubstring("duplicate tab key in panel tree")))
 			Expect(MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs).To(HaveLen(1))
 		})
@@ -292,7 +292,7 @@ var _ = Describe("Writer", func() {
 			rec := &Recorder[panel.Key, panel.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 99}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: new(int32(99))}),
 			})).Error().To(MatchError(ContainSubstring("invalid node path")))
 			Expect(rec.Snapshot()).To(BeEmpty())
 		})

@@ -18,8 +18,8 @@ import {
 } from "@/hardware/modbus/task/types";
 import { Write, WRITE_LAYOUT, WriteSelectable } from "@/hardware/modbus/task/Write";
 import { type Import } from "@/import";
-import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/modbus/task/palette";
 export * from "@/hardware/modbus/task/Read";
@@ -36,7 +36,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [WRITE_TYPE]: Common.Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const TABS: Record<string, Tabs.Renderer> = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
 };

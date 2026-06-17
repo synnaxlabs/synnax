@@ -16,6 +16,8 @@ import { useSyncedRef } from "@/hooks";
 import { type FluxSubStore, useDispatch } from "@/schematic/queries";
 import { type DiagramClipboardHandler } from "@/vis/diagram/Diagram";
 
+import { useKey } from "./Suspended";
+
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
 const MIME = "web application/synnax-schematic+json";
@@ -44,7 +46,6 @@ const centroid = (nodes: schematic.Node[]): xy.XY => {
 };
 
 export interface UseClipboardArgs {
-  key: schematic.Key;
   selected?: string[];
   onPaste?: (newKeys: string[]) => void;
 }
@@ -55,10 +56,10 @@ export interface UseClipboardReturn {
 }
 
 export const useClipboard = ({
-  key,
   selected,
   onPaste,
 }: UseClipboardArgs): UseClipboardReturn => {
+  const key = useKey();
   const { dispatch } = useDispatch();
   const store = Flux.useStore<FluxSubStore>();
   const selectedRef = useSyncedRef(selected ?? []);
@@ -91,7 +92,7 @@ export const useClipboard = ({
       e.clipboardData.setData(MIME, JSON.stringify(payload));
       e.clipboardData.setData("text/plain", describe(payload));
     },
-    [key, store],
+    [store],
   );
 
   const handlePaste = useCallback<DiagramClipboardHandler>(

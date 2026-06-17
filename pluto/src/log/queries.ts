@@ -13,6 +13,7 @@ import { useCallback } from "react";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
+import { useKey } from "@/log/Suspended";
 import { Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "logs";
@@ -58,6 +59,17 @@ export const {
     store.logs.onSet(onChange, key),
 });
 
+export const { useRetrieveSuspended: useRetrieveName } = Flux.createRetrieve<
+  RetrieveQuery,
+  string,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: async (params) => (await retrieveSingle(params)).name,
+  mountListeners: ({ store, query: { key }, onChange }) =>
+    store.logs.onSet((l) => onChange(l.name), key),
+});
+
 export const useRetrieveObservableName = ({
   onChange,
   ...params
@@ -84,33 +96,38 @@ const requireLog = (store: FluxSubStore, key: log.Key): log.Log => {
   return l;
 };
 
-export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).name,
-});
+const withKey = <Args extends { key: string }, Selected>(
+  useSelect: Flux.UseSelect<Args, Selected>,
+): Flux.UseSelect<Omit<Args, "key">, Selected> => {
+  const key = useKey();
+  return (args) => useSelect({ key, ...args } as Args);
+};
 
-export const useSelectChannels = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  log.ChannelEntry[]
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).channels,
-});
+export const useSelectName = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).name,
+  }),
+);
+
+export const useSelectChannels = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, log.ChannelEntry[]>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).channels,
+  }),
+);
 
 // useSelectChannelKeys returns the ordered channel keys, re-rendering only when the
 // set or order of channels changes — not when an individual entry's display config
 // is edited. Iterate the toolbar list off this and read each row via
 // useSelectChannelEntry.
-export const useSelectChannelKeys = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  channel.Key[]
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).channels.map((e) => e.channel),
-  equal: compare.arraysEqual,
-});
+export const useSelectChannelKeys = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, channel.Key[]>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).channels.map((e) => e.channel),
+    equal: compare.arraysEqual,
+  }),
+);
 
 export interface SelectChannelEntryArgs extends SelectKeyArgs {
   channel: channel.Key;
@@ -120,42 +137,34 @@ export interface SelectChannelEntryArgs extends SelectKeyArgs {
 // channel has no entry. reduceAll's structural sharing keeps the entry reference
 // stable across dispatches that don't touch it, so editing one channel does not
 // re-render the rows of the others.
-export const useSelectChannelEntry = Flux.createSelector<
-  FluxSubStore,
-  SelectChannelEntryArgs,
-  log.ChannelEntry | null
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key, channel }) =>
-    requireLog(store, key).channels.find((e) => e.channel === channel) ?? null,
-});
+export const useSelectChannelEntry = withKey(
+  Flux.createSelector<FluxSubStore, SelectChannelEntryArgs, log.ChannelEntry | null>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key, channel }) =>
+      requireLog(store, key).channels.find((e) => e.channel === channel) ?? null,
+  }),
+);
 
-export const useSelectTimestampPrecision = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  number
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).timestampPrecision,
-});
+export const useSelectTimestampPrecision = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, number>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).timestampPrecision,
+  }),
+);
 
-export const useSelectShowChannelNames = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  boolean
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).showChannelNames,
-});
+export const useSelectShowChannelNames = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, boolean>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).showChannelNames,
+  }),
+);
 
-export const useSelectShowReceiptTimestamp = Flux.createSelector<
-  FluxSubStore,
-  SelectKeyArgs,
-  boolean
->({
-  subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
-  select: (store, { key }) => requireLog(store, key).showReceiptTimestamp,
-});
+export const useSelectShowReceiptTimestamp = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, boolean>({
+    subscribe: (store, { key }, notify) => store.logs.onSet(notify, key),
+    select: (store, { key }) => requireLog(store, key).showReceiptTimestamp,
+  }),
+);
 
 // kindOfTransaction keys single-channel edits by channel so rapid edits to one
 // channel's config coalesce into a single undoable, while edits to distinct

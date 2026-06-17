@@ -28,6 +28,7 @@ import { useSelectMany } from "@/cluster/selectors";
 import { changeKey, remove } from "@/cluster/slice";
 import { ContextMenu, EmptyAction } from "@/components";
 import { Layout } from "@/layout";
+import { Layouts } from "@/layouts";
 import { Link } from "@/link";
 
 export interface ListProps
@@ -107,7 +108,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
 
   const contextMenu = useCallback(
     ({ keys: [key] }: Menu.ContextMenuMenuProps): ReactElement => {
-      if (key == null) return <Layout.DefaultContextMenu />;
+      if (key == null) return <Layouts.DefaultContextMenu />;
 
       return (
         <ContextMenu.Menu>

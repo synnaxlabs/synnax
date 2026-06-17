@@ -28,7 +28,6 @@ import { Arc } from "@/arc";
 import { type CalculatedLayoutArgs } from "@/channel/calculatedLayout";
 import { Code } from "@/code";
 import { CSS } from "@/css";
-import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
@@ -39,8 +38,8 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   placeholder: "Name",
 };
 
-export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
-  const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
+export const Calculated: Modals.Renderer = ({ onClose }): ReactElement => {
+  const args = Modals.useArgs<CalculatedLayoutArgs>();
   const isEdit = args?.channelKey !== 0;
   const {
     form,

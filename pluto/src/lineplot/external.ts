@@ -16,6 +16,7 @@ export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/measure";
 export * from "@/lineplot/queries";
 export * from "@/lineplot/rule";
+export * from "@/lineplot/Suspended";
 export * from "@/lineplot/Title";
 export * from "@/lineplot/tooltip";
 export * from "@/lineplot/Viewport";

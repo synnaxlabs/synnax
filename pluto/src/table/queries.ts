@@ -14,6 +14,7 @@ import { useCallback, useMemo } from "react";
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
+import { useKey } from "@/table/Suspended";
 import { Cell } from "@/table/cells";
 import { Theming } from "@/theming";
 
@@ -57,6 +58,17 @@ export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
       store.tables.onSet(onChange, key),
   });
 
+export const { useRetrieveSuspended: useRetrieveName } = Flux.createRetrieve<
+  RetrieveQuery,
+  string,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: async (params) => (await retrieveSingle(params)).name,
+  mountListeners: ({ store, query: { key }, onChange }) =>
+    store.tables.onSet((t) => onChange(t.name), key),
+});
+
 export const useRetrieveObservableName = ({
   onChange,
   ...params
@@ -83,10 +95,19 @@ const requireTable = (store: FluxSubStore, key: table.Key): table.Table => {
   return t;
 };
 
-export const useSelectName = Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
-  subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
-  select: (store, { key }) => requireTable(store, key).name,
-});
+const withKey = <Args extends { key: string }, Selected>(
+  useSelect: Flux.UseSelect<Args, Selected>,
+): Flux.UseSelect<Omit<Args, "key">, Selected> => {
+  const key = useKey();
+  return (args) => useSelect({ key, ...args } as Args);
+};
+
+export const useSelectName = withKey(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+    subscribe: (store, { key }, notify) => store.tables.onSet(notify, key),
+    select: (store, { key }) => requireTable(store, key).name,
+  }),
+);
 
 export const useSelectRows = Flux.createSelector<
   FluxSubStore,

@@ -9,26 +9,32 @@
 
 import "@/layouts/nav/Nav.css";
 
-import { Logo } from "@synnaxlabs/media";
-import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
-import { LOGO_LOCATION } from "@/layouts/nav/logo";
-import { Menu } from "@/layouts/nav/Menu";
+import { BOTTOM_DRAWER_ITEM, LEFT_DRAWER_ITEMS } from "@/layouts/nav/drawerItems";
+import { Nav } from "@/nav";
+import { Palette } from "@/palette";
 
-export const Left = (): ReactElement => (
-  <Layout.Nav.Bar location="left" size="8rem">
-    {LOGO_LOCATION === "left" && (
-      <Nav.Bar.Start bordered>
-        <Logo />
-      </Nav.Bar.Start>
-    )}
-    <Nav.Bar.Content>
-      <Menu location="left" />
-    </Nav.Bar.Content>
-    <Nav.Bar.End bordered>
-      <Menu location="bottom" />
-    </Nav.Bar.End>
-  </Layout.Nav.Bar>
+const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
+  command: [["Control", "Shift", "P"]],
+  defaultMode: "command",
+  search: [["Control", "P"]],
+};
+
+const SearchAndCommandPalette = (): ReactElement => (
+  <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
 );
+
+export const Left = (): ReactElement => {
+  const { blurred } = Layout.useSelectActiveTabState();
+  return (
+    <Nav.LeftBar
+      items={LEFT_DRAWER_ITEMS}
+      bottomItem={BOTTOM_DRAWER_ITEM}
+      enabled={!blurred}
+    >
+      <SearchAndCommandPalette />
+    </Nav.LeftBar>
+  );
+};

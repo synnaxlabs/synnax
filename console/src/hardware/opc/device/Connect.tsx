@@ -39,18 +39,16 @@ import {
   ZERO_PROPERTIES,
 } from "@/hardware/opc/device/types";
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/hardware/opc/task/types";
-import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CONNECT_LAYOUT_TYPE = "configureOPCServer";
 
-export const CONNECT_LAYOUT: Layout.BaseState = {
+export const CONNECT_LAYOUT: Modals.BaseState = {
   key: CONNECT_LAYOUT_TYPE,
   type: CONNECT_LAYOUT_TYPE,
   name: "Server.Connect",
   icon: "Logo.OPC",
-  location: "modal",
   window: { resizable: false, size: { height: 720, width: 915 }, navTop: true },
 };
 
@@ -107,7 +105,7 @@ const beforeSave = async ({
   return true;
 };
 
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
+export const Connect: Modals.Renderer = ({ layoutKey, onClose }) => {
   const {
     form,
     save,

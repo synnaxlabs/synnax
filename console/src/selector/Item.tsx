@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, type Icon } from "@synnaxlabs/pluto";
+import { panel } from "@synnaxlabs/client";
+import { Button, type Icon, Panel as Base } from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { type Selectable } from "@/selector/Selector";
+import { type Tabs } from "@/panel/tabs/index";
 
 export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   title: string;
@@ -28,26 +31,29 @@ export const Item = ({ title, icon, ...rest }: ItemProps) => (
 export interface SimpleItemProps {
   title: string;
   icon: Icon.ReactElement;
-  layout: Layout.BaseState;
   useVisible?: () => boolean;
+  type: string;
 }
 
 export const createSimpleItem = ({
   title,
   icon,
-  layout,
   useVisible,
+  type,
 }: SimpleItemProps): Selectable => {
-  const C: Selectable = ({ layoutKey, onPlace }) => {
+  const C: Selectable = ({ tabKey }) => {
     const visible = useVisible?.() ?? true;
+    const dispatch = Base.useSingleDispatch();
+    const handleClick = useCallback(() => {
+      dispatch([
+        panel.setTabType({ key: tabKey, type }),
+        panel.setTabArgs({ key: tabKey, args: { name: title } }),
+      ]);
+    }, [dispatch]);
     if (!visible) return null;
-    const handleClick = useCallback(
-      () => onPlace({ ...layout, key: layoutKey }),
-      [onPlace, layoutKey],
-    );
     return <Item title={title} icon={icon} onClick={handleClick} />;
   };
-  C.type = layout.type;
+  C.type = type;
   C.useVisible = useVisible;
   return C;
 };

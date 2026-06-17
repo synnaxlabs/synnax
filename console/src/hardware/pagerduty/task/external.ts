@@ -12,8 +12,8 @@ import { Common } from "@/hardware/common";
 import { Alert, ALERT_LAYOUT, AlertSelectable } from "@/hardware/pagerduty/task/Alert";
 import { ALERT_SCHEMAS, ALERT_TYPE } from "@/hardware/pagerduty/task/types";
 import { type Import } from "@/import";
-import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/pagerduty/task/Alert";
 export * from "@/hardware/pagerduty/task/palette";
@@ -25,7 +25,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [ALERT_TYPE]: Common.Task.createIngester(ALERT_SCHEMAS.config, ALERT_LAYOUT),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = { [ALERT_TYPE]: Alert };
+export const TABS: Record<string, Tabs.Renderer> = { [ALERT_TYPE]: Alert };
 
 export const SELECTABLES: Selector.Selectable[] = [AlertSelectable];
 

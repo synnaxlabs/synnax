@@ -25,17 +25,10 @@ import {
 } from "@/hardware/opc/task/types";
 import { Selector } from "@/selector";
 
-export const WRITE_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.OPC",
-};
-
 export const WriteSelectable = Selector.createSimpleItem({
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  layout: WRITE_LAYOUT,
+  type: WRITE_TYPE,
 });
 
 const Properties = () => (
@@ -171,6 +164,7 @@ const onConfigure: Common.Task.OnConfigure<WriteSchemas["config"]> = async (
 export const Write = Common.Task.wrapForm({
   Properties,
   Form: TaskForm,
+  icon: <Icon.Logo.OPC />,
   schemas: WRITE_SCHEMAS,
   type: "opc_write",
   getInitialValues,

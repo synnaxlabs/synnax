@@ -11,11 +11,13 @@ import { type Export } from "@/export";
 import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
 import { type Import } from "@/import";
-import { type Layout } from "@/layout";
 import { type Link } from "@/link";
+import { type Modals } from "@/modals";
+import { type Nav } from "@/nav";
 import { type Notifications } from "@/notifications";
 import { type Palette } from "@/palette";
 import { type Selector } from "@/selector";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/device";
 export * from "@/hardware/rack";
@@ -27,17 +29,16 @@ export const EXTRACTORS: Export.Extractors = Task.EXTRACTORS;
 
 export const FILE_INGESTERS: Import.FileIngesters = Task.FILE_INGESTERS;
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  ...Device.LAYOUTS,
-  ...Task.LAYOUTS,
-};
+export const MODALS: Record<string, Modals.Renderer> = { ...Device.MODALS };
+
+export const TABS: Record<string, Tabs.Renderer> = { ...Task.TABS };
 
 export const LINK_HANDLERS: Record<string, Link.Handler> = {
   device: Device.handleLink,
   task: Task.handleLink,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [
+export const NAV_DRAWER_ITEMS: Nav.DrawerItem[] = [
   ...Device.NAV_DRAWER_ITEMS,
   ...Task.NAV_DRAWER_ITEMS,
 ];

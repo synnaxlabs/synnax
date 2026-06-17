@@ -9,7 +9,7 @@
 
 import { Connect, CONNECT_LAYOUT_TYPE } from "@/cluster/Connect";
 import { versionOutdatedAdapter } from "@/cluster/notification";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 import { type Notifications } from "@/notifications";
 
 export * from "@/cluster/Badges";
@@ -22,7 +22,7 @@ export * from "@/cluster/slice";
 export * from "@/cluster/useCopyLinkToClipboard";
 export * from "@/cluster/useSyncClusterKey";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [CONNECT_LAYOUT_TYPE]: Connect,
 };
 

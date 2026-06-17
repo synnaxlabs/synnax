@@ -39,17 +39,10 @@ import {
 } from "@/hardware/pagerduty/task/types";
 import { Selector } from "@/selector";
 
-export const ALERT_LAYOUT: Common.Task.Layout = {
-  ...Common.Task.LAYOUT,
-  type: ALERT_TYPE,
-  name: ZERO_ALERT_PAYLOAD.name,
-  icon: "Logo.PagerDuty",
-};
-
 export const AlertSelectable = Selector.createSimpleItem({
   title: "PagerDuty Alert",
   icon: <Icon.Logo.PagerDuty />,
-  layout: ALERT_LAYOUT,
+  type: ALERT_TYPE
 });
 
 const Properties = () => (
@@ -322,6 +315,7 @@ const onConfigure: Common.Task.OnConfigure<AlertSchemas["config"]> = async (
 export const Alert = Common.Task.wrapForm({
   Properties,
   Form,
+  icon: <Icon.Logo.PagerDuty />,
   schemas: ALERT_SCHEMAS,
   type: ALERT_TYPE,
   getInitialValues,

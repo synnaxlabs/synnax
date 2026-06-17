@@ -18,8 +18,9 @@ import { PagerDuty } from "@/hardware/pagerduty";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { TOOLBAR_NAV_DRAWER_ITEM } from "@/hardware/task/Toolbar";
 import { type Import } from "@/import";
-import { type Layout } from "@/layout";
+import { Nav } from "@/nav";
 import { type Palette } from "@/palette";
+import { type Tabs } from "@/panel/tabs/index";
 
 export * from "@/hardware/task/layouts";
 export * from "@/hardware/task/link";
@@ -57,15 +58,15 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   ...PagerDuty.Task.FILE_INGESTERS,
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  ...EtherCAT.Task.LAYOUTS,
-  ...HTTP.Task.LAYOUTS,
-  ...LabJack.Task.LAYOUTS,
-  ...Modbus.Task.LAYOUTS,
-  ...NI.Task.LAYOUTS,
-  ...OPC.Task.LAYOUTS,
-  ...PagerDuty.Task.LAYOUTS,
+export const TABS: Record<string, Tabs.Renderer> = {
+  ...EtherCAT.Task.TABS,
+  ...HTTP.Task.TABS,
+  ...LabJack.Task.TABS,
+  ...Modbus.Task.TABS,
+  ...NI.Task.TABS,
+  ...OPC.Task.TABS,
+  ...PagerDuty.Task.TABS,
   [SELECTOR_LAYOUT_TYPE]: Selector,
 };
 
-export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR_NAV_DRAWER_ITEM];
+export const NAV_DRAWER_ITEMS: Nav.DrawerItem[] = [TOOLBAR_NAV_DRAWER_ITEM];

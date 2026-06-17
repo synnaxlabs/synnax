@@ -28,7 +28,6 @@ import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { Label } from "@/label";
-import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { add } from "@/range/slice";
 import { Triggers } from "@/triggers";
@@ -37,10 +36,9 @@ export type CreateLayoutArgs = Partial<z.infer<typeof Ranger.formSchema>>;
 
 export const CREATE_LAYOUT_TYPE = "editRange";
 
-export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
+export const CREATE_LAYOUT: Modals.BaseState<CreateLayoutArgs> = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
-  location: "modal",
   name: "Range.Create",
   icon: "Range",
   window: { resizable: false, size: { height: 440, width: 700 }, navTop: true },
@@ -48,16 +46,16 @@ export const CREATE_LAYOUT: Layout.BaseState<CreateLayoutArgs> = {
 
 export const createCreateLayout = (
   initial: CreateLayoutArgs = {},
-): Layout.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, args: initial });
+): Modals.BaseState<CreateLayoutArgs> => ({ ...CREATE_LAYOUT, args: initial });
 
 export const ParentRangeIcon = Icon.createComposite(Icon.Range, {
   bottomRight: Icon.Arrow.Up,
 });
 
-export const Create: Layout.Renderer = (props) => {
-  const { layoutKey, onClose } = props;
+export const Create: Modals.Renderer = (props) => {
+  const { onClose } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
-  const args = Layout.useSelectArgs<CreateLayoutArgs>(layoutKey);
+  const args = Modals.useArgs<CreateLayoutArgs>();
   const dispatch = useDispatch();
 
   const client = Synnax.use();

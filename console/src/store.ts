@@ -20,10 +20,13 @@ import { type deep, type record } from "@synnaxlabs/x";
 
 import { Arc } from "@/arc";
 import { Cluster } from "@/cluster";
+import { Color } from "@/color";
 import { Docs } from "@/docs";
+import { Hauling } from "@/hauling";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";
+import { Nav } from "@/nav";
 import { Persist } from "@/persist";
 import { Project } from "@/project";
 import { Range } from "@/range";
@@ -31,74 +34,90 @@ import { Runtime } from "@/runtime";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
 import { Table } from "@/table";
-import { Version } from "@/version";
+import { Theme } from "@/theme";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState> | ((func: RootState) => RootState)> = [
   ...Layout.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
+  Hauling.SLICE_NAME,
+  "nav.left.hover",
+  "nav.bottom.hover",
+  "theme.themes",
 ];
 
 const ZERO_STATE: RootState = {
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
+  [Hauling.SLICE_NAME]: Hauling.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
-  [LinePlot.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
+  [LinePlot.Session.SLICE_NAME]: LinePlot.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
+  [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Range.SLICE_NAME]: Range.ZERO_SLICE_STATE,
   [Schematic.SLICE_NAME]: Schematic.ZERO_SLICE_STATE,
   [Status.SLICE_NAME]: Status.ZERO_SLICE_STATE,
   [Table.SLICE_NAME]: Table.ZERO_SLICE_STATE,
+  [Theme.SLICE_NAME]: Theme.ZERO_SLICE_STATE,
   [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE,
-  [Version.SLICE_NAME]: Version.ZERO_SLICE_STATE,
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
 };
 
 const reducer = combineReducers({
   [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Color.SLICE_NAME]: Color.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
+  [Hauling.SLICE_NAME]: Hauling.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Log.SLICE_NAME]: Log.reducer,
+  [Nav.SLICE_NAME]: Nav.reducer,
   [Range.SLICE_NAME]: Range.reducer,
   [Schematic.SLICE_NAME]: Schematic.reducer,
   [Status.SLICE_NAME]: Status.reducer,
   [Table.SLICE_NAME]: Table.reducer,
-  [Version.SLICE_NAME]: Version.reducer,
+  [Theme.SLICE_NAME]: Theme.reducer,
   [Project.SLICE_NAME]: Project.reducer,
   [Arc.SLICE_NAME]: Arc.reducer,
 }) as unknown as Reducer<RootState, RootAction>;
 
 export interface RootState {
   [Cluster.SLICE_NAME]: Cluster.SliceState;
+  [Color.SLICE_NAME]: Color.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
+  [Hauling.SLICE_NAME]: Hauling.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
+  [Nav.SLICE_NAME]: Nav.SliceState;
   [Range.SLICE_NAME]: Range.SliceState;
   [Schematic.SLICE_NAME]: Schematic.SliceState;
   [Status.SLICE_NAME]: Status.SliceState;
   [Table.SLICE_NAME]: Table.SliceState;
-  [Version.SLICE_NAME]: Version.SliceState;
+  [Theme.SLICE_NAME]: Theme.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
   [Arc.SLICE_NAME]: Arc.SliceState;
 }
 
 export type RootAction =
   | Cluster.Action
+  | Color.Action
   | Docs.Action
   | Drift.Action
+  | Hauling.Action
   | Layout.Action
   | LinePlot.Action
   | Log.Action
+  | Nav.Action
   | Range.Action
   | Schematic.Action
   | Status.Action
   | Table.Action
-  | Version.Action
+  | Theme.Action
   | Project.Action
   | Arc.Action;
 
@@ -111,12 +130,10 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
 
 export const migrateState = (prev: RootState): RootState => {
   console.group("Migrating State");
-  console.log(`Previous Console Version: ${prev[Version.SLICE_NAME].version}`);
   const layout = Layout.migrateSlice(prev.layout);
   const schematic = Schematic.migrateSlice(prev.schematic);
   const line = LinePlot.migrateSlice(prev.line);
   const log = Log.migrateSlice(prev.log);
-  const version = Version.migrateSlice(prev.version);
   // The project slice was persisted under "workspace" before the rename;
   // migrateLegacySlice reads the legacy key so an upgrading user keeps their saved
   // active project.
@@ -135,7 +152,6 @@ export const migrateState = (prev: RootState): RootState => {
     schematic,
     line,
     log,
-    version,
     project,
     range,
     docs,

@@ -31,7 +31,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { CREATE_LAYOUT } from "@/project/Create";
 import { useSelectActive } from "@/project/selectors";
-import { setActive } from "@/project/slice";
+import { activeate } from "@/project/slice";
 
 const listItem = Component.renderProp(
   (props: List.ItemProps<project.Key>): ReactElement | null => {
@@ -61,10 +61,7 @@ export const Selector = (): ReactElement | null => {
       if (key == null) return;
       const proj = getItem(key);
       if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(setActive(proj));
-      dispatch(
-        Layout.setProject({ slice: proj.layout as Layout.SliceState, keepNav: false }),
-      );
+      dispatch(activeate(proj));
       setDialogVisible(false);
     },
     [dispatch, getItem],

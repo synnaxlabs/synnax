@@ -9,5 +9,4 @@
 
 export * from "@/layouts/nav/drawerItems";
 export * from "@/layouts/nav/Left";
-export * from "@/layouts/nav/Menu";
 export * from "@/layouts/nav/Top";

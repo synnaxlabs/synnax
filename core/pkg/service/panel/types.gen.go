@@ -20,30 +20,25 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
+type TabKey = uuid.UUID
+
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
 
-// TabBase carries the identity shared by every tab variant.
-type TabBase struct {
+// Tab is a single tab in a leaf: a stable key, a renderer type, and an opaque,
+// Console-owned args payload. The same content may be referenced by multiple tabs in
+// the same or other panels.
+type Tab struct {
 	// Key is the stable unique identifier of this tab within the panel. It is independent
 	// of the tab's content, so a tab's content may be swapped without changing the tab's
 	// identity or position.
-	Key uuid.UUID `json:"key" msgpack:"key"`
-}
-
-// View is an inline, self-describing view: a Console-owned type plus an opaque
-// configuration payload, with no backing core document. Used for app-views and tools
-// (docs, explorers, about, the visualization picker).
-type View struct {
-	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-	// a renderer.
+	Key TabKey `json:"key" msgpack:"key"`
+	// Type selects the renderer for the tab's content (e.g. 'lineplot', 'schematic',
+	// 'docs', 'selector'). For core-backed content it is also the ontology resource type.
 	Type string `json:"type" msgpack:"type"`
-	// Name is the human-readable tab name for the view. A view has no backing resource to
-	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-	// the Console falls back to a type-derived default.
-	Name string `json:"name" msgpack:"name"`
-	// Args is an opaque, Console-owned configuration payload for the view. Core never
-	// interprets it; it round-trips as-is.
+	// Args is an opaque, Console-owned payload carrying the tab's content configuration
+	// (e.g. a backing resource key, name, view-specific settings). Core never interprets
+	// it; it round-trips as-is.
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
@@ -81,121 +76,6 @@ type Panel struct {
 	// the ontology graph, so the field is not persisted on the panel record and is absent
 	// on retrieve.
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
-}
-
-type TabType string
-
-const (
-	TabTypeResource TabType = "resource"
-	TabTypeView     TabType = "view"
-	TabTypeEmpty    TabType = "empty"
-)
-
-type TabVariant interface {
-	isTabVariant()
-}
-
-// TabResource is a tab displaying a backing core document.
-type TabResource struct {
-	TabBase
-	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
-}
-
-func (TabResource) isTabVariant() {}
-
-// TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
-// view has no backing core document: it carries its own type and opaque args. Used for
-// app-views and tools (docs, explorers, about, the visualization picker).
-type TabView struct {
-	TabBase
-	View
-}
-
-func (TabView) isTabVariant() {}
-
-// TabEmpty is a tab with no content yet. An empty tab renders the visualization
-// selector at render time; SetTabResource or SetTabView fills it in place.
-type TabEmpty struct {
-	TabBase
-}
-
-func (TabEmpty) isTabVariant() {}
-
-// Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot), a view (an inline, self-describing
-// app-view, e.g. docs), or empty (the visualization selector). Display attributes
-// (name, icon, closability) are resolved at render time from the content. The same
-// content may be referenced by multiple tabs in the same or other panels.
-type Tab struct {
-	Variant TabVariant
-}
-
-func (u Tab) MarshalJSON() ([]byte, error) {
-	if u.Variant == nil {
-		return []byte("null"), nil
-	}
-	var t TabType
-	switch u.Variant.(type) {
-	case TabResource:
-		t = TabTypeResource
-	case TabView:
-		t = TabTypeView
-	case TabEmpty:
-		t = TabTypeEmpty
-	default:
-		return nil, errors.Newf("Tab: nil or unknown variant %T", u.Variant)
-	}
-	raw, err := json.Marshal(u.Variant)
-	if err != nil {
-		return nil, err
-	}
-	fields := map[string]json.RawMessage{}
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return nil, err
-	}
-	tag, err := json.Marshal(t)
-	if err != nil {
-		return nil, err
-	}
-	fields["variant"] = tag
-	return json.Marshal(fields)
-}
-
-func (u *Tab) UnmarshalJSON(data []byte) error {
-	if string(data) == "null" {
-		u.Variant = nil
-		return nil
-	}
-	var disc struct {
-		Type TabType `json:"variant"`
-	}
-	if err := json.Unmarshal(data, &disc); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case TabTypeResource:
-		var v TabResource
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case TabTypeView:
-		var v TabView
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case TabTypeEmpty:
-		var v TabEmpty
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("Tab: unknown variant %q", disc.Type)
-	}
-	return nil
 }
 
 type NodeType string

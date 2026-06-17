@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * as Aggregator from "@/components/context-menu/aggregator";
 export * from "@/components/context-menu/DeleteItem";
 export * from "@/components/context-menu/FavoriteItems";
 export * from "@/components/context-menu/Menu";

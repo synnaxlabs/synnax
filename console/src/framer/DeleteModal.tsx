@@ -34,13 +34,11 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-export const DELETE_LAYOUT: Layout.BaseState = {
+export const DELETE_LAYOUT: Modals.BaseState = {
   type: "delete_data",
-  location: "modal",
   icon: "Channel",
   name: "Data.Delete",
   window: { resizable: false, size: { height: 350, width: 700 }, navTop: true },
@@ -58,7 +56,7 @@ const CHANNEL_SELECT_TRIGGER_PROPS: Select.MultipleTriggerProps<channel.Key> = {
   placeholder: "Select channels to delete",
 };
 
-export const DeleteModal: Layout.Renderer = ({ onClose }) => {
+export const DeleteModal: Modals.Renderer = ({ onClose }) => {
   const [step, setStep] = useState<"form" | "confirm">("form");
   const methods = Form.use({
     schema: formSchema,

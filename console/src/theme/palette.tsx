@@ -10,11 +10,11 @@
 import { useCallback } from "react";
 import { MdDarkMode } from "react-icons/md";
 
-import { setActiveTheme } from "@/layout/slice";
 import { Palette } from "@/palette";
+import { setActive } from "@/theme/slice";
 
 export const ToggleCommand: Palette.Command = ({ store, ...listProps }) => {
-  const handleSelect = useCallback(() => store.dispatch(setActiveTheme()), [store]);
+  const handleSelect = useCallback(() => store.dispatch(setActive()), [store]);
   return (
     <Palette.CommandListItem
       {...listProps}

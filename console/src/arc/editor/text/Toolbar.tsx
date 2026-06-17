@@ -8,21 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Text } from "@synnaxlabs/pluto";
+import { Arc, Breadcrumb, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useExport } from "@/arc/export";
 import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
 import { Export } from "@/export";
-import { Layout } from "@/layout";
 
 export interface ToolbarProps {
   layoutKey: string;
 }
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
-  const { name } = Layout.useSelectRequired(layoutKey);
+  const { data: remote } = Arc.useRetrieve(
+    { key: layoutKey },
+    { addStatusOnFailure: false },
+  );
+  const name = remote?.name ?? "Arc";
   const handleExport = useExport();
   return (
     <>
