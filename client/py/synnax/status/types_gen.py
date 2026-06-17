@@ -38,9 +38,10 @@ Details = TypeVar("Details")
 
 
 class Status(BaseModel, Generic[Details]):
-    """Is a standardized message used to communicate state across the
-    Synnax platform. Statuses support different severity variants
-    and can carry component-specific details.
+    """Is a standardized message used to communicate state across the Synnax
+    platform. Statuses support different severity variants and can carry
+    component-specific details. A status is uniquely identified by a key and may
+    carry a human-readable name and labels for categorization and filtering.
 
     Attributes:
         key: Is a unique identifier for this status, auto-generated if not provided.

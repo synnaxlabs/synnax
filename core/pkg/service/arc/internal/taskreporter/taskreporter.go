@@ -18,9 +18,8 @@ package taskreporter
 
 import (
 	"context"
-
-	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
 // Reporter writes a task-level status update from inside an stdlib module.
-type Reporter func(ctx context.Context, variant xstatus.Variant, message string)
+type Reporter func(ctx context.Context, variant status.Variant, message string)

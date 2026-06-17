@@ -16,9 +16,9 @@
 #include <utility>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/types.gen.h"
@@ -51,7 +51,7 @@ struct StatusDetails {
     from_proto(const ::service::arc::pb::StatusDetails &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails>;
+using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief Arc is an Arc module combining visual graph representation and text-based
 /// source code for reactive control systems. Compiles to WebAssembly for sandboxed

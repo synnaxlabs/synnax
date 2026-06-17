@@ -21,7 +21,6 @@ import (
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -125,7 +124,7 @@ var _ = Describe("AlertTask", func() {
 	setStatus := func(
 		ctx context.Context,
 		key string,
-		variant xstatus.Variant,
+		variant status.Variant,
 		message string,
 		details any,
 	) {
@@ -177,7 +176,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "watched-error", xstatus.VariantError,
+				setStatus(ctx, "watched-error", status.VariantError,
 					"Something broke", nil)
 
 				Eventually(func() int { return len(sender.getEvents()) }).
@@ -202,7 +201,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "watched-resolve", xstatus.VariantSuccess,
+				setStatus(ctx, "watched-resolve", status.VariantSuccess,
 					"All good", nil)
 
 				Eventually(func() int { return len(sender.getEvents()) }).
@@ -222,7 +221,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "unwatched-key", xstatus.VariantError,
+				setStatus(ctx, "unwatched-key", status.VariantError,
 					"Should be ignored", nil)
 
 				Consistently(func() int { return len(sender.getEvents()) }).
@@ -238,7 +237,7 @@ var _ = Describe("AlertTask", func() {
 			))
 			defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-			setStatus(ctx, "disabled-alert", xstatus.VariantError,
+			setStatus(ctx, "disabled-alert", status.VariantError,
 				"Should be ignored", nil)
 
 			Consistently(func() int { return len(sender.getEvents()) }).
@@ -253,7 +252,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "variant-skip", xstatus.VariantLoading,
+				setStatus(ctx, "variant-skip", status.VariantLoading,
 					"Loading...", nil)
 
 				Consistently(func() int { return len(sender.getEvents()) }).
@@ -269,7 +268,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "watched-warning", xstatus.VariantWarning,
+				setStatus(ctx, "watched-warning", status.VariantWarning,
 					"Watch out", nil)
 
 				Eventually(func() int { return len(sender.getEvents()) }).
@@ -287,7 +286,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "watched-info", xstatus.VariantInfo, "FYI", nil)
+				setStatus(ctx, "watched-info", status.VariantInfo, "FYI", nil)
 
 				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
@@ -310,7 +309,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "critical-error", xstatus.VariantError,
+				setStatus(ctx, "critical-error", status.VariantError,
 					"Critical failure", nil)
 
 				Eventually(func() int { return len(sender.getEvents()) }).
@@ -332,7 +331,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "normal-error", xstatus.VariantError,
+				setStatus(ctx, "normal-error", status.VariantError,
 					"Normal failure", nil)
 
 				Eventually(func() int { return len(sender.getEvents()) }).
@@ -364,7 +363,7 @@ var _ = Describe("AlertTask", func() {
 				Expect(w.Set(ctx, &status.Status[any]{
 					Key:         "payload-test",
 					Name:        "Temperature Sensor",
-					Variant:     xstatus.VariantWarning,
+					Variant:     status.VariantWarning,
 					Message:     "High temperature",
 					Description: "Exceeded 80C threshold",
 					Time:        telem.Now(),
@@ -400,7 +399,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "no-desc", xstatus.VariantError, "Simple error", nil)
+				setStatus(ctx, "no-desc", status.VariantError, "Simple error", nil)
 
 				Eventually(func() int { return len(sender.getEvents()) }).
 					WithTimeout(2 * time.Second).
@@ -421,7 +420,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				Expect(tsk.Stop()).To(Succeed())
 
-				setStatus(ctx, "stop-test", xstatus.VariantError, "After stop", nil)
+				setStatus(ctx, "stop-test", status.VariantError, "After stop", nil)
 
 				Consistently(func() int { return len(sender.getEvents()) }).
 					WithTimeout(500 * time.Millisecond).
@@ -437,7 +436,7 @@ var _ = Describe("AlertTask", func() {
 				))
 				defer func() { Expect(tsk.Stop()).To(Succeed()) }()
 
-				setStatus(ctx, "send-failure", xstatus.VariantError,
+				setStatus(ctx, "send-failure", status.VariantError,
 					"Trigger send", nil)
 
 				Eventually(func() int32 { return sender.sendCallCount() }).

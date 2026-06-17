@@ -14,8 +14,8 @@ syntax = "proto3";
 package service.device.pb;
 
 import "core/pkg/distribution/ontology/pb/ontology.proto";
+import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
-import "x/go/status/pb/status.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/device/pb";
 
@@ -51,7 +51,7 @@ message Device {
   // Structure varies by device make and model.
   google.protobuf.Struct properties = 8;
   // status is the current operational status of the device.
-  optional .x.status.pb.Status status = 9;
+  optional .service.status.pb.Status status = 9;
   // parent is an optional parent resource ID for hierarchical device organization (e.g.,
   // NI chassis containing modules).
   optional .distribution.ontology.pb.ID parent = 10;

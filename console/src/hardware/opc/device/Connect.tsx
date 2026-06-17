@@ -9,7 +9,7 @@
 
 import "@/hardware/opc/device/Connect.css";
 
-import { type device, type rack, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -22,7 +22,6 @@ import {
   Rack,
   Status,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";

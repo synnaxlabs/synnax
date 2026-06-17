@@ -272,7 +272,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(first_state.key, synnax::task::status_key(task));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.details.task, task.key);
-    EXPECT_EQ(first_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Task started successfully");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
@@ -281,7 +281,7 @@ TEST_F(TestReadTask, testBasicReadTask) {
     EXPECT_EQ(second_state.key, synnax::task::status_key(task));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.details.task, task.key);
-    EXPECT_EQ(second_state.variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Task stopped successfully");
     auto &fr = mock_factory->writes->at(0);
     ASSERT_EQ(fr.size(), 11);
@@ -353,7 +353,7 @@ TEST_F(TestReadTask, testInvalidNodeId) {
     ASSERT_GE(ctx->statuses.size(), 1);
     bool found_error = false;
     for (const auto &state: ctx->statuses) {
-        if (state.variant == x::status::VARIANT_ERROR) {
+        if (state.variant == synnax::status::VARIANT_ERROR) {
             found_error = true;
             break;
         }
@@ -376,7 +376,7 @@ TEST_F(TestReadTask, testServerDisconnectDuringRead) {
 
     bool found_error = false;
     for (const auto &state: ctx->statuses) {
-        if (state.variant == x::status::VARIANT_ERROR) {
+        if (state.variant == synnax::status::VARIANT_ERROR) {
             found_error = true;
             break;
         }
@@ -434,8 +434,8 @@ TEST_F(TestReadTask, testRapidStartStop) {
     rt->stop("stop_cmd", true);
 
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should reuse connections from pool across task starts.
@@ -551,9 +551,9 @@ TEST_F(TestReadTask, testInvalidDataSkipsFrameInUnaryMode) {
 
     // Verify task lifecycle worked correctly
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[0].message, "Task started successfully");
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[1].message, "Task stopped successfully");
 }
 
@@ -766,8 +766,8 @@ TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
 
     // Verify that task completed successfully
     ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, x::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, x::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should clear frame when error occurs in array mode.

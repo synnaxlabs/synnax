@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type Key, keyZ, type Label, labelZ, type New, newZ } from "@/label/payload";
+import { type Key, keyZ, type Label, labelZ, type New, newZ } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
