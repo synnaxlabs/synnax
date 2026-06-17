@@ -383,7 +383,7 @@ func typeDefBaseToPython(typeRef resolution.TypeRef, currentNamespace string, ta
 // assigned by the server) is normally absent, so hashing by it is meaningless;
 // only a required key yields a __hash__.
 func hashableKey(field resolution.Field) bool {
-	return key.HasKey(field) && !field.Optional && !field.Optional
+	return key.HasKey(field) && !field.Optional
 }
 
 func processStruct(
