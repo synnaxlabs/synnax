@@ -27,12 +27,11 @@ import { z } from "zod";
 
 import { CSS } from "@/css";
 import { identifierZ, nameZ } from "@/hardware/common/device/types";
-import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
-export const CONFIGURE_LAYOUT: Omit<Layout.BaseState, "type"> = {
+export const CONFIGURE_LAYOUT: Omit<Modals.BaseState, "type"> = {
   icon: "Device",
-  location: "modal",
   name: "Configure",
   window: { resizable: false, size: { height: 325, width: 800 }, navTop: true },
 };
@@ -41,7 +40,7 @@ interface InternalProps<
   Properties extends z.ZodType<record.Unknown>,
   Make extends z.ZodType<string>,
   Model extends z.ZodType<string>,
-> extends Pick<Layout.RendererProps, "onClose"> {
+> extends Pick<Modals.RendererProps, "onClose"> {
   device: device.Device<Properties, Make, Model>;
   initialProperties: z.infer<Properties>;
 }
@@ -181,7 +180,7 @@ export interface ConfigureProps<
   Model extends z.ZodType<string>,
 >
   extends
-    Layout.RendererProps,
+    Modals.RendererProps,
     Pick<InternalProps<Properties, Make, Model>, "initialProperties"> {}
 
 export const Configure = <

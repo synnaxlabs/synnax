@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Layout } from "@/layout";
+import { type Tabs } from "@/tabs";
 
 export const OVERVIEW_LAYOUT_TYPE = "overview";
 
-export const OVERVIEW_LAYOUT: Layout.BaseState = {
+export const OVERVIEW_LAYOUT: Tabs.BaseState = {
   type: OVERVIEW_LAYOUT_TYPE,
   name: "Overview",
   location: "mosaic",

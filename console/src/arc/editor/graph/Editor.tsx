@@ -51,6 +51,7 @@ import { Controls as BaseControls } from "@/components";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
+import { type Tabs } from "@/tabs";
 
 export const HAUL_TYPE = "arc_element";
 
@@ -108,7 +109,7 @@ const ArcDiagram = Base.create({
   node: Component.renderProp(NodeRenderer),
 });
 
-export const Editor: Layout.Renderer = ({ layoutKey, visible, active }) => {
+export const Editor: Tabs.Renderer = ({ layoutKey, visible, active }) => {
   const state = useSelect(layoutKey);
 
   const dispatch = useDispatch();

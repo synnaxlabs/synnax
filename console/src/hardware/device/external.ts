@@ -15,6 +15,7 @@ import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 import { type Palette } from "@/palette";
 
 export * from "@/hardware/device/link";
@@ -29,13 +30,13 @@ export const COMMANDS: Palette.Command[] = [
   ...OPC.Device.COMMANDS,
 ];
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  ...EtherCAT.Device.LAYOUTS,
-  ...HTTP.Device.LAYOUTS,
-  ...LabJack.Device.LAYOUTS,
-  ...Modbus.Device.LAYOUTS,
-  ...NI.Device.LAYOUTS,
-  ...OPC.Device.LAYOUTS,
+export const MODALS: Record<string, Modals.Renderer> = {
+  ...EtherCAT.Device.MODALS,
+  ...HTTP.Device.MODALS,
+  ...LabJack.Device.MODALS,
+  ...Modbus.Device.MODALS,
+  ...NI.Device.MODALS,
+  ...OPC.Device.MODALS,
 };
 
 export const NAV_DRAWER_ITEMS: Layout.NavDrawerItem[] = [TOOLBAR];

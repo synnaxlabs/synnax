@@ -11,7 +11,7 @@ import "@/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
 import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Cluster } from "@/cluster";
 import { Toolbar as Base } from "@/components";
@@ -35,18 +35,19 @@ const content = ({ tabKey }: Tabs.Tab): ReactElement => {
 
 const Internal = (): ReactElement => {
   const key = Log.useKey();
-  const name = Log.useSelectName({ key });
+  const name = Log.useSelectName({});
   const activeTab = Session.useSelectActiveToolbarTab();
   const handleSelectTab = Session.useSetActiveToolbarTab();
   const handleExport = useExport();
 
   const value = useMemo<Tabs.ContextValue>(
-    () => ({
-      tabs: TABS,
-      selected: activeTab,
-      onSelect: (tab) => handleSelectTab(tab as Session.ToolbarTab),
-      content,
-    }),
+    () =>
+      ({
+        tabs: TABS,
+        selected: activeTab,
+        onSelect: handleSelectTab,
+        content,
+      }) as Tabs.ContextValue,
     [activeTab, handleSelectTab],
   );
 

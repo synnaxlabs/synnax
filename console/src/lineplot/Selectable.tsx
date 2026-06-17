@@ -8,26 +8,37 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Access, type Flux, Icon, LinePlot, Panel } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { LAYOUT_TYPE } from "@/lineplot/layout";
-import { useCreate } from "@/lineplot/useCreate";
+import { Tab } from "@/lineplot/tab";
+import { Project } from "@/project";
+import { Range } from "@/range";
 import { Selector } from "@/selector";
 
-export const Selectable: Selector.Selectable = ({ tabKey }) => {
-  const hasCreatePermission = Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);
-  const create = useCreate({ tabKey });
-  const handleClick = useCallback(() => create(), [create]);
-  if (!hasCreatePermission) return null;
+const NAME = "Line Plot";
+
+export const Selectable: Selector.Selectable = () => {
+  const project = Project.useSelectActiveKey();
+  const activeRange = Range.useSelectActiveKey() ?? Range.RECENT_KEY;
+  const setTabContent = Panel.useSetCurrentTabContent();
+  const { update: create } = LinePlot.useCreate({
+    afterOptimistic: useCallback(
+      ({ data: { key } }: Flux.AfterOptimisticParams<lineplot.LinePlot>) =>
+        setTabContent({ type: Tab.TYPE, args: { key } }),
+      [setTabContent],
+    ),
+  });
+  const handleClick = () =>
+    create({ project, name: NAME, ranges: { x1: [activeRange] } });
   return (
     <Selector.Item
-      key={LAYOUT_TYPE}
-      title="Line Plot"
+      key={Tab.TYPE}
+      title={NAME}
       icon={<Icon.LinePlot />}
       onClick={handleClick}
     />
   );
 };
-Selectable.type = LAYOUT_TYPE;
+Selectable.type = Tab.TYPE;
 Selectable.useVisible = () => Access.useCreateGranted(lineplot.TYPE_ONTOLOGY_ID);

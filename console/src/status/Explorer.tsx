@@ -18,11 +18,12 @@ import { CREATE_LAYOUT } from "@/status/Create";
 import { Filter } from "@/status/filter";
 import { contextMenu } from "@/status/list/ContextMenu";
 import { Item } from "@/status/list/Item";
+import { type Tabs } from "@/tabs";
 import { View } from "@/view";
 
 export const EXPLORER_LAYOUT_TYPE = "status_explorer";
 
-export const EXPLORER_LAYOUT: Layout.BaseState = {
+export const EXPLORER_LAYOUT: Tabs.BaseState = {
   key: EXPLORER_LAYOUT_TYPE,
   type: EXPLORER_LAYOUT_TYPE,
   name: "Status Explorer",
@@ -32,7 +33,7 @@ export const EXPLORER_LAYOUT: Layout.BaseState = {
 
 const item = Component.renderProp(Item);
 
-export const Explorer: Layout.Renderer = () => (
+export const Explorer: Tabs.Renderer = () => (
   <View.Frame resourceType="status" icon="Status">
     <Internal />
   </View.Frame>

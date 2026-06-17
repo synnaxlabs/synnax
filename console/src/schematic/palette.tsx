@@ -9,7 +9,6 @@
 
 import { schematic } from "@synnaxlabs/client";
 import { Access, Panel, Schematic } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Palette } from "@/palette";
 

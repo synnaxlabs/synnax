@@ -27,7 +27,7 @@ const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 export const Content = Tab.createSuspended<ContentProps>(({ visible = true }) => {
   const key = PLog.useKey();
   const dispatch = useDispatch();
-  const channelKeys = PLog.useSelectChannelKeys({ key });
+  const channelKeys = PLog.useSelectChannelKeys({});
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
   const focused = Panel.useSelectIsFocused();
   const setActiveToolbarTab = Session.useSetActiveToolbarTab();

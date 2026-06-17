@@ -10,11 +10,11 @@
 import { Arc } from "@synnaxlabs/pluto";
 
 import { List } from "@/arc/list/List";
-import { type Layout } from "@/layout";
+import { type Tabs } from "@/tabs";
 
 export const EXPLORER_LAYOUT_TYPE = "arc_explorer";
 
-export const EXPLORER_LAYOUT: Layout.State = {
+export const EXPLORER_LAYOUT: Tabs.State = {
   key: EXPLORER_LAYOUT_TYPE,
   windowKey: EXPLORER_LAYOUT_TYPE,
   type: EXPLORER_LAYOUT_TYPE,
@@ -23,7 +23,7 @@ export const EXPLORER_LAYOUT: Layout.State = {
   location: "mosaic",
 };
 
-export const Explorer: Layout.Renderer = () => {
+export const Explorer: Tabs.Renderer = () => {
   const { data, getItem, subscribe, retrieve } = Arc.useList({});
   return (
     <List

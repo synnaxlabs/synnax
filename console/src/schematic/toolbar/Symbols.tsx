@@ -40,16 +40,16 @@ import {
   setSelectedSymbolGroup,
   useSelectSelectedSymbolGroup,
 } from "@/schematic/session/slice";
-import { createEditLayout } from "@/schematic/symbols/edit/Edit";
+import { createEditLayout } from "@/schematic/symbol/edit/Edit";
 import {
   useExport as useExportSymbol,
   useExportGroup,
-} from "@/schematic/symbols/export";
+} from "@/schematic/symbol/export";
 import {
   useImport as useImportSymbol,
   useImportGroup,
-} from "@/schematic/symbols/import";
-import { useDeleteSymbolGroup } from "@/schematic/symbols/useDeleteSymbolGroup";
+} from "@/schematic/symbol/import";
+import { useDeleteSymbolGroup } from "@/schematic/symbol/useDeleteSymbolGroup";
 
 const HAUL_DRAG_PROPS: Haul.UseDragProps = {
   type: "Diagram-Elements",

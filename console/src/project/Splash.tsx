@@ -9,7 +9,7 @@
 
 import "@/project/Splash.css";
 
-import { project, UnexpectedError } from "@synnaxlabs/client";
+import { project } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Access,
@@ -30,7 +30,8 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { setActive } from "@/project/slice";
+import { Layouts } from "@/layouts";
+import { Session } from "@/project/session";
 import { Triggers } from "@/triggers";
 import { Version } from "@/version";
 
@@ -52,11 +53,11 @@ const SplashNav = (): ReactElement => {
   return (
     <Layout.Nav.Bar location="top" size="6.5rem" bordered data-tauri-drag-region>
       <Nav.Bar.Start data-tauri-drag-region>
-        <Layout.Controls visibleIfOS="macOS" forceOS={os} />
+        <Layouts.Controls visibleIfOS="macOS" forceOS={os} />
       </Nav.Bar.Start>
       <Nav.Bar.End data-tauri-drag-region justify="end">
         <Version.Badge />
-        <Layout.Controls visibleIfOS="Windows" forceOS={os} />
+        <Layouts.Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
     </Layout.Nav.Bar>
   );
@@ -67,30 +68,17 @@ export const Splash = (): ReactElement => {
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const { data, retrieve, getItem, subscribe } = PProject.useList();
-
-  // The list pane only mounts once data is non-empty, so the initial fetch cannot
-  // rely on the pane's own onFetchMore.
   useEffect(() => {
     retrieve({});
   }, [retrieve]);
-
   const handleSelect = useCallback(
-    (key: project.Key | null) => {
-      if (key == null) return;
-      const p = getItem(key);
-      if (p == null) throw new UnexpectedError(`Project ${key} not found`);
-      const { layout: _layout, ...proj } = p;
-      dispatch(setActive(proj));
-    },
+    (key: project.Key) => dispatch(Session.select(key)),
     [dispatch, getItem],
   );
-
   const { form, save, variant } = PProject.useForm({
     query: {},
     afterSave: ({ value }) => {
-      const { key, name } = value();
-      if (key == null) throw new UnexpectedError("Project key is null");
-      dispatch(setActive({ key, name }));
+      dispatch(Session.select(value().key));
     },
   });
 

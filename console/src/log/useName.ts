@@ -15,7 +15,7 @@ import { type Panel } from "@/panel";
 
 export const useName = (): Panel.UseNameReturn => {
   const { key } = Tab.useArgs();
-  const name = Log.useSelectName({ key });
+  const name = Log.useRetrieveName({ key });
   const { update } = Log.useRename();
   const rename = useCallback((name: string) => update({ key, name }), [key]);
   return { name, rename };

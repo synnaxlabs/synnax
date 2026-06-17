@@ -15,6 +15,7 @@ import { type ReactElement } from "react";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
+import { Controls } from "@/layouts/Controls";
 import { Panel } from "@/panel";
 import { Project } from "@/project";
 import { User } from "@/user";
@@ -25,7 +26,7 @@ export const Top = (): ReactElement | null => {
   return (
     <Layout.Nav.Bar location="top" size="6.5rem">
       <Nav.Bar.Start data-tauri-drag-region gap="large">
-        <Layout.Controls visibleIfOS="macOS" forceOS={os} />
+        <Controls visibleIfOS="macOS" forceOS={os} />
         <Project.Selector />
         <Panel.PanelTabs />
       </Nav.Bar.Start>
@@ -34,7 +35,7 @@ export const Top = (): ReactElement | null => {
         <User.Badge />
         <Cluster.ConnectionBadge />
         <Docs.OpenButton />
-        <Layout.Controls visibleIfOS="Windows" forceOS={os} />
+        <Controls visibleIfOS="Windows" forceOS={os} />
       </Nav.Bar.End>
     </Layout.Nav.Bar>
   );

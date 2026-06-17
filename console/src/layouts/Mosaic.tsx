@@ -14,7 +14,6 @@ import { Logo } from "@synnaxlabs/media";
 import { Eraser, Flex, Text, Triggers } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
-import { Layout } from "@/layout";
 import { Panel } from "@/panel";
 import { Selector } from "@/selector";
 
@@ -51,7 +50,7 @@ export const MOSAIC_LAYOUT_TYPE = "mosaic";
 // IDs; these richer drops are not yet ported.
 export const Mosaic = memo((): ReactElement | null => {
   const windowKey = useSelectWindowKey();
-  const activePanelKey = Layout.useSelectActivePanelKey();
+  const activePanelKey = Panel.useSelectActivePanelKey();
   if (windowKey == null || activePanelKey == null) return <EmptyContent />;
   return <Panel.Mosaic panelKey={activePanelKey} windowKey={windowKey} />;
 });

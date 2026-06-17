@@ -19,18 +19,16 @@ import { type z } from "zod";
 import { useSelect, useSelectAllNames } from "@/cluster/selectors";
 import { changeKey, clusterZ, set } from "@/cluster/slice";
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { Triggers } from "@/triggers";
 
 export const CONNECT_LAYOUT_TYPE = "connectCluster";
 
-export const CONNECT_LAYOUT: Layout.BaseState = {
+export const CONNECT_LAYOUT: Modals.BaseState = {
   key: CONNECT_LAYOUT_TYPE,
   type: CONNECT_LAYOUT_TYPE,
   name: "Core.Connect",
   icon: "Cluster",
-  location: "modal",
   window: { resizable: false, size: { height: 300, width: 650 }, navTop: true },
 };
 
@@ -56,7 +54,7 @@ const HOST_FIELD_PROPS: Partial<Input.TextProps> = {
   placeholder: "localhost",
 };
 
-export const Connect: Layout.Renderer = ({ layoutKey, onClose }) => {
+export const Connect: Modals.Renderer = ({ layoutKey, onClose }) => {
   const dispatch = useDispatch();
   const isEdit = layoutKey !== CONNECT_LAYOUT_TYPE;
   const existing = useSelect(isEdit ? layoutKey : undefined);

@@ -19,6 +19,7 @@ import { CSS } from "@/css";
 import { useSelectLocation } from "@/docs/selectors";
 import { setDocsLocation } from "@/docs/slice";
 import { Layout } from "@/layout";
+import { type Tabs } from "@/tabs";
 
 const HOST = new URL({
   host: "docs.synnaxlabs.com",
@@ -27,7 +28,7 @@ const HOST = new URL({
 });
 export const LAYOUT_TYPE = "docs";
 
-export const LAYOUT: Layout.BaseState = {
+export const LAYOUT: Tabs.BaseState = {
   key: LAYOUT_TYPE,
   type: LAYOUT_TYPE,
   location: "mosaic",
@@ -39,7 +40,7 @@ export const LAYOUT: Layout.BaseState = {
  * Renders a layout that loads the documentation site in an iframe. Updates the docs
  * redux store to preserve the location when re-opening the docs.
  */
-export const Docs: Layout.Renderer = memo(() => {
+export const Docs: Tabs.Renderer = memo(() => {
   // Iframes prevent drop interactions on the mosaic, so we need to listen for
   // the mouse being held down and add a class the docs that adds a mask over the frame
   // to allow for drop interactions.

@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Docs, LAYOUT_TYPE } from "@/docs/Docs";
-import { type Layout } from "@/layout";
+import { type Tabs } from "@/tabs";
 
 export * from "@/docs/Docs";
 export * from "@/docs/palette";
 export * from "@/docs/selectors";
 export * from "@/docs/slice";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const TABS: Record<string, Tabs.Renderer> = {
   [LAYOUT_TYPE]: Docs,
 };

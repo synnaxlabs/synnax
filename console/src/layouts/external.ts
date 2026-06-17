@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Layout } from "@/layout";
-import { Main, MAIN_LAYOUT_TYPE } from "@/layouts/Main";
-import { Mosaic, MOSAIC_LAYOUT_TYPE } from "@/layouts/Mosaic";
-
+export * from "@/layouts/Aux";
+export * from "@/layouts/Controls";
+export * from "@/layouts/Main";
+export * from "@/layouts/Mosaic";
 export * from "@/layouts/nav";
 export * from "@/layouts/Notifications";
 export * from "@/layouts/useTriggers";
-
-export const LAYOUTS: Record<string, Layout.Renderer> = {
-  [MAIN_LAYOUT_TYPE]: Main,
-  [MOSAIC_LAYOUT_TYPE]: Mosaic,
-};
+export * from "@/layouts/Window";

@@ -10,13 +10,13 @@
 import { Calculated } from "@/channel/Calculated";
 import { CALCULATED_LAYOUT_TYPE } from "@/channel/calculatedLayout";
 import { Create, CREATE_LAYOUT_TYPE } from "@/channel/Create";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export * from "@/channel/Calculated";
 export * from "@/channel/calculatedLayout";
 export * from "@/channel/Create";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [CREATE_LAYOUT_TYPE]: Create,
   [CALCULATED_LAYOUT_TYPE]: Calculated,
 };

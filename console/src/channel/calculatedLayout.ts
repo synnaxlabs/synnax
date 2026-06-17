@@ -9,7 +9,7 @@
 
 import { type channel } from "@synnaxlabs/client";
 
-import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 
 export const CALCULATED_LAYOUT_TYPE = "createCalculatedChannel";
 
@@ -17,12 +17,11 @@ export interface CalculatedLayoutArgs {
   channelKey?: number;
 }
 
-export interface CalculatedLayout extends Layout.BaseState<CalculatedLayoutArgs> {}
+export interface CalculatedLayout extends Modals.BaseState<CalculatedLayoutArgs> {}
 
 export const CALCULATED_LAYOUT: CalculatedLayout = {
   name: "Channel.Create.Calculated",
   icon: "Channel",
-  location: "modal",
   tab: { closable: true, editable: false },
   window: {
     resizable: false,

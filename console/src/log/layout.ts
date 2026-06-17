@@ -12,11 +12,12 @@ import { uuid } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
 import { internalCreate } from "@/log/session/slice";
+import { type Tabs } from "@/tabs";
 
 export const LAYOUT_TYPE = "log";
 export type LayoutType = typeof LAYOUT_TYPE;
 
-export interface CreateArg extends Partial<Layout.BaseState> {
+export interface CreateArg extends Partial<Tabs.BaseState> {
   key?: string;
 }
 

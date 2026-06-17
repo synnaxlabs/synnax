@@ -1,17 +1,17 @@
-import { context, type Menu, Panel } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement } from "react";
+import { context, Panel } from "@synnaxlabs/pluto";
+import { type FC } from "react";
 
 export interface UseNameReturn {
   name: string;
   rename?: (name: string) => void;
 }
 
-export interface TabRenderer {
-  Content: FC;
-  Toolbar: FC;
-  useName: () => UseNameReturn;
-  icon: ReactElement;
-  ContextMenu?: FC<Menu.ContextMenuProps>;
+export interface TabContentRenderer extends FC {}
+
+export interface ToolbarRenderer extends FC {}
+
+export interface UseName {
+  (): UseNameReturn;
 }
 
 interface TabRendererContextValue extends Record<string, TabRenderer> {}

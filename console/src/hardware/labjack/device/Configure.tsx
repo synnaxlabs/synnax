@@ -9,11 +9,11 @@
 
 import { Common } from "@/hardware/common";
 import { ZERO_PROPERTIES } from "@/hardware/labjack/device/types";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export const CONFIGURE_LAYOUT_TYPE = "configure_LabJack";
 
-export const CONFIGURE_LAYOUT: Layout.BaseState = {
+export const CONFIGURE_LAYOUT: Modals.BaseState = {
   ...Common.Device.CONFIGURE_LAYOUT,
   name: "Device.Configure",
   icon: "Logo.LabJack",
@@ -21,6 +21,6 @@ export const CONFIGURE_LAYOUT: Layout.BaseState = {
   key: CONFIGURE_LAYOUT_TYPE,
 };
 
-export const Configure: Layout.Renderer = (props) => (
+export const Configure: Modals.Renderer = (props) => (
   <Common.Device.Configure {...props} initialProperties={ZERO_PROPERTIES} />
 );

@@ -37,6 +37,7 @@ import { Export } from "@/export";
 import { EXTRACTORS } from "@/extractors";
 import { Framer } from "@/framer";
 import { Hardware } from "@/hardware";
+import { Hauling } from "@/hauling";
 import { Import } from "@/import";
 import { FILE_INGESTERS } from "@/ingesters";
 import { Label } from "@/label";
@@ -57,6 +58,7 @@ import { SERVICES } from "@/services";
 import { Status } from "@/status";
 import { store } from "@/store";
 import { Table } from "@/table";
+import { Tabs } from "@/tabs";
 import { User } from "@/user";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
@@ -73,27 +75,33 @@ const SELECTABLES: Selector.Selectable[] = [
   ...Arc.SELECTABLES,
 ];
 
-const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
-  ...Channel.LAYOUTS,
-  ...Cluster.LAYOUTS,
-  ...CSV.LAYOUTS,
-  ...Framer.LAYOUTS,
-  ...Docs.LAYOUTS,
-  ...Hardware.LAYOUTS,
-  ...Label.LAYOUTS,
-  ...Layouts.LAYOUTS,
-  ...LinePlot.LAYOUTS,
-  ...Log.LAYOUTS,
-  ...Modals.LAYOUTS,
-  ...Range.LAYOUTS,
-  ...Schematic.LAYOUTS,
-  ...Table.LAYOUTS,
-  ...User.LAYOUTS,
-  ...Version.LAYOUTS,
-  ...Project.LAYOUTS,
-  ...Arc.LAYOUTS,
-  ...Status.LAYOUTS,
-  ...Access.LAYOUTS,
+const MODAL_RENDERERS: Record<string, Modals.Renderer> = {
+  ...Channel.MODALS,
+  ...Cluster.MODALS,
+  ...CSV.MODALS,
+  ...Framer.MODALS,
+  ...Hardware.MODALS,
+  ...Label.MODALS,
+  ...Modals.MODALS,
+  ...Range.MODALS,
+  ...User.MODALS,
+  ...Version.MODALS,
+  ...Project.MODALS,
+  ...Arc.MODALS,
+  ...Status.MODALS,
+  ...Access.MODALS,
+};
+
+const TAB_RENDERERS: Record<string, Tabs.Renderer> = {
+  ...Docs.TABS,
+  ...Hardware.TABS,
+  ...LinePlot.TABS,
+  ...Log.TABS,
+  ...Range.TABS,
+  ...Schematic.TABS,
+  ...Table.TABS,
+  ...Arc.TABS,
+  ...Status.TABS,
   [Panel.SELECTOR_VIEW_TYPE]: Selector.createSelector(
     SELECTABLES,
     "Select a Component Type",
@@ -104,7 +112,7 @@ const LAYOUT_RENDERERS: Record<string, Layout.Renderer> = {
 // menu wholesale (Panel.ContextMenu falls back to the standard tab items). No
 // type currently registers one; the legacy schematic/lineplot entries were
 // trivial wrappers around the shared default items.
-const CONTEXT_MENU_RENDERERS: Record<string, Layout.ContextMenuRenderer> = {};
+const CONTEXT_MENU_RENDERERS: Record<string, Tabs.ContextMenuRenderer> = {};
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
   ["Control", "P"],
@@ -119,10 +127,10 @@ const TRIGGERS_PROVIDER_PROPS: Triggers.ProviderProps = {
 };
 
 const useHaulState: state.PureUse<Haul.DraggingState> = () => {
-  const hauled = Layout.useSelectHauling();
+  const hauled = Hauling.useSelectHauling();
   const dispatch = useDispatch();
   const onHauledChange = useCallback(
-    (state: Haul.DraggingState) => dispatch(Layout.setHauled(state)),
+    (state: Haul.DraggingState) => dispatch(Hauling.setHauled(state)),
     [dispatch],
   );
   return [hauled, onHauledChange];
@@ -157,14 +165,11 @@ const HAUL_PROPS: Haul.ProviderProps = { useState: useHaulState };
 const COLOR_PROPS: Color.ProviderProps = { useState: useColorContextState };
 
 const MainUnderContext = (): ReactElement => {
-  const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
-
   return (
     <Pluto.Provider
-      theming={theme}
       workerEnabled
       connParams={cluster ?? undefined}
       workerURL={WorkerURL}
@@ -176,7 +181,7 @@ const MainUnderContext = (): ReactElement => {
       <Code.Provider initServices={MONACO_SERVICES}>
         <Arc.LSP.Provider>
           <Vis.Canvas>
-            <Layout.Window />
+            <Layouts.Window />
           </Vis.Canvas>
         </Arc.LSP.Provider>
       </Code.Provider>
@@ -188,21 +193,23 @@ export const Console = (): ReactElement => (
   <Errors.OverlayWithoutStore>
     <Provider store={store}>
       <Errors.OverlayWithStore>
-        <Layout.RendererProvider value={LAYOUT_RENDERERS}>
-          <Selector.Provider value={SELECTABLES}>
-            <Layout.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
-              <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
-                <Export.ExtractorsProvider extractors={EXTRACTORS}>
-                  <Ontology.ServicesProvider services={SERVICES}>
-                    <Palette.CommandProvider commands={COMMANDS}>
-                      <MainUnderContext />
-                    </Palette.CommandProvider>
-                  </Ontology.ServicesProvider>
-                </Export.ExtractorsProvider>
-              </Import.FileIngestersProvider>
-            </Layout.ContextMenuProvider>
-          </Selector.Provider>
-        </Layout.RendererProvider>
+        <Modals.RendererProvider value={MODAL_RENDERERS}>
+          <Tabs.RendererProvider value={TAB_RENDERERS}>
+            <Selector.Provider value={SELECTABLES}>
+              <Tabs.ContextMenuProvider value={CONTEXT_MENU_RENDERERS}>
+                <Import.FileIngestersProvider fileIngesters={FILE_INGESTERS}>
+                  <Export.ExtractorsProvider extractors={EXTRACTORS}>
+                    <Ontology.ServicesProvider services={SERVICES}>
+                      <Palette.CommandProvider commands={COMMANDS}>
+                        <MainUnderContext />
+                      </Palette.CommandProvider>
+                    </Ontology.ServicesProvider>
+                  </Export.ExtractorsProvider>
+                </Import.FileIngestersProvider>
+              </Tabs.ContextMenuProvider>
+            </Selector.Provider>
+          </Tabs.RendererProvider>
+        </Modals.RendererProvider>
       </Errors.OverlayWithStore>
     </Provider>
   </Errors.OverlayWithoutStore>

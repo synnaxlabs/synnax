@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Configure, CONFIGURE_LAYOUT_TYPE } from "@/hardware/labjack/device/Configure";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export * from "@/hardware/labjack/device/Configure";
 export * from "@/hardware/labjack/device/Select";
 export * from "@/hardware/labjack/device/SelectPort";
 export * from "@/hardware/labjack/device/types";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [CONFIGURE_LAYOUT_TYPE]: Configure,
 };

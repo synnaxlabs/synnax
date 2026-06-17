@@ -13,7 +13,7 @@ import { Eraser, Flex, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { type Tabs } from "@/tabs";
 
 // SELECTOR_VIEW_TYPE is the view type of the component selector. A selector tab is
 // just a view tab the host seeds into otherwise-empty leaves; picking an item
@@ -76,8 +76,8 @@ export const Selector = ({
 export const createSelector = (
   selectables: Selectable[],
   text: string,
-): Layout.Renderer => {
-  const C: Layout.Renderer = ({ layoutKey }) => (
+): Tabs.Renderer => {
+  const C: Tabs.Renderer = ({ layoutKey }) => (
     <Selector selectables={selectables} text={text} tabKey={layoutKey} />
   );
   C.displayName = "LayoutSelector";

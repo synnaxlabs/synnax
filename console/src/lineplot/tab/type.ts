@@ -1,1 +1,1 @@
-export const TYPE = "schematic";
+export const TYPE = "lineplot";

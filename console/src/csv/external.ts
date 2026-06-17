@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { DOWNLOAD_MODAL_LAYOUT_TYPE, DownloadModal } from "@/csv/DownloadModal";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 
 export * from "@/csv/DownloadModal";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [DOWNLOAD_MODAL_LAYOUT_TYPE]: DownloadModal,
 };

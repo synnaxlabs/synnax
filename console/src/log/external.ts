@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Export } from "@/export";
-import { type Layout } from "@/layout";
 import { Content } from "@/log/content/Content";
 import { extract } from "@/log/export";
 import { LAYOUT_TYPE } from "@/log/layout";
 import { Selectable } from "@/log/Selectable";
 import { type Selector } from "@/selector";
+import { type Tabs } from "@/tabs";
 
 export * from "@/log/content/Content";
 export * from "@/log/export";
@@ -26,6 +26,6 @@ export * from "@/log/useName";
 
 export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: Content };
+export const TABS: Record<string, Tabs.Renderer> = { [LAYOUT_TYPE]: Content };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];

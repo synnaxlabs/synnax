@@ -32,6 +32,7 @@ import { Rack } from "@/hardware/common/task/Rack";
 import { useStatus } from "@/hardware/common/task/useStatus";
 import { UtilityButtons } from "@/hardware/common/task/UtilityButtons";
 import { Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { useConfirm } from "@/modals/Confirm";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
@@ -48,7 +49,7 @@ export interface FormLayoutArgs {
   config?: unknown;
 }
 
-export interface Layout extends Layout.BaseState<FormLayoutArgs> {}
+export interface Layout extends Modals.BaseState<FormLayoutArgs> {}
 
 // LAYOUT is the base for each task type's layout. Tasks render only as panel view tabs,
 // so placing one routes into the active panel (location "mosaic") as a view, never a
@@ -125,8 +126,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   onConfigure,
   showHeader = true,
   showControls = true,
-}: WrapFormArgs<S>): Layout.Renderer => {
-  const Wrapper: Layout.Renderer = ({ layoutKey }) => {
+}: WrapFormArgs<S>): Modals.Renderer => {
+  const Wrapper: Modals.Renderer = ({ layoutKey }) => {
     const panelKey = Layout.useSelectActivePanelKey();
     if (panelKey == null)
       throw new Error("a task form must be rendered inside a panel view tab");
@@ -256,7 +257,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
 };
 
 const useName: Layout.UseName = (layoutKey, onChange) => {
-  const args = Layout.useSelectArgs<FormLayoutArgs>(layoutKey);
+  const args = Modals.useArgs<FormLayoutArgs>();
   const taskKey = args?.taskKey;
   const isPersisted = taskKey != null;
   const { retrieve: baseRetrieve } = Task.useRetrieveObservableName({

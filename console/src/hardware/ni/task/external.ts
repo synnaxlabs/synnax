@@ -47,8 +47,8 @@ import {
   digitalWriteConfigZ,
 } from "@/hardware/ni/task/types";
 import { type Import } from "@/import";
-import { type Layout } from "@/layout";
 import { type Selector } from "@/selector";
+import { type Tabs } from "@/tabs";
 
 export * from "@/hardware/ni/task/AnalogRead";
 export * from "@/hardware/ni/task/AnalogWrite";
@@ -86,7 +86,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   ),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const TABS: Record<string, Tabs.Renderer> = {
   [ANALOG_READ_TYPE]: AnalogRead,
   [ANALOG_WRITE_TYPE]: AnalogWrite,
   [COUNTER_READ_TYPE]: CounterRead,

@@ -7,28 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ontology } from "@synnaxlabs/client";
+
 import { type Export } from "@/export";
-import { type Layout } from "@/layout";
 import { extract } from "@/lineplot/export";
-import { LAYOUT_TYPE } from "@/lineplot/layout";
-import { LinePlot } from "@/lineplot/LinePlot";
 import { Selectable } from "@/lineplot/Selectable";
 import { type Selector } from "@/selector";
+import { type Tabs } from "@/tabs";
 
 export * from "@/lineplot/addChannelsToActivePlot";
 export * from "@/lineplot/Controls";
 export * from "@/lineplot/export";
-export * from "@/lineplot/layout";
 export * from "@/lineplot/LinePlot";
-export * from "@/lineplot/middleware";
-export * from "@/lineplot/selectors";
-export * from "@/lineplot/slice";
 export * from "@/lineplot/toolbar";
 export * from "@/lineplot/useCreate";
 export * from "@/lineplot/useTriggerHold";
 
-export const EXTRACTORS: Export.Extractors = { [LAYOUT_TYPE]: extract };
+const TYPE: ontology.ResourceType = "lineplot";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = { [LAYOUT_TYPE]: LinePlot };
+export const EXTRACTORS: Export.Extractors = { [TYPE]: extract };
+
+export const TABS: Record<string, Tabs.Renderer> = { [TYPE]: LinePlot };
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];

@@ -15,7 +15,7 @@ import { Tab } from "@/table/tab";
 
 export const useName = (): Panel.UseNameReturn => {
   const { key } = Tab.useArgs();
-  const name = Table.useSelectName({ key });
+  const name = Table.useRetrieveName({ key });
   const { update } = Table.useRename();
   const rename = useCallback((name: string) => update({ key, name }), [key]);
   return { name, rename };

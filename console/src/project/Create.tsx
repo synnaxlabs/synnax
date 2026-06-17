@@ -13,23 +13,21 @@ import { status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-import { type Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { setActive } from "@/project/slice";
+import { activeate } from "@/project/slice";
 import { Triggers } from "@/triggers";
 
 export const CREATE_LAYOUT_TYPE = "createProject";
 
-export const CREATE_LAYOUT: Layout.BaseState = {
+export const CREATE_LAYOUT: Modals.BaseState = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
   name: "Project.Create",
   icon: "Project",
-  location: "modal",
   window: { resizable: false, size: { height: 225, width: 625 }, navTop: true },
 };
 
-export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
+export const Create = ({ onClose }: Modals.RendererProps): ReactElement => {
   const client = Synnax.use();
   const dispatch = useDispatch();
 
@@ -38,7 +36,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
     afterSave: ({ value }) => {
       const { key, name } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
-      dispatch(setActive({ key, name }));
+      dispatch(activeate({ key, name }));
       onClose();
     },
   });

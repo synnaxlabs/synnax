@@ -1,1 +1,1 @@
-export * as Tab from "@/schematic/tab/external";
+export * as Tab from "@/lineplot/tab/external";

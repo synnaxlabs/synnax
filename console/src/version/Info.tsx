@@ -14,18 +14,17 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { z } from "zod";
 
-import { type Layout } from "@/layout";
+import { Modals } from "@/modals";
 import { Runtime } from "@/runtime";
-import { useSelectVersion } from "@/version/selectors";
+import { useVersion } from "@/version/useVersion";
 
 export const INFO_LAYOUT_TYPE = "versionInfo";
 
-export const INFO_LAYOUT: Layout.BaseState = {
+export const INFO_LAYOUT: Modals.BaseState = {
   type: INFO_LAYOUT_TYPE,
   key: INFO_LAYOUT_TYPE,
   name: "About.Version",
   icon: "Info",
-  location: "modal",
   window: { resizable: false, navTop: true, size: { width: 500, height: 325 } },
   excludeFromProject: true,
 };
@@ -104,8 +103,8 @@ const { useUpdate } = Flux.createUpdate<
   },
 });
 
-export const Info: Layout.Renderer = () => {
-  const version = useSelectVersion();
+export const Info: Modals.Renderer = () => {
+  const version = useVersion();
   const availableQuery = useRetrieveUpdateAvailable({});
   const updateQuery = useUpdate();
   let totalSize: Size = Size.bytes(0);

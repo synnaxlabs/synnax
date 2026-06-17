@@ -37,7 +37,7 @@ import { Tab } from "@/table/tab";
 
 const Internal = (): ReactElement => {
   const key = Base.useKey();
-  const name = Base.useSelectName({ key });
+  const name = Base.useSelectName({});
   const editable = Session.useSelectEditable();
   const selectedCellKeys = Session.useSelectSelectedCellKeys();
   const cellsByKey = Base.useSelectCells({ key, cellKeys: selectedCellKeys });

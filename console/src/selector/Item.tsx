@@ -14,6 +14,7 @@ import { useCallback } from "react";
 
 import { Layout } from "@/layout";
 import { type Selectable } from "@/selector/Selector";
+import { type Tabs } from "@/tabs";
 
 export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   title: string;
@@ -30,7 +31,7 @@ export const Item = ({ title, icon, ...rest }: ItemProps) => (
 export interface SimpleItemProps {
   title: string;
   icon: Icon.ReactElement;
-  layout: Layout.BaseState;
+  layout: Tabs.BaseState;
   useVisible?: () => boolean;
 }
 

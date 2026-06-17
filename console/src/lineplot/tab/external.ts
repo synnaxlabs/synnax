@@ -1,3 +1,3 @@
-export * from "@/schematic/tab/suspended";
-export * from "@/schematic/tab/type";
-export * from "@/schematic/tab/useArgs";
+export * from "@/lineplot/tab/suspended";
+export * from "@/lineplot/tab/type";
+export * from "@/lineplot/tab/useArgs";

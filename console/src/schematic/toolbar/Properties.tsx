@@ -46,7 +46,7 @@ import { useStore } from "react-redux";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { selectViewport, useSelectSelected } from "@/schematic/session/slice";
-import { createEditLayout } from "@/schematic/symbols/edit/Edit";
+import { createEditLayout } from "@/schematic/symbol/edit/Edit";
 import { MissingSymbolForm } from "@/schematic/toolbar/MissingSymbolForm";
 import { type RootState } from "@/store";
 

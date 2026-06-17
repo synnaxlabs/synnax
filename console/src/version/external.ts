@@ -7,19 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 import { type Notifications } from "@/notifications";
 import { Info, INFO_LAYOUT_TYPE } from "@/version/Info";
 import { notificationAdapter } from "@/version/Updater";
 
 export * from "@/version/Badge";
 export * from "@/version/Info";
-export * from "@/version/selectors";
-export * from "@/version/slice";
-export * from "@/version/tauriVersion";
 export * from "@/version/Updater";
+export * from "@/version/useVersion";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const MODALS: Record<string, Modals.Renderer> = {
   [INFO_LAYOUT_TYPE]: Info,
 };
 

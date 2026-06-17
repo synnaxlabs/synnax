@@ -12,8 +12,9 @@ import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/arc/Explorer";
 import { extract } from "@/arc/export";
 import { TYPE } from "@/arc/types";
 import { type Export } from "@/export";
-import { type Layout } from "@/layout";
+import { type Modals } from "@/modals";
 import { type Selector } from "@/selector";
+import { type Tabs } from "@/tabs";
 
 export * from "@/arc/editor";
 export * from "@/arc/Explorer";
@@ -29,9 +30,12 @@ export type EditorLayoutType = typeof EDITOR_LAYOUT_TYPE;
 
 export const EXTRACTORS: Export.Extractors = { [EDITOR_LAYOUT_TYPE]: extract };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const TABS: Record<string, Tabs.Renderer> = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
   [EDITOR_LAYOUT_TYPE]: Editor.Editor,
+};
+
+export const MODALS: Record<string, Modals.Renderer> = {
   [Editor.CREATE_ARC_LAYOUT_TYPE]: Editor.CreateModal,
 };
 

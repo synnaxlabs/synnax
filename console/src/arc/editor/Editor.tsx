@@ -23,6 +23,7 @@ import { translateGraphToConsole, translateGraphToServer } from "@/arc/types/tra
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { Selector } from "@/selector";
+import { type Tabs } from "@/tabs";
 
 export const useLoadRemote = createLoadRemote<arc.Arc>({
   useRetrieve: Arc.useRetrieveObservable,
@@ -39,14 +40,14 @@ export const useLoadRemote = createLoadRemote<arc.Arc>({
     }),
 });
 
-const Loaded: Layout.Renderer = (props) => {
+const Loaded: Tabs.Renderer = (props) => {
   const { layoutKey } = props;
   const mode = useSelectMode(layoutKey) ?? "graph";
   if (mode === "graph") return <Graph.Editor {...props} />;
   return <Text.Editor {...props} />;
 };
 
-export const Editor: Layout.Renderer = (props) => {
+export const Editor: Tabs.Renderer = (props) => {
   const arc = useLoadRemote(props.layoutKey);
   if (arc == null) return null;
   return <Loaded {...props} />;
@@ -55,7 +56,7 @@ export const Editor: Layout.Renderer = (props) => {
 Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);
 Editor.icon = <Icon.Arc />;
 
-export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
+export type CreateArg = Partial<State> & Partial<Tabs.BaseState>;
 
 export const create =
   (initial: CreateArg = {}): Layout.Creator =>

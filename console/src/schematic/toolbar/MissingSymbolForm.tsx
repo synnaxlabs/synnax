@@ -24,7 +24,7 @@ import React, { type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { createEditLayout } from "@/schematic/symbols/edit/Edit";
+import { createEditLayout } from "@/schematic/symbol/edit/Edit";
 
 const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
 
