@@ -11,18 +11,12 @@ from __future__ import annotations
 
 from typing import overload
 
-from pydantic import BaseModel
-
 from freighter import DownloadClient, FilePath, UnaryClient, UploadClient
 from synnax.imex.types import Envelope
 from synnax.ontology.payload import ID
 
 _IMPORT_PATH = "/imex/import"
 _EXPORT_PATH = "/imex/export"
-
-
-class _ImportResponse(BaseModel):
-    key: str
 
 
 class Client:
@@ -44,18 +38,16 @@ class Client:
         self._upload = upload
         self._download = download
 
-    def import_(self, source: FilePath | Envelope) -> str:
-        """Imports the resource described by source and returns its new key.
+    def import_(self, source: FilePath | Envelope) -> ID:
+        """Imports the resource described by source and returns its new ontology id.
 
         :param source: an ``Envelope`` sent as a typed payload, or a file path streamed
             from disk.
-        :returns: the new resource's key as stamped by the Core.
+        :returns: the new resource's ontology id as stamped by the Core.
         """
         if isinstance(source, Envelope):
-            res = self._unary.send(_IMPORT_PATH, source, _ImportResponse)
-        else:
-            res = self._upload.upload(_IMPORT_PATH, source, _ImportResponse)
-        return res.key
+            return self._unary.send(_IMPORT_PATH, source, ID)
+        return self._upload.upload(_IMPORT_PATH, source, ID)
 
     @overload
     def export(self, id: ID) -> Envelope: ...

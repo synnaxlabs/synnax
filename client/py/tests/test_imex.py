@@ -16,7 +16,6 @@ import pytest
 
 import synnax as sy
 from synnax.imex import Envelope
-from synnax.ontology.payload import ID
 
 
 def _log_envelope(name: str) -> Envelope:
@@ -83,9 +82,10 @@ class TestImex:
     def test_import_envelope_then_export(self, client: sy.Synnax) -> None:
         """Envelope (in-memory) → upload via send; export via send."""
         name = f"imex-rt-{uuid.uuid4()}"
-        key = client.imex.import_(_log_envelope(name))
-        assert uuid.UUID(key)
-        exported = client.imex.export(ID(type="log", key=key))
+        id = client.imex.import_(_log_envelope(name))
+        assert id.type == "log"
+        assert uuid.UUID(id.key)
+        exported = client.imex.export(id)
         assert exported is not None
         assert exported.type == "log"
         assert exported.name == name
@@ -96,16 +96,17 @@ class TestImex:
         name = f"imex-path-{uuid.uuid4()}"
         path = tmp_path / "in.json"
         path.write_text(_log_envelope(name).model_dump_json())
-        key = client.imex.import_(path)
-        assert uuid.UUID(key)
-        exported = client.imex.export(ID(type="log", key=key))
+        id = client.imex.import_(path)
+        assert id.type == "log"
+        assert uuid.UUID(id.key)
+        exported = client.imex.export(id)
         assert exported is not None and exported.name == name
 
     def test_export_to_path(self, client: sy.Synnax, tmp_path: Path) -> None:
         """Path dest → streamed download; on-disk content parses back."""
         name = f"imex-export-path-{uuid.uuid4()}"
-        key = client.imex.import_(_log_envelope(name))
+        id = client.imex.import_(_log_envelope(name))
         out = tmp_path / "log.json"
-        assert client.imex.export(ID(type="log", key=key), dest=out) is None
+        assert client.imex.export(id, dest=out) is None
         parsed = Envelope.model_validate_json(out.read_bytes())
         assert parsed.name == name and parsed.type == "log"
