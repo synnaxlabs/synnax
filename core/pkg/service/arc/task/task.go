@@ -355,7 +355,7 @@ func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bo
 	}
 	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
-			"failed to set status for arc task",
+			"failed to set status for Arc task",
 			zap.Uint64("key", uint64(t.task.Key)),
 			zap.String("name", t.task.Name),
 			zap.Error(err),
