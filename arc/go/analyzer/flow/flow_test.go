@@ -359,6 +359,47 @@ sequence main {
 		})
 	})
 
+	Describe("WASM functions used as flow nodes", func() {
+		wasmResolver := []symbol.Symbol{
+			{
+				Name: "compute",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecWASM,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "input", Type: types.F64()}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+				}),
+				Trigger: symbol.TriggerOnly,
+			},
+			{
+				Name: "src_chan",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+			},
+		}
+
+		It("Should reject a WASM function wired as a flow node", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`src_chan -> compute{}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, wasmResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
+		})
+
+		It("Should reject a WASM function invoked as a standalone stage node", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+sequence main {
+    stage done {
+        compute{}
+    }
+}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, wasmResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
+		})
+	})
+
 	Describe("Channel to func Flows", func() {
 		Context("function to function connections", func() {
 			It("Should detect when func with no output connects to func expecting input", func(bCtx SpecContext) {

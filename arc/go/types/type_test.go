@@ -903,6 +903,25 @@ var _ = Describe("Types", func() {
 				Expect(empty.Has("x")).To(BeFalse())
 			})
 		})
+		Describe("Positional", func() {
+			It("Should return all params when the trigger is empty", func() {
+				Expect(params.Positional("")).To(Equal(params))
+			})
+			It("Should exclude the trigger param", func() {
+				positional := params.Positional("y")
+				Expect(positional).To(HaveLen(2))
+				Expect(positional.Has("y")).To(BeFalse())
+				Expect(positional.Has("x")).To(BeTrue())
+				Expect(positional.Has("flag")).To(BeTrue())
+			})
+			It("Should return all params when the trigger names no param", func() {
+				Expect(params.Positional("nonexistent")).To(HaveLen(3))
+			})
+			It("Should return empty for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.Positional("y")).To(BeEmpty())
+			})
+		})
 		Describe("ValueMap", func() {
 			It("Should return map of parameter names to values", func() {
 				valueMap := params.ValueMap()
