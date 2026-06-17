@@ -12,7 +12,6 @@
 package channel
 
 import (
-	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
@@ -48,17 +47,17 @@ type Operation struct {
 	Type OperationType `json:"type" msgpack:"type"`
 	// ResetChannel is the channel key that triggers reset of the aggregation. If 0,
 	// duration-based reset is used.
-	ResetChannel distributionchannel.Key `json:"reset_channel" msgpack:"reset_channel"`
+	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
 	// Duration is the time window for aggregation when reset_channel is 0.
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 }
 
 // Channel is an internal representation of a channel containing all storage and
-// distribution metadata. This type is used internally by the server; clients should use
-// APIChannel instead.
+// cluster-routing metadata. This type is used internally by the server; clients should
+// use APIChannel instead.
 type Channel struct {
 	// Name is the human-readable channel name.
-	Name distributionchannel.Name `json:"name" msgpack:"name"`
+	Name Name `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel and is
 	// authorized to accept writes.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
@@ -69,10 +68,10 @@ type Channel struct {
 	// nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// LocalKey is the locally-unique portion of this channel's key.
-	LocalKey distributionchannel.LocalKey `json:"local_key" msgpack:"local_key"`
+	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
 	// LocalIndex is the channel used to index this channel's values, associating each value
 	// with a timestamp.
-	LocalIndex distributionchannel.LocalKey `json:"local_index" msgpack:"local_index"`
+	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
 	// Virtual is true if this channel does not persist data and is used only for streaming.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual

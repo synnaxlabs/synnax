@@ -14,7 +14,7 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/errors"

@@ -12,7 +12,6 @@
 package pb
 
 import (
-	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	controlpb "github.com/synnaxlabs/x/control/pb"
@@ -45,7 +44,7 @@ func OperationFromPB(pb *Operation) (channel.Operation, error) {
 	if err != nil {
 		return channel.Operation{}, err
 	}
-	r.ResetChannel = distributionchannel.Key(pb.ResetChannel)
+	r.ResetChannel = channel.Key(pb.ResetChannel)
 	r.Duration = telem.TimeSpan(pb.Duration)
 	return r, nil
 }
@@ -117,12 +116,12 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	if err != nil {
 		return channel.Channel{}, err
 	}
-	r.Name = distributionchannel.Name(pb.Name)
+	r.Name = channel.Name(pb.Name)
 	r.Leaseholder = node.Key(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex
-	r.LocalKey = distributionchannel.LocalKey(pb.LocalKey)
-	r.LocalIndex = distributionchannel.LocalKey(pb.LocalIndex)
+	r.LocalKey = channel.LocalKey(pb.LocalKey)
+	r.LocalIndex = channel.LocalKey(pb.LocalIndex)
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression

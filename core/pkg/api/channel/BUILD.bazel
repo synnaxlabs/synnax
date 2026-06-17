@@ -6,7 +6,7 @@ proto_library(
     srcs = ["pb/channel.proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//core/pkg/distribution/channel:channel_proto",
+        "//core/pkg/service/channel:channel_proto",
         "//x/go/control:control_proto",
         "//x/go/status:status_proto",
     ],
@@ -18,7 +18,7 @@ cpp_grpc_library(
     protos = [":channel_proto"],
     visibility = ["//visibility:public"],
     deps = [
-        "//core/pkg/distribution/channel:channel_grpc",
+        "//core/pkg/service/channel:channel_grpc",
         "//x/go/control:control_grpc",
         "//x/go/status:status_grpc",
     ],

@@ -121,7 +121,7 @@ var _ = Describe("Channel Tests", func() {
 			data := []byte(`{"name":"test","leaseholder":5,"data_type":"float32","local_key":1}`)
 			var c channel.Channel
 			Expect(json.Unmarshal(data, &c)).To(Succeed())
-			Expect(c.Name).To(Equal(channel.Name("test")))
+			Expect(c.Name).To(Equal("test"))
 			Expect(c.Leaseholder).To(Equal(node.Key(5)))
 			Expect(c.LocalKey).To(Equal(channel.LocalKey(1)))
 		})
@@ -140,7 +140,7 @@ var _ = Describe("Channel Tests", func() {
 			data := MustSucceed(msgpack.Marshal(original))
 			var c channel.Channel
 			Expect(msgpack.Unmarshal(data, &c)).To(Succeed())
-			Expect(c.Name).To(Equal(channel.Name("test")))
+			Expect(c.Name).To(Equal("test"))
 			Expect(c.Leaseholder).To(Equal(node.Key(5)))
 			Expect(c.LocalKey).To(Equal(channel.LocalKey(1)))
 		})

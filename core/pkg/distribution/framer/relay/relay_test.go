@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -272,20 +271,6 @@ var _ = Describe("Relay", func() {
 			confluence.Drain(readerRes)
 		})
 	})
-	Describe("Errors", func() {
-		It("Should raise an error if a channel is not found", func(ctx SpecContext) {
-			builder := mock.ProvisionCluster(ctx, 1)
-			defer func() {
-				Expect(builder.Close()).To(Succeed())
-			}()
-			svc := builder.Nodes[1]
-			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
-				Keys: []channel.Key{12345},
-			})
-			Expect(err).To(MatchError(query.ErrNotFound))
-		})
-	})
-
 	// These tests cover the SendOpenAck happens-before guarantee: once a caller
 	// sees the open ack, a subsequent write must be observable on the streamer.
 	// The relay implements this by waiting for the freeWriteTap to install the

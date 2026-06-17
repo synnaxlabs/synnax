@@ -73,7 +73,7 @@ func (createMessageTranslator) Backward(
 				return channel.Channel{}, err
 			}
 			return channel.Channel{
-				Name:        channel.Name(c.Name),
+				Name:        c.Name,
 				Leaseholder: node.Key(c.Leaseholder),
 				DataType:    telem.DataType(c.DataType),
 				IsIndex:     c.IsIndex,

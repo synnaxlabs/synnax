@@ -28,7 +28,7 @@ type (
 	Key      = dischannel.Key
 	Keys     = dischannel.Keys
 	LocalKey = dischannel.LocalKey
-	Name     = dischannel.Name
+	Name     = string
 )
 
 var (

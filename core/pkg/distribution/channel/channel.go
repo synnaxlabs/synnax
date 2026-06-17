@@ -19,8 +19,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 )
+
+// Key is a unique identifier for a channel in the Synnax database. Composed of a cluster
+// node key (first 12 bits) and a local key (last 20 bits), enabling distributed
+// assignment while maintaining global uniqueness.
+type Key uint32
+
+// LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
+// channel key within a node. Combined with a NodeKey to form the global channel Key.
+type LocalKey types.Uint20
 
 // Channel is the minimal, distribution-layer representation of a channel. It carries
 // only the storage and routing metadata the distribution layer needs to allocate local
@@ -29,7 +39,7 @@ import (
 // and the metadata table) lives in the service layer.
 type Channel struct {
 	// Name is the human-readable channel name.
-	Name Name `json:"name" msgpack:"name"`
+	Name string `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel and is
 	// authorized to accept writes.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`

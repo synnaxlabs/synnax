@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"

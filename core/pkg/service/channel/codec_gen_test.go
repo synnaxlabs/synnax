@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/control"
@@ -43,15 +42,15 @@ var _ = Describe("Codec", func() {
 				Leaseholder: node.Key(3),
 				DataType:    telem.DataType("test_3"),
 				IsIndex:     false,
-				LocalKey:    distributionchannel.LocalKey(6),
-				LocalIndex:  distributionchannel.LocalKey(7),
+				LocalKey:    channel.LocalKey(6),
+				LocalIndex:  channel.LocalKey(7),
 				Virtual:     true,
 				Concurrency: control.Concurrency(0),
 				Internal:    true,
 				Operations: []channel.Operation{
 					{
 						Type:         channel.OperationType("min"),
-						ResetChannel: distributionchannel.Key(13),
+						ResetChannel: channel.Key(13),
 						Duration:     telem.TimeSpan(14),
 					},
 				},
@@ -62,8 +61,8 @@ var _ = Describe("Codec", func() {
 				Leaseholder: node.Key(0),
 				DataType:    telem.DataType(""),
 				IsIndex:     false,
-				LocalKey:    distributionchannel.LocalKey(0),
-				LocalIndex:  distributionchannel.LocalKey(0),
+				LocalKey:    channel.LocalKey(0),
+				LocalIndex:  channel.LocalKey(0),
 				Virtual:     false,
 				Concurrency: control.Concurrency(0),
 				Internal:    false,
@@ -75,8 +74,8 @@ var _ = Describe("Codec", func() {
 				Leaseholder: node.Key(3),
 				DataType:    telem.DataType("test_3"),
 				IsIndex:     false,
-				LocalKey:    distributionchannel.LocalKey(6),
-				LocalIndex:  distributionchannel.LocalKey(7),
+				LocalKey:    channel.LocalKey(6),
+				LocalIndex:  channel.LocalKey(7),
 				Virtual:     true,
 				Concurrency: control.Concurrency(0),
 				Internal:    true,
@@ -98,12 +97,12 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", channel.Operation{
 				Type:         channel.OperationType("min"),
-				ResetChannel: distributionchannel.Key(3),
+				ResetChannel: channel.Key(3),
 				Duration:     telem.TimeSpan(4),
 			}),
 			Entry("zero values", channel.Operation{
 				Type:         channel.OperationType(""),
-				ResetChannel: distributionchannel.Key(0),
+				ResetChannel: channel.Key(0),
 				Duration:     telem.TimeSpan(0),
 			}),
 		)
@@ -116,15 +115,15 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		Leaseholder: node.Key(3),
 		DataType:    telem.DataType("test_3"),
 		IsIndex:     false,
-		LocalKey:    distributionchannel.LocalKey(6),
-		LocalIndex:  distributionchannel.LocalKey(7),
+		LocalKey:    channel.LocalKey(6),
+		LocalIndex:  channel.LocalKey(7),
 		Virtual:     true,
 		Concurrency: control.Concurrency(0),
 		Internal:    true,
 		Operations: []channel.Operation{
 			{
 				Type:         channel.OperationType("min"),
-				ResetChannel: distributionchannel.Key(13),
+				ResetChannel: channel.Key(13),
 				Duration:     telem.TimeSpan(14),
 			},
 		},
@@ -148,7 +147,7 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 func BenchmarkEncodeDecodeOperation(b *testing.B) {
 	o := channel.Operation{
 		Type:         channel.OperationType("min"),
-		ResetChannel: distributionchannel.Key(3),
+		ResetChannel: channel.Key(3),
 		Duration:     telem.TimeSpan(4),
 	}
 	w := orc.NewWriter(0)
@@ -173,15 +172,15 @@ func FuzzDecodeChannel(f *testing.F) {
 			Leaseholder: node.Key(3),
 			DataType:    telem.DataType("test_3"),
 			IsIndex:     false,
-			LocalKey:    distributionchannel.LocalKey(6),
-			LocalIndex:  distributionchannel.LocalKey(7),
+			LocalKey:    channel.LocalKey(6),
+			LocalIndex:  channel.LocalKey(7),
 			Virtual:     true,
 			Concurrency: control.Concurrency(0),
 			Internal:    true,
 			Operations: []channel.Operation{
 				{
 					Type:         channel.OperationType("min"),
-					ResetChannel: distributionchannel.Key(13),
+					ResetChannel: channel.Key(13),
 					Duration:     telem.TimeSpan(14),
 				},
 			},
@@ -199,8 +198,8 @@ func FuzzDecodeChannel(f *testing.F) {
 			Leaseholder: node.Key(0),
 			DataType:    telem.DataType(""),
 			IsIndex:     false,
-			LocalKey:    distributionchannel.LocalKey(0),
-			LocalIndex:  distributionchannel.LocalKey(0),
+			LocalKey:    channel.LocalKey(0),
+			LocalIndex:  channel.LocalKey(0),
 			Virtual:     false,
 			Concurrency: control.Concurrency(0),
 			Internal:    false,
@@ -219,8 +218,8 @@ func FuzzDecodeChannel(f *testing.F) {
 			Leaseholder: node.Key(3),
 			DataType:    telem.DataType("test_3"),
 			IsIndex:     false,
-			LocalKey:    distributionchannel.LocalKey(6),
-			LocalIndex:  distributionchannel.LocalKey(7),
+			LocalKey:    channel.LocalKey(6),
+			LocalIndex:  channel.LocalKey(7),
 			Virtual:     true,
 			Concurrency: control.Concurrency(0),
 			Internal:    true,
@@ -266,7 +265,7 @@ func FuzzDecodeOperation(f *testing.F) {
 	{
 		seed := channel.Operation{
 			Type:         channel.OperationType("min"),
-			ResetChannel: distributionchannel.Key(3),
+			ResetChannel: channel.Key(3),
 			Duration:     telem.TimeSpan(4),
 		}
 		w := orc.NewWriter(0)
@@ -278,7 +277,7 @@ func FuzzDecodeOperation(f *testing.F) {
 	{
 		seed := channel.Operation{
 			Type:         channel.OperationType(""),
-			ResetChannel: distributionchannel.Key(0),
+			ResetChannel: channel.Key(0),
 			Duration:     telem.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)

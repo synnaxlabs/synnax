@@ -12,7 +12,6 @@
 package channel
 
 import (
-	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -69,14 +68,14 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		c.LocalKey = distributionchannel.LocalKey(v)
+		c.LocalKey = LocalKey(v)
 	}
 	{
 		v, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		c.LocalIndex = distributionchannel.LocalKey(v)
+		c.LocalIndex = LocalKey(v)
 	}
 	if c.Virtual, err = r.Bool(); err != nil {
 		return err
@@ -135,7 +134,7 @@ func (o *Operation) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		o.ResetChannel = distributionchannel.Key(v)
+		o.ResetChannel = Key(v)
 	}
 	{
 		v, err := r.Int64()

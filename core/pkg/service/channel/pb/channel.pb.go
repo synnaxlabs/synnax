@@ -158,8 +158,8 @@ func (x *Operation) GetDuration() int64 {
 }
 
 // Channel is an internal representation of a channel containing all storage and
-// distribution metadata. This type is used internally by the server; clients should use
-// APIChannel instead.
+// cluster-routing metadata. This type is used internally by the server; clients should
+// use APIChannel instead.
 type Channel struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// name is the human-readable channel name.

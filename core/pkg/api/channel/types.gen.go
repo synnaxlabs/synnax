@@ -12,7 +12,6 @@
 package channel
 
 import (
-	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/control"
@@ -29,9 +28,9 @@ type Status = status.Status[gotypes.Nil]
 // in Synnax.
 type Channel struct {
 	// Key is the unique identifier for this channel, automatically assigned by Synnax.
-	Key distributionchannel.Key `json:"key" msgpack:"key"`
+	Key servicechannel.Key `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
-	Name distributionchannel.Name `json:"name" msgpack:"name"`
+	Name servicechannel.Name `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel. Mostly for
 	// internal use.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
@@ -44,7 +43,7 @@ type Channel struct {
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Index is the channel used to index this channel's values, associating each value with
 	// a timestamp.
-	Index distributionchannel.Key `json:"index" msgpack:"index"`
+	Index servicechannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
 	Alias string `json:"alias" msgpack:"alias"`
 	// Virtual is true if this channel does not store data in the database but can still be

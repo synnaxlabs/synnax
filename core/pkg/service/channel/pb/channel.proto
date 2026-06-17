@@ -41,8 +41,8 @@ message Operation {
 }
 
 // Channel is an internal representation of a channel containing all storage and
-// distribution metadata. This type is used internally by the server; clients should use
-// APIChannel instead.
+// cluster-routing metadata. This type is used internally by the server; clients should
+// use APIChannel instead.
 message Channel {
   // name is the human-readable channel name.
   string name = 1;
