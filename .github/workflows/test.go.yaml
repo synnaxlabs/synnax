@@ -18,13 +18,6 @@ on:
         description: The codecov flag for this module
         required: true
         type: string
-      prepare_assets:
-        description:
-          Whether to create placeholder assets (driver binaries) before lint and test.
-          Required for modules compiled with -tags driver.
-        required: false
-        type: boolean
-        default: false
       install_antlr4:
         description:
           Whether to install antlr4 before running `go generate`. Required for modules
@@ -80,11 +73,6 @@ jobs:
       - name: Verify `go generate` is up to date
         if: matrix.fmt
         run: scripts/check_go_generate.sh ${{ inputs.directory }}
-
-      - name: Prepare asset placeholders
-        if: inputs.prepare_assets
-        run: core/scripts/setup_assets.sh
-        shell: bash
 
       - name: Lint
         uses: golangci/golangci-lint-action@v9

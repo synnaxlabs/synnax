@@ -11,23 +11,6 @@
 
 package driver
 
-import (
-	"context"
+import "io/fs"
 
-	"github.com/synnaxlabs/x/config"
-)
-
-// Driver is a no-op stub used when the server is built without the "driver" build tag.
-// Open returns a valid Driver whose Close method is a no-op.
-type Driver struct{}
-
-func Open(_ context.Context, cfgs ...Config) (*Driver, error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
-	if err != nil {
-		return nil, err
-	}
-	cfg.L.Info("server built without embedded driver")
-	return &Driver{}, nil
-}
-
-func (d *Driver) Close() error { return nil }
+var defaultFS fs.FS
