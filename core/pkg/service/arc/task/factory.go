@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime
+// Package task implements the driver task and factory infrastructure for
+// executing compiled Arc programs. It is split out from arc/runtime so that
+// arc/runtime (the core the calculation compiler depends on) does not import
+// the arc service package, which would otherwise form an import cycle once the
+// arc service depends on the action-dispatch stack.
+package task
 
 import (
 	"context"
@@ -26,15 +31,15 @@ import (
 	"go.uber.org/zap"
 )
 
-// TaskType is the type identifier for Arc tasks.
-const TaskType = "arc"
+// Type is the type identifier for Arc tasks.
+const Type = "arc"
 
-// TaskConfig is the configuration for an Arc taskImpl.
-type TaskConfig struct {
+// Config is the configuration for an Arc task.
+type Config struct {
 	alamos.Instrumentation
 	// ArcKey is the UUID of the Arc program to execute.
 	ArcKey arc.Key `json:"arc_key"`
-	// AutoStart sets whether the taskImpl should start automatically when configured.
+	// AutoStart sets whether the task should start automatically when configured.
 	AutoStart bool `json:"auto_start"`
 }
 
@@ -77,7 +82,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 }
 
 func (c FactoryConfig) Validate() error {
-	v := validate.New("arc.runtime.factory")
+	v := validate.New("arc.task.factory")
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "framer", c.Framer)
 	validate.NotNil(v, "status", c.Status)
@@ -102,10 +107,10 @@ func (f *factory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
 ) (driver.Task, error) {
-	if t.Type != TaskType {
+	if t.Type != Type {
 		return nil, driver.ErrTaskNotHandled
 	}
-	var cfg TaskConfig
+	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
 		return nil, err
@@ -115,7 +120,7 @@ func (f *factory) ConfigureTask(
 		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
 		return nil, err
 	}
-	arcTask := &taskImpl{
+	arcTask := &impl{
 		factoryCfg: f.cfg,
 		task:       t,
 		cfg:        cfg,
