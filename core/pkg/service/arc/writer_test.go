@@ -14,11 +14,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 var _ = Describe("Writer", func() {
@@ -186,6 +189,86 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(t2.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("Dispatch", func() {
+		It("Should apply a single SetNodePosition action to the target Arc", func(ctx SpecContext) {
+			a := arc.Arc{Name: "dispatch-pos", Graph: graph.Graph{Nodes: graph.Nodes{
+				{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
+			}}}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, a.Key, "session-1", []arc.Action{
+				arc.NewSetNodePositionAction(arc.SetNodePositionPayload{
+					Key:      "n1",
+					Position: spatial.XY{X: 100, Y: 200},
+				}),
+			})).To(Succeed())
+			var res arc.Arc
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Graph.Nodes[0].Position).To(Equal(spatial.XY{X: 100, Y: 200}))
+		})
+
+		It("Should apply a sequence of mixed actions atomically", func(ctx SpecContext) {
+			a := arc.Arc{Name: "dispatch-seq"}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, a.Key, "session-1", []arc.Action{
+				arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}}),
+				arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n2"}}),
+				arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: ir.Edge{
+					Source: ir.Handle{Node: "n1", Param: "out"},
+					Target: ir.Handle{Node: "n2", Param: "in"},
+					Kind:   ir.EdgeKindContinuous,
+				}}),
+			})).To(Succeed())
+			var res arc.Arc
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Graph.Nodes).To(HaveLen(2))
+			Expect(res.Graph.Edges).To(HaveLen(1))
+		})
+
+		It("Should notify subscribers with the dispatched scoped action on success", func(ctx SpecContext) {
+			a := arc.Arc{Name: "observed"}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			actions := []arc.Action{
+				arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}}),
+				arc.NewRenameAction(arc.RenamePayload{Name: "observed-renamed"}),
+			}
+			Expect(svc.NewWriter(tx).Dispatch(ctx, a.Key, "client-xyz", actions)).To(Succeed())
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(a.Key))
+			Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
+			Expect(seen[0].Seq).To(BeNumerically(">", uint64(0)))
+			Expect(seen[0].Actions).To(HaveLen(2))
+			Expect(seen[0].Actions[0].Type).To(Equal(arc.ActionTypeSetNode))
+			Expect(seen[0].Actions[1].Type).To(Equal(arc.ActionTypeRename))
+		})
+
+		It("Should stamp strictly increasing Seq values onto successive broadcasts", func(ctx SpecContext) {
+			a := arc.Arc{Name: "seq-test"}
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			action := []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}})}
+			for range 3 {
+				Expect(svc.NewWriter(tx).Dispatch(ctx, a.Key, "client-xyz", action)).To(Succeed())
+			}
+			seen := rec.Snapshot()
+			Expect(seen).To(HaveLen(3))
+			Expect(seen[1].Seq).To(BeNumerically(">", seen[0].Seq))
+			Expect(seen[2].Seq).To(BeNumerically(">", seen[1].Seq))
+		})
+
+		It("Should fail with query.ErrNotFound and not notify when the target Arc does not exist", func(ctx SpecContext) {
+			rec := &Recorder[arc.Key, arc.Action]{}
+			DeferCleanup(svc.OnAction(rec.Record))
+			Expect(svc.NewWriter(tx).Dispatch(ctx, uuid.New(), "client-xyz", []arc.Action{
+				arc.NewRenameAction(arc.RenamePayload{Name: "ghost"}),
+			})).To(MatchError(query.ErrNotFound))
+			Expect(rec.Snapshot()).To(BeEmpty())
 		})
 	})
 })

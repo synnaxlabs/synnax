@@ -77,6 +77,76 @@ Arc struct {
         @go marshal omit
     }
 
+    action Rename {
+        name string
+
+        @doc value "renames the Arc module."
+    }
+
+    action SetMode {
+        mode Mode
+
+        @doc value """
+            switches the module between text and graph representation.
+        """
+    }
+
+    action SetNode {
+        node graph.Node
+
+        @doc value """
+            inserts the node if no node with the same key exists, otherwise
+            replaces the existing node in place.
+        """
+    }
+
+    action SetNodePosition {
+        key      string
+        position spatial.XY
+
+        @doc value "moves a graph node to a new canvas position."
+    }
+
+    action SetNodeConfig {
+        key    string
+        config record {
+            @ts preserve_case
+        }
+
+        @doc value """
+            replaces the configuration parameter values of the node with the
+            given key. No-op when no node matches.
+        """
+    }
+
+    action RemoveNode {
+        key string
+
+        @doc value """
+            removes the node with the given key along with any edges connected
+            to it.
+        """
+    }
+
+    action AddEdge {
+        edge ir.Edge
+
+        @doc value """
+            appends the edge to the graph. No-op when an edge with the same
+            source and target handles already exists.
+        """
+    }
+
+    action RemoveEdge {
+        source ir.Handle
+        target ir.Handle
+
+        @doc value """
+            removes the edge matching the given source and target handles, if
+            present.
+        """
+    }
+
     @doc value     """
         is an Arc module combining visual graph representation and text-based
         source code for reactive control systems. Compiles to WebAssembly for

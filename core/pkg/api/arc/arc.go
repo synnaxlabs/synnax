@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -76,6 +77,29 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single Arc.
+// DispatchKey is a client-generated identifier for the batch, echoed verbatim
+// on the broadcast frame so the originator can recognize its own echo.
+type DispatchRequest = actions.DispatchRequest[arc.Key, arc.Action]
+
+// Dispatch applies the action sequence to the target Arc atomically. Subscribers
+// to the Arc action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (types.Nil, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{arc.OntologyID(req.Key)},
+	}); err != nil {
+		return types.Nil{}, err
+	}
+	return types.Nil{}, s.internal.NewWriter(tx).
+		Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type DeleteRequest struct {

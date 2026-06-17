@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,10 +26,11 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx    gorp.Tx
-	otg   ontology.Writer
-	task  task.Writer
-	table *gorp.Table[Key, Arc]
+	tx         gorp.Tx
+	otg        ontology.Writer
+	task       task.Writer
+	table      *gorp.Table[Key, Arc]
+	dispatcher actions.Dispatcher[Key, Action]
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -66,6 +68,28 @@ func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// Dispatch applies a sequence of actions atomically to the Arc with the given
+// key. After a successful update the actions are notified to the service-level
+// observer so subscribers (cluster signals) can broadcast them. dispatchKey is
+// a client-generated identifier carried verbatim onto the broadcast so the
+// originating client can match its own echo against the set of outstanding
+// local replays and skip a redundant reduce when no foreign action interleaved.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key Key,
+	dispatchKey string,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
+		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
+			return Reduce(a, actions...)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Notify(ctx, key, dispatchKey, actions)
 	return nil
 }
 
