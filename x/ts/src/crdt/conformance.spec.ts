@@ -17,10 +17,7 @@ import { crdt } from "@/crdt";
 // that both runtimes materialize identically for the same edit schedule. The canonical
 // copy lives alongside the Go package; the operations' wire encoding is owned and
 // tested by oracle codegen.
-const VECTORS_URL = new URL(
-  "../../../go/crdt/testdata/vectors.json",
-  import.meta.url,
-);
+const VECTORS_URL = new URL("../../../go/crdt/testdata/vectors.json", import.meta.url);
 
 interface Step {
   type: "insert" | "delete" | "sync";

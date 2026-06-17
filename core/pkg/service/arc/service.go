@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	stdio "io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
@@ -19,9 +20,11 @@ import (
 	arcsymbol "github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -56,6 +59,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Search *search.Index
+	// Signals is used to broadcast collaborative-edit actions to the cluster.
+	//
+	// [OPTIONAL]
+	Signals *signals.Provider
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
 }
@@ -70,6 +77,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Search = override.Nil(c.Search, other.Search)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
 
@@ -89,6 +97,8 @@ type Service struct {
 	table  *gorp.Table[Key, Arc]
 	closer xio.MultiCloser
 	cfg    ServiceConfig
+	// state owns the observer that collaborative-edit dispatches are broadcast through.
+	state *actions.State[Key, Action]
 }
 
 // NewChannelResolver returns the dynamic resolver that the analyzer consults for
@@ -176,7 +186,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
@@ -198,6 +208,16 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
+	if cfg.Signals != nil {
+		var sig stdio.Closer
+		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
+			Provider: cfg.Signals,
+			State:    s.state,
+			Name:     "arc",
+		}); !ok(err, sig) {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
@@ -211,10 +231,11 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Arc]] {
 // execute the operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		otg:   s.cfg.Ontology.NewWriter(tx),
-		task:  s.cfg.Task.NewWriter(tx),
-		table: s.table,
+		tx:         gorp.OverrideTx(s.cfg.DB, tx),
+		otg:        s.cfg.Ontology.NewWriter(tx),
+		task:       s.cfg.Task.NewWriter(tx),
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

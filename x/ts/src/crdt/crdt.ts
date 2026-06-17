@@ -53,7 +53,14 @@ export class Text {
 
   constructor(replica: number) {
     this.replica = replica;
-    this.root = { id: ROOT_ID, side: "right", char: 0, deleted: false, left: [], right: [] };
+    this.root = {
+      id: ROOT_ID,
+      side: "right",
+      char: 0,
+      deleted: false,
+      left: [],
+      right: [],
+    };
   }
 
   /** replicaID returns the id of the replica that owns this document. */

@@ -20,11 +20,8 @@ package crdt
 
 import "github.com/synnaxlabs/x/set"
 
-// rootID is the origin of characters anchored at the very start of the document. A zero
-// replica is reserved for it and never assigned to a real replica.
-var rootID = ID{}
-
-// isRoot reports whether id is the document root sentinel.
+// isRoot reports whether id is the document root sentinel. The zero replica is reserved
+// for the root and never assigned to a real replica.
 func isRoot(id ID) bool { return id.Replica == 0 && id.Counter == 0 }
 
 // idLess reports whether a sorts before b, ordering by replica then counter. The order
@@ -53,9 +50,9 @@ type element struct {
 // at construction; local edits are attributed to that replica. Text is not safe for
 // concurrent use.
 type Text struct {
-	replica uint32
-	counter uint64
-	root    *element
+	replica  uint32
+	counter  uint64
+	root     *element
 	elements map[ID]*element
 	// tombstones holds ids deleted before their insert was seen, so the delete can be
 	// applied to the character once it arrives.
