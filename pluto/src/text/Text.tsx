@@ -9,7 +9,8 @@
 
 import "@/text/Text.css";
 
-import { type status, type text } from "@synnaxlabs/x";
+import { type status } from "@synnaxlabs/client";
+import { type text } from "@synnaxlabs/x";
 import {
   Children,
   type ComponentPropsWithoutRef,

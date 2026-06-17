@@ -18,9 +18,9 @@
 #include <utility>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 
 #include "core/pkg/service/task/pb/task.pb.h"
 
@@ -73,7 +73,7 @@ struct Command {
     from_proto(const ::service::task::pb::Command &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails>;
+using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief Task is an executable unit of work in the Driver system. Tasks represent
 /// specific hardware operations such as reading sensor data, writing control signals,

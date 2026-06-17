@@ -9,8 +9,9 @@
 
 import "@/status/filter/Chips.css";
 
+import { type status } from "@synnaxlabs/client";
 import { Flex, Form, Status, Tag, Text } from "@synnaxlabs/pluto";
-import { caseconv, type status } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";

@@ -9,7 +9,7 @@
 
 import "@/project/Splash.css";
 
-import { project, UnexpectedError } from "@synnaxlabs/client";
+import { project, status, UnexpectedError } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Access,
@@ -24,7 +24,6 @@ import {
   Select,
   Text,
 } from "@synnaxlabs/pluto";
-import { status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 

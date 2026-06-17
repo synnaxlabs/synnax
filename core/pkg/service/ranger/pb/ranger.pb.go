@@ -18,8 +18,8 @@
 package pb
 
 import (
+	pb2 "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	pb1 "github.com/synnaxlabs/x/color/pb"
-	pb2 "github.com/synnaxlabs/x/label/pb"
 	pb "github.com/synnaxlabs/x/telem/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -135,14 +135,14 @@ var File_core_pkg_service_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a\x19x/go/color/pb/color.proto\x1a\x19x/go/label/pb/label.proto\x1a\x19x/go/telem/pb/telem.proto\"\xf9\x01\n" +
+	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19x/go/color/pb/color.proto\x1a\x19x/go/telem/pb/telem.proto\"\xff\x01\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
 	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12'\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12)\n" +
-	"\x06labels\x18\x05 \x03(\v2\x11.x.label.pb.LabelR\x06labels\x125\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12/\n" +
+	"\x06labels\x18\x05 \x03(\v2\x17.service.label.pb.LabelR\x06labels\x125\n" +
 	"\x06parent\x18\x06 \x01(\v2\x18.service.ranger.pb.RangeH\x00R\x06parent\x88\x01\x01B\t\n" +
 	"\a_parentB\xbe\x01\n" +
 	"\x15com.service.ranger.pbB\vRangerProtoP\x01Z2github.com/synnaxlabs/synnax/pkg/service/ranger/pb\xa2\x02\x03SRP\xaa\x02\x11Service.Ranger.Pb\xca\x02\x11Service\\Ranger\\Pb\xe2\x02\x1dService\\Ranger\\Pb\\GPBMetadata\xea\x02\x13Service::Ranger::Pbb\x06proto3"
@@ -164,12 +164,12 @@ var file_core_pkg_service_ranger_pb_ranger_proto_goTypes = []any{
 	(*Range)(nil),        // 0: service.ranger.pb.Range
 	(*pb.TimeRange)(nil), // 1: x.telem.pb.TimeRange
 	(*pb1.Color)(nil),    // 2: x.color.pb.Color
-	(*pb2.Label)(nil),    // 3: x.label.pb.Label
+	(*pb2.Label)(nil),    // 3: service.label.pb.Label
 }
 var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
 	1, // 0: service.ranger.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
 	2, // 1: service.ranger.pb.Range.color:type_name -> x.color.pb.Color
-	3, // 2: service.ranger.pb.Range.labels:type_name -> x.label.pb.Label
+	3, // 2: service.ranger.pb.Range.labels:type_name -> service.label.pb.Label
 	0, // 3: service.ranger.pb.Range.parent:type_name -> service.ranger.pb.Range
 	4, // [4:4] is the sub-list for method output_type
 	4, // [4:4] is the sub-list for method input_type

@@ -9,7 +9,8 @@
 
 import "@/status/base/Notification.css";
 
-import { array, primitive, status } from "@synnaxlabs/x";
+import { status } from "@synnaxlabs/client";
+import { array, primitive } from "@synnaxlabs/x";
 import { isValidElement, type ReactElement, useRef } from "react";
 
 import { Button } from "@/button";

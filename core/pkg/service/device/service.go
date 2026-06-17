@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"

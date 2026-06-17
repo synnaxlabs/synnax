@@ -712,7 +712,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev1.rack = 1;
     dev1.status = synnax::device::Status{};
     dev1.status->key = synnax::device::status_key(dev1);
-    dev1.status->variant = x::status::VARIANT_SUCCESS;
+    dev1.status->variant = synnax::status::VARIANT_SUCCESS;
     dev1.status->details.rack = 1;
 
     synnax::device::Device dev2;
@@ -721,7 +721,7 @@ TEST(TestScanTask, TestStatePropagation) {
     dev2.rack = 2;
     dev2.status = synnax::device::Status{};
     dev2.status->key = synnax::device::status_key(dev2);
-    dev2.status->variant = x::status::VARIANT_WARNING;
+    dev2.status->variant = synnax::status::VARIANT_WARNING;
     dev2.status->details.rack = 2;
 
     // First scan will find both devices, second scan only dev1
@@ -769,10 +769,10 @@ TEST(TestScanTask, TestStatePropagation) {
     for (size_t i = 0; i < first_states.size(); i++) {
         auto status = first_states.at(i);
         if (status.key == "device:device1") {
-            ASSERT_EQ(status.variant, x::status::VARIANT_SUCCESS);
+            ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
         } else if (status.key == "device:device2") {
-            ASSERT_EQ(status.variant, x::status::VARIANT_WARNING);
+            ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
         } else
             FAIL() << "Unexpected device key: " << status.key;
@@ -786,10 +786,10 @@ TEST(TestScanTask, TestStatePropagation) {
     for (size_t i = 0; i < second_states.size(); i++) {
         auto status = second_states.at(i);
         if (status.key == "device:device1") {
-            ASSERT_EQ(status.variant, x::status::VARIANT_SUCCESS);
+            ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
             ASSERT_EQ(status.details.rack, 1);
         } else if (status.key == "device:device2") {
-            ASSERT_EQ(status.variant, x::status::VARIANT_WARNING);
+            ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
             ASSERT_EQ(status.details.rack, 2);
             ASSERT_EQ(status.message, "Device disconnected");
         } else

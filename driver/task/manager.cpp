@@ -346,7 +346,7 @@ void Manager::monitor_loop() {
                 LOG(ERROR) << "task " << key << " operation timed out";
                 synnax::task::Status status;
                 status.key = synnax::task::ontology_id(key).string();
-                status.variant = x::status::VARIANT_ERROR;
+                status.variant = synnax::status::VARIANT_ERROR;
                 status.message = "operation timed out";
                 status.details.task = key;
                 this->ctx->set_status(status);

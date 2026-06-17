@@ -13,6 +13,7 @@ import {
   control,
   DisconnectedError,
   type framer,
+  type status as cstatus,
   type Synnax,
   TimeStamp,
   ValidationError,
@@ -25,7 +26,6 @@ import {
   type CrudeSeries,
   type destructor,
   errors,
-  type status as xstatus,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -442,7 +442,7 @@ export class AuthoritySource
     this.valid = true;
   }
 
-  value(): xstatus.Status<typeof authoritySourceDetailsZ> {
+  value(): cstatus.Status<typeof authoritySourceDetailsZ> {
     this.maybeRevalidate();
 
     const time = TimeStamp.now();
