@@ -54,6 +54,7 @@ var _ = Describe("token", func() {
 		var now time.Time
 
 		BeforeEach(func() {
+			now = time.Time{}
 			cfg.Expiration = time.Second * 10
 			cfg.RefreshThreshold = time.Second * 8
 			cfg.Now = func() time.Time { return now }
