@@ -69,7 +69,7 @@ type Split struct {
 
 func (s Split) Validate() error {
 	v := validate.New("Split")
-	v.Ternaryf("Direction", !s.Direction.IsValid(), "invalid Direction: %v", s.Direction)
+	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid Direction: %v", s.Direction)
 	return v.Error()
 }
 

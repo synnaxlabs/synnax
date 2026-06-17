@@ -73,6 +73,6 @@ type ID struct {
 
 func (i ID) Validate() error {
 	v := validate.New("ID")
-	v.Ternaryf("Type", !i.Type.IsValid(), "invalid Type: %v", i.Type)
+	v.Ternaryf("type", !i.Type.IsValid(), "invalid Type: %v", i.Type)
 	return v.Error()
 }

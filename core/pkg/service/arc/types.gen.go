@@ -72,6 +72,6 @@ type Arc struct {
 
 func (a Arc) Validate() error {
 	v := validate.New("Arc")
-	v.Ternaryf("Mode", !a.Mode.IsValid(), "invalid Mode: %v", a.Mode)
+	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid Mode: %v", a.Mode)
 	return v.Error()
 }

@@ -136,7 +136,7 @@ func (t Title) ApplyDefaults() Title {
 
 func (t Title) Validate() error {
 	v := validate.New("Title")
-	v.Ternaryf("Level", !t.Level.IsValid(), "invalid Level: %v", t.Level)
+	v.Ternaryf("level", !t.Level.IsValid(), "invalid Level: %v", t.Level)
 	return v.Error()
 }
 
@@ -226,9 +226,9 @@ func (a Axis) ApplyDefaults() Axis {
 
 func (a Axis) Validate() error {
 	v := validate.New("Axis")
-	v.Ternaryf("Key", !a.Key.IsValid(), "invalid Key: %v", a.Key)
-	v.Ternaryf("LabelDirection", !a.LabelDirection.IsValid(), "invalid LabelDirection: %v", a.LabelDirection)
-	v.Ternaryf("LabelLevel", !a.LabelLevel.IsValid(), "invalid LabelLevel: %v", a.LabelLevel)
+	v.Ternaryf("key", !a.Key.IsValid(), "invalid Key: %v", a.Key)
+	v.Ternaryf("label_direction", !a.LabelDirection.IsValid(), "invalid LabelDirection: %v", a.LabelDirection)
+	v.Ternaryf("label_level", !a.LabelLevel.IsValid(), "invalid LabelLevel: %v", a.LabelLevel)
 	return v.Error()
 }
 
@@ -283,7 +283,7 @@ func (l Line) ApplyDefaults() Line {
 
 func (l Line) Validate() error {
 	v := validate.New("Line")
-	v.Ternaryf("DownsampleMode", !l.DownsampleMode.IsValid(), "invalid DownsampleMode: %v", l.DownsampleMode)
+	v.Ternaryf("downsample_mode", !l.DownsampleMode.IsValid(), "invalid DownsampleMode: %v", l.DownsampleMode)
 	return v.Error()
 }
 
@@ -317,7 +317,7 @@ func (r Rule) ApplyDefaults() Rule {
 
 func (r Rule) Validate() error {
 	v := validate.New("Rule")
-	v.Ternaryf("Axis", !r.Axis.IsValid(), "invalid Axis: %v", r.Axis)
+	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid Axis: %v", r.Axis)
 	return v.Error()
 }
 
