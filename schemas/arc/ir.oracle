@@ -198,10 +198,10 @@ Node struct {
         @doc value "contains channel read/write mappings."
     }
 
-    @doc value    """
+    @doc value   """
         is a concrete instantiation of a function with typed parameters and values.
     """
-    @cpp methods  "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
+    @cpp methods "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
 }
 
 Nodes Node[] {
