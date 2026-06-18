@@ -9,8 +9,6 @@
 
 import { type xy } from "@synnaxlabs/x";
 
-/// @brief stable empty result for edges with no hops; useSyncExternalStore requires a
-/// constant reference here.
 const EMPTY: xy.XY[] = [];
 
 const pointsEqual = (a: xy.XY[], b: xy.XY[]): boolean => {
@@ -20,8 +18,6 @@ const pointsEqual = (a: xy.XY[], b: xy.XY[]): boolean => {
   return true;
 };
 
-/// @brief per-edge external store of hop points for useSyncExternalStore. get is
-/// reference-stable per key; commit diffs against current and notifies only changed keys.
 export interface Store {
   subscribe: (key: string, onChange: () => void) => () => void;
   get: (key: string) => xy.XY[];

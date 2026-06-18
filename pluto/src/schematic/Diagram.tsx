@@ -42,7 +42,7 @@ interface Endpoint {
 const resolveEndpoint = (node: InternalNode, handleKey: string): Endpoint | null => {
   const bounds = node.internals.handleBounds;
   const handles = [...(bounds?.source ?? []), ...(bounds?.target ?? [])];
-  const handle = handles.find((h) => h.id === handleKey) ?? handles[0];
+  const handle = handleKey ? handles.find((h) => h.id === handleKey) : handles[0];
   if (handle == null) return null;
   const abs = node.internals.positionAbsolute;
   const x = abs.x + handle.x;
