@@ -8,15 +8,63 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type location, type record, type xy } from "@synnaxlabs/x";
+import { type InternalNode, useStoreApi } from "@xyflow/react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 
 import { Component } from "@/component";
 import { Key } from "@/key";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
-import { useDispatch, useSelectElementConfig } from "@/schematic/queries";
+import {
+  useDispatch,
+  useSelectAllEdges,
+  useSelectConfigs,
+  useSelectElementConfig,
+} from "@/schematic/queries";
 import { Diagram as Base } from "@/vis/diagram";
+import { internalNodeBox } from "@/vis/diagram/util";
+
+interface Endpoint {
+  position: xy.XY;
+  orientation: location.Outer;
+}
+
+// Mirrors React Flow's getHandlePosition (point on the handle's side edge, not center) so
+// the reconstructed polyline matches what the edge draws.
+const resolveEndpoint = (node: InternalNode, handleKey: string): Endpoint | null => {
+  const bounds = node.internals.handleBounds;
+  const handles = [...(bounds?.source ?? []), ...(bounds?.target ?? [])];
+  const handle = handles.find((h) => h.id === handleKey) ?? handles[0];
+  if (handle == null) return null;
+  const abs = node.internals.positionAbsolute;
+  const x = abs.x + handle.x;
+  const y = abs.y + handle.y;
+  const { width: w, height: h } = handle;
+  const orientation = handle.position as location.Outer;
+  let position: xy.XY;
+  switch (orientation) {
+    case "top":
+      position = { x: x + w / 2, y };
+      break;
+    case "right":
+      position = { x: x + w, y: y + h / 2 };
+      break;
+    case "bottom":
+      position = { x: x + w / 2, y: y + h };
+      break;
+    default:
+      position = { x, y: y + h / 2 };
+  }
+  return { position, orientation };
+};
 
 const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
   const { nodeKey } = rest;
@@ -61,10 +109,93 @@ const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
   );
 };
 
+const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const key = Key.use<string>("Schematic.EdgeJumps");
+  const edges = useSelectAllEdges({ key });
+  const edgeKeys = useMemo(() => edges.map((e) => e.key), [edges]);
+  const configs = useSelectConfigs({ key, keys: edgeKeys });
+  const store = useStoreApi();
+  const jumpsRef = useRef<Edge.Jumps.Store | null>(null);
+  jumpsRef.current ??= Edge.Jumps.create();
+  const jumps = jumpsRef.current;
+
+  const recompute = useCallback(() => {
+    const { nodeLookup, transform } = store.getState();
+    const zoom = transform[2];
+    const polylines: Edge.Jumps.Polyline[] = [];
+    edges.forEach((edge, order) => {
+      const sourceNode = nodeLookup.get(edge.source.node);
+      const targetNode = nodeLookup.get(edge.target.node);
+      if (sourceNode == null || targetNode == null) return;
+      const source = resolveEndpoint(sourceNode, edge.source.param);
+      const target = resolveEndpoint(targetNode, edge.target.param);
+      if (source == null || target == null) return;
+      const cfg = configs.get(edge.key) as { segments?: Edge.Segmented.Segment[] };
+      const middleSegments = cfg?.segments ?? [];
+      const segments =
+        middleSegments.length === 0
+          ? Edge.Segmented.createConnector({
+              sourcePos: source.position,
+              targetPos: target.position,
+              sourceOrientation: source.orientation,
+              targetOrientation: target.orientation,
+              sourceBox: internalNodeBox(sourceNode),
+              targetBox: internalNodeBox(targetNode),
+            })
+          : Edge.Segmented.stitchEdge({
+              sourceOrientation: source.orientation,
+              targetOrientation: target.orientation,
+              sourcePos: source.position,
+              targetPos: target.position,
+              middleSegments,
+            });
+      const points = Edge.Segmented.segmentsToPoints(
+        source.position,
+        segments,
+        zoom,
+        true,
+      );
+      if (points.length >= 2) polylines.push({ key: edge.key, points, order });
+    });
+    jumps.commit(Edge.Jumps.findCrossings(polylines));
+  }, [edges, configs, store, jumps]);
+
+  // Coalesce React Flow's many per-interaction store updates into one recompute per frame,
+  // skipping frames where no node geometry or zoom changed (panning, selection, hover).
+  const frameRef = useRef<number | null>(null);
+  const geometryRef = useRef("");
+  useEffect(() => {
+    recompute();
+    const schedule = (): void => {
+      if (frameRef.current != null) return;
+      frameRef.current = requestAnimationFrame(() => {
+        frameRef.current = null;
+        const { nodeLookup, transform } = store.getState();
+        let geometry = `${transform[2]}`;
+        for (const node of nodeLookup.values()) {
+          const { x, y } = node.internals.positionAbsolute;
+          geometry += `;${x},${y},${node.measured.width},${node.measured.height}`;
+        }
+        if (geometry === geometryRef.current) return;
+        geometryRef.current = geometry;
+        recompute();
+      });
+    };
+    const unsubscribe = store.subscribe(schedule);
+    return () => {
+      unsubscribe();
+      if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
+    };
+  }, [recompute, store]);
+
+  return <Edge.Jumps.Context value={jumps}>{children}</Edge.Jumps.Context>;
+};
+
 export const Diagram = Base.create({
   node: Component.renderProp(NodeRenderer),
   edge: Component.renderProp(EdgeRenderer),
   connectionLine: Component.renderProp(Edge.ConnectionLine),
+  Provider: EdgeJumpProvider,
 });
 
 export const nodeChangesToActions = (
