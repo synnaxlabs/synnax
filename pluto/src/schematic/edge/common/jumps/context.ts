@@ -18,8 +18,9 @@ const [Context, useStore] = context.create<Store>({
   providerName: "Schematic.Diagram",
 });
 
-/// @brief provides the per-edge hop store to descendant edges.
-export const Provider = Context.Provider;
+/// @brief provides the per-edge hop store to descendant edges. Render directly as
+/// `<Context value={store}>`.
+export { Context };
 
 /// @brief returns the hop points for the edge with the given key, subscribing to only
 /// that edge's hops. The returned array is reference-stable until the edge's hops change.

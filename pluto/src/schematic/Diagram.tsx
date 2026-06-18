@@ -180,7 +180,7 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
     };
   }, [recompute, store]);
 
-  return <Edge.Jumps.Provider value={jumps}>{children}</Edge.Jumps.Provider>;
+  return <Edge.Jumps.Context value={jumps}>{children}</Edge.Jumps.Context>;
 };
 
 export const Diagram = Base.create({
