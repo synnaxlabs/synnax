@@ -675,7 +675,7 @@ func ({{$s.Receiver}} {{$s.Name}}) ApplyDefaults() {{$s.Name}} {
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
-	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.GoName}}: %v", {{$s.Receiver}}.{{.GoName}})
+	v.Ternaryf("{{.FieldName}}", !{{$s.Receiver}}.{{.GoName}}.IsValid(), "invalid {{.FieldName}}: %v", {{$s.Receiver}}.{{.GoName}})
 {{- end}}
 	return v.Error()
 }

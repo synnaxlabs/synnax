@@ -104,6 +104,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		ExpectContent(resp, "types.gen.go").ToContain(
 			`v.Ternaryf("label_level"`,
 			"!c.LabelLevel.IsValid()",
+			"invalid label_level: %v",
 		)
 	})
 })
