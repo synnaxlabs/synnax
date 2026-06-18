@@ -20,7 +20,7 @@ import (
 type counter struct{ ctr *kv.AtomicInt64Counter }
 
 func openCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
-	ctr, err := kv.OpenCounter(ctx, db, key)
+	ctr, err := kv.NewCounter(ctx, db, key)
 	if err != nil {
 		return nil, err
 	}

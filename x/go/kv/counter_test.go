@@ -29,7 +29,7 @@ var _ = Describe("Counter", Ordered, func() {
 		Context("Name Counter", Ordered, func() {
 			var c *kv.AtomicInt64Counter
 			BeforeAll(func(ctx SpecContext) {
-				c = MustSucceed(kv.OpenCounter(ctx, db, []byte("test")))
+				c = MustSucceed(kv.NewCounter(ctx, db, []byte("test")))
 			})
 			It("Should create a counter with a starting value of 0", func() {
 				Expect(c.Value()).To(Equal(int64(0)))
@@ -47,28 +47,28 @@ var _ = Describe("Counter", Ordered, func() {
 		})
 		Context("Existing Counter", func() {
 			It("Should load the value of the existing counter", func(ctx SpecContext) {
-				c := MustSucceed(kv.OpenCounter(ctx, db, []byte("test-two")))
+				c := MustSucceed(kv.NewCounter(ctx, db, []byte("test-two")))
 				Expect(c.Value()).To(Equal(int64(0)))
 				MustSucceed(c.Add(ctx, 10))
 				MustSucceed(c.Add(ctx, 10))
-				cTwo := MustSucceed(kv.OpenCounter(ctx, db, []byte("test-two")))
+				cTwo := MustSucceed(kv.NewCounter(ctx, db, []byte("test-two")))
 				Expect(cTwo.Value()).To(Equal(int64(20)))
 			})
 		})
 		Describe("Value", func() {
 			It("Should return zero for a newly opened counter", func(ctx SpecContext) {
-				c := MustSucceed(kv.OpenCounter(ctx, db, []byte("value-fresh")))
+				c := MustSucceed(kv.NewCounter(ctx, db, []byte("value-fresh")))
 				Expect(c.Value()).To(Equal(int64(0)))
 			})
 			It("Should reflect the latest value after Add", func(ctx SpecContext) {
-				c := MustSucceed(kv.OpenCounter(ctx, db, []byte("value-add")))
+				c := MustSucceed(kv.NewCounter(ctx, db, []byte("value-add")))
 				MustSucceed(c.Add(ctx, 7))
 				Expect(c.Value()).To(Equal(int64(7)))
 				MustSucceed(c.Add(ctx, -3))
 				Expect(c.Value()).To(Equal(int64(4)))
 			})
 			It("Should reflect the latest value after Set", func(ctx SpecContext) {
-				c := MustSucceed(kv.OpenCounter(ctx, db, []byte("value-set")))
+				c := MustSucceed(kv.NewCounter(ctx, db, []byte("value-set")))
 				Expect(c.Set(ctx, 99)).To(Succeed())
 				Expect(c.Value()).To(Equal(int64(99)))
 			})

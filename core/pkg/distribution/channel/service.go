@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -26,9 +26,7 @@ import (
 
 // Service is the distribution-layer channel allocator. It owns the cluster-wide
 // machinery for assigning local channel keys and creating, renaming, and deleting the
-// underlying storage channels, routing each operation to the channel's leaseholder. It
-// does NOT own channel metadata — the rich channel record, its gorp table, retrieval,
-// and ontology integration live in the service layer, which drives this allocator.
+// underlying storage channels, routing each operation to the channel's leaseholder.
 type Service struct {
 	cfg    ServiceConfig
 	closer io.MultiCloser
@@ -48,7 +46,7 @@ type ServiceConfig struct {
 	// HostResolver resolves node keys to network addresses for cluster routing.
 	HostResolver node.HostResolver
 	// ClusterDB backs the local-key counters.
-	ClusterDB *gorp.DB
+	ClusterDB kv.ReadWriter
 	// TSChannel is the storage-layer time-series database where channel storage is
 	// created.
 	TSChannel *ts.DB
@@ -102,7 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			return nil, err
 		}
 	}
-	cfg.Transport.CreateServer().BindHandler(s.allocateHandler)
+	cfg.Transport.CreateServer().BindHandler(s.createHandler)
 	cfg.Transport.DeleteServer().BindHandler(s.deleteHandler)
 	cfg.Transport.RenameServer().BindHandler(s.renameHandler)
 	return s, nil

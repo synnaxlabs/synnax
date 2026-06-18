@@ -20,33 +20,36 @@ import (
 
 // AtomicInt64Counter implements a simple int64 counter that writes its value to a
 // key-value store. AtomicInt64Counter is safe for concurrent use. To create a new
-// AtomicInt64Counter, call OpenCounter.
+// AtomicInt64Counter, call NewCounter.
 type AtomicInt64Counter struct {
 	db    Writer
 	key   []byte
 	value atomic.Int64
 }
 
-// OpenCounter opens or creates a persisted counter at the given key. If
-// the counter value is found in storage, sets its internal state. If the counter
-// value is not found in storage, sets the value to 0.
-func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Counter, error) {
+// NewCounter opens or creates a persisted counter at the given key. If the counter
+// value is found in storage, sets its internal state. If the counter value is not found
+// in storage, sets the value to 0.
+func NewCounter(
+	ctx context.Context, db ReadWriter, key []byte,
+) (*AtomicInt64Counter, error) {
 	c := &AtomicInt64Counter{db: db, key: key}
 	b, closer, err := db.Get(ctx, key)
-	if err == nil {
-		c.value.Store(int64(binary.LittleEndian.Uint64(b)))
-		err = closer.Close()
-	} else if errors.Is(err, query.ErrNotFound) {
-		err = nil
+	if err != nil {
+		return nil, errors.Skip(err, query.ErrNotFound)
 	}
-	return c, err
+	c.value.Store(int64(binary.LittleEndian.Uint64(b)))
+	if err := closer.Close(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // Value returns the current counter value.
 func (c *AtomicInt64Counter) Value() int64 { return c.value.Load() }
 
-// Add increments the counter by the given delta. Returns the new counter value
-// as well as any errors encountered while flushing the counter to storage.
+// Add increments the counter by the given delta. Returns the new counter value as well
+// as any errors encountered while flushing the counter to storage.
 func (c *AtomicInt64Counter) Add(ctx context.Context, delta int64) (int64, error) {
 	next := c.value.Add(delta)
 	var buf [8]byte

@@ -15,6 +15,22 @@ import (
 	"github.com/synnaxlabs/freighter"
 )
 
+// CreateMessage is the cluster-internal allocation request/response. It carries the
+// channels to allocate local keys for and create storage for on the leaseholder, and
+// returns those channels with their assigned keys.
+type CreateMessage struct {
+	Channels []Channel
+}
+
+type RenameRequest struct {
+	Keys  Keys
+	Names []string
+}
+
+type DeleteRequest struct {
+	Keys Keys
+}
+
 type (
 	CreateTransportClient = freighter.UnaryClient[CreateMessage, CreateMessage]
 	CreateTransportServer = freighter.UnaryServer[CreateMessage, CreateMessage]
@@ -31,20 +47,4 @@ type Transport interface {
 	DeleteServer() DeleteTransportServer
 	RenameClient() RenameTransportClient
 	RenameServer() RenameTransportServer
-}
-
-// CreateMessage is the cluster-internal allocation request/response. It carries the
-// channels to allocate local keys for and create storage for on the leaseholder, and
-// returns those channels with their assigned keys.
-type CreateMessage struct {
-	Channels []Channel
-}
-
-type RenameRequest struct {
-	Keys  Keys
-	Names []string
-}
-
-type DeleteRequest struct {
-	Keys Keys
 }
