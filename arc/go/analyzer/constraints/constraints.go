@@ -183,7 +183,6 @@ func (s *System) applySubstitutions(t types.Type, visited set.Set[string]) types
 		return types.Function(types.FunctionProperties{
 			Inputs:  s.applySubstitutionsToParams(t.Inputs, visited),
 			Outputs: s.applySubstitutionsToParams(t.Outputs, visited),
-			Config:  s.applySubstitutionsToParams(t.Config, visited),
 		})
 	}
 	return t

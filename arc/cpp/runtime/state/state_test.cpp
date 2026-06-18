@@ -327,6 +327,41 @@ TEST(StateTest, OptionalInput_UseDefault) {
     ASSERT_FALSE(consumer_node.refresh_inputs());
 }
 
+/// @brief reset() re-arms literal-valued inputs so a node whose stage is
+/// re-entered runs again instead of staying consumed from its first activation.
+TEST(StateTest, Reset_RearmsLiteralInputsOnStageReentry) {
+    arc::types::Param input1_param;
+    input1_param.name = "input1";
+    input1_param.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    input1_param.value = 42.0f;
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.push_back(input1_param);
+
+    arc::ir::Function fn;
+    fn.key = "test";
+
+    arc::ir::IR ir;
+    ir.nodes.push_back(consumer);
+    ir.functions.push_back(fn);
+
+    Config cfg{.ir = ir, .channels = {}};
+    State s(cfg, arc::runtime::errors::noop_handler);
+
+    auto consumer_node = ASSERT_NIL_P(s.node("consumer"));
+
+    // Runs on first activation, then stays consumed on subsequent cycles.
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    ASSERT_FALSE(consumer_node.refresh_inputs());
+
+    // Stage re-entry must re-arm the literal input so the node runs again.
+    consumer_node.reset();
+    ASSERT_TRUE(consumer_node.refresh_inputs());
+    EXPECT_EQ(consumer_node.input(0)->at<float>(0), 42.0f);
+}
+
 /// @brief Test that connected input overrides default value
 TEST(StateTest, OptionalInput_OverrideDefault) {
     arc::types::Param output_param;
@@ -880,6 +915,33 @@ TEST(StateTest, ResetClearsBufferedAuthorityChanges) {
     s.set_authority(std::nullopt, 100);
     s.reset();
     EXPECT_TRUE(s.flush_authority_changes().empty());
+}
+
+/// @brief resolve_input maps an input name to its declaration-order index and
+/// returns NOT_FOUND for an unknown name (so a stdlib input-name typo fails at
+/// node construction, not mid-execution).
+TEST(StateTest, ResolveInput_ByNameAndMissing) {
+    arc::types::Param a;
+    a.name = "a";
+    a.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    a.value = 1.0f;
+
+    arc::types::Param b;
+    b.name = "b";
+    b.type = arc::types::Type{.kind = arc::types::Kind::F32};
+    b.value = 2.0f;
+
+    arc::ir::Node consumer;
+    consumer.key = "consumer";
+    consumer.type = "consumer";
+    consumer.inputs.push_back(a);
+    consumer.inputs.push_back(b);
+
+    const auto idx_a = ASSERT_NIL_P(consumer.resolve_input("a"));
+    EXPECT_EQ(idx_a, 0u);
+    const auto idx_b = ASSERT_NIL_P(consumer.resolve_input("b"));
+    EXPECT_EQ(idx_b, 1u);
+    ASSERT_OCCURRED_AS_P(consumer.resolve_input("missing"), x::errors::NOT_FOUND);
 }
 
 }

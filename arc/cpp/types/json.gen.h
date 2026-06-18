@@ -25,7 +25,6 @@ inline FunctionProperties FunctionProperties::parse(x::json::Parser parser) {
     return FunctionProperties{
         .inputs = parser.field<Params>("inputs"),
         .outputs = parser.field<Params>("outputs"),
-        .config = parser.field<Params>("config"),
     };
 }
 
@@ -33,7 +32,6 @@ inline x::json::json FunctionProperties::to_json() const {
     x::json::json j;
     j["inputs"] = this->inputs.to_json();
     j["outputs"] = this->outputs.to_json();
-    j["config"] = this->config.to_json();
     return j;
 }
 

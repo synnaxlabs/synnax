@@ -459,3 +459,23 @@ var _ = Describe("OP", func() {
 		})
 	})
 })
+
+var _ = Describe("Construction validation", func() {
+	DescribeTable("Should error at construction when an input param is missing",
+		func(ctx SpecContext, nodeType string) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:     "op",
+				Type:    nodeType,
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+			}}}
+			s := node.New(prog)
+			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("op")}
+			Expect(op.NewHost().Create(ctx, cfg)).Error().
+				To(MatchError(node.ErrInputNotFound))
+		},
+		Entry("binary ge", "ge"),
+		Entry("logical and", "and"),
+		Entry("logical or", "or"),
+		Entry("unary not", "not"),
+	)
+})

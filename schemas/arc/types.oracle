@@ -47,7 +47,7 @@ ChanDirection enum {
     read  = 1
     write = 2
 
-    @doc value "indicates read/write direction for channel-typed config parameters."
+    @doc value "indicates read/write direction for channel-typed parameters."
 }
 
 FunctionProperties struct {
@@ -56,9 +56,6 @@ FunctionProperties struct {
     }
     outputs Params? {
         @doc value "contains output parameter definitions."
-    }
-    config  Params? {
-        @doc value "contains configuration parameter definitions."
     }
 
     @doc value "contains common parameter definitions for function-like types."
@@ -81,7 +78,7 @@ Type struct extends FunctionProperties {
         @doc value "is the type constraint for type variables."
     }
     chan_direction  ChanDirection? {
-        @doc value "indicates read/write direction for channel-typed config parameters."
+        @doc value "indicates read/write direction for channel-typed parameters."
     }
 
     @doc value           """
@@ -110,8 +107,7 @@ Param struct {
 
 Params Param[] {
     @doc value """
-        is a collection of named, typed parameters for function inputs, outputs,
-        or configuration.
+        is a collection of named, typed parameters for function inputs or outputs.
     """
     @cpp methods  "[[nodiscard]] const Param& operator[](const std::string& name) const" "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Params& p)"
 }

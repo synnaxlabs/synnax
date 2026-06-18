@@ -41,16 +41,19 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	isEntryNode := cfg.Node.IsEntryNode(cfg.Program.Edges)
 
-	configCount := len(cfg.Node.Config)
-	params := make([]uint64, configCount+len(irFn.Inputs))
-	for i, param := range cfg.Node.Config {
-		if s, ok := param.Value.(string); ok {
-			// String config params get a stable handle that persists across Flush calls.
-			params[i] = uint64(w.Strings.CreateConfig(s))
+	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
+	// per sample in Next; literal inputs get their constant value set once here.
+	params := make([]uint64, len(irFn.Inputs))
+	for i, param := range cfg.Node.Inputs {
+		if param.Value == nil {
 			continue
 		}
-		val, err := ConvertConfigValue(param.Value)
-
+		if s, ok := param.Value.(string); ok {
+			// A literal string gets a stable handle that persists across Flush calls.
+			params[i] = uint64(w.Strings.CreateLiteral(s))
+			continue
+		}
+		val, err := ConvertLiteralValue(param.Value)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +98,6 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		outputValues:  make([]result, len(irFn.Outputs)),
 		memBase:       base,
 		params:        params,
-		configCount:   configCount,
 		offsets:       make([]int, len(irFn.Outputs)),
 		isEntryNode:   isEntryNode,
 		nodeKeySetter: w.NodeKeySetter,
@@ -106,8 +108,8 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	return n, nil
 }
 
-// ConvertConfigValue converts a config value to uint64 for WASM function calls.
-func ConvertConfigValue(v any) (uint64, error) {
+// ConvertLiteralValue converts a literal value to uint64 for WASM function calls.
+func ConvertLiteralValue(v any) (uint64, error) {
 	switch val := v.(type) {
 	case int8:
 		return uint64(val), nil
@@ -134,7 +136,7 @@ func ConvertConfigValue(v any) (uint64, error) {
 	case telem.TimeSpan:
 		return uint64(val), nil
 	default:
-		err := errors.Newf("unsupported config value type: %T", v)
+		err := errors.Newf("unsupported literal value type: %T", v)
 		zap.S().DPanic(err.Error())
 		return 0, err
 	}

@@ -30,7 +30,7 @@ var resolver = []symbol.Symbol{
 		Name: "on",
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
+			Inputs: types.Params{
 				{
 					Name: "channel",
 					Type: types.String(),
@@ -119,7 +119,7 @@ var _ = Describe("Flow Statements", func() {
 					Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-						Config:  types.Params{{Name: "period", Type: types.TimeSpan()}},
+						Inputs:  types.Params{{Name: "period", Type: types.TimeSpan()}},
 					}),
 				},
 			}
@@ -214,8 +214,7 @@ sensor_chan -> filter{5.0, 20, 30} -> sink{}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("too many config values"))
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("too many arguments"))
 		})
 
 		It("Should reject partial anonymous config missing required params", func(bCtx SpecContext) {
@@ -227,7 +226,7 @@ sensor_chan -> controller{100.0}`))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required config parameter 'gain' for func 'controller'"))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required argument for parameter 'gain' of func 'controller'"))
 		})
 
 		It("Should accept a single anonymous config value", func(bCtx SpecContext) {
@@ -270,7 +269,7 @@ sensor_chan -> filter{} -> sink{}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(
-				Equal("missing required config parameter 'threshold' for func 'filter'"),
+				Equal("missing required argument for parameter 'threshold' of func 'filter'"),
 			)
 		})
 
@@ -302,6 +301,105 @@ sensor_chan -> transform{2.5, "bad"} -> sink{}`))
 		})
 	})
 
+	Describe("Positional arguments with a trigger-first param", func() {
+		// Mirrors stdlib funcs (control.set_authority, channels.write) whose
+		// trigger is the first input param, so positional binding accounts for it.
+		triggerFirstResolver := []symbol.Symbol{
+			{
+				Name: "set_auth",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: types.Function(types.FunctionProperties{
+					Inputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
+						{Name: "value", Type: types.U8()},
+						{Name: "channel", Type: types.U8(), Value: uint8(0)},
+					},
+				}),
+				Trigger: symbol.TriggerInput(ir.DefaultOutputParam),
+			},
+			{
+				Name: "start_high_cmd",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+			},
+		}
+
+		It("Should bind a positional value to the first non-trigger param on a standalone node", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+sequence main {
+    stage done {
+        set_auth{0}
+    }
+}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should bind a positional value while the upstream feeds the trigger", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`start_high_cmd -> set_auth{200}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+
+		It("Should count only non-trigger params when rejecting too many positional values", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+sequence main {
+    stage done {
+        set_auth{0, 1, 2}
+    }
+}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, triggerFirstResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("too many arguments"))
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("expected at most 2"))
+		})
+	})
+
+	Describe("WASM functions used as flow nodes", func() {
+		wasmResolver := []symbol.Symbol{
+			{
+				Name: "compute",
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecWASM,
+				Type: types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "input", Type: types.F64()}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+				}),
+				Trigger: symbol.TriggerOnly,
+			},
+			{
+				Name: "src_chan",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F64()),
+			},
+		}
+
+		It("Should reject a WASM function wired as a flow node", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`src_chan -> compute{}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, wasmResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
+		})
+
+		It("Should reject a WASM function invoked as a standalone stage node", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+sequence main {
+    stage done {
+        compute{}
+    }
+}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, wasmResolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
+		})
+	})
+
 	Describe("Channel to func Flows", func() {
 		Context("function to function connections", func() {
 			It("Should detect when func with no output connects to func expecting input", func(bCtx SpecContext) {
@@ -327,8 +425,8 @@ producer{} -> consumer{}`))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("return type"))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("is not equal to argument type"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("trigger parameter"))
 			})
 
 			It("Should detect unit mismatch between func output and next func input", func(bCtx SpecContext) {
@@ -341,8 +439,8 @@ producer{} -> consumer{}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("return type"))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("is not equal to argument type"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("trigger parameter"))
 			})
 
 			It("Should detect when func with multiple params is used without routing table", func(bCtx SpecContext) {
@@ -356,7 +454,7 @@ source{} -> multi{}`))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(Equal("multi has more than one parameter"))
+				Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required argument for parameter 'b' of func 'multi'"))
 			})
 
 			It("Should detect when func with named outputs is chained without routing table", func(bCtx SpecContext) {
@@ -411,8 +509,8 @@ int_chan -> consumer{}`))
 				ctx := context.NewRoot(bCtx, ast, NewRoot(nil, localResolver...))
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("channel"))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
+				Expect((*ctx.Diagnostics)[0].Message).To(Equal(
+					"upstream value type i32 does not match func 'consumer' trigger parameter 'v' type f64"))
 			})
 		})
 
@@ -468,8 +566,8 @@ int_chan -> consumer{}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Complete analysis reports all missing required parameters
 			Expect(*ctx.Diagnostics).To(HaveLen(2))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required config parameter 'threshold' for func 'filter'"))
-			Expect((*ctx.Diagnostics)[1].Message).To(Equal("missing required config parameter 'output' for func 'filter'"))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required argument for parameter 'threshold' of func 'filter'"))
+			Expect((*ctx.Diagnostics)[1].Message).To(Equal("missing required argument for parameter 'output' of func 'filter'"))
 		})
 
 		It("Should allow omitting config param with default value", func(bCtx SpecContext) {
@@ -501,7 +599,7 @@ int_chan -> consumer{}`))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required config parameter 'setpoint' for func 'controller'"))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required argument for parameter 'setpoint' of func 'controller'"))
 		})
 
 		It("Should detect when func is invoked with extra parameters not in signature", func(bCtx SpecContext) {
@@ -515,7 +613,7 @@ int_chan -> consumer{}`))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for func 'simple'"))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown parameter 'extra' for func 'simple'"))
 		})
 
 		It("Should detect type mismatch in func config parameters", func(bCtx SpecContext) {
@@ -851,7 +949,7 @@ sequence main {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
 		})
 
 		It("Should analyze routing table with chained nodes", func(bCtx SpecContext) {
@@ -1771,9 +1869,9 @@ sequence main {
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			// Should fail because 'low' route is missing required config parameter
+			// Should fail because 'low' route is missing a required argument
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("missing required config parameter"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("missing required argument"))
 		})
 
 		It("Should analyze routing table with parameter mapping", func(bCtx SpecContext) {
@@ -2016,8 +2114,7 @@ sequence main {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("standalone function"))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("required input"))
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("missing required argument for parameter 'value'"))
 		})
 
 		It("Should allow standalone function with inputs that have default values", func(bCtx SpecContext) {
@@ -2109,294 +2206,114 @@ sequence main {
 	})
 })
 
-// execBothFn builds an ExecBoth function symbol with Inputs mirroring Config
-// one-for-one, matching the shape required by the symbol.ExecBoth contract.
-func execBothFn(name string, params types.Params, output types.Type) symbol.Symbol {
-	return symbol.Symbol{
-		Name: name,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecBoth,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  params,
-			Config:  params,
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: output}},
-		}),
-	}
-}
-
-func execFlowFn(name string, inputs types.Params, output types.Type) symbol.Symbol {
-	props := types.FunctionProperties{Inputs: inputs}
-	if output.Kind != types.KindInvalid {
-		props.Outputs = types.Params{{Name: ir.DefaultOutputParam, Type: output}}
-	}
-	return symbol.Symbol{
-		Name: name,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  props.Inputs,
-			Outputs: props.Outputs,
-		}),
-	}
-}
-
-var _ = Describe("upstreamIsTrigger Suppression", func() {
-	Describe("ExecBoth with non-empty Config (suppression active)", func() {
-		It("Should accept channel upstream whose value type does not match the input", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
-				{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
-				execBothFn(
-					"fmtfn",
-					types.Params{{Name: "x", Type: types.Chan(types.I32())}},
-					types.String(),
-				),
-			}
-			ast := MustSucceed(parser.Parse(`trig -> fmtfn{x=x}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should accept expression upstream whose type does not match the input", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
-				{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
-				execBothFn(
-					"fmtfn",
-					types.Params{{Name: "x", Type: types.Chan(types.I32())}},
-					types.String(),
-				),
-			}
-			ast := MustSucceed(parser.Parse(`trig > 100.0 -> fmtfn{x=x}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should accept upstream function whose output type does not match the input", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
-				execFlowFn("producer", nil, types.U8()),
-				execBothFn(
-					"fmtfn",
-					types.Params{{Name: "x", Type: types.Chan(types.I32())}},
-					types.String(),
-				),
-			}
-			ast := MustSucceed(parser.Parse(`producer{} -> fmtfn{x=x}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should accept upstream function feeding an ExecBoth fn with multiple inputs", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
-				{Name: "y", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2},
-				execFlowFn("producer", nil, types.F64()),
-				execBothFn(
-					"fmtfn",
-					types.Params{
-						{Name: "x", Type: types.Chan(types.I32())},
-						{Name: "y", Type: types.Chan(types.F64())},
-					},
-					types.String(),
-				),
-			}
-			ast := MustSucceed(parser.Parse(`producer{} -> fmtfn{x=x, y=y}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
-
-		It("Should accept void upstream function feeding an ExecBoth fn with inputs", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "x", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
-				execFlowFn("void", nil, types.Type{}),
-				execBothFn(
-					"fmtfn",
-					types.Params{{Name: "x", Type: types.Chan(types.I32())}},
-					types.String(),
-				),
-			}
-			ast := MustSucceed(parser.Parse(`void{} -> fmtfn{x=x}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+var _ = Describe("TriggerOnly upstream activation", func() {
+	It("Should accept a void func feeding a TriggerOnly func", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func void_src() {}
+		func sink{value f64} () {}
+		void_src{} -> sink{value=5.0}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	})
 
-	Describe("Non-ExecBoth (regression guards: suppression must NOT activate)", func() {
-		It("Should reject channel upstream with mismatched value type for an ExecFlow fn", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
-				execFlowFn("sink", types.Params{{Name: "v", Type: types.I32()}}, types.Type{}),
-			}
-			ast := MustSucceed(parser.Parse(`sensor -> sink{}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
-		})
-
-		It("Should reject expression upstream with mismatched type for an ExecFlow fn", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1},
-				execFlowFn("sink", types.Params{{Name: "v", Type: types.String()}}, types.Type{}),
-			}
-			ast := MustSucceed(parser.Parse(`sensor > 100.0 -> sink{}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
-		})
-
-		It("Should reject upstream function feeding an ExecFlow fn with multiple inputs", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				execFlowFn("producer", nil, types.F64()),
-				execFlowFn(
-					"multi",
-					types.Params{
-						{Name: "a", Type: types.F64()},
-						{Name: "b", Type: types.F64()},
-					},
-					types.Type{},
-				),
-			}
-			ast := MustSucceed(parser.Parse(`producer{} -> multi{}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("multi has more than one parameter"))
-		})
-
-		It("Should reject upstream function output type mismatch for an ExecFlow fn", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				execFlowFn("producer", nil, types.U8()),
-				execFlowFn("sink", types.Params{{Name: "v", Type: types.F64()}}, types.Type{}),
-			}
-			ast := MustSucceed(parser.Parse(`producer{} -> sink{}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("is not equal to argument type"))
-		})
+	It("Should not type-check a channel upstream against a TriggerOnly func", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func sink{value f64} () {}
+		sensor_chan -> sink{value=5.0}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	})
 
-	Describe("ExecBoth with empty Config (suppression NOT active)", func() {
-		It("Should treat an ExecBoth fn with empty Config like a normal flow fn", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				{
-					Name: "now",
-					Kind: symbol.KindFunction,
-					Exec: symbol.ExecBoth,
-					Type: types.Function(types.FunctionProperties{
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
-					}),
-				},
-			}
-			ast := MustSucceed(parser.Parse(`trig -> now{}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+	It("Should still reject a void func feeding a func with a wire-fed input", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func void_src() {}
+		func consumer(v f64) {}
+		void_src{} -> consumer{}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring("has no return value"))
+	})
+})
+
+var _ = Describe("Trigger call-site conflict", func() {
+	It("Should flag a param bound by both a named call-site argument and an upstream wire", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func consumer(v f64) {}
+		sensor_chan -> consumer{v=5.0}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+			"parameter 'v' of func 'consumer' is bound by both a call-site argument and an upstream wire"))
 	})
 
-	Describe("In select routing branches", func() {
-		It("Should accept a select branch routing into an ExecBoth fn with a mismatched input type", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				execBothFn(
-					"setter",
-					types.Params{
-						{Name: "key_or_name", Type: types.String()},
-						{Name: "message", Type: types.String()},
-						{Name: "variant", Type: types.String()},
-					},
-					types.String(),
-				),
-			}
-			ast := MustSucceed(parser.Parse(`
-			flag -> select{} -> {
-				true: setter{key_or_name="a", message="up", variant="info"},
-				false: setter{key_or_name="b", message="down", variant="info"}
-			}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+	It("Should reject a positional argument when the only param is the trigger", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func consumer(v f64) {}
+		sensor_chan -> consumer{5.0}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+			"too many arguments for func 'consumer': expected at most 0"))
+	})
+})
 
-		It("Should reject a select branch routing into an ExecFlow fn with a mismatched input type", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				execFlowFn("sink", types.Params{{Name: "v", Type: types.String()}}, types.Type{}),
-			}
-			ast := MustSucceed(parser.Parse(`
-			flag -> select{} -> {
-				true: sink{},
-				false: sink{}
-			}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
-		})
+var _ = Describe("Duplicate call-site argument", func() {
+	It("Should flag a parameter supplied twice by name", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func sink{v i32}() {}
+		sensor_chan -> sink{v=1, v=2}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+			"duplicate argument for parameter 'v' of func 'sink'"))
+	})
+})
 
-		It("Should reject a select branch routing into an ExecBoth fn with empty Config and a mismatched input type", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				{
-					Name: "target",
-					Kind: symbol.KindFunction,
-					Exec: symbol.ExecBoth,
-					Type: types.Function(types.FunctionProperties{
-						Inputs:  types.Params{{Name: "v", Type: types.String()}},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
-					}),
-				},
-			}
-			ast := MustSucceed(parser.Parse(`
-			flag -> select{} -> {
-				true: target{},
-				false: target{}
-			}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not match"))
-		})
+var _ = Describe("Trigger in select routing branches", func() {
+	It("Should not type-check a select branch routing into a TriggerOnly func", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func setter{key_or_name str, message str, variant str} () {}
+		start_cmd -> select{} -> {
+			true: setter{key_or_name="a", message="up", variant="info"},
+			false: setter{key_or_name="b", message="down", variant="info"}
+		}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+	})
 
-		It("Should accept select branches routing into a user-defined func with no inputs", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				execFlowFn("example_func", nil, types.Type{}),
-			}
-			ast := MustSucceed(parser.Parse(`
-			flag -> select{} -> {
-				true: example_func{},
-				false: example_func{}
-			}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+	It("Should type-check a select branch routing into a func with a wire-fed input", func(bCtx SpecContext) {
+		ast := MustSucceed(parser.Parse(`
+		func sink(v str) {}
+		start_cmd -> select{} -> {
+			true: sink{},
+			false: sink{}
+		}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring("does not match"))
+	})
 
-		It("Should accept a select chain through time.now into an i64 channel", func(bCtx SpecContext) {
-			resolver := []symbol.Symbol{
-				{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
-				{Name: "i64_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 2},
-			}
-			ast := MustSucceed(parser.Parse(`
-			import time
-			flag -> select{} -> {
-				true: time.now{} -> i64_ch,
-				false: time.now{} -> i64_ch
-			}`))
-			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
-			analyzer.AnalyzeProgram(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-		})
+	It("Should accept a select branch chaining time.now into an i64 channel", func(bCtx SpecContext) {
+		customResolver := StaticResolver{
+			{Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+			{Name: "i64_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64())},
+		}
+		ast := MustSucceed(parser.Parse(`
+		import time
+		flag -> select{} -> {
+			true: time.now{} -> i64_ch,
+			false: time.now{} -> i64_ch
+		}`))
+		ctx := context.NewRoot(bCtx, ast, NewRoot(customResolver))
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 	})
 })

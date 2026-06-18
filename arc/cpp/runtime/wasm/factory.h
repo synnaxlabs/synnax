@@ -25,7 +25,7 @@ public:
 
     std::pair<std::unique_ptr<node::Node>, x::errors::Error>
     create(node::Config &&cfg) override {
-        auto [func, err] = this->mod->func(cfg.node.type, cfg.node.config);
+        auto [func, err] = this->mod->func(cfg.node.type, cfg.node.inputs);
         if (err) return {nullptr, err};
         return {
             std::make_unique<Node>(

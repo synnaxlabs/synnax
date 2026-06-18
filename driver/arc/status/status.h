@@ -162,7 +162,7 @@ public:
     create(::arc::runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         const auto get_str = [&](const std::string &key) -> std::string {
-            const auto &p = cfg.node.config[key];
+            const auto &p = cfg.node.inputs[key];
             auto sv = ::arc::types::to_sample_value(p.value, p.type);
             if (!sv.has_value()) return "";
             const auto *s = std::get_if<std::string>(&*sv);
