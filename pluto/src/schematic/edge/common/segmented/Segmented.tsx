@@ -25,6 +25,7 @@ import {
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Base } from "@/schematic/edge/common/base";
+import { Jumps } from "@/schematic/edge/common/jumps";
 import {
   type Config,
   createConfigZ,
@@ -50,10 +51,12 @@ interface CurrentlyDragging {
 
 export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
   points: xy.XY[];
+  crossings: xy.XY[];
 }
 
 const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
   const E: Edge<Config<V>> = ({
+    edgeKey,
     source,
     target,
     sourceNode,
@@ -63,6 +66,7 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
+    const crossings = Jumps.useCrossings(edgeKey);
     const visualSegments = useMemo(() => {
       if (middleSegments.length === 0)
         return createConnector({
@@ -144,7 +148,7 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
 
     return (
       <>
-        <Path points={points} color={edgeColor} />
+        <Path points={points} crossings={crossings} color={edgeColor} />
         {selected &&
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;

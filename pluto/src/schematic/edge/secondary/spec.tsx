@@ -14,6 +14,10 @@ import { NAME, VARIANT } from "@/schematic/edge/secondary/config";
 
 const STYLE = { strokeDasharray: "12,4,4" };
 
-export const spec = Segmented.createSpec(VARIANT, NAME, ({ points, color }) => (
-  <Base.Base path={Path.rounded(points)} color={color} style={STYLE} />
-));
+export const spec = Segmented.createSpec(
+  VARIANT,
+  NAME,
+  ({ points, crossings, color }) => (
+    <Base.Base path={Path.rounded(points, crossings)} color={color} style={STYLE} />
+  ),
+);
