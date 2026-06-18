@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color, dimensions, xy } from "@synnaxlabs/x";
+import { bounds, color, dimensions, text, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
+import { scale } from "@/vis/scale/aether";
 
-export const VARIANT = "tank" as const;
+export const VARIANT = "scale" as const;
 
 export const sideZ = z.enum(["left", "right"]);
 export type Side = z.infer<typeof sideZ>;
@@ -22,16 +22,12 @@ export type Side = z.infer<typeof sideZ>;
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
   position: xy.xyZ.optional(),
-  color: color.crudeZ.optional(),
-  backgroundColor: color.crudeZ.optional(),
-  dimensions: dimensions.dimensionsZ.optional(),
-  borderRadius: Border.radiusZ.optional(),
-  // A live fill level is rendered only when telem is set, so existing tanks without
-  // telemetry render unchanged.
   telem: telem.stringSourceSpecZ.optional(),
   bounds: bounds.boundsZ().optional(),
-  fillColor: color.crudeZ.optional(),
-  showScale: z.boolean().optional(),
-  scaleSide: sideZ.optional(),
+  color: color.crudeZ.optional(),
+  style: scale.styleZ.optional(),
+  side: sideZ.optional(),
+  dimensions: dimensions.dimensionsZ.optional(),
+  level: text.levelZ.optional(),
 });
 export type Config = z.infer<typeof configZ>;

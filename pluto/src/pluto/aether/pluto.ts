@@ -34,6 +34,7 @@ import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
 import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
+import { scale } from "@/vis/scale/aether";
 import { setpoint } from "@/vis/setpoint/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { toggle } from "@/vis/toggle/aether";
@@ -68,6 +69,7 @@ export const render = (): void => {
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
     ...range.REGISTRY,
+    ...scale.REGISTRY,
     ...setpoint.REGISTRY,
     ...stateIndicator.REGISTRY,
     ...status.REGISTRY,

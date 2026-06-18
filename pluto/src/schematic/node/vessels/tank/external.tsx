@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { bounds, color } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
 import { Border } from "@/schematic/node/common/border";
@@ -29,14 +29,19 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   label: Label.defaultConfig("Tank"),
   dimensions: { width: 125, height: 200 },
   borderRadius: Border.DEFAULT_RADIUS,
+  fillColor: color.hex(t.colors.visualization.palettes.default[0]),
+  bounds: bounds.construct(0, 100),
+  showScale: false,
+  scaleSide: "left",
 });
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: "Tank",
-  Form: TankForm,
+  Form: () => <TankForm showFill />,
   Node: Symbol,
   Preview: Component.removeProps(Tank, ["dimensions"]),
   defaultConfig,
   zIndex: 2,
+  needsPosition: true,
 };
