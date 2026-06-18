@@ -51,10 +51,10 @@ ChanDirection enum {
 }
 
 FunctionProperties struct {
-    inputs  Params? {
+    inputs  Params = [] {
         @doc value "contains input parameter definitions."
     }
-    outputs Params? {
+    outputs Params = [] {
         @doc value "contains output parameter definitions."
     }
 
@@ -77,7 +77,7 @@ Type struct extends FunctionProperties {
     constraint     Type?         {
         @doc value "is the type constraint for type variables."
     }
-    chan_direction  ChanDirection? {
+    chan_direction  ChanDirection {
         @doc value "indicates read/write direction for channel-typed parameters."
     }
 
@@ -97,7 +97,7 @@ Param struct {
     type        Type    {
         @doc value "is the parameter type."
     }
-    value       any?    {
+    value       any    {
         @doc value "is an optional default value."
     }
 

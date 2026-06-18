@@ -159,9 +159,7 @@ struct Transition {
 struct Function {
     /// @brief key is the function identifier (template name).
     std::string key;
-    /// @brief body is raw source code for user-defined functions. An empty body denotes
-    /// a
-    /// built-in function.
+    /// @brief body is raw source code for user-defined functions.
     Body body;
     /// @brief inputs contains input parameter definitions.
     ::arc::types::Params inputs;

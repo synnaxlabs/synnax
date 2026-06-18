@@ -157,7 +157,7 @@ Function struct {
     key      string          {
         @doc value "is the function identifier (template name)."
     }
-    body     Body?          {
+    body     Body          {
         @doc value "is raw source code for user-defined functions."
     }
     inputs   types.Params   {

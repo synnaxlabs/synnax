@@ -618,8 +618,7 @@ type Function struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the function identifier (template name).
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// body is raw source code for user-defined functions. An empty body denotes a built-in
-	// function.
+	// body is raw source code for user-defined functions.
 	Body *Body `protobuf:"bytes,2,opt,name=body,proto3" json:"body,omitempty"`
 	// inputs contains input parameter definitions.
 	Inputs []*pb.Param `protobuf:"bytes,3,rep,name=inputs,proto3" json:"inputs,omitempty"`

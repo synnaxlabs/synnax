@@ -136,8 +136,7 @@ type Body struct {
 type Function struct {
 	// Key is the function identifier (template name).
 	Key string `json:"key" msgpack:"key"`
-	// Body is raw source code for user-defined functions. An empty body denotes a built-in
-	// function.
+	// Body is raw source code for user-defined functions.
 	Body Body `json:"body" msgpack:"body"`
 	// Inputs contains input parameter definitions.
 	Inputs types.Params `json:"inputs" msgpack:"inputs"`

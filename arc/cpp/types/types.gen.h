@@ -197,9 +197,9 @@ struct Params : private std::vector<Param> {
 /// types.
 struct FunctionProperties {
     /// @brief inputs contains input parameter definitions.
-    Params inputs;
+    Params inputs = {};
     /// @brief outputs contains output parameter definitions.
-    Params outputs;
+    Params outputs = {};
 
     static FunctionProperties parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

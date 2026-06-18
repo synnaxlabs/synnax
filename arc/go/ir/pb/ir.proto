@@ -114,8 +114,7 @@ message Body {
 message Function {
   // key is the function identifier (template name).
   string key = 1;
-  // body is raw source code for user-defined functions. An empty body denotes a built-in
-  // function.
+  // body is raw source code for user-defined functions.
   Body body = 2;
   // inputs contains input parameter definitions.
   repeated .arc.types.pb.Param inputs = 3;
