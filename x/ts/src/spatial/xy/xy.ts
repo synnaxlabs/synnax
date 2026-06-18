@@ -216,6 +216,31 @@ export const sub = (a: Crude, b: Crude): XY => {
 };
 
 /**
+ * Interprets the given coordinates as vectors and returns their dot product.
+ * @param a - The first vector.
+ * @param b - The second vector.
+ * @returns The dot product of the two vectors.
+ */
+export const dot = (a: Crude, b: Crude): number => {
+  const xy = construct(a);
+  const xy_ = construct(b);
+  return xy.x * xy_.x + xy.y * xy_.y;
+};
+
+/**
+ * Linearly interpolates between two coordinates.
+ * @param a - The coordinate at t = 0.
+ * @param b - The coordinate at t = 1.
+ * @param t - The interpolation factor, typically in [0, 1].
+ * @returns The interpolated coordinate.
+ */
+export const lerp = (a: Crude, b: Crude, t: number): XY => {
+  const xy = construct(a);
+  const xy_ = construct(b);
+  return { x: xy.x * (1 - t) + xy_.x * t, y: xy.y * (1 - t) + xy_.y * t };
+};
+
+/**
  * Interprets the given coordinates as a vector and returns the normal of the given
  * vector.
  * @param a - The coordinates to get the normal of.
