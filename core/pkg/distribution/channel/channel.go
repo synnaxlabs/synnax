@@ -41,23 +41,19 @@ func NewKey(nodeKey node.Key, localKey LocalKey) Key {
 	return Key(k1 | k2)
 }
 
+// Lease implements the proxy.Entry interface, which routes Channel operations to the
+// correct node in the cluster.
+func (k Key) Lease() node.Key { return node.Key(k >> 20) }
+
 // LocalKey returns the local key for the Key.
 func (k Key) LocalKey() LocalKey { return LocalKey(k & 0xFFFFF) }
 
-// Leaseholder returns the id of the node embedded in the key. This node is the
-// leaseholder node for the Channel.
-func (k Key) Leaseholder() node.Key { return node.Key(k >> 20) }
-
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
-func (k Key) Free() bool { return k.Leaseholder() == node.KeyFree }
+func (k Key) Free() bool { return k.Lease() == node.KeyFree }
 
 // StorageKey returns the storage layer representation of the channel key.
 func (k Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(k) }
-
-// Lease implements the proxy.Entry interface, which routes Channel operations to the
-// correct node in the cluster.
-func (k Key) Lease() node.Key { return k.Leaseholder() }
 
 // String implements fmt.Stringer.
 func (k Key) String() string { return strconv.FormatUint(uint64(k), 10) }
@@ -76,15 +72,17 @@ func KeysFromUint32(keys []uint32) Keys {
 	return unsafe.ReinterpretSlice[uint32, Key](keys)
 }
 
-// Storage returns the storage layer representation of the channel keys.
-func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
-
-// Uint32 converts the Keys to a slice of uint32.
+// Uint32 converts the Keys to a slice of uint32. NOTE: This does not copy the slice, it
+// just reinterprets the memory.
 func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k) }
+
+// Storage returns the storage layer representation of the channel keys. NOTE: This does
+// not copy the slice, it just reinterprets the memory.
+func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 
 // UniqueLeaseholders returns a slice of all UNIQUE leaseholders for the given Keys.
 func (k Keys) UniqueLeaseholders() []node.Key {
-	return lo.UniqMap(k, func(key Key, _ int) node.Key { return key.Leaseholder() })
+	return lo.UniqMap(k, func(key Key, _ int) node.Key { return key.Lease() })
 }
 
 // Contains returns true if the slice contains the given key, false otherwise.
@@ -118,15 +116,6 @@ type Channel struct {
 	Concurrency control.Concurrency
 }
 
-// String implements stringer, returning a nicely formatted string representation of the
-// Channel.
-func (c Channel) String() string {
-	if c.Name != "" {
-		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key())
-	}
-	return fmt.Sprintf("<%d>", c.Key())
-}
-
 // Key returns the key for the Channel.
 func (c Channel) Key() Key { return NewKey(c.Leaseholder, c.LocalKey) }
 
@@ -144,6 +133,15 @@ func (c Channel) Lease() node.Key { return c.Leaseholder }
 // Free returns true if the channel is leased to a particular node i.e. it is not a
 // non-leased virtual channel.
 func (c Channel) Free() bool { return c.Leaseholder == node.KeyFree }
+
+// String implements stringer, returning a nicely formatted string representation of the
+// Channel.
+func (c Channel) String() string {
+	if c.Name != "" {
+		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key())
+	}
+	return fmt.Sprintf("<%d>", c.Key())
+}
 
 // Storage returns the storage layer representation of the channel for creation in the
 // storage ts.DB.

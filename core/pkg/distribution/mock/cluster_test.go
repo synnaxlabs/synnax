@@ -42,7 +42,7 @@ var _ = Describe("Cluster", func() {
 			}
 
 			Expect(coreOne.CreateChannel(ctx, &ch)).To(Succeed())
-			Expect(ch.Key().Leaseholder()).To(Equal(node.Key(1)))
+			Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 
 			Eventually(func(g Gomega) {
 				var resChs []channel.Channel

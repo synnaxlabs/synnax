@@ -38,7 +38,7 @@ var _ = Describe("Create", Ordered, func() {
 			{Name: "gateway", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: host},
 		}))
 		Expect(out[0].LocalKey).ToNot(BeZero())
-		Expect(out[0].Key().Leaseholder()).To(Equal(host))
+		Expect(out[0].Key().Lease()).To(Equal(host))
 		stored := MustSucceed(n.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()))
 		Expect(stored.Name).To(Equal("gateway"))
 	})
@@ -68,7 +68,7 @@ var _ = Describe("Create", Ordered, func() {
 			{Name: "free", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
 		}))
 		Expect(out[0].LocalKey).ToNot(BeZero())
-		Expect(out[0].Key().Leaseholder()).To(Equal(node.KeyFree))
+		Expect(out[0].Key().Lease()).To(Equal(node.KeyFree))
 		Expect(n.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
 			MatchError(query.ErrNotFound),
 		)
@@ -92,7 +92,7 @@ var _ = Describe("Create", Ordered, func() {
 				{Name: "remote", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
 			}))
 			Expect(out[0].LocalKey).ToNot(BeZero())
-			Expect(out[0].Key().Leaseholder()).To(Equal(peer.Cluster.HostKey()))
+			Expect(out[0].Key().Lease()).To(Equal(peer.Cluster.HostKey()))
 			stored := MustSucceed(peer.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()))
 			Expect(stored.Name).To(Equal("remote"))
 			Expect(gateway.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(

@@ -21,25 +21,21 @@ import (
 )
 
 var _ = Describe("Key", func() {
-	Describe("Construction", func() {
+	Describe("NewKey", func() {
 		It("Should return the correct leaseholder for the key", func() {
 			k := channel.NewKey(node.Key(1), 1)
-			Expect(k.Leaseholder()).To(Equal(node.Key(1)))
+			Expect(k.Lease()).To(Equal(node.Key(1)))
 		})
 		It("Should return the correct localKey for the key", func() {
 			k := channel.NewKey(node.Key(1), 2)
 			Expect(k.LocalKey()).To(Equal(channel.LocalKey(2)))
 		})
 		It("Should correctly handle the maximum value of a 12 bit node key and 20 bit cesium key", func() {
-			k := channel.NewKey(node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20))
-			Expect(k.Leaseholder()).To(Equal(node.Key(math.MaxUint12)))
+			k := channel.NewKey(
+				node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20),
+			)
+			Expect(k.Lease()).To(Equal(node.Key(math.MaxUint12)))
 			Expect(k.LocalKey()).To(Equal(channel.LocalKey(math.MaxUint20)))
-		})
-	})
-	Describe("Lease", func() {
-		It("Should return the leaseholder node Name", func() {
-			k := channel.NewKey(node.Key(1), 1)
-			Expect(k.Lease()).To(Equal(k.Leaseholder()))
 		})
 	})
 	Describe("Free", func() {
@@ -47,7 +43,7 @@ var _ = Describe("Key", func() {
 			k := channel.NewKey(node.KeyFree, 1)
 			Expect(k.Free()).To(BeTrue())
 		})
-		It("Should return false if the channel is not a free channel", func() {
+		It("Should return false if the channel is leased to a node", func() {
 			k := channel.NewKey(node.Key(1), 1)
 			Expect(k.Free()).To(BeFalse())
 		})
@@ -57,11 +53,20 @@ var _ = Describe("Key", func() {
 			Expect(channel.Key(42).StorageKey()).To(Equal(ts.ChannelKey(42)))
 		})
 	})
-	Describe("String", func() {
-		It("Should return the decimal string representation of the key", func() {
-			Expect(channel.Key(42).String()).To(Equal("42"))
-		})
-	})
+	DescribeTable("String", func(k channel.Key, expected string) {
+		Expect(k.String()).To(Equal(expected))
+	},
+		Entry("Should return the string representation of the key",
+			channel.Key(42),
+			"42",
+		),
+		Entry("Should work for 0", channel.Key(0), "0"),
+		Entry(
+			"Should work for max value",
+			channel.NewKey(node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20)),
+			"4294967295",
+		),
+	)
 })
 
 var _ = Describe("Keys", func() {
@@ -85,16 +90,6 @@ var _ = Describe("Keys", func() {
 			Expect(keys).To(Equal(channel.Keys{1, 2, 3}))
 		})
 	})
-	Describe("UniqueLeaseholders", func() {
-		It("Should return a slice of the unique node ids for a set of keys", func() {
-			ids := channel.Keys{
-				channel.NewKey(node.Key(1), 2),
-				channel.NewKey(node.Key(3), 4),
-				channel.NewKey(node.Key(1), 2),
-			}
-			Expect(ids.UniqueLeaseholders()).To(ConsistOf([]node.Key{1, 3}))
-		})
-	})
 	Describe("Uint32", func() {
 		It("Should correctly reinterpret the keys as a slice of uint32", func() {
 			keys := channel.Keys{1, 2, 3}
@@ -105,6 +100,16 @@ var _ = Describe("Keys", func() {
 		It("Should correctly return the storage representation of the keys", func() {
 			keys := channel.Keys{1, 2, 3}
 			Expect(keys.Storage()).To(Equal([]ts.ChannelKey{1, 2, 3}))
+		})
+	})
+	Describe("UniqueLeaseholders", func() {
+		It("Should return a slice of the unique node ids for a set of keys", func() {
+			ids := channel.Keys{
+				channel.NewKey(node.Key(1), 2),
+				channel.NewKey(node.Key(3), 4),
+				channel.NewKey(node.Key(1), 2),
+			}
+			Expect(ids.UniqueLeaseholders()).To(ConsistOf([]node.Key{1, 3}))
 		})
 	})
 	Describe("Contains", func() {

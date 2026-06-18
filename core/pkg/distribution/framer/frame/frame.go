@@ -51,7 +51,7 @@ func Alloc(cap int) Frame { return Frame{telem.AllocFrame[channel.Key](cap)} }
 func (f Frame) SplitByLeaseholder() map[node.Key]Frame {
 	frames := make(map[node.Key]Frame)
 	for key, ser := range f.Entries() {
-		nodeKey := key.Leaseholder()
+		nodeKey := key.Lease()
 		frames[nodeKey] = frames[nodeKey].Append(key, ser)
 	}
 	return frames
@@ -64,9 +64,9 @@ func (f Frame) SplitByLeaseholder() map[node.Key]Frame {
 //   - free: contains series for channels that are not leased by any host
 func (f Frame) SplitByHost(host node.Key) (local Frame, remote Frame, free Frame) {
 	for key, series := range f.Entries() {
-		if key.Leaseholder() == host {
+		if key.Lease() == host {
 			local = local.Append(key, series)
-		} else if key.Leaseholder().IsFree() {
+		} else if key.Lease().IsFree() {
 			free = free.Append(key, series)
 		} else {
 			remote = remote.Append(key, series)
