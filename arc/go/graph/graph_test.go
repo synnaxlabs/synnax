@@ -109,7 +109,7 @@ var _ = Describe("Graph", func() {
 				Functions: []ir.Function{
 					{
 						Key: "on",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.Chan(types.F32())},
 						},
 						Outputs: types.Params{
@@ -117,8 +117,7 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					{
-						Key:    "printer",
-						Config: types.Params{},
+						Key: "printer",
 						Inputs: types.Params{
 							{Name: ir.DefaultInputParam, Type: types.F32()},
 						},
@@ -157,7 +156,7 @@ var _ = Describe("Graph", func() {
 			firstNode := inter.Nodes[0]
 			Expect(firstNode.Key).To(Equal("first"))
 			Expect(firstNode.Type).To(Equal("on"))
-			Expect(firstNode.Config).To(HaveLen(1))
+			Expect(firstNode.Inputs).To(HaveLen(1))
 			Expect(firstNode.Channels.Read).To(HaveLen(1))
 		})
 
@@ -615,7 +614,7 @@ var _ = Describe("Graph", func() {
 				functions := []ir.Function{
 					{
 						Key: "on",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.U32()},
 						},
 						Outputs: types.Params{
@@ -624,7 +623,7 @@ var _ = Describe("Graph", func() {
 					},
 					{
 						Key: "constant",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "value", Type: types.Variable("A", &constraint)},
 						},
 						Outputs: types.Params{
@@ -643,10 +642,8 @@ var _ = Describe("Graph", func() {
 					},
 					{
 						Key: "stable_for",
-						Config: types.Params{
-							{Name: "duration", Type: types.TimeSpan()},
-						},
 						Inputs: types.Params{
+							{Name: "duration", Type: types.TimeSpan()},
 							{Name: ir.DefaultInputParam, Type: types.Variable("C", nil)},
 						},
 						Outputs: types.Params{
@@ -665,11 +662,6 @@ var _ = Describe("Graph", func() {
 					},
 					{
 						Key: "status.set",
-						Config: types.Params{
-							{Name: "key_or_name", Type: types.String()},
-							{Name: "message", Type: types.String()},
-							{Name: "variant", Type: types.String()},
-						},
 						Inputs: types.Params{
 							{Name: "key_or_name", Type: types.String(), Value: ""},
 							{Name: "message", Type: types.String(), Value: ""},
@@ -758,7 +750,7 @@ var _ = Describe("Graph", func() {
 				Functions: []ir.Function{
 					{
 						Key: "on",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.Chan(types.F64())},
 						},
 						Outputs: types.Params{
@@ -798,7 +790,7 @@ var _ = Describe("Graph", func() {
 				Functions: []ir.Function{
 					{
 						Key: "on",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.Chan(types.F64())},
 						},
 						Outputs: types.Params{
@@ -1117,7 +1109,7 @@ var _ = Describe("Graph", func() {
 				Functions: []ir.Function{
 					{
 						Key: "on",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.Chan(types.U8())},
 						},
 						Outputs: types.Params{
@@ -1160,7 +1152,7 @@ var _ = Describe("Graph", func() {
 				Functions: []ir.Function{
 					{
 						Key: "on",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.Chan(types.U8())},
 						},
 						Outputs: types.Params{
@@ -1205,7 +1197,7 @@ var _ = Describe("Graph", func() {
 				Functions: []ir.Function{
 					{
 						Key: "on",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "channel", Type: types.Chan(types.U8())},
 						},
 						Outputs: types.Params{
@@ -1237,13 +1229,10 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			statusFnType := types.Function(types.FunctionProperties{
-				Config: types.Params{
+				Inputs: types.Params{
 					{Name: "key_or_name", Type: types.String()},
 					{Name: "message", Type: types.String()},
 					{Name: "variant", Type: types.String()},
-				},
-				Inputs: types.Params{
-					{Name: ir.DefaultOutputParam, Type: types.U8()},
 				},
 			})
 			statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}

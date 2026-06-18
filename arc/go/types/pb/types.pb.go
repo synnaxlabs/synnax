@@ -140,7 +140,7 @@ func (Kind) EnumDescriptor() ([]byte, []int) {
 	return file_arc_go_types_pb_types_proto_rawDescGZIP(), []int{0}
 }
 
-// ChanDirection indicates read/write direction for channel-typed config parameters.
+// ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection int32
 
 const (
@@ -196,9 +196,7 @@ type FunctionProperties struct {
 	// inputs contains input parameter definitions.
 	Inputs []*Param `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// outputs contains output parameter definitions.
-	Outputs []*Param `protobuf:"bytes,2,rep,name=outputs,proto3" json:"outputs,omitempty"`
-	// config contains configuration parameter definitions.
-	Config        []*Param `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
+	Outputs       []*Param `protobuf:"bytes,2,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -247,13 +245,6 @@ func (x *FunctionProperties) GetOutputs() []*Param {
 	return nil
 }
 
-func (x *FunctionProperties) GetConfig() []*Param {
-	if x != nil {
-		return x.Config
-	}
-	return nil
-}
-
 // Type is a type in Arc's type system with optional element type for compounds,
 // physical units, and constraints.
 type Type struct {
@@ -262,20 +253,18 @@ type Type struct {
 	Inputs []*Param `protobuf:"bytes,1,rep,name=inputs,proto3" json:"inputs,omitempty"`
 	// outputs contains output parameter definitions.
 	Outputs []*Param `protobuf:"bytes,2,rep,name=outputs,proto3" json:"outputs,omitempty"`
-	// config contains configuration parameter definitions.
-	Config []*Param `protobuf:"bytes,3,rep,name=config,proto3" json:"config,omitempty"`
 	// kind is the type category (primitive, compound, or meta-type).
-	Kind Kind `protobuf:"varint,4,opt,name=kind,proto3,enum=arc.types.pb.Kind" json:"kind,omitempty"`
+	Kind Kind `protobuf:"varint,3,opt,name=kind,proto3,enum=arc.types.pb.Kind" json:"kind,omitempty"`
 	// name is the type name for variables and user-defined types.
-	Name string `protobuf:"bytes,5,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,4,opt,name=name,proto3" json:"name,omitempty"`
 	// elem is the element type for compound types (chan, series).
-	Elem *Type `protobuf:"bytes,6,opt,name=elem,proto3,oneof" json:"elem,omitempty"`
+	Elem *Type `protobuf:"bytes,5,opt,name=elem,proto3,oneof" json:"elem,omitempty"`
 	// unit is the physical unit metadata for dimensional analysis.
-	Unit *Unit `protobuf:"bytes,7,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
+	Unit *Unit `protobuf:"bytes,6,opt,name=unit,proto3,oneof" json:"unit,omitempty"`
 	// constraint is the type constraint for type variables.
-	Constraint *Type `protobuf:"bytes,8,opt,name=constraint,proto3,oneof" json:"constraint,omitempty"`
-	// chan_direction indicates read/write direction for channel-typed config parameters.
-	ChanDirection ChanDirection `protobuf:"varint,9,opt,name=chan_direction,json=chanDirection,proto3,enum=arc.types.pb.ChanDirection" json:"chan_direction,omitempty"`
+	Constraint *Type `protobuf:"bytes,7,opt,name=constraint,proto3,oneof" json:"constraint,omitempty"`
+	// chan_direction indicates read/write direction for channel-typed parameters.
+	ChanDirection ChanDirection `protobuf:"varint,8,opt,name=chan_direction,json=chanDirection,proto3,enum=arc.types.pb.ChanDirection" json:"chan_direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -320,13 +309,6 @@ func (x *Type) GetInputs() []*Param {
 func (x *Type) GetOutputs() []*Param {
 	if x != nil {
 		return x.Outputs
-	}
-	return nil
-}
-
-func (x *Type) GetConfig() []*Param {
-	if x != nil {
-		return x.Config
 	}
 	return nil
 }
@@ -671,23 +653,21 @@ var File_arc_go_types_pb_types_proto protoreflect.FileDescriptor
 
 const file_arc_go_types_pb_types_proto_rawDesc = "" +
 	"\n" +
-	"\x1barc/go/types/pb/types.proto\x12\farc.types.pb\"\x9d\x01\n" +
+	"\x1barc/go/types/pb/types.proto\x12\farc.types.pb\"p\n" +
 	"\x12FunctionProperties\x12+\n" +
 	"\x06inputs\x18\x01 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
-	"\aoutputs\x18\x02 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x12+\n" +
-	"\x06config\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06config\"\xc3\x03\n" +
+	"\aoutputs\x18\x02 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\"\x96\x03\n" +
 	"\x04Type\x12+\n" +
 	"\x06inputs\x18\x01 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
-	"\aoutputs\x18\x02 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x12+\n" +
-	"\x06config\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06config\x12&\n" +
-	"\x04kind\x18\x04 \x01(\x0e2\x12.arc.types.pb.KindR\x04kind\x12\x12\n" +
-	"\x04name\x18\x05 \x01(\tR\x04name\x12+\n" +
-	"\x04elem\x18\x06 \x01(\v2\x12.arc.types.pb.TypeH\x00R\x04elem\x88\x01\x01\x12+\n" +
-	"\x04unit\x18\a \x01(\v2\x12.arc.types.pb.UnitH\x01R\x04unit\x88\x01\x01\x127\n" +
+	"\aoutputs\x18\x02 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x12&\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x12.arc.types.pb.KindR\x04kind\x12\x12\n" +
+	"\x04name\x18\x04 \x01(\tR\x04name\x12+\n" +
+	"\x04elem\x18\x05 \x01(\v2\x12.arc.types.pb.TypeH\x00R\x04elem\x88\x01\x01\x12+\n" +
+	"\x04unit\x18\x06 \x01(\v2\x12.arc.types.pb.UnitH\x01R\x04unit\x88\x01\x01\x127\n" +
 	"\n" +
-	"constraint\x18\b \x01(\v2\x12.arc.types.pb.TypeH\x02R\n" +
+	"constraint\x18\a \x01(\v2\x12.arc.types.pb.TypeH\x02R\n" +
 	"constraint\x88\x01\x01\x12B\n" +
-	"\x0echan_direction\x18\t \x01(\x0e2\x1b.arc.types.pb.ChanDirectionR\rchanDirectionB\a\n" +
+	"\x0echan_direction\x18\b \x01(\x0e2\x1b.arc.types.pb.ChanDirectionR\rchanDirectionB\a\n" +
 	"\x05_elemB\a\n" +
 	"\x05_unitB\r\n" +
 	"\v_constraint\"Y\n" +
@@ -782,24 +762,22 @@ var file_arc_go_types_pb_types_proto_goTypes = []any{
 var file_arc_go_types_pb_types_proto_depIdxs = []int32{
 	4,  // 0: arc.types.pb.FunctionProperties.inputs:type_name -> arc.types.pb.Param
 	4,  // 1: arc.types.pb.FunctionProperties.outputs:type_name -> arc.types.pb.Param
-	4,  // 2: arc.types.pb.FunctionProperties.config:type_name -> arc.types.pb.Param
-	4,  // 3: arc.types.pb.Type.inputs:type_name -> arc.types.pb.Param
-	4,  // 4: arc.types.pb.Type.outputs:type_name -> arc.types.pb.Param
-	4,  // 5: arc.types.pb.Type.config:type_name -> arc.types.pb.Param
-	0,  // 6: arc.types.pb.Type.kind:type_name -> arc.types.pb.Kind
-	3,  // 7: arc.types.pb.Type.elem:type_name -> arc.types.pb.Type
-	7,  // 8: arc.types.pb.Type.unit:type_name -> arc.types.pb.Unit
-	3,  // 9: arc.types.pb.Type.constraint:type_name -> arc.types.pb.Type
-	1,  // 10: arc.types.pb.Type.chan_direction:type_name -> arc.types.pb.ChanDirection
-	3,  // 11: arc.types.pb.Param.type:type_name -> arc.types.pb.Type
-	8,  // 12: arc.types.pb.Channels.read:type_name -> arc.types.pb.Channels.ReadEntry
-	9,  // 13: arc.types.pb.Channels.write:type_name -> arc.types.pb.Channels.WriteEntry
-	6,  // 14: arc.types.pb.Unit.dimensions:type_name -> arc.types.pb.Dimensions
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	4,  // 2: arc.types.pb.Type.inputs:type_name -> arc.types.pb.Param
+	4,  // 3: arc.types.pb.Type.outputs:type_name -> arc.types.pb.Param
+	0,  // 4: arc.types.pb.Type.kind:type_name -> arc.types.pb.Kind
+	3,  // 5: arc.types.pb.Type.elem:type_name -> arc.types.pb.Type
+	7,  // 6: arc.types.pb.Type.unit:type_name -> arc.types.pb.Unit
+	3,  // 7: arc.types.pb.Type.constraint:type_name -> arc.types.pb.Type
+	1,  // 8: arc.types.pb.Type.chan_direction:type_name -> arc.types.pb.ChanDirection
+	3,  // 9: arc.types.pb.Param.type:type_name -> arc.types.pb.Type
+	8,  // 10: arc.types.pb.Channels.read:type_name -> arc.types.pb.Channels.ReadEntry
+	9,  // 11: arc.types.pb.Channels.write:type_name -> arc.types.pb.Channels.WriteEntry
+	6,  // 12: arc.types.pb.Unit.dimensions:type_name -> arc.types.pb.Dimensions
+	13, // [13:13] is the sub-list for method output_type
+	13, // [13:13] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_types_pb_types_proto_init() }

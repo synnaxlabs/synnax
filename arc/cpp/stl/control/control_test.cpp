@@ -50,8 +50,8 @@ private:
         ir::Node ir_node;
         ir_node.key = "set_auth";
         ir_node.type = "set_authority";
-        ir_node.config.push_back(authority_param);
-        ir_node.config.push_back(channel_param);
+        ir_node.inputs.push_back(authority_param);
+        ir_node.inputs.push_back(channel_param);
 
         ir::Function fn;
         fn.key = "test";
@@ -74,7 +74,7 @@ runtime::node::Context make_context() {
 TEST(SetAuthorityModuleTest, ReturnsErrorForNullAuthorityValue) {
     TestSetup setup(100, 42);
     auto ir_node = setup.ir.nodes[0];
-    for (auto &p: ir_node.config)
+    for (auto &p: ir_node.inputs)
         if (p.name == "value") p.value = nullptr;
 
     control::Module module(setup.state);

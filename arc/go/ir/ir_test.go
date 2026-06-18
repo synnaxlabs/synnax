@@ -98,10 +98,13 @@ var _ = Describe("IR", func() {
 				Functions: ir.Functions{{Key: "add", Inputs: inputs, Outputs: outputs}},
 				Nodes: ir.Nodes{
 					{
-						Key:     "node1",
-						Type:    "add",
-						Config:  types.Params{{Name: "multiplier", Type: types.F64(), Value: 2.0}},
-						Inputs:  inputs,
+						Key:  "node1",
+						Type: "add",
+						Inputs: types.Params{
+							{Name: "multiplier", Type: types.F64(), Value: 2.0},
+							{Name: "a", Type: types.I64()},
+							{Name: "b", Type: types.I64()},
+						},
 						Outputs: outputs,
 					},
 				},
@@ -219,10 +222,12 @@ var _ = Describe("IR", func() {
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 					}},
 					Nodes: ir.Nodes{{
-						Key:     "node1",
-						Type:    "add",
-						Config:  types.Params{{Name: "k", Type: types.I64(), Value: int64(1)}},
-						Inputs:  types.Params{{Name: "a", Type: types.I64()}},
+						Key:  "node1",
+						Type: "add",
+						Inputs: types.Params{
+							{Name: "k", Type: types.I64(), Value: int64(1)},
+							{Name: "a", Type: types.I64()},
+						},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 					}},
 					Edges: ir.Edges{{

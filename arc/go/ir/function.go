@@ -19,7 +19,6 @@ import (
 // Type returns the type signature of f.
 func (f Function) Type() types.Type {
 	return types.Function(types.FunctionProperties{
-		Config:  f.Config,
 		Inputs:  f.Inputs,
 		Outputs: f.Outputs,
 	})
@@ -47,26 +46,16 @@ func (f Function) stringWithPrefix(prefix string) string {
 	b.WriteString(f.Key)
 	b.WriteString("\n")
 
-	hasConfig := len(f.Config) > 0
 	hasInputs := len(f.Inputs) > 0
 	hasOutputs := len(f.Outputs) > 0
 
 	// Channels
-	isLast := !hasConfig && !hasInputs && !hasOutputs
+	isLast := !hasInputs && !hasOutputs
 	b.WriteString(prefix)
 	b.WriteString(TreePrefix(isLast))
 	b.WriteString("channels: ")
 	b.WriteString(formatChannels(f.Channels))
 	b.WriteString("\n")
-
-	if hasConfig {
-		isLast = !hasInputs && !hasOutputs
-		b.WriteString(prefix)
-		b.WriteString(TreePrefix(isLast))
-		b.WriteString("config: ")
-		b.WriteString(formatParams(f.Config))
-		b.WriteString("\n")
-	}
 
 	if hasInputs {
 		isLast = !hasOutputs

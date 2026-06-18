@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package runtime_test
+package task_test
 
 import (
 	"context"
@@ -25,8 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -73,7 +73,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	newFactoryWith := func(getModule func(context.Context, uuid.UUID) (svcarc.Arc, error)) driver.Factory {
-		return MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+		return MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 			Channel:    channelmock.ChannelService(dist),
 			Framer:     dist.Framer,
 			Status:     statusSvc,
@@ -105,7 +105,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	}
 
-	configToMap := func(cfg runtime.TaskConfig) map[string]any {
+	configToMap := func(cfg arctask.Config) map[string]any {
 		cfgJSON := MustSucceed(json.Marshal(cfg))
 		var cfgMap map[string]any
 		Expect(json.Unmarshal(cfgJSON, &cfgMap)).To(Succeed())
@@ -116,8 +116,8 @@ var _ = Describe("Task", Ordered, func() {
 		svcTask := task.Task{
 			Key:    task.NewKey(rack.NewKey(1, 1), 1),
 			Name:   "test-task",
-			Type:   runtime.TaskType,
-			Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+			Type:   arctask.Type,
+			Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 		}
 		return MustSucceed(factory.ConfigureTask(ctx, svcTask))
 	}
@@ -208,7 +208,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("Factory.ConfigureTask", func() {
 		It("Should return ErrTaskNotHandled for non-arc task types", func(ctx SpecContext) {
-			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 				Channel: channelmock.ChannelService(dist),
 				Framer:  dist.Framer,
 				Status:  statusSvc,
@@ -233,7 +233,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should return error for invalid config", func(ctx SpecContext) {
-			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 				Channel:    channelmock.ChannelService(dist),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
@@ -241,7 +241,7 @@ var _ = Describe("Task", Ordered, func() {
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
-				Type:   runtime.TaskType,
+				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
@@ -249,7 +249,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should return error when CompileProgram fails", func(ctx SpecContext) {
-			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 				Channel:    channelmock.ChannelService(dist),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
@@ -257,15 +257,15 @@ var _ = Describe("Task", Ordered, func() {
 			}))
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should set error status when config is invalid", func(ctx SpecContext) {
-			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 				Channel:    channelmock.ChannelService(dist),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
@@ -274,7 +274,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 2),
 				Name:   "test-invalid-config",
-				Type:   runtime.TaskType,
+				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
@@ -289,7 +289,7 @@ var _ = Describe("Task", Ordered, func() {
 		})
 
 		It("Should set error status when GetProgram fails", func(ctx SpecContext) {
-			factory := MustSucceed(runtime.NewFactory(runtime.FactoryConfig{
+			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
 				Channel:    channelmock.ChannelService(dist),
 				Framer:     dist.Framer,
 				Status:     statusSvc,
@@ -298,8 +298,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 3),
 				Name:   "test-module-not-found",
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
 				To(MatchError(query.ErrNotFound))
@@ -322,8 +322,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 4),
 				Name:   "test-config-success",
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(
 				newGraphFactory(simpleGraph(ch.Key())).
@@ -350,8 +350,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:  task.NewKey(rack.NewKey(1, 1), 5),
 				Name: "test-auto-start",
-				Type: runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{
+				Type: arctask.Type,
+				Config: configToMap(arctask.Config{
 					ArcKey:    uuid.New(),
 					AutoStart: true,
 				}),
@@ -430,8 +430,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Name:   "test-bad-node",
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			Expect(newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask)).
 				Error().To(MatchError(ContainSubstring("undefined symbol")))
@@ -547,8 +547,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 42),
 				Name:   "test-status-report",
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
@@ -1330,8 +1330,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 100),
 				Name:   "test-div-zero",
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
@@ -1451,8 +1451,8 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 101),
 				Name:   "test-div-recover",
-				Type:   runtime.TaskType,
-				Config: configToMap(runtime.TaskConfig{ArcKey: uuid.New()}),
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
 

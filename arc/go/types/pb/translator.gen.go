@@ -27,14 +27,9 @@ func FunctionPropertiesToPB(r types.FunctionProperties) (*FunctionProperties, er
 	if err != nil {
 		return nil, err
 	}
-	configVal, err := ParamsToPB(r.Config)
-	if err != nil {
-		return nil, err
-	}
 	pb := &FunctionProperties{
 		Inputs:  inputsVal,
 		Outputs: outputsVal,
-		Config:  configVal,
 	}
 	return pb, nil
 }
@@ -51,10 +46,6 @@ func FunctionPropertiesFromPB(pb *FunctionProperties) (types.FunctionProperties,
 		return types.FunctionProperties{}, err
 	}
 	r.Outputs, err = ParamsFromPB(pb.Outputs)
-	if err != nil {
-		return types.FunctionProperties{}, err
-	}
-	r.Config, err = ParamsFromPB(pb.Config)
 	if err != nil {
 		return types.FunctionProperties{}, err
 	}
@@ -97,10 +88,6 @@ func TypeToPB(r types.Type) (*Type, error) {
 	if err != nil {
 		return nil, err
 	}
-	configVal, err := ParamsToPB(r.Config)
-	if err != nil {
-		return nil, err
-	}
 	kindVal, err := KindToPB(r.Kind)
 	if err != nil {
 		return nil, err
@@ -113,7 +100,6 @@ func TypeToPB(r types.Type) (*Type, error) {
 		Name:          r.Name,
 		Inputs:        inputsVal,
 		Outputs:       outputsVal,
-		Config:        configVal,
 		Kind:          kindVal,
 		ChanDirection: chanDirectionVal,
 	}
@@ -153,10 +139,6 @@ func TypeFromPB(pb *Type) (types.Type, error) {
 		return types.Type{}, err
 	}
 	r.Outputs, err = ParamsFromPB(pb.Outputs)
-	if err != nil {
-		return types.Type{}, err
-	}
-	r.Config, err = ParamsFromPB(pb.Config)
 	if err != nil {
 		return types.Type{}, err
 	}

@@ -29,6 +29,7 @@
 namespace arc::stl::math {
 
 inline constexpr const char *MODULE_NAME = "math";
+inline constexpr const char *RESET_INPUT_PARAM = "reset";
 
 template<typename T>
 T int_pow(T base, T exp) {
@@ -75,7 +76,8 @@ private:
     int64_t sample_count = 0;
     x::telem::TimeStamp start_time{0};
     x::telem::TimeStamp last_reset_time{0};
-    int reset_idx;
+    size_t input_idx;
+    std::optional<size_t> reset_idx;
 
 public:
     Aggregator(
@@ -83,25 +85,27 @@ public:
         types::Kind kind,
         Op op,
         WindowConfig cfg,
-        int reset_idx
+        size_t input_idx,
+        std::optional<size_t> reset_idx
     ):
         state(std::move(state)),
         kind(kind),
         op(op),
         cfg(std::move(cfg)),
+        input_idx(input_idx),
         reset_idx(reset_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &input_time = this->state.input_time(0);
+        const auto &input_time = this->state.input_time(this->input_idx);
         if (this->start_time == x::telem::TimeStamp(0) && input_time->size() > 0)
             this->start_time = x::telem::TimeStamp(input_time->at<int64_t>(0));
 
         bool should_reset = false;
 
-        if (this->reset_idx >= 0) {
-            const auto &reset_data = this->state.input(this->reset_idx);
-            const auto &reset_time = this->state.input_time(this->reset_idx);
+        if (this->reset_idx.has_value()) {
+            const auto &reset_data = this->state.input(*this->reset_idx);
+            const auto &reset_time = this->state.input_time(*this->reset_idx);
             for (size_t i = 0; i < reset_data->size(); i++) {
                 auto ts = x::telem::TimeStamp(reset_time->at<int64_t>(i));
                 if (ts > this->last_reset_time && reset_data->at<uint8_t>(i) == 1)
@@ -130,7 +134,7 @@ public:
             this->state.output(0)->resize(0);
         }
 
-        const auto &input_data = this->state.input(0);
+        const auto &input_data = this->state.input(this->input_idx);
         if (input_data->size() == 0) return x::errors::NIL;
 
         switch (this->kind) {
@@ -168,8 +172,9 @@ public:
                 break;
         }
 
-        if (this->state.input_time(0)->size() > 0) {
-            auto last_ts = this->state.input_time(0)->at<int64_t>(-1);
+        const auto &primary_time = this->state.input_time(this->input_idx);
+        if (primary_time->size() > 0) {
+            auto last_ts = primary_time->at<int64_t>(-1);
             *this->state.output_time(0) = x::telem::Series(
                 std::vector<int64_t>{last_ts}
             );
@@ -179,8 +184,8 @@ public:
         auto &output_time = this->state.output_time(0);
         auto alignment = input_data->alignment;
         auto time_range = input_data->time_range;
-        if (this->reset_idx >= 0) {
-            const auto &reset_data = this->state.input(this->reset_idx);
+        if (this->reset_idx.has_value()) {
+            const auto &reset_data = this->state.input(*this->reset_idx);
             alignment += reset_data->alignment;
             if (reset_data->time_range.start != x::telem::TimeStamp(0) &&
                 (time_range.start == x::telem::TimeStamp(0) ||
@@ -198,6 +203,7 @@ public:
     }
 
     void reset() override {
+        this->state.reset();
         this->sample_count = 0;
         this->start_time = x::telem::TimeStamp(0);
         this->last_reset_time = x::telem::TimeStamp(0);
@@ -275,18 +281,19 @@ private:
 class Derivative : public runtime::node::Node {
     runtime::state::Node state;
     types::Kind kind;
+    size_t input_idx;
     double prev_value = 0.0;
     int64_t prev_timestamp_ns = 0;
     bool has_prev = false;
 
 public:
-    Derivative(runtime::state::Node &&state, types::Kind kind):
-        state(std::move(state)), kind(kind) {}
+    Derivative(runtime::state::Node &&state, types::Kind kind, size_t input_idx):
+        state(std::move(state)), kind(kind), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &input_data = this->state.input(0);
-        const auto &input_time = this->state.input_time(0);
+        const auto &input_data = this->state.input(this->input_idx);
+        const auto &input_time = this->state.input_time(this->input_idx);
         if (input_data->size() == 0) return x::errors::NIL;
         switch (this->kind) {
             case types::Kind::F64:
@@ -326,6 +333,7 @@ public:
     }
 
     void reset() override {
+        this->state.reset();
         this->has_prev = false;
         this->prev_value = 0.0;
         this->prev_timestamp_ns = 0;
@@ -388,15 +396,27 @@ private:
     runtime::state::Node state;
     types::Kind kind;
     Op op;
+    size_t lhs_idx;
+    size_t rhs_idx;
 
 public:
-    ArithmeticBinary(runtime::state::Node &&state, types::Kind kind, Op op):
-        state(std::move(state)), kind(kind), op(op) {}
+    ArithmeticBinary(
+        runtime::state::Node &&state,
+        types::Kind kind,
+        Op op,
+        size_t lhs_idx,
+        size_t rhs_idx
+    ):
+        state(std::move(state)),
+        kind(kind),
+        op(op),
+        lhs_idx(lhs_idx),
+        rhs_idx(rhs_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &lhs = this->state.input(0);
-        const auto &rhs = this->state.input(1);
+        const auto &lhs = this->state.input(this->lhs_idx);
+        const auto &rhs = this->state.input(this->rhs_idx);
         switch (this->kind) {
             case types::Kind::F64:
                 this->compute<double>(lhs, rhs);
@@ -433,7 +453,7 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(0);
+        output_time = this->state.input_time(this->lhs_idx);
         auto alignment = lhs->alignment + rhs->alignment;
         auto time_range = lhs->time_range;
         if (rhs->time_range.start != 0 &&
@@ -448,7 +468,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override {}
+    void reset() override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 
@@ -499,14 +519,15 @@ private:
 class ArithmeticUnary : public runtime::node::Node {
     runtime::state::Node state;
     types::Kind kind;
+    size_t input_idx;
 
 public:
-    ArithmeticUnary(runtime::state::Node &&state, types::Kind kind):
-        state(std::move(state)), kind(kind) {}
+    ArithmeticUnary(runtime::state::Node &&state, types::Kind kind, size_t input_idx):
+        state(std::move(state)), kind(kind), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
-        const auto &input = this->state.input(0);
+        const auto &input = this->state.input(this->input_idx);
         switch (this->kind) {
             case types::Kind::F64:
                 this->compute<double>(input);
@@ -531,7 +552,7 @@ public:
         }
         auto &output = this->state.output(0);
         auto &output_time = this->state.output_time(0);
-        output_time = this->state.input_time(0);
+        output_time = this->state.input_time(this->input_idx);
         output->alignment = input->alignment;
         output->time_range = input->time_range;
         output_time->alignment = input->alignment;
@@ -540,7 +561,7 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override {}
+    void reset() override { this->state.reset(); }
 
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 
@@ -589,20 +610,29 @@ public:
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
 
-        types::Kind kind = types::Kind::Invalid;
-        if (!cfg.node.inputs.empty()) kind = cfg.node.inputs[0].type.kind;
-
-        if (cfg.node.type == "derivative")
+        if (cfg.node.type == "derivative") {
+            auto [input_idx, err] = cfg.node.resolve_input(ir::default_input_param);
+            if (err) return {nullptr, err};
+            const auto kind = cfg.node.inputs[input_idx].type.kind;
             return {
-                std::make_unique<Derivative>(std::move(cfg.state), kind),
+                std::make_unique<Derivative>(std::move(cfg.state), kind, input_idx),
                 x::errors::NIL
             };
+        }
 
-        if (cfg.node.type == "neg")
+        if (cfg.node.type == "neg") {
+            auto [input_idx, err] = cfg.node.resolve_input(ir::default_input_param);
+            if (err) return {nullptr, err};
+            const auto kind = cfg.node.inputs[input_idx].type.kind;
             return {
-                std::make_unique<ArithmeticUnary>(std::move(cfg.state), kind),
+                std::make_unique<ArithmeticUnary>(
+                    std::move(cfg.state),
+                    kind,
+                    input_idx
+                ),
                 x::errors::NIL
             };
+        }
 
         static const std::unordered_map<std::string, ArithmeticBinary::Op> arith_ops = {
             {"add", ArithmeticBinary::Op::Add},
@@ -611,17 +641,25 @@ public:
             {"divide", ArithmeticBinary::Op::Divide},
             {"mod", ArithmeticBinary::Op::Mod},
         };
-        if (auto it = arith_ops.find(cfg.node.type); it != arith_ops.end())
+        if (auto it = arith_ops.find(cfg.node.type); it != arith_ops.end()) {
+            auto [lhs_idx, lhs_err] = cfg.node.resolve_input(ir::lhs_input_param);
+            if (lhs_err) return {nullptr, lhs_err};
+            auto [rhs_idx, rhs_err] = cfg.node.resolve_input(ir::rhs_input_param);
+            if (rhs_err) return {nullptr, rhs_err};
+            const auto kind = cfg.node.inputs[lhs_idx].type.kind;
             return {
                 std::make_unique<ArithmeticBinary>(
                     std::move(cfg.state),
                     kind,
-                    it->second
+                    it->second,
+                    lhs_idx,
+                    rhs_idx
                 ),
                 x::errors::NIL
             };
+        }
 
-        auto [window_cfg, err] = WindowConfig::create(cfg.node.config);
+        auto [window_cfg, err] = WindowConfig::create(cfg.node.inputs);
         if (err) return {nullptr, err};
 
         Aggregator::Op op;
@@ -632,20 +670,31 @@ public:
         else
             op = Aggregator::Op::Max;
 
-        int reset_idx = -1;
-        auto edge = cfg.prog.edge_to(ir::Handle(cfg.node.key, "reset"));
-        if (edge.has_value()) {
-            reset_idx = 1;
+        auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
+        if (in_err) return {nullptr, in_err};
+        const auto kind = cfg.node.inputs[input_idx].type.kind;
+
+        std::optional<size_t> reset_idx;
+        if (cfg.prog.edge_to(ir::Handle(cfg.node.key, RESET_INPUT_PARAM)).has_value()) {
+            auto [ri, r_err] = cfg.node.resolve_input(RESET_INPUT_PARAM);
+            if (r_err) return {nullptr, r_err};
+            reset_idx = ri;
             cfg.state.init_input(
-                reset_idx,
+                ri,
                 x::mem::make_local_shared<x::telem::Series>(static_cast<uint8_t>(0)),
                 x::mem::make_local_shared<x::telem::Series>(x::telem::TimeStamp(1))
             );
         }
 
         return {
-            std::make_unique<
-                Aggregator>(std::move(cfg.state), kind, op, window_cfg, reset_idx),
+            std::make_unique<Aggregator>(
+                std::move(cfg.state),
+                kind,
+                op,
+                window_cfg,
+                input_idx,
+                reset_idx
+            ),
             x::errors::NIL
         };
     }

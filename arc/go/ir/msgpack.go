@@ -81,7 +81,6 @@ func (f *Function) DecodeMsgpack(dec *msgpack.Decoder) error {
 		var legacy struct {
 			Key      string
 			Body     Body
-			Config   types.Params
 			Inputs   types.Params
 			Outputs  types.Params
 			Channels types.Channels
@@ -91,7 +90,6 @@ func (f *Function) DecodeMsgpack(dec *msgpack.Decoder) error {
 		}
 		f.Key = legacy.Key
 		f.Body = legacy.Body
-		f.Config = legacy.Config
 		f.Inputs = legacy.Inputs
 		f.Outputs = legacy.Outputs
 		f.Channels = legacy.Channels
@@ -114,7 +112,6 @@ func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 		var legacy struct {
 			Key      string
 			Type     string
-			Config   types.Params
 			Inputs   types.Params
 			Outputs  types.Params
 			Channels types.Channels
@@ -124,7 +121,6 @@ func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 		}
 		n.Key = legacy.Key
 		n.Type = legacy.Type
-		n.Config = legacy.Config
 		n.Inputs = legacy.Inputs
 		n.Outputs = legacy.Outputs
 		n.Channels = legacy.Channels

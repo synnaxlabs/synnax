@@ -62,7 +62,7 @@ namespace {
     variant_param.name = "variant";
     variant_param.type = str_type;
     variant_param.value = variant;
-    node.config = ::arc::types::Params{key_param, message_param, variant_param};
+    node.inputs = ::arc::types::Params{key_param, message_param, variant_param};
     ::arc::types::Type out_type;
     out_type.kind = ::arc::types::Kind::String;
     ::arc::types::Param out;
