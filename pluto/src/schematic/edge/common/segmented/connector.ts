@@ -10,6 +10,8 @@
 import { box, direction, location, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type diagram } from "@/vis/diagram/aether";
+
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;
   targetPos: xy.XY;
@@ -840,20 +842,37 @@ export const stitchEdge = ({
   ]);
 };
 
-export interface BuildProps extends BuildNew {
+export interface BuildProps {
+  source: diagram.EdgeEndpoint;
+  target: diagram.EdgeEndpoint;
+  sourceBox: box.Box;
+  targetBox: box.Box;
   middleSegments: Segment[];
 }
 
 /// @brief routes an edge's full segment list: a fresh orthogonal connector when there are
 /// no middle segments, otherwise the user's middle segments stitched to the endpoints.
-export const build = ({ middleSegments, ...endpoints }: BuildProps): Segment[] =>
+export const build = ({
+  source,
+  target,
+  sourceBox,
+  targetBox,
+  middleSegments,
+}: BuildProps): Segment[] =>
   middleSegments.length === 0
-    ? createConnector(endpoints)
+    ? createConnector({
+        sourcePos: source.position,
+        targetPos: target.position,
+        sourceOrientation: source.orientation,
+        targetOrientation: target.orientation,
+        sourceBox,
+        targetBox,
+      })
     : stitchEdge({
-        sourceOrientation: endpoints.sourceOrientation,
-        targetOrientation: endpoints.targetOrientation,
-        sourcePos: endpoints.sourcePos,
-        targetPos: endpoints.targetPos,
+        sourceOrientation: source.orientation,
+        targetOrientation: target.orientation,
+        sourcePos: source.position,
+        targetPos: target.position,
         middleSegments,
       });
 

@@ -10,7 +10,7 @@
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
 import { type InternalNode, type ReactFlowInstance } from "@xyflow/react";
 
-import { createEndpoint, type EdgeEndpoint } from "@/vis/diagram/aether/types";
+import { type diagram } from "@/vis/diagram/aether";
 
 import { type Diagram } from ".";
 
@@ -53,7 +53,7 @@ export interface NodeGeometry {
 export const resolveEndpoint = (
   { positionAbsolute, handleBounds }: NodeGeometry,
   handleKey: string,
-): EdgeEndpoint | null => {
+): diagram.EdgeEndpoint | null => {
   const handles = [...(handleBounds?.source ?? []), ...(handleBounds?.target ?? [])];
   const handle = handleKey ? handles.find((h) => h.id === handleKey) : handles[0];
   if (handle == null) return null;
@@ -63,13 +63,13 @@ export const resolveEndpoint = (
   const orientation = handle.position as location.Outer;
   switch (orientation) {
     case "top":
-      return createEndpoint(x + w / 2, y, orientation);
+      return { position: { x: x + w / 2, y }, orientation };
     case "right":
-      return createEndpoint(x + w, y + h / 2, orientation);
+      return { position: { x: x + w, y: y + h / 2 }, orientation };
     case "bottom":
-      return createEndpoint(x + w / 2, y + h, orientation);
+      return { position: { x: x + w / 2, y: y + h }, orientation };
     default:
-      return createEndpoint(x, y + h / 2, orientation);
+      return { position: { x, y: y + h / 2 }, orientation };
   }
 };
 

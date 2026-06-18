@@ -24,7 +24,7 @@ export interface Store {
   commit: (next: Map<string, xy.XY[]>) => void;
 }
 
-export const create = (): Store => {
+export const createStore = (): Store => {
   let current = new Map<string, xy.XY[]>();
   const listeners = new Map<string, Set<() => void>>();
 

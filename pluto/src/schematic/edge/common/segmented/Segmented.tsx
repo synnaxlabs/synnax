@@ -69,10 +69,8 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
     const visualSegments = useMemo(
       () =>
         build({
-          sourcePos: source.position,
-          targetPos: target.position,
-          sourceOrientation: source.orientation,
-          targetOrientation: target.orientation,
+          source,
+          target,
           sourceBox: selectNodeBox(flow, sourceNode),
           targetBox: selectNodeBox(flow, targetNode),
           middleSegments,

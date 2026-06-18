@@ -20,6 +20,7 @@ import {
 } from "react";
 
 import { Component } from "@/component";
+import { useInitializerRef } from "@/hooks";
 import { Key } from "@/key";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
@@ -80,13 +81,12 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
   const edges = useSelectAllEdges({ key });
   const edgeKeys = useMemo(() => edges.map((e) => e.key), [edges]);
   const configs = useSelectConfigs({ key, keys: edgeKeys });
-  const store = useStoreApi();
-  const jumpsRef = useRef<Edge.Jumps.Store | null>(null);
-  jumpsRef.current ??= Edge.Jumps.create();
-  const jumps = jumpsRef.current;
+  const rfStore = useStoreApi();
+  const jumpStoreRef = useInitializerRef<Edge.Jumps.Store>(Edge.Jumps.createStore);
+  const jumpStore = jumpStoreRef.current;
 
   const recompute = useCallback(() => {
-    const { nodeLookup, transform } = store.getState();
+    const { nodeLookup, transform } = rfStore.getState();
     const zoom = transform[2];
     const polylines: Edge.Jumps.Polyline[] = [];
     edges.forEach((edge, order) => {
@@ -98,10 +98,8 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       if (source == null || target == null) return;
       const cfg = configs.get(edge.key) as Edge.Config | undefined;
       const segments = Edge.Segmented.build({
-        sourcePos: source.position,
-        targetPos: target.position,
-        sourceOrientation: source.orientation,
-        targetOrientation: target.orientation,
+        source,
+        target,
         sourceBox: internalNodeBox(sourceNode),
         targetBox: internalNodeBox(targetNode),
         middleSegments: cfg?.segments ?? [],
@@ -114,8 +112,8 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       );
       if (points.length >= 2) polylines.push({ key: edge.key, points, order });
     });
-    jumps.commit(Edge.Jumps.findCrossings(polylines));
-  }, [edges, configs, store, jumps]);
+    jumpStore.commit(Edge.Jumps.findCrossings(polylines));
+  }, [edges, configs, rfStore, jumpStore]);
 
   // Coalesce React Flow's many per-interaction store updates into one recompute per frame,
   // skipping frames where no node geometry or zoom changed (panning, selection, hover).
@@ -127,7 +125,7 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       if (frameRef.current != null) return;
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = null;
-        const { nodeLookup, transform } = store.getState();
+        const { nodeLookup, transform } = rfStore.getState();
         let geometry = `${transform[2]}`;
         for (const node of nodeLookup.values()) {
           const { x, y } = node.internals.positionAbsolute;
@@ -138,14 +136,14 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
         recompute();
       });
     };
-    const unsubscribe = store.subscribe(schedule);
+    const unsubscribe = rfStore.subscribe(schedule);
     return () => {
       unsubscribe();
       if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
     };
-  }, [recompute, store]);
+  }, [recompute, rfStore]);
 
-  return <Edge.Jumps.Context value={jumps}>{children}</Edge.Jumps.Context>;
+  return <Edge.Jumps.Context value={jumpStore}>{children}</Edge.Jumps.Context>;
 };
 
 export const Diagram = Base.create({

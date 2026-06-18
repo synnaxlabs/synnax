@@ -945,29 +945,36 @@ describe("connector", () => {
   });
 
   describe("build", () => {
-    const props = {
-      sourcePos: { x: 0, y: 0 },
-      targetPos: { x: 100, y: 100 },
-      sourceOrientation: "right" as const,
-      targetOrientation: "left" as const,
-      sourceBox: box.construct({ x: 0, y: 0 }),
-      targetBox: box.construct({ x: 100, y: 100 }),
-    };
+    const source = { position: { x: 0, y: 0 }, orientation: "right" as const };
+    const target = { position: { x: 100, y: 100 }, orientation: "left" as const };
+    const sourceBox = box.construct({ x: 0, y: 0 });
+    const targetBox = box.construct({ x: 100, y: 100 });
 
     it("routes a fresh connector when there are no middle segments", () => {
-      expect(Segmented.build({ ...props, middleSegments: [] })).toEqual(
-        Segmented.createConnector(props),
+      expect(
+        Segmented.build({ source, target, sourceBox, targetBox, middleSegments: [] }),
+      ).toEqual(
+        Segmented.createConnector({
+          sourcePos: source.position,
+          targetPos: target.position,
+          sourceOrientation: source.orientation,
+          targetOrientation: target.orientation,
+          sourceBox,
+          targetBox,
+        }),
       );
     });
 
     it("stitches the middle segments to the endpoints when present", () => {
       const middleSegments = [{ direction: "x" as const, length: 30 }];
-      expect(Segmented.build({ ...props, middleSegments })).toEqual(
+      expect(
+        Segmented.build({ source, target, sourceBox, targetBox, middleSegments }),
+      ).toEqual(
         Segmented.stitchEdge({
-          sourceOrientation: props.sourceOrientation,
-          targetOrientation: props.targetOrientation,
-          sourcePos: props.sourcePos,
-          targetPos: props.targetPos,
+          sourceOrientation: source.orientation,
+          targetOrientation: target.orientation,
+          sourcePos: source.position,
+          targetPos: target.position,
           middleSegments,
         }),
       );

@@ -9,4 +9,4 @@
 
 export { Context, useCrossings } from "@/schematic/edge/common/jumps/context";
 export { findCrossings, type Polyline } from "@/schematic/edge/common/jumps/crossings";
-export { create, type Store } from "@/schematic/edge/common/jumps/store";
+export { createStore, type Store } from "@/schematic/edge/common/jumps/store";
