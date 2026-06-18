@@ -383,6 +383,40 @@ var _ = Describe("migrate create command", Ordered, func() {
 	})
 })
 
+var _ = Describe("migrate command with nested schema folders", Ordered, func() {
+	BeforeAll(func() {
+		// Schemas live in subdirectories (synnax/x) after the folder restructure. The
+		// bare migrate command must recurse to discover them rather than relying on a
+		// flat schemas/*.oracle glob, which would find nothing and fail.
+		repoDir, cleanup := setupMiniRepo("0.53.4", map[string]string{
+			"synnax/user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
+			"x/telem.oracle":     "Rate struct {\n    hz float64\n}\n",
+		})
+		svcDir := filepath.Join(repoDir, "core", "pkg", "service", "user")
+		Expect(os.MkdirAll(svcDir, 0755)).To(Succeed())
+		DeferCleanup(func() { cleanup() })
+	})
+
+	It("discovers schemas in subdirectories instead of failing the flat glob", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "migrate")).Error().
+			NotTo(MatchError(ContainSubstring("no schema files found")))
+	})
+})
+
+var _ = Describe("migrate command with no schemas", Ordered, func() {
+	BeforeAll(func() {
+		_, cleanup := setupMiniRepo("0.53.4", map[string]string{})
+		DeferCleanup(func() { cleanup() })
+	})
+
+	It("errors when no schema files exist", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "migrate")).Error().
+			To(MatchError(ContainSubstring("no schema files found")))
+	})
+})
+
 var _ = Describe("migrate create with existing migrations", Ordered, func() {
 	var (
 		repoDir string
