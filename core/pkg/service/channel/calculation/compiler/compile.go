@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/x/config"
+	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -113,15 +114,18 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 				Body:    calcFn.Body,
 			},
 		},
-		Nodes: []graph.Node{
-			{Key: calculationKey, Type: calculationKey},
-			{
-				Key:    writeKey,
-				Type:   writeKey,
-				Config: map[string]any{"channel": cfg.Channel.Key()},
-			},
-		},
+		Configs: map[string]xmsgpack.EncodedJSON{},
 	}
+	addNode := func(key, typ string, config xmsgpack.EncodedJSON) {
+		g.Nodes = append(g.Nodes, graph.Node{Key: key})
+		if config == nil {
+			config = xmsgpack.EncodedJSON{}
+		}
+		config["type"] = typ
+		g.Configs[key] = config
+	}
+	addNode(calculationKey, calculationKey, nil)
+	addNode(writeKey, writeKey, xmsgpack.EncodedJSON{"channel": cfg.Channel.Key()})
 	cfg.Channel.Operations = lo.Filter(cfg.Channel.Operations, func(item channel.Operation, _ int) bool {
 		return item.Type != "none"
 	})
@@ -134,22 +138,10 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 		for i, o := range cfg.Channel.Operations {
 			key := fmt.Sprintf("op_%d", i)
 			nextKey := fmt.Sprintf("op_%d", i+1)
-			g.Nodes = append(g.Nodes, graph.Node{
-				Key:  fmt.Sprintf("op_%d", i),
-				Type: string(o.Type),
-				Config: map[string]any{
-					"duration": o.Duration,
-				},
-			})
+			addNode(key, string(o.Type), xmsgpack.EncodedJSON{"duration": o.Duration})
 			if o.ResetChannel != 0 {
 				resetKey := fmt.Sprintf("on_reset_%d", o.ResetChannel)
-				g.Nodes = append(g.Nodes, graph.Node{
-					Key:  resetKey,
-					Type: "on",
-					Config: map[string]any{
-						"channel": o.ResetChannel,
-					},
-				})
+				addNode(resetKey, "on", xmsgpack.EncodedJSON{"channel": o.ResetChannel})
 				g.Edges = append(g.Edges, graph.Edge{
 					Source: ir.Handle{Node: resetKey, Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: key, Param: "reset"},
@@ -185,11 +177,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 			g.Functions[0].Inputs,
 			types.Param{Name: sym.Name, Type: *sym.Type.Elem},
 		)
-		g.Nodes = append(g.Nodes, graph.Node{
-			Key:    sym.Name,
-			Type:   "on",
-			Config: map[string]any{"channel": k},
-		})
+		addNode(sym.Name, "on", xmsgpack.EncodedJSON{"channel": k})
 		g.Edges = append(g.Edges, graph.Edge{
 			Source: ir.Handle{Node: sym.Name, Param: ir.DefaultOutputParam},
 			Target: ir.Handle{Node: calculationKey, Param: sym.Name},

@@ -96,7 +96,9 @@ Arc struct {
 
         @doc value """
             inserts the node if no node with the same key exists, otherwise
-            replaces the existing node in place.
+            replaces the existing node in place. Operates only on the node's
+            position; the node's function type and config are set separately
+            via SetNodeConfig.
         """
     }
 
@@ -114,8 +116,9 @@ Arc struct {
         }
 
         @doc value """
-            replaces the configuration parameter values of the node with the
-            given key. No-op when no node matches.
+            stores the given config, holding the node's function type under
+            "type" plus its parameter values, under the given key in the graph
+            configs map, replacing any existing entry.
         """
     }
 
@@ -123,8 +126,8 @@ Arc struct {
         key string
 
         @doc value """
-            removes the node with the given key along with any edges connected
-            to it.
+            removes the node with the given key along with its config entry and
+            any edges connected to it.
         """
     }
 

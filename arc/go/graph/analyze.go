@@ -119,7 +119,9 @@ func Analyze(
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
-		fnSym, err := resolveQualified(aCtx, aCtx.Scope, n.Type)
+		cfg := g.Configs[n.Key]
+		nodeType, _ := cfg["type"].(string)
+		fnSym, err := resolveQualified(aCtx, aCtx.Scope, nodeType)
 		if err != nil {
 			aCtx.Diagnostics.Add(diagnostics.Error(err, nil))
 			return ir.IR{}, aCtx.Diagnostics
@@ -128,7 +130,7 @@ func Analyze(
 		freshType := freshFuncTypes[n.Key]
 		node := ir.Node{
 			Key:      n.Key,
-			Type:     n.Type,
+			Type:     nodeType,
 			Channels: fnSym.Channels.Copy(),
 			Config:   freshType.Config,
 			Inputs:   freshType.Inputs,
@@ -136,7 +138,7 @@ func Analyze(
 		}
 		// Process provided config values
 		for j, configParam := range freshType.Config {
-			configValue, ok := n.Config[configParam.Name]
+			configValue, ok := cfg[configParam.Name]
 			if !ok {
 				continue
 			}
@@ -181,7 +183,7 @@ func Analyze(
 					nil,
 					"node '%s' (%s) missing required config parameter '%s'",
 					n.Key,
-					n.Type,
+					nodeType,
 					configParam.Name,
 				))
 			}

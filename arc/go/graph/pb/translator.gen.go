@@ -14,24 +14,19 @@ package pb
 import (
 	"github.com/synnaxlabs/arc/graph"
 	irpb "github.com/synnaxlabs/arc/ir/pb"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // NodeToPB converts Node to Node.
 func NodeToPB(r graph.Node) (*Node, error) {
-	configVal, err := structpb.NewStruct(r.Config)
-	if err != nil {
-		return nil, err
-	}
 	positionVal, err := spatialpb.XYToPB(r.Position)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Node{
 		Key:      r.Key,
-		Type:     r.Type,
-		Config:   configVal,
 		Position: positionVal,
 	}
 	return pb, nil
@@ -44,13 +39,11 @@ func NodeFromPB(pb *Node) (graph.Node, error) {
 		return r, nil
 	}
 	var err error
-	r.Config = pb.Config.AsMap()
 	r.Position, err = spatialpb.XYFromPB(pb.Position)
 	if err != nil {
 		return graph.Node{}, err
 	}
 	r.Key = pb.Key
-	r.Type = pb.Type
 	return r, nil
 }
 
@@ -158,6 +151,16 @@ func GraphToPB(r graph.Graph) (*Graph, error) {
 		Edges:     edgesVal,
 		Nodes:     nodesVal,
 	}
+	if r.Configs != nil {
+		pb.Configs = make(map[string]*structpb.Struct, len(r.Configs))
+		for k, v := range r.Configs {
+			converted, err := structpb.NewStruct(v)
+			if err != nil {
+				return nil, err
+			}
+			pb.Configs[k] = converted
+		}
+	}
 	return pb, nil
 }
 
@@ -183,6 +186,12 @@ func GraphFromPB(pb *Graph) (graph.Graph, error) {
 	r.Nodes, err = NodesFromPB(pb.Nodes)
 	if err != nil {
 		return graph.Graph{}, err
+	}
+	if pb.Configs != nil {
+		r.Configs = make(map[string]msgpack.EncodedJSON, len(pb.Configs))
+		for k, v := range pb.Configs {
+			r.Configs[k] = msgpack.EncodedJSON(v.AsMap())
+		}
 	}
 	return r, nil
 }

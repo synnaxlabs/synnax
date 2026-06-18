@@ -12,6 +12,7 @@
 #pragma once
 
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -29,14 +30,11 @@ struct Viewport;
 struct Graph;
 
 /// @brief Node is a visual node in the Arc graph editor representing a function
-/// instantiation with position data.
+/// instantiation with position data. The function type and configuration parameter
+/// values are stored in the graph's configs map, keyed by the node key.
 struct Node {
     /// @brief key is the unique identifier for this node instance.
     std::string key;
-    /// @brief type is the function type being instantiated.
-    std::string type;
-    /// @brief config contains configuration parameter values as a JSON object.
-    x::json::json::object_t config;
     /// @brief position is the canvas position (x, y) for visual layout.
     ::x::spatial::XY position;
 
@@ -128,6 +126,12 @@ struct Graph {
     ::arc::ir::Edges edges;
     /// @brief nodes contains visual nodes with canvas positions.
     Nodes nodes;
+    /// @brief configs contains per-node configuration keyed by node key. Each value is
+    /// a
+    /// JSON object holding the node's function type under "type" plus its configuration
+    /// parameter values. The wire format stores it as an opaque record; the client
+    /// types it per function.
+    std::unordered_map<std::string, x::json::json::object_t> configs;
 
     static Graph parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

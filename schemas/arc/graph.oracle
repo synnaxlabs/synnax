@@ -19,19 +19,15 @@ Node struct {
     key      string     {
         @doc value "is the unique identifier for this node instance."
     }
-    type     string     {
-        @doc value "is the function type being instantiated."
-    }
-    config   record       {
-        @doc value "contains configuration parameter values as a JSON object."
-    }
     position spatial.XY {
         @doc value "is the canvas position (x, y) for visual layout."
     }
 
     @doc value """
         is a visual node in the Arc graph editor representing a function
-        instantiation with position data.
+        instantiation with position data. The function type and configuration
+        parameter values are stored in the graph's configs map, keyed by the
+        node key.
     """
 }
 
@@ -62,6 +58,15 @@ Graph struct {
     }
     nodes     Nodes        {
         @doc value "contains visual nodes with canvas positions."
+    }
+    configs   map<string, record> {
+        @doc value          """
+            contains per-node configuration keyed by node key. Each value is a
+            JSON object holding the node's function type under "type" plus its
+            configuration parameter values. The wire format stores it as an
+            opaque record; the client types it per function.
+        """
+        @ts preserve_case
     }
 
     @doc value """

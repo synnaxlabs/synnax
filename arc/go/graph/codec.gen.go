@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -46,6 +47,20 @@ func (g Graph) EncodeOrc(w *orc.Writer) error {
 		for i := range g.Nodes {
 			if err := g.Nodes[i].EncodeOrc(w); err != nil {
 				return err
+			}
+		}
+	}
+	w.Bool(g.Configs != nil)
+	if g.Configs != nil {
+		w.Uint32(uint32(len(g.Configs)))
+		for key, val := range g.Configs {
+			w.String(key)
+			{
+				b, err := json.Marshal(val)
+				if err != nil {
+					return err
+				}
+				w.WriteWithLen(b)
 			}
 		}
 	}
@@ -111,19 +126,41 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			g.Configs = make(map[string]msgpack.EncodedJSON, n)
+			for range n {
+				var key string
+				var val msgpack.EncodedJSON
+				if key, err = r.String(); err != nil {
+					return err
+				}
+				{
+					b, err := r.ReadWithLen()
+					if err != nil {
+						return err
+					}
+					if err = json.Unmarshal(b, &val); err != nil {
+						return err
+					}
+				}
+				g.Configs[key] = val
+			}
+		}
+	}
 	return nil
 }
 
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
-	w.String(nv.Type)
-	{
-		b, err := json.Marshal(nv.Config)
-		if err != nil {
-			return err
-		}
-		w.WriteWithLen(b)
-	}
 	if err := nv.Position.EncodeOrc(w); err != nil {
 		return err
 	}
@@ -134,18 +171,6 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if nv.Key, err = r.String(); err != nil {
 		return err
-	}
-	if nv.Type, err = r.String(); err != nil {
-		return err
-	}
-	{
-		b, err := r.ReadWithLen()
-		if err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &nv.Config); err != nil {
-			return err
-		}
 	}
 	if err = nv.Position.DecodeOrc(r); err != nil {
 		return err

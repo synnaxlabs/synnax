@@ -41,7 +41,8 @@ type SetModePayload struct {
 }
 
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
-// replaces the existing node in place.
+// replaces the existing node in place. Operates only on the node's position; the node's
+// function type and config are set separately via SetNodeConfig.
 type SetNodePayload struct {
 	Node graph.Node `json:"node" msgpack:"node"`
 }
@@ -52,15 +53,16 @@ type SetNodePositionPayload struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
-// SetNodeConfigPayload replaces the configuration parameter values of the node with the
-// given key. No-op when no node matches.
+// SetNodeConfigPayload stores the given config, holding the node's function type under
+// "type" plus its parameter values, under the given key in the graph configs map,
+// replacing any existing entry.
 type SetNodeConfigPayload struct {
 	Key    string              `json:"key" msgpack:"key"`
 	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 }
 
-// RemoveNodePayload removes the node with the given key along with any edges connected
-// to it.
+// RemoveNodePayload removes the node with the given key along with its config entry and
+// any edges connected to it.
 type RemoveNodePayload struct {
 	Key string `json:"key" msgpack:"key"`
 }

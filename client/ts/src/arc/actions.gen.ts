@@ -33,7 +33,9 @@ export type SetModePayload = z.infer<typeof setModePayloadZ>;
 
 /**
  * SetNode inserts the node if no node with the same key exists, otherwise
- * replaces the existing node in place.
+ * replaces the existing node in place. Operates only on the node's
+ * position; the node's function type and config are set separately
+ * via SetNodeConfig.
  */
 export const setNodePayloadZ = z.object({
   node: graph.nodeZ,
@@ -50,8 +52,9 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
- * SetNodeConfig replaces the configuration parameter values of the node with the
- * given key. No-op when no node matches.
+ * SetNodeConfig stores the given config, holding the node's function type under
+ * "type" plus its parameter values, under the given key in the graph
+ * configs map, replacing any existing entry.
  */
 export const setNodeConfigPayloadZ = z.object({
   key: z.string(),
@@ -61,8 +64,8 @@ export const setNodeConfigPayloadZ = z.object({
 export type SetNodeConfigPayload = z.infer<typeof setNodeConfigPayloadZ>;
 
 /**
- * RemoveNode removes the node with the given key along with any edges connected
- * to it.
+ * RemoveNode removes the node with the given key along with its config entry and
+ * any edges connected to it.
  */
 export const removeNodePayloadZ = z.object({
   key: z.string(),

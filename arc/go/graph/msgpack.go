@@ -30,16 +30,12 @@ func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 	if len(n.Key) == 0 {
 		var legacy struct {
 			Key      string
-			Type     string
-			Config   xmsgpack.EncodedJSON
 			Position spatial.XY
 		}
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
 			return err
 		}
 		n.Key = legacy.Key
-		n.Type = legacy.Type
-		n.Config = legacy.Config
 		n.Position = legacy.Position
 	}
 	return nil
@@ -97,6 +93,31 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 		g.Functions = legacy.Functions
 		g.Edges = legacy.Edges
 		g.Nodes = legacy.Nodes
+	}
+	// Legacy graphs stored the function type and config inline on each node with
+	// no configs map; lift them into Configs keyed by node key.
+	if g.Configs == nil {
+		var legacy struct {
+			Nodes []struct {
+				Key    string               `msgpack:"key"`
+				Type   string               `msgpack:"type"`
+				Config xmsgpack.EncodedJSON `msgpack:"config"`
+			} `msgpack:"nodes"`
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		if len(legacy.Nodes) > 0 {
+			g.Configs = make(map[string]xmsgpack.EncodedJSON, len(legacy.Nodes))
+			for _, ln := range legacy.Nodes {
+				cfg := xmsgpack.EncodedJSON{}
+				for k, v := range ln.Config {
+					cfg[k] = v
+				}
+				cfg["type"] = ln.Type
+				g.Configs[ln.Key] = cfg
+			}
+		}
 	}
 	return nil
 }

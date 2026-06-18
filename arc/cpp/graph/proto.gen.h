@@ -14,7 +14,6 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
 #include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/spatial/proto.gen.h"
@@ -30,8 +29,6 @@ namespace arc::graph {
 inline std::pair<::arc::graph::pb::Node, x::errors::Error> Node::to_proto() const {
     ::arc::graph::pb::Node pb;
     pb.set_key(this->key);
-    pb.set_type(this->type);
-    *pb.mutable_config() = x::json::to_struct(this->config).first;
     {
         auto [v, err] = this->position.to_proto();
         if (err) return {{}, err};
@@ -44,12 +41,6 @@ inline std::pair<Node, x::errors::Error>
 Node::from_proto(const ::arc::graph::pb::Node &pb) {
     Node cpp;
     cpp.key = pb.key();
-    cpp.type = pb.type();
-    {
-        auto [v, err] = x::json::from_struct(pb.config());
-        if (err) return {{}, err};
-        cpp.config = v;
-    }
     {
         auto [v, err] = ::x::spatial::XY::from_proto(pb.position());
         if (err) return {{}, err};
@@ -104,6 +95,8 @@ inline std::pair<::arc::graph::pb::Graph, x::errors::Error> Graph::to_proto() co
         if (err) return {{}, err};
         *pb.add_nodes() = v;
     }
+    for (const auto &[k, v]: this->configs)
+        (*pb.mutable_configs())[k] = v;
     return {pb, x::errors::NIL};
 }
 
@@ -124,6 +117,8 @@ Graph::from_proto(const ::arc::graph::pb::Graph &pb) {
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Node>(cpp.nodes, pb.nodes()))
         return {{}, err};
+    for (const auto &[k, v]: pb.configs())
+        cpp.configs[k] = v;
     return {cpp, x::errors::NIL};
 }
 
