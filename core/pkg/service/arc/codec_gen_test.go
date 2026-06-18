@@ -51,44 +51,37 @@ var _ = Describe("Codec", func() {
 						{
 							Key:  "test_11",
 							Body: ir.Body{Raw: "test_13"},
-							Config: []types.Param{
+							Inputs: []types.Param{
 								{
 									Name:  "test_15",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_17": "value_17"},
 								},
 							},
-							Inputs: []types.Param{
+							Outputs: []types.Param{
 								{
 									Name:  "test_19",
 									Type:  types.Type{},
 									Value: map[string]interface{}{"key_21": "value_21"},
 								},
 							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_23",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_25": "value_25"},
-								},
-							},
 							Channels: types.Channels{
-								Read:  map[uint32]string{28: "test_27"},
-								Write: map[uint32]string{29: "test_28"},
+								Read:  map[uint32]string{24: "test_23"},
+								Write: map[uint32]string{25: "test_24"},
 							},
 						},
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "test_31", Param: "test_32"},
-							Target: ir.Handle{Node: "test_34", Param: "test_35"},
+							Source: ir.Handle{Node: "test_27", Param: "test_28"},
+							Target: ir.Handle{Node: "test_30", Param: "test_31"},
 							Kind:   ir.EdgeKind(0),
 						},
 					},
-					Nodes:   []graph.Node{{Key: "test_38", Position: spatial.XY{X: 40.5, Y: 41.5}}},
-					Configs: map[string]msgpack.EncodedJSON{"test_42": {"key_42": "value_42"}},
+					Nodes:   []graph.Node{{Key: "test_34", Position: spatial.XY{X: 36.5, Y: 37.5}}},
+					Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
 				},
-				Text: text.Text{Raw: "test_44"},
+				Text: text.Text{Raw: "test_40"},
 			}),
 			Entry("zero values", arc.Arc{
 				Key:  uuid.Nil,
@@ -133,44 +126,37 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 				{
 					Key:  "test_11",
 					Body: ir.Body{Raw: "test_13"},
-					Config: []types.Param{
+					Inputs: []types.Param{
 						{
 							Name:  "test_15",
 							Type:  types.Type{},
 							Value: map[string]interface{}{"key_17": "value_17"},
 						},
 					},
-					Inputs: []types.Param{
+					Outputs: []types.Param{
 						{
 							Name:  "test_19",
 							Type:  types.Type{},
 							Value: map[string]interface{}{"key_21": "value_21"},
 						},
 					},
-					Outputs: []types.Param{
-						{
-							Name:  "test_23",
-							Type:  types.Type{},
-							Value: map[string]interface{}{"key_25": "value_25"},
-						},
-					},
 					Channels: types.Channels{
-						Read:  map[uint32]string{28: "test_27"},
-						Write: map[uint32]string{29: "test_28"},
+						Read:  map[uint32]string{24: "test_23"},
+						Write: map[uint32]string{25: "test_24"},
 					},
 				},
 			},
 			Edges: []ir.Edge{
 				{
-					Source: ir.Handle{Node: "test_31", Param: "test_32"},
-					Target: ir.Handle{Node: "test_34", Param: "test_35"},
+					Source: ir.Handle{Node: "test_27", Param: "test_28"},
+					Target: ir.Handle{Node: "test_30", Param: "test_31"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
-			Nodes:   []graph.Node{{Key: "test_38", Position: spatial.XY{X: 40.5, Y: 41.5}}},
-			Configs: map[string]msgpack.EncodedJSON{"test_42": {"key_42": "value_42"}},
+			Nodes:   []graph.Node{{Key: "test_34", Position: spatial.XY{X: 36.5, Y: 37.5}}},
+			Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
 		},
-		Text: text.Text{Raw: "test_44"},
+		Text: text.Text{Raw: "test_40"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -216,44 +202,37 @@ func FuzzDecodeArc(f *testing.F) {
 					{
 						Key:  "test_11",
 						Body: ir.Body{Raw: "test_13"},
-						Config: []types.Param{
+						Inputs: []types.Param{
 							{
 								Name:  "test_15",
 								Type:  types.Type{},
 								Value: map[string]interface{}{"key_17": "value_17"},
 							},
 						},
-						Inputs: []types.Param{
+						Outputs: []types.Param{
 							{
 								Name:  "test_19",
 								Type:  types.Type{},
 								Value: map[string]interface{}{"key_21": "value_21"},
 							},
 						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_23",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_25": "value_25"},
-							},
-						},
 						Channels: types.Channels{
-							Read:  map[uint32]string{28: "test_27"},
-							Write: map[uint32]string{29: "test_28"},
+							Read:  map[uint32]string{24: "test_23"},
+							Write: map[uint32]string{25: "test_24"},
 						},
 					},
 				},
 				Edges: []ir.Edge{
 					{
-						Source: ir.Handle{Node: "test_31", Param: "test_32"},
-						Target: ir.Handle{Node: "test_34", Param: "test_35"},
+						Source: ir.Handle{Node: "test_27", Param: "test_28"},
+						Target: ir.Handle{Node: "test_30", Param: "test_31"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
-				Nodes:   []graph.Node{{Key: "test_38", Position: spatial.XY{X: 40.5, Y: 41.5}}},
-				Configs: map[string]msgpack.EncodedJSON{"test_42": {"key_42": "value_42"}},
+				Nodes:   []graph.Node{{Key: "test_34", Position: spatial.XY{X: 36.5, Y: 37.5}}},
+				Configs: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
 			},
-			Text: text.Text{Raw: "test_44"},
+			Text: text.Text{Raw: "test_40"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

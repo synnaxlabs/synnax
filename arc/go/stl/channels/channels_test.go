@@ -140,8 +140,26 @@ var _ = Describe("Channel", func() {
 		BeforeEach(func(ctx SpecContext) {
 			factory = MustSucceed(channels.NewHost(ctx, nil, nil, nil))
 			g := graph.Graph{
-				Nodes:     []graph.Node{{Key: "test", Type: "on"}},
-				Functions: []graph.Function{{Key: "on"}},
+				Nodes: []graph.Node{
+					{Key: "test", Type: "on"},
+					{Key: "producer", Type: "producer"},
+					{Key: "writer", Type: "write"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "producer", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "writer", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
+					{Key: "on"},
+					{Key: "producer", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}}},
+					{
+						Key:     "write",
+						Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.F32()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+					},
+				},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
@@ -153,7 +171,7 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(42)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(42)}},
 					},
 					State: rtState.Node("test"),
 				}
@@ -164,7 +182,7 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(123)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(123)}},
 					},
 					State: rtState.Node("test"),
 				}
@@ -175,7 +193,7 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(99)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(99)}},
 					},
 					State: rtState.Node("test"),
 				}
@@ -189,9 +207,9 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
-					State: rtState.Node("test"),
+					State: rtState.Node("writer"),
 				}
 				node := MustSucceed(factory.Create(ctx, cfg))
 				Expect(node).ToNot(BeNil())
@@ -203,7 +221,7 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "unknown",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(1)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(1)}},
 					},
 					State: rtState.Node("test"),
 				}
@@ -215,23 +233,21 @@ var _ = Describe("Channel", func() {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "invalid", Type: types.String(), Value: "field"}},
+						Inputs: types.Params{{Name: "invalid", Type: types.String(), Value: "field"}},
 					},
 					State: rtState.Node("test"),
 				}
-				_, err := factory.Create(ctx, cfg)
-				Expect(err).To(HaveOccurred())
+				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
 			})
 			It("Should return error for missing channel", func(ctx SpecContext) {
 				cfg := rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{},
+						Inputs: types.Params{},
 					},
 					State: rtState.Node("test"),
 				}
-				_, err := factory.Create(ctx, cfg)
-				Expect(err).To(HaveOccurred())
+				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
 			})
 		})
 	})
@@ -267,7 +283,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: progState.Node("source"),
 				}))
@@ -286,7 +302,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
 					},
 					State: progState.Node("source"),
 				}))
@@ -303,7 +319,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(999)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(999)}},
 					},
 					State: progState.Node("source"),
 				}))
@@ -316,7 +332,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
 					},
 					State: progState.Node("source"),
 				}))
@@ -349,7 +365,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
 					},
 					State: progState.Node("source"),
 				}))
@@ -376,7 +392,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: nodeState,
 				}))
@@ -421,7 +437,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: progState.Node("source"),
 				}))
@@ -456,7 +472,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: progState.Node("source"),
 				}))
@@ -472,7 +488,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}},
 					},
 					State: progState.Node("source"),
 				}))
@@ -506,7 +522,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(mod.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(30)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(30)}},
 					},
 					State: s2.Node("misaligned"),
 				}))
@@ -571,7 +587,7 @@ var _ = Describe("Channel", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: sinkState,
 				}))
@@ -607,7 +623,7 @@ var _ = Describe("Channel", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: progState.Node("sink"),
 				}))
@@ -620,7 +636,7 @@ var _ = Describe("Channel", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: progState.Node("sink"),
 				}))
@@ -639,7 +655,7 @@ var _ = Describe("Channel", func() {
 				sink := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
 					},
 					State: progState.Node("sink"),
 				}))
@@ -699,14 +715,14 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(mod.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "on",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(1)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(1)}},
 					},
 					State: s.Node("read"),
 				}))
 				sink := MustSucceed(mod.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:   "write",
-						Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(3)}},
+						Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(3)}},
 					},
 					State: s.Node("write"),
 				}))
@@ -764,19 +780,19 @@ var _ = Describe("Channel", func() {
 
 				factory := mod
 				source1, _ := factory.Create(ctx, rnode.Config{
-					Node:  ir.Node{Type: "on", Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}}},
+					Node:  ir.Node{Type: "on", Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(10)}}},
 					State: s.Node("read1"),
 				})
 				source2, _ := factory.Create(ctx, rnode.Config{
-					Node:  ir.Node{Type: "on", Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}}},
+					Node:  ir.Node{Type: "on", Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}}},
 					State: s.Node("read2"),
 				})
 				sink1, _ := factory.Create(ctx, rnode.Config{
-					Node:  ir.Node{Type: "write", Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(30)}}},
+					Node:  ir.Node{Type: "write", Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(30)}}},
 					State: s.Node("write1"),
 				})
 				sink2, _ := factory.Create(ctx, rnode.Config{
-					Node:  ir.Node{Type: "write", Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(40)}}},
+					Node:  ir.Node{Type: "write", Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(40)}}},
 					State: s.Node("write2"),
 				})
 				fr := telem.Frame[uint32]{}
@@ -806,5 +822,23 @@ var _ = Describe("Channel", func() {
 				MustSucceed(channels.NewHost(ctx, nil, nil, nil))
 			}).ToNot(Panic())
 		})
+	})
+})
+
+var _ = Describe("Construction validation", func() {
+	It("Should error at construction when the input param is missing", func(ctx SpecContext) {
+		prog := ir.IR{Nodes: ir.Nodes{{
+			Key:  "write",
+			Type: "write",
+			Inputs: types.Params{
+				{Name: "channel", Type: types.U32(), Value: uint32(1)},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		}}}
+		s := rnode.New(prog)
+		factory := MustSucceed(channels.NewHost(ctx, nil, nil, nil))
+		cfg := rnode.Config{Node: prog.Nodes[0], State: s.Node("write")}
+		Expect(factory.Create(ctx, cfg)).Error().
+			To(MatchError(rnode.ErrInputNotFound))
 	})
 })
