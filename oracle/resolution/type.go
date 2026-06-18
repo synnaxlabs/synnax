@@ -172,8 +172,7 @@ type Field struct {
 	// TypeScript `.optional()`, a Python `| None`, a C++ `std::optional`, a proto3
 	// `optional`) that round-trips faithfully rather than collapsing to the zero
 	// value.
-	Optional    bool
-	OmitIfUnset bool
+	Optional bool
 	// OmittedDomains names domains to drop from the inherited parent field during
 	// override resolution, declared with the `-@domain` syntax.
 	OmittedDomains []string
