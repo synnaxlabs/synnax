@@ -17,8 +17,8 @@
 namespace arc::ir {
 inline const std::string default_output_param = "output";
 inline const std::string default_input_param = "input";
-inline const std::string lhs_input_param = "lhs_input";
-inline const std::string rhs_input_param = "rhs_input";
+inline const std::string lhs_input_param = "a";
+inline const std::string rhs_input_param = "b";
 
 inline bool operator==(const Handle &lhs, const Handle &rhs) {
     return lhs.node == rhs.node && lhs.param == rhs.param;

@@ -160,9 +160,6 @@ Function struct {
     body     Body?          {
         @doc value "is raw source code for user-defined functions."
     }
-    config   types.Params   {
-        @doc value "contains configuration parameter definitions."
-    }
     inputs   types.Params   {
         @doc value "contains input parameter definitions."
     }
@@ -191,9 +188,6 @@ Node struct {
     type     string         {
         @doc value "is the function type being instantiated."
     }
-    config   types.Params   {
-        @doc value "contains configuration parameter values."
-    }
     inputs   types.Params   {
         @doc value "contains input parameter type signatures."
     }
@@ -204,11 +198,10 @@ Node struct {
         @doc value "contains channel read/write mappings."
     }
 
-    @doc value   """
-        is a concrete instantiation of a function with typed parameters and
-        configuration values.
+    @doc value    """
+        is a concrete instantiation of a function with typed parameters and values.
     """
-    @cpp methods "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
+    @cpp methods  "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
 }
 
 Nodes Node[] {

@@ -48,7 +48,6 @@ type nodeImpl struct {
 	outputValues  []result
 	memBase       uint32
 	params        []uint64
-	configCount   int
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
@@ -106,16 +105,19 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 
 	maxLength := int64(0)
-	longestInputIdx := 0
+	longestInputIdx := -1
 	for i := range n.ir.Inputs {
+		if n.ir.Inputs[i].Value != nil {
+			continue
+		}
 		dataLen := n.Input(i).Len()
 		if dataLen > maxLength {
 			maxLength = dataLen
 			longestInputIdx = i
 		}
 	}
-	// If no inputs, execute once
-	if len(n.ir.Inputs) == 0 {
+	// With no edge-fed inputs, the node executes once over its literal inputs.
+	if longestInputIdx == -1 {
 		maxLength = 1
 	}
 	if maxLength <= 0 {
@@ -145,6 +147,9 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	var alignmentSum telem.Alignment
 	var timeRange telem.TimeRange
 	for i := range n.ir.Inputs {
+		if n.ir.Inputs[i].Value != nil {
+			continue
+		}
 		input := n.Input(i)
 		alignmentSum += input.Alignment
 		if timeRange.Start.IsZero() || input.TimeRange.Start < timeRange.Start {
@@ -161,7 +166,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		n.OutputTime(i).TimeRange = timeRange
 	}
 	var longestInputTime telem.Series
-	if len(n.ir.Inputs) > 0 {
+	if longestInputIdx >= 0 {
 		longestInputTime = n.InputTime(longestInputIdx)
 	}
 	if n.nodeKeySetter != nil {
@@ -169,16 +174,19 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
+			if n.ir.Inputs[j].Value != nil {
+				continue
+			}
 			inputLen := n.Input(j).Len()
 			idx := int(i % inputLen)
 			if !n.stringInputs[j] {
-				n.params[n.configCount+j] = valueAt(n.Input(j), idx)
+				n.params[j] = valueAt(n.Input(j), idx)
 			} else {
 				// String channels are variable-length but WASM expects
 				// i32 handles. Convert inline — string channels are
 				// virtual (length 1), so At(idx) is always O(1).
 				data := n.Input(j).At(idx)
-				n.params[n.configCount+j] = uint64(n.strings.Create(string(data)))
+				n.params[j] = uint64(n.strings.Create(string(data)))
 			}
 		}
 		res, err := n.call(ctx.Context, n.params...)
@@ -193,7 +201,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			continue
 		}
 		var ts uint64
-		if len(n.ir.Inputs) > 0 {
+		if longestInputIdx >= 0 {
 			ts = valueAt(longestInputTime, int(i))
 		} else {
 			ts = uint64(n.clock.Now())

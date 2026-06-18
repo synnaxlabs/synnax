@@ -73,8 +73,9 @@ public:
         if (!state.refresh_inputs()) return x::errors::NIL;
 
         int64_t max_length = 0;
-        int64_t longest_input_idx = 0;
+        int64_t longest_input_idx = -1;
         for (size_t i = 0; i < this->ir.inputs.size(); i++) {
+            if (!this->ir.inputs[i].value.is_null()) continue;
             const auto inp = this->state.input(i);
             const auto data_len = static_cast<int64_t>(inp->size());
             if (data_len > max_length) {
@@ -83,7 +84,8 @@ public:
             }
         }
 
-        if (this->ir.inputs.empty()) max_length = 1;
+        // With no edge-fed inputs, the node executes once over its literal inputs.
+        if (longest_input_idx < 0) max_length = 1;
         if (max_length <= 0) return x::errors::NIL;
         for (auto &offset: this->offsets)
             offset = 0;
@@ -105,13 +107,14 @@ public:
         }
 
         state::Series longest_input_time;
-        if (!this->ir.inputs.empty())
+        if (longest_input_idx >= 0)
             longest_input_time = this->state.input_time(longest_input_idx);
 
         this->state.set_current_node_key(this->ir.key);
 
         for (int i = 0; i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
+                if (!this->ir.inputs[j].value.is_null()) continue;
                 const auto input_series = this->state.input(j);
                 const auto input_len = static_cast<int>(input_series->size());
                 const auto idx = i % input_len;
@@ -138,7 +141,7 @@ public:
             }
 
             x::telem::TimeStamp ts;
-            if (!this->ir.inputs.empty() && longest_input_time)
+            if (longest_input_idx >= 0 && longest_input_time)
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
             else
                 ts = this->clock.now();
@@ -174,7 +177,10 @@ public:
         return x::errors::NIL;
     }
 
-    void reset() override { this->initialized = false; }
+    void reset() override {
+        this->initialized = false;
+        this->state.reset();
+    }
 
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);

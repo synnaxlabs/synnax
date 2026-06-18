@@ -116,31 +116,26 @@ message Function {
   string key = 1;
   // body is raw source code for user-defined functions.
   Body body = 2;
-  // config contains configuration parameter definitions.
-  repeated .arc.types.pb.Param config = 3;
   // inputs contains input parameter definitions.
-  repeated .arc.types.pb.Param inputs = 4;
+  repeated .arc.types.pb.Param inputs = 3;
   // outputs contains output parameter definitions.
-  repeated .arc.types.pb.Param outputs = 5;
+  repeated .arc.types.pb.Param outputs = 4;
   // channels contains channel read/write declarations.
-  .arc.types.pb.Channels channels = 6;
+  .arc.types.pb.Channels channels = 5;
 }
 
-// Node is a concrete instantiation of a function with typed parameters and
-// configuration values.
+// Node is a concrete instantiation of a function with typed parameters and values.
 message Node {
   // key is the unique identifier for this node instance.
   string key = 1;
   // type is the function type being instantiated.
   string type = 2;
-  // config contains configuration parameter values.
-  repeated .arc.types.pb.Param config = 3;
   // inputs contains input parameter type signatures.
-  repeated .arc.types.pb.Param inputs = 4;
+  repeated .arc.types.pb.Param inputs = 3;
   // outputs contains output parameter type signatures.
-  repeated .arc.types.pb.Param outputs = 5;
+  repeated .arc.types.pb.Param outputs = 4;
   // channels contains channel read/write mappings.
-  .arc.types.pb.Channels channels = 6;
+  .arc.types.pb.Channels channels = 5;
 }
 
 // Authorities holds the static authority declarations from an Arc program.

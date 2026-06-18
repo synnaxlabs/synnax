@@ -228,7 +228,7 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (cfg.node.type == "interval") {
-            auto [node_cfg, err] = IntervalConfig::create(cfg.node.config);
+            auto [node_cfg, err] = IntervalConfig::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.interval);
             return {
@@ -237,7 +237,7 @@ public:
             };
         }
         if (cfg.node.type == "wait") {
-            auto [node_cfg, err] = WaitConfig::create(cfg.node.config);
+            auto [node_cfg, err] = WaitConfig::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.duration);
             return {
@@ -246,7 +246,7 @@ public:
             };
         }
         if (cfg.node.type == "now") {
-            auto [node_cfg, err] = NowConfig::create(cfg.node.config);
+            auto [node_cfg, err] = NowConfig::create(cfg.node.inputs);
             if (err) return {nullptr, err};
             return {
                 std::make_unique<Now>(node_cfg, std::move(cfg.state), &this->clock),

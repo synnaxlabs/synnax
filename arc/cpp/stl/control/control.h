@@ -65,7 +65,7 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        const auto &auth_param = cfg.node.config["value"];
+        const auto &auth_param = cfg.node.inputs["value"];
         auto auth_sv = types::to_sample_value(auth_param.value, auth_param.type);
         if (!auth_sv.has_value())
             return {
@@ -76,7 +76,7 @@ public:
                 )
             };
         const auto auth = x::telem::cast<uint8_t>(*auth_sv);
-        const auto &ch_param = cfg.node.config["channel"];
+        const auto &ch_param = cfg.node.inputs["channel"];
         auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
         const types::ChannelKey channel = ch_sv.has_value()
                                             ? x::telem::cast<types::ChannelKey>(*ch_sv)

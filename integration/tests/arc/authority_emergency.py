@@ -13,6 +13,7 @@ import synnax as sy
 from tests.arc.arc import ArcCase
 
 ARC_EMERGENCY_SOURCE = """
+import control
 authority 100
 
 start_seq_cmd => main
@@ -23,7 +24,7 @@ sequence main {
         press_pt > 50 => emergency
     }
     stage emergency {
-        set_authority{255}
+       control.set_authority{255}
         0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
         press_pt < 5 => safed

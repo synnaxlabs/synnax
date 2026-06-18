@@ -477,6 +477,9 @@ func (s *Server) getUserSymbolHover(
 		d = doc.New(doc.TitleWithKind(displayName, kindDesc))
 		d.Add(doc.Divider())
 		d.Add(doc.Code("arc", formatFunctionSignatureContent(sym)))
+		if sym.Trigger.Target != "" {
+			d.Add(doc.Detail("Trigger", sym.Trigger.Target, true))
+		}
 	case symbol.KindModule, symbol.KindModuleAlias:
 		d = doc.New(doc.TitleWithKind(displayName, "Module"))
 		if members := formatModuleMembersList(sym); len(members) > 0 {
@@ -545,28 +548,12 @@ func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 	var sig strings.Builder
 	sig.WriteString("func ")
 	sig.WriteString(sym.Name)
-	if len(sym.Type.Config) > 0 {
-		sig.WriteString("{")
-		first := true
-		for _, param := range sym.Type.Config {
-			if !first {
-				sig.WriteString(", ")
-			}
-			_, _ = fmt.Fprintf(&sig, "\n    %s %s", param.Name, param.Type)
-			first = false
-		}
-		sig.WriteString("\n}")
-	}
 	sig.WriteString("(")
-	if len(sym.Type.Inputs) > 0 {
-		first := true
-		for _, param := range sym.Type.Inputs {
-			if !first {
-				sig.WriteString(", ")
-			}
-			_, _ = fmt.Fprintf(&sig, "%s %s", param.Name, param.Type)
-			first = false
+	for i, param := range sym.Type.Inputs {
+		if i > 0 {
+			sig.WriteString(", ")
 		}
+		_, _ = fmt.Fprintf(&sig, "%s %s", param.Name, param.Type)
 	}
 	sig.WriteString(")")
 	if len(sym.Type.Outputs) > 0 {
@@ -586,7 +573,7 @@ func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 }
 
 func formatFunctionKindDescription(sym *symbol.Symbol) string {
-	if sym.Type.Config != nil {
+	if sym.Exec == symbol.ExecFlow || sym.Exec == symbol.ExecBoth {
 		return "Node"
 	}
 	return "Function"
