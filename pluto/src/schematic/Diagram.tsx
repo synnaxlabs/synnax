@@ -96,7 +96,7 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       const source = resolveEndpoint(sourceNode.internals, edge.source.param);
       const target = resolveEndpoint(targetNode.internals, edge.target.param);
       if (source == null || target == null) return;
-      const cfg = configs.get(edge.key) as { segments?: Edge.Segmented.Segment[] };
+      const cfg = configs.get(edge.key) as Edge.Config | undefined;
       const segments = Edge.Segmented.build({
         sourcePos: source.position,
         targetPos: target.position,
