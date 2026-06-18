@@ -75,7 +75,7 @@ func Wrap(dist *distribution.Layer, opts ...WrapOption) *Service {
 	if err := s.Create(ctx, &controlCh, RetrieveIfNameExists()); err != nil {
 		panic(err)
 	}
-	if err := dist.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name); err != nil {
+	if err := dist.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key()); err != nil {
 		panic(err)
 	}
 	return s

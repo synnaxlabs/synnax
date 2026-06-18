@@ -57,18 +57,6 @@ func (s *ChannelStore) RetrieveByKeys(_ context.Context, keys ...channel.Key) ([
 	return out, nil
 }
 
-// ContainsKeys reports whether every provided key resolves to a stored channel.
-func (s *ChannelStore) ContainsKeys(_ context.Context, keys ...channel.Key) (bool, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for _, k := range keys {
-		if _, ok := s.m[k]; !ok {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
 // CreateChannel allocates a single channel — assigning its local key and creating its
 // storage on the leaseholder — and records its metadata in the cluster's shared channel
 // store so the framer can resolve it. The channel is updated in place with its key.
@@ -107,4 +95,3 @@ func (n Node) RetrieveChannelsInto(ctx context.Context, chs *[]channel.Channel, 
 	*chs = out
 	return err
 }
-

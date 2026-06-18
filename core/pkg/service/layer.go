@@ -587,5 +587,5 @@ func configureControlUpdates(ctx context.Context, dist *distribution.Layer, ch *
 	if err := ch.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
 		return err
 	}
-	return dist.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)
+	return dist.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key())
 }
