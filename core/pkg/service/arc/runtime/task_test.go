@@ -492,7 +492,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(20 * time.Millisecond)
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
@@ -555,7 +555,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
 			time.Sleep(20 * time.Millisecond)
-			fw := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			fw := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  []channel.Key{ch.Key()},
 				Start: telem.Now(),
 			}))
@@ -647,7 +647,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  channel.Keys{inputCh.Key()},
 			}))
@@ -808,7 +808,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(fr.Frame.Get(triggerOut.Key()).Len()).To(BeZero())
 			}
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -897,7 +897,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(200)},
@@ -929,7 +929,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -960,7 +960,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(254)},
@@ -994,7 +994,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			wA := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			wA := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
@@ -1003,7 +1003,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(wA.Close()).To(Succeed()) }()
 			Expect(wA.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 
-			wB := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			wB := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
@@ -1071,7 +1071,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			trigW := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			trigW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1082,7 +1082,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Eventually(responses).Should(Receive(&fr))
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(150)},
@@ -1125,7 +1125,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			wBefore := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			wBefore := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -1134,7 +1134,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(wBefore.Write(frame.NewUnary(dataCh.Key(), telem.NewSeriesV[uint8](99)))).To(BeFalse())
 			Expect(wBefore.Close()).To(Succeed())
 
-			trigW := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			trigW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1145,7 +1145,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(responses).Should(Receive(&fr))
 			Eventually(responses).Should(Receive(&fr))
 
-			wAfter := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			wAfter := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{dataCh.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -1188,7 +1188,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses).Should(Receive(&fr))
 
-			trigW := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			trigW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{triggerCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1214,7 +1214,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
-			startW := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			startW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1224,7 +1224,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
 
-			clearW := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			clearW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1232,7 +1232,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(clearW.Close()).To(Succeed())
 			time.Sleep(100 * time.Millisecond)
 
-			stopW := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			stopW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{stopSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1241,7 +1241,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(300 * time.Millisecond)
 
-			w1 := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w1 := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(1)},
@@ -1250,7 +1250,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
 			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 
-			w2 := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w2 := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(1)},
@@ -1274,7 +1274,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop()).To(Succeed()) }()
 
-			startW := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			startW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{startSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1284,7 +1284,7 @@ var _ = Describe("Task", Ordered, func() {
 			var fr framer.StreamerResponse
 			Eventually(responses, 500*time.Millisecond).Should(Receive(&fr))
 
-			stopW := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			stopW := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  channel.Keys{stopSignal.Key()},
 				Start: telem.Now(),
 			}))
@@ -1293,7 +1293,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(300 * time.Millisecond)
 
-			w1 := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w1 := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch1.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -1302,7 +1302,7 @@ var _ = Describe("Task", Ordered, func() {
 			defer func() { Expect(w1.Close()).To(Succeed()) }()
 			Expect(w1.Write(frame.NewUnary(ch1.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 
-			w2 := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w2 := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:        channel.Keys{ch2.Key()},
 				Start:       telem.Now(),
 				Authorities: []control.Authority{control.Authority(100)},
@@ -1341,7 +1341,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(20 * time.Millisecond)
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1399,7 +1399,7 @@ var _ = Describe("Task", Ordered, func() {
 			time.Sleep(20 * time.Millisecond)
 
 			// Write max value of 5.0 to the max channel
-			wMax := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			wMax := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  []channel.Key{maxCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1409,7 +1409,7 @@ var _ = Describe("Task", Ordered, func() {
 			time.Sleep(20 * time.Millisecond)
 
 			// Write a rising edge (0 -> 1) to the input channel
-			wInput := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			wInput := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))
@@ -1464,7 +1464,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			time.Sleep(20 * time.Millisecond)
 
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Keys:  []channel.Key{inputCh.Key()},
 				Start: telem.Now(),
 			}))

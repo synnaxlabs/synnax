@@ -17,9 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/errors"
@@ -401,7 +402,7 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func New(t *api.Transport, channelSvc channel.Retriever) fgrpc.BindableTransport {
+func New(t *api.Transport, channelSvc *svcchannel.Service) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{

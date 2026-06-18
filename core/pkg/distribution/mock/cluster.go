@@ -111,7 +111,6 @@ func (c *Cluster) Provision(
 		}, c.cfg}, cfgs...)...))
 	)
 	node := Node{Layer: distributionLayer, Storage: storageLayer, channels: c.channels}
-	distributionLayer.ChannelRetriever.Bind(c.channels)
 	c.Nodes[distributionLayer.Cluster.HostKey()] = node
 	c.WaitForTopologyToStabilize()
 	return node

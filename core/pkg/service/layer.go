@@ -262,7 +262,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	cfg.Distribution.ChannelRetriever.Bind(l.Channel)
 	if err = configureControlUpdates(ctx, cfg.Distribution, l.Channel); !ok(err, nil) {
 		return nil, err
 	}

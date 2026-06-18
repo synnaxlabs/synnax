@@ -60,5 +60,4 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ValidateNames:    new(true),
 		Status:           statusSvc,
 	}))
-	dist.ChannelRetriever.Bind(svc)
 })

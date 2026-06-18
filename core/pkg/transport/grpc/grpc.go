@@ -30,7 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	distchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -50,7 +50,7 @@ import (
 // layer's handlers and middleware to it, and returns the bindable transports
 // for registration with the server's gRPC branch. channelSvc resolves channel
 // keys for the frame codec.
-func Bind(layer *api.Layer, channelSvc distchannel.Retriever) []grpc.BindableTransport {
+func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTransport {
 	var t api.Transport
 	transports := grpc.CompoundBindableTransport{
 		channel.New(&t),

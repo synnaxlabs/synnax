@@ -36,6 +36,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	dist = DeferClose(mockCluster.Provision(ctx))
 	sigs = MustSucceed(signals.New(signals.Config{
 		Channel: channelmock.ChannelService(dist),
-		Framer:  framer.Wrap(dist.Framer, dist.ChannelRetriever),
+		Framer:  framer.Wrap(dist.Framer, channelmock.ChannelService(dist)),
 	}))
 })

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelmock "github.com/synnaxlabs/synnax/pkg/service/channel/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -371,7 +372,7 @@ var _ = Describe("Metrics", func() {
 				LocalIndex: indexCh.LocalKey,
 			}
 			Expect(channelSvc.Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
-			w := MustSucceed(dist.OpenWriter(ctx, distFramer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelSvc, distFramer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},
 			}))

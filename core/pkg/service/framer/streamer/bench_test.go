@@ -163,7 +163,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 	ch := env.createVirtualChannel(b, "throughput")
 	keys := []channel.Key{ch.Key()}
 
-	w, err := env.dist.OpenWriter(env.ctx, framer.WriterConfig{
+	w, err := channelmock.OpenWriter(env.ctx, env.dist, channelmock.ChannelService(env.dist), framer.WriterConfig{
 		Start: telem.SecondTS,
 		Keys:  keys,
 	})
@@ -219,7 +219,7 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 			ch := env.createVirtualChannel(b, fmt.Sprintf("ds%d", factor))
 			keys := []channel.Key{ch.Key()}
 
-			w, err := env.dist.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := channelmock.OpenWriter(env.ctx, env.dist, channelmock.ChannelService(env.dist), framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})
@@ -277,7 +277,7 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 	calc := env.createCalculation(b, "calc_sum", "return calc_sensor_0 + calc_sensor_1")
 	keys := []channel.Key{indexCh.Key(), dataChannels[0].Key(), dataChannels[1].Key()}
 
-	w, err := env.dist.OpenWriter(env.ctx, framer.WriterConfig{
+	w, err := channelmock.OpenWriter(env.ctx, env.dist, channelmock.ChannelService(env.dist), framer.WriterConfig{
 		Start: telem.SecondTS,
 		Keys:  keys,
 	})
@@ -347,7 +347,7 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 			ch := env.createVirtualChannel(b, fmt.Sprintf("size%d", size))
 			keys := []channel.Key{ch.Key()}
 
-			w, err := env.dist.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := channelmock.OpenWriter(env.ctx, env.dist, channelmock.ChannelService(env.dist), framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})
@@ -414,7 +414,7 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 
 			keys := []channel.Key{indexCh.Key(), dataChannels[0].Key()}
 
-			w, err := env.dist.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := channelmock.OpenWriter(env.ctx, env.dist, channelmock.ChannelService(env.dist), framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})

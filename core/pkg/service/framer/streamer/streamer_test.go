@@ -77,7 +77,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -134,7 +134,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -173,7 +173,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, calculation)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -240,12 +240,12 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(channelmock.ChannelService(dist).Create(ctx, calculation)).To(Succeed())
 
 			keysA := []channel.Key{idxA.Key(), dataA.Key()}
-			wA := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			wA := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keysA,
 			}))
 			keysB := []channel.Key{idxB.Key(), dataB.Key()}
-			wB := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			wB := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keysB,
 			}))
@@ -300,7 +300,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -371,7 +371,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			Expect(channelmock.ChannelService(dist).Create(ctx, calculation)).To(Succeed())
 
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			}))
@@ -418,7 +418,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -457,7 +457,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -495,7 +495,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -536,7 +536,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -575,7 +575,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))
@@ -613,7 +613,7 @@ var _ = Describe("Streamer", Ordered, func() {
 			}
 			Expect(channelmock.ChannelService(dist).Create(ctx, ch)).To(Succeed())
 			keys := []channel.Key{ch.Key()}
-			w := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  keys,
 			}))

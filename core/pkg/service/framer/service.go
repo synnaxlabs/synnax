@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -89,9 +88,8 @@ type Service struct {
 	Iterator *iterator.Service
 	cfg      ServiceConfig
 	// channels resolves the distribution-layer metadata supplied to the distribution
-	// writer for each key in a writer's config. It is the rich channel service in
-	// production and the bound distribution retriever in lightweight (Wrap) contexts.
-	channels dischannel.Retriever
+	// writer for each key in a writer's config.
+	channels *channel.Service
 }
 
 // Wrap builds a Service from an existing distribution-layer framer service without a
@@ -101,7 +99,7 @@ type Service struct {
 // NewStreamWriter and OpenWriter), but not the calculation-backed streaming and
 // iteration that NewService wires up. It suits tests and other lightweight contexts;
 // use OpenService when a complete configuration is available.
-func Wrap(dist *framer.Service, channels dischannel.Retriever) *Service {
+func Wrap(dist *framer.Service, channels *channel.Service) *Service {
 	return &Service{cfg: ServiceConfig{Framer: dist}, channels: channels}
 }
 

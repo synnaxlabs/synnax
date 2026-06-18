@@ -168,7 +168,7 @@ var _ = Describe("Limit", Ordered, func() {
 			Expect(channelmock.ChannelService(dist).Create(ctx, &ch)).To(Succeed())
 			createdChannels[i] = ch
 		}
-		writer := MustSucceed(dist.OpenWriter(ctx, framer.WriterConfig{
+		writer := MustSucceed(channelmock.OpenWriter(ctx, dist, channelmock.ChannelService(dist), framer.WriterConfig{
 			Keys: []channel.Key{createdChannels[0].Key()},
 		}))
 		Expect(channelmock.ChannelService(dist).Delete(ctx, createdChannels[0].Key(), false)).

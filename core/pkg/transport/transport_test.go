@@ -28,7 +28,7 @@ var _ = Describe("Transport", func() {
 				cfg := transport.LayerConfig{
 					API:     apiLayer,
 					Router:  MustSucceed(fhttp.NewRouter()),
-					Channel: dist.ChannelRetriever,
+					Channel: svc.Channel,
 				}
 				omit(&cfg)
 				Expect(transport.NewLayer(cfg)).Error().
@@ -44,7 +44,7 @@ var _ = Describe("Transport", func() {
 			tl := MustSucceed(transport.NewLayer(transport.LayerConfig{
 				API:     apiLayer,
 				Router:  router,
-				Channel: dist.ChannelRetriever,
+				Channel: svc.Channel,
 			}))
 
 			Expect(tl.GRPC).To(HaveLen(13))

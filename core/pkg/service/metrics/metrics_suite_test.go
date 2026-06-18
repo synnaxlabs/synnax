@@ -66,7 +66,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		ValidateNames:    new(true),
 		Status:           statusSvc,
 	}))
-	dist.ChannelRetriever.Bind(channelSvc)
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: channelSvc,

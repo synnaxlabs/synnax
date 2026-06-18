@@ -26,6 +26,11 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+func openWriter(ctx context.Context, n mock.Node, cfg writer.Config) (*writer.Writer, error) {
+	cfg.Channels = n.RetrieveChannels(ctx, cfg.Keys...)
+	return n.Framer.OpenWriter(ctx, cfg)
+}
+
 var _ = Describe("Iterator", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func(context.Context) scenario{
@@ -38,7 +43,7 @@ var _ = Describe("Iterator", func() {
 			Describe(fmt.Sprintf("Scenario: %v - Iteration", i), func() {
 				BeforeAll(func(ctx SpecContext) {
 					s = sF(ctx)
-					writer := MustSucceed(s.dist.OpenWriter(ctx, writer.Config{
+					writer := MustSucceed(openWriter(ctx, s.dist, writer.Config{
 						Keys:  s.keys,
 						Start: 10 * telem.SecondTS,
 						Sync:  new(true),

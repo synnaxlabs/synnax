@@ -64,7 +64,6 @@ func Wrap(dist *distribution.Layer, opts ...WrapOption) *Service {
 	if err != nil {
 		panic(err)
 	}
-	dist.ChannelRetriever.Bind(s)
 	ctx := context.Background()
 	controlCh := Channel{
 		Name:        fmt.Sprintf("sy_node_%v_control", dist.Cluster.HostKey()),

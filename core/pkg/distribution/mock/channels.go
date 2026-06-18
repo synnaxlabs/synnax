@@ -14,13 +14,12 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/testutil"
 )
 
-// ChannelStore is an in-memory channel.Retriever shared across the nodes of a mock
+// ChannelStore is an in-memory channel metadata store shared across the nodes of a mock
 // cluster. It lets distribution-layer tests create channels (through the allocator) and
 // resolve their metadata without depending on the service layer, which is where the real
 // channel table and retrieval live.
@@ -41,9 +40,9 @@ func (s *ChannelStore) add(channels ...channel.Channel) {
 	}
 }
 
-// RetrieveByKeys implements channel.Retriever. It returns query.ErrNotFound if any
-// requested key has no matching channel, mirroring the gorp retrieve semantics of the
-// real service-layer retriever the framer depends on.
+// RetrieveByKeys returns the channels matching the provided keys. It returns
+// query.ErrNotFound if any requested key has no matching channel, mirroring the gorp
+// retrieve semantics of the real service-layer channel service.
 func (s *ChannelStore) RetrieveByKeys(_ context.Context, keys ...channel.Key) ([]channel.Channel, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -58,7 +57,7 @@ func (s *ChannelStore) RetrieveByKeys(_ context.Context, keys ...channel.Key) ([
 	return out, nil
 }
 
-// ContainsKeys implements channel.Retriever.
+// ContainsKeys reports whether every provided key resolves to a stored channel.
 func (s *ChannelStore) ContainsKeys(_ context.Context, keys ...channel.Key) (bool, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -69,8 +68,6 @@ func (s *ChannelStore) ContainsKeys(_ context.Context, keys ...channel.Key) (boo
 	}
 	return true, nil
 }
-
-var _ channel.Retriever = (*ChannelStore)(nil)
 
 // CreateChannel allocates a single channel — assigning its local key and creating its
 // storage on the leaseholder — and records its metadata in the cluster's shared channel
@@ -111,28 +108,3 @@ func (n Node) RetrieveChannelsInto(ctx context.Context, chs *[]channel.Channel, 
 	return err
 }
 
-// OpenWriter opens a distribution-layer writer against the node, resolving the channel
-// metadata for cfg.Keys through the node's bound channel retriever and attaching it to
-// the config. The distribution writer requires resolved channels on its config; in
-// production the service layer supplies them. Resolving through the bound retriever lets
-// this work whether the test created channels through the mock store (pure
-// distribution-layer tests) or a real service-layer channel service.
-func (n Node) OpenWriter(ctx context.Context, cfg writer.Config) (*writer.Writer, error) {
-	channels, err := n.ChannelRetriever.RetrieveByKeys(ctx, cfg.Keys...)
-	if err != nil {
-		return nil, err
-	}
-	cfg.Channels = channels
-	return n.Framer.OpenWriter(ctx, cfg)
-}
-
-// NewStreamWriter opens a distribution-layer stream writer against the node, resolving
-// channel metadata for cfg.Keys exactly as OpenWriter does.
-func (n Node) NewStreamWriter(ctx context.Context, cfg writer.Config) (writer.StreamWriter, error) {
-	channels, err := n.ChannelRetriever.RetrieveByKeys(ctx, cfg.Keys...)
-	if err != nil {
-		return nil, err
-	}
-	cfg.Channels = channels
-	return n.Framer.NewStreamWriter(ctx, cfg)
-}

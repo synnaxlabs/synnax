@@ -26,6 +26,7 @@ import (
 var (
 	apiLayer *api.Layer
 	dist     *distribution.Layer
+	svc      *service.Layer
 )
 
 func TestGRPC(t *testing.T) {
@@ -40,7 +41,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Insecure: new(true),
 		KeySize:  secmock.SmallKeySize,
 	}))
-	svc := MustOpen(service.OpenLayer(ctx, service.LayerConfig{
+	svc = MustOpen(service.OpenLayer(ctx, service.LayerConfig{
 		Distribution: dist,
 		Security:     sec,
 		Storage:      cluster.Nodes[1].Storage,

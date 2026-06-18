@@ -56,11 +56,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	HostResolver node.HostResolver
-	// Channel is used to retrieve channel information. It is a late-bound retriever hole
-	// implemented by the service layer's channel service.
-	//
-	// [REQUIRED]
-	Channel channel.Retriever
 	// TS is the underlying storage time-series database for reading and writing
 	// telemetry.
 	//
@@ -77,7 +72,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer")
-	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "host_resolver", c.HostResolver)
@@ -87,7 +81,6 @@ func (c ServiceConfig) Validate() error {
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)

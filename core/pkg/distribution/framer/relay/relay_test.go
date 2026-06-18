@@ -40,6 +40,11 @@ type scenario struct {
 	resCount int
 }
 
+func openWriter(ctx context.Context, n mock.Node, cfg writer.Config) (*writer.Writer, error) {
+	cfg.Channels = n.RetrieveChannels(ctx, cfg.Keys...)
+	return n.Framer.OpenWriter(ctx, cfg)
+}
+
 var _ = Describe("Relay", func() {
 	Describe("Happy Path", Ordered, func() {
 
@@ -64,7 +69,7 @@ var _ = Describe("Relay", func() {
 				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 				// We need to give a few milliseconds for the reader to boot up.
 				time.Sleep(10 * time.Millisecond)
-				w := MustSucceed(s.dist.OpenWriter(ctx, writer.Config{
+				w := MustSucceed(openWriter(ctx, s.dist, writer.Config{
 					Keys:  keys,
 					Start: 10 * telem.SecondTS,
 				}))
@@ -125,7 +130,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "grouped", Key: "grouped", Group: 99},
@@ -164,7 +169,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "other", Key: "other", Group: 200},
@@ -206,7 +211,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -251,7 +256,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "free-grouped", Key: "free-grouped", Group: 55},
@@ -320,7 +325,7 @@ var _ = Describe("Relay", func() {
 			Eventually(res.Outlet()).Should(Receive(&ack))
 			Expect(ack.Frame.Empty()).To(BeTrue())
 
-			w := MustSucceed(svc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -420,7 +425,7 @@ var _ = Describe("Relay", func() {
 				Expect(ack.Frame.Empty()).To(BeTrue())
 			}
 
-			w := MustSucceed(svc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -461,7 +466,7 @@ var _ = Describe("Relay", func() {
 
 			req.Inlet() <- relay.Request{Keys: keys}
 
-			w := MustSucceed(svc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(openWriter(ctx, svc, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))

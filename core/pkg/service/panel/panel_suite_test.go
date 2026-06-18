@@ -46,7 +46,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	otg = dist.Ontology
 	sigs := MustSucceed(signals.New(signals.Config{
 		Channel: channelmock.ChannelService(dist),
-		Framer:  framer.Wrap(dist.Framer, dist.ChannelRetriever),
+		Framer:  framer.Wrap(dist.Framer, channelmock.ChannelService(dist)),
 	}))
 	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
 		DB:       dist.DB,

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
@@ -96,9 +97,9 @@ type Codec struct {
 	// reader is reused for each decode operation. Unlike the standard library
 	// binary.Read, this avoids reflection overhead.
 	reader *binary.Reader
-	// channels used in dynamic codecs to retrieve information about channels
-	// when Update is called.
-	channels channel.Retriever
+	// channels is used in dynamic codecs to retrieve information about channels when
+	// Update is called.
+	channels *svcchannel.Service
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
@@ -175,9 +176,10 @@ func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType, opts ...Opt
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by retrieving channels
-// from the provided channel store with default configuration (alignment compression enabled).
-// Codec.Update must be called before the first call to Codec.Encode and Codec.Decode.
-func NewDynamic(channels channel.Retriever, opts ...Option) *Codec {
+// from the provided channel service with default configuration (alignment compression
+// enabled). Codec.Update must be called before the first call to Codec.Encode and
+// Codec.Decode.
+func NewDynamic(channels *svcchannel.Service, opts ...Option) *Codec {
 	c := newCodec(opts...)
 	c.channels = channels
 	return c
@@ -194,6 +196,19 @@ func newCodec(opts ...Option) *Codec {
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)
 	return c
+}
+
+// channelStringer returns a human-readable representation of the channel with the given
+// key, falling back to the key's string form if it cannot be retrieved.
+func (c *Codec) channelStringer(ctx context.Context, key channel.Key) string {
+	if c.channels == nil {
+		return key.String()
+	}
+	chs, err := c.channels.RetrieveByKeys(ctx, key)
+	if err != nil || len(chs) == 0 {
+		return key.String()
+	}
+	return chs[0].String()
 }
 
 // Update updates the codec to use the given keys in its state.
@@ -501,7 +516,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"encoder was provided a key %s not present in current state",
-				channel.TryToRetrieveStringer(ctx, c.channels, key),
+				c.channelStringer(ctx, key),
 			)
 		}
 		isEquivalent := (dt == telem.Int64T || dt == telem.TimeStampT) &&
@@ -509,7 +524,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
 				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
-				dt, channel.TryToRetrieveStringer(ctx, c.channels, key), s.DataType,
+				dt, c.channelStringer(ctx, key), s.DataType,
 			)
 		}
 	}

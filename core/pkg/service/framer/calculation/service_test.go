@@ -70,8 +70,10 @@ var _ = Describe("Calculation", Ordered, func() {
 			writerKeys = append(writerKeys, channel.KeysFromChannels(*indexChannels)...)
 		}
 		sCtx, cancel := signal.Isolated()
-		w := MustSucceed(dist.OpenWriter(
+		w := MustSucceed(channelmock.OpenWriter(
 			ctx,
+			dist,
+			channelmock.ChannelService(dist),
 			framer.WriterConfig{
 				Start: 1 * telem.SecondTS,
 				Keys:  writerKeys,

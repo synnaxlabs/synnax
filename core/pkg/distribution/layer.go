@@ -135,10 +135,6 @@ type Layer struct {
 	// creates, renames, and deletes storage channels across the cluster. Rich channel
 	// metadata and retrieval live in the service layer.
 	Channel *channel.Service
-	// ChannelRetriever is a late-bound hole for reading channel metadata, filled by the
-	// service layer once its channel service opens. The framer reads channels through
-	// it.
-	ChannelRetriever *channel.RetrieverHolder
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
@@ -226,8 +222,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	l.ChannelRetriever = channel.NewRetrieverHolder()
-
 	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		HostResolver:    l.Cluster,
@@ -240,7 +234,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 
 	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
-		Channel:         l.ChannelRetriever,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.FrameTransport,
 		HostResolver:    l.Cluster,

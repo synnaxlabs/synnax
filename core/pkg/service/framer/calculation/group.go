@@ -14,8 +14,8 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	dischannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -48,7 +48,7 @@ type groupConfig struct {
 	Calculators    calculator.Group
 	// Channels resolves the distribution-layer metadata for the channels the group
 	// writes calculated values to, which the distribution writer requires.
-	Channels dischannel.Retriever
+	Channels *channel.Service
 }
 
 var (
