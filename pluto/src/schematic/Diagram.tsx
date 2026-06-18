@@ -160,14 +160,24 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
     jumps.commit(Edge.Jumps.findCrossings(polylines));
   }, [edges, configs, store, jumps]);
 
-  // Coalesce React Flow's many per-interaction store updates into one recompute per frame.
+  // Coalesce React Flow's many per-interaction store updates into one recompute per frame,
+  // skipping frames where no node geometry or zoom changed (panning, selection, hover).
   const frameRef = useRef<number | null>(null);
+  const geometryRef = useRef("");
   useEffect(() => {
     recompute();
     const schedule = (): void => {
       if (frameRef.current != null) return;
       frameRef.current = requestAnimationFrame(() => {
         frameRef.current = null;
+        const { nodeLookup, transform } = store.getState();
+        let geometry = `${transform[2]}`;
+        for (const node of nodeLookup.values()) {
+          const { x, y } = node.internals.positionAbsolute;
+          geometry += `;${x},${y},${node.measured.width},${node.measured.height}`;
+        }
+        if (geometry === geometryRef.current) return;
+        geometryRef.current = geometry;
         recompute();
       });
     };
