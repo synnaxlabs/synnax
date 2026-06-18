@@ -66,12 +66,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	if err := nv.Position.EncodeOrc(w); err != nil {
 		return err
 	}
-	if nv.ZIndex != nil {
-		w.Bool(true)
-		w.Int16(int16((*nv.ZIndex)))
-	} else {
-		w.Bool(false)
-	}
+	w.Int16(int16(nv.ZIndex))
 	if nv.Measured != nil {
 		w.Bool(true)
 		if err := (*nv.Measured).EncodeOrc(w); err != nil {
@@ -91,18 +86,8 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	if err = nv.Position.DecodeOrc(r); err != nil {
 		return err
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv int16
-			if hv, err = r.Int16(); err != nil {
-				return err
-			}
-			nv.ZIndex = &hv
-		}
+	if nv.ZIndex, err = r.Int16(); err != nil {
+		return err
 	}
 	{
 		present, err := r.Bool()

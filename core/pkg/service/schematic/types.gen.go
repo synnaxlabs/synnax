@@ -28,7 +28,7 @@ type Node struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 	// ZIndex is the stacking order of the node within the schematic. Higher values render
 	// above lower values. Set by the user via send-to-back / bring-to-front actions.
-	ZIndex *int16 `json:"z_index,omitempty" msgpack:"z_index,omitempty"`
+	ZIndex int16 `json:"z_index" msgpack:"z_index"`
 	// Measured is the rendered pixel size of the node. Populated by the renderer after the
 	// node is mounted and used to keep diagram measurements consistent across re-renders.
 	Measured *spatial.Dimensions `json:"measured,omitempty" msgpack:"measured,omitempty"`

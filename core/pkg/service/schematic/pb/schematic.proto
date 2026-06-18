@@ -26,7 +26,7 @@ message Node {
   .x.spatial.pb.XY position = 2;
   // z_index is the stacking order of the node within the schematic. Higher values render
   // above lower values. Set by the user via send-to-back / bring-to-front actions.
-  optional int32 z_index = 3;
+  int32 z_index = 3;
   // measured is the rendered pixel size of the node. Populated by the renderer after the
   // node is mounted and used to keep diagram measurements consistent across re-renders.
   optional .x.spatial.pb.Dimensions measured = 4;

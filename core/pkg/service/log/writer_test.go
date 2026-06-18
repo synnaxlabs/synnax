@@ -279,19 +279,19 @@ var _ = Describe("Writer", func() {
 			)
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
-				l := log.Log{Name: "test", ShowChannelNames: true, ShowReceiptTimestamp: true}
+				l := log.Log{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewSetShowChannelNamesAction(log.SetShowChannelNamesPayload{
-						ShowChannelNames: false,
+					log.NewSetHideChannelNamesAction(log.SetHideChannelNamesPayload{
+						HideChannelNames: true,
 					}),
-					log.NewSetShowReceiptTimestampAction(log.SetShowReceiptTimestampPayload{
-						ShowReceiptTimestamp: false,
+					log.NewSetHideReceiptTimestampAction(log.SetHideReceiptTimestampPayload{
+						HideReceiptTimestamp: true,
 					}),
 				})).To(Succeed())
 				res := retrieve(ctx, l.Key)
-				Expect(res.ShowChannelNames).To(BeFalse())
-				Expect(res.ShowReceiptTimestamp).To(BeFalse())
+				Expect(res.HideChannelNames).To(BeTrue())
+				Expect(res.HideReceiptTimestamp).To(BeTrue())
 			})
 		})
 

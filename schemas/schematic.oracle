@@ -24,7 +24,7 @@ Node struct {
     position spatial.XY          {
         @doc value "is the top-left position of the node."
     }
-    z_index  int16?              {
+    z_index  int16 = 0 {
         @doc value """
             is the stacking order of the node within the schematic. Higher
             values render above lower values. Set by the user via

@@ -182,8 +182,9 @@ var _ = Describe("MigrateLinePlot", func() {
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Key).To(Equal(seed.Key))
-			// v1 lift forces legend.visible=true and sets default position.
-			Expect(got.Legend.Visible).To(BeTrue())
+			// v1 lift forces the legend shown, so the typed Hidden is false, and sets
+			// default position.
+			Expect(got.Legend.Hidden).To(BeFalse())
 			Expect(got.Legend.Position.X).To(Equal(50.0))
 			Expect(got.Legend.Position.Units).NotTo(BeNil())
 			Expect(got.Legend.Position.Units.X).To(BeEquivalentTo("px"))
@@ -254,8 +255,8 @@ var _ = Describe("MigrateLinePlot", func() {
 			}}`)
 			Expect(out.Axes.X1.Label).To(Equal("t"))
 			Expect(out.Axes.X1.Bounds.Lower).To(Equal(1.0))
-			Expect(out.Axes.X1.AutoBounds.Upper).To(BeTrue())
-			Expect(out.Axes.X1.AutoBounds.Lower).To(BeFalse())
+			Expect(out.Axes.X1.ManualBounds.Upper).To(BeFalse())
+			Expect(out.Axes.X1.ManualBounds.Lower).To(BeTrue())
 			Expect(out.Axes.X1.TickSpacing).To(Equal(60.0))
 		})
 

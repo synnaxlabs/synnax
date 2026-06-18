@@ -37,7 +37,7 @@ type changeService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
 }
 
-const changeOntologyType ontology.ResourceType = "change"
+const changeOntologyType ontology.ResourceType = "channel"
 
 func newChangeID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: changeOntologyType}

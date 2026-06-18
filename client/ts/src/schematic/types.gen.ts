@@ -25,7 +25,7 @@ export const nodeZ = z.object({
    * values render above lower values. Set by the user via
    * send-to-back / bring-to-front actions.
    */
-  zIndex: zod.int16.optional(),
+  zIndex: zod.int16.default(0),
   /**
    * measured is the rendered pixel size of the node. Populated by the
    * renderer after the node is mounted and used to keep diagram

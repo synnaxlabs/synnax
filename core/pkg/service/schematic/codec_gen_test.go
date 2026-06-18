@@ -78,13 +78,13 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", schematic.Node{
 				Key:      "test_1",
 				Position: spatial.XY{X: 3.5, Y: 4.5},
-				ZIndex:   new(int16(6)),
+				ZIndex:   6,
 				Measured: new(spatial.Dimensions{Width: 7.5, Height: 8.5}),
 			}),
 			Entry("zero values", schematic.Node{
 				Key:      "",
 				Position: spatial.XY{X: 0, Y: 0},
-				ZIndex:   nil,
+				ZIndex:   0,
 				Measured: nil,
 			}),
 		)
@@ -108,7 +108,7 @@ var _ = Describe("Codec", func() {
 					{
 						Key:      "test_5",
 						Position: spatial.XY{X: 7.5, Y: 8.5},
-						ZIndex:   new(int16(10)),
+						ZIndex:   10,
 						Measured: new(spatial.Dimensions{Width: 11.5, Height: 12.5}),
 					},
 				},
@@ -183,7 +183,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	nv := schematic.Node{
 		Key:      "test_1",
 		Position: spatial.XY{X: 3.5, Y: 4.5},
-		ZIndex:   new(int16(6)),
+		ZIndex:   6,
 		Measured: new(spatial.Dimensions{Width: 7.5, Height: 8.5}),
 	}
 	w := orc.NewWriter(0)
@@ -210,7 +210,7 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			{
 				Key:      "test_5",
 				Position: spatial.XY{X: 7.5, Y: 8.5},
-				ZIndex:   new(int16(10)),
+				ZIndex:   10,
 				Measured: new(spatial.Dimensions{Width: 11.5, Height: 12.5}),
 			},
 		},
@@ -343,7 +343,7 @@ func FuzzDecodeNode(f *testing.F) {
 		seed := schematic.Node{
 			Key:      "test_1",
 			Position: spatial.XY{X: 3.5, Y: 4.5},
-			ZIndex:   new(int16(6)),
+			ZIndex:   6,
 			Measured: new(spatial.Dimensions{Width: 7.5, Height: 8.5}),
 		}
 		w := orc.NewWriter(0)
@@ -356,7 +356,7 @@ func FuzzDecodeNode(f *testing.F) {
 		seed := schematic.Node{
 			Key:      "",
 			Position: spatial.XY{X: 0, Y: 0},
-			ZIndex:   nil,
+			ZIndex:   0,
 			Measured: nil,
 		}
 		w := orc.NewWriter(0)
@@ -404,7 +404,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 				{
 					Key:      "test_5",
 					Position: spatial.XY{X: 7.5, Y: 8.5},
-					ZIndex:   new(int16(10)),
+					ZIndex:   10,
 					Measured: new(spatial.Dimensions{Width: 11.5, Height: 12.5}),
 				},
 			},
