@@ -97,6 +97,8 @@ public:
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return state.is_output_truthy(output_idx);
     }
+
+    void reset() override { this->state.reset(); }
 };
 
 class Module : public stl::Module {

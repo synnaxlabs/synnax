@@ -170,6 +170,33 @@ TEST(SelectTest, AllTrueInput) {
     EXPECT_EQ(checker.output(1)->size(), 0);
 }
 
+/// @brief reset() re-arms inputs so the node re-runs on stage re-entry.
+TEST(SelectTest, ResetRearmsInputsOnStageReentry) {
+    TestSetup setup;
+    Select node(setup.make_select_node(), 0);
+
+    auto source = setup.make_source_node();
+    write_source(source, {1, 1, 1}, {100, 200, 300});
+
+    int changes = 0;
+    auto ctx = make_context();
+    ctx.mark_changed = [&](size_t) { changes++; };
+
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_GT(changes, 0);
+
+    // Same data already consumed: no re-run.
+    changes = 0;
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // Stage re-entry re-arms the inputs so the node runs again.
+    node.reset();
+    changes = 0;
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_GT(changes, 0);
+}
+
 /// @brief Test that all-false input routes entirely to false output.
 TEST(SelectTest, AllFalseInput) {
     TestSetup setup;

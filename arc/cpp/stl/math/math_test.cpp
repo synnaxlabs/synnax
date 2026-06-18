@@ -213,6 +213,37 @@ TEST(MathAvgTest, ComputesRunningAverage) {
     EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 3 * sec);
 }
 
+/// @brief reset() re-arms inputs so the node re-runs on stage re-entry.
+TEST(MathAvgTest, ResetRearmsInputsOnStageReentry) {
+    TestSetup setup(types::Kind::F64, "avg");
+    Module module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
+    ));
+
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source_f64(source, {10.0, 20.0, 30.0}, {sec, 2 * sec, 3 * sec});
+
+    int changes = 0;
+    auto ctx = make_context();
+    ctx.mark_changed = [&](size_t) { changes++; };
+
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_GT(changes, 0);
+
+    // Same data already consumed: no re-run.
+    changes = 0;
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // Stage re-entry re-arms the inputs so the node runs again.
+    node->reset();
+    changes = 0;
+    ASSERT_NIL(node->next(ctx));
+    EXPECT_GT(changes, 0);
+}
+
 TEST(MathAvgTest, AccumulatesAcrossBatches) {
     TestSetup setup(types::Kind::F64, "avg");
     Module module;

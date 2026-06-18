@@ -89,6 +89,7 @@ public:
 
     void reset() override {
         runtime::node::Node::reset();
+        this->state.reset();
         auto [data, index_data, ok] = this->state.read_series(this->channel_key);
         if (!ok || data.series.empty()) return;
         const auto &last = data.series.back();
@@ -149,6 +150,8 @@ public:
     [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
         return this->state.is_output_truthy(output_idx);
     }
+
+    void reset() override { this->state.reset(); }
 };
 
 class Module : public stl::Module {

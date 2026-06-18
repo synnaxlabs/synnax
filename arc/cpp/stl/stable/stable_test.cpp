@@ -221,6 +221,45 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     EXPECT_EQ(output_time->at<int64_t>(0), emit_ns);
 }
 
+/// @brief reset() re-arms inputs so the node re-detects its value and re-emits
+/// after stage re-entry.
+TEST(StableForTest, ResetRearmsInputsOnStageReentry) {
+    TestSetup setup(x::telem::SECOND.nanoseconds());
+    x::telem::TimeStamp current_time(0);
+    StableFor node(
+        ASSERT_NIL_P(StableForConfig::create(setup.ir.nodes[1].inputs)),
+        setup.make_stable_node(),
+        0,
+        make_now(current_time)
+    );
+
+    const auto start_ns = x::telem::MILLISECOND.nanoseconds();
+    auto source = setup.make_source_node();
+    write_source(source, {5}, {start_ns});
+
+    auto ctx = make_context();
+    ASSERT_NIL(node.next(ctx));
+
+    // Emits once the value has been stable for the configured duration.
+    const auto first_emit = start_ns + x::telem::SECOND.nanoseconds();
+    current_time = x::telem::TimeStamp(first_emit);
+    int changes = 0;
+    ctx.mark_changed = [&](size_t) { changes++; };
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changes, 1);
+
+    // Stage re-entry: the node must re-detect the value (re-armed inputs) and emit
+    // again after the duration. Without the re-arm the value is never re-read.
+    node.reset();
+    changes = 0;
+    ASSERT_NIL(node.next(ctx));
+
+    const auto second_emit = first_emit + x::telem::SECOND.nanoseconds();
+    current_time = x::telem::TimeStamp(second_emit);
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changes, 1);
+}
+
 /// @brief A value change resets the stability timer using the new sample's timestamp.
 TEST(StableForTest, ResetsTimerOnValueChange) {
     TestSetup setup(x::telem::SECOND.nanoseconds());

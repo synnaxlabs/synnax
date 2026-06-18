@@ -255,6 +255,54 @@ func double(val f32) f32 {
     EXPECT_TRUE(changed_outputs.empty());
 }
 
+/// @brief reset() re-arms a node whose only gating input is literal-valued so it
+/// runs again on stage re-entry.
+TEST(NodeTest, ResetRearmsLiteralInputOnStageReentry) {
+    const auto client = new_test_client();
+    const auto ch = ASSERT_NIL_P(
+        client.channels.create(random_name("trigger"), x::telem::FLOAT32_T, true)
+    );
+
+    const std::string source = R"(
+func scaled(k f32) f32 {
+    return k * 2.0
+}
+)" + ch.name + " -> scaled{k=5}";
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
+    const auto *func_node = find_node_by_type(mod, "scaled");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        arc::runtime::errors::noop_handler
+    );
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("scaled"));
+
+    wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
+
+    auto ctx = make_context();
+    int changes = 0;
+    ctx.mark_changed = [&](size_t) { changes++; };
+
+    // Runs on first activation: the literal input is unconsumed.
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changes, 1);
+
+    // Does not re-run on the next cycle: the literal input stays consumed.
+    changes = 0;
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // Stage re-entry must re-arm the literal input so the node runs again.
+    node.reset();
+    changes = 0;
+    ASSERT_NIL(node.next(ctx));
+    EXPECT_EQ(changes, 1);
+}
+
 /// @brief Node::next executes WASM function and produces correct output.
 TEST(NodeTest, NextExecutesFunctionAndProducesOutput) {
     const auto client = new_test_client();

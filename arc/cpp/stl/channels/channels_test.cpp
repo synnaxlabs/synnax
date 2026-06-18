@@ -586,6 +586,84 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     EXPECT_FLOAT_EQ(out.at<float>(100, 1), 8.8f);
 }
 
+/// @brief reset() re-arms inputs so the sink re-runs on stage re-entry.
+TEST(WriteTest, ResetRearmsInputsOnStageReentry) {
+    types::Param upstream_output;
+    upstream_output.name = ir::default_output_param;
+    upstream_output.type.kind = types::Kind::F32;
+
+    ir::Node upstream_node;
+    upstream_node.key = "upstream";
+    upstream_node.type = "producer";
+    upstream_node.outputs.push_back(upstream_output);
+
+    types::Param sink_input;
+    sink_input.name = ir::default_input_param;
+    sink_input.type.kind = types::Kind::F32;
+
+    types::Param sink_output;
+    sink_output.name = ir::default_output_param;
+    sink_output.type.kind = types::Kind::U8;
+
+    ir::Node sink_node;
+    sink_node.key = "sink";
+    sink_node.type = "write";
+    sink_node.inputs.push_back(sink_input);
+    sink_node.outputs.push_back(sink_output);
+
+    types::Param channel_config;
+    channel_config.name = "channel";
+    channel_config.type.kind = types::Kind::U32;
+    channel_config.value = static_cast<uint32_t>(100);
+    sink_node.inputs.push_back(channel_config);
+
+    ir::Edge edge;
+    edge.source = ir::Handle("upstream", ir::default_output_param);
+    edge.target = ir::Handle("sink", ir::default_input_param);
+
+    ir::IR ir;
+    ir.nodes.push_back(upstream_node);
+    ir.nodes.push_back(sink_node);
+    ir.edges.push_back(edge);
+
+    runtime::state::Config cfg{
+        .ir = ir,
+        .channels = {{100, ::x::telem::FLOAT32_T, 101}}
+    };
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+
+    channels::Module module(nullptr, nullptr);
+    auto sink_state = ASSERT_NIL_P(s.node("sink"));
+    auto sink = ASSERT_NIL_P(
+        module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
+    );
+
+    auto upstream = ASSERT_NIL_P(s.node("upstream"));
+    upstream.output(0) = x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<float>{7.7f, 8.8f}
+    );
+    upstream.output_time(0) = x::mem::make_local_shared<::x::telem::Series>(
+        std::vector<int64_t>{500, 501}
+    );
+
+    int changes = 0;
+    runtime::node::Context ctx{.mark_changed = [&](size_t) { changes++; }};
+
+    ASSERT_NIL(sink->next(ctx));
+    EXPECT_EQ(changes, 1);
+
+    // Same upstream data already consumed: no re-run.
+    changes = 0;
+    ASSERT_NIL(sink->next(ctx));
+    EXPECT_EQ(changes, 0);
+
+    // Stage re-entry re-arms the inputs so the sink runs again.
+    sink->reset();
+    changes = 0;
+    ASSERT_NIL(sink->next(ctx));
+    EXPECT_EQ(changes, 1);
+}
+
 TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     types::Param upstream_output;
     upstream_output.name = ir::default_output_param;
