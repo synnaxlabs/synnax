@@ -41,25 +41,15 @@ func (n Node) stringWithPrefix(prefix string) string {
 	var b strings.Builder
 	_, _ = fmt.Fprintf(&b, "%s (type: %s)\n", n.Key, n.Type)
 
-	hasConfig := len(n.Config) > 0
 	hasInputs := len(n.Inputs) > 0
 	hasOutputs := len(n.Outputs) > 0
 
-	isLast := !hasConfig && !hasInputs && !hasOutputs
+	isLast := !hasInputs && !hasOutputs
 	b.WriteString(prefix)
 	b.WriteString(TreePrefix(isLast))
 	b.WriteString("channels: ")
 	b.WriteString(formatChannels(n.Channels))
 	b.WriteString("\n")
-
-	if hasConfig {
-		isLast = !hasInputs && !hasOutputs
-		b.WriteString(prefix)
-		b.WriteString(TreePrefix(isLast))
-		b.WriteString("config: ")
-		b.WriteString(formatParams(n.Config))
-		b.WriteString("\n")
-	}
 
 	if hasInputs {
 		isLast = !hasOutputs

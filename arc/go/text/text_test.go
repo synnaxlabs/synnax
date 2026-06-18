@@ -180,7 +180,8 @@ var _ = Describe("Text", func() {
 
 			n1 := findNodeByKey(inter.Nodes, "adder_0")
 			Expect(n1.Type).To(Equal("adder"))
-			Expect(n1.Config).To(BeEmpty())
+			Expect(n1.Inputs).To(HaveLen(1))
+			Expect(n1.Inputs[0].Name).To(Equal("a"))
 			Expect(n1.Channels.Read).ToNot(BeNil())
 			Expect(n1.Channels.Read).To(BeEmpty())
 			Expect(n1.Channels.Write).ToNot(BeNil())
@@ -205,9 +206,9 @@ var _ = Describe("Text", func() {
 
 				channelNode := findNodeByKey(inter.Nodes, "on_sensor_0")
 				Expect(channelNode.Type).To(Equal("on"))
-				Expect(channelNode.Config).To(HaveLen(1))
-				Expect(channelNode.Config[0].Name).To(Equal("channel"))
-				Expect(channelNode.Config[0].Type).To(Equal(types.Chan(types.I32())))
+				Expect(channelNode.Inputs).To(HaveLen(1))
+				Expect(channelNode.Inputs[0].Name).To(Equal("channel"))
+				Expect(channelNode.Inputs[0].Type).To(Equal(types.Chan(types.I32())))
 				Expect(channelNode.Channels.Read).To(HaveKey(uint32(10042)))
 
 				printNode := findNodeByKey(inter.Nodes, "print_0")
@@ -273,9 +274,9 @@ var _ = Describe("Text", func() {
 					if expectConstant {
 						Expect(constantCount).To(Equal(1), "expected exactly one constant node")
 						constantNode := findNodeByType(inter.Nodes, "constant")
-						Expect(constantNode.Config).To(HaveLen(1))
-						Expect(constantNode.Config[0].Name).To(Equal("value"))
-						Expect(constantNode.Config[0].Type).To(Equal(expectedType))
+						Expect(constantNode.Inputs).To(HaveLen(1))
+						Expect(constantNode.Inputs[0].Name).To(Equal("value"))
+						Expect(constantNode.Inputs[0].Type).To(Equal(expectedType))
 					} else {
 						Expect(constantCount).To(Equal(0), "expected no constant nodes for complex expressions")
 					}
@@ -349,13 +350,13 @@ var _ = Describe("Text", func() {
 				Expect(inter.Nodes).To(HaveLen(2))
 				node := findNodeByKey(inter.Nodes, "processor_0")
 				Expect(node.Type).To(Equal("processor"))
-				Expect(node.Config).To(HaveLen(2))
-				Expect(node.Config[0].Name).To(Equal("threshold"))
-				Expect(node.Config[0].Type).To(Equal(types.I64()))
-				Expect(node.Config[0].Value).To(Equal(int64(100)))
-				Expect(node.Config[1].Name).To(Equal("scale"))
-				Expect(node.Config[1].Type).To(Equal(types.F64()))
-				Expect(node.Config[1].Value).To(Equal(2.5))
+				Expect(node.Inputs).To(HaveLen(2))
+				Expect(node.Inputs[0].Name).To(Equal("threshold"))
+				Expect(node.Inputs[0].Type).To(Equal(types.I64()))
+				Expect(node.Inputs[0].Value).To(Equal(int64(100)))
+				Expect(node.Inputs[1].Name).To(Equal("scale"))
+				Expect(node.Inputs[1].Type).To(Equal(types.F64()))
+				Expect(node.Inputs[1].Value).To(Equal(2.5))
 			})
 
 			It("Should handle simple config with multiple values", func(ctx SpecContext) {
@@ -373,12 +374,12 @@ var _ = Describe("Text", func() {
 
 				node := findNodeByKey(inter.Nodes, "calculator_0")
 				Expect(node.Type).To(Equal("calculator"))
-				Expect(node.Config).To(HaveLen(3))
+				Expect(node.Inputs).To(HaveLen(3))
 
 				configValues := map[string]int64{
 					"a": 10, "b": 20, "c": 30,
 				}
-				for i, cfg := range node.Config {
+				for i, cfg := range node.Inputs {
 					Expect(cfg.Type).To(Equal(types.I64()))
 					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
 				}
@@ -402,9 +403,9 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "processor_0")
-				Expect(node.Config).To(HaveLen(1))
-				Expect(node.Config[0].Name).To(Equal("threshold"))
-				Expect(node.Config[0].Value).To(Equal(int64(-100)))
+				Expect(node.Inputs).To(HaveLen(1))
+				Expect(node.Inputs[0].Name).To(Equal("threshold"))
+				Expect(node.Inputs[0].Value).To(Equal(int64(-100)))
 			})
 
 			It("Should handle negated float config value", func(ctx SpecContext) {
@@ -425,9 +426,9 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "scaler_0")
-				Expect(node.Config).To(HaveLen(1))
-				Expect(node.Config[0].Name).To(Equal("factor"))
-				Expect(node.Config[0].Value).To(Equal(-2.5))
+				Expect(node.Inputs).To(HaveLen(1))
+				Expect(node.Inputs[0].Name).To(Equal("factor"))
+				Expect(node.Inputs[0].Value).To(Equal(-2.5))
 			})
 
 			It("Should handle negated time unit config value", func(ctx SpecContext) {
@@ -445,10 +446,10 @@ var _ = Describe("Text", func() {
 
 				waitNode := findNodeByType(inter.Nodes, "time.wait")
 				Expect(waitNode).ToNot(BeNil())
-				Expect(waitNode.Config).To(HaveLen(1))
-				Expect(waitNode.Config[0].Name).To(Equal("duration"))
+				Expect(waitNode.Inputs).To(HaveLen(1))
+				Expect(waitNode.Inputs[0].Name).To(Equal("duration"))
 				threeHoursNanos := int64(3*60*60) * int64(telem.Second)
-				Expect(waitNode.Config[0].Value).To(Equal(telem.TimeSpan(-threeHoursNanos)))
+				Expect(waitNode.Inputs[0].Value).To(Equal(telem.TimeSpan(-threeHoursNanos)))
 			})
 
 			It("Should resolve channel name to channel ID in config parameter", func(ctx SpecContext) {
@@ -468,10 +469,10 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				readerNode := findNodeByKey(inter.Nodes, "reader_0")
-				Expect(readerNode.Config).To(HaveLen(1))
-				Expect(readerNode.Config[0].Name).To(Equal("channel"))
-				Expect(readerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
-				Expect(readerNode.Config[0].Value).To(Equal(uint32(10042)))
+				Expect(readerNode.Inputs).To(HaveLen(1))
+				Expect(readerNode.Inputs[0].Name).To(Equal("channel"))
+				Expect(readerNode.Inputs[0].Type).To(Equal(types.Chan(types.F64())))
+				Expect(readerNode.Inputs[0].Value).To(Equal(uint32(10042)))
 				Expect(readerNode.Channels.Read).To(HaveKey(uint32(10042)))
 			})
 
@@ -493,8 +494,8 @@ var _ = Describe("Text", func() {
 				diagStr := diagnostics.String()
 				Expect(diagStr).To(ContainSubstring("type mismatch"))
 				Expect(diagStr).To(ContainSubstring("channel"))
-				Expect(diagStr).To(ContainSubstring("chan f64"))
-				Expect(diagStr).To(ContainSubstring("chan i32"))
+				Expect(diagStr).To(ContainSubstring("expected f64"))
+				Expect(diagStr).To(ContainSubstring("got i32"))
 			})
 
 			It("Should produce diagnostic error when channel name is not found in resolver", func(ctx SpecContext) {
@@ -666,7 +667,7 @@ sensor -> math.avg{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diags.Ok()).To(BeFalse())
-				Expect(diags.String()).To(ContainSubstring("missing required input"))
+				Expect(diags.String()).To(ContainSubstring("missing required argument"))
 			})
 
 			It("Should emit deprecation warning for bare stable_for", func(ctx SpecContext) {
@@ -698,13 +699,10 @@ sensor -> stable.for{duration=1s} -> output`
 
 			It("Should emit deprecation warning for bare set_status", func(ctx SpecContext) {
 				statusFnType := types.Function(types.FunctionProperties{
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "status_key", Type: types.String()},
 						{Name: "variant", Type: types.String()},
 						{Name: "message", Type: types.String()},
-					},
-					Inputs: types.Params{
-						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
 				statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
@@ -735,13 +733,10 @@ sensor -> stable.for{duration=1s} -> output`
 
 			It("Should not emit deprecation warning for qualified status.set", func(ctx SpecContext) {
 				statusFnType := types.Function(types.FunctionProperties{
-					Config: types.Params{
+					Inputs: types.Params{
 						{Name: "status_key", Type: types.String()},
 						{Name: "variant", Type: types.String()},
 						{Name: "message", Type: types.String()},
-					},
-					Inputs: types.Params{
-						{Name: ir.DefaultOutputParam, Type: types.U8()},
 					},
 				})
 				statusModule := &symbol.Symbol{Name: "status", Kind: symbol.KindModule}
@@ -847,10 +842,10 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				writerNode := findNodeByKey(inter.Nodes, "writer_0")
-				Expect(writerNode.Config).To(HaveLen(1))
-				Expect(writerNode.Config[0].Name).To(Equal("channel"))
-				Expect(writerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
-				Expect(writerNode.Config[0].Value).To(Equal(uint32(10055)))
+				Expect(writerNode.Inputs).To(HaveLen(2))
+				Expect(writerNode.Inputs[0].Name).To(Equal("channel"))
+				Expect(writerNode.Inputs[0].Type).To(Equal(types.Chan(types.F64())))
+				Expect(writerNode.Inputs[0].Value).To(Equal(uint32(10055)))
 				Expect(writerNode.Channels.Write).To(HaveKey(uint32(10055)))
 				Expect(writerNode.Channels.Read).NotTo(HaveKey(uint32(10055)))
 			})
@@ -950,9 +945,9 @@ time.wait{duration=500ms} -> output`
 				node := findNodeByKey(inter.Nodes, "count_rising_test_0")
 				Expect(node.Channels.Write).To(HaveKey(uint32(10202)), "should write to do_0_counter")
 				Expect(node.Channels.Read).To(HaveKey(uint32(10203)), "should read from do_0_counter_max")
-				Expect(node.Config).To(HaveLen(2))
-				Expect(node.Config[0].Value).To(Equal(uint32(10202)))
-				Expect(node.Config[1].Value).To(Equal(uint32(10203)))
+				Expect(node.Inputs).To(HaveLen(3))
+				Expect(node.Inputs[0].Value).To(Equal(uint32(10202)))
+				Expect(node.Inputs[1].Value).To(Equal(uint32(10203)))
 			})
 
 			It("Should handle config values using global constants", func(ctx SpecContext) {
@@ -974,12 +969,12 @@ time.wait{duration=500ms} -> output`
 
 				node := findNodeByKey(inter.Nodes, "calculator_0")
 				Expect(node.Type).To(Equal("calculator"))
-				Expect(node.Config).To(HaveLen(3))
+				Expect(node.Inputs).To(HaveLen(3))
 
 				configValues := map[string]int64{
 					"a": 10, "b": 20, "c": 30,
 				}
-				for i, cfg := range node.Config {
+				for i, cfg := range node.Inputs {
 					Expect(cfg.Type).To(Equal(types.I64()))
 					Expect(cfg.Value).To(Equal(configValues[cfg.Name]), "config[%d] '%s' value mismatch", i, cfg.Name)
 				}
@@ -1002,12 +997,15 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "transform_0")
-				Expect(node.Config).To(HaveLen(2))
+				Expect(node.Inputs).To(HaveLen(3))
 
 				configValues := map[string]float64{
 					"scale": 2.5, "offset": 0.1,
 				}
-				for _, cfg := range node.Config {
+				for _, cfg := range node.Inputs {
+					if cfg.Value == nil {
+						continue
+					}
 					Expect(cfg.Type).To(Equal(types.F64()))
 					Expect(cfg.Value).To(Equal(configValues[cfg.Name]))
 				}
@@ -1029,9 +1027,9 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "filter_0")
-				Expect(node.Config).To(HaveLen(2))
+				Expect(node.Inputs).To(HaveLen(3))
 
-				for _, cfg := range node.Config {
+				for _, cfg := range node.Inputs {
 					switch cfg.Name {
 					case "threshold":
 						Expect(cfg.Value).To(Equal(int64(100)))
@@ -1057,10 +1055,10 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "clamp_0")
-				Expect(node.Config).To(HaveLen(1))
-				Expect(node.Config[0].Name).To(Equal("max"))
-				Expect(node.Config[0].Type).To(Equal(types.I32()))
-				Expect(node.Config[0].Value).To(Equal(int32(255)))
+				Expect(node.Inputs).To(HaveLen(2))
+				Expect(node.Inputs[0].Name).To(Equal("max"))
+				Expect(node.Inputs[0].Type).To(Equal(types.I32()))
+				Expect(node.Inputs[0].Value).To(Equal(int32(255)))
 			})
 
 			It("Should resolve anonymous config values by position into IR nodes", func(ctx SpecContext) {
@@ -1077,11 +1075,11 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "transform_0")
-				Expect(node.Config).To(HaveLen(2))
-				Expect(node.Config[0].Name).To(Equal("scale"))
-				Expect(node.Config[0].Value).To(Equal(2.5))
-				Expect(node.Config[1].Name).To(Equal("offset"))
-				Expect(node.Config[1].Value).To(Equal(0.1))
+				Expect(node.Inputs).To(HaveLen(3))
+				Expect(node.Inputs[0].Name).To(Equal("scale"))
+				Expect(node.Inputs[0].Value).To(Equal(2.5))
+				Expect(node.Inputs[1].Name).To(Equal("offset"))
+				Expect(node.Inputs[1].Value).To(Equal(0.1))
 			})
 
 			It("Should resolve partial anonymous config with defaults into IR nodes", func(ctx SpecContext) {
@@ -1098,11 +1096,11 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "controller_0")
-				Expect(node.Config).To(HaveLen(2))
-				Expect(node.Config[0].Name).To(Equal("setpoint"))
-				Expect(node.Config[0].Value).To(Equal(100.0))
-				Expect(node.Config[1].Name).To(Equal("gain"))
-				Expect(node.Config[1].Value).To(Equal(1.0))
+				Expect(node.Inputs).To(HaveLen(3))
+				Expect(node.Inputs[0].Name).To(Equal("setpoint"))
+				Expect(node.Inputs[0].Value).To(Equal(100.0))
+				Expect(node.Inputs[1].Name).To(Equal("gain"))
+				Expect(node.Inputs[1].Value).To(Equal(1.0))
 			})
 
 			It("Should resolve channel identifier as anonymous config into IR", func(ctx SpecContext) {
@@ -1120,10 +1118,10 @@ time.wait{duration=500ms} -> output`
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "controller_0")
-				Expect(node.Config).To(HaveLen(2))
-				Expect(node.Config[0].Name).To(Equal("sensor"))
-				Expect(node.Config[1].Name).To(Equal("setpoint"))
-				Expect(node.Config[1].Value).To(Equal(100.0))
+				Expect(node.Inputs).To(HaveLen(2))
+				Expect(node.Inputs[0].Name).To(Equal("sensor"))
+				Expect(node.Inputs[1].Name).To(Equal("setpoint"))
+				Expect(node.Inputs[1].Value).To(Equal(100.0))
 			})
 
 			It("Should handle global constant as flow source to channel", func(ctx SpecContext) {
@@ -1141,8 +1139,8 @@ time.wait{duration=500ms} -> output`
 
 				constNode := findNodeByKey(inter.Nodes, "const_SETPOINT_0")
 				Expect(constNode.Type).To(Equal("constant"))
-				Expect(constNode.Config).To(HaveLen(1))
-				Expect(constNode.Config[0].Value).To(Equal(int64(42)))
+				Expect(constNode.Inputs).To(HaveLen(1))
+				Expect(constNode.Inputs[0].Value).To(Equal(int64(42)))
 				Expect(constNode.Channels.Read).To(BeEmpty())
 				Expect(constNode.Channels.Write).To(BeEmpty())
 
@@ -1294,8 +1292,8 @@ time.wait{duration=500ms} -> output`
 				_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil))
 				Expect(diagnostics.Ok()).To(BeFalse())
 				Expect(diagnostics.String()).To(SatisfyAll(
-					ContainSubstring("missing required input 'a'"),
-					ContainSubstring("missing required input 'b'"),
+					ContainSubstring("missing required argument for parameter 'a'"),
+					ContainSubstring("missing required argument for parameter 'b'"),
 				))
 			})
 		})
@@ -1531,7 +1529,7 @@ time.wait{duration=500ms} -> output`
 				outputNode := inter.Nodes[2]
 				Expect(outputNode.Type).To(Equal("write"))
 				Expect(outputNode.Channels.Write).To(HaveKey(uint32(10022)))
-				Expect(outputNode.Inputs).To(HaveLen(1))
+				Expect(outputNode.Inputs).To(HaveLen(2))
 				Expect(outputNode.Inputs[0].Name).To(Equal("input"))
 				Expect(outputNode.Outputs).To(HaveLen(1))
 				Expect(outputNode.Outputs[0].Type).To(Equal(types.U8()))
@@ -1584,7 +1582,7 @@ time.wait{duration=500ms} -> output`
 
 				for _, node := range inter.Nodes {
 					if node.Type == "write" {
-						Expect(node.Inputs).To(HaveLen(1))
+						Expect(node.Inputs).To(HaveLen(2))
 					}
 				}
 			})
@@ -3112,7 +3110,7 @@ time.wait{duration=500ms} -> output`
 						Name: "interval",
 						Kind: symbol.KindFunction,
 						Type: types.Function(types.FunctionProperties{
-							Config:  types.Params{{Name: "period", Type: types.TimeSpan()}},
+							Inputs:  types.Params{{Name: "period", Type: types.TimeSpan()}},
 							Outputs: types.Params{{Name: "output", Type: types.U8()}},
 						}),
 					},
@@ -3128,8 +3126,8 @@ time.wait{duration=500ms} -> output`
 				Expect(inter.Nodes).To(HaveLen(2))
 
 				intervalNode := findNodeByType(inter.Nodes, "interval")
-				Expect(intervalNode.Config).To(HaveLen(1))
-				Expect(intervalNode.Config[0].Name).To(Equal("period"))
+				Expect(intervalNode.Inputs).To(HaveLen(1))
+				Expect(intervalNode.Inputs[0].Name).To(Equal("period"))
 
 				Expect(inter.Edges).To(HaveLen(1))
 				edge := inter.Edges[0]
@@ -3145,7 +3143,7 @@ time.wait{duration=500ms} -> output`
 						Name: "interval",
 						Kind: symbol.KindFunction,
 						Type: types.Function(types.FunctionProperties{
-							Config:  types.Params{{Name: "period", Type: types.TimeSpan()}},
+							Inputs:  types.Params{{Name: "period", Type: types.TimeSpan()}},
 							Outputs: types.Params{{Name: "output", Type: types.U8()}},
 						}),
 					},
@@ -3183,7 +3181,7 @@ time.wait{duration=500ms} -> output`
 			f := synth[0]
 			Expect(f.Body.Raw).To(Equal("v={sensor}"))
 			Expect(f.Inputs).To(BeEmpty())
-			Expect(f.Config).To(BeEmpty())
+			Expect(f.Inputs).To(BeEmpty())
 			Expect(f.Outputs).To(HaveLen(1))
 			Expect(f.Outputs[0].Type).To(Equal(types.String()))
 			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
@@ -3761,11 +3759,6 @@ time.wait{duration=500ms} -> output`
 
 		It("Should omit inputs on an STL ExecBoth node whose upstream is a trigger", func(ctx SpecContext) {
 			bothType := types.Function(types.FunctionProperties{
-				Config: types.Params{
-					{Name: "key_or_name", Type: types.String()},
-					{Name: "message", Type: types.String()},
-					{Name: "variant", Type: types.String()},
-				},
 				Inputs: types.Params{
 					{Name: "key_or_name", Type: types.String()},
 					{Name: "message", Type: types.String()},
@@ -3789,8 +3782,7 @@ sensor -> stub.both{key_or_name="x", message="y", variant="info"}`
 			inter, diags := text.Analyze(ctx, parsedText, root)
 			Expect(diags.Ok()).To(BeTrue(), diags.String())
 			n := findNodeByType(inter.Nodes, "stub.both")
-			Expect(n.Inputs).To(BeEmpty())
-			Expect(n.Config).To(HaveLen(3))
+			Expect(n.Inputs).To(HaveLen(3))
 		})
 
 		It("Should keep inputs on a user-defined function in a flow statement", func(ctx SpecContext) {
@@ -3816,10 +3808,11 @@ sensor -> stub.both{key_or_name="x", message="y", variant="info"}`
 			})
 			mod := &symbol.Symbol{Name: "stub", Kind: symbol.KindModule}
 			mod.AddChild(&symbol.Symbol{
-				Name: "sink",
-				Kind: symbol.KindFunction,
-				Exec: symbol.ExecFlow,
-				Type: sinkType,
+				Name:    "sink",
+				Kind:    symbol.KindFunction,
+				Exec:    symbol.ExecFlow,
+				Type:    sinkType,
+				Trigger: symbol.TriggerInput("value"),
 			})
 			root := NewRoot(nil, symbol.Symbol{
 				Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100,

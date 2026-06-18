@@ -188,7 +188,7 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 
 		writeNode := findNodeByType(mod.Nodes, "write")
 		Expect(writeNode.Channels.Write).To(HaveKey(uint32(2)))
-		Expect(writeNode.Inputs).To(HaveLen(1))
+		Expect(writeNode.Inputs).To(HaveLen(2))
 
 		Expect(mod.Edges).To(HaveLen(2))
 
@@ -242,7 +242,7 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 		// under the new IR.
 		Expect(mod.Nodes).To(HaveLen(2))
 		constNode := findNodeByType(mod.Nodes, "constant")
-		Expect(constNode.Config).To(HaveLen(1))
+		Expect(constNode.Inputs).To(HaveLen(1))
 
 		writeNode := findNodeByType(mod.Nodes, "write")
 		Expect(writeNode.Channels.Write).To(HaveKey(uint32(1)))

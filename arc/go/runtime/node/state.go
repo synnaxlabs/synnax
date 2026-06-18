@@ -13,6 +13,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -58,11 +59,18 @@ func (s *ProgramState) Node(key string) *State {
 		alignedTime  = make([]telem.Series, len(alignedData))
 		accumulated  = make([]inputEntry, len(n.Inputs))
 		inputSources = make([]*value, len(n.Inputs))
+		isReference  = make([]bool, len(n.Inputs))
 	)
 	for i := range alignedData {
 		alignedTime[i] = telem.Series{DataType: telem.TimeStampT}
 	}
 	for i, p := range n.Inputs {
+		// A channel input is a reference resolved by key in the host functions, not
+		// a value stream. It carries no data series and never gates execution.
+		if p.Type.Kind == types.KindChan {
+			isReference[i] = true
+			continue
+		}
 		edge, found := s.ir.Edges.FindByTarget(
 			ir.Handle{Node: key, Param: p.Name},
 		)
@@ -104,8 +112,14 @@ func (s *ProgramState) Node(key string) *State {
 		outputCache[i] = s.outputs[handle]
 	}
 
+	inputIndex := make(map[string]int, len(n.Inputs))
+	for i, p := range n.Inputs {
+		inputIndex[p.Name] = i
+	}
+
 	nd := &State{}
 	nd.ir.inputs = inputs
+	nd.inputIndex = inputIndex
 	nd.ir.outputs = lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
 		return ir.Handle{Node: key, Param: item.Name}
 	})
@@ -115,6 +129,7 @@ func (s *ProgramState) Node(key string) *State {
 	nd.accumulated = accumulated
 	nd.inputSources = inputSources
 	nd.outputCache = outputCache
+	nd.isReference = isReference
 	return nd
 }
 
@@ -132,6 +147,11 @@ type State struct {
 		inputs  []ir.Edge
 		outputs []ir.Handle
 	}
+	// inputIndex maps an input's parameter name to its position.
+	inputIndex map[string]int
+	// isReference marks inputs that are channel references rather than value
+	// streams. Reference inputs carry no data series and never gate execution.
+	isReference []bool
 	accumulated []inputEntry
 	aligned     struct {
 		data []telem.Series
@@ -142,18 +162,24 @@ type State struct {
 	outputCache  []*value
 }
 
-// Reset is called by the scheduler when the stage containing this node is
-// activated.
-func (n *State) Reset() {}
+// Reset re-arms every input when the node's stage is (re)activated, so a node
+// whose gating inputs are all literal-valued re-runs instead of staying consumed.
+func (n *State) Reset() {
+	for i := range n.accumulated {
+		n.accumulated[i].consumed = false
+		n.accumulated[i].lastTimestamp = 0
+	}
+}
 
 // RefreshInputs performs temporal alignment of node inputs and returns whether
 // the node should execute.
 func (n *State) RefreshInputs() (recalculate bool) {
-	if len(n.ir.inputs) == 0 {
-		return true
-	}
-	hasUnconsumed := false
+	hasDataInput, hasUnconsumed := false, false
 	for i := range n.ir.inputs {
+		if n.isReference[i] {
+			continue
+		}
+		hasDataInput = true
 		src := n.inputSources[i]
 		if src != nil && src.time.Len() > 0 {
 			ts := telem.ValueAt[telem.TimeStamp](src.time, -1)
@@ -173,10 +199,16 @@ func (n *State) RefreshInputs() (recalculate bool) {
 			hasUnconsumed = true
 		}
 	}
+	if !hasDataInput {
+		return true
+	}
 	if !hasUnconsumed {
 		return false
 	}
 	for i := range n.ir.inputs {
+		if n.isReference[i] {
+			continue
+		}
 		n.aligned.data[i] = n.accumulated[i].data
 		n.aligned.time[i] = n.accumulated[i].time
 		n.accumulated[i].consumed = true
@@ -204,6 +236,21 @@ func (n *State) InitInput(paramIndex int, data, time telem.Series) {
 // Input returns the data series for the input at the given parameter index.
 func (n *State) Input(paramIndex int) telem.Series {
 	return n.aligned.data[paramIndex]
+}
+
+// ErrInputNotFound is returned by ResolveInput when a node has no input param
+// matching the requested name.
+var ErrInputNotFound = errors.New("input not found")
+
+// ResolveInput returns the position of the named input, or ErrInputNotFound if
+// the node has no such param. Resolve at construction so wiring mistakes fail at
+// load.
+func (n *State) ResolveInput(name string) (int, error) {
+	idx, ok := n.inputIndex[name]
+	if !ok {
+		return 0, errors.Wrapf(ErrInputNotFound, "node has no input named %q", name)
+	}
+	return idx, nil
 }
 
 // Output returns a mutable pointer to the data series for the output at the

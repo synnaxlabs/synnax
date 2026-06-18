@@ -44,11 +44,35 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// CallHook runs after the generic func-form validation passes.
-type CallHook func(diags *diagnostics.Diagnostics, funcCall parser.IFunctionCallSuffixContext)
+// Argument is one call argument: a value expression bound to a param by Name,
+// or by position (Index) when Name is empty.
+type Argument struct {
+	// Index is the argument's position in the call's argument list.
+	Index int
+	// Name is the param this argument binds to, or empty if positional.
+	Name string
+	// Expr is the argument's value expression.
+	Expr parser.IExpressionContext
+	// AST is the argument's parser node, for diagnostic source locations.
+	AST antlr.ParserRuleContext
+}
 
-// FlowConfigHook runs after the generic flow-form config validation passes.
-type FlowConfigHook func(diags *diagnostics.Diagnostics, config parser.IConfigValuesContext)
+// ArgumentsHook runs optional symbol-specific argument validation, reporting any
+// findings to the analyzer's diagnostics sink.
+type ArgumentsHook func(diags *diagnostics.Diagnostics, args []Argument)
+
+// TriggerBinding declares what an upstream wire does to a symbol in flow context.
+type TriggerBinding struct {
+	// Target names the param the wire binds its value to, or empty (TriggerOnly)
+	// for pure activation.
+	Target string
+}
+
+// TriggerOnly is the zero TriggerBinding: the wire activates without binding a value.
+var TriggerOnly = TriggerBinding{}
+
+// TriggerInput declares that an upstream wire binds its value to the named param.
+func TriggerInput(name string) TriggerBinding { return TriggerBinding{Target: name} }
 
 // ExecContext indicates which execution context a symbol is valid in.
 type ExecContext int
@@ -179,10 +203,11 @@ type Symbol struct {
 	// Flow, or Both). A zero value is invalid and will cause resolution to
 	// fail, forcing every symbol to be explicitly tagged.
 	Exec ExecContext
-	// AnalyzeCall runs after generic func-form validation. Optional.
-	AnalyzeCall CallHook
-	// AnalyzeFlowConfig runs after generic flow-form config validation. Optional.
-	AnalyzeFlowConfig FlowConfigHook
+	// AnalyzeArguments runs optional symbol-specific argument validation.
+	AnalyzeArguments ArgumentsHook
+	// Trigger names the param an upstream wire binds to in flow context; the
+	// zero value (TriggerOnly) means pure activation.
+	Trigger TriggerBinding
 	// Deprecated points at the canonical replacement Symbol for a deprecated
 	// reference. Nil means not deprecated. When non-nil, analysis helpers
 	// emit a deprecation warning naming Deprecated.QualifiedName(), and the
@@ -646,7 +671,7 @@ func ResolveConfigChannel(
 	}
 	if !replaced {
 		dir := types.ChanDirectionRead
-		if param, ok := fnSym.Type.Config.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
+		if param, ok := fnSym.Type.Inputs.Get(paramName); ok && param.Type.ChanDirection.IsSet() {
 			dir = param.Type.ChanDirection
 		}
 		if dir.IsRead() {

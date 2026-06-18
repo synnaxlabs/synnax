@@ -122,15 +122,6 @@ func (f Function) EncodeOrc(w *orc.Writer) error {
 	if err := f.Body.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Bool(f.Config != nil)
-	if f.Config != nil {
-		w.Uint32(uint32(len(f.Config)))
-		for i := range f.Config {
-			if err := f.Config[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
 	w.Bool(f.Inputs != nil)
 	if f.Inputs != nil {
 		w.Uint32(uint32(len(f.Inputs)))
@@ -162,24 +153,6 @@ func (f *Function) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = f.Body.DecodeOrc(r); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			f.Config = make([]types.Param, n)
-			for i := range f.Config {
-				if err = f.Config[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	{
 		present, err := r.Bool()
@@ -397,15 +370,6 @@ func (mv *Member) DecodeOrc(r *orc.Reader) error {
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	w.String(nv.Type)
-	w.Bool(nv.Config != nil)
-	if nv.Config != nil {
-		w.Uint32(uint32(len(nv.Config)))
-		for i := range nv.Config {
-			if err := nv.Config[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
 	w.Bool(nv.Inputs != nil)
 	if nv.Inputs != nil {
 		w.Uint32(uint32(len(nv.Inputs)))
@@ -437,24 +401,6 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	}
 	if nv.Type, err = r.String(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			nv.Config = make([]types.Param, n)
-			for i := range nv.Config {
-				if err = nv.Config[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	{
 		present, err := r.Bool()

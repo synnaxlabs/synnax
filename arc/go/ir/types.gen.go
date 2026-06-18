@@ -138,8 +138,6 @@ type Function struct {
 	Key string `json:"key" msgpack:"key"`
 	// Body is raw source code for user-defined functions.
 	Body Body `json:"body" msgpack:"body"`
-	// Config contains configuration parameter definitions.
-	Config types.Params `json:"config" msgpack:"config"`
 	// Inputs contains input parameter definitions.
 	Inputs types.Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter definitions.
@@ -148,15 +146,12 @@ type Function struct {
 	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
-// Node is a concrete instantiation of a function with typed parameters and
-// configuration values.
+// Node is a concrete instantiation of a function with typed parameters and values.
 type Node struct {
 	// Key is the unique identifier for this node instance.
 	Key string `json:"key" msgpack:"key"`
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
-	// Config contains configuration parameter values.
-	Config types.Params `json:"config" msgpack:"config"`
 	// Inputs contains input parameter type signatures.
 	Inputs types.Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter type signatures.

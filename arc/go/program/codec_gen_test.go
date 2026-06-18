@@ -43,155 +43,113 @@ var _ = Describe("Codec", func() {
 						{
 							Key:  "test_2",
 							Body: ir.Body{Raw: "test_4"},
-							Config: []types.Param{
+							Inputs: []types.Param{
 								{
 									Name: "test_6",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
 											Inputs:  []types.Param{{}},
 											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
-										Name:          "test_12",
+										Name:          "test_11",
 										Elem:          new(types.Type{}),
 										Unit:          new(types.Unit{}),
 										Constraint:    new(types.Type{}),
 										ChanDirection: types.ChanDirection(0),
 									},
-									Value: map[string]interface{}{"key_17": "value_17"},
-								},
-							},
-							Inputs: []types.Param{
-								{
-									Name: "test_19",
-									Type: types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_25",
-										Elem:          new(types.Type{}),
-										Unit:          new(types.Unit{}),
-										Constraint:    new(types.Type{}),
-										ChanDirection: types.ChanDirection(0),
-									},
-									Value: map[string]interface{}{"key_30": "value_30"},
+									Value: map[string]interface{}{"key_16": "value_16"},
 								},
 							},
 							Outputs: []types.Param{
 								{
-									Name: "test_32",
+									Name: "test_18",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
 											Inputs:  []types.Param{{}},
 											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
-										Name:          "test_38",
+										Name:          "test_23",
 										Elem:          new(types.Type{}),
 										Unit:          new(types.Unit{}),
 										Constraint:    new(types.Type{}),
 										ChanDirection: types.ChanDirection(0),
 									},
-									Value: map[string]interface{}{"key_43": "value_43"},
+									Value: map[string]interface{}{"key_28": "value_28"},
 								},
 							},
 							Channels: types.Channels{
-								Read:  map[uint32]string{46: "test_45"},
-								Write: map[uint32]string{47: "test_46"},
+								Read:  map[uint32]string{31: "test_30"},
+								Write: map[uint32]string{32: "test_31"},
 							},
 						},
 					},
 					Nodes: []ir.Node{
 						{
-							Key:  "test_48",
-							Type: "test_49",
-							Config: []types.Param{
-								{
-									Name: "test_51",
-									Type: types.Type{
-										FunctionProperties: types.FunctionProperties{
-											Inputs:  []types.Param{{}},
-											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
-										},
-										Kind:          types.Kind(0),
-										Name:          "test_57",
-										Elem:          new(types.Type{}),
-										Unit:          new(types.Unit{}),
-										Constraint:    new(types.Type{}),
-										ChanDirection: types.ChanDirection(0),
-									},
-									Value: map[string]interface{}{"key_62": "value_62"},
-								},
-							},
+							Key:  "test_33",
+							Type: "test_34",
 							Inputs: []types.Param{
 								{
-									Name: "test_64",
+									Name: "test_36",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
 											Inputs:  []types.Param{{}},
 											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
-										Name:          "test_70",
+										Name:          "test_41",
 										Elem:          new(types.Type{}),
 										Unit:          new(types.Unit{}),
 										Constraint:    new(types.Type{}),
 										ChanDirection: types.ChanDirection(0),
 									},
-									Value: map[string]interface{}{"key_75": "value_75"},
+									Value: map[string]interface{}{"key_46": "value_46"},
 								},
 							},
 							Outputs: []types.Param{
 								{
-									Name: "test_77",
+									Name: "test_48",
 									Type: types.Type{
 										FunctionProperties: types.FunctionProperties{
 											Inputs:  []types.Param{{}},
 											Outputs: []types.Param{{}},
-											Config:  []types.Param{{}},
 										},
 										Kind:          types.Kind(0),
-										Name:          "test_83",
+										Name:          "test_53",
 										Elem:          new(types.Type{}),
 										Unit:          new(types.Unit{}),
 										Constraint:    new(types.Type{}),
 										ChanDirection: types.ChanDirection(0),
 									},
-									Value: map[string]interface{}{"key_88": "value_88"},
+									Value: map[string]interface{}{"key_58": "value_58"},
 								},
 							},
 							Channels: types.Channels{
-								Read:  map[uint32]string{91: "test_90"},
-								Write: map[uint32]string{92: "test_91"},
+								Read:  map[uint32]string{61: "test_60"},
+								Write: map[uint32]string{62: "test_61"},
 							},
 						},
 					},
 					Edges: []ir.Edge{
 						{
-							Source: ir.Handle{Node: "test_94", Param: "test_95"},
-							Target: ir.Handle{Node: "test_97", Param: "test_98"},
+							Source: ir.Handle{Node: "test_64", Param: "test_65"},
+							Target: ir.Handle{Node: "test_67", Param: "test_68"},
 							Kind:   ir.EdgeKind(0),
 						},
 					},
-					Authorities: ir.Authorities{Default: new(uint8(102)), Channels: map[uint32]uint8{103: 103}},
+					Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 					Root: ir.Scope{
-						Key:        "test_104",
+						Key:        "test_74",
 						Mode:       ir.ScopeMode(0),
 						Liveness:   ir.Liveness(0),
-						Activation: new(ir.Handle{Node: "test_108", Param: "test_109"}),
+						Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 						Strata: [][]ir.Member{
 							{
 								{
-									NodeKey: new(string("test_111")),
+									NodeKey: new(string("test_81")),
 									Scope: new(ir.Scope{
-										Key:         "test_113",
+										Key:         "test_83",
 										Mode:        ir.ScopeMode(0),
 										Liveness:    ir.Liveness(0),
 										Activation:  new(ir.Handle{}),
@@ -204,9 +162,9 @@ var _ = Describe("Codec", func() {
 						},
 						Steps: []ir.Member{
 							{
-								NodeKey: new(string("test_121")),
+								NodeKey: new(string("test_91")),
 								Scope: new(ir.Scope{
-									Key:         "test_123",
+									Key:         "test_93",
 									Mode:        ir.ScopeMode(0),
 									Liveness:    ir.Liveness(0),
 									Activation:  new(ir.Handle{}),
@@ -218,15 +176,15 @@ var _ = Describe("Codec", func() {
 						},
 						Transitions: []ir.Transition{
 							{
-								On:        ir.Handle{Node: "test_132", Param: "test_133"},
-								TargetKey: new(string("test_134")),
+								On:        ir.Handle{Node: "test_102", Param: "test_103"},
+								TargetKey: new(string("test_104")),
 							},
 						},
 					},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{135, 136, 137},
-					OutputMemoryBases: map[string]uint32{"test_136": 137},
+					WASM:              []byte{105, 106, 107},
+					OutputMemoryBases: map[string]uint32{"test_106": 107},
 				},
 			}),
 			Entry("zero values", program.Program{
@@ -279,155 +237,113 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 				{
 					Key:  "test_2",
 					Body: ir.Body{Raw: "test_4"},
-					Config: []types.Param{
+					Inputs: []types.Param{
 						{
 							Name: "test_6",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
 									Inputs:  []types.Param{{}},
 									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
-								Name:          "test_12",
+								Name:          "test_11",
 								Elem:          new(types.Type{}),
 								Unit:          new(types.Unit{}),
 								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_17": "value_17"},
-						},
-					},
-					Inputs: []types.Param{
-						{
-							Name: "test_19",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_25",
-								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
-								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_30": "value_30"},
+							Value: map[string]interface{}{"key_16": "value_16"},
 						},
 					},
 					Outputs: []types.Param{
 						{
-							Name: "test_32",
+							Name: "test_18",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
 									Inputs:  []types.Param{{}},
 									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
-								Name:          "test_38",
+								Name:          "test_23",
 								Elem:          new(types.Type{}),
 								Unit:          new(types.Unit{}),
 								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_43": "value_43"},
+							Value: map[string]interface{}{"key_28": "value_28"},
 						},
 					},
 					Channels: types.Channels{
-						Read:  map[uint32]string{46: "test_45"},
-						Write: map[uint32]string{47: "test_46"},
+						Read:  map[uint32]string{31: "test_30"},
+						Write: map[uint32]string{32: "test_31"},
 					},
 				},
 			},
 			Nodes: []ir.Node{
 				{
-					Key:  "test_48",
-					Type: "test_49",
-					Config: []types.Param{
-						{
-							Name: "test_51",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_57",
-								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
-								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_62": "value_62"},
-						},
-					},
+					Key:  "test_33",
+					Type: "test_34",
 					Inputs: []types.Param{
 						{
-							Name: "test_64",
+							Name: "test_36",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
 									Inputs:  []types.Param{{}},
 									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
-								Name:          "test_70",
+								Name:          "test_41",
 								Elem:          new(types.Type{}),
 								Unit:          new(types.Unit{}),
 								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_75": "value_75"},
+							Value: map[string]interface{}{"key_46": "value_46"},
 						},
 					},
 					Outputs: []types.Param{
 						{
-							Name: "test_77",
+							Name: "test_48",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
 									Inputs:  []types.Param{{}},
 									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
-								Name:          "test_83",
+								Name:          "test_53",
 								Elem:          new(types.Type{}),
 								Unit:          new(types.Unit{}),
 								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_88": "value_88"},
+							Value: map[string]interface{}{"key_58": "value_58"},
 						},
 					},
 					Channels: types.Channels{
-						Read:  map[uint32]string{91: "test_90"},
-						Write: map[uint32]string{92: "test_91"},
+						Read:  map[uint32]string{61: "test_60"},
+						Write: map[uint32]string{62: "test_61"},
 					},
 				},
 			},
 			Edges: []ir.Edge{
 				{
-					Source: ir.Handle{Node: "test_94", Param: "test_95"},
-					Target: ir.Handle{Node: "test_97", Param: "test_98"},
+					Source: ir.Handle{Node: "test_64", Param: "test_65"},
+					Target: ir.Handle{Node: "test_67", Param: "test_68"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
-			Authorities: ir.Authorities{Default: new(uint8(102)), Channels: map[uint32]uint8{103: 103}},
+			Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 			Root: ir.Scope{
-				Key:        "test_104",
+				Key:        "test_74",
 				Mode:       ir.ScopeMode(0),
 				Liveness:   ir.Liveness(0),
-				Activation: new(ir.Handle{Node: "test_108", Param: "test_109"}),
+				Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 				Strata: [][]ir.Member{
 					{
 						{
-							NodeKey: new(string("test_111")),
+							NodeKey: new(string("test_81")),
 							Scope: new(ir.Scope{
-								Key:         "test_113",
+								Key:         "test_83",
 								Mode:        ir.ScopeMode(0),
 								Liveness:    ir.Liveness(0),
 								Activation:  new(ir.Handle{}),
@@ -440,9 +356,9 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: new(string("test_121")),
+						NodeKey: new(string("test_91")),
 						Scope: new(ir.Scope{
-							Key:         "test_123",
+							Key:         "test_93",
 							Mode:        ir.ScopeMode(0),
 							Liveness:    ir.Liveness(0),
 							Activation:  new(ir.Handle{}),
@@ -454,15 +370,15 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 				},
 				Transitions: []ir.Transition{
 					{
-						On:        ir.Handle{Node: "test_132", Param: "test_133"},
-						TargetKey: new(string("test_134")),
+						On:        ir.Handle{Node: "test_102", Param: "test_103"},
+						TargetKey: new(string("test_104")),
 					},
 				},
 			},
 		},
 		Output: compiler.Output{
-			WASM:              []byte{135, 136, 137},
-			OutputMemoryBases: map[string]uint32{"test_136": 137},
+			WASM:              []byte{105, 106, 107},
+			OutputMemoryBases: map[string]uint32{"test_106": 107},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -488,155 +404,113 @@ func FuzzDecodeProgram(f *testing.F) {
 					{
 						Key:  "test_2",
 						Body: ir.Body{Raw: "test_4"},
-						Config: []types.Param{
+						Inputs: []types.Param{
 							{
 								Name: "test_6",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
 										Inputs:  []types.Param{{}},
 										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
-									Name:          "test_12",
+									Name:          "test_11",
 									Elem:          new(types.Type{}),
 									Unit:          new(types.Unit{}),
 									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_17": "value_17"},
-							},
-						},
-						Inputs: []types.Param{
-							{
-								Name: "test_19",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_25",
-									Elem:          new(types.Type{}),
-									Unit:          new(types.Unit{}),
-									Constraint:    new(types.Type{}),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_30": "value_30"},
+								Value: map[string]interface{}{"key_16": "value_16"},
 							},
 						},
 						Outputs: []types.Param{
 							{
-								Name: "test_32",
+								Name: "test_18",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
 										Inputs:  []types.Param{{}},
 										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
-									Name:          "test_38",
+									Name:          "test_23",
 									Elem:          new(types.Type{}),
 									Unit:          new(types.Unit{}),
 									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_43": "value_43"},
+								Value: map[string]interface{}{"key_28": "value_28"},
 							},
 						},
 						Channels: types.Channels{
-							Read:  map[uint32]string{46: "test_45"},
-							Write: map[uint32]string{47: "test_46"},
+							Read:  map[uint32]string{31: "test_30"},
+							Write: map[uint32]string{32: "test_31"},
 						},
 					},
 				},
 				Nodes: []ir.Node{
 					{
-						Key:  "test_48",
-						Type: "test_49",
-						Config: []types.Param{
-							{
-								Name: "test_51",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_57",
-									Elem:          new(types.Type{}),
-									Unit:          new(types.Unit{}),
-									Constraint:    new(types.Type{}),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_62": "value_62"},
-							},
-						},
+						Key:  "test_33",
+						Type: "test_34",
 						Inputs: []types.Param{
 							{
-								Name: "test_64",
+								Name: "test_36",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
 										Inputs:  []types.Param{{}},
 										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
-									Name:          "test_70",
+									Name:          "test_41",
 									Elem:          new(types.Type{}),
 									Unit:          new(types.Unit{}),
 									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_75": "value_75"},
+								Value: map[string]interface{}{"key_46": "value_46"},
 							},
 						},
 						Outputs: []types.Param{
 							{
-								Name: "test_77",
+								Name: "test_48",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
 										Inputs:  []types.Param{{}},
 										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
-									Name:          "test_83",
+									Name:          "test_53",
 									Elem:          new(types.Type{}),
 									Unit:          new(types.Unit{}),
 									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_88": "value_88"},
+								Value: map[string]interface{}{"key_58": "value_58"},
 							},
 						},
 						Channels: types.Channels{
-							Read:  map[uint32]string{91: "test_90"},
-							Write: map[uint32]string{92: "test_91"},
+							Read:  map[uint32]string{61: "test_60"},
+							Write: map[uint32]string{62: "test_61"},
 						},
 					},
 				},
 				Edges: []ir.Edge{
 					{
-						Source: ir.Handle{Node: "test_94", Param: "test_95"},
-						Target: ir.Handle{Node: "test_97", Param: "test_98"},
+						Source: ir.Handle{Node: "test_64", Param: "test_65"},
+						Target: ir.Handle{Node: "test_67", Param: "test_68"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
-				Authorities: ir.Authorities{Default: new(uint8(102)), Channels: map[uint32]uint8{103: 103}},
+				Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 				Root: ir.Scope{
-					Key:        "test_104",
+					Key:        "test_74",
 					Mode:       ir.ScopeMode(0),
 					Liveness:   ir.Liveness(0),
-					Activation: new(ir.Handle{Node: "test_108", Param: "test_109"}),
+					Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 					Strata: [][]ir.Member{
 						{
 							{
-								NodeKey: new(string("test_111")),
+								NodeKey: new(string("test_81")),
 								Scope: new(ir.Scope{
-									Key:         "test_113",
+									Key:         "test_83",
 									Mode:        ir.ScopeMode(0),
 									Liveness:    ir.Liveness(0),
 									Activation:  new(ir.Handle{}),
@@ -649,9 +523,9 @@ func FuzzDecodeProgram(f *testing.F) {
 					},
 					Steps: []ir.Member{
 						{
-							NodeKey: new(string("test_121")),
+							NodeKey: new(string("test_91")),
 							Scope: new(ir.Scope{
-								Key:         "test_123",
+								Key:         "test_93",
 								Mode:        ir.ScopeMode(0),
 								Liveness:    ir.Liveness(0),
 								Activation:  new(ir.Handle{}),
@@ -663,15 +537,15 @@ func FuzzDecodeProgram(f *testing.F) {
 					},
 					Transitions: []ir.Transition{
 						{
-							On:        ir.Handle{Node: "test_132", Param: "test_133"},
-							TargetKey: new(string("test_134")),
+							On:        ir.Handle{Node: "test_102", Param: "test_103"},
+							TargetKey: new(string("test_104")),
 						},
 					},
 				},
 			},
 			Output: compiler.Output{
-				WASM:              []byte{135, 136, 137},
-				OutputMemoryBases: map[string]uint32{"test_136": 137},
+				WASM:              []byte{105, 106, 107},
+				OutputMemoryBases: map[string]uint32{"test_106": 107},
 			},
 		}
 		w := orc.NewWriter(0)
