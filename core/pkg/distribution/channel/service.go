@@ -24,15 +24,25 @@ import (
 
 // ServiceConfig configures the distribution-layer channel allocator.
 type ServiceConfig struct {
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// HostResolver resolves node keys to network addresses for cluster routing.
+	//
+	// [REQUIRED]
 	HostResolver node.HostResolver
-	// ClusterDB backs the local-key counters.
-	ClusterDB kv.ReadWriter
-	// TSChannel is the storage-layer time-series database where channel storage is
-	// created.
-	TSChannel *ts.DB
+	// KVReadWriter is the key-value store used to back the local-key counters.
+	//
+	// [REQUIRED]
+	KVReadWriter kv.ReadWriter
+	// TSDB is the storage-layer time-series database where channel storage is created.
+	//
+	// [REQUIRED]
+	TSDB *ts.DB
 	// Transport routes allocation, rename, and delete operations to leaseholders.
+	//
+	// [REQUIRED]
 	Transport Transport
 }
 
@@ -41,8 +51,8 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
 	validate.NotNil(v, "host_resolver", c.HostResolver)
-	validate.NotNil(v, "cluster_db", c.ClusterDB)
-	validate.NotNil(v, "ts_channel", c.TSChannel)
+	validate.NotNil(v, "kv_read_writer", c.KVReadWriter)
+	validate.NotNil(v, "ts_db", c.TSDB)
 	validate.NotNil(v, "transport", c.Transport)
 	return v.Error()
 }
@@ -50,8 +60,8 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
-	c.ClusterDB = override.Nil(c.ClusterDB, other.ClusterDB)
-	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
+	c.KVReadWriter = override.Nil(c.KVReadWriter, other.KVReadWriter)
+	c.TSDB = override.Nil(c.TSDB, other.TSDB)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	return c
 }
@@ -68,7 +78,7 @@ type Service struct {
 	freeCounter   *counter
 	createRouter  proxy.BatchFactory[Channel]
 	renameRouter  proxy.BatchFactory[renameBatchEntry]
-	keyRouter     proxy.BatchFactory[Key]
+	deleteRouter  proxy.BatchFactory[Key]
 }
 
 // NewService opens the distribution-layer channel allocator. The allocator holds no
@@ -80,17 +90,25 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	s := &Service{
 		cfg:          cfg,
-		createRouter: proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		keyRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
-		renameRouter: proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
+		createRouter: proxy.NewBatchFactory[Channel](cfg.HostResolver.HostKey()),
+		deleteRouter: proxy.NewBatchFactory[Key](cfg.HostResolver.HostKey()),
+		renameRouter: proxy.NewBatchFactory[renameBatchEntry](cfg.HostResolver.HostKey()),
 	}
-	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
-	if s.leasedCounter, err = newCounter(ctx, cfg.ClusterDB, leasedCounterKey); err != nil {
+	leasedCounterKey := []byte(
+		cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter",
+	)
+	if s.leasedCounter, err = newCounter(
+		ctx, cfg.KVReadWriter, leasedCounterKey,
+	); err != nil {
 		return nil, err
 	}
 	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
-		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
-		if s.freeCounter, err = newCounter(ctx, cfg.ClusterDB, freeCounterKey); err != nil {
+		freeCounterKey := []byte(
+			cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free",
+		)
+		if s.freeCounter, err = newCounter(
+			ctx, cfg.KVReadWriter, freeCounterKey,
+		); err != nil {
 			return nil, err
 		}
 	}
@@ -146,23 +164,6 @@ func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, er
 	return out, nil
 }
 
-// Delete deletes the storage channels for the provided keys, routing each key to its
-// leaseholder. It does not touch channel metadata.
-func (s *Service) Delete(ctx context.Context, keys Keys) error {
-	batch := s.keyRouter.Batch(keys)
-	for nodeKey, entries := range batch.Peers {
-		if err := s.deleteRemote(ctx, nodeKey, entries); err != nil {
-			return err
-		}
-	}
-	gateway := append(Keys{}, batch.Gateway...)
-	gateway = append(gateway, batch.Free...)
-	if len(gateway) == 0 {
-		return nil
-	}
-	return s.cfg.TSChannel.DeleteChannels(gateway.Storage())
-}
-
 // Rename renames the storage channels for the provided keys, routing each key to its
 // leaseholder. Free-virtual channels have no persistent storage and are skipped.
 func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
@@ -177,5 +178,21 @@ func (s *Service) Rename(ctx context.Context, keys Keys, names []string) error {
 		return nil
 	}
 	keys, names = unzipRenameBatch(batch.Gateway)
-	return s.cfg.TSChannel.RenameChannels(ctx, keys.Storage(), names)
+	return s.cfg.TSDB.RenameChannels(ctx, keys.Storage(), names)
+}
+
+// Delete deletes the storage channels for the provided keys, routing each key to its
+// leaseholder. Free-virtual channels have no persistent storage and are skipped. It does
+// not touch channel metadata.
+func (s *Service) Delete(ctx context.Context, keys Keys) error {
+	batch := s.deleteRouter.Batch(keys)
+	for nodeKey, entries := range batch.Peers {
+		if err := s.deleteRemote(ctx, nodeKey, entries); err != nil {
+			return err
+		}
+	}
+	if len(batch.Gateway) == 0 {
+		return nil
+	}
+	return s.cfg.TSDB.DeleteChannels(Keys(batch.Gateway).Storage())
 }

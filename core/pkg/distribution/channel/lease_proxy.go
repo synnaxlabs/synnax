@@ -28,11 +28,11 @@ func (s *Service) createHandler(ctx context.Context, msg CreateMessage) (CreateM
 }
 
 func (s *Service) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TSChannel.DeleteChannels(msg.Keys.Storage())
+	return types.Nil{}, s.cfg.TSDB.DeleteChannels(msg.Keys.Storage())
 }
 
 func (s *Service) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
-	return types.Nil{}, s.cfg.TSChannel.RenameChannels(ctx, msg.Keys.Storage(), msg.Names)
+	return types.Nil{}, s.cfg.TSDB.RenameChannels(ctx, msg.Keys.Storage(), msg.Names)
 }
 
 // assignKeys draws len(channels with a zero LocalKey) values from the provided counter
@@ -81,7 +81,7 @@ func (s *Service) allocateGateway(ctx context.Context, out []Channel, indices []
 	if err := assignKeys(ctx, s.leasedCounter, chs); err != nil {
 		return err
 	}
-	if err := s.cfg.TSChannel.CreateChannel(ctx, toStorage(chs)...); err != nil {
+	if err := s.cfg.TSDB.CreateChannel(ctx, toStorage(chs)...); err != nil {
 		return err
 	}
 	putBack(out, indices, chs)

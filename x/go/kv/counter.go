@@ -36,7 +36,10 @@ func NewCounter(
 	c := &AtomicInt64Counter{db: db, key: key}
 	b, closer, err := db.Get(ctx, key)
 	if err != nil {
-		return nil, errors.Skip(err, query.ErrNotFound)
+		if errors.Is(err, query.ErrNotFound) {
+			return c, nil
+		}
+		return nil, err
 	}
 	c.value.Store(int64(binary.LittleEndian.Uint64(b)))
 	if err := closer.Close(); err != nil {
