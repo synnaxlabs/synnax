@@ -19,7 +19,7 @@ import (
 
 type counter struct{ ctr *kv.AtomicInt64Counter }
 
-func openCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
+func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
 	ctr, err := kv.NewCounter(ctx, db, key)
 	if err != nil {
 		return nil, err

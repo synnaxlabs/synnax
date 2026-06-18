@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -44,8 +44,8 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	FrameTransport framer.Transport
-	// GorpCodec sets the codec used to encode/decode data structures within the
-	// cluster meta-data DB (gorp).
+	// GorpCodec sets the codec used to encode/decode data structures within the cluster
+	// meta-data DB (gorp).
 	//
 	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
 	GorpCodec encoding.Codec
@@ -54,17 +54,17 @@ type LayerConfig struct {
 	//
 	// [REQUIRED]
 	AspenTransport aspen.Transport
-	// Instrumentation is for logging, tracing, and metrics.
-	//
 	// Storage is the storage layer that the distribution layer will use for persisting
 	// data across its various services.
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
+	// Instrumentation is for logging, tracing, and metrics.
+	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// AdvertiseAddress sets the network address that the distribution layer will publish
-	// to other nodes in the cluster.
+	// AdvertiseAddress sets the network address that the distribution layer will
+	// publish to other nodes in the cluster.
 	//
 	// [REQUIRED]
 	AdvertiseAddress address.Address
@@ -74,8 +74,8 @@ type LayerConfig struct {
 	// [OPTIONAL] - Defaults to []
 	AspenOptions []aspen.Option
 	// PeerAddresses sets the list of peer nodes in the cluster that the distribution
-	// layer will reach out to join the cluster. If this slice is empty, the distribution
-	// layer will bootstrap a new single node cluster.
+	// layer will reach out to join the cluster. If this slice is empty, the
+	// distribution layer will bootstrap a new single node cluster.
 	//
 	// [OPTIONAL] - Defaults to []
 	PeerAddresses []address.Address
@@ -83,12 +83,10 @@ type LayerConfig struct {
 
 var (
 	_ config.Config[LayerConfig] = LayerConfig{}
-	// DefaultLayerConfig is the default configuration for opening the distribution layer.
-	// This configuration is not valid on its own and must be overridden by the
+	// DefaultLayerConfig is the default configuration for opening the distribution
+	// layer. This configuration is not valid on its own and must be overridden by the
 	// required fields specific in Config.
-	DefaultLayerConfig = LayerConfig{
-		GorpCodec: orc.NewCodec(msgpack.Codec),
-	}
+	DefaultLayerConfig = LayerConfig{GorpCodec: orc.NewCodec(msgpack.Codec)}
 )
 
 // Override implements config.Config.
@@ -148,7 +146,7 @@ type Layer struct {
 	// Group is for grouping related resources in the cluster.
 	Group *group.Service
 	// closer is for properly shutting down the distribution layer.
-	closer xio.MultiCloser
+	closer io.MultiCloser
 }
 
 // Open opens the distribution Layer using the provided configuration(s). Later
@@ -222,13 +220,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
+	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		HostResolver:    l.Cluster,
 		ClusterDB:       l.DB,
 		TSChannel:       cfg.Storage.TS,
 		Transport:       cfg.ChannelTransport,
-	}); !ok(err, l.Channel) {
+	}); !ok(err, nil) {
 		return nil, err
 	}
 
@@ -241,7 +239,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	return l, err
+	return l, nil
 }
 
 // Close closes the Layer. Close must be called when the Layer is no longer in use.

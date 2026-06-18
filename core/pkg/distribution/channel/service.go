@@ -17,28 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// Service is the distribution-layer channel allocator. It owns the cluster-wide
-// machinery for assigning local channel keys and creating, renaming, and deleting the
-// underlying storage channels, routing each operation to the channel's leaseholder.
-type Service struct {
-	cfg    ServiceConfig
-	closer io.MultiCloser
-	// leasedCounter and freeCounter drive local-key assignment for gateway-leased and
-	// free-virtual channels respectively. freeCounter is only populated on the
-	// bootstrapper node.
-	leasedCounter *counter
-	freeCounter   *counter
-	createRouter  proxy.BatchFactory[Channel]
-	renameRouter  proxy.BatchFactory[renameBatchEntry]
-	keyRouter     proxy.BatchFactory[Key]
-}
 
 // ServiceConfig configures the distribution-layer channel allocator.
 type ServiceConfig struct {
@@ -74,29 +56,41 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return c
 }
 
-var DefaultServiceConfig = ServiceConfig{}
+// Service is the distribution-layer channel allocator. It owns the cluster-wide
+// machinery for assigning local channel keys and creating, renaming, and deleting the
+// underlying storage channels, routing each operation to the channel's leaseholder.
+type Service struct {
+	cfg ServiceConfig
+	// leasedCounter and freeCounter drive local-key assignment for gateway-leased and
+	// free-virtual channels respectively. freeCounter is only populated on the
+	// bootstrapper node.
+	leasedCounter *counter
+	freeCounter   *counter
+	createRouter  proxy.BatchFactory[Channel]
+	renameRouter  proxy.BatchFactory[renameBatchEntry]
+	keyRouter     proxy.BatchFactory[Key]
+}
 
-// OpenService opens the distribution-layer channel allocator.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+// NewService opens the distribution-layer channel allocator. The allocator holds no
+// resources that require shutdown, so it has no Close method.
+func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{
+	s := &Service{
 		cfg:          cfg,
 		createRouter: proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		keyRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
 		renameRouter: proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
 	}
-	cleanup, ok := service.NewOpener(ctx, &s.closer)
-	defer func() { err = cleanup(err) }()
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
-	if s.leasedCounter, err = openCounter(ctx, cfg.ClusterDB, leasedCounterKey); !ok(err, nil) {
+	if s.leasedCounter, err = newCounter(ctx, cfg.ClusterDB, leasedCounterKey); err != nil {
 		return nil, err
 	}
 	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
-		if s.freeCounter, err = openCounter(ctx, cfg.ClusterDB, freeCounterKey); !ok(err, nil) {
+		if s.freeCounter, err = newCounter(ctx, cfg.ClusterDB, freeCounterKey); err != nil {
 			return nil, err
 		}
 	}
@@ -105,8 +99,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cfg.Transport.RenameServer().BindHandler(s.renameHandler)
 	return s, nil
 }
-
-func (s *Service) Close() error { return s.closer.Close() }
 
 // Create assigns local keys to the provided new channels (those with a zero LocalKey)
 // by routing to each channel's leaseholder to draw from that node's key counter, and
