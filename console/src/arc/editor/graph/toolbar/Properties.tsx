@@ -72,21 +72,22 @@ const IndividualProperties = ({
   layoutKey,
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
-  const props = Arc.useSelectNodeProps({ key: layoutKey, nodeKey });
+  const config = Arc.useSelectNodeConfig({ key: layoutKey, nodeKey });
   const { dispatch } = Arc.useDispatch();
   const formMethods = Form.use({
-    values: structuredClone(props ?? {}),
+    values: structuredClone(config ?? {}),
     sync: true,
-    onChange: ({ values }) => {
-      const { key: _type, ...config } = values as record.Unknown;
+    onChange: ({ values }) =>
       dispatch({
         key: layoutKey,
-        actions: [arc.setNodeConfig({ key: nodeKey, config })],
-      });
-    },
+        actions: [
+          arc.setNodeConfig({ key: nodeKey, config: values as record.Unknown }),
+        ],
+      }),
   });
-  if (props == null) return null;
-  const C = Arc.Stage.REGISTRY[props.key as string];
+  if (config == null) return null;
+  const C = Arc.Stage.REGISTRY[config.type];
+  if (C == null) return null;
   return (
     <Flex.Box style={{ height: "100%", padding: "2rem" }} y>
       <Form.Form {...formMethods}>

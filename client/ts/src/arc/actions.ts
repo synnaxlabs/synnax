@@ -71,12 +71,10 @@ const handlers: Handlers = {
     };
   },
   setNodeConfig: (state, payload) => {
-    const node = state.graph.nodes.find((n) => n.key === payload.key);
-    if (node == null) return actions.NO_OP_RESULT;
-    const oldConfig = actions.snapshotDraft(node.config);
-    node.config = payload.config;
+    const oldConfig = actions.snapshotDraft(state.graph.configs[payload.key]);
+    state.graph.configs[payload.key] = payload.config;
     return {
-      inverse: [setNodeConfig({ key: payload.key, config: oldConfig })],
+      inverse: [setNodeConfig({ key: payload.key, config: oldConfig ?? {} })],
       targets: [payload.key],
     };
   },
@@ -84,20 +82,20 @@ const handlers: Handlers = {
     const idx = state.graph.nodes.findIndex((n) => n.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldNode = actions.snapshotDraft(state.graph.nodes[idx]);
+    const oldConfig = actions.snapshotDraft(state.graph.configs[payload.key]);
     const removedEdges = state.graph.edges
       .filter((e) => e.source.node === payload.key || e.target.node === payload.key)
       .map((e) => actions.snapshotDraft(e));
     state.graph.nodes.splice(idx, 1);
+    delete state.graph.configs[payload.key];
     state.graph.edges = state.graph.edges.filter(
       (e) => e.source.node !== payload.key && e.target.node !== payload.key,
     );
-    return {
-      inverse: [
-        setNode({ node: oldNode }),
-        ...removedEdges.map((e) => addEdge({ edge: e })),
-      ],
-      targets: [payload.key],
-    };
+    const inverse: Action[] = [setNode({ node: oldNode })];
+    if (oldConfig != null)
+      inverse.push(setNodeConfig({ key: payload.key, config: oldConfig }));
+    inverse.push(...removedEdges.map((e) => addEdge({ edge: e })));
+    return { inverse, targets: [payload.key] };
   },
   addEdge: (state, payload) => {
     const { source, target } = payload.edge;

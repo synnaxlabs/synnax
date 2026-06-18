@@ -35,12 +35,37 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// graphNodeSpec describes a graph node along with its function type and configuration
+// parameter values, which live in the graph's Configs map keyed by node key.
+type graphNodeSpec struct {
+	key string
+	typ string
+	cfg map[string]any
+}
+
+// buildGraphNodes converts node specs into the graph's Nodes slice and Configs map,
+// storing each node's function type under the "type" key in its config entry.
+func buildGraphNodes(specs ...graphNodeSpec) (graph.Nodes, map[string]msgpack.EncodedJSON) {
+	nodes := make(graph.Nodes, len(specs))
+	configs := make(map[string]msgpack.EncodedJSON, len(specs))
+	for i, s := range specs {
+		nodes[i] = graph.Node{Key: s.key}
+		cfg := msgpack.EncodedJSON{"type": s.typ}
+		for k, v := range s.cfg {
+			cfg[k] = v
+		}
+		configs[s.key] = cfg
+	}
+	return nodes, configs
+}
 
 func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
 	return svcarc.Arc{}, query.ErrNotFound
@@ -121,9 +146,10 @@ var _ = Describe("Task", Ordered, func() {
 	}
 
 	simpleGraph := func(chKey channel.Key) graph.Graph {
-		return graph.Graph{
-			Nodes: []graph.Node{{Key: "on", Type: "on", Config: map[string]any{"channel": chKey}}},
-		}
+		nodes, configs := buildGraphNodes(
+			graphNodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": chKey}},
+		)
+		return graph.Graph{Nodes: nodes, Configs: configs}
 	}
 
 	createVirtualCh := func(ctx context.Context, prefix string, dataType telem.DataType) *channel.Channel {
@@ -422,9 +448,10 @@ var _ = Describe("Task", Ordered, func() {
 
 	Describe("ConfigureTask Error Paths", func() {
 		It("Should return error when graph has unknown node type", func(ctx SpecContext) {
-			badNodeGraph := graph.Graph{
-				Nodes: []graph.Node{{Key: "bad", Type: "nonexistent_type", Config: map[string]any{}}},
-			}
+			badNodes, badConfigs := buildGraphNodes(
+				graphNodeSpec{key: "bad", typ: "nonexistent_type"},
+			)
+			badNodeGraph := graph.Graph{Nodes: badNodes, Configs: badConfigs}
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 1),
 				Name:   "test-bad-node",
@@ -441,20 +468,22 @@ var _ = Describe("Task", Ordered, func() {
 			ch := &channel.Channel{Name: "ox_pt_1", Virtual: true, DataType: telem.Float32T}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
+			alarmNodes, alarmConfigs := buildGraphNodes(
+				graphNodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": ch.Key()}},
+				graphNodeSpec{key: "constant", typ: "constant", cfg: map[string]any{"value": 10}},
+				graphNodeSpec{key: "ge", typ: "ge"},
+				graphNodeSpec{key: "stable_for", typ: "stable_for", cfg: map[string]any{"duration": 0}},
+				graphNodeSpec{key: "select", typ: "select"},
+				graphNodeSpec{key: "status_success", typ: "status.set", cfg: map[string]any{
+					"key_or_name": "ox_alarm", "message": "OX Pressure Nominal", "variant": "success",
+				}},
+				graphNodeSpec{key: "status_error", typ: "status.set", cfg: map[string]any{
+					"key_or_name": "ox_alarm", "message": "OX Pressure Exceed", "variant": "error",
+				}},
+			)
 			alarmGraph := graph.Graph{
-				Nodes: []graph.Node{
-					{Key: "on", Type: "on", Config: map[string]any{"channel": ch.Key()}},
-					{Key: "constant", Type: "constant", Config: map[string]any{"value": 10}},
-					{Key: "ge", Type: "ge"},
-					{Key: "stable_for", Type: "stable_for", Config: map[string]any{"duration": 0}},
-					{Key: "select", Type: "select"},
-					{Key: "status_success", Type: "status.set", Config: map[string]any{
-						"key_or_name": "ox_alarm", "message": "OX Pressure Nominal", "variant": "success",
-					}},
-					{Key: "status_error", Type: "status.set", Config: map[string]any{
-						"key_or_name": "ox_alarm", "message": "OX Pressure Exceed", "variant": "error",
-					}},
-				},
+				Nodes:   alarmNodes,
+				Configs: alarmConfigs,
 				Edges: []graph.Edge{
 					{
 						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
@@ -526,13 +555,15 @@ var _ = Describe("Task", Ordered, func() {
 				Message: "second", Time: telem.Now(),
 			})).To(Succeed())
 
+			reportNodes, reportConfigs := buildGraphNodes(
+				graphNodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": ch.Key()}},
+				graphNodeSpec{key: "status_set", typ: "status.set", cfg: map[string]any{
+					"key_or_name": dupName, "message": "ping", "variant": "success",
+				}},
+			)
 			reportGraph := graph.Graph{
-				Nodes: []graph.Node{
-					{Key: "on", Type: "on", Config: map[string]any{"channel": ch.Key()}},
-					{Key: "status_set", Type: "status.set", Config: map[string]any{
-						"key_or_name": dupName, "message": "ping", "variant": "success",
-					}},
-				},
+				Nodes:   reportNodes,
+				Configs: reportConfigs,
 				Edges: []graph.Edge{
 					{
 						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},

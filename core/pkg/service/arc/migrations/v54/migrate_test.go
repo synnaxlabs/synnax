@@ -143,17 +143,19 @@ var _ = Describe("v54 -> current Arc migration", func() {
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Graph.Nodes).To(HaveLen(2))
 
-		alarm := MustBeOk(got.Graph.Nodes.Find("alarm"))
-		Expect(alarm.Type).To(Equal("status.set"))
-		Expect(alarm.Config["key_or_name"]).To(Equal("ox_alarm"))
-		Expect(alarm.Config["variant"]).To(Equal("error"))
-		Expect(alarm.Config["message"]).To(Equal("Overpressure"))
-		Expect(alarm.Config).ToNot(HaveKey("statusKey"))
-		Expect(alarm.Config).ToNot(HaveKey("description"))
+		_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
+		alarmCfg := got.Graph.Configs["alarm"]
+		Expect(alarmCfg["type"]).To(Equal("status.set"))
+		Expect(alarmCfg["key_or_name"]).To(Equal("ox_alarm"))
+		Expect(alarmCfg["variant"]).To(Equal("error"))
+		Expect(alarmCfg["message"]).To(Equal("Overpressure"))
+		Expect(alarmCfg).ToNot(HaveKey("statusKey"))
+		Expect(alarmCfg).ToNot(HaveKey("description"))
 
-		scale := MustBeOk(got.Graph.Nodes.Find("scale"))
-		Expect(scale.Type).To(Equal("scale"))
-		Expect(scale.Config["factor"]).To(Equal("2"))
+		_ = MustBeOk(got.Graph.Nodes.Find("scale"))
+		scaleCfg := got.Graph.Configs["scale"]
+		Expect(scaleCfg["type"]).To(Equal("scale"))
+		Expect(scaleCfg["factor"]).To(Equal("2"))
 	})
 
 	It("defaults missing set_status config parameters", func(ctx SpecContext) {
@@ -183,11 +185,12 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(currentTable.NewRetrieve().
 			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
-		alarm := MustBeOk(got.Graph.Nodes.Find("alarm"))
-		Expect(alarm.Type).To(Equal("status.set"))
-		Expect(alarm.Config["key_or_name"]).To(Equal(""))
-		Expect(alarm.Config["variant"]).To(Equal("success"))
-		Expect(alarm.Config["message"]).To(Equal(""))
+		_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
+		alarmCfg := got.Graph.Configs["alarm"]
+		Expect(alarmCfg["type"]).To(Equal("status.set"))
+		Expect(alarmCfg["key_or_name"]).To(Equal(""))
+		Expect(alarmCfg["variant"]).To(Equal("success"))
+		Expect(alarmCfg["message"]).To(Equal(""))
 	})
 
 	It("drops Status and Program and preserves core wire fields when v54 entries carry a populated Status", func(ctx SpecContext) {

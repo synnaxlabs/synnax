@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type arc } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
 
 import { type Diagram } from "@/vis/diagram";
 
@@ -29,15 +28,6 @@ export const parseEdgeKey = (
   const [sn, sp, tn, tp] = key.split(EDGE_KEY_SEP);
   return { source: { node: sn, param: sp }, target: { node: tn, param: tp } };
 };
-
-// nodeProps returns the renderer props for a server graph node: the function type
-// under the reserved `key` field, merged with the node's config values. Graph
-// nodes are otherwise consumed as diagram nodes directly, since graph.Node is a
-// structural superset of Diagram.Node.
-export const nodeProps = (n: arc.graph.Node): record.Unknown => ({
-  key: n.type,
-  ...n.config,
-});
 
 // edgeToDiagram converts a server graph edge to a keyed diagram edge.
 export const edgeToDiagram = (e: arc.ir.Edge): Diagram.Edge => ({

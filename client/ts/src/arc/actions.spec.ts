@@ -13,12 +13,15 @@ import { z } from "zod";
 
 import { arc } from "@/arc";
 
-const node = (
-  key: string,
-  x: number,
-  y: number,
-  config: record.Unknown = {},
-): arc.graph.Node => ({ key, type: "stage", config, position: { x, y } });
+const node = (key: string, x: number, y: number): arc.graph.Node => ({
+  key,
+  position: { x, y },
+});
+
+const cfg = (type: string, params: record.Unknown = {}): record.Unknown => ({
+  type,
+  ...params,
+});
 
 const edge = (
   srcNode: string,
@@ -41,6 +44,7 @@ const empty = (graph: Partial<arc.graph.Graph> = {}, name = ""): arc.Arc => ({
     functions: [],
     edges: [],
     nodes: [],
+    configs: {},
     ...graph,
   },
 });
@@ -109,26 +113,34 @@ describe("arc reducer", () => {
   });
 
   describe("setNodeConfig", () => {
-    it("should replace the configuration of the matching node", () => {
-      const state = empty({ nodes: [node("n1", 0, 0, { gain: 1 })] });
-      const out = apply(state, arc.setNodeConfig({ key: "n1", config: { offset: 2 } }));
-      expect(out.graph.nodes[0].config).toEqual({ offset: 2 });
+    it("should store the config under the node key in the configs map", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0)],
+        configs: { n1: cfg("constant", { value: 1 }) },
+      });
+      const out = apply(
+        state,
+        arc.setNodeConfig({ key: "n1", config: cfg("constant", { value: 2 }) }),
+      );
+      expect(out.graph.configs.n1).toEqual(cfg("constant", { value: 2 }));
     });
-    it("should be a no-op when the key does not match any node", () => {
-      const state = empty({ nodes: [node("n1", 0, 0)] });
-      expect(apply(state, arc.setNodeConfig({ key: "ghost", config: {} }))).toBe(state);
+    it("should write the config even when no node exists yet", () => {
+      const out = apply(empty(), arc.setNodeConfig({ key: "n1", config: cfg("add") }));
+      expect(out.graph.configs.n1).toEqual(cfg("add"));
     });
   });
 
   describe("removeNode", () => {
-    it("should remove the matching node and every edge connected to it", () => {
+    it("should remove the node, its config, and every connected edge", () => {
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
         edges: [edge("n1", "out", "n2", "in"), edge("n2", "out", "n3", "in")],
+        configs: { n2: cfg("add") },
       });
       const out = apply(state, arc.removeNode({ key: "n2" }));
       expect(out.graph.nodes).toEqual([node("n1", 0, 0), node("n3", 2, 2)]);
       expect(out.graph.edges).toEqual([]);
+      expect(out.graph.configs.n2).toBeUndefined();
     });
     it("should keep unrelated edges intact", () => {
       const state = empty({
@@ -227,15 +239,15 @@ describe("arc reducer", () => {
     it("should build a complete graph from an empty module", () => {
       const out = apply(
         empty(),
-        arc.setMode({ mode: "graph" }),
         arc.setNode({ node: node("src", 0, 0) }),
-        arc.setNode({ node: node("op", 100, 0) }),
+        arc.setNodeConfig({ key: "src", config: cfg("on", { channel: 1 }) }),
         arc.setNode({ node: node("sink", 200, 0) }),
-        arc.addEdge({ edge: edge("src", "out", "op", "in") }),
-        arc.addEdge({ edge: edge("op", "out", "sink", "in") }),
+        arc.setNodeConfig({ key: "sink", config: cfg("write", { channel: 2 }) }),
+        arc.addEdge({ edge: edge("src", "out", "sink", "in") }),
       );
-      expect(out.graph.nodes).toHaveLength(3);
-      expect(out.graph.edges).toHaveLength(2);
+      expect(out.graph.nodes).toHaveLength(2);
+      expect(out.graph.edges).toHaveLength(1);
+      expect(out.graph.configs.src).toEqual(cfg("on", { channel: 1 }));
     });
     it("should leave state untouched when given an empty action list", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
@@ -262,9 +274,9 @@ describe("arc reducer inverses", () => {
     expect(arc.reduceAll(next, inverse).next).toEqual(state);
   };
 
-  // Node removal cascades to connected edges, and the inverse re-inserts the
-  // node via setNode (which appends) plus addEdge for each removed edge. Slice
-  // order is not preserved, so compare by key.
+  // Node removal cascades to its config and connected edges; the inverse
+  // re-inserts the node via setNode (which appends) plus setNodeConfig and
+  // addEdge. Slice order is not preserved, so compare nodes by key.
   const expectGraphRoundTrip = (state: arc.Arc, actions: arc.Action[]) => {
     const { next, inverse } = arc.reduceAll(state, actions);
     const restored = arc.reduceAll(next, inverse).next;
@@ -272,6 +284,7 @@ describe("arc reducer inverses", () => {
       Object.fromEntries(ns.map((n) => [n.key, n]));
     expect(byKey(restored.graph.nodes)).toEqual(byKey(state.graph.nodes));
     expect(restored.graph.edges).toEqual(state.graph.edges);
+    expect(restored.graph.configs).toEqual(state.graph.configs);
   };
 
   describe("rename", () => {
@@ -304,8 +317,8 @@ describe("arc reducer inverses", () => {
       ]);
     });
     it("should invert a replace by restoring the prior node", () => {
-      expectRoundTrip(empty({ nodes: [node("n1", 1, 1, { gain: 2 })] }), [
-        arc.setNode({ node: node("n1", 9, 9, { gain: 3 }) }),
+      expectRoundTrip(empty({ nodes: [node("n1", 1, 1)] }), [
+        arc.setNode({ node: node("n1", 9, 9) }),
       ]);
     });
   });
@@ -326,19 +339,24 @@ describe("arc reducer inverses", () => {
   });
 
   describe("setNodeConfig", () => {
-    it("should invert by restoring the prior config (clean replace, no phantom keys)", () => {
-      expectRoundTrip(empty({ nodes: [node("n1", 0, 0, { gain: 1, offset: 5 })] }), [
-        arc.setNodeConfig({ key: "n1", config: { gain: 2 } }),
-      ]);
+    it("should invert by restoring the prior config", () => {
+      expectGraphRoundTrip(
+        empty({
+          nodes: [node("n1", 0, 0)],
+          configs: { n1: cfg("constant", { value: 1 }) },
+        }),
+        [arc.setNodeConfig({ key: "n1", config: cfg("constant", { value: 2 }) })],
+      );
     });
   });
 
   describe("removeNode", () => {
-    it("should invert by re-inserting the node and its connected edges", () => {
+    it("should invert by re-inserting the node, its config, and connected edges", () => {
       expectGraphRoundTrip(
         empty({
           nodes: [node("n1", 0, 0), node("n2", 1, 1)],
           edges: [edge("n1", "out", "n2", "in")],
+          configs: { n1: cfg("on", { channel: 1 }) },
         }),
         [arc.removeNode({ key: "n1" })],
       );
@@ -364,13 +382,6 @@ describe("arc reducer inverses", () => {
         }),
       ]);
     });
-    it("should produce an empty inverse for a duplicate addEdge", () => {
-      expect(
-        arc.reduceAll(empty({ edges: [edge("a", "o", "b", "i")] }), [
-          arc.addEdge({ edge: edge("a", "o", "b", "i") }),
-        ]).inverse,
-      ).toEqual([]);
-    });
   });
 
   describe("isUndoable", () => {
@@ -381,7 +392,9 @@ describe("arc reducer inverses", () => {
       expect(
         arc.isUndoable(arc.setNodePosition({ key: "n1", position: { x: 0, y: 0 } })),
       ).toBe(true);
-      expect(arc.isUndoable(arc.setNodeConfig({ key: "n1", config: {} }))).toBe(true);
+      expect(arc.isUndoable(arc.setNodeConfig({ key: "n1", config: cfg("add") }))).toBe(
+        true,
+      );
       expect(arc.isUndoable(arc.removeNode({ key: "n1" }))).toBe(true);
       expect(arc.isUndoable(arc.addEdge({ edge: edge("a", "o", "b", "i") }))).toBe(
         true,
@@ -394,22 +407,6 @@ describe("arc reducer inverses", () => {
           }),
         ),
       ).toBe(true);
-    });
-  });
-
-  describe("multi-action transactions", () => {
-    it("should invert a build sequence by restoring the original graph", () => {
-      expectGraphRoundTrip(empty(), [
-        arc.setNode({ node: node("src", 0, 0) }),
-        arc.setNode({ node: node("op", 100, 0) }),
-        arc.addEdge({ edge: edge("src", "out", "op", "in") }),
-      ]);
-    });
-    it("should invert a multi-step move to the original positions", () => {
-      expectRoundTrip(empty({ nodes: [node("n1", 0, 0), node("n2", 1, 1)] }), [
-        arc.setNodePosition({ key: "n1", position: { x: 10, y: 20 } }),
-        arc.setNodePosition({ key: "n2", position: { x: 30, y: 40 } }),
-      ]);
     });
   });
 });

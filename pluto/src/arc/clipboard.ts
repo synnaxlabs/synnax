@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { uuid, xy } from "@synnaxlabs/x";
+import { type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { type FluxSubStore, useDispatch } from "@/arc/queries";
@@ -25,6 +25,7 @@ const VERSION = 1;
 interface Payload {
   version: number;
   nodes: arc.graph.Node[];
+  configs: Record<string, record.Unknown>;
   edges: arc.ir.Edge[];
   anchor: xy.XY;
 }
@@ -76,9 +77,15 @@ export const useClipboard = ({
         sel.has(edgeKey(edge.source, edge.target)),
       );
       if (nodes.length === 0 && edges.length === 0) return;
+      const configs: Record<string, record.Unknown> = {};
+      for (const n of nodes) {
+        const c = a.graph.configs[n.key];
+        if (c != null) configs[n.key] = c;
+      }
       const payload: Payload = {
         version: VERSION,
         nodes,
+        configs,
         edges,
         anchor: centroid(nodes),
       };
@@ -116,6 +123,8 @@ export const useClipboard = ({
             },
           }),
         );
+        const config = payload.configs[node.key];
+        if (config != null) actions.push(arc.setNodeConfig({ key: newKey, config }));
       }
       for (const edge of payload.edges) {
         const src = remap[edge.source.node];

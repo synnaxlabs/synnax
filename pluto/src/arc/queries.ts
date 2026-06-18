@@ -20,7 +20,7 @@ import { useCallback } from "react";
 import z from "zod";
 
 import { Stage } from "@/arc/functions";
-import { edgesToDiagram, nodeProps } from "@/arc/translate";
+import { edgesToDiagram } from "@/arc/translate";
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { type List } from "@/list";
@@ -137,20 +137,22 @@ export interface SelectNodePropsArgs {
   nodeKey: string;
 }
 
-// useSelectNodeProps returns the renderer props for a single graph node: the
-// function type under the reserved `key` field merged with the node's config.
-// transform is memoized on the node reference, so it only re-runs when that node
-// changes.
-export const useSelectNodeProps = Flux.createSelector<
+// NodeConfig is a graph node's config record: its function type under "type" plus
+// its parameter values. The type discriminator is always present (the reducers
+// enforce it), so it is typed as a string here.
+export type NodeConfig = record.Unknown & { type: string };
+
+// useSelectNodeConfig returns the config record for a single graph node from the
+// graph configs map. The stored record is returned by reference, so the selection
+// only re-runs when that node's config actually changes.
+export const useSelectNodeConfig = Flux.createSelector<
   FluxSubStore,
   SelectNodePropsArgs,
-  record.Unknown | undefined,
-  arc.graph.Node | undefined
+  NodeConfig | undefined
 >({
   subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
   select: (store, { key, nodeKey }) =>
-    store.arcs.get(key)?.graph.nodes.find((n) => n.key === nodeKey),
-  transform: (node) => (node == null ? undefined : nodeProps(node)),
+    store.arcs.get(key)?.graph.configs[nodeKey] as NodeConfig | undefined,
 });
 
 // useSelectMode returns the representation mode of the Arc with the given key,
@@ -183,12 +185,11 @@ export const useAddNode = (key: arc.Key) => {
         key,
         actions: [
           arc.setNode({
-            node: {
-              key: nodeKey,
-              type,
-              config: spec.defaultProps(theme),
-              position: xy.construct(position ?? xy.ZERO),
-            },
+            node: { key: nodeKey, position: xy.construct(position ?? xy.ZERO) },
+          }),
+          arc.setNodeConfig({
+            key: nodeKey,
+            config: { type, ...spec.defaultProps(theme) },
           }),
         ],
       });
@@ -271,6 +272,7 @@ export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   graph: {
     nodes: [],
     edges: [],
+    configs: {},
     viewport: { position: { x: 0, y: 0 }, zoom: 1 },
     functions: [],
   },

@@ -25,17 +25,15 @@ var _ = Describe("DecodeMsgpack", func() {
 		It("Should decode new lowercase msgpack fields", func() {
 			original := graph.Node{
 				Key:      "node1",
-				Type:     "fn1",
 				Position: spatial.XY{X: 100, Y: 200},
 			}
 			data := MustSucceed(msgpack.Marshal(original))
 			var decoded graph.Node
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("node1"))
-			Expect(decoded.Type).To(Equal("fn1"))
 			Expect(decoded.Position).To(Equal(spatial.XY{X: 100, Y: 200}))
 		})
-		It("Should decode legacy uppercase Go field names", func() {
+		It("Should decode legacy uppercase Go field names, dropping inline type and config", func() {
 			legacy := struct {
 				Key      string
 				Type     string
@@ -44,13 +42,13 @@ var _ = Describe("DecodeMsgpack", func() {
 			}{
 				Key:      "node1",
 				Type:     "fn1",
+				Config:   xmsgpack.EncodedJSON{"gain": 1},
 				Position: spatial.XY{X: 50, Y: 75},
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
 			var decoded graph.Node
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
 			Expect(decoded.Key).To(Equal("node1"))
-			Expect(decoded.Type).To(Equal("fn1"))
 			Expect(decoded.Position).To(Equal(spatial.XY{X: 50, Y: 75}))
 		})
 	})
@@ -92,7 +90,7 @@ var _ = Describe("DecodeMsgpack", func() {
 				Nodes     graph.Nodes
 			}{
 				Viewport: graph.Viewport{Zoom: 1.0},
-				Nodes:    graph.Nodes{{Key: "n1", Type: "fn1"}},
+				Nodes:    graph.Nodes{{Key: "n1"}},
 				Edges:    ir.Edges{{Source: ir.Handle{Node: "n1", Param: "out"}}},
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
@@ -102,6 +100,36 @@ var _ = Describe("DecodeMsgpack", func() {
 			Expect(decoded.Nodes[0].Key).To(Equal("n1"))
 			Expect(decoded.Edges).To(HaveLen(1))
 			Expect(decoded.Viewport.Zoom).To(Equal(1.0))
+		})
+
+		It("Should lift legacy inline node type and config into the configs map", func() {
+			legacy := struct {
+				Nodes []struct {
+					Key      string               `msgpack:"key"`
+					Type     string               `msgpack:"type"`
+					Config   xmsgpack.EncodedJSON `msgpack:"config"`
+					Position spatial.XY           `msgpack:"position"`
+				} `msgpack:"nodes"`
+			}{
+				Nodes: []struct {
+					Key      string               `msgpack:"key"`
+					Type     string               `msgpack:"type"`
+					Config   xmsgpack.EncodedJSON `msgpack:"config"`
+					Position spatial.XY           `msgpack:"position"`
+				}{
+					{Key: "n1", Type: "on", Config: xmsgpack.EncodedJSON{"channel": int8(12)}},
+					{Key: "n2", Type: "printer"},
+				},
+			}
+			data := MustSucceed(msgpack.Marshal(legacy))
+			var decoded graph.Graph
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Nodes).To(HaveLen(2))
+			Expect(decoded.Configs["n1"]).To(SatisfyAll(
+				HaveKeyWithValue("type", "on"),
+				HaveKeyWithValue("channel", int8(12)),
+			))
+			Expect(decoded.Configs["n2"]).To(HaveKeyWithValue("type", "printer"))
 		})
 	})
 })

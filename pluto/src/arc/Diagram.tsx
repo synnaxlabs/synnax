@@ -13,7 +13,7 @@ import { type ReactElement, useCallback } from "react";
 
 import { create } from "@/arc/Arc";
 import { Stage } from "@/arc/functions";
-import { useDispatch, useSelectNodeProps } from "@/arc/queries";
+import { useDispatch, useSelectNodeConfig } from "@/arc/queries";
 import { parseEdgeKey } from "@/arc/translate";
 import { Component } from "@/component";
 import { Key } from "@/key";
@@ -68,18 +68,21 @@ const NodeRenderer = ({
   draggable,
 }: BaseDiagram.NodeProps): ReactElement | null => {
   const key = Key.use<arc.Key>("Arc.Diagram.NodeRenderer");
-  const props = useSelectNodeProps({ key, nodeKey });
+  const config = useSelectNodeConfig({ key, nodeKey });
   const { dispatch } = useDispatch();
-  const { key: type = "", ...rest } = props ?? {};
+  const type = config?.type;
   const handleChange = useCallback(
-    (config: record.Unknown) =>
-      dispatch({ key, actions: [arc.setNodeConfig({ key: nodeKey, config })] }),
-    [key, nodeKey, dispatch],
+    (params: record.Unknown) =>
+      dispatch({
+        key,
+        actions: [arc.setNodeConfig({ key: nodeKey, config: { ...params, type } })],
+      }),
+    [key, nodeKey, dispatch, type],
   );
-  if (props == null) return null;
-  const typeKey = type as string;
-  const C = Stage.REGISTRY[typeKey];
-  if (C == null) throw new Error(`Arc function ${typeKey} not found`);
+  if (config == null) return null;
+  const C = Stage.REGISTRY[config.type];
+  if (C == null) throw new Error(`Arc function ${config.type} not found`);
+  const { type: _type, ...params } = config;
   return (
     <C.Symbol
       nodeKey={nodeKey}
@@ -87,7 +90,7 @@ const NodeRenderer = ({
       selected={selected}
       draggable={draggable}
       onChange={handleChange}
-      {...rest}
+      {...params}
     />
   );
 };

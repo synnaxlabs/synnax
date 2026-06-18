@@ -15,6 +15,7 @@ import { xy } from "@synnaxlabs/x";
 export const ZERO_GRAPH: arc.graph.Graph = {
   nodes: [],
   edges: [],
+  configs: {},
   viewport: { position: xy.ZERO, zoom: 1 },
   functions: [],
 };

@@ -704,6 +704,7 @@ describe("Arc queries", () => {
       expect(formData.graph).toEqual({
         nodes: [],
         edges: [],
+        configs: {},
         viewport: { position: { x: 0, y: 0 }, zoom: 1 },
         functions: [],
       });

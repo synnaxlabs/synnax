@@ -23,7 +23,7 @@ import (
 
 // gnode constructs a graph node at the given coordinates.
 func gnode(key string, x, y float64) graph.Node {
-	return graph.Node{Key: key, Type: "stage", Position: spatial.XY{X: x, Y: y}}
+	return graph.Node{Key: key, Position: spatial.XY{X: x, Y: y}}
 }
 
 // gedge constructs a continuous edge between two node parameters.
@@ -100,37 +100,42 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("SetNodeConfig", func() {
-		It("Should replace the configuration of the matching node", func() {
-			n := gnode("n1", 0, 0)
-			n.Config = msgpack.EncodedJSON{"gain": 1}
-			state := withGraph(graph.Nodes{n}, nil)
+		It("Should replace the configuration keyed by node key", func() {
+			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
+			state.Graph.Configs = map[string]msgpack.EncodedJSON{"n1": {"gain": 1}}
 			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
 				Key:    "n1",
 				Config: msgpack.EncodedJSON{"offset": 2},
 			})))
-			Expect(out.Graph.Nodes[0].Config).To(Equal(msgpack.EncodedJSON{"offset": 2}))
+			Expect(out.Graph.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"offset": 2}))
 		})
-		It("Should be a no-op when the key does not match any node", func() {
+		It("Should write the configuration even when no node has the key", func() {
 			state := withGraph(graph.Nodes{gnode("n1", 0, 0)}, nil)
 			out := MustSucceed(arc.Reduce(state, arc.NewSetNodeConfigAction(arc.SetNodeConfigPayload{
 				Key:    "ghost",
 				Config: msgpack.EncodedJSON{"offset": 2},
 			})))
-			Expect(out.Graph.Nodes[0].Config).To(BeNil())
+			Expect(out.Graph.Configs["ghost"]).To(Equal(msgpack.EncodedJSON{"offset": 2}))
 		})
 	})
 
 	Describe("RemoveNode", func() {
-		It("Should remove the matching node and every edge connected to it", func() {
+		It("Should remove the matching node, its config, and every edge connected to it", func() {
 			state := withGraph(
 				graph.Nodes{gnode("n1", 0, 0), gnode("n2", 1, 1), gnode("n3", 2, 2)},
 				ir.Edges{gedge("n1", "out", "n2", "in"), gedge("n2", "out", "n3", "in")},
 			)
+			state.Graph.Configs = map[string]msgpack.EncodedJSON{
+				"n2": {"type": "stage"},
+				"n3": {"type": "stage"},
+			}
 			out := MustSucceed(arc.Reduce(state, arc.NewRemoveNodeAction(arc.RemoveNodePayload{
 				Key: "n2",
 			})))
 			Expect(out.Graph.Nodes).To(Equal(graph.Nodes{gnode("n1", 0, 0), gnode("n3", 2, 2)}))
 			Expect(out.Graph.Edges).To(BeEmpty())
+			Expect(out.Graph.Configs).ToNot(HaveKey("n2"))
+			Expect(out.Graph.Configs).To(HaveKey("n3"))
 		})
 		It("Should keep unrelated edges intact", func() {
 			state := withGraph(
