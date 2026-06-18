@@ -111,7 +111,7 @@ var _ = Describe("Writer", func() {
 				It("Should return an error is a relationships creates a cycle",
 					func(ctx SpecContext) {
 						Expect(w.DefineRelationship(ctx, idOne, ontology.RelationshipTypeParentOf, idTwo)).To(Succeed())
-						idThree := ontology.ID{Key: "qux", Type: "quux"}
+						idThree := ontology.ID{Key: "qux", Type: "channel"}
 						Expect(w.DefineResource(ctx, idThree)).To(Succeed())
 						Expect(w.DefineRelationship(ctx, idTwo, ontology.RelationshipTypeParentOf, idThree)).To(Succeed())
 						Expect(w.DefineRelationship(ctx, idThree, ontology.RelationshipTypeParentOf, idOne)).

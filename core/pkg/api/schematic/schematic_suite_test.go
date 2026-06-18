@@ -86,10 +86,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	apiSvc = &Service{internal: schematicSvc, access: rbacSvc}
-	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "test",
-	}))
-	proj.Author = author.Key
 	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 })
 

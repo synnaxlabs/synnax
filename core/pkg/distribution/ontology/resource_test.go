@@ -27,22 +27,14 @@ var _ = Describe("Resource", func() {
 	})
 	Describe("ID", func() {
 		Describe("Validate", func() {
-			It("Should return an error if the ID does not have a key", func() {
-				id := ontology.ID{Type: "foo"}
-				Expect(id.Validate()).To(And(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("[ontology.resource] - key is required")),
-				))
-			})
 			It("Should return an error if the ID does not have a type", func() {
 				id := ontology.ID{Key: "foo"}
 				Expect(id.Validate()).To(And(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("[ontology.resource] - type is required")),
+					MatchError(ContainSubstring("type: invalid Type")),
 				))
 			})
 			It("Should return nil if the resource ID is valid", func() {
-				id := ontology.ID{Type: "foo", Key: "bar"}
+				id := ontology.ID{Type: "channel", Key: "bar"}
 				Expect(id.Validate()).To(Succeed())
 			})
 		})
@@ -65,7 +57,7 @@ var _ = Describe("Resource", func() {
 		})
 		Describe("IsType", func() {
 			It("Should return true if the Key is empty", func() {
-				Expect(ontology.ID{Type: "foo"}.IsType()).To(BeTrue())
+				Expect(ontology.ID{Type: "channel"}.IsType()).To(BeTrue())
 			})
 			It("Should return false if the Key is not empty", func() {
 				Expect(ontology.ID{Type: "Bar", Key: "foo"}.IsType()).To(BeFalse())
@@ -74,8 +66,8 @@ var _ = Describe("Resource", func() {
 	})
 	Describe("ParseID", func() {
 		It("Should parse an ID from a string", func() {
-			Expect(ontology.ParseID("foo:bar")).To(Equal(ontology.ID{
-				Type: "foo",
+			Expect(ontology.ParseID("channel:bar")).To(Equal(ontology.ID{
+				Type: "channel",
 				Key:  "bar",
 			}))
 		})
@@ -115,24 +107,24 @@ var _ = Describe("Resource", func() {
 				))
 		})
 		It("Should parse an ID with empty key (trailing colon)", func() {
-			Expect(ontology.ParseID("foo:")).
-				To(Equal(ontology.ID{Type: "foo", Key: ""}))
+			Expect(ontology.ParseID("channel:")).
+				To(Equal(ontology.ID{Type: "channel", Key: ""}))
 		})
 		It("Should ignore subsequent colons in the key", func() {
-			Expect(ontology.ParseID("foo:bar:baz")).
-				To(Equal(ontology.ID{Type: "foo", Key: "bar:baz"}))
+			Expect(ontology.ParseID("channel:bar:baz")).
+				To(Equal(ontology.ID{Type: "channel", Key: "bar:baz"}))
 		})
 	})
 	Describe("ParseIDs", func() {
 		It("Should parse a list of IDs from a list of strings", func() {
-			Expect(ontology.ParseIDs([]string{"foo:bar", "foo:baz"})).
+			Expect(ontology.ParseIDs([]string{"channel:bar", "channel:baz"})).
 				To(ConsistOf(
-					ontology.ID{Type: "foo", Key: "bar"},
-					ontology.ID{Type: "foo", Key: "baz"},
+					ontology.ID{Type: "channel", Key: "bar"},
+					ontology.ID{Type: "channel", Key: "baz"},
 				))
 		})
 		It("Should return an error if any of the IDs have an invalid structure", func() {
-			Expect(ontology.ParseIDs([]string{"foo:bar", "foo"})).Error().
+			Expect(ontology.ParseIDs([]string{"channel:bar", "foo"})).Error().
 				To(And(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("[ontology.resource] - failed to parse id: foo")),

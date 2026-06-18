@@ -39,7 +39,7 @@ type sampleService struct {
 
 var _ ontology.Service = (*sampleService)(nil)
 
-const sampleOntologyType ontology.ResourceType = "sample"
+const sampleOntologyType ontology.ResourceType = "channel"
 
 type Sample struct{ Key string }
 

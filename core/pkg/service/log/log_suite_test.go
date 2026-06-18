@@ -73,10 +73,6 @@ var (
 			Search:   searchIdx,
 			ImEx:     imexSvc,
 		}))
-		author := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "test",
-		}))
-		proj.Author = author.Key
 		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

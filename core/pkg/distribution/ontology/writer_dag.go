@@ -40,7 +40,7 @@ func (d dagWriter) DefineResource(ctx context.Context, ids ...ID) error {
 	}
 	for _, id := range ids {
 		if id.Key == "" {
-			return errors.Wrapf(validate.ErrValidation, "[ontology.resource] - key is required")
+			return errors.Wrapf(validate.ErrValidation, "key is required")
 		}
 		if err := id.Validate(); err != nil {
 			return err
