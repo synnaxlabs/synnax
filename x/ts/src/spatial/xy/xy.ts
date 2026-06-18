@@ -215,29 +215,21 @@ export const sub = (a: Crude, b: Crude): XY => {
   return { x: xy.x - xy_.x, y: xy.y - xy_.y };
 };
 
-/**
- * Interprets the given coordinates as vectors and returns their dot product.
- * @param a - The first vector.
- * @param b - The second vector.
- * @returns The dot product of the two vectors.
- */
-export const dot = (a: Crude, b: Crude): number => {
-  const xy = construct(a);
-  const xy_ = construct(b);
-  return xy.x * xy_.x + xy.y * xy_.y;
+/** @returns the dot product of the two coordinates interpreted as vectors. */
+export const dot = (ca: Crude, cb: Crude): number => {
+  const a = construct(ca);
+  const b = construct(cb);
+  return a.x * b.x + a.y * b.y;
 };
 
 /**
- * Linearly interpolates between two coordinates.
- * @param a - The coordinate at t = 0.
- * @param b - The coordinate at t = 1.
- * @param t - The interpolation factor, typically in [0, 1].
- * @returns The interpolated coordinate.
+ * @returns the linear interpolation between the two coordinates at factor t, where t = 0
+ * yields the first coordinate and t = 1 yields the second.
  */
-export const lerp = (a: Crude, b: Crude, t: number): XY => {
-  const xy = construct(a);
-  const xy_ = construct(b);
-  return { x: xy.x * (1 - t) + xy_.x * t, y: xy.y * (1 - t) + xy_.y * t };
+export const lerp = (ca: Crude, cb: Crude, t: number): XY => {
+  const a = construct(ca);
+  const b = construct(cb);
+  return { x: a.x * (1 - t) + b.x * t, y: a.y * (1 - t) + b.y * t };
 };
 
 /**
