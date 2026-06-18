@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/op"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,9 +29,14 @@ var _ = Describe("OP", func() {
 		ctx SpecContext, t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series) {
 		g := graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "lhs", Type: "lhs"},
-				{Key: "rhs", Type: "rhs"},
-				{Key: "op", Type: t},
+				{Key: "lhs"},
+				{Key: "rhs"},
+				{Key: "op"},
+			},
+			Configs: map[string]msgpack.EncodedJSON{
+				"lhs": {"type": "lhs"},
+				"rhs": {"type": "rhs"},
+				"op":  {"type": t},
 			},
 			Edges: []graph.Edge{
 				{
@@ -110,8 +116,12 @@ var _ = Describe("OP", func() {
 		ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series) {
 		g := graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "input", Type: "input"},
-				{Key: "op", Type: t},
+				{Key: "input"},
+				{Key: "op"},
+			},
+			Configs: map[string]msgpack.EncodedJSON{
+				"input": {"type": "input"},
+				"op":    {"type": t},
 			},
 			Edges: []graph.Edge{
 				{
@@ -152,9 +162,14 @@ var _ = Describe("OP", func() {
 		It("Should handle lhs longer than rhs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "ge"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "ge"},
 				},
 				Edges: []graph.Edge{
 					{
@@ -203,9 +218,14 @@ var _ = Describe("OP", func() {
 		It("Should handle rhs longer than lhs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "eq"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "eq"},
 				},
 				Edges: []graph.Edge{
 					{
@@ -255,9 +275,14 @@ var _ = Describe("OP", func() {
 		It("Should handle logical OR with mismatched lengths", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "or"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "or"},
 				},
 				Edges: []graph.Edge{
 					{
@@ -307,9 +332,14 @@ var _ = Describe("OP", func() {
 		It("Should handle logical AND with mismatched lengths", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "and"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "and"},
 				},
 				Edges: []graph.Edge{
 					{
@@ -359,9 +389,14 @@ var _ = Describe("OP", func() {
 		It("Should handle logical OR with single values", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "or"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "or"},
 				},
 				Edges: []graph.Edge{
 					{
@@ -410,9 +445,14 @@ var _ = Describe("OP", func() {
 		It("Should handle logical AND with single values", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "and"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "and"},
 				},
 				Edges: []graph.Edge{
 					{

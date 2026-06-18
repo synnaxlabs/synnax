@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,8 +32,12 @@ import (
 func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 	return graph.Graph{
 		Nodes: []graph.Node{
-			{Key: "input", Type: "input"},
-			{Key: "math", Type: nodeType},
+			{Key: "input"},
+			{Key: "math"},
+		},
+		Configs: map[string]msgpack.EncodedJSON{
+			"input": {"type": "input"},
+			"math":  {"type": nodeType},
 		},
 		Edges: []graph.Edge{{
 			Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
@@ -48,9 +53,14 @@ func makeMathGraph(nodeType string, dt types.Type) graph.Graph {
 func makeMathGraphWithReset(nodeType string, dt types.Type) graph.Graph {
 	return graph.Graph{
 		Nodes: []graph.Node{
-			{Key: "input", Type: "input"},
-			{Key: "reset_signal", Type: "reset_signal"},
-			{Key: "math", Type: nodeType},
+			{Key: "input"},
+			{Key: "reset_signal"},
+			{Key: "math"},
+		},
+		Configs: map[string]msgpack.EncodedJSON{
+			"input":        {"type": "input"},
+			"reset_signal": {"type": "reset_signal"},
+			"math":         {"type": nodeType},
 		},
 		Edges: []graph.Edge{
 			{
@@ -688,8 +698,12 @@ var _ = Describe("Derivative", func() {
 	makeDerivGraph := func(dt types.Type) graph.Graph {
 		return graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "input", Type: "input"},
-				{Key: "deriv", Type: "derivative"},
+				{Key: "input"},
+				{Key: "deriv"},
+			},
+			Configs: map[string]msgpack.EncodedJSON{
+				"input": {"type": "input"},
+				"deriv": {"type": "derivative"},
 			},
 			Edges: []graph.Edge{{
 				Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},

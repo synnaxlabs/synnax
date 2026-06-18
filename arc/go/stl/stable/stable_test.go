@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -49,8 +50,12 @@ var _ = Describe("StableFor", func() {
 		}
 		g := graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "source", Type: "source"},
-				{Key: "stable", Type: "stable_for"},
+				{Key: "source"},
+				{Key: "stable"},
+			},
+			Configs: map[string]msgpack.EncodedJSON{
+				"source": {"type": "source"},
+				"stable": {"type": "stable_for"},
 			},
 			Edges: []graph.Edge{
 				{
@@ -393,10 +398,15 @@ var _ = Describe("StableFor", func() {
 		It("Should create node for stable.for via CompoundFactory", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "stable", Type: "stable_for", Config: map[string]any{
+					{Key: "source"},
+					{Key: "stable"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"stable": {
+						"type":     "stable_for",
 						"duration": int(telem.Second),
-					}},
+					},
 				},
 				Edges: []graph.Edge{
 					{

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -25,8 +26,12 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 	ctx := context.Background()
 	g := graph.Graph{
 		Nodes: graph.Nodes{
-			{Key: "source", Type: "source"},
-			{Key: "target", Type: "target"},
+			{Key: "source"},
+			{Key: "target"},
+		},
+		Configs: map[string]msgpack.EncodedJSON{
+			"source": {"type": "source"},
+			"target": {"type": "target"},
 		},
 		Functions: []graph.Function{
 			{

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -39,8 +40,12 @@ var _ = Describe("Select", func() {
 			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
 				},
 				Edges: []graph.Edge{
 					{
@@ -95,8 +100,12 @@ var _ = Describe("Select", func() {
 			factory = selector.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
 				},
 				Edges: []graph.Edge{
 					{
@@ -380,8 +389,12 @@ var _ = Describe("Select", func() {
 		It("Should create node for bare select via CompoundFactory", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
 				},
 				Edges: []graph.Edge{
 					{
@@ -424,8 +437,12 @@ var _ = Describe("Select", func() {
 		It("Should propagate alignment and time range to both outputs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "select", Type: "select"},
+					{Key: "source"},
+					{Key: "select"},
+				},
+				Configs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"select": {"type": "select"},
 				},
 				Edges: []graph.Edge{
 					{
