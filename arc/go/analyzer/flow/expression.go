@@ -58,7 +58,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 				}
 			}
 		}
-		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})
+		t.Inputs = append(t.Inputs, types.Param{Name: "value", Type: exprType})
 		scope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 			Kind: symbol.KindConstant,
 			Type: t,

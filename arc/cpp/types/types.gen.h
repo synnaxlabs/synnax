@@ -200,8 +200,6 @@ struct FunctionProperties {
     Params inputs;
     /// @brief outputs contains output parameter definitions.
     Params outputs;
-    /// @brief config contains configuration parameter definitions.
-    Params config;
 
     static FunctionProperties parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -226,7 +224,7 @@ struct Type : public FunctionProperties {
     std::optional<Unit> unit;
     /// @brief constraint is the type constraint for type variables.
     x::mem::indirect<Type> constraint;
-    /// @brief chan_direction indicates read/write direction for channel-typed config
+    /// @brief chan_direction indicates read/write direction for channel-typed
     /// parameters.
     ChanDirection chan_direction;
 

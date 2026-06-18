@@ -62,7 +62,6 @@ var _ = Describe("Function Analyzer", func() {
 				fn := ctx.Scope.Children()[0]
 				Expect(fn.Name).To(Equal("foo"))
 				Expect(fn.Kind).To(Equal(symbol.KindFunction))
-				Expect(fn.Type.Config).To(BeEmpty())
 				Expect(fn.Type.Inputs).To(BeEmpty())
 				Expect(fn.Type.Outputs).To(BeEmpty())
 			})
@@ -80,38 +79,37 @@ var _ = Describe("Function Analyzer", func() {
 			It("should collect function with only config params", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{x i32}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(HaveLen(1))
-				Expect(fn.Type.Config[0]).To(Equal(types.Param{Name: "x", Type: types.I32()}))
-				Expect(fn.Type.Inputs).To(BeEmpty())
+				Expect(fn.Type.Inputs).To(HaveLen(1))
+				Expect(fn.Type.Inputs[0]).To(Equal(types.Param{Name: "x", Type: types.I32()}))
 				Expect(fn.Type.Outputs).To(BeEmpty())
 			})
 			It("should collect config with channel type", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{sensor chan f64}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(HaveLen(1))
-				Expect(fn.Type.Config[0]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
+				Expect(fn.Type.Inputs).To(HaveLen(1))
+				Expect(fn.Type.Inputs[0]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
 			})
 			It("should handle empty config block", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(BeEmpty())
+				Expect(fn.Type.Inputs).To(BeEmpty())
 			})
 			It("should collect config with default value", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{gain f64 = 1.0}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(HaveLen(1))
-				Expect(fn.Type.Config[0].Name).To(Equal("gain"))
-				Expect(fn.Type.Config[0].Type).To(Equal(types.F64()))
-				Expect(fn.Type.Config[0].Value).To(Equal(1.0))
+				Expect(fn.Type.Inputs).To(HaveLen(1))
+				Expect(fn.Type.Inputs[0].Name).To(Equal("gain"))
+				Expect(fn.Type.Inputs[0].Type).To(Equal(types.F64()))
+				Expect(fn.Type.Inputs[0].Value).To(Equal(1.0))
 			})
 			It("should collect mixed required and optional config params", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func foo{setpoint f64, gain f64 = 1.0}() {}`, nil)
 				fn := ctx.Scope.Children()[0]
-				Expect(fn.Type.Config).To(HaveLen(2))
-				Expect(fn.Type.Config[0].Name).To(Equal("setpoint"))
-				Expect(fn.Type.Config[0].Value).To(BeNil())
-				Expect(fn.Type.Config[1].Name).To(Equal("gain"))
-				Expect(fn.Type.Config[1].Value).To(Equal(1.0))
+				Expect(fn.Type.Inputs).To(HaveLen(2))
+				Expect(fn.Type.Inputs[0].Name).To(Equal("setpoint"))
+				Expect(fn.Type.Inputs[0].Value).To(BeNil())
+				Expect(fn.Type.Inputs[1].Name).To(Equal("gain"))
+				Expect(fn.Type.Inputs[1].Value).To(Equal(1.0))
 			})
 			It("should reject required config after optional config", func(bCtx SpecContext) {
 				analyzeExpectError(bCtx,
@@ -153,6 +151,32 @@ var _ = Describe("Function Analyzer", func() {
 				Expect(fn.Type.Inputs[0].Value).To(BeNil())
 				Expect(fn.Type.Inputs[1].Value).To(BeNil())
 				Expect(fn.Type.Inputs[2].Value).To(Equal(int32(10)))
+			})
+		})
+		Describe("trigger assignment", func() {
+			It("should be TriggerOnly for a function with no parameters", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo() {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerOnly))
+			})
+			It("should be TriggerOnly for a function with only brace-block inputs", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo{a i32}() {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerOnly))
+			})
+			It("should bind the trigger to the sole parens param", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo(x i32) {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerInput("x")))
+			})
+			It("should bind the trigger to the first parens param", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo(x i32, y f64) {}`, nil)
+				Expect(ctx.Scope.Children()[0].Trigger).To(Equal(symbol.TriggerInput("x")))
+			})
+			It("should bind the trigger to the first parens param, not the leading brace-block input", func(bCtx SpecContext) {
+				ctx := analyzeExpectSuccess(bCtx, `func foo{a i32}(x i32) {}`, nil)
+				fn := ctx.Scope.Children()[0]
+				Expect(fn.Type.Inputs).To(HaveLen(2))
+				Expect(fn.Type.Inputs[0].Name).To(Equal("a"))
+				Expect(fn.Type.Inputs[1].Name).To(Equal("x"))
+				Expect(fn.Trigger).To(Equal(symbol.TriggerInput("x")))
 			})
 		})
 		Describe("output parameter collection", func() {
@@ -272,15 +296,12 @@ var _ = Describe("Function Analyzer", func() {
 				output := MustBeOk(fScope.Type.Outputs.Get(ir.DefaultOutputParam))
 				Expect(output.Type).To(Equal(types.F64()))
 
-				By("binding config parameters")
-				Expect(fScope.Type.Config).To(HaveLen(3))
-				Expect(fScope.Type.Config[0]).To(Equal(types.Param{Name: "setpoint", Type: types.F64()}))
-				Expect(fScope.Type.Config[1]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
-				Expect(fScope.Type.Config[2]).To(Equal(types.Param{Name: "actuator", Type: types.Chan(types.F64())}))
-
-				By("binding input parameters")
-				Expect(fScope.Type.Inputs).To(HaveLen(1))
-				Expect(fScope.Type.Inputs[0]).To(Equal(types.Param{Name: "enable", Type: types.U8()}))
+				By("binding all inputs in declaration order")
+				Expect(fScope.Type.Inputs).To(HaveLen(4))
+				Expect(fScope.Type.Inputs[0]).To(Equal(types.Param{Name: "setpoint", Type: types.F64()}))
+				Expect(fScope.Type.Inputs[1]).To(Equal(types.Param{Name: "sensor", Type: types.Chan(types.F64())}))
+				Expect(fScope.Type.Inputs[2]).To(Equal(types.Param{Name: "actuator", Type: types.Chan(types.F64())}))
+				Expect(fScope.Type.Inputs[3]).To(Equal(types.Param{Name: "enable", Type: types.U8()}))
 
 				By("creating symbols in scope")
 				configSymbols := fScope.FilterChildrenByKind(symbol.KindConfig)

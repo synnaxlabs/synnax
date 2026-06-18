@@ -192,6 +192,68 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 101)).To(Equal(uint8(0)))
 		})
 
+		It("Re-runs an interval-driven func flow when re-entering start from yield", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd":     {types.U8(), 100},
+				"stop_cmd":      {types.U8(), 101},
+				"press_vlv_cmd": {types.U8(), 102},
+				"press_pt":      {types.F32(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				func bang{ sensor chan f32, set_point f32 } () u8 {
+				    state u8 $= 0
+				    if sensor < set_point {
+				        state = 1
+				    } else {
+				        state = 0
+				    }
+				    return state
+				}
+				sequence main {
+				    stage start {
+				        interval{200ms} -> bang{sensor=press_pt, set_point=50} -> press_vlv_cmd
+				        stop_cmd => yield
+				    }
+				    stage yield {
+				        start_cmd => start
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Float32T},
+			)
+			defer h.Close(ctx)
+
+			var now telem.TimeSpan
+			adv := func(d telem.TimeSpan) {
+				now += d
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+			}
+			fire := func(key uint32) {
+				h.Ingest(key, telem.NewSeriesV[uint8](1))
+				adv(telem.Millisecond)
+			}
+
+			h.Ingest(103, telem.NewSeriesV[float32](0))
+			fire(100)
+			adv(250 * telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"bang should drive the valve open while pressure is low")
+
+			fire(101)
+
+			h.Ingest(103, telem.NewSeriesV[float32](0))
+			fire(100)
+			adv(250 * telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"interval-driven func flow must re-run and drive the valve open after re-entry")
+		})
+
 		It("Transitions to next stage after wait timeout", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd":  {types.U8(), 100},
